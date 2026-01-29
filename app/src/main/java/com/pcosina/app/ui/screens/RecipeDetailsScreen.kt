@@ -16,12 +16,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,35 +27,39 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.pcosina.app.data.model.DummyData
 
 @Composable
 fun RecipeDetailsScreen(
     recipeId: String,
-    onBackToMealPlan: () -> Unit,
+    onBack: () -> Unit,
     onAddToGrocery: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // This screen is currently specialized for the
-    // "Grilled Tilapia with Pinakbet" recipe (id = "pinakbet").
-    if (recipeId != "pinakbet") {
+    val recipe = DummyData.recipeById(recipeId)
+
+    if (recipe == null) {
         Box(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
-            Button(onClick = onBackToMealPlan) {
-                Text("Back to Meal Plan")
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Recipe not found")
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = onBack) {
+                    Text("Go Back")
+                }
             }
         }
         return
     }
 
-    val totalIngredients = 9
-    val inPantry = 6
+    // Mock pantry logic for any recipe
+    val totalIngredients = recipe.ingredients.size
+    val inPantry = (totalIngredients * 0.6).toInt() // Fake 60% in pantry
     val notInPantry = totalIngredients - inPantry
-    val pantryPercent = inPantry.toFloat() / totalIngredients.toFloat()
 
     LazyColumn(
         modifier = modifier,
@@ -65,7 +67,6 @@ fun RecipeDetailsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            // Custom gradient header with back + emoji
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -81,7 +82,7 @@ fun RecipeDetailsScreen(
                     .padding(16.dp),
             ) {
                 IconButton(
-                    onClick = onBackToMealPlan,
+                    onClick = onBack,
                     modifier = Modifier.align(Alignment.TopStart),
                 ) {
                     Icon(
@@ -95,9 +96,9 @@ fun RecipeDetailsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(text = "🐟", style = MaterialTheme.typography.headlineLarge)
+                    Text(text = "🍱", style = MaterialTheme.typography.headlineLarge)
                     Text(
-                        text = "Grilled Tilapia with Pinakbet",
+                        text = recipe.title,
                         style = MaterialTheme.typography.titleLarge,
                         color = Color.White,
                         maxLines = 2,
@@ -108,7 +109,6 @@ fun RecipeDetailsScreen(
         }
 
         item {
-            // Recipe header card
             Card(
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -121,12 +121,12 @@ fun RecipeDetailsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = "Lunch",
+                        text = recipe.tags.firstOrNull() ?: "Healthy",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                     )
                     Text(
-                        text = "Grilled Tilapia with Pinakbet",
+                        text = recipe.title,
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
@@ -134,17 +134,12 @@ fun RecipeDetailsScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text(
-                            text = "35 min",
+                            text = "${recipe.minutes} min",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            text = "2 servings",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = "Easy",
+                            text = "1 serving",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -154,7 +149,6 @@ fun RecipeDetailsScreen(
         }
 
         item {
-            // Nutrition card
             Card(
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -174,71 +168,16 @@ fun RecipeDetailsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        NutrientTile(label = "Calories", value = "420")
-                        NutrientTile(label = "Protein", value = "35g")
-                        NutrientTile(label = "Carbs", value = "45g")
-                        NutrientTile(label = "Fats", value = "15g")
+                        NutrientTile(label = "Calories", value = "${recipe.calories}")
+                        NutrientTile(label = "Protein", value = "${recipe.proteinGrams}g")
+                        NutrientTile(label = "Carbs", value = "${recipe.carbsGrams}g")
+                        NutrientTile(label = "Fats", value = "${recipe.fatsGrams}g")
                     }
-                    Text(
-                        text = "Fiber: 12g",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "Glycemic Index: Low GI",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
         }
 
         item {
-            // Pantry usage card
-            Card(
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Column {
-                            Text(
-                                text = "Pantry Usage",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                text = "$inPantry of $totalIngredients ingredients already in pantry",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Text(
-                            text = "${(pantryPercent * 100).toInt()}%",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    LinearProgressIndicator(
-                        progress = { pantryPercent },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = Color(0xFF0ABF6A),
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                    )
-                }
-            }
-        }
-
-        item {
-            // Ingredients card
             Card(
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -254,15 +193,9 @@ fun RecipeDetailsScreen(
                         text = "Ingredients",
                         style = MaterialTheme.typography.titleMedium,
                     )
-                    IngredientRow("Tilapia fillet", "250g", inPantry = false)
-                    IngredientRow("Eggplant", "2 pcs", inPantry = true)
-                    IngredientRow("Sitaw (string beans)", "100g", inPantry = false)
-                    IngredientRow("Kalabasa (squash)", "150g", inPantry = true)
-                    IngredientRow("Tomatoes", "2 pcs", inPantry = false)
-                    IngredientRow("Onion", "1 pc", inPantry = true)
-                    IngredientRow("Garlic", "3 cloves", inPantry = true)
-                    IngredientRow("Bagoong (shrimp paste)", "2 tbsp", inPantry = true)
-                    IngredientRow("Cooking oil", "1 tbsp", inPantry = true)
+                    recipe.ingredients.forEachIndexed { index, ing ->
+                        IngredientRow(ing.name, ing.quantity, inPantry = index < inPantry)
+                    }
 
                     if (notInPantry > 0) {
                         Button(
@@ -270,11 +203,8 @@ fun RecipeDetailsScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 4.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                            ),
                         ) {
-                            Text("Add $notInPantry items to Grocery List")
+                            Text("Add missing items to Grocery List")
                         }
                     }
                 }
@@ -282,7 +212,6 @@ fun RecipeDetailsScreen(
         }
 
         item {
-            // Instructions card
             Card(
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -295,40 +224,11 @@ fun RecipeDetailsScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Text(
-                        text = "Cooking Instructions",
+                        text = "Instructions",
                         style = MaterialTheme.typography.titleMedium,
                     )
-                    InstructionRow(1, "Heat oil in a pan over medium heat. Sauté garlic and onion until fragrant.")
-                    InstructionRow(2, "Add tomatoes and cook until softened.")
-                    InstructionRow(3, "Add bagoong and stir well.")
-                    InstructionRow(4, "Add kalabasa and cook for 5 minutes.")
-                    InstructionRow(5, "Add eggplant and sitaw. Cover and simmer for 8-10 minutes.")
-                    InstructionRow(6, "Meanwhile, grill tilapia until cooked through and slightly charred.")
-                    InstructionRow(7, "Serve pinakbet with grilled tilapia on the side.")
-                    InstructionRow(8, "Enjoy with a small portion of brown rice (optional).")
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Button(
-                            onClick = { /* mark prepared - no-op for now */ },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        ) {
-                            Text("Mark as Prepared ✓")
-                        }
-                        Button(
-                            onClick = { /* no-op */ },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.outlinedButtonColors(),
-                        ) {
-                            Text("Find Similar Recipes")
-                        }
+                    recipe.steps.forEachIndexed { index, step ->
+                        InstructionRow(index + 1, step)
                     }
                 }
             }
@@ -339,63 +239,36 @@ fun RecipeDetailsScreen(
 }
 
 @Composable
-private fun NutrientTile(
-    label: String,
-    value: String,
-) {
+private fun NutrientTile(label: String, value: String) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Text(text = value, style = MaterialTheme.typography.titleMedium)
+        Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
-private fun IngredientRow(
-    name: String,
-    amount: String,
-    inPantry: Boolean,
-) {
+private fun IngredientRow(name: String, amount: String, inPantry: Boolean) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val icon = if (inPantry) "✔" else "○"
         Text(
-            text = icon,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (inPantry) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurfaceVariant,
+            text = if (inPantry) "✔" else "○",
+            color = if (inPantry) Color(0xFF0ABF6A) else MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Column {
-            Text(
-                text = name,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                text = amount,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Text(text = name, style = MaterialTheme.typography.bodyMedium)
+            Text(text = amount, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
-private fun InstructionRow(
-    step: Int,
-    text: String,
-) {
+private fun InstructionRow(step: Int, text: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -403,32 +276,13 @@ private fun InstructionRow(
     ) {
         Box(
             modifier = Modifier
-                .height(28.dp)
-                .width(28.dp)
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            Color(0xFF0ABF6A),
-                            Color(0xFF2D9CDB),
-                        )
-                    ),
-                    shape = MaterialTheme.shapes.small,
-                ),
+                .height(24.dp)
+                .width(24.dp)
+                .background(Color(0xFF0ABF6A), shape = MaterialTheme.shapes.small),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = step.toString(),
-                style = MaterialTheme.typography.labelLarge.copy(
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                ),
-            )
+            Text(text = step.toString(), color = Color.White, style = MaterialTheme.typography.labelMedium)
         }
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Text(text = text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
-

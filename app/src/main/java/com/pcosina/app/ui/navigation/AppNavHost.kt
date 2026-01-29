@@ -136,11 +136,7 @@ fun AppNavHost(
             val recipeId = backStackEntry.arguments?.getString(RecipeIdArg).orEmpty()
             RecipeDetailsScreen(
                 recipeId = recipeId,
-                onBackToMealPlan = {
-                    navController.navigate(Routes.MealPlan) {
-                        tabNavigationOptions()
-                    }
-                },
+                onBack = { navController.popBackStack() },
                 onAddToGrocery = {
                     navController.navigate(Routes.GroceryList) {
                         tabNavigationOptions()
@@ -148,6 +144,7 @@ fun AppNavHost(
                 },
                 modifier = Modifier.fillMaxSize(),
             )
+
         }
     }
 }
@@ -183,4 +180,3 @@ private fun NavOptionsBuilder.tabNavigationOptions() {
     launchSingleTop = true
     restoreState = true
 }
-

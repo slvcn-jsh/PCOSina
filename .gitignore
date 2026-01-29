@@ -1,0 +1,21 @@
+# IntelliJ / Android Studio
+.idea/
+*.iml
+
+# Gradle
+.gradle/
+**/build/
+
+# Local SDK path (DO NOT COMMIT)
+local.properties
+
+# Captures
+captures/
+
+# External native build
+.externalNativeBuild/
+.cxx/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -24,7 +24,7 @@ def init_db():
         )
     ''')
 
-    # 2. Create Plans Table (To store historical plans)
+    # 2. Create Plans Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS meal_plans (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,28 +50,27 @@ def seed_recipes():
     cursor = conn.cursor()
 
     for r in recipes:
-        # Check if exists
-        cursor.execute("SELECT id FROM recipes WHERE id = ?", (r["id"],))
-        if not cursor.fetchone():
-            cursor.execute('''
-                INSERT INTO recipes (id, title, meal_type, calories, protein, carbs, fats, fiber, tags, ingredients_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                r["id"],
-                r["title"],
-                r["mealType"],
-                r["calories"],
-                r["proteinGrams"],
-                r["carbsGrams"],
-                r["fatsGrams"],
-                r["fiberGrams"],
-                ",".join(r["tags"]),
-                json.dumps(r["ingredients"])
-            ))
+        # Using REPLACE INTO ensures that if the ID exists,
+        # it updates the macros with the latest JSON values.
+        cursor.execute('''
+            INSERT OR REPLACE INTO recipes (id, title, meal_type, calories, protein, carbs, fats, fiber, tags, ingredients_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            r.get("id"),
+            r.get("title"),
+            r.get("mealType"),
+            r.get("calories", 0),
+            r.get("proteinGrams", 0),
+            r.get("carbsGrams", 0),
+            r.get("fatsGrams", 0),
+            r.get("fiberGrams", 0),
+            ",".join(r.get("tags", [])),
+            json.dumps(r.get("ingredients", []))
+        ))
 
     conn.commit()
     conn.close()
-    print("Database seeded successfully.")
+    print(f"Database successfully updated with {len(recipes)} recipes and full nutritional data.")
 
 def get_all_recipes():
     conn = sqlite3.connect(DB_NAME)
@@ -91,7 +90,7 @@ def get_all_recipes():
             "carbsGrams": row["carbs"],
             "fatsGrams": row["fats"],
             "fiberGrams": row["fiber"],
-            "tags": row["tags"].split(","),
+            "tags": row["tags"].split(",") if row["tags"] else [],
             "ingredients": json.loads(row["ingredients_json"])
         })
     conn.close()

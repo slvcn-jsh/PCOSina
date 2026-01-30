@@ -2,20 +2,22 @@ package com.pcosina.app.ui.navigation
 
 /**
  * Navigation routes for the app.
- *
- * Note: This project is being PORTED from a React+TS prototype into native
- * Jetpack Compose. These routes are intentionally explicit and stable to
- * mirror the screen flow of the prototype.
  */
 object Routes {
-    // Flow
+    // Auth
     const val Splash = "splash"
+    const val Login = "login"
+    const val SignUp = "signup"
+    
+    // Onboarding flow
     const val Onboarding = "onboarding"
     const val UserProfile = "user_profile"
     const val GoalSelection = "goal_selection"
+    
+    // Main App
     const val Dashboard = "dashboard"
 
-    // Bottom tabs (Dashboard hosts these)
+    // Bottom tabs
     const val MealPlan = "meal_plan"
     const val GroceryList = "grocery_list"
     const val Progress = "progress"
@@ -27,4 +29,3 @@ object Routes {
     const val RecipeDetailsRoutePattern = "$RecipeDetails/{$RecipeIdArg}"
     fun recipeDetailsRoute(recipeId: String): String = "$RecipeDetails/$recipeId"
 }
-

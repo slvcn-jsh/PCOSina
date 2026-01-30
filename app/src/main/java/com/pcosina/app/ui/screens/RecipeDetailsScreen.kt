@@ -30,10 +30,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pcosina.app.data.model.DummyData
+import com.pcosina.app.ui.GroceryViewModel
 
 @Composable
 fun RecipeDetailsScreen(
     recipeId: String,
+    groceryViewModel: GroceryViewModel,
     onBack: () -> Unit,
     onAddToGrocery: () -> Unit,
     modifier: Modifier = Modifier,
@@ -59,7 +61,8 @@ fun RecipeDetailsScreen(
     // Mock pantry logic for any recipe
     val totalIngredients = recipe.ingredients.size
     val inPantry = (totalIngredients * 0.6).toInt() // Fake 60% in pantry
-    val notInPantry = totalIngredients - inPantry
+    val missingIngredients = recipe.ingredients.drop(inPantry)
+    val notInPantry = missingIngredients.size
 
     LazyColumn(
         modifier = modifier,
@@ -199,7 +202,19 @@ fun RecipeDetailsScreen(
 
                     if (notInPantry > 0) {
                         Button(
-                            onClick = onAddToGrocery,
+                            onClick = {
+                                // Map internal Ingredient model to GroceryItem model
+                                val itemsToAdd = missingIngredients.map { ing ->
+                                    DummyData.GroceryItem(
+                                        name = ing.name,
+                                        quantity = ing.quantity,
+                                        price = 0, // Mock price
+                                        category = "Needed"
+                                    )
+                                }
+                                groceryViewModel.addItems(itemsToAdd)
+                                onAddToGrocery()
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 4.dp),

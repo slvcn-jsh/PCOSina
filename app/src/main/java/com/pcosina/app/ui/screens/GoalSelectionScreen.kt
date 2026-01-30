@@ -3,7 +3,9 @@ package com.pcosina.app.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,24 +22,33 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
 
 @Composable
 fun GoalSelectionScreen(
+    userViewModel: UserViewModel,
     onFinish: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var weightLoss by rememberSaveable { mutableStateOf(false) }
-    var symptomMgmt by rememberSaveable { mutableStateOf(false) }
-    var generalHealth by rememberSaveable { mutableStateOf(false) }
+    val profile by userViewModel.userProfile.collectAsState()
+    
+    var weightLoss by rememberSaveable { mutableStateOf(profile.goal.contains("Weight Loss")) }
+    var symptomMgmt by rememberSaveable { mutableStateOf(profile.goal.contains("Symptom Management")) }
+    var generalHealth by rememberSaveable { mutableStateOf(profile.goal.contains("General Health")) }
+    
     val hasSelection = weightLoss || symptomMgmt || generalHealth
 
     Column(
@@ -90,38 +101,48 @@ fun GoalSelectionScreen(
         Spacer(Modifier.height(8.dp))
 
         Button(
-            onClick = { if (hasSelection) onFinish() },
+            onClick = { 
+                if (hasSelection) {
+                    val goals = mutableListOf<String>()
+                    if (weightLoss) goals.add("Weight Loss")
+                    if (symptomMgmt) goals.add("Symptom Management")
+                    if (generalHealth) goals.add("General Health")
+                    
+                    userViewModel.updateGoal(goals.joinToString(", "))
+                    onFinish() 
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
             enabled = hasSelection,
             colors = ButtonDefaults.buttonColors(
-                containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                containerColor = Color.Transparent,
                 disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = androidx.compose.ui.graphics.Color.White,
+                contentColor = Color.White,
                 disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             ),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+            contentPadding = PaddingValues(0.dp),
         ) {
-            androidx.compose.foundation.layout.Box(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
                         if (hasSelection)
-                            androidx.compose.ui.graphics.Brush.horizontalGradient(
+                            Brush.horizontalGradient(
                                 colors = listOf(
-                                    androidx.compose.ui.graphics.Color(0xFF0ABF6A),
-                                    androidx.compose.ui.graphics.Color(0xFF2D9CDB),
+                                    Color(0xFF0ABF6A),
+                                    Color(0xFF2D9CDB),
                                 )
                             )
-                        else androidx.compose.ui.graphics.Brush.horizontalGradient(
+                        else Brush.horizontalGradient(
                             colors = listOf(
                                 MaterialTheme.colorScheme.surfaceVariant,
                                 MaterialTheme.colorScheme.surfaceVariant,
                             )
                         )
                     ),
-                contentAlignment = androidx.compose.ui.Alignment.Center,
+                contentAlignment = Alignment.Center,
             ) {
                 Text("Next")
             }
@@ -155,7 +176,7 @@ private fun GoalCard(
                 .fillMaxWidth()
                 .padding(14.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(
                 modifier = Modifier.weight(1f),
@@ -181,4 +202,3 @@ private fun GoalCard(
         }
     }
 }
-

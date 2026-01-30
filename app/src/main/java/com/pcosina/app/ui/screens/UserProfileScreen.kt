@@ -28,6 +28,7 @@ import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -38,46 +39,50 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserProfileScreen(
+    userViewModel: UserViewModel,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var age by rememberSaveable { mutableStateOf("25") }
-    var weight by rememberSaveable { mutableStateOf("65") }
-    var height by rememberSaveable { mutableStateOf("160") }
+    val profile by userViewModel.userProfile.collectAsState()
+
+    var age by rememberSaveable { mutableStateOf(profile.age.toString()) }
+    var weight by rememberSaveable { mutableStateOf(profile.weightKg.toString()) }
+    var height by rememberSaveable { mutableStateOf(profile.heightCm.toString()) }
 
     val activityOptions = listOf("Sedentary", "Lightly Active", "Moderately Active", "Very Active")
     var activityExpanded by rememberSaveable { mutableStateOf(false) }
-    var activityLevel by rememberSaveable { mutableStateOf(activityOptions[1]) }
+    var activityLevel by rememberSaveable { mutableStateOf(profile.activityLevel) }
 
     val insulinOptions = listOf("None", "Mild", "Moderate", "Severe")
     var insulinExpanded by rememberSaveable { mutableStateOf(false) }
-    var insulinLevel by rememberSaveable { mutableStateOf(insulinOptions[1]) }
+    var insulinLevel by rememberSaveable { mutableStateOf(profile.insulinResistanceLevel) }
 
     // Symptoms
-    var symptomIrregularPeriods by rememberSaveable { mutableStateOf(false) }
-    var symptomWeightGain by rememberSaveable { mutableStateOf(false) }
-    var symptomAcne by rememberSaveable { mutableStateOf(false) }
-    var symptomHairLoss by rememberSaveable { mutableStateOf(false) }
+    var symptomIrregularPeriods by rememberSaveable { mutableStateOf(profile.symptoms.contains("Irregular periods")) }
+    var symptomWeightGain by rememberSaveable { mutableStateOf(profile.symptoms.contains("Weight gain")) }
+    var symptomAcne by rememberSaveable { mutableStateOf(profile.symptoms.contains("Acne")) }
+    var symptomHairLoss by rememberSaveable { mutableStateOf(profile.symptoms.contains("Hair loss")) }
 
     // Comorbidities
-    var comorbDiabetes by rememberSaveable { mutableStateOf(false) }
-    var comorbPrediabetes by rememberSaveable { mutableStateOf(false) }
-    var comorbHypertension by rememberSaveable { mutableStateOf(false) }
-    var comorbNone by rememberSaveable { mutableStateOf(false) }
+    var comorbDiabetes by rememberSaveable { mutableStateOf(profile.comorbidities.contains("Diabetes")) }
+    var comorbPrediabetes by rememberSaveable { mutableStateOf(profile.comorbidities.contains("Prediabetes")) }
+    var comorbHypertension by rememberSaveable { mutableStateOf(profile.comorbidities.contains("Hypertension")) }
+    var comorbNone by rememberSaveable { mutableStateOf(profile.comorbidities.isEmpty()) }
 
     // Dietary restrictions
-    var lacto by rememberSaveable { mutableStateOf(false) }
-    var vegetarian by rememberSaveable { mutableStateOf(false) }
-    var pescatarian by rememberSaveable { mutableStateOf(false) }
-    var noPork by rememberSaveable { mutableStateOf(false) }
-    var noBeef by rememberSaveable { mutableStateOf(false) }
+    var lacto by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("Lactose Intolerant")) }
+    var vegetarian by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("Vegetarian")) }
+    var pescatarian by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("Pescatarian")) }
+    var noPork by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("No Pork")) }
+    var noBeef by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("No Beef")) }
 
-    var budget by rememberSaveable { mutableStateOf("2000") }
+    var budget by rememberSaveable { mutableStateOf(profile.weeklyBudgetPhp.toString()) }
 
     Column(
         modifier = modifier
@@ -322,7 +327,40 @@ fun UserProfileScreen(
         Spacer(Modifier.height(4.dp))
 
         Button(
-            onClick = onNext,
+            onClick = {
+                // Save to ViewModel
+                userViewModel.updatePersonalDetails(
+                    age = age.toIntOrNull() ?: 25,
+                    weight = weight.toIntOrNull() ?: 65,
+                    height = height.toIntOrNull() ?: 160,
+                    activity = activityLevel
+                )
+                
+                val symptoms = mutableListOf<String>()
+                if (symptomIrregularPeriods) symptoms.add("Irregular periods")
+                if (symptomWeightGain) symptoms.add("Weight gain")
+                if (symptomAcne) symptoms.add("Acne")
+                if (symptomHairLoss) symptoms.add("Hair loss")
+                
+                val comorbidities = mutableListOf<String>()
+                if (comorbDiabetes) comorbidities.add("Diabetes")
+                if (comorbPrediabetes) comorbidities.add("Prediabetes")
+                if (comorbHypertension) comorbidities.add("Hypertension")
+                
+                userViewModel.updatePcosDetails(insulinLevel, symptoms, comorbidities)
+                
+                val restrictions = mutableListOf<String>()
+                if (lacto) restrictions.add("Lactose Intolerant")
+                if (vegetarian) restrictions.add("Vegetarian")
+                if (pescatarian) restrictions.add("Pescatarian")
+                if (noPork) restrictions.add("No Pork")
+                if (noBeef) restrictions.add("No Beef")
+                
+                userViewModel.updateDietaryRestrictions(restrictions)
+                userViewModel.updateBudget(budget.toIntOrNull() ?: 2000)
+                
+                onNext()
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),

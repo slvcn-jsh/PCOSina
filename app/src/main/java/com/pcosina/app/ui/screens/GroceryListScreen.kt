@@ -1,5 +1,6 @@
 package com.pcosina.app.ui.screens
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.Card
@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,18 +29,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.DummyData.GroceryItem
+import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.components.GradientHeader
 
 @Composable
 fun GroceryListScreen(
+    groceryViewModel: GroceryViewModel,
     modifier: Modifier = Modifier,
 ) {
-    val allItems = DummyData.groceryList
+    val context = LocalContext.current
+    val addedItems by groceryViewModel.groceryItems.collectAsState()
+    
+    // Combine dummy static list with dynamic added items
+    val allItems = DummyData.groceryList + addedItems
     val totalItems = allItems.size
     val totalBudget = 2000
     var checkedNames by remember { mutableStateOf(setOf<String>()) }
@@ -96,22 +103,31 @@ fun GroceryListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = "Within Budget! 🎉",
+                        text = if (totalCost <= totalBudget) "Within Budget! 🎉" else "Over Budget! ⚠️",
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
-                        text = "Estimated ₱$totalCost of ₱2,000 weekly budget. Saving ₱$savings!",
+                        text = "Estimated ₱$totalCost of ₱$totalBudget weekly budget. ${if (savings >= 0) "Saving ₱$savings!" else "₱${-savings} over budget!"}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     LinearProgressIndicator(
                         progress = { costProgress },
                         modifier = Modifier.fillMaxWidth(),
-                        color = Color(0xFF0ABF6A),
+                        color = if (totalCost <= totalBudget) Color(0xFF0ABF6A) else MaterialTheme.colorScheme.error,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant,
                     )
                     OutlinedButton(
-                        onClick = { /* no-op */ },
+                        onClick = {
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                val listText = allItems.joinToString("\n") { 
+                                    "- ${it.name} (${it.quantity})" + (if (it.name in checkedNames) " [CHECKED]" else "")
+                                }
+                                putExtra(Intent.EXTRA_TEXT, "My PCOSINA Grocery List:\n\n$listText")
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share Grocery List"))
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 4.dp),
@@ -121,7 +137,7 @@ fun GroceryListScreen(
                             contentDescription = null,
                             modifier = Modifier.padding(end = 6.dp),
                         )
-                        Text("Download List")
+                        Text("Share/Download List")
                     }
                 }
             }
@@ -135,6 +151,7 @@ fun GroceryListScreen(
                         "Produce" -> "🥬"
                         "Meat & Seafood" -> "🐟"
                         "Dry Goods" -> "🌾"
+                        "Needed" -> "⭐"
                         else -> "🧂"
                     },
                     title = category,

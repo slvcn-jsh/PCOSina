@@ -28,9 +28,9 @@ fun GradientHeader(
     modifier: Modifier = Modifier,
     containerHeight: Int = 160,
     colors: List<Color> = listOf(
-        Color(0xFF0ABF6A), // green
-        Color(0xFF0FB0B7), // teal
-        Color(0xFF2D9CDB), // blue
+        Color(0xFFFC6B7D), // Primary Pink
+        Color(0xFFFF8A97), // Vibrant Pink
+        Color(0xFFFFB4BC), // Light Pink
     ),
     trailing: (@Composable () -> Unit)? = null,
 ) {
@@ -81,4 +81,3 @@ fun GradientHeader(
         Spacer(Modifier.height(0.dp))
     }
 }
-

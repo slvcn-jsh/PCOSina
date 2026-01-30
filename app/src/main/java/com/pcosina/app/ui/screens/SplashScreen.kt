@@ -61,9 +61,9 @@ fun SplashScreen(
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF0ABF6A), // green
-                        Color(0xFF0FB0B7), // teal
-                        Color(0xFF2D9CDB), // blue
+                        Color(0xFFFC6B7D), // Primary Pink
+                        Color(0xFFFF8A97), // Vibrant Pink
+                        Color(0xFFFFB4BC), // Light Pink
                     )
                 )
             )
@@ -82,7 +82,7 @@ fun SplashScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                // Gradient circle logo with 🌿
+                // Gradient circle logo with 🌸
                 Box(
                     modifier = Modifier
                         .size(96.dp)
@@ -90,8 +90,8 @@ fun SplashScreen(
                         .background(
                             brush = Brush.linearGradient(
                                 colors = listOf(
-                                    Color(0xFF0ABF6A),
-                                    Color(0xFF2D9CDB),
+                                    Color(0xFFFC6B7D),
+                                    Color(0xFFFFB4BC),
                                 )
                             )
                         )
@@ -99,7 +99,7 @@ fun SplashScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "🌿",
+                        text = "🌸",
                         fontSize = 40.sp,
                     )
                 }
@@ -148,8 +148,8 @@ fun SplashScreen(
                             .background(
                                 brush = Brush.horizontalGradient(
                                     colors = listOf(
-                                        Color(0xFF0ABF6A),
-                                        Color(0xFF2D9CDB),
+                                        Color(0xFFFC6B7D),
+                                        Color(0xFFFFB4BC),
                                     )
                                 )
                             )
@@ -160,4 +160,3 @@ fun SplashScreen(
         }
     }
 }
-

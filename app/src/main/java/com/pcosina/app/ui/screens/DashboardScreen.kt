@@ -12,13 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -27,24 +23,27 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.pcosina.app.data.model.DummyData
+import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.components.MacroProgressBar
 import com.pcosina.app.ui.components.StatCard
 
 @Composable
 fun DashboardScreen(
+    userViewModel: UserViewModel,
     onRecipeClick: (String) -> Unit,
     onViewPlan: () -> Unit = {},
     onViewIpo: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val profile = DummyData.userProfile
+    val profile by userViewModel.userProfile.collectAsState()
+    val dailyCalorieTarget = userViewModel.dailyCalorieTarget
 
     LazyColumn(
         modifier = modifier,
@@ -86,21 +85,21 @@ fun DashboardScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 StatCard(
-                    title = "Adherence",
-                    value = "85%",
+                    title = "Goal",
+                    value = if (profile.goal.contains("Weight Loss")) "Loss" else "Balance",
                     subtitle = "",
                     modifier = Modifier.weight(1f),
                 )
                 StatCard(
                     title = "Cal/day",
-                    value = "1,520",
-                    subtitle = "",
+                    value = dailyCalorieTarget.toString(),
+                    subtitle = "Target",
                     modifier = Modifier.weight(1f),
                 )
                 StatCard(
-                    title = "Pantry Use",
-                    value = "72%",
-                    subtitle = "",
+                    title = "Weight",
+                    value = "${profile.weightKg}kg",
+                    subtitle = "Current",
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -204,12 +203,12 @@ fun DashboardScreen(
                         )
                         Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
                             Text(
-                                text = "350 cal",
+                                text = "280 cal",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(
-                                text = "20P • 40C • 12F",
+                                text = "14P • 42C • 6F",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -217,12 +216,12 @@ fun DashboardScreen(
                     }
 
                     Text(
-                        text = "Champorado with Tuyo",
+                        text = "Red Rice Lugaw with Ginger",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = "Filipino chocolate rice porridge with dried fish",
+                        text = "Localized breakfast for PCOS management",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -274,4 +273,3 @@ private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
             onClick = onClick,
         )
     }
-

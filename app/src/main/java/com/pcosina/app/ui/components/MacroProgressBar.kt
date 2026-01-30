@@ -22,7 +22,7 @@ fun MacroProgressBar(
     progress: Float,
     modifier: Modifier = Modifier,
     valueText: String? = null,
-    barColor: Color = MaterialTheme.colorScheme.primary,
+    barColor: Color = Color(0xFFFC6B7D), // Primary Pink
 ) {
     val clamped = progress.coerceIn(0f, 1f)
     Column(
@@ -56,8 +56,7 @@ fun MacroProgressBar(
             progress = { clamped },
             modifier = Modifier.fillMaxWidth(),
             color = barColor,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            trackColor = barColor.copy(alpha = 0.2f), // Softer pink track
         )
     }
 }
-

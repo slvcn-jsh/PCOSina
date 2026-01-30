@@ -35,8 +35,8 @@ fun IpoVisualizationScreen(
                 title = "How PCOSINA Works",
                 subtitle = "Input → Process → Output",
                 colors = listOf(
-                    Color(0xFF6A11CB),
-                    Color(0xFF2575FC),
+                    Color(0xFFFC6B7D), // Primary Pink
+                    Color(0xFFFF8A97), // Vibrant Pink
                 ),
             )
         }
@@ -69,10 +69,10 @@ fun IpoVisualizationScreen(
         // INPUT
         item {
             NumberedSection(
-                numberColor = Color(0xFF2D9CDB),
+                numberColor = Color(0xFFFC6B7D), // Pink
                 number = "1",
                 title = "INPUT",
-                borderColor = Color(0xFF2D9CDB),
+                borderColor = Color(0xFFFC6B7D).copy(alpha = 0.5f),
             ) {
                 BulletBlock(
                     heading = "User Profile",
@@ -99,17 +99,17 @@ fun IpoVisualizationScreen(
                 text = "↓",
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Color(0xFFFC6B7D),
             )
         }
 
         // PROCESS
         item {
             NumberedSection(
-                numberColor = Color(0xFF0ABF6A),
+                numberColor = Color(0xFFAD4B57), // Darker Pink
                 number = "2",
                 title = "PROCESS",
-                borderColor = Color(0xFF0ABF6A),
+                borderColor = Color(0xFFAD4B57).copy(alpha = 0.5f),
             ) {
                 BulletBlock(
                     heading = "Preference Analysis",
@@ -158,10 +158,10 @@ fun IpoVisualizationScreen(
         // OUTPUT
         item {
             NumberedSection(
-                numberColor = Color(0xFF6A11CB),
+                numberColor = Color(0xFF8C3A45), // Deepest Pink
                 number = "3",
                 title = "OUTPUT",
-                borderColor = Color(0xFF6A11CB),
+                borderColor = Color(0xFF8C3A45).copy(alpha = 0.5f),
             ) {
                 BulletBlock(
                     heading = "Weekly Meal Plan",
@@ -246,8 +246,8 @@ fun IpoVisualizationScreen(
                         .background(
                             androidx.compose.ui.graphics.Brush.horizontalGradient(
                                 colors = listOf(
-                                    Color(0xFF6A11CB),
-                                    Color(0xFF2575FC),
+                                    Color(0xFFFC6B7D),
+                                    Color(0xFFFF8A97),
                                 )
                             )
                         ),
@@ -326,4 +326,3 @@ private fun BulletBlock(
         )
     }
 }
-

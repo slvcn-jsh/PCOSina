@@ -1,0 +1,95 @@
+[
+  {
+    "id": "r1",
+    "title": "Red Rice Lugaw with Ginger & Egg",
+    "mealType": "Breakfast",
+    "calories": 280,
+    "proteinGrams": 14,
+    "carbsGrams": 42,
+    "fatsGrams": 6,
+    "fiberGrams": 5,
+    "tags": ["PCOS-friendly", "Low GI", "Breakfast"],
+    "ingredients": [
+      {"name": "Red rice", "quantity": "1/2 cup"},
+      {"name": "Ginger", "quantity": "2-inch thumb"},
+      {"name": "Hard-boiled egg", "quantity": "1 pc"}
+    ]
+  },
+  {
+    "id": "r2",
+    "title": "Grilled Bangus with Ensaladang Talong",
+    "mealType": "Lunch",
+    "calories": 420,
+    "proteinGrams": 35,
+    "carbsGrams": 12,
+    "fatsGrams": 24,
+    "fiberGrams": 6,
+    "tags": ["Omega-3", "High Protein", "Lunch"],
+    "ingredients": [
+      {"name": "Bangus fillet", "quantity": "150 g"},
+      {"name": "Eggplant", "quantity": "1 large"},
+      {"name": "Tomatoes", "quantity": "2 pcs"}
+    ]
+  },
+  {
+    "id": "r3",
+    "title": "Chicken Tinola with Malunggay",
+    "mealType": "Dinner",
+    "calories": 350,
+    "proteinGrams": 32,
+    "carbsGrams": 15,
+    "fatsGrams": 18,
+    "fiberGrams": 4,
+    "tags": ["Glow", "Low Carb", "Dinner"],
+    "ingredients": [
+      {"name": "Chicken breast", "quantity": "160 g"},
+      {"name": "Sayote", "quantity": "1/2 pc"},
+      {"name": "Malunggay leaves", "quantity": "1 cup"}
+    ]
+  },
+  {
+    "id": "r4",
+    "title": "Monggo Guisado with Tinapa",
+    "mealType": "Lunch",
+    "calories": 380,
+    "proteinGrams": 22,
+    "carbsGrams": 48,
+    "fatsGrams": 12,
+    "fiberGrams": 14,
+    "tags": ["High Fiber", "Budget-friendly", "Lunch"],
+    "ingredients": [
+      {"name": "Monggo beans", "quantity": "1 cup"},
+      {"name": "Tinapa flakes", "quantity": "2 tbsp"}
+    ]
+  },
+  {
+    "id": "r5",
+    "title": "Lean Pork Adobo with Cauliflower Rice",
+    "mealType": "Dinner",
+    "calories": 410,
+    "proteinGrams": 38,
+    "carbsGrams": 10,
+    "fatsGrams": 22,
+    "fiberGrams": 4,
+    "tags": ["Traditional", "Low Carb", "Dinner"],
+    "ingredients": [
+      {"name": "Lean pork loin", "quantity": "150 g"},
+      {"name": "Cauliflower", "quantity": "2 cups"}
+    ]
+  },
+  {
+    "id": "r6",
+    "title": "Pinoy Scrambled Eggs with Kamatis",
+    "mealType": "Breakfast",
+    "calories": 260,
+    "proteinGrams": 18,
+    "carbsGrams": 8,
+    "fatsGrams": 16,
+    "fiberGrams": 2,
+    "tags": ["Quick", "Simple", "Breakfast"],
+    "ingredients": [
+      {"name": "Eggs", "quantity": "2 pcs"},
+      {"name": "Tomatoes", "quantity": "2 pcs"}
+    ]
+  }
+]

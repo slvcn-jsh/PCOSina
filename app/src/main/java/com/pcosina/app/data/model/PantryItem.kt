@@ -4,8 +4,7 @@ import androidx.compose.runtime.Immutable
 
 @Immutable
 data class PantryItem(
-    val name: String,
+    val ingredientName: String,
     val quantity: String,
-    val category: String,
+    val expiryDate: Long? = null
 )
-

@@ -13,6 +13,11 @@ data class UserProfile(
     val insulinResistanceLevel: String = "Mild",
     val symptoms: List<String> = emptyList(),
     val comorbidities: List<String> = emptyList(),
+
+    // Preferences & Constraints
     val dietaryRestrictions: List<String> = emptyList(),
-    val weeklyBudgetPhp: Int = 2000
+    val allergies: List<String> = emptyList(),
+    val weeklyBudgetPhp: Int = 2000,
+    val maxCookingTimeMinutes: Int = 45,
+    val varietyPreference: String = "Balanced", // e.g., "High Variety", "Meal Prep Friendly"
 )

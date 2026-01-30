@@ -28,7 +28,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.pcosina.app.ui.MealPlanUiState
+import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.components.MacroProgressBar
@@ -37,6 +40,7 @@ import com.pcosina.app.ui.components.StatCard
 @Composable
 fun DashboardScreen(
     userViewModel: UserViewModel,
+    mealPlanViewModel: MealPlanViewModel,
     onRecipeClick: (String) -> Unit,
     onViewPlan: () -> Unit = {},
     onViewIpo: () -> Unit = {},
@@ -44,6 +48,7 @@ fun DashboardScreen(
 ) {
     val profile by userViewModel.userProfile.collectAsState()
     val dailyCalorieTarget = userViewModel.dailyCalorieTarget
+    val mealPlanState by mealPlanViewModel.uiState.collectAsState()
 
     LazyColumn(
         modifier = modifier,
@@ -79,7 +84,7 @@ fun DashboardScreen(
         }
 
         item {
-            // Quick stats row – Adherence, Cal/day, Pantry Use
+            // Quick stats row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -157,7 +162,7 @@ fun DashboardScreen(
         }
 
         item {
-            // "This Week's Plan"
+            // "This Week's Plan" header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -173,14 +178,13 @@ fun DashboardScreen(
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
                         .padding(horizontal = 4.dp)
-                        .then(Modifier)
                         .clickableNoRipple { onViewPlan() },
                 )
             }
         }
 
         item {
-            // Plan preview card
+            // Plan preview card - Sync with real plan if it exists
             Card(
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -192,23 +196,22 @@ fun DashboardScreen(
                         .padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
+                    val currentMeal = if (mealPlanState is MealPlanUiState.Success) {
+                        (mealPlanState as MealPlanUiState.Success).response.days.firstOrNull()?.meals?.firstOrNull()
+                    } else null
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(
-                            text = "Today • Monday",
+                            text = "Next Meal",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary,
                         )
-                        Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                        if (currentMeal != null) {
                             Text(
-                                text = "280 cal",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = "14P • 42C • 6F",
+                                text = currentMeal.mealLabel,
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -216,20 +219,20 @@ fun DashboardScreen(
                     }
 
                     Text(
-                        text = "Red Rice Lugaw with Ginger",
+                        text = currentMeal?.title ?: "No Plan Generated",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = "Localized breakfast for PCOS management",
+                        text = if (currentMeal != null) "Optimized for your PCOS profile" else "Tap below to create your MILP optimized plan",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     androidx.compose.material3.Button(
-                        onClick = onViewPlan,
+                        onClick = { if (currentMeal != null) onRecipeClick(currentMeal.recipeId) else onViewPlan() },
                         modifier = Modifier.padding(top = 4.dp),
                     ) {
-                        Text("View Recipe")
+                        Text(if (currentMeal != null) "View Recipe" else "Generate Plan")
                     }
                 }
             }

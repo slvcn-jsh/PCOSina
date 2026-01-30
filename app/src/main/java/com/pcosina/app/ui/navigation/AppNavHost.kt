@@ -21,9 +21,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pcosina.app.data.repository.AuthRepository
+import com.pcosina.app.data.repository.MealPlanRepository
 import com.pcosina.app.data.repository.UserPreferencesRepository
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.GroceryViewModel
+import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.BottomNavBar
 import com.pcosina.app.ui.navigation.Routes.RecipeIdArg
@@ -54,6 +56,7 @@ fun AppNavHost(
     // Repositories
     val userPrefsRepository = remember { UserPreferencesRepository(context) }
     val authRepository = remember { AuthRepository(context) }
+    val mealPlanRepository = remember { MealPlanRepository() }
     
     // ViewModels
     val userViewModel: UserViewModel = viewModel(
@@ -62,15 +65,16 @@ fun AppNavHost(
     val authViewModel: AuthViewModel = viewModel(
         factory = AuthViewModel.Factory(authRepository)
     )
+    val mealPlanViewModel: MealPlanViewModel = viewModel(
+        factory = MealPlanViewModel.Factory(mealPlanRepository)
+    )
     val groceryViewModel: GroceryViewModel = viewModel()
 
     val session by authViewModel.session.collectAsState()
 
-    // Auth Guard: Redirect to Login if session expires or user is not logged in
-    // This effect runs whenever the session changes
+    // Auth Guard
     LaunchedEffect(session.isLoggedIn) {
         val currentRoute = navController.currentBackStackEntry?.destination?.route
-        // If not logged in and not on an auth screen, redirect to login
         if (!session.isLoggedIn && 
             currentRoute != Routes.Login && 
             currentRoute != Routes.SignUp && 
@@ -156,11 +160,12 @@ fun AppNavHost(
             )
         }
 
-        // Bottom tab destinations - Protected by Session check
+        // Bottom tab destinations
         composable(Routes.Dashboard) {
             TabScaffold(navController = navController) { contentPadding ->
                 DashboardScreen(
                     userViewModel = userViewModel,
+                    mealPlanViewModel = mealPlanViewModel,
                     onRecipeClick = { id -> navController.navigate(Routes.recipeDetailsRoute(id)) },
                     onViewPlan = { navController.navigate(Routes.MealPlan) { tabNavigationOptions() } },
                     onViewIpo = { navController.navigate(Routes.Ipo) { tabNavigationOptions() } },
@@ -171,6 +176,8 @@ fun AppNavHost(
         composable(Routes.MealPlan) {
             TabScaffold(navController = navController) { contentPadding ->
                 MealPlanScreen(
+                    userViewModel = userViewModel,
+                    mealPlanViewModel = mealPlanViewModel,
                     onRecipeClick = { id -> navController.navigate(Routes.recipeDetailsRoute(id)) },
                     modifier = Modifier.padding(contentPadding),
                 )

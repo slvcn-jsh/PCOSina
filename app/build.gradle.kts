@@ -33,8 +33,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    // In Kotlin 2.0+, this is the preferred way to set JVM target
-    // for Android projects inside the android block
     kotlinOptions {
         jvmTarget = "11"
     }
@@ -58,6 +56,12 @@ dependencies {
     
     // DataStore for Persistence
     implementation(libs.androidx.datastore.preferences)
+
+    // Networking: Retrofit & OkHttp
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging.interceptor)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

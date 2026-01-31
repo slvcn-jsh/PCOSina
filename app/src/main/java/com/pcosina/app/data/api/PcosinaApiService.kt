@@ -2,7 +2,9 @@ package com.pcosina.app.data.api
 
 import com.pcosina.app.data.model.UserProfile
 import retrofit2.http.Body
+import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 
 data class PlannedMealDto(
     val mealLabel: String,
@@ -32,4 +34,7 @@ data class GeneratePlanResponse(
 interface PcosinaApiService {
     @POST("generate-plan")
     suspend fun generatePlan(@Body request: GeneratePlanRequest): GeneratePlanResponse
+
+    @GET("recipe/{id}")
+    suspend fun getRecipe(@Path("id") recipeId: String): RecipeDetailDto
 }

@@ -7,8 +7,8 @@ DB_NAME = "pcosina.db"
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-
-    # 1. Create Recipes Table
+    
+    # Create the table with the structure needed for the View Recipe screen
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS recipes (
             id TEXT PRIMARY KEY,
@@ -20,27 +20,16 @@ def init_db():
             fats INTEGER,
             fiber INTEGER,
             tags TEXT,
-            ingredients_json TEXT
+            minutes INTEGER,
+            ingredients_json TEXT,
+            steps_json TEXT
         )
     ''')
-
-    # 2. Create Plans Table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS meal_plans (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_email TEXT,
-            week_label TEXT,
-            plan_json TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
     conn.commit()
     conn.close()
 
 def seed_recipes():
     if not os.path.exists("recipes.json"):
-        print("recipes.json not found. Skipping seed.")
         return
 
     with open("recipes.json", "r") as f:
@@ -50,11 +39,17 @@ def seed_recipes():
     cursor = conn.cursor()
 
     for r in recipes:
-        # Using REPLACE INTO ensures that if the ID exists,
-        # it updates the macros with the latest JSON values.
+        # Convert Lists and Objects into JSON Strings so SQLite can store them
+        ingredients_str = json.dumps(r.get("ingredients", []))
+        steps_str = json.dumps(r.get("steps", []))
+        tags_str = ",".join(r.get("tags", []))
+
         cursor.execute('''
-            INSERT OR REPLACE INTO recipes (id, title, meal_type, calories, protein, carbs, fats, fiber, tags, ingredients_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO recipes (
+                id, title, meal_type, calories, protein, carbs, fats, fiber, 
+                tags, minutes, ingredients_json, steps_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             r.get("id"),
             r.get("title"),
@@ -64,37 +59,51 @@ def seed_recipes():
             r.get("carbsGrams", 0),
             r.get("fatsGrams", 0),
             r.get("fiberGrams", 0),
-            ",".join(r.get("tags", [])),
-            json.dumps(r.get("ingredients", []))
+            tags_str,
+            r.get("minutes", 20),
+            ingredients_str,
+            steps_str
         ))
 
     conn.commit()
     conn.close()
-    print(f"Database successfully updated with {len(recipes)} recipes and full nutritional data.")
+    print("Database successfully synced with recipes.json format.")
 
 def get_all_recipes():
+    """Fetches all recipes from the SQLite database and converts JSON strings back to lists/objects."""
+    if not os.path.exists(DB_NAME):
+        return []
+        
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM recipes")
-    rows = cursor.fetchall()
-
-    recipes = []
-    for row in rows:
-        recipes.append({
-            "id": row["id"],
-            "title": row["title"],
-            "mealType": row["meal_type"],
-            "calories": row["calories"],
-            "proteinGrams": row["protein"],
-            "carbsGrams": row["carbs"],
-            "fatsGrams": row["fats"],
-            "fiberGrams": row["fiber"],
-            "tags": row["tags"].split(",") if row["tags"] else [],
-            "ingredients": json.loads(row["ingredients_json"])
-        })
-    conn.close()
-    return recipes
+    
+    try:
+        cursor.execute("SELECT * FROM recipes")
+        rows = cursor.fetchall()
+        
+        recipes = []
+        for row in rows:
+            recipes.append({
+                "id": row["id"],
+                "title": row["title"],
+                "mealType": row["meal_type"],
+                "calories": row["calories"],
+                "proteinGrams": row["protein"],
+                "carbsGrams": row["carbs"],
+                "fatsGrams": row["fats"],
+                "fiberGrams": row["fiber"],
+                "tags": row["tags"].split(",") if row["tags"] else [],
+                "minutes": row["minutes"],
+                "ingredients": json.loads(row["ingredients_json"]),
+                "steps": json.loads(row["steps_json"])
+            })
+        return recipes
+    except Exception as e:
+        print(f"Database Error: {e}")
+        return []
+    finally:
+        conn.close()
 
 if __name__ == "__main__":
     init_db()

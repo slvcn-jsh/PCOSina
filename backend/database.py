@@ -7,8 +7,6 @@ DB_NAME = "pcosina.db"
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    
-    # Create the table with the structure needed for the View Recipe screen
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS recipes (
             id TEXT PRIMARY KEY,
@@ -39,7 +37,6 @@ def seed_recipes():
     cursor = conn.cursor()
 
     for r in recipes:
-        # Convert Lists and Objects into JSON Strings so SQLite can store them
         ingredients_str = json.dumps(r.get("ingredients", []))
         steps_str = json.dumps(r.get("steps", []))
         tags_str = ",".join(r.get("tags", []))
@@ -67,21 +64,17 @@ def seed_recipes():
 
     conn.commit()
     conn.close()
-    print("Database successfully synced with recipes.json format.")
+    print(f"Database successfully synced. {len(recipes)} recipes seeded.")
 
 def get_all_recipes():
-    """Fetches all recipes from the SQLite database and converts JSON strings back to lists/objects."""
     if not os.path.exists(DB_NAME):
         return []
-        
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    
     try:
         cursor.execute("SELECT * FROM recipes")
         rows = cursor.fetchall()
-        
         recipes = []
         for row in rows:
             recipes.append({
@@ -99,9 +92,6 @@ def get_all_recipes():
                 "steps": json.loads(row["steps_json"])
             })
         return recipes
-    except Exception as e:
-        print(f"Database Error: {e}")
-        return []
     finally:
         conn.close()
 

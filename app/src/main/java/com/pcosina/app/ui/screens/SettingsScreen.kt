@@ -3,6 +3,7 @@ package com.pcosina.app.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -10,11 +11,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.pcosina.app.BuildConfig
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
@@ -29,6 +33,8 @@ fun SettingsScreen(
     val profile by userViewModel.userProfile.collectAsState()
     val primaryColor = Color(0xFFFC6B7D)
     val secondaryColor = Color(0xFF8C3A45)
+    
+    val userName = profile.displayName.ifBlank { "Warrior" }
 
     Column(
         modifier = modifier
@@ -39,70 +45,129 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         GradientHeader(
-            title = "Account & Profile",
-            subtitle = "Manage your PCOS parameters",
+            title = "Hi, $userName! ✨",
+            subtitle = "Your PCOS journey is uniquely yours.",
             containerHeight = 180
         )
 
-        // Account Info Section
-        SettingsSection(title = "Logged in as") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(imageVector = Icons.Default.AccountCircle, contentDescription = null, tint = primaryColor, modifier = Modifier.size(40.dp))
-                Spacer(Modifier.width(16.dp))
+        // Personalized Profile Summary Card
+        Card(
+            shape = MaterialTheme.shapes.extraLarge,
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(primaryColor.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = userName.take(1).uppercase(),
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = primaryColor
+                        )
+                    )
+                }
+                Spacer(Modifier.width(20.dp))
                 Column {
-                    Text(text = profile.displayName.ifBlank { "User" }, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                    Text(text = "Active Profile", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Text(
+                        text = userName,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = "PCOS Management Active",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
                 }
             }
         }
 
-        // Scientific Parameters Section
+        // Health & Goals Section
         SettingsSection(title = "Health Markers") {
-            SettingsItem(icon = Icons.Default.MonitorWeight, label = "Weight", value = "${profile.weightKg} kg")
+            SettingsItem(icon = Icons.Default.MonitorWeight, label = "Current Weight", value = "${profile.weightKg} kg")
             SettingsItem(icon = Icons.Default.Height, label = "Height", value = "${profile.heightCm} cm")
-            SettingsItem(icon = Icons.Default.Bolt, label = "Activity", value = profile.activityLevel)
+            SettingsItem(icon = Icons.Default.LocalFireDepartment, label = "Activity Level", value = profile.activityLevel)
             
-            Divider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = Color.LightGray)
+            Divider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = Color(0xFFEEEEEE))
+            
+            Text(
+                text = "Current Focus:",
+                style = MaterialTheme.typography.labelLarge,
+                color = secondaryColor
+            )
+            Text(
+                text = profile.goal,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.DarkGray
+            )
+
+            Spacer(Modifier.height(8.dp))
             
             Button(
                 onClick = onNavigateToOnboarding,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = primaryColor.copy(alpha = 0.1f), contentColor = primaryColor),
-                elevation = ButtonDefaults.buttonElevation(0.dp)
+                shape = MaterialTheme.shapes.large,
+                colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
             ) {
-                Text("Update Biometrics", fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Update Health Data", fontWeight = FontWeight.Bold)
             }
         }
 
-        // App Actions Section
-        SettingsSection(title = "System") {
+        // Account Actions
+        SettingsSection(title = "Account Settings") {
             SettingsActionItem(
-                icon = Icons.Default.Refresh,
-                label = "Reset Demo Data",
-                description = "Clear all local session data",
+                icon = Icons.Default.History,
+                label = "Clear Meal History",
+                description = "Reset generated plans for this account",
                 color = Color.Gray
             ) {
-                authViewModel.onLogout()
+                // Feature to clear specific plan data could be added here
             }
             
             SettingsActionItem(
                 icon = Icons.Default.Logout,
                 label = "Logout",
-                description = "Securely sign out of your account",
+                description = "Securely sign out of PCOSINA",
                 color = secondaryColor
             ) {
                 authViewModel.onLogout()
+            }
+
+            if (BuildConfig.DEBUG) {
+                SettingsActionItem(
+                    icon = Icons.Default.Warning,
+                    label = "Test Crash (Debug only)",
+                    description = "Send a test crash to Crashlytics",
+                    color = Color.Red
+                ) {
+                    FirebaseCrashlytics.getInstance().log("Manual test crash from Settings")
+                    throw RuntimeException("Crashlytics test crash")
+                }
             }
         }
 
         Spacer(Modifier.height(24.dp))
         Text(
-            text = "PCOSINA v1.0.4 • Thesis Edition",
+            text = "PCOSINA • Empowerment through Nutrition",
             modifier = Modifier.fillMaxWidth(),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             style = MaterialTheme.typography.labelSmall,
             color = Color.LightGray
         )
+        Spacer(Modifier.height(12.dp))
     }
 }
 
@@ -148,7 +213,7 @@ fun SettingsActionItem(icon: ImageVector, label: String, description: String, co
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
             Box(
-                modifier = Modifier.size(40.dp).background(color.copy(alpha = 0.1f), CircleShape),
+                modifier = Modifier.size(44.dp).background(color.copy(alpha = 0.1f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(imageVector = icon, contentDescription = null, tint = color)

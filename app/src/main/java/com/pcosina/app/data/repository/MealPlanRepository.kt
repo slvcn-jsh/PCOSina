@@ -17,11 +17,20 @@ import java.util.concurrent.TimeUnit
 class MealPlanRepository {
 
     private val apiService: PcosinaApiService
+    private val recipeCache = object : LinkedHashMap<String, RecipeDetailDto>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, RecipeDetailDto>?): Boolean {
+            return size > 200
+        }
+    }
 
     init {
         val firebaseAuth = FirebaseAuth.getInstance()
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BODY
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         }
 
         // Bullet-Proof Resilience: Added a Retry Interceptor
@@ -94,7 +103,13 @@ class MealPlanRepository {
 
     suspend fun getRecipeDetails(recipeId: String): Result<RecipeDetailDto> {
         return try {
+            synchronized(recipeCache) {
+                recipeCache[recipeId]?.let { return Result.success(it) }
+            }
             val response = apiService.getRecipe(recipeId)
+            synchronized(recipeCache) {
+                recipeCache[recipeId] = response
+            }
             Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)

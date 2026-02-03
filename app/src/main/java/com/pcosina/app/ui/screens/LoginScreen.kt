@@ -1,46 +1,23 @@
 package com.pcosina.app.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import com.google.firebase.analytics.FirebaseAnalytics
 import com.pcosina.app.ui.AuthViewModel
-import com.pcosina.app.ui.components.GradientHeader
+import com.pcosina.app.ui.LoginState
 
 @Composable
 fun LoginScreen(
@@ -49,108 +26,105 @@ fun LoginScreen(
     onNavigateToSignUp: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val email by authViewModel.email.collectAsState()
-    val password by authViewModel.password.collectAsState()
-    var passwordVisible by remember { mutableStateOf(false) }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    val loginState by authViewModel.loginState.collectAsState()
+    val analytics = FirebaseAnalytics.getInstance(LocalContext.current)
 
-    val error by authViewModel.error.collectAsState()
-    val isLoading by authViewModel.isLoading.collectAsState()
+    LaunchedEffect(loginState) {
+        if (loginState is LoginState.Success) {
+            analytics.logEvent("login_success", null)
+            onLoginSuccess()
+        }
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .background(Color(0xFFFFF9F9))
+            .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.Center
     ) {
-        GradientHeader(
-            title = "Welcome Back",
-            subtitle = "Login to continue your PCOS journey",
-            containerHeight = 200
+        Text(
+            text = "🌸",
+            fontSize = 64.sp,
+            modifier = Modifier.padding(bottom = 16.dp)
         )
-
-        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text(
+            text = "Welcome Back",
+            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+            color = Color(0xFF8C3A45)
+        )
+        
+        Text(
+            text = "Login to access your optimized plans",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.Gray,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
 
         OutlinedTextField(
             value = email,
-            onValueChange = { authViewModel.email.value = it },
-            label = { Text("Email") },
+            onValueChange = { email = it },
+            label = { Text("Email Address") },
             modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            singleLine = true
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFFFC6B7D),
+                focusedLabelColor = Color(0xFFFC6B7D)
+            )
         )
+
+        Spacer(Modifier.height(16.dp))
 
         OutlinedTextField(
             value = password,
-            onValueChange = { authViewModel.password.value = it },
+            onValueChange = { password = it },
             label = { Text("Password") },
-            modifier = Modifier.fillMaxWidth(),
-            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            trailingIcon = {
-                val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(imageVector = image, contentDescription = null)
-                }
-            },
-            singleLine = true
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFFFC6B7D),
+                focusedLabelColor = Color(0xFFFC6B7D)
+            )
         )
 
-        error?.let {
+        if (loginState is LoginState.Error) {
             Text(
-                text = it,
+                text = (loginState as LoginState.Error).message,
                 color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 4.dp)
+                modifier = Modifier.padding(top = 8.dp)
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(Modifier.height(32.dp))
 
         Button(
             onClick = {
-                authViewModel.onLogin { success ->
-                    if (success) onLoginSuccess()
-                }
+                analytics.logEvent("login_attempt", null)
+                authViewModel.onLogin(email, password)
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Transparent,
-                contentColor = Color.White
-            ),
-            contentPadding = PaddingValues(0.dp)
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFC6B7D)),
+            enabled = loginState !is LoginState.Loading
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                Color(0xFFFC6B7D), // Primary Pink
-                                Color(0xFFFF8A97), // Vibrant Pink
-                            )
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.padding(8.dp))
-                } else {
-                    Text("Login", fontWeight = FontWeight.Bold)
-                }
+            if (loginState is LoginState.Loading) {
+                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+            } else {
+                Text("Login", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
             }
         }
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically
+        TextButton(
+            onClick = onNavigateToSignUp,
+            modifier = Modifier.padding(top = 16.dp)
         ) {
-            Text("Don't have an account?")
-            TextButton(onClick = onNavigateToSignUp) {
-                Text("Sign Up", color = Color(0xFFFC6B7D))
-            }
+            Text("Don't have an account? Sign Up", color = Color(0xFF8C3A45))
         }
     }
 }

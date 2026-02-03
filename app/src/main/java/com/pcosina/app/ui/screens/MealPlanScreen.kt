@@ -1,84 +1,91 @@
 package com.pcosina.app.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.pcosina.app.data.api.GeneratePlanResponse
-import com.pcosina.app.data.model.DummyData
+import androidx.compose.ui.unit.sp
+import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
+import androidx.compose.ui.platform.LocalContext
+import com.google.firebase.analytics.FirebaseAnalytics
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MealPlanScreen(
     userViewModel: UserViewModel,
     mealPlanViewModel: MealPlanViewModel,
+    groceryViewModel: GroceryViewModel,
     onRecipeClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val uiState by mealPlanViewModel.uiState.collectAsState()
     val userProfile by userViewModel.userProfile.collectAsState()
-
     var selectedDayIndex by rememberSaveable { mutableStateOf(0) }
+    val analytics = FirebaseAnalytics.getInstance(LocalContext.current)
+    
+    // Track if we are currently extracting ingredients
+    var isSyncingGroceries by remember { mutableStateOf(false) }
+    
+    val primaryColor = Color(0xFFFC6B7D)
+    val secondaryColor = Color(0xFF8C3A45)
 
     when (val state = uiState) {
         is MealPlanUiState.Idle -> {
-            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Button(onClick = { mealPlanViewModel.generateMealPlan(userProfile) }) {
-                    Text("Generate My Optimized Plan")
+            Box(modifier = modifier.fillMaxSize().background(Color(0xFFFFF9F9)), contentAlignment = Alignment.Center) {
+                Button(
+                    onClick = {
+                        analytics.logEvent("generate_plan", null)
+                        mealPlanViewModel.generateMealPlan(userProfile)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.height(56.dp).padding(horizontal = 32.dp)
+                ) {
+                    Text("Generate My Optimized Plan", fontWeight = FontWeight.Bold)
                 }
             }
         }
         is MealPlanUiState.Loading -> {
-            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(modifier = modifier.fillMaxSize().background(Color(0xFFFFF9F9)), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(color = Color(0xFFFC6B7D))
+                    CircularProgressIndicator(color = primaryColor)
                     Spacer(Modifier.height(16.dp))
-                    Text("MILP Engine is optimizing your plan...", style = MaterialTheme.typography.bodyMedium)
+                    Text("MILP Engine is optimizing...", color = secondaryColor)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "First run can take up to ~30s. Please keep the app open.",
+                        color = Color.Gray,
+                        fontSize = 12.sp
+                    )
                 }
             }
         }
         is MealPlanUiState.Error -> {
             Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
-                    Button(onClick = { mealPlanViewModel.generateMealPlan(userProfile) }) {
-                        Text("Retry")
-                    }
+                    Text("Error: ${state.message}", color = Color.Red)
+                    Button(onClick = { mealPlanViewModel.generateMealPlan(userProfile) }) { Text("Retry") }
                 }
             }
         }
@@ -87,209 +94,136 @@ fun MealPlanScreen(
             val selectedDay = plan.days[selectedDayIndex]
 
             LazyColumn(
-                modifier = modifier,
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = modifier.fillMaxSize().background(Color(0xFFFFF9F9)),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 item {
                     GradientHeader(
-                        title = "Your Optimized Plan",
-                        subtitle = plan.weekLabel,
+                        title = "PCOS-Optimized Plan",
+                        subtitle = "Target: ${userViewModel.dailyCalorieTarget} kcal/day",
+                        containerHeight = 180
                     )
                 }
 
-                // Day selector chips
+                // 1. Generate Grocery List Action (FIXED with Feedback)
+                item {
+                    Card(
+                        shape = MaterialTheme.shapes.extraLarge,
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Ready to shop?", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                                Text("Consolidate all 21 meals", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                            }
+                            Button(
+                                onClick = { 
+                                    analytics.logEvent("sync_groceries", null)
+                                    isSyncingGroceries = true
+                                    mealPlanViewModel.extractAllGroceryItems { items ->
+                                        groceryViewModel.addItems(items)
+                                        isSyncingGroceries = false
+                                    }
+                                },
+                                enabled = !isSyncingGroceries,
+                                shape = MaterialTheme.shapes.medium,
+                                colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+                            ) {
+                                if (isSyncingGroceries) {
+                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(imageVector = Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Sync")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2. Day selector chips (FIXED: Now Horizontal Scrollable)
                 item {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         plan.days.forEachIndexed { index, day ->
                             val selected = index == selectedDayIndex
-                            Card(
-                                shape = MaterialTheme.shapes.large,
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (selected) Color.White
-                                    else MaterialTheme.colorScheme.surfaceVariant,
-                                ),
-                                elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 2.dp else 0.dp),
-                                modifier = Modifier.weight(1f),
+                            FilterChip(
+                                selected = selected,
                                 onClick = { selectedDayIndex = index },
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(vertical = 8.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                                ) {
-                                    Text(
-                                        text = day.dayLabel,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (selected) Color(0xFFFC6B7D)
-                                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
+                                label = { Text(day.dayLabel) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = primaryColor,
+                                    selectedLabelColor = Color.White,
+                                    labelColor = Color.Gray
+                                )
+                            )
                         }
                     }
                 }
 
-                // Daily summary card
+                // 3. Daily summary card
                 item {
                     Card(
-                        shape = MaterialTheme.shapes.large,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
                         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
+                            modifier = Modifier.fillMaxWidth().padding(20.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Icon(
-                                    imageVector = Icons.Filled.CalendarMonth,
-                                    contentDescription = null,
-                                    tint = Color(0xFFFC6B7D),
-                                )
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Icon(imageVector = Icons.Filled.CalendarMonth, contentDescription = null, tint = primaryColor)
                                 Column {
-                                    Text(
-                                        text = "${selectedDay.dayLabel}'s Total",
-                                        style = MaterialTheme.typography.titleMedium,
-                                    )
-                                    Text(
-                                        text = "MILP Optimized",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                    Text(text = "${selectedDay.dayLabel}'s Total", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                                    Text(text = "MILP Validated", style = MaterialTheme.typography.bodySmall, color = primaryColor)
                                 }
                             }
-                            Column(
-                                horizontalAlignment = Alignment.End,
-                            ) {
-                                Text(
-                                    text = "${selectedDay.totalCalories} cal",
-                                    style = MaterialTheme.typography.titleMedium,
-                                )
-                                Text(
-                                    text = "Daily Sum",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
+                            Text(text = "${selectedDay.totalCalories} kcal", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = secondaryColor))
                         }
                     }
                 }
 
-                // Meals list
+                // 4. Meals list
                 items(selectedDay.meals) { plannedMeal ->
                     Card(
-                        shape = MaterialTheme.shapes.large,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        onClick = { onRecipeClick(plannedMeal.recipeId) },
+                        shape = MaterialTheme.shapes.extraLarge,
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
                         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                            Box(
+                                modifier = Modifier.size(48.dp).background(Color(0xFFFFE4E8), CircleShape),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Card(
-                                        shape = MaterialTheme.shapes.medium,
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        ),
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .height(48.dp)
-                                                .padding(horizontal = 16.dp),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            Text("🍽️", style = MaterialTheme.typography.titleLarge)
-                                        }
-                                    }
-                                    Column(
-                                        modifier = Modifier.weight(1f),
-                                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                                    ) {
-                                        Text(
-                                            text = plannedMeal.mealLabel,
-                                            style = MaterialTheme.typography.labelLarge,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                        Text(
-                                            text = plannedMeal.title,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                    }
-                                }
-                                Icon(
-                                    imageVector = Icons.Filled.ChevronRight,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                Text(text = if(plannedMeal.mealLabel == "Breakfast") "🍳" else if(plannedMeal.mealLabel == "Lunch") "🍱" else "🥘", fontSize = 24.sp)
                             }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Button(
-                                    onClick = { onRecipeClick(plannedMeal.recipeId) },
-                                    modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0xFFFC6B7D),
-                                    ),
-                                ) {
-                                    Text("View Recipe")
-                                }
-                                OutlinedButton(
-                                    onClick = { /* no-op */ },
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    Text("Regenerate")
-                                }
+                            Spacer(Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = plannedMeal.mealLabel.uppercase(), style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                                Text(text = plannedMeal.title, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
+                            Icon(imageVector = Icons.Filled.ChevronRight, contentDescription = null, tint = Color.LightGray)
                         }
                     }
                 }
 
-                item {
-                    Card(
-                        shape = MaterialTheme.shapes.large,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Text(
-                                text = "Optimization Summary",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                text = plan.message,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-
-                item { Spacer(Modifier.height(8.dp)) }
+                item { Spacer(Modifier.height(24.dp)) }
             }
         }
     }

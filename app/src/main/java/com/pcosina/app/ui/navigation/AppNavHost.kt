@@ -44,6 +44,7 @@ import com.pcosina.app.ui.screens.SettingsScreen
 import com.pcosina.app.ui.screens.SignUpScreen
 import com.pcosina.app.ui.screens.SplashScreen
 import com.pcosina.app.ui.screens.UserProfileScreen
+import com.google.firebase.analytics.FirebaseAnalytics
 
 /**
  * App navigation host.
@@ -55,10 +56,12 @@ fun AppNavHost(
     startDestination: String = Routes.Splash,
 ) {
     val context = LocalContext.current
+    val analytics = FirebaseAnalytics.getInstance(context)
     val feedbackEmail = "salvacion.jsh@gmail.com"
     val feedbackSubject = "PCOSINA Feedback"
     val feedbackBody = "Tell us what happened (steps, screen, and any errors):\n\n"
     val onFeedback: () -> Unit = {
+        analytics.logEvent("feedback_tap", null)
         val intent = Intent(Intent.ACTION_SENDTO).apply {
             data = Uri.parse("mailto:$feedbackEmail")
             putExtra(Intent.EXTRA_SUBJECT, feedbackSubject)

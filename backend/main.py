@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request, Depends, Header
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional, Dict, Any
 import json
@@ -42,6 +43,12 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="PCOSINA Optimization API", lifespan=lifespan)
+allowed_hosts = os.getenv(
+    "ALLOWED_HOSTS",
+    "pcosina-backend.onrender.com,localhost,127.0.0.1"
+).split(",")
+allowed_hosts = [h.strip() for h in allowed_hosts if h.strip()]
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
 # ... (keep all models and solve_meal_plan logic exactly the same as before) ...
 

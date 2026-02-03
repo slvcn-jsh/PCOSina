@@ -15,10 +15,22 @@ from ortools.sat.python import cp_model
 import database
 import firebase_admin
 from firebase_admin import credentials, auth
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 PLAN_CACHE_TTL_SECONDS = 600
 PLAN_CACHE_MAX_SIZE = 200
 _plan_cache = {}
+
+sentry_dsn = os.getenv("SENTRY_DSN")
+if sentry_dsn:
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        integrations=[FastApiIntegration()],
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+        environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+        release=os.getenv("SENTRY_RELEASE"),
+    )
 
 def get_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

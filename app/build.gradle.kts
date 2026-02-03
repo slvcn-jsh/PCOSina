@@ -15,12 +15,13 @@ android {
         applicationId = "com.pcosina.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 11
-        versionName = "1.1.0"
+        versionCode = 12
+        versionName = "1.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         buildConfigField("String", "BASE_URL", "\"http://192.168.1.48:8000/\"")
+        buildConfigField("String", "SENTRY_DSN", "\"https://91e7fe2e7e460b73f1649eb8f8b39b22@o4510823495434240.ingest.us.sentry.io/4510823509983232\"")
     }
 
     buildTypes {
@@ -33,6 +34,7 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "BASE_URL", "\"https://pcosina-backend.onrender.com/\"")
+            buildConfigField("String", "SENTRY_DSN", "\"https://91e7fe2e7e460b73f1649eb8f8b39b22@o4510823495434240.ingest.us.sentry.io/4510823509983232\"")
             firebaseAppDistribution {
                 appId = "1:950408114415:android:0b3c55b663b7638c20ab1a"
                 groups = "QUADRANT"
@@ -42,6 +44,7 @@ android {
         }
         debug {
             buildConfigField("String", "BASE_URL", "\"http://192.168.1.48:8000/\"")
+            buildConfigField("String", "SENTRY_DSN", "\"https://91e7fe2e7e460b73f1649eb8f8b39b22@o4510823495434240.ingest.us.sentry.io/4510823509983232\"")
         }
     }
 
@@ -66,6 +69,7 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-crashlytics")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+    implementation("io.sentry:sentry-android:7.10.0")
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

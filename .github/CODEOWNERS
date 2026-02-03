@@ -1,0 +1,12 @@
+# Default owner for all files
+* @slvcn-jsh
+
+# Mobile app
+app/** @slvcn-jsh
+
+# Backend API
+backend/** @slvcn-jsh
+
+# Infra / CI
+.github/** @slvcn-jsh
+render.yaml @slvcn-jsh

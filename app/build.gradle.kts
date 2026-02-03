@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services")
+    id("com.google.firebase.appdistribution")
 }
 
 android {
@@ -11,20 +13,34 @@ android {
     defaultConfig {
         applicationId = "com.pcosina.app"
         minSdk = 24
-        targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        targetSdk = 35
+        versionCode = 4
+        versionName = "1.0.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        buildConfigField("String", "BASE_URL", "\"http://192.168.1.48:8000/\"")
     }
 
     buildTypes {
         release {
+            // Use debug signing for internal testing to ensure APK installs.
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("String", "BASE_URL", "\"https://pcosina-backend.onrender.com/\"")
+            firebaseAppDistribution {
+                appId = "1:950408114415:android:0b3c55b663b7638c20ab1a"
+                testers = "salvacion.jsh@gmail.com"
+                artifactType = "APK"
+                releaseNotes = "Release build from dev branch."
+            }
+        }
+        debug {
+            buildConfigField("String", "BASE_URL", "\"http://192.168.1.48:8000/\"")
         }
     }
 
@@ -39,10 +55,16 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
 dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:34.8.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -53,11 +75,9 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.google.material)
     
-    // DataStore for Persistence
     implementation(libs.androidx.datastore.preferences)
-
-    // Networking: Retrofit & OkHttp
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp)

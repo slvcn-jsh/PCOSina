@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends, Header
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional, Dict, Any
 import json
@@ -11,6 +11,8 @@ import socket
 from contextlib import asynccontextmanager
 from ortools.sat.python import cp_model
 import database
+import firebase_admin
+from firebase_admin import credentials, auth
 
 PLAN_CACHE_TTL_SECONDS = 600
 PLAN_CACHE_MAX_SIZE = 200
@@ -34,6 +36,7 @@ async def lifespan(app: FastAPI):
     print(f"LOCAL IP: {get_ip()}")
     print(f"URL FOR PHONE: http://{get_ip()}:8000")
     print("="*50 + "\n")
+    init_firebase()
     database.init_db()
     database.seed_recipes()
     yield
@@ -89,6 +92,42 @@ class GeneratePlanResponse(BaseModel):
     days: List[DayPlan]
     status: str
     message: str
+
+def init_firebase():
+    if firebase_admin._apps:
+        return
+    if os.getenv("FIREBASE_AUTH_DISABLED", "").lower() == "true":
+        return
+
+    credentials_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+    credentials_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "backend/secrets/firebase-service-account.json")
+
+    if credentials_json:
+        try:
+            cred = credentials.Certificate(json.loads(credentials_json))
+        except Exception as e:
+            raise RuntimeError("Invalid FIREBASE_SERVICE_ACCOUNT_JSON") from e
+    elif os.path.exists(credentials_path):
+        cred = credentials.Certificate(credentials_path)
+    else:
+        raise RuntimeError(
+            "Firebase credentials not found. "
+            "Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_CREDENTIALS_PATH."
+        )
+
+    firebase_admin.initialize_app(cred)
+
+def require_firebase_auth(authorization: str = Header(None)):
+    if os.getenv("FIREBASE_AUTH_DISABLED", "").lower() == "true":
+        return None
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        decoded = auth.verify_id_token(token, check_revoked=True)
+        return decoded
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 def solve_meal_plan(request: GeneratePlanRequest, recipes: List[Dict]):
     profile = request.profile
@@ -194,7 +233,7 @@ def _cache_set(key: str, value: GeneratePlanResponse):
         _plan_cache.pop(oldest_key, None)
     _plan_cache[key] = (time.time(), value)
 
-@app.post("/generate-plan", response_model=GeneratePlanResponse)
+@app.post("/generate-plan", response_model=GeneratePlanResponse, dependencies=[Depends(require_firebase_auth)])
 async def generate_plan(request: GeneratePlanRequest):
     try:
         key = _cache_key(request)
@@ -213,7 +252,7 @@ async def generate_plan(request: GeneratePlanRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@app.get("/recipe/{recipe_id}", response_model=RecipeDetail)
+@app.get("/recipe/{recipe_id}", response_model=RecipeDetail, dependencies=[Depends(require_firebase_auth)])
 async def get_recipe(recipe_id: str):
     recipe = next((r for r in database.get_all_recipes() if r["id"] == recipe_id), None)
     if recipe: return RecipeDetail(**recipe)

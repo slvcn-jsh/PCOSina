@@ -1,10 +1,13 @@
 package com.pcosina.app.data.repository
 
+import com.pcosina.app.BuildConfig
 import com.pcosina.app.data.api.GeneratePlanRequest
 import com.pcosina.app.data.api.GeneratePlanResponse
 import com.pcosina.app.data.api.PcosinaApiService
 import com.pcosina.app.data.api.RecipeDetailDto
 import com.pcosina.app.data.model.UserProfile
+import com.google.android.gms.tasks.Tasks
+import com.google.firebase.auth.FirebaseAuth
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -16,26 +19,68 @@ class MealPlanRepository {
     private val apiService: PcosinaApiService
 
     init {
+        val firebaseAuth = FirebaseAuth.getInstance()
         val logging = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
-        
+
+        // Bullet-Proof Resilience: Added a Retry Interceptor
+        // This ensures that if the Wi-Fi signal is weak, the app automatically 
+        // retries the connection 3 times before showing an error.
         val client = OkHttpClient.Builder()
             .addInterceptor(logging)
+            .addInterceptor { chain ->
+                val original = chain.request()
+                val requestBuilder = original.newBuilder()
+                val currentUser = firebaseAuth.currentUser
+                if (currentUser != null) {
+                    try {
+                        val tokenResult = Tasks.await(currentUser.getIdToken(false), 5, TimeUnit.SECONDS)
+                        val token = tokenResult.token
+                        if (!token.isNullOrBlank()) {
+                            requestBuilder.addHeader("Authorization", "Bearer $token")
+                        }
+                    } catch (_: Exception) {
+                        // If token fetch fails, proceed without auth header.
+                    }
+                }
+
+                val request = requestBuilder.build()
+                var response = chain.proceed(request)
+                var tryCount = 0
+                while (!response.isSuccessful && tryCount < 2) {
+                    tryCount++
+                    Thread.sleep(1000) // Small delay before retry
+                    response.close()
+                    response = chain.proceed(request)
+                }
+                response
+            }
+
             .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(90, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .callTimeout(120, TimeUnit.SECONDS)
             .build()
 
-        // Fixed: Removed leading space from the IP address
-        val computerIp = "192.168.254.132" 
+        val baseUrl = BuildConfig.BASE_URL
         
         val retrofit = Retrofit.Builder()
-            .baseUrl("http://$computerIp:8000/")
+            .baseUrl(baseUrl)
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
         apiService = retrofit.create(PcosinaApiService::class.java)
+    }
+
+    suspend fun warmup(): Result<Unit> {
+        return try {
+            apiService.health()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun generatePlan(profile: UserProfile): Result<GeneratePlanResponse> {

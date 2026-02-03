@@ -1,5 +1,7 @@
 package com.pcosina.app.ui.navigation
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -38,6 +40,7 @@ import com.pcosina.app.ui.screens.MealPlanScreen
 import com.pcosina.app.ui.screens.OnboardingScreen
 import com.pcosina.app.ui.screens.ProgressScreen
 import com.pcosina.app.ui.screens.RecipeDetailsScreen
+import com.pcosina.app.ui.screens.SettingsScreen
 import com.pcosina.app.ui.screens.SignUpScreen
 import com.pcosina.app.ui.screens.SplashScreen
 import com.pcosina.app.ui.screens.UserProfileScreen
@@ -52,6 +55,19 @@ fun AppNavHost(
     startDestination: String = Routes.Splash,
 ) {
     val context = LocalContext.current
+    val feedbackEmail = "salvacion.jsh@gmail.com"
+    val feedbackSubject = "PCOSINA Feedback"
+    val feedbackBody = "Tell us what happened (steps, screen, and any errors):\n\n"
+    val onFeedback: () -> Unit = {
+        val intent = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("mailto:$feedbackEmail")
+            putExtra(Intent.EXTRA_SUBJECT, feedbackSubject)
+            putExtra(Intent.EXTRA_TEXT, feedbackBody)
+        }
+        if (intent.resolveActivity(context.packageManager) != null) {
+            context.startActivity(intent)
+        }
+    }
     
     // Repositories
     val userPrefsRepository = remember { UserPreferencesRepository(context) }
@@ -66,11 +82,33 @@ fun AppNavHost(
         factory = AuthViewModel.Factory(authRepository)
     )
     val mealPlanViewModel: MealPlanViewModel = viewModel(
-        factory = MealPlanViewModel.Factory(mealPlanRepository)
+        factory = MealPlanViewModel.Factory(
+            repository = mealPlanRepository,
+            userPrefsRepository = userPrefsRepository
+        )
     )
-    val groceryViewModel: GroceryViewModel = viewModel()
+    // FIXED: Use Factory to prevent RuntimeException (NoSuchMethodException)
+    val groceryViewModel: GroceryViewModel = viewModel(
+        factory = GroceryViewModel.Factory(userPrefsRepository)
+    )
 
     val session by authViewModel.session.collectAsState()
+    val userProfile by userViewModel.userProfile.collectAsState()
+    val isProfileLoading by userViewModel.isProfileLoading.collectAsState()
+
+    // Sync session to user data loading
+    LaunchedEffect(Unit) {
+        authRepository.syncSessionFromFirebase()
+    }
+
+    // Sync session to user data loading
+    LaunchedEffect(session.currentUserEmail) {
+        session.currentUserEmail?.let { email ->
+            userViewModel.loadProfileForUser(email)
+            mealPlanViewModel.loadSavedPlan(email)
+            groceryViewModel.loadGroceryForUser(email)
+        }
+    }
 
     // Auth Guard
     LaunchedEffect(session.isLoggedIn) {
@@ -80,7 +118,7 @@ fun AppNavHost(
             currentRoute != Routes.SignUp && 
             currentRoute != Routes.Splash) {
             navController.navigate(Routes.Login) {
-                popUpTo(0) { inclusive = true }
+                popUpTo(navController.graph.id) { inclusive = true }
             }
         }
     }
@@ -93,13 +131,24 @@ fun AppNavHost(
         composable(Routes.Splash) {
             SplashScreen(
                 onContinue = {
-                    if (session.isLoggedIn) {
-                        navController.navigate(Routes.Dashboard) {
-                            popUpTo(Routes.Splash) { inclusive = true }
+                    // Logic Gate: Wait for initial load
+                    if (isProfileLoading) return@SplashScreen
+
+                    when {
+                        !session.isLoggedIn -> {
+                            navController.navigate(Routes.Login) {
+                                popUpTo(Routes.Splash) { inclusive = true }
+                            }
                         }
-                    } else {
-                        navController.navigate(Routes.Login) {
-                            popUpTo(Routes.Splash) { inclusive = true }
+                        !userProfile.isProfileCompleted -> {
+                            navController.navigate(Routes.Onboarding) {
+                                popUpTo(Routes.Splash) { inclusive = true }
+                            }
+                        }
+                        else -> {
+                            navController.navigate(Routes.Dashboard) {
+                                popUpTo(Routes.Splash) { inclusive = true }
+                            }
                         }
                     }
                 },
@@ -111,8 +160,14 @@ fun AppNavHost(
             LoginScreen(
                 authViewModel = authViewModel,
                 onLoginSuccess = {
-                    navController.navigate(Routes.Dashboard) {
-                        popUpTo(Routes.Login) { inclusive = true }
+                    if (userProfile.isProfileCompleted) {
+                        navController.navigate(Routes.Dashboard) {
+                            popUpTo(Routes.Login) { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate(Routes.Onboarding) {
+                            popUpTo(Routes.Login) { inclusive = true }
+                        }
                     }
                 },
                 onNavigateToSignUp = { navController.navigate(Routes.SignUp) },
@@ -152,6 +207,7 @@ fun AppNavHost(
             GoalSelectionScreen(
                 userViewModel = userViewModel,
                 onFinish = {
+                    userViewModel.setProfileCompleted(true)
                     navController.navigate(Routes.Dashboard) {
                         popUpTo(Routes.Onboarding) { inclusive = true }
                     }
@@ -165,10 +221,13 @@ fun AppNavHost(
             TabScaffold(navController = navController) { contentPadding ->
                 DashboardScreen(
                     userViewModel = userViewModel,
+                    authViewModel = authViewModel,
                     mealPlanViewModel = mealPlanViewModel,
                     onRecipeClick = { id -> navController.navigate(Routes.recipeDetailsRoute(id)) },
                     onViewPlan = { navController.navigate(Routes.MealPlan) { tabNavigationOptions() } },
                     onViewIpo = { navController.navigate(Routes.Ipo) { tabNavigationOptions() } },
+                    onNavigateToSettings = { navController.navigate(Routes.Settings) },
+                    onFeedback = onFeedback,
                     modifier = Modifier.padding(contentPadding),
                 )
             }
@@ -178,6 +237,7 @@ fun AppNavHost(
                 MealPlanScreen(
                     userViewModel = userViewModel,
                     mealPlanViewModel = mealPlanViewModel,
+                    groceryViewModel = groceryViewModel,
                     onRecipeClick = { id -> navController.navigate(Routes.recipeDetailsRoute(id)) },
                     modifier = Modifier.padding(contentPadding),
                 )
@@ -216,6 +276,15 @@ fun AppNavHost(
             }
         }
 
+        composable(Routes.Settings) {
+            SettingsScreen(
+                userViewModel = userViewModel,
+                authViewModel = authViewModel,
+                onNavigateToOnboarding = { navController.navigate(Routes.Onboarding) },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
         composable(
             route = Routes.RecipeDetailsRoutePattern,
             arguments = listOf(
@@ -225,6 +294,7 @@ fun AppNavHost(
             val recipeId = backStackEntry.arguments?.getString(RecipeIdArg).orEmpty()
             RecipeDetailsScreen(
                 recipeId = recipeId,
+                mealPlanViewModel = mealPlanViewModel,
                 groceryViewModel = groceryViewModel,
                 onBack = { navController.popBackStack() },
                 onAddToGrocery = {

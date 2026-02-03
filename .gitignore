@@ -19,3 +19,6 @@ captures/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Secrets
+backend/secrets/

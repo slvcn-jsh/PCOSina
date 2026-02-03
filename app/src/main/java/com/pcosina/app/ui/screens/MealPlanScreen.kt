@@ -48,6 +48,9 @@ fun MealPlanScreen(
     val context = LocalContext.current
     val analytics = FirebaseAnalytics.getInstance(context)
     val isOnline = remember { mutableStateOf(isNetworkAvailable(context)) }
+    LaunchedEffect(Unit) {
+        isOnline.value = isNetworkAvailable(context)
+    }
     
     // Track if we are currently extracting ingredients
     var isSyncingGroceries by remember { mutableStateOf(false) }
@@ -58,24 +61,33 @@ fun MealPlanScreen(
     when (val state = uiState) {
         is MealPlanUiState.Idle -> {
             Box(modifier = modifier.fillMaxSize().background(Color(0xFFFFF9F9)), contentAlignment = Alignment.Center) {
-                Button(
-                    onClick = {
-                        isOnline.value = isNetworkAvailable(context)
-                        if (!isOnline.value) {
-                            mealPlanViewModel.showError("Offline. Connect to the internet to generate a new plan.")
-                            return@Button
-                        }
-                        analytics.logEvent("generate_plan", null)
-                        mealPlanViewModel.generateMealPlan(userProfile)
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.height(56.dp).padding(horizontal = 32.dp)
-                ) {
-                    Text(
-                        if (isOnline.value) "Generate My Optimized Plan" else "Generate (Internet required)",
-                        fontWeight = FontWeight.Bold
-                    )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (!isOnline.value) {
+                        Text(
+                            text = "Offline. Connect to the internet to generate your first plan.",
+                            color = Color.Gray,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            isOnline.value = isNetworkAvailable(context)
+                            if (!isOnline.value) {
+                                mealPlanViewModel.showError("Offline. Connect to the internet to generate a new plan.")
+                                return@Button
+                            }
+                            analytics.logEvent("generate_plan", null)
+                            mealPlanViewModel.generateMealPlan(userProfile)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.height(56.dp).padding(horizontal = 32.dp)
+                    ) {
+                        Text(
+                            if (isOnline.value) "Generate My Optimized Plan" else "Generate (Internet required)",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
@@ -98,6 +110,13 @@ fun MealPlanScreen(
             Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Error: ${state.message}", color = Color.Red)
+                    if (!isOnline.value) {
+                        Text(
+                            text = "You are offline. Saved plans will still be available.",
+                            color = Color.Gray,
+                            modifier = Modifier.padding(top = 6.dp)
+                        )
+                    }
                     Button(onClick = {
                         isOnline.value = isNetworkAvailable(context)
                         if (!isOnline.value) {
@@ -170,7 +189,7 @@ fun MealPlanScreen(
                                         isSyncingGroceries = false
                                     }
                                 },
-                                enabled = !isSyncingGroceries,
+                                enabled = !isSyncingGroceries && isOnline.value,
                                 shape = MaterialTheme.shapes.medium,
                                 colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
                             ) {
@@ -179,7 +198,7 @@ fun MealPlanScreen(
                                 } else {
                                     Icon(imageVector = Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Sync")
+                                    Text(if (isOnline.value) "Sync" else "Sync (Internet required)")
                                 }
                             }
                         }

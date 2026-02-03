@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: pcosina-backend
+    runtime: python
+    branch: dev
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health

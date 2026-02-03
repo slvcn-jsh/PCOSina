@@ -72,7 +72,10 @@ fun MealPlanScreen(
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.height(56.dp).padding(horizontal = 32.dp)
                 ) {
-                    Text("Generate My Optimized Plan", fontWeight = FontWeight.Bold)
+                    Text(
+                        if (isOnline.value) "Generate My Optimized Plan" else "Generate (Internet required)",
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -155,6 +158,11 @@ fun MealPlanScreen(
                             }
                             Button(
                                 onClick = { 
+                                    isOnline.value = isNetworkAvailable(context)
+                                    if (!isOnline.value) {
+                                        mealPlanViewModel.showError("Offline. Sync requires internet for recipe details.")
+                                        return@Button
+                                    }
                                     analytics.logEvent("sync_groceries", null)
                                     isSyncingGroceries = true
                                     mealPlanViewModel.extractAllGroceryItems { items ->

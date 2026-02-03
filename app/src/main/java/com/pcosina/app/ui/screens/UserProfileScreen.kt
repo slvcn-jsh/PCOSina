@@ -82,10 +82,13 @@ fun UserProfileScreen(
                     } else {
                         // FINAL SAVE TO VIEWMODEL
                         userViewModel.updateProfileName(displayName)
+                        val safeAge = clampInt(age, min = 13, max = 60, fallback = 25)
+                        val safeWeight = clampInt(weight, min = 35, max = 180, fallback = 65)
+                        val safeHeight = clampInt(height, min = 120, max = 200, fallback = 160)
                         userViewModel.updatePersonalDetails(
-                            age = age.toIntOrNull() ?: 25,
-                            weight = weight.toIntOrNull() ?: 65,
-                            height = height.toIntOrNull() ?: 160,
+                            age = safeAge,
+                            weight = safeWeight,
+                            height = safeHeight,
                             activity = activityLevel
                         )
                         val symptoms = mutableListOf<String>()
@@ -102,7 +105,7 @@ fun UserProfileScreen(
                         if (noPork) restrictions.add("No Pork")
                         if (noBeef) restrictions.add("No Beef")
                         userViewModel.updateDietaryRestrictions(restrictions)
-                        userViewModel.updateBudget(budget.toIntOrNull() ?: 2000)
+                        userViewModel.updateBudget(clampInt(budget, min = 0, max = 20000, fallback = 2000))
                         
                         onNext()
                     }
@@ -319,6 +322,11 @@ private fun CheckboxRow(label: String, checked: Boolean, accentColor: Color, onC
         Checkbox(checked = checked, onCheckedChange = onCheckedChange, colors = CheckboxDefaults.colors(checkedColor = accentColor))
         Text(text = label, style = MaterialTheme.typography.bodyLarge, color = if (checked) Color.Black else Color.DarkGray)
     }
+}
+
+private fun clampInt(raw: String, min: Int, max: Int, fallback: Int): Int {
+    val value = raw.toIntOrNull() ?: return fallback
+    return value.coerceIn(min, max)
 }
 
 private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =

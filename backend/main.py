@@ -12,6 +12,10 @@ from contextlib import asynccontextmanager
 from ortools.sat.python import cp_model
 import database
 
+PLAN_CACHE_TTL_SECONDS = 600
+PLAN_CACHE_MAX_SIZE = 200
+_plan_cache = {}
+
 def get_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -123,7 +127,7 @@ def solve_meal_plan(request: GeneratePlanRequest, recipes: List[Dict]):
         if not exclude: candidates.append(r)
     if len(candidates) < 5: return None, "No safe recipes found."
     random.shuffle(candidates)
-    pool = candidates[:150]
+    pool = candidates[:120]
     for max_per_week in [2, 3, 4, 10]:
         model = cp_model.CpModel()
         x = {} 
@@ -143,7 +147,8 @@ def solve_meal_plan(request: GeneratePlanRequest, recipes: List[Dict]):
         weights = [random.randint(1, 100) for _ in range(len(pool))]
         model.Maximize(sum(x[s, i] * weights[i] for s in range(slot_count) for i in range(len(pool))))
         solver = cp_model.CpSolver()
-        solver.parameters.max_time_in_seconds = 4.0
+        solver.parameters.max_time_in_seconds = 3.0
+        solver.parameters.num_search_workers = 8
         status = solver.Solve(model)
         if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
             res_plan = []
@@ -163,13 +168,46 @@ def solve_meal_plan(request: GeneratePlanRequest, recipes: List[Dict]):
             return res_plan, "Success"
     return None, "Infeasible"
 
+def _cache_key(request: GeneratePlanRequest) -> str:
+    try:
+        return json.dumps(request.model_dump(), sort_keys=True)
+    except Exception:
+        return json.dumps({
+            "profile": request.profile.model_dump() if hasattr(request.profile, "model_dump") else request.profile.dict(),
+            "days": request.days
+        }, sort_keys=True)
+
+def _cache_get(key: str):
+    item = _plan_cache.get(key)
+    if not item:
+        return None
+    ts, value = item
+    if (time.time() - ts) > PLAN_CACHE_TTL_SECONDS:
+        _plan_cache.pop(key, None)
+        return None
+    return value
+
+def _cache_set(key: str, value: GeneratePlanResponse):
+    if len(_plan_cache) >= PLAN_CACHE_MAX_SIZE:
+        # Remove oldest entry to keep memory bounded.
+        oldest_key = min(_plan_cache.items(), key=lambda kv: kv[1][0])[0]
+        _plan_cache.pop(oldest_key, None)
+    _plan_cache[key] = (time.time(), value)
+
 @app.post("/generate-plan", response_model=GeneratePlanResponse)
 async def generate_plan(request: GeneratePlanRequest):
     try:
+        key = _cache_key(request)
+        cached = _cache_get(key)
+        if cached is not None:
+            return cached
+
         all_recipes = database.get_all_recipes()
         result, msg = solve_meal_plan(request, all_recipes)
         if result:
-            return GeneratePlanResponse(weekLabel=f"PCOSINA {request.days}-Day Plan", days=result, status="success", message=msg)
+            response = GeneratePlanResponse(weekLabel=f"PCOSINA {request.days}-Day Plan", days=result, status="success", message=msg)
+            _cache_set(key, response)
+            return response
         raise HTTPException(status_code=422, detail=f"Infeasible: {msg}")
     except Exception as e:
         traceback.print_exc()

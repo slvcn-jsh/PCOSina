@@ -191,6 +191,12 @@ fun BottomActionRow(currentStep: Int, primaryColor: Color, onBack: () -> Unit, o
 fun StepOneIdentity(name: String, onName: (String) -> Unit, age: String, onAge: (String) -> Unit, weight: String, onWeight: (String) -> Unit, height: String, onHeight: (String) -> Unit, activity: String, onActivity: (String) -> Unit, color: Color) {
     val options = listOf("Sedentary", "Lightly Active", "Moderately Active", "Very Active")
     var expanded by remember { mutableStateOf(false) }
+    val ageValue = age.toIntOrNull()
+    val weightValue = weight.toIntOrNull()
+    val heightValue = height.toIntOrNull()
+    val ageOutOfRange = ageValue != null && (ageValue < 13 || ageValue > 60)
+    val weightOutOfRange = weightValue != null && (weightValue < 35 || weightValue > 180)
+    val heightOutOfRange = heightValue != null && (heightValue < 120 || heightValue > 200)
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionTitle("Personal Details")
@@ -226,6 +232,13 @@ fun StepOneIdentity(name: String, onName: (String) -> Unit, age: String, onAge: 
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
             )
         }
+        if (ageOutOfRange || weightOutOfRange) {
+            Text(
+                text = "Tip: keep age 13–60 and weight 35–180 for accurate targets.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
         OutlinedTextField(
             value = height,
             onValueChange = onHeight,
@@ -236,6 +249,13 @@ fun StepOneIdentity(name: String, onName: (String) -> Unit, age: String, onAge: 
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
         )
+        if (heightOutOfRange) {
+            Text(
+                text = "Tip: keep height 120–200 cm for accurate targets.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
         
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
             OutlinedTextField(value = activity, onValueChange = {}, readOnly = true, label = { Text("Activity Level") }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }, shape = MaterialTheme.shapes.medium, colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = color))

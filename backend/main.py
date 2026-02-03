@@ -42,7 +42,14 @@ async def lifespan(app: FastAPI):
     database.seed_recipes()
     yield
 
-app = FastAPI(title="PCOSINA Optimization API", lifespan=lifespan)
+docs_enabled = os.getenv("ENABLE_API_DOCS", "").lower() == "true"
+app = FastAPI(
+    title="PCOSINA Optimization API",
+    lifespan=lifespan,
+    docs_url="/docs" if docs_enabled else None,
+    redoc_url="/redoc" if docs_enabled else None,
+    openapi_url="/openapi.json" if docs_enabled else None,
+)
 allowed_hosts = os.getenv(
     "ALLOWED_HOSTS",
     "pcosina-backend.onrender.com,localhost,127.0.0.1"

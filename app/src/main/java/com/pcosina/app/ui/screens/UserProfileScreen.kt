@@ -51,7 +51,7 @@ fun UserProfileScreen(
     var symptomHairLoss by rememberSaveable { mutableStateOf(profile.symptoms.contains("Hair loss")) }
     
     var lacto by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("Lactose Intolerant")) }
-    var vegetarian by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("Vegetarian Only")) }
+    var vegetarian by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("Vegetarian") || profile.dietaryRestrictions.contains("Vegetarian Only")) }
     var pescatarian by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("Pescatarian")) }
     var noPork by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("No Pork")) }
     var noBeef by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("No Beef")) }
@@ -97,7 +97,7 @@ fun UserProfileScreen(
                         
                         val restrictions = mutableListOf<String>()
                         if (lacto) restrictions.add("Lactose Intolerant")
-                        if (vegetarian) restrictions.add("Vegetarian Only")
+                        if (vegetarian) restrictions.add("Vegetarian")
                         if (pescatarian) restrictions.add("Pescatarian")
                         if (noPork) restrictions.add("No Pork")
                         if (noBeef) restrictions.add("No Beef")

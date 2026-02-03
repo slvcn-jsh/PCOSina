@@ -16,18 +16,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
-import androidx.compose.ui.platform.LocalContext
 import com.google.firebase.analytics.FirebaseAnalytics
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,7 +45,9 @@ fun MealPlanScreen(
     val uiState by mealPlanViewModel.uiState.collectAsState()
     val userProfile by userViewModel.userProfile.collectAsState()
     var selectedDayIndex by rememberSaveable { mutableStateOf(0) }
-    val analytics = FirebaseAnalytics.getInstance(LocalContext.current)
+    val context = LocalContext.current
+    val analytics = FirebaseAnalytics.getInstance(context)
+    val isOnline = remember { mutableStateOf(isNetworkAvailable(context)) }
     
     // Track if we are currently extracting ingredients
     var isSyncingGroceries by remember { mutableStateOf(false) }
@@ -55,6 +60,11 @@ fun MealPlanScreen(
             Box(modifier = modifier.fillMaxSize().background(Color(0xFFFFF9F9)), contentAlignment = Alignment.Center) {
                 Button(
                     onClick = {
+                        isOnline.value = isNetworkAvailable(context)
+                        if (!isOnline.value) {
+                            mealPlanViewModel.showError("Offline. Connect to the internet to generate a new plan.")
+                            return@Button
+                        }
                         analytics.logEvent("generate_plan", null)
                         mealPlanViewModel.generateMealPlan(userProfile)
                     },
@@ -85,7 +95,14 @@ fun MealPlanScreen(
             Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Error: ${state.message}", color = Color.Red)
-                    Button(onClick = { mealPlanViewModel.generateMealPlan(userProfile) }) { Text("Retry") }
+                    Button(onClick = {
+                        isOnline.value = isNetworkAvailable(context)
+                        if (!isOnline.value) {
+                            mealPlanViewModel.showError("Offline. Connect to the internet to generate a new plan.")
+                            return@Button
+                        }
+                        mealPlanViewModel.generateMealPlan(userProfile)
+                    }) { Text("Retry") }
                 }
             }
         }
@@ -99,6 +116,20 @@ fun MealPlanScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 item {
+                    if (!isOnline.value) {
+                        Card(
+                            shape = MaterialTheme.shapes.large,
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3CD)),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                        ) {
+                            Text(
+                                text = "Offline mode: showing your last saved plan.",
+                                modifier = Modifier.padding(12.dp),
+                                color = Color(0xFF856404),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
                     GradientHeader(
                         title = "PCOS-Optimized Plan",
                         subtitle = "Target: ${userViewModel.dailyCalorieTarget} kcal/day",
@@ -227,4 +258,11 @@ fun MealPlanScreen(
             }
         }
     }
+}
+
+private fun isNetworkAvailable(context: Context): Boolean {
+    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    val network = cm.activeNetwork ?: return false
+    val caps = cm.getNetworkCapabilities(network) ?: return false
+    return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
 }

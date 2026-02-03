@@ -34,7 +34,7 @@ android {
             buildConfigField("String", "BASE_URL", "\"https://pcosina-backend.onrender.com/\"")
             firebaseAppDistribution {
                 appId = "1:950408114415:android:0b3c55b663b7638c20ab1a"
-                testers = "salvacion.jsh@gmail.com"
+                groups = "QUADRANT"
                 artifactType = "APK"
                 releaseNotes = "Release build from dev branch."
             }

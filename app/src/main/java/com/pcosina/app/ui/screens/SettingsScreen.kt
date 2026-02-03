@@ -36,8 +36,6 @@ fun SettingsScreen(
     val secondaryColor = Color(0xFF8C3A45)
     
     val userName = profile.displayName.ifBlank { "Warrior" }
-    var secretTapCount by remember { mutableStateOf(0) }
-    var lastSecretTapMs by remember { mutableStateOf(0L) }
 
     Column(
         modifier = modifier
@@ -170,29 +168,6 @@ fun SettingsScreen(
             style = MaterialTheme.typography.labelSmall,
             color = Color.LightGray
         )
-        if (!BuildConfig.DEBUG) {
-            Text(
-                text = "Version ${BuildConfig.VERSION_NAME}",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp)
-                    .clickable {
-                        val now = System.currentTimeMillis()
-                        if (now - lastSecretTapMs > 1500) {
-                            secretTapCount = 0
-                        }
-                        lastSecretTapMs = now
-                        secretTapCount += 1
-                        if (secretTapCount >= 5) {
-                            FirebaseCrashlytics.getInstance().log("Secret release crash trigger")
-                            throw RuntimeException("Crashlytics secret release test crash")
-                        }
-                    },
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFFCCCCCC)
-            )
-        }
         Spacer(Modifier.height(12.dp))
     }
 }

@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request, Depends, Header
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from starlette.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional, Dict, Any
 import json
@@ -50,6 +51,25 @@ app = FastAPI(
     redoc_url="/redoc" if docs_enabled else None,
     openapi_url="/openapi.json" if docs_enabled else None,
 )
+
+MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(512 * 1024)))
+
+@app.middleware("http")
+async def limit_request_size(request: Request, call_next):
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            if int(content_length) > MAX_REQUEST_BYTES:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "Request too large"},
+                )
+        except ValueError:
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "Invalid Content-Length"},
+            )
+    return await call_next(request)
 allowed_hosts = os.getenv(
     "ALLOWED_HOSTS",
     "pcosina-backend.onrender.com,localhost,127.0.0.1"

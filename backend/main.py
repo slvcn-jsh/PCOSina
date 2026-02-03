@@ -7,20 +7,37 @@ import time
 import traceback
 import random
 import math
+import socket
 from contextlib import asynccontextmanager
 from ortools.sat.python import cp_model
 import database
 
+def get_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+    except Exception:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("LOG: System startup. Syncing database...")
+    print("\n" + "="*50)
+    print(f"PCOSINA BRAIN IS STARTING...")
+    print(f"LOCAL IP: {get_ip()}")
+    print(f"URL FOR PHONE: http://{get_ip()}:8000")
+    print("="*50 + "\n")
     database.init_db()
     database.seed_recipes()
     yield
 
 app = FastAPI(title="PCOSINA Optimization API", lifespan=lifespan)
 
-# --- Models ---
+# ... (keep all models and solve_meal_plan logic exactly the same as before) ...
+
 class UserProfile(BaseModel):
     model_config = ConfigDict(extra='ignore')
     displayName: str = "User"
@@ -69,128 +86,99 @@ class GeneratePlanResponse(BaseModel):
     status: str
     message: str
 
-# --- The Elastic Solver ---
 def solve_meal_plan(request: GeneratePlanRequest, recipes: List[Dict]):
     profile = request.profile
-    num_days = request.days if 1 <= request.days <= 14 else 7
-    
-    # Target Calculation
-    w, h, a = profile.weightKg, profile.heightCm, profile.age
-    if w < 30: w, h, a = 60, 155, 25 
+    num_days = max(1, int(request.days or 7))
+    slot_count = num_days * 3
+    slot_labels = ["Breakfast", "Lunch", "Dinner"]
+    w, h, a = (profile.weightKg if profile.weightKg > 0 else 65, profile.heightCm if profile.heightCm > 0 else 160, profile.age if profile.age > 0 else 25)
     bmr = (10 * w) + (6.25 * h) - (5 * a) - 161
     target = int(bmr * 1.375)
     if "Weight Loss" in profile.goal: target -= 500
     target = max(1200, target)
-
-    print(f"DEBUG: Processing plan for '{profile.displayName}' | Target: {target} | Days: {num_days}")
-    print(f"DEBUG: Restrictions: {profile.dietaryRestrictions}")
-
-    # Filtering
-    restriction_map = {
-        "No Pork": ["Pork", "pork"],
-        "No Beef": ["Beef", "beef"],
-        "Vegetarian": ["Pork", "pork", "Beef", "beef", "Chicken", "chicken", "Fish", "fish", "Seafood", "seafood"]
-    }
-    
+    daily_targets = [target + random.randint(-50, 50) for _ in range(num_days)]
+    PORK_BAN = ["pork", "baboy", "liempo", "ham", "bacon", "lechon", "litson", "longganisa", "sausage", "hotdog", "lard", "chicharon", "pata", "isaw", "intestine", "dugo", "blood", "dinuguan", "maskara", "tenga", "ears", "sisig", "tokwa't baboy", "kasim", "pigue", "menudo", "humba", "bagnet", "meatball"]
+    BEEF_BAN = ["beef", "baka", "steak", "corned", "ribeye", "sirloin", "bulalo", "beefy", "laman-loob", "tripe", "tuwalya", "bituka", "liver", "atay", "tapa", "caldereta"]
+    MEAT_BAN = PORK_BAN + BEEF_BAN + ["chicken", "manok", "meat", "lamb", "goat", "kambing", "mutton", "venison", "duck", "pato", "itlog na maalat", "balut", "laman", "karne"]
+    SEAFOOD_BAN = ["fish", "isda", "shrimp", "hipon", "seafood", "crab", "alimasag", "alamang", "bagoong", "bangus", "tilapia", "tuna", "salmon", "squid", "pusit", "octopus", "mussel", "tahong", "oyster", "talaba", "patis", "tinapa", "daing", "tuyo"]
+    DAIRY_BAN = ["milk", "cheese", "cream", "butter", "dairy", "gatas", "keso", "creamy", "yogurt", "condensed", "evaporated"]
+    restriction_map = {"No Pork": PORK_BAN, "No Beef": BEEF_BAN, "Vegetarian": MEAT_BAN + SEAFOOD_BAN, "Pescatarian": MEAT_BAN, "Lactose Intolerant": DAIRY_BAN}
     candidates = []
     for r in recipes:
+        title = str(r.get("title", "")).lower()
+        tags = " ".join(r.get("tags", [])).lower()
+        ings_list = r.get("ingredients", [])
+        ings_text = ""
+        for ing in ings_list:
+            if isinstance(ing, dict): ings_text += " " + str(ing.get("name", ""))
+            else: ings_text += " " + str(ing)
+        haystack = f"{title} {tags} {ings_text.lower()}"
         exclude = False
-        tags = [t.lower() for t in r.get("tags", [])]
         for rest in profile.dietaryRestrictions:
-            banned = restriction_map.get(rest, [])
-            if any(b.lower() in tags for b in banned):
-                exclude = True; break
+            banned_words = restriction_map.get(rest, [])
+            for word in banned_words:
+                if word in haystack:
+                    exclude = True; break
+            if exclude: break
         if not exclude: candidates.append(r)
-
-    b_list = [i for i, r in enumerate(candidates) if r["mealType"] == "Breakfast"]
-    l_list = [i for i, r in enumerate(candidates) if r["mealType"] == "Lunch"]
-    d_list = [i for i, r in enumerate(candidates) if r["mealType"] == "Dinner"]
-
-    print(f"DEBUG: Candidate pool - Total: {len(candidates)} | B: {len(b_list)} | L: {len(l_list)} | D: {len(d_list)}")
-
-    if not b_list or not l_list or not d_list:
-        return None, "Inadequate recipe pool after filtering."
-
-    # Elastic Search Strategy: Try strict, then relax
+    if len(candidates) < 5: return None, "No safe recipes found."
+    random.shuffle(candidates)
+    pool = candidates[:150]
     for max_per_week in [2, 3, 4, 10]:
-        min_needed = math.ceil(num_days / max_per_week)
-        if len(b_list) < min_needed or len(l_list) < min_needed or len(d_list) < min_needed:
-            print(f"DEBUG: Skipping max_per_week={max_per_week} (Need {min_needed} recipes per type)")
-            continue
-
         model = cp_model.CpModel()
         x = {} 
+        for s in range(slot_count):
+            for i in range(len(pool)): x[s, i] = model.NewBoolVar(f"x_{s}_{i}")
+        for s in range(slot_count): model.Add(sum(x[s, i] for i in range(len(pool))) == 1)
+        for s in range(slot_count - 1):
+            for i in range(len(pool)): model.Add(x[s, i] + x[s+1, i] <= 1)
+        for i in range(len(pool)): model.Add(sum(x[s, i] for s in range(slot_count)) <= max_per_week)
         for d in range(num_days):
-            for m, idxs in enumerate([b_list, l_list, d_list]):
-                for i in idxs: x[d, m, i] = model.NewBoolVar(f'x_{d}_{m}_{i}')
-
-        for d in range(num_days):
-            for m, idxs in enumerate([b_list, l_list, d_list]):
-                model.Add(sum(x[d, m, i] for i in idxs) == 1)
-            day_cals = sum(x[d, m, i] * candidates[i]["calories"] for m in range(3) for i in [b_list, l_list, d_list][m])
-            model.Add(day_cals >= target - 400) # Increased tolerance slightly for reliability
-            model.Add(day_cals <= target + 400)
-
-        # Variety constraints
-        for i in range(len(candidates)):
-            model.Add(sum(x[d, m, i] for d in range(num_days) for m in range(3) if (d, m, i) in x) <= max_per_week)
-
-        # Optimization goal: Random variety
+            day_slots = range(d * 3, d * 3 + 3)
+            day_cals = sum(x[s, i] * int(pool[i].get("calories", 0)) for s in day_slots for i in range(len(pool)))
+            err = model.NewIntVar(0, 1500, f"err_{d}")
+            model.Add(err >= day_cals - daily_targets[d])
+            model.Add(err >= daily_targets[d] - day_cals)
         random.seed(f"{profile.displayName}_{time.time()}")
-        weights = [random.randint(1, 100) for _ in range(len(candidates))]
-        model.Maximize(sum(x[d, m, i] * weights[i] for d in range(num_days) for m in range(3) if (d, m, i) in x))
-
+        weights = [random.randint(1, 100) for _ in range(len(pool))]
+        model.Maximize(sum(x[s, i] * weights[i] for s in range(slot_count) for i in range(len(pool))))
         solver = cp_model.CpSolver()
-        solver.parameters.max_time_in_seconds = 3.0
+        solver.parameters.max_time_in_seconds = 4.0
         status = solver.Solve(model)
-
         if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
-            res = []
-            day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun", "Day 8", "Day 9", "Day 10"]
+            res_plan = []
+            day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
             for d in range(num_days):
                 meals = []
                 total = 0
                 for m in range(3):
-                    for i in [b_list, l_list, d_list][m]:
-                        if solver.Value(x[d, m, i]):
-                            r = candidates[i]
-                            meals.append(PlannedMeal(mealLabel=r["mealType"], recipeId=r["id"], title=r["title"]))
-                            total += r["calories"]
-                res.append(DayPlan(dayLabel=day_names[d] if d < 7 else f"Day {d+1}", meals=meals, totalCalories=total))
-            return res, f"Success (Max {max_per_week} repeats)"
-            
-    return None, "Mathematical infeasibility."
+                    idx = d * 3 + m
+                    for i in range(len(pool)):
+                        if solver.Value(x[idx, i]):
+                            r = pool[i]
+                            meals.append(PlannedMeal(mealLabel=slot_labels[m], recipeId=r["id"], title=r["title"]))
+                            total += int(r.get("calories", 0))
+                            break
+                res_plan.append(DayPlan(dayLabel=day_names[d] if d < 7 else f"Day {d+1}", meals=meals, totalCalories=total))
+            return res_plan, "Success"
+    return None, "Infeasible"
 
 @app.post("/generate-plan", response_model=GeneratePlanResponse)
 async def generate_plan(request: GeneratePlanRequest):
-    print(f"\n>>> REQUEST: Generate plan for '{request.profile.displayName}'")
     try:
         all_recipes = database.get_all_recipes()
-        if not all_recipes:
-            print("ERROR: Database returned 0 recipes!")
-            raise HTTPException(status_code=500, detail="Database is empty. Please seed recipes.")
-            
         result, msg = solve_meal_plan(request, all_recipes)
         if result:
-            return GeneratePlanResponse(
-                weekLabel=f"PCOSINA {request.days}-Day Plan",
-                days=result, status="success", message=msg
-            )
-        else:
-            print(f"ERROR: Solver failed: {msg}")
-            raise HTTPException(status_code=422, detail=f"No plan found: {msg}")
-    except HTTPException: raise
+            return GeneratePlanResponse(weekLabel=f"PCOSINA {request.days}-Day Plan", days=result, status="success", message=msg)
+        raise HTTPException(status_code=422, detail=f"Infeasible: {msg}")
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/recipe/{recipe_id}", response_model=RecipeDetail)
 async def get_recipe(recipe_id: str):
-    print(f"DEBUG: Searching for recipe ID: {recipe_id}")
-    all_recipes = database.get_all_recipes()
-    recipe = next((r for r in all_recipes if r["id"] == recipe_id), None)
+    recipe = next((r for r in database.get_all_recipes() if r["id"] == recipe_id), None)
     if recipe: return RecipeDetail(**recipe)
-    print(f"ERROR: Recipe {recipe_id} not found in {len(all_recipes)} recipes.")
     raise HTTPException(status_code=404, detail="Recipe not found")
 
 @app.get("/health")

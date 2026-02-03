@@ -1,0 +1,1364 @@
+[
+  {
+    "id": "r1",
+    "title": "Red Rice Lugaw + Egg",
+    "subtitle": "Warm • Digestion-friendly • Low GI",
+    "mealType": "Breakfast",
+    "minutes": 20,
+    "calories": 320,
+    "proteinGrams": 14,
+    "carbsGrams": 42,
+    "fatsGrams": 8,
+    "fiberGrams": 5,
+    "tags": ["PCOS-friendly", "Low GI", "Breakfast", "Egg"],
+    "ingredients": [
+      { "name": "Red rice", "quantity": "1/2 cup" },
+      { "name": "Ginger", "quantity": "2-inch thumb" },
+      { "name": "Egg", "quantity": "1 pc" }
+    ],
+    "steps": [
+      "Boil red rice with ginger until soft.",
+      "Top with a boiled egg and sautéed garlic.",
+      "Serve hot."
+    ]
+  },
+  {
+    "id": "r2",
+    "title": "Grilled Bangus + Ensaladang Talong",
+    "subtitle": "Omega-3 Rich • High Protein",
+    "mealType": "Lunch",
+    "minutes": 25,
+    "calories": 540,
+    "proteinGrams": 35,
+    "carbsGrams": 12,
+    "fatsGrams": 24,
+    "fiberGrams": 6,
+    "tags": ["Omega-3", "Lunch", "Fish", "Glow"],
+    "ingredients": [
+      { "name": "Bangus fillet", "quantity": "150g" },
+      { "name": "Eggplant", "quantity": "1 medium" },
+      { "name": "Tomatoes", "quantity": "2 pcs" }
+    ],
+    "steps": [
+      "Grill the bangus fillet until golden brown.",
+      "Char the eggplant, peel, and mash with tomatoes and onions.",
+      "Serve hot with a slice of calamansi."
+    ]
+  },
+  {
+    "id": "r3",
+    "title": "Chicken Tinola",
+    "subtitle": "Immune Boosting • Warm Soup",
+    "mealType": "Dinner",
+    "minutes": 30,
+    "calories": 480,
+    "proteinGrams": 32,
+    "carbsGrams": 15,
+    "fatsGrams": 18,
+    "fiberGrams": 4,
+    "tags": ["Glow", "Dinner", "Chicken", "Soup"],
+    "ingredients": [
+      { "name": "Chicken breast", "quantity": "160g" },
+      { "name": "Sayote", "quantity": "1 pc" },
+      { "name": "Malunggay leaves", "quantity": "1 cup" }
+    ],
+    "steps": [
+      "Sauté ginger, garlic, and chicken pieces.",
+      "Add water and simmer until chicken is tender.",
+      "Add sayote and malunggay leaves; cook for 2 more minutes."
+    ]
+  },
+  {
+    "id": "r4",
+    "title": "Monggo Guisado + Malunggay",
+    "subtitle": "High Fiber • Plant Protein",
+    "mealType": "Lunch",
+    "minutes": 35,
+    "calories": 460,
+    "proteinGrams": 22,
+    "carbsGrams": 48,
+    "fatsGrams": 12,
+    "fiberGrams": 14,
+    "tags": ["High Fiber", "Lunch", "Beans", "Glow"],
+    "ingredients": [
+      { "name": "Monggo beans", "quantity": "1 cup" },
+      { "name": "Malunggay leaves", "quantity": "1 cup" },
+      { "name": "Tinapa flakes", "quantity": "2 tbsp" }
+    ],
+    "steps": [
+      "Boil monggo beans until soft.",
+      "Sauté aromatics and add cooked monggo.",
+      "Stir in malunggay and tinapa flakes before serving."
+    ]
+  },
+  {
+    "id": "r5",
+    "title": "Lean Pork Adobo + Kangkong",
+    "subtitle": "Traditional • Protein Rich",
+    "mealType": "Dinner",
+    "minutes": 40,
+    "calories": 510,
+    "proteinGrams": 38,
+    "carbsGrams": 10,
+    "fatsGrams": 22,
+    "fiberGrams": 4,
+    "tags": ["Traditional", "Dinner", "Pork", "Glow"],
+    "ingredients": [
+      { "name": "Lean pork loin", "quantity": "150g" },
+      { "name": "Soy sauce", "quantity": "2 tbsp" },
+      { "name": "Kangkong", "quantity": "1 bunch" }
+    ],
+    "steps": [
+      "Simmer pork in soy sauce, vinegar, and garlic until tender.",
+      "Sauté kangkong separately with garlic.",
+      "Serve pork over kangkong."
+    ]
+  },
+  {
+    "id": "r6",
+    "title": "Scrambled Eggs + Kamatis",
+    "subtitle": "Quick • High Protein",
+    "mealType": "Breakfast",
+    "minutes": 10,
+    "calories": 290,
+    "proteinGrams": 18,
+    "carbsGrams": 8,
+    "fatsGrams": 16,
+    "fiberGrams": 2,
+    "tags": ["Quick", "Breakfast", "Egg", "Glow"],
+    "ingredients": [
+      { "name": "Eggs", "quantity": "2 pcs" },
+      { "name": "Tomatoes", "quantity": "2 medium" },
+      { "name": "Cucumber", "quantity": "1/2 pc" }
+    ],
+    "steps": [
+      "Sauté tomatoes until soft.",
+      "Add beaten eggs and scramble until set.",
+      "Serve with fresh cucumber slices."
+    ]
+  },
+  {
+    "id": "r7",
+    "title": "Beef Pares (Lean) + Pechay",
+    "subtitle": "High Protein • Local Classic",
+    "mealType": "Lunch",
+    "minutes": 45,
+    "calories": 620,
+    "proteinGrams": 40,
+    "carbsGrams": 45,
+    "fatsGrams": 20,
+    "fiberGrams": 6,
+    "tags": ["High Protein", "Lunch", "Beef", "Glow"],
+    "ingredients": [
+      { "name": "Lean beef", "quantity": "150g" },
+      { "name": "Pechay", "quantity": "1 bunch" },
+      { "name": "Star anise", "quantity": "1 pc" }
+    ],
+    "steps": [
+      "Braise beef with soy sauce and star anise until very tender.",
+      "Blanch pechay in hot water.",
+      "Serve beef with its sauce and steamed pechay."
+    ]
+  },
+  {
+    "id": "r8",
+    "title": "Ginataang Kalabasa + Shrimp",
+    "subtitle": "Creamy • Vitamin A Rich",
+    "mealType": "Dinner",
+    "minutes": 30,
+    "calories": 430,
+    "proteinGrams": 25,
+    "carbsGrams": 30,
+    "fatsGrams": 22,
+    "fiberGrams": 8,
+    "tags": ["Glow", "Dinner", "Seafood"],
+    "ingredients": [
+      { "name": "Shrimp", "quantity": "100g" },
+      { "name": "Squash", "quantity": "1 cup" },
+      { "name": "Coconut milk", "quantity": "1/2 cup" }
+    ],
+    "steps": [
+      "Sauté garlic and onions, then add squash and coconut milk.",
+      "Simmer until squash is soft.",
+      "Add shrimp and sitaw; cook until shrimp is pink."
+    ]
+  },
+  {
+    "id": "r9",
+    "title": "Daing na Bangus + Red Rice",
+    "subtitle": "Crunchy • High Protein",
+    "mealType": "Breakfast",
+    "minutes": 20,
+    "calories": 410,
+    "proteinGrams": 28,
+    "carbsGrams": 35,
+    "fatsGrams": 14,
+    "fiberGrams": 4,
+    "tags": ["High Protein", "Breakfast", "Fish"],
+    "ingredients": [
+      { "name": "Bangus", "quantity": "1 pc" },
+      { "name": "Red rice", "quantity": "1/2 cup" },
+      { "name": "Vinegar", "quantity": "2 tbsp" }
+    ],
+    "steps": [
+      "Fry or air-fry marinated bangus until crispy.",
+      "Serve with 1/2 cup of hot red rice.",
+      "Pair with tomato slices."
+    ]
+  },
+  {
+    "id": "r10",
+    "title": "Sinigang na Hipon",
+    "subtitle": "Tangy • Low Calorie",
+    "mealType": "Lunch",
+    "minutes": 30,
+    "calories": 380,
+    "proteinGrams": 24,
+    "carbsGrams": 20,
+    "fatsGrams": 10,
+    "fiberGrams": 5,
+    "tags": ["PCOS-friendly", "Lunch", "Seafood", "Soup"],
+    "ingredients": [
+      { "name": "Shrimp", "quantity": "150g" },
+      { "name": "Radish", "quantity": "1 pc" },
+      { "name": "Kangkong", "quantity": "1 bunch" }
+    ],
+    "steps": [
+      "Boil water with tamarind and tomatoes.",
+      "Add radish and long beans; simmer.",
+      "Add shrimp and kangkong; cook until done."
+    ]
+  },
+  {
+    "id": "r11",
+    "title": "Ginisang Ampalaya + Tofu",
+    "subtitle": "Insulin Support • Low GI",
+    "mealType": "Dinner",
+    "minutes": 25,
+    "calories": 310,
+    "proteinGrams": 15,
+    "carbsGrams": 18,
+    "fatsGrams": 12,
+    "fiberGrams": 7,
+    "tags": ["Low GI", "Dinner", "Vegetarian", "Glow"],
+    "ingredients": [
+      { "name": "Ampalaya", "quantity": "1 pc" },
+      { "name": "Firm Tofu", "quantity": "150g" },
+      { "name": "Egg", "quantity": "1 pc" }
+    ],
+    "steps": [
+      "Sauté tofu cubes until golden.",
+      "Add sliced ampalaya and sauté until tender.",
+      "Pour in a beaten egg and mix gently."
+    ]
+  },
+  {
+    "id": "r12",
+    "title": "Chicken Inasal (Breast)",
+    "subtitle": "Grilled • Lean Protein",
+    "mealType": "Lunch",
+    "minutes": 35,
+    "calories": 490,
+    "proteinGrams": 42,
+    "carbsGrams": 5,
+    "fatsGrams": 18,
+    "fiberGrams": 2,
+    "tags": ["Grilled", "Lunch", "Chicken", "High Protein"],
+    "ingredients": [
+      { "name": "Chicken breast", "quantity": "160g" },
+      { "name": "Lemongrass", "quantity": "1 stalk" },
+      { "name": "Calamansi", "quantity": "3 pcs" }
+    ],
+    "steps": [
+      "Marinate chicken in calamansi, ginger, and lemongrass.",
+      "Grill until charred and cooked through.",
+      "Serve with a side of steamed pechay."
+    ]
+  },
+  {
+    "id": "r13",
+    "title": "Tortang Talong + Red Rice",
+    "subtitle": "Fiber Rich • Balanced",
+    "mealType": "Breakfast",
+    "minutes": 20,
+    "calories": 380,
+    "proteinGrams": 12,
+    "carbsGrams": 45,
+    "fatsGrams": 14,
+    "fiberGrams": 6,
+    "tags": ["Glow", "Breakfast", "Vegetarian", "High Fiber"],
+    "ingredients": [
+      { "name": "Eggplant", "quantity": "1 large" },
+      { "name": "Egg", "quantity": "1 pc" },
+      { "name": "Red rice", "quantity": "1/2 cup" }
+    ],
+    "steps": [
+      "Grill eggplant until soft, peel off skin.",
+      "Flatten and dip into beaten egg.",
+      "Pan-fry and serve with red rice."
+    ]
+  },
+  {
+    "id": "r14",
+    "title": "Tinapang Bangus + Tomatoes",
+    "subtitle": "Quick • Protein Rich",
+    "mealType": "Breakfast",
+    "minutes": 15,
+    "calories": 360,
+    "proteinGrams": 26,
+    "carbsGrams": 5,
+    "fatsGrams": 18,
+    "fiberGrams": 2,
+    "tags": ["Breakfast", "Fish", "High Protein"],
+    "ingredients": [
+      { "name": "Smoked Bangus", "quantity": "150g" },
+      { "name": "Tomatoes", "quantity": "2 pcs" },
+      { "name": "Onion", "quantity": "1 small" }
+    ],
+    "steps": [
+      "Fry or steam the smoked fish until heated.",
+      "Serve with sliced fresh tomatoes and onions.",
+      "Pair with a small portion of red rice."
+    ]
+  },
+  {
+    "id": "r15",
+    "title": "Oatmeal + Banana + Chia",
+    "subtitle": "PCOS Choice • High Fiber",
+    "mealType": "Breakfast",
+    "minutes": 10,
+    "calories": 340,
+    "proteinGrams": 10,
+    "carbsGrams": 52,
+    "fatsGrams": 8,
+    "fiberGrams": 12,
+    "tags": ["High Fiber", "Breakfast", "PCOS-friendly", "Quick"],
+    "ingredients": [
+      { "name": "Oatmeal", "quantity": "1/2 cup" },
+      { "name": "Banana", "quantity": "1 pc" },
+      { "name": "Chia seeds", "quantity": "1 tbsp" }
+    ],
+    "steps": [
+      "Cook oats in water or low-fat milk.",
+      "Top with sliced banana and chia seeds.",
+      "Serve warm."
+    ]
+  },
+  {
+    "id": "r16",
+    "title": "Adlai Porridge + Egg",
+    "subtitle": "Low GI • Local Grain",
+    "mealType": "Breakfast",
+    "minutes": 25,
+    "calories": 360,
+    "proteinGrams": 12,
+    "carbsGrams": 48,
+    "fatsGrams": 7,
+    "fiberGrams": 9,
+    "tags": ["Low GI", "Breakfast", "Egg", "High Fiber"],
+    "ingredients": [
+      { "name": "Adlai", "quantity": "1/2 cup" },
+      { "name": "Egg", "quantity": "1 pc" },
+      { "name": "Ginger", "quantity": "1 small piece" }
+    ],
+    "steps": [
+      "Boil adlai grains until soft.",
+      "Serve with a sliced hard-boiled egg.",
+      "Add a dash of pepper."
+    ]
+  },
+  {
+    "id": "r17",
+    "title": "Saba Banana + PB",
+    "subtitle": "Quick Energy • Fiber Rich",
+    "mealType": "Breakfast",
+    "minutes": 5,
+    "calories": 330,
+    "proteinGrams": 8,
+    "carbsGrams": 45,
+    "fatsGrams": 12,
+    "fiberGrams": 7,
+    "tags": ["Breakfast", "Quick", "Budget", "High Fiber"],
+    "ingredients": [
+      { "name": "Saba banana", "quantity": "2 pcs" },
+      { "name": "Peanut butter", "quantity": "1 tbsp" }
+    ],
+    "steps": [
+      "Steam or boil the saba bananas.",
+      "Peel and spread a tablespoon of peanut butter.",
+      "Enjoy as a quick breakfast."
+    ]
+  },
+  {
+    "id": "r18",
+    "title": "Tuna Omelette + Pipino",
+    "subtitle": "High Protein • Lean",
+    "mealType": "Breakfast",
+    "minutes": 15,
+    "calories": 370,
+    "proteinGrams": 28,
+    "carbsGrams": 6,
+    "fatsGrams": 20,
+    "fiberGrams": 3,
+    "tags": ["High Protein", "Breakfast", "Fish", "Quick"],
+    "ingredients": [
+      { "name": "Canned tuna", "quantity": "1 can" },
+      { "name": "Eggs", "quantity": "2 pcs" },
+      { "name": "Cucumber", "quantity": "1 pc" }
+    ],
+    "steps": [
+      "Mix drained tuna with beaten eggs.",
+      "Pan-fry until set and golden.",
+      "Serve with fresh cucumber slices."
+    ]
+  },
+  {
+    "id": "r19",
+    "title": "Sardines Omelette + Kamatis",
+    "subtitle": "Budget Friendly • Protein",
+    "mealType": "Breakfast",
+    "minutes": 10,
+    "calories": 390,
+    "proteinGrams": 24,
+    "carbsGrams": 10,
+    "fatsGrams": 22,
+    "fiberGrams": 4,
+    "tags": ["Budget", "Breakfast", "Fish", "High Protein"],
+    "ingredients": [
+      { "name": "Sardines", "quantity": "1 small can" },
+      { "name": "Eggs", "quantity": "2 pcs" },
+      { "name": "Tomatoes", "quantity": "2 pcs" }
+    ],
+    "steps": [
+      "Mash sardines and sauté with tomatoes.",
+      "Add beaten eggs and cook until firm.",
+      "Serve hot."
+    ]
+  },
+  {
+    "id": "r20",
+    "title": "Tokwa Scramble + Veggies",
+    "subtitle": "Vegan • High Protein",
+    "mealType": "Breakfast",
+    "minutes": 15,
+    "calories": 310,
+    "proteinGrams": 20,
+    "carbsGrams": 15,
+    "fatsGrams": 14,
+    "fiberGrams": 6,
+    "tags": ["Vegetarian", "Breakfast", "Quick", "Low GI"],
+    "ingredients": [
+      { "name": "Firm tofu", "quantity": "150g" },
+      { "name": "Peppers", "quantity": "1/4 cup" },
+      { "name": "Onion", "quantity": "1 small" }
+    ],
+    "steps": [
+      "Crumble tofu and sauté with onions and peppers.",
+      "Season with turmeric and nutritional yeast.",
+      "Cook until lightly browned."
+    ]
+  },
+  {
+    "id": "r21",
+    "title": "Veggie Fried Red Rice + Egg",
+    "subtitle": "Glow Breakfast • High Fiber",
+    "mealType": "Breakfast",
+    "minutes": 20,
+    "calories": 420,
+    "proteinGrams": 14,
+    "carbsGrams": 55,
+    "fatsGrams": 12,
+    "fiberGrams": 8,
+    "tags": ["Breakfast", "Egg", "Glow"],
+    "ingredients": [
+      { "name": "Red rice", "quantity": "1/2 cup" },
+      { "name": "Mixed veg", "quantity": "1/2 cup" },
+      { "name": "Egg", "quantity": "1 pc" }
+    ],
+    "steps": [
+      "Sauté mixed vegetables and rice.",
+      "Push rice to the side and fry the egg.",
+      "Toss everything together and serve."
+    ]
+  },
+  {
+    "id": "r22",
+    "title": "Chicken Adobo Flakes",
+    "subtitle": "Traditional • Savory",
+    "mealType": "Breakfast",
+    "minutes": 30,
+    "calories": 430,
+    "proteinGrams": 32,
+    "carbsGrams": 30,
+    "fatsGrams": 16,
+    "fiberGrams": 3,
+    "tags": ["Breakfast", "Chicken", "High Protein", "Traditional"],
+    "ingredients": [
+      { "name": "Chicken adobo", "quantity": "100g" },
+      { "name": "Red rice", "quantity": "1/2 cup" }
+    ],
+    "steps": [
+      "Shred leftover chicken adobo.",
+      "Fry in a pan until crispy.",
+      "Serve over hot red rice."
+    ]
+  },
+  {
+    "id": "r23",
+    "title": "Sinigang na Bangus",
+    "subtitle": "Tangy Soup • Low GI",
+    "mealType": "Lunch",
+    "minutes": 35,
+    "calories": 420,
+    "proteinGrams": 28,
+    "carbsGrams": 22,
+    "fatsGrams": 14,
+    "fiberGrams": 5,
+    "tags": ["Lunch", "Fish", "Soup", "PCOS-friendly"],
+    "ingredients": [
+      { "name": "Bangus", "quantity": "150g" },
+      { "name": "Kangkong", "quantity": "1 bunch" },
+      { "name": "Radish", "quantity": "1/2 pc" }
+    ],
+    "steps": [
+      "Boil tamarind base with vegetables.",
+      "Add bangus slices and simmer until cooked.",
+      "Serve hot."
+    ]
+  },
+  {
+    "id": "r24",
+    "title": "Beef Nilaga (Lean)",
+    "subtitle": "Comforting • High Protein",
+    "mealType": "Lunch",
+    "minutes": 50,
+    "calories": 520,
+    "proteinGrams": 35,
+    "carbsGrams": 25,
+    "fatsGrams": 18,
+    "fiberGrams": 6,
+    "tags": ["Lunch", "Beef", "Soup", "High Protein"],
+    "ingredients": [
+      { "name": "Lean beef", "quantity": "150g" },
+      { "name": "Cabbage", "quantity": "1/2 pc" },
+      { "name": "Pechay", "quantity": "1 bunch" }
+    ],
+    "steps": [
+      "Boil beef cubes until very tender.",
+      "Add vegetables and simmer for 5 minutes.",
+      "Season with peppercorns."
+    ]
+  },
+  {
+    "id": "r25",
+    "title": "Chicken Nilaga + Sayote",
+    "subtitle": "Hearty • Balanced",
+    "mealType": "Lunch",
+    "minutes": 40,
+    "calories": 480,
+    "proteinGrams": 30,
+    "carbsGrams": 20,
+    "fatsGrams": 16,
+    "fiberGrams": 5,
+    "tags": ["Lunch", "Chicken", "Soup", "Glow"],
+    "ingredients": [
+      { "name": "Chicken", "quantity": "160g" },
+      { "name": "Sayote", "quantity": "1 pc" },
+      { "name": "Pechay", "quantity": "1 bunch" }
+    ],
+    "steps": [
+      "Simmer chicken pieces until soft.",
+      "Add sayote and pechay leaves.",
+      "Serve with a small side of rice."
+    ]
+  },
+  {
+    "id": "r26",
+    "title": "Pinakbet + Grilled Chicken",
+    "subtitle": "High Fiber • Local Power",
+    "mealType": "Lunch",
+    "minutes": 30,
+    "calories": 560,
+    "proteinGrams": 32,
+    "carbsGrams": 35,
+    "fatsGrams": 20,
+    "fiberGrams": 12,
+    "tags": ["Lunch", "Chicken", "Glow", "High Fiber"],
+    "ingredients": [
+      { "name": "Squash", "quantity": "1/2 cup" },
+      { "name": "Okra", "quantity": "4 pcs" },
+      { "name": "Grilled chicken", "quantity": "100g" }
+    ],
+    "steps": [
+      "Sauté vegetables with a small amount of shrimp paste.",
+      "Top with sliced grilled chicken breast.",
+      "Serve with brown rice."
+    ]
+  },
+  {
+    "id": "r27",
+    "title": "Chopsuey + Tofu",
+    "subtitle": "Veggie Loaded • Vegan Option",
+    "mealType": "Lunch",
+    "minutes": 25,
+    "calories": 440,
+    "proteinGrams": 18,
+    "carbsGrams": 30,
+    "fatsGrams": 16,
+    "fiberGrams": 10,
+    "tags": ["Lunch", "Vegetarian", "Glow", "High Fiber"],
+    "ingredients": [
+      { "name": "Mixed veg", "quantity": "2 cups" },
+      { "name": "Tofu", "quantity": "150g" }
+    ],
+    "steps": [
+      "Pan-fry tofu cubes until crispy.",
+      "Stir-fry mixed vegetables.",
+      "Mix together with a light oyster sauce."
+    ]
+  },
+  {
+    "id": "r28",
+    "title": "Chopsuey + Chicken",
+    "subtitle": "Classic • Balanced",
+    "mealType": "Lunch",
+    "minutes": 30,
+    "calories": 520,
+    "proteinGrams": 28,
+    "carbsGrams": 30,
+    "fatsGrams": 18,
+    "fiberGrams": 10,
+    "tags": ["Lunch", "Chicken", "Glow"],
+    "ingredients": [
+      { "name": "Mixed veg", "quantity": "2 cups" },
+      { "name": "Chicken breast", "quantity": "100g" }
+    ],
+    "steps": [
+      "Stir-fry chicken strips with garlic.",
+      "Add vegetables and toss until cooked.",
+      "Serve immediately."
+    ]
+  },
+  {
+    "id": "r29",
+    "title": "Ginisang Sayote + Chicken",
+    "subtitle": "Quick • Low Calorie",
+    "mealType": "Lunch",
+    "minutes": 20,
+    "calories": 470,
+    "proteinGrams": 26,
+    "carbsGrams": 20,
+    "fatsGrams": 16,
+    "fiberGrams": 6,
+    "tags": ["Lunch", "Chicken", "Glow", "Quick"],
+    "ingredients": [
+      { "name": "Sayote", "quantity": "1 pc" },
+      { "name": "Chicken", "quantity": "100g" },
+      { "name": "Garlic", "quantity": "2 cloves" }
+    ],
+    "steps": [
+      "Sauté aromatics, then add chicken.",
+      "Add sayote and sauté until tender-crisp.",
+      "Season with salt and pepper."
+    ]
+  },
+  {
+    "id": "r30",
+    "title": "Ginisang Upo + Shrimp",
+    "subtitle": "Light • Fresh",
+    "mealType": "Lunch",
+    "minutes": 25,
+    "calories": 420,
+    "proteinGrams": 22,
+    "carbsGrams": 18,
+    "fatsGrams": 14,
+    "fiberGrams": 5,
+    "tags": ["Lunch", "Seafood", "Glow", "Low GI"],
+    "ingredients": [
+      { "name": "Upo", "quantity": "1 pc" },
+      { "name": "Shrimp", "quantity": "100g" }
+    ],
+    "steps": [
+      "Sauté shrimp until they turn pink.",
+      "Add sliced upo and simmer briefly.",
+      "Season with a dash of fish sauce."
+    ]
+  },
+  {
+    "id": "r31",
+    "title": "Tuna Salad + Greens",
+    "subtitle": "No-Cook • High Protein",
+    "mealType": "Lunch",
+    "minutes": 15,
+    "calories": 460,
+    "proteinGrams": 32,
+    "carbsGrams": 15,
+    "fatsGrams": 22,
+    "fiberGrams": 8,
+    "tags": ["Lunch", "Fish", "High Protein", "Quick"],
+    "ingredients": [
+      { "name": "Canned tuna", "quantity": "1 can" },
+      { "name": "Lettuce", "quantity": "2 cups" },
+      { "name": "Boiled egg", "quantity": "1 pc" }
+    ],
+    "steps": [
+      "Mix tuna with a small amount of light dressing.",
+      "Serve over fresh lettuce greens.",
+      "Top with sliced boiled egg."
+    ]
+  },
+  {
+    "id": "r32",
+    "title": "Chicken Afritada",
+    "subtitle": "Savory • Vitamin Rich",
+    "mealType": "Lunch",
+    "minutes": 40,
+    "calories": 540,
+    "proteinGrams": 30,
+    "carbsGrams": 35,
+    "fatsGrams": 18,
+    "fiberGrams": 7,
+    "tags": ["Lunch", "Chicken", "Traditional", "Glow"],
+    "ingredients": [
+      { "name": "Chicken", "quantity": "150g" },
+      { "name": "Carrots", "quantity": "1/2 pc" },
+      { "name": "Bell pepper", "quantity": "1/2 pc" }
+    ],
+    "steps": [
+      "Sear chicken until browned.",
+      "Add tomato sauce and carrots; simmer.",
+      "Finish with bell peppers."
+    ]
+  },
+  {
+    "id": "r33",
+    "title": "Chicken Menudo",
+    "subtitle": "Traditional • High Protein",
+    "mealType": "Lunch",
+    "minutes": 45,
+    "calories": 560,
+    "proteinGrams": 32,
+    "carbsGrams": 38,
+    "fatsGrams": 20,
+    "fiberGrams": 6,
+    "tags": ["Lunch", "Chicken", "Traditional"],
+    "ingredients": [
+      { "name": "Chicken cubes", "quantity": "150g" },
+      { "name": "Potatoes", "quantity": "1/2 pc" },
+      { "name": "Tomato sauce", "quantity": "1/4 cup" }
+    ],
+    "steps": [
+      "Sauté chicken and aromatics.",
+      "Add potatoes and tomato sauce.",
+      "Cook until sauce is thick and potatoes are soft."
+    ]
+  },
+  {
+    "id": "r34",
+    "title": "Beef Bistek (Lean)",
+    "subtitle": "Savory • Iron Rich",
+    "mealType": "Lunch",
+    "minutes": 35,
+    "calories": 590,
+    "proteinGrams": 38,
+    "carbsGrams": 20,
+    "fatsGrams": 24,
+    "fiberGrams": 4,
+    "tags": ["Lunch", "Beef", "High Protein"],
+    "ingredients": [
+      { "name": "Lean beef", "quantity": "150g" },
+      { "name": "Onion", "quantity": "1 pc" },
+      { "name": "Soy sauce", "quantity": "2 tbsp" }
+    ],
+    "steps": [
+      "Marinate beef slices in soy sauce and calamansi.",
+      "Pan-sear beef until cooked.",
+      "Top with sautéed onion rings."
+    ]
+  },
+  {
+    "id": "r35",
+    "title": "Inihaw na Tilapia",
+    "subtitle": "Grilled • PCOS-Friendly",
+    "mealType": "Lunch",
+    "minutes": 30,
+    "calories": 500,
+    "proteinGrams": 32,
+    "carbsGrams": 10,
+    "fatsGrams": 18,
+    "fiberGrams": 5,
+    "tags": ["Lunch", "Fish", "Grilled", "PCOS-friendly"],
+    "ingredients": [
+      { "name": "Tilapia", "quantity": "1 pc" },
+      { "name": "Tomatoes", "quantity": "2 pcs" },
+      { "name": "Onion", "quantity": "1 pc" }
+    ],
+    "steps": [
+      "Stuff the fish with tomatoes and onions.",
+      "Grill until skin is crispy and flesh is flaky.",
+      "Serve with a small side of veggies."
+    ]
+  },
+  {
+    "id": "r36",
+    "title": "Paksiw na Isda + Talbos",
+    "subtitle": "Tangy • High Fiber",
+    "mealType": "Lunch",
+    "minutes": 30,
+    "calories": 430,
+    "proteinGrams": 26,
+    "carbsGrams": 15,
+    "fatsGrams": 14,
+    "fiberGrams": 6,
+    "tags": ["Lunch", "Fish", "Low GI", "Glow"],
+    "ingredients": [
+      { "name": "Bangus", "quantity": "150g" },
+      { "name": "Vinegar", "quantity": "1/4 cup" },
+      { "name": "Talbos ng kamote", "quantity": "1 bunch" }
+    ],
+    "steps": [
+      "Simmer fish in vinegar, ginger, and garlic.",
+      "Add kamote leaves at the very end.",
+      "Serve hot."
+    ]
+  },
+  {
+    "id": "r37",
+    "title": "Ginisang Ampalaya + Beef",
+    "subtitle": "Hormonal Balance • Protein",
+    "mealType": "Lunch",
+    "minutes": 25,
+    "calories": 520,
+    "proteinGrams": 30,
+    "carbsGrams": 18,
+    "fatsGrams": 22,
+    "fiberGrams": 7,
+    "tags": ["Lunch", "Beef", "Low GI", "Glow"],
+    "ingredients": [
+      { "name": "Ampalaya", "quantity": "1 pc" },
+      { "name": "Lean beef", "quantity": "100g" }
+    ],
+    "steps": [
+      "Stir-fry beef strips until brown.",
+      "Add sliced ampalaya and sauté.",
+      "Season with salt and pepper."
+    ]
+  },
+  {
+    "id": "r38",
+    "title": "Laing + Grilled Fish",
+    "subtitle": "High Fiber • Creamy",
+    "mealType": "Lunch",
+    "minutes": 40,
+    "calories": 540,
+    "proteinGrams": 28,
+    "carbsGrams": 25,
+    "fatsGrams": 24,
+    "fiberGrams": 12,
+    "tags": ["Lunch", "Fish", "Glow", "High Fiber"],
+    "ingredients": [
+      { "name": "Dried taro leaves", "quantity": "1 cup" },
+      { "name": "Coconut milk", "quantity": "1/2 cup" },
+      { "name": "Grilled fish", "quantity": "150g" }
+    ],
+    "steps": [
+      "Slow cook taro leaves in coconut milk.",
+      "Serve with a portion of grilled fish.",
+      "Pair with 1/2 cup of red rice."
+    ]
+  },
+  {
+    "id": "r39",
+    "title": "Lumpiang Sariwa",
+    "subtitle": "Fresh • Vegetable Rich",
+    "mealType": "Lunch",
+    "minutes": 35,
+    "calories": 390,
+    "proteinGrams": 14,
+    "carbsGrams": 40,
+    "fatsGrams": 12,
+    "fiberGrams": 10,
+    "tags": ["Lunch", "Vegetarian", "Glow", "High Fiber"],
+    "ingredients": [
+      { "name": "Roll wrapper", "quantity": "2 pcs" },
+      { "name": "Sautéed veg", "quantity": "1 cup" },
+      { "name": "Peanut sauce", "quantity": "2 tbsp" }
+    ],
+    "steps": [
+      "Prepare fresh vegetable filling.",
+      "Wrap in spring roll wrapper.",
+      "Drizzle with peanut sauce."
+    ]
+  },
+  {
+    "id": "r40",
+    "title": "Misua Soup + Patola + Tofu",
+    "subtitle": "Light • Gentle",
+    "mealType": "Lunch",
+    "minutes": 20,
+    "calories": 380,
+    "proteinGrams": 18,
+    "carbsGrams": 35,
+    "fatsGrams": 10,
+    "fiberGrams": 6,
+    "tags": ["Lunch", "Vegetarian", "Soup", "Low GI"],
+    "ingredients": [
+      { "name": "Patola", "quantity": "1 pc" },
+      { "name": "Tofu", "quantity": "100g" },
+      { "name": "Misua", "quantity": "1 bundle" }
+    ],
+    "steps": [
+      "Boil water and add tofu and patola.",
+      "Add misua noodles and cook for 2 minutes.",
+      "Serve warm."
+    ]
+  },
+  {
+    "id": "r41",
+    "title": "Chicken Adobo (Breast)",
+    "subtitle": "Lean Protein • Traditional",
+    "mealType": "Dinner",
+    "minutes": 40,
+    "calories": 520,
+    "proteinGrams": 42,
+    "carbsGrams": 10,
+    "fatsGrams": 18,
+    "fiberGrams": 3,
+    "tags": ["Dinner", "Chicken", "High Protein", "Traditional"],
+    "ingredients": [
+      { "name": "Chicken breast", "quantity": "160g" },
+      { "name": "Soy sauce", "quantity": "2 tbsp" },
+      { "name": "Vinegar", "quantity": "1 tbsp" }
+    ],
+    "steps": [
+      "Simmer chicken in adobo sauce until tender.",
+      "Serve with a side of steamed vegetables.",
+      "Optionally pair with 1/2 cup rice."
+    ]
+  },
+  {
+    "id": "r42",
+    "title": "Beef Caldereta (Lean)",
+    "subtitle": "Hearty • Traditional",
+    "mealType": "Dinner",
+    "minutes": 50,
+    "calories": 610,
+    "proteinGrams": 38,
+    "carbsGrams": 25,
+    "fatsGrams": 26,
+    "fiberGrams": 6,
+    "tags": ["Dinner", "Beef", "Traditional"],
+    "ingredients": [
+      { "name": "Lean beef", "quantity": "150g" },
+      { "name": "Tomato sauce", "quantity": "1/2 cup" },
+      { "name": "Peas", "quantity": "1/4 cup" }
+    ],
+    "steps": [
+      "Braise beef until soft.",
+      "Add tomato sauce and vegetables; simmer.",
+      "Serve hot."
+    ]
+  },
+  {
+    "id": "r43",
+    "title": "Chicken Caldereta",
+    "subtitle": "Savory • High Protein",
+    "mealType": "Dinner",
+    "minutes": 45,
+    "calories": 560,
+    "proteinGrams": 32,
+    "carbsGrams": 25,
+    "fatsGrams": 22,
+    "fiberGrams": 6,
+    "tags": ["Dinner", "Chicken", "Traditional"],
+    "ingredients": [
+      { "name": "Chicken", "quantity": "160g" },
+      { "name": "Potatoes", "quantity": "1/2 pc" },
+      { "name": "Bell pepper", "quantity": "1/2 pc" }
+    ],
+    "steps": [
+      "Cook chicken until browned.",
+      "Simmer with sauce and vegetables.",
+      "Serve warm."
+    ]
+  },
+  {
+    "id": "r44",
+    "title": "Steamed Fish + Pechay",
+    "subtitle": "Light • Low GI",
+    "mealType": "Dinner",
+    "minutes": 25,
+    "calories": 420,
+    "proteinGrams": 34,
+    "carbsGrams": 10,
+    "fatsGrams": 12,
+    "fiberGrams": 5,
+    "tags": ["Dinner", "Fish", "Low GI", "PCOS-friendly"],
+    "ingredients": [
+      { "name": "Fish fillet", "quantity": "150g" },
+      { "name": "Ginger", "quantity": "1 tbsp" },
+      { "name": "Pechay", "quantity": "1 bunch" }
+    ],
+    "steps": [
+      "Steam fish with ginger until flaky.",
+      "Add pechay and steam for 2 more minutes.",
+      "Drizzle with light soy sauce."
+    ]
+  },
+  {
+    "id": "r45",
+    "title": "Adobong Sitaw + Tofu",
+    "subtitle": "Plant Power • High Fiber",
+    "mealType": "Dinner",
+    "minutes": 20,
+    "calories": 390,
+    "proteinGrams": 16,
+    "carbsGrams": 25,
+    "fatsGrams": 14,
+    "fiberGrams": 9,
+    "tags": ["Dinner", "Vegetarian", "High Fiber", "Glow"],
+    "ingredients": [
+      { "name": "Sitaw", "quantity": "1 bunch" },
+      { "name": "Tofu", "quantity": "150g" }
+    ],
+    "steps": [
+      "Fry tofu cubes and set aside.",
+      "Sauté sitaw with soy sauce and vinegar.",
+      "Mix in tofu and serve."
+    ]
+  },
+  {
+    "id": "r46",
+    "title": "Adobong Sitaw + Chicken",
+    "subtitle": "Balanced • Savory",
+    "mealType": "Dinner",
+    "minutes": 30,
+    "calories": 520,
+    "proteinGrams": 32,
+    "carbsGrams": 25,
+    "fatsGrams": 16,
+    "fiberGrams": 9,
+    "tags": ["Dinner", "Chicken", "High Protein", "Glow"],
+    "ingredients": [
+      { "name": "Sitaw", "quantity": "1 bunch" },
+      { "name": "Chicken", "quantity": "100g" }
+    ],
+    "steps": [
+      "Sauté chicken strips until cooked.",
+      "Add string beans and adobo seasoning.",
+      "Cook until veggies are tender."
+    ]
+  },
+  {
+    "id": "r47",
+    "title": "Paksiw na Tilapia + Veg",
+    "subtitle": "Tangy • Health Choice",
+    "mealType": "Dinner",
+    "minutes": 35,
+    "calories": 430,
+    "proteinGrams": 28,
+    "carbsGrams": 15,
+    "fatsGrams": 12,
+    "fiberGrams": 5,
+    "tags": ["Dinner", "Fish", "Low GI"],
+    "ingredients": [
+      { "name": "Tilapia", "quantity": "1 pc" },
+      { "name": "Eggplant", "quantity": "1 pc" },
+      { "name": "Vinegar", "quantity": "1/4 cup" }
+    ],
+    "steps": [
+      "Cook fish in vinegar and aromatics.",
+      "Add eggplant and simmer.",
+      "Serve warm."
+    ]
+  },
+  {
+    "id": "r48",
+    "title": "Sinigang sa Miso Bangus",
+    "subtitle": "Tangy Soup • Omega-3",
+    "mealType": "Dinner",
+    "minutes": 40,
+    "calories": 450,
+    "proteinGrams": 30,
+    "carbsGrams": 20,
+    "fatsGrams": 14,
+    "fiberGrams": 6,
+    "tags": ["Dinner", "Fish", "Soup", "PCOS-friendly"],
+    "ingredients": [
+      { "name": "Bangus", "quantity": "150g" },
+      { "name": "Miso", "quantity": "1 tbsp" },
+      { "name": "Mustasa", "quantity": "1 bunch" }
+    ],
+    "steps": [
+      "Prepare miso base soup.",
+      "Add fish and mustard leaves.",
+      "Simmer until cooked through."
+    ]
+  },
+  {
+    "id": "r49",
+    "title": "Ginisang Pechay + Tofu",
+    "subtitle": "Light • Gentle GI",
+    "mealType": "Dinner",
+    "minutes": 20,
+    "calories": 320,
+    "proteinGrams": 18,
+    "carbsGrams": 15,
+    "fatsGrams": 12,
+    "fiberGrams": 7,
+    "tags": ["Dinner", "Vegetarian", "Glow", "Low GI"],
+    "ingredients": [
+      { "name": "Pechay", "quantity": "2 bunches" },
+      { "name": "Tofu", "quantity": "150g" }
+    ],
+    "steps": [
+      "Stir-fry tofu cubes.",
+      "Add pechay and a splash of oyster sauce.",
+      "Serve fresh."
+    ]
+  },
+  {
+    "id": "r50",
+    "title": "Pinakbet + Tofu",
+    "subtitle": "Fiber Power • Plant Based",
+    "mealType": "Dinner",
+    "minutes": 30,
+    "calories": 420,
+    "proteinGrams": 16,
+    "carbsGrams": 30,
+    "fatsGrams": 14,
+    "fiberGrams": 12,
+    "tags": ["Dinner", "Vegetarian", "Glow", "High Fiber"],
+    "ingredients": [
+      { "name": "Squash", "quantity": "1/2 cup" },
+      { "name": "Tofu", "quantity": "100g" }
+    ],
+    "steps": [
+      "Sauté vegetables with tofu cubes.",
+      "Add a small amount of low-sodium bagoong.",
+      "Serve with brown rice."
+    ]
+  },
+  {
+    "id": "r51",
+    "title": "Ginataang Sitaw + Tofu",
+    "subtitle": "Creamy • Comforting",
+    "mealType": "Dinner",
+    "minutes": 35,
+    "calories": 430,
+    "proteinGrams": 15,
+    "carbsGrams": 25,
+    "fatsGrams": 22,
+    "fiberGrams": 8,
+    "tags": ["Dinner", "Vegetarian", "Glow"],
+    "ingredients": [
+      { "name": "Sitaw", "quantity": "1 bunch" },
+      { "name": "Gata", "quantity": "1/2 cup" },
+      { "name": "Tofu", "quantity": "100g" }
+    ],
+    "steps": [
+      "Simmer sitaw in coconut milk.",
+      "Add tofu and season with pepper.",
+      "Serve warm."
+    ]
+  },
+  {
+    "id": "r52",
+    "title": "Adobong Kangkong + Egg",
+    "subtitle": "Iron Rich • Balanced",
+    "mealType": "Dinner",
+    "minutes": 15,
+    "calories": 360,
+    "proteinGrams": 14,
+    "carbsGrams": 15,
+    "fatsGrams": 18,
+    "fiberGrams": 6,
+    "tags": ["Dinner", "Egg", "Glow", "Low GI"],
+    "ingredients": [
+      { "name": "Kangkong", "quantity": "1 bunch" },
+      { "name": "Boiled egg", "quantity": "1 pc" }
+    ],
+    "steps": [
+      "Sauté garlic and kangkong with soy sauce.",
+      "Serve with a sliced hard-boiled egg.",
+      "Pair with 1/2 cup of rice."
+    ]
+  },
+  {
+    "id": "r53",
+    "title": "Tortang Talong + Salad",
+    "subtitle": "Fiber Focused • Fresh",
+    "mealType": "Dinner",
+    "minutes": 25,
+    "calories": 390,
+    "proteinGrams": 12,
+    "carbsGrams": 20,
+    "fatsGrams": 18,
+    "fiberGrams": 8,
+    "tags": ["Dinner", "Vegetarian", "Glow", "High Fiber"],
+    "ingredients": [
+      { "name": "Eggplant", "quantity": "1 pc" },
+      { "name": "Side salad", "quantity": "1 cup" }
+    ],
+    "steps": [
+      "Prepare eggplant as an omelette.",
+      "Serve with a fresh vegetable side salad.",
+      "Enjoy hot."
+    ]
+  },
+  {
+    "id": "r54",
+    "title": "Tinolang Isda + Veg",
+    "subtitle": "Clean Soup • Protein",
+    "mealType": "Dinner",
+    "minutes": 35,
+    "calories": 420,
+    "proteinGrams": 30,
+    "carbsGrams": 15,
+    "fatsGrams": 12,
+    "fiberGrams": 5,
+    "tags": ["Dinner", "Fish", "Soup", "Glow"],
+    "ingredients": [
+      { "name": "Fish steak", "quantity": "150g" },
+      { "name": "Sayote", "quantity": "1 pc" },
+      { "name": "Ginger", "quantity": "1 thumb" }
+    ],
+    "steps": [
+      "Cook tinola base with plenty of ginger.",
+      "Add fish and sayote.",
+      "Serve hot."
+    ]
+  },
+  {
+    "id": "r55",
+    "title": "Adobong Pusit",
+    "subtitle": "Seafood • High Protein",
+    "mealType": "Dinner",
+    "minutes": 30,
+    "calories": 470,
+    "proteinGrams": 35,
+    "carbsGrams": 12,
+    "fatsGrams": 16,
+    "fiberGrams": 3,
+    "tags": ["Dinner", "Seafood", "High Protein"],
+    "ingredients": [
+      { "name": "Squid", "quantity": "200g" },
+      { "name": "Soy sauce", "quantity": "2 tbsp" }
+    ],
+    "steps": [
+      "Sauté squid with garlic and ginger.",
+      "Add soy sauce and a splash of vinegar.",
+      "Cook quickly to avoid toughness."
+    ]
+  },
+  {
+    "id": "r56",
+    "title": "Ginisang Monggo (Dinner)",
+    "subtitle": "Filling • High Fiber",
+    "mealType": "Dinner",
+    "minutes": 35,
+    "calories": 460,
+    "proteinGrams": 22,
+    "carbsGrams": 40,
+    "fatsGrams": 12,
+    "fiberGrams": 14,
+    "tags": ["Dinner", "Beans", "High Fiber", "Glow"],
+    "ingredients": [
+      { "name": "Monggo", "quantity": "1 cup" },
+      { "name": "Veggies", "quantity": "1 cup" }
+    ],
+    "steps": [
+      "Prepare a thick monggo guisado.",
+      "Serve as a standalone dinner bowl.",
+      "Season well."
+    ]
+  },
+  {
+    "id": "r57",
+    "title": "Chicken Curry (Light)",
+    "subtitle": "Spicy • Metabolism Boost",
+    "mealType": "Dinner",
+    "minutes": 45,
+    "calories": 560,
+    "proteinGrams": 35,
+    "carbsGrams": 25,
+    "fatsGrams": 24,
+    "fiberGrams": 7,
+    "tags": ["Dinner", "Chicken", "Traditional", "Glow"],
+    "ingredients": [
+      { "name": "Chicken breast", "quantity": "150g" },
+      { "name": "Curry powder", "quantity": "1 tbsp" }
+    ],
+    "steps": [
+      "Cook chicken with curry spices.",
+      "Add light coconut milk and simmer.",
+      "Serve with 1/2 cup rice."
+    ]
+  },
+  {
+    "id": "r58",
+    "title": "Seafood Sinigang",
+    "subtitle": "Omega-3 • Lean",
+    "mealType": "Dinner",
+    "minutes": 40,
+    "calories": 430,
+    "proteinGrams": 28,
+    "carbsGrams": 18,
+    "fatsGrams": 14,
+    "fiberGrams": 6,
+    "tags": ["Dinner", "Seafood", "Soup", "PCOS-friendly"],
+    "ingredients": [
+      { "name": "Seafood mix", "quantity": "200g" },
+      { "name": "Sinigang base", "quantity": "1 tbsp" }
+    ],
+    "steps": [
+      "Prepare tangy soup base.",
+      "Add seafood and leafy greens.",
+      "Serve warm."
+    ]
+  },
+  {
+    "id": "r59",
+    "title": "Ginisang Patola + Egg",
+    "subtitle": "Gentle • Low GI",
+    "mealType": "Dinner",
+    "minutes": 20,
+    "calories": 330,
+    "proteinGrams": 14,
+    "carbsGrams": 15,
+    "fatsGrams": 16,
+    "fiberGrams": 5,
+    "tags": ["Dinner", "Egg", "Glow", "Quick"],
+    "ingredients": [
+      { "name": "Patola", "quantity": "1 pc" },
+      { "name": "Egg", "quantity": "1 pc" }
+    ],
+    "steps": [
+      "Sauté sliced patola.",
+      "Add beaten egg and scramble.",
+      "Season lightly."
+    ]
+  },
+  {
+    "id": "r60",
+    "title": "Ginisang Togue + Tofu",
+    "subtitle": "Plant Protein • High Fiber",
+    "mealType": "Dinner",
+    "minutes": 20,
+    "calories": 360,
+    "proteinGrams": 18,
+    "carbsGrams": 20,
+    "fatsGrams": 12,
+    "fiberGrams": 8,
+    "tags": ["Dinner", "Vegetarian", "Glow", "High Fiber"],
+    "ingredients": [
+      { "name": "Bean sprouts", "quantity": "2 cups" },
+      { "name": "Tofu", "quantity": "100g" }
+    ],
+    "steps": [
+      "Stir-fry tofu and sprouts.",
+      "Cook until sprouts are tender-crisp.",
+      "Serve hot."
+    ]
+  }
+]

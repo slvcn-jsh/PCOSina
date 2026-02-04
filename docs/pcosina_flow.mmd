@@ -1,0 +1,15 @@
+```mermaid
+flowchart LR
+  A[Login/Signup UI] --> B[AuthViewModel Validation]
+  B -->|Valid| C[Firebase Auth]
+  C --> D[AuthRepository Session]
+  D --> E[AppNavHost Splash Router]
+  E --> F{Profile Loaded?}
+  F -->|Yes and complete| G[Dashboard]
+  F -->|No| H[Onboarding]
+  E --> I[Load User Data by UID]
+  I --> J[UserPreferencesRepository]
+  J --> K[UserProfile]
+  J --> L[MealPlan Cache]
+  J --> M[Grocery Cache]
+```

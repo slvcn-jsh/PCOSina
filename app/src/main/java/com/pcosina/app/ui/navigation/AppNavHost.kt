@@ -105,13 +105,16 @@ fun AppNavHost(
     }
 
     // Sync session to user data loading
-    LaunchedEffect(session.currentUserUid) {
+    LaunchedEffect(session.currentUserUid, session.currentUserEmail) {
         val userId = session.currentUserUid
         if (userId.isNullOrBlank()) {
             userViewModel.reset()
             mealPlanViewModel.reset()
             groceryViewModel.reset()
         } else {
+            session.currentUserEmail?.let { email ->
+                userPrefsRepository.migrateFromEmailIfNeeded(userId, email)
+            }
             userViewModel.loadProfileForUser(userId)
             mealPlanViewModel.loadSavedPlan(userId)
             groceryViewModel.loadGroceryForUser(userId)

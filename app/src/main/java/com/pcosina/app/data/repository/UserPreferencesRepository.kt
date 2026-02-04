@@ -33,6 +33,61 @@ class UserPreferencesRepository(private val context: Context) {
         fun groceryJson(userId: String) = stringPreferencesKey("grocery_json_$userId")
     }
 
+    private object LegacyKeys {
+        fun name(email: String) = stringPreferencesKey("name_$email")
+        fun age(email: String) = intPreferencesKey("age_$email")
+        fun weight(email: String) = intPreferencesKey("weight_$email")
+        fun height(email: String) = intPreferencesKey("height_$email")
+        fun activity(email: String) = stringPreferencesKey("activity_$email")
+        fun goal(email: String) = stringPreferencesKey("goal_$email")
+        fun insulin(email: String) = stringPreferencesKey("insulin_$email")
+        fun symptoms(email: String) = stringPreferencesKey("symptoms_$email")
+        fun comorbidities(email: String) = stringPreferencesKey("comorbidities_$email")
+        fun restrictions(email: String) = stringPreferencesKey("restrictions_$email")
+        fun budget(email: String) = intPreferencesKey("budget_$email")
+        fun completed(email: String) = booleanPreferencesKey("onboarding_complete_$email")
+        fun lastPlanJson(email: String) = stringPreferencesKey("last_plan_json_$email")
+        fun lastPlanTimestamp(email: String) = longPreferencesKey("last_plan_timestamp_$email")
+        fun groceryJson(email: String) = stringPreferencesKey("grocery_json_$email")
+    }
+
+    suspend fun migrateFromEmailIfNeeded(userId: String, email: String) {
+        if (userId.isBlank() || email.isBlank()) return
+        context.dataStore.edit { preferences ->
+            val hasUidData = preferences.contains(Keys.completed(userId)) ||
+                preferences.contains(Keys.name(userId)) ||
+                preferences.contains(Keys.lastPlanJson(userId)) ||
+                preferences.contains(Keys.groceryJson(userId))
+
+            if (hasUidData) return@edit
+
+            val hasLegacyData = preferences.contains(LegacyKeys.completed(email)) ||
+                preferences.contains(LegacyKeys.name(email)) ||
+                preferences.contains(LegacyKeys.lastPlanJson(email)) ||
+                preferences.contains(LegacyKeys.groceryJson(email))
+
+            if (!hasLegacyData) return@edit
+
+            preferences[Keys.name(userId)] = preferences[LegacyKeys.name(email)] ?: ""
+            preferences[Keys.age(userId)] = preferences[LegacyKeys.age(email)] ?: 0
+            preferences[Keys.weight(userId)] = preferences[LegacyKeys.weight(email)] ?: 0
+            preferences[Keys.height(userId)] = preferences[LegacyKeys.height(email)] ?: 0
+            preferences[Keys.activity(userId)] = preferences[LegacyKeys.activity(email)] ?: "Lightly Active"
+            preferences[Keys.goal(userId)] = preferences[LegacyKeys.goal(email)] ?: "Support PCOS symptom management"
+            preferences[Keys.insulin(userId)] = preferences[LegacyKeys.insulin(email)] ?: "Mild"
+            preferences[Keys.symptoms(userId)] = preferences[LegacyKeys.symptoms(email)] ?: ""
+            preferences[Keys.comorbidities(userId)] = preferences[LegacyKeys.comorbidities(email)] ?: ""
+            preferences[Keys.restrictions(userId)] = preferences[LegacyKeys.restrictions(email)] ?: ""
+            preferences[Keys.budget(userId)] = preferences[LegacyKeys.budget(email)] ?: 2000
+            preferences[Keys.completed(userId)] = preferences[LegacyKeys.completed(email)] ?: false
+
+            preferences[Keys.lastPlanJson(userId)] = preferences[LegacyKeys.lastPlanJson(email)] ?: ""
+            preferences[Keys.lastPlanTimestamp(userId)] = preferences[LegacyKeys.lastPlanTimestamp(email)] ?: 0L
+
+            preferences[Keys.groceryJson(userId)] = preferences[LegacyKeys.groceryJson(email)] ?: ""
+        }
+    }
+
     fun getUserProfile(userId: String): Flow<UserProfile> = context.dataStore.data
         .catch { exception ->
             if (exception is IOException) emit(emptyPreferences()) else throw exception

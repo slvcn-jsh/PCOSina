@@ -52,15 +52,15 @@ class MealPlanViewModel(
     private val _planMetrics = MutableStateFlow(PlanMetrics())
     val planMetrics: StateFlow<PlanMetrics> = _planMetrics.asStateFlow()
 
-    private var currentUserEmail: String = ""
+    private var currentUserId: String = ""
     private val gson = Gson()
 
-    fun loadSavedPlan(email: String) {
-        currentUserEmail = email
+    fun loadSavedPlan(userId: String) {
+        currentUserId = userId
         viewModelScope.launch {
             _uiState.value = MealPlanUiState.Idle 
-            val savedJson = userPrefsRepository.getSavedPlanJson(email).first()
-            val savedTimestamp = userPrefsRepository.getSavedPlanTimestamp(email).first()
+            val savedJson = userPrefsRepository.getSavedPlanJson(userId).first()
+            val savedTimestamp = userPrefsRepository.getSavedPlanTimestamp(userId).first()
             
             if (!savedJson.isNullOrBlank()) {
                 try {
@@ -94,7 +94,7 @@ class MealPlanViewModel(
     }
 
     fun reset() {
-        currentUserEmail = ""
+        currentUserId = ""
         _uiState.value = MealPlanUiState.Idle
         _recipeState.value = RecipeDetailsUiState.Idle
         _planMetrics.value = PlanMetrics()
@@ -109,8 +109,8 @@ class MealPlanViewModel(
                 val now = System.currentTimeMillis()
                 _uiState.value = MealPlanUiState.Success(response, now)
                 calculateMetrics(response)
-                if (currentUserEmail.isNotBlank()) {
-                    userPrefsRepository.savePlanJson(currentUserEmail, gson.toJson(response), now)
+                if (currentUserId.isNotBlank()) {
+                    userPrefsRepository.savePlanJson(currentUserId, gson.toJson(response), now)
                 }
             }.onFailure { error ->
                 _uiState.value = MealPlanUiState.Error(error.message ?: "Failed to connect to MILP engine")

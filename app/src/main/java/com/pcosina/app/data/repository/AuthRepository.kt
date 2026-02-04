@@ -25,6 +25,7 @@ class AuthRepository(private val context: Context) {
     private object Keys {
         val IS_LOGGED_IN = booleanPreferencesKey("is_logged_in")
         val CURRENT_USER_EMAIL = stringPreferencesKey("current_user_email")
+        val CURRENT_USER_UID = stringPreferencesKey("current_user_uid")
     }
 
     val sessionFlow: Flow<Session> = context.authDataStore.data
@@ -38,7 +39,8 @@ class AuthRepository(private val context: Context) {
         .map { preferences ->
             Session(
                 isLoggedIn = preferences[Keys.IS_LOGGED_IN] ?: false,
-                currentUserEmail = preferences[Keys.CURRENT_USER_EMAIL]
+                currentUserEmail = preferences[Keys.CURRENT_USER_EMAIL],
+                currentUserUid = preferences[Keys.CURRENT_USER_UID]
             )
         }
 
@@ -48,9 +50,11 @@ class AuthRepository(private val context: Context) {
             if (currentUser != null) {
                 prefs[Keys.IS_LOGGED_IN] = true
                 prefs[Keys.CURRENT_USER_EMAIL] = currentUser.email ?: ""
+                prefs[Keys.CURRENT_USER_UID] = currentUser.uid
             } else {
                 prefs[Keys.IS_LOGGED_IN] = false
                 prefs.remove(Keys.CURRENT_USER_EMAIL)
+                prefs.remove(Keys.CURRENT_USER_UID)
             }
         }
     }
@@ -81,6 +85,7 @@ class AuthRepository(private val context: Context) {
             context.authDataStore.edit { prefs ->
                 prefs[Keys.IS_LOGGED_IN] = false
                 prefs.remove(Keys.CURRENT_USER_EMAIL)
+                prefs.remove(Keys.CURRENT_USER_UID)
             }
         } catch (e: Exception) {
             // Log or handle the logout failure if necessary

@@ -105,11 +105,16 @@ fun AppNavHost(
     }
 
     // Sync session to user data loading
-    LaunchedEffect(session.currentUserEmail) {
-        session.currentUserEmail?.let { email ->
-            userViewModel.loadProfileForUser(email)
-            mealPlanViewModel.loadSavedPlan(email)
-            groceryViewModel.loadGroceryForUser(email)
+    LaunchedEffect(session.currentUserUid) {
+        val userId = session.currentUserUid
+        if (userId.isNullOrBlank()) {
+            userViewModel.reset()
+            mealPlanViewModel.reset()
+            groceryViewModel.reset()
+        } else {
+            userViewModel.loadProfileForUser(userId)
+            mealPlanViewModel.loadSavedPlan(userId)
+            groceryViewModel.loadGroceryForUser(userId)
         }
     }
 
@@ -120,6 +125,9 @@ fun AppNavHost(
             currentRoute != Routes.Login && 
             currentRoute != Routes.SignUp && 
             currentRoute != Routes.Splash) {
+            userViewModel.reset()
+            mealPlanViewModel.reset()
+            groceryViewModel.reset()
             navController.navigate(Routes.Login) {
                 popUpTo(navController.graph.id) { inclusive = true }
             }
@@ -163,14 +171,8 @@ fun AppNavHost(
             LoginScreen(
                 authViewModel = authViewModel,
                 onLoginSuccess = {
-                    if (userProfile.isProfileCompleted) {
-                        navController.navigate(Routes.Dashboard) {
-                            popUpTo(Routes.Login) { inclusive = true }
-                        }
-                    } else {
-                        navController.navigate(Routes.Onboarding) {
-                            popUpTo(Routes.Login) { inclusive = true }
-                        }
+                    navController.navigate(Routes.Splash) {
+                        popUpTo(Routes.Login) { inclusive = true }
                     }
                 },
                 onNavigateToSignUp = { navController.navigate(Routes.SignUp) },

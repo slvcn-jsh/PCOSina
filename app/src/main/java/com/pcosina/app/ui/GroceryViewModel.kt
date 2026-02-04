@@ -18,15 +18,15 @@ class GroceryViewModel(private val repository: UserPreferencesRepository) : View
     private val _groceryItems = MutableStateFlow<List<DummyData.GroceryItem>>(emptyList())
     val groceryItems: StateFlow<List<DummyData.GroceryItem>> = _groceryItems.asStateFlow()
 
-    private var currentUserEmail: String = ""
+    private var currentUserId: String = ""
     private val gson = Gson()
 
-    fun loadGroceryForUser(email: String) {
-        if (currentUserEmail == email) return
-        currentUserEmail = email
+    fun loadGroceryForUser(userId: String) {
+        if (currentUserId == userId) return
+        currentUserId = userId
         viewModelScope.launch {
             try {
-                val json = repository.getGroceryJson(email).first()
+                val json = repository.getGroceryJson(userId).first()
                 if (!json.isNullOrBlank()) {
                     val type = object : TypeToken<List<DummyData.GroceryItem>>() {}.type
                     _groceryItems.value = gson.fromJson(json, type)
@@ -40,9 +40,9 @@ class GroceryViewModel(private val repository: UserPreferencesRepository) : View
     }
 
     private fun persist() {
-        if (currentUserEmail.isBlank()) return
+        if (currentUserId.isBlank()) return
         viewModelScope.launch {
-            repository.saveGroceryJson(currentUserEmail, gson.toJson(_groceryItems.value))
+            repository.saveGroceryJson(currentUserId, gson.toJson(_groceryItems.value))
         }
     }
 
@@ -70,7 +70,7 @@ class GroceryViewModel(private val repository: UserPreferencesRepository) : View
      * Bullet-Proof Reset: Wipes memory and stops tracking.
      */
     fun reset() {
-        currentUserEmail = ""
+        currentUserId = ""
         _groceryItems.value = emptyList()
     }
 

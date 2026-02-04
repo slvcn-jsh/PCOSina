@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.pcosina.app.data.model.Session
 import com.pcosina.app.data.repository.AuthRepository
+import android.util.Patterns
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -57,9 +58,19 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
     }
 
     fun onLogin(emailValue: String, passwordValue: String) {
+        val trimmedEmail = emailValue.trim()
+        val emailError = validateEmail(trimmedEmail)
+        if (emailError != null) {
+            _loginState.value = LoginState.Error(emailError)
+            return
+        }
+        if (passwordValue.isBlank()) {
+            _loginState.value = LoginState.Error("Password is required")
+            return
+        }
         viewModelScope.launch {
             _loginState.value = LoginState.Loading
-            val result = repository.login(emailValue, passwordValue)
+            val result = repository.login(trimmedEmail, passwordValue)
             if (result.isSuccess) {
                 _loginState.value = LoginState.Success
                 clearForm()
@@ -70,13 +81,24 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
     }
 
     fun onSignUp(onResult: (Boolean) -> Unit) {
-        if (password.value != confirmPassword.value) {
-            _error.value = "Passwords do not match"
+        val trimmedEmail = email.value.trim()
+        val emailError = validateEmail(trimmedEmail)
+        if (emailError != null) {
+            _error.value = emailError
+            _signUpState.value = SignUpState.Error(emailError)
             onResult(false)
             return
         }
-        if (password.value.length < 6) {
-            _error.value = "Password must be at least 6 characters"
+        if (password.value != confirmPassword.value) {
+            _error.value = "Passwords do not match"
+            _signUpState.value = SignUpState.Error("Passwords do not match")
+            onResult(false)
+            return
+        }
+        val passwordError = validatePassword(password.value)
+        if (passwordError != null) {
+            _error.value = passwordError
+            _signUpState.value = SignUpState.Error(passwordError)
             onResult(false)
             return
         }
@@ -85,7 +107,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
             _signUpState.value = SignUpState.Loading
             _isLoading.value = true
             _error.value = null
-            val result = repository.signUp(email.value, password.value)
+            val result = repository.signUp(trimmedEmail, password.value)
             _isLoading.value = false
             if (result.isSuccess) {
                 _signUpState.value = SignUpState.Success
@@ -118,6 +140,21 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
         email.value = ""
         password.value = ""
         confirmPassword.value = ""
+    }
+
+    private fun validateEmail(email: String): String? {
+        if (email.isBlank()) return "Email is required"
+        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) return "Enter a valid email"
+        return null
+    }
+
+    private fun validatePassword(password: String): String? {
+        if (password.isBlank()) return "Password is required"
+        if (password.length < 8) return "Password must be at least 8 characters"
+        if (!password.any { it.isLetter() } || !password.any { it.isDigit() }) {
+            return "Password must include at least one letter and one number"
+        }
+        return null
     }
 
     class Factory(private val repository: AuthRepository) : ViewModelProvider.Factory {

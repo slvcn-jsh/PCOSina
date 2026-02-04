@@ -21,16 +21,16 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
     val isProfileLoading: StateFlow<Boolean> = _isProfileLoading.asStateFlow()
 
     private var profileJob: Job? = null
-    private var currentUserEmail: String = ""
+    private var currentUserId: String = ""
 
-    fun loadProfileForUser(email: String) {
-        if (currentUserEmail == email) return
-        currentUserEmail = email
+    fun loadProfileForUser(userId: String) {
+        if (currentUserId == userId) return
+        currentUserId = userId
         _userProfile.value = UserProfile() 
         _isProfileLoading.value = true
         profileJob?.cancel()
         profileJob = viewModelScope.launch {
-            repository.getUserProfile(email).collectLatest { profile ->
+            repository.getUserProfile(userId).collectLatest { profile ->
                 _userProfile.value = profile
                 _isProfileLoading.value = false
             }
@@ -46,16 +46,16 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
     }
 
     fun reset() {
-        currentUserEmail = ""
+        currentUserId = ""
         profileJob?.cancel()
         _userProfile.value = UserProfile()
         _isProfileLoading.value = false
     }
 
     private fun saveProfile() {
-        if (currentUserEmail.isBlank()) return
+        if (currentUserId.isBlank()) return
         viewModelScope.launch {
-            repository.updateProfile(currentUserEmail, _userProfile.value)
+            repository.updateProfile(currentUserId, _userProfile.value)
         }
     }
 

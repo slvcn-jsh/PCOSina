@@ -216,6 +216,13 @@ fun MealPlanScreen(
                                         analytics.logEvent("sync_groceries", null)
                                         isSyncingGroceries = true
                                         mealPlanViewModel.extractAllGroceryItems { items ->
+                                            if (items.isEmpty()) {
+                                                isSyncingGroceries = false
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar("No items to sync yet")
+                                                }
+                                                return@extractAllGroceryItems
+                                            }
                                             groceryViewModel.addItems(items)
                                             isSyncingGroceries = false
                                             syncSuccess = true
@@ -251,6 +258,7 @@ fun MealPlanScreen(
                     // 2. Day selector chips + navigation hint
                     item {
                         val dayCount = plan.days.size
+                        val hasWeekend = plan.days.any { it.dayLabel.equals("Sat", true) || it.dayLabel.equals("Sun", true) }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -262,11 +270,15 @@ fun MealPlanScreen(
                             ) {
                                 Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous day")
                             }
-                            Text(
-                                text = "Swipe → for more days",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = colorScheme.onSurfaceVariant
-                            )
+                            if (dayCount > 5) {
+                                Text(
+                                    text = "Swipe → for more days",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                Spacer(Modifier.width(1.dp))
+                            }
                             IconButton(
                                 onClick = { if (selectedDayIndex < dayCount - 1) selectedDayIndex++ },
                                 enabled = selectedDayIndex < dayCount - 1
@@ -310,6 +322,31 @@ fun MealPlanScreen(
                                         )
                                 )
                                 if (i != dayCount - 1) Spacer(Modifier.width(6.dp))
+                            }
+                        }
+                        if (hasWeekend) {
+                            Spacer(Modifier.height(6.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                FilterChip(
+                                    selected = plan.days.getOrNull(selectedDayIndex)?.dayLabel.equals("Sat", true),
+                                    onClick = {
+                                        val idx = plan.days.indexOfFirst { it.dayLabel.equals("Sat", true) }
+                                        if (idx >= 0) selectedDayIndex = idx
+                                    },
+                                    label = { Text("Sat") }
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                FilterChip(
+                                    selected = plan.days.getOrNull(selectedDayIndex)?.dayLabel.equals("Sun", true),
+                                    onClick = {
+                                        val idx = plan.days.indexOfFirst { it.dayLabel.equals("Sun", true) }
+                                        if (idx >= 0) selectedDayIndex = idx
+                                    },
+                                    label = { Text("Sun") }
+                                )
                             }
                         }
                     }

@@ -56,6 +56,7 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
 import java.util.Locale
+import androidx.compose.animation.AnimatedVisibility
 
 @Composable
 fun GroceryListScreen(
@@ -375,7 +376,7 @@ private fun CategoryCard(
                     )
                 }
             }
-            if (expanded) {
+            AnimatedVisibility(visible = expanded) {
                 items.forEach { item ->
                     val checked = item.name in checkedNames
                     Row(

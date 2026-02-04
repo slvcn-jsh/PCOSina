@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import android.util.Log
 import com.pcosina.app.data.model.UserProfile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -85,6 +86,8 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.lastPlanTimestamp(userId)] = preferences[LegacyKeys.lastPlanTimestamp(email)] ?: 0L
 
             preferences[Keys.groceryJson(userId)] = preferences[LegacyKeys.groceryJson(email)] ?: ""
+
+            Log.i("PCOSINA", "Migrated legacy email data to UID for userId=$userId")
         }
     }
 

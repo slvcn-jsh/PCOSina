@@ -26,8 +26,8 @@ android {
         applicationId = "com.pcosina.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.05"
+        versionCode = 7
+        versionName = "1.05.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -43,7 +43,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "BASE_URL", "\"https://pcosina-api.onrender.com/\"")
+            buildConfigField("String", "BASE_URL", "\"https://pcosina-backend.onrender.com/\"")
             signingConfig = signingConfigs.getByName("release")
         }
         debug {

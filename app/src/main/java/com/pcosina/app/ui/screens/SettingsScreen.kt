@@ -7,7 +7,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Height
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.MonitorWeight
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -98,7 +104,7 @@ fun SettingsScreen(
             SettingsItem(icon = Icons.Default.Height, label = "Height", value = "${profile.heightCm} cm")
             SettingsItem(icon = Icons.Default.LocalFireDepartment, label = "Activity Level", value = profile.activityLevel)
             
-            Divider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
             
             Text(
                 text = "Current Focus:",
@@ -138,7 +144,7 @@ fun SettingsScreen(
             }
             
             SettingsActionItem(
-                icon = Icons.Default.Logout,
+                icon = Icons.AutoMirrored.Filled.Logout,
                 label = "Logout",
                 description = "Securely sign out of PCOSINA",
                 color = colorScheme.secondary

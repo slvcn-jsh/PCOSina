@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -43,19 +44,19 @@ fun UserProfileScreen(
     var weight by rememberSaveable { mutableStateOf(if (profile.weightKg > 0) profile.weightKg.toString() else "") }
     var height by rememberSaveable { mutableStateOf(if (profile.heightCm > 0) profile.heightCm.toString() else "") }
     var activityLevel by rememberSaveable { mutableStateOf(profile.activityLevel) }
-    var insulinLevel by rememberSaveable { mutableStateOf(profile.insulinResistanceLevel) }
-    
-    var symptomIrregularPeriods by rememberSaveable { mutableStateOf(profile.symptoms.contains("Irregular periods")) }
-    var symptomWeightGain by rememberSaveable { mutableStateOf(profile.symptoms.contains("Weight gain")) }
-    var symptomAcne by rememberSaveable { mutableStateOf(profile.symptoms.contains("Acne")) }
-    var symptomHairLoss by rememberSaveable { mutableStateOf(profile.symptoms.contains("Hair loss")) }
-    
-    var lacto by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("Lactose Intolerant")) }
-    var vegetarian by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("Vegetarian") || profile.dietaryRestrictions.contains("Vegetarian Only")) }
-    var pescatarian by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("Pescatarian")) }
-    var noPork by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("No Pork")) }
-    var noBeef by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("No Beef")) }
-    var budget by rememberSaveable { mutableStateOf(if (profile.weeklyBudgetPhp > 0) profile.weeklyBudgetPhp.toString() else "2000") }
+    var insulinLevel by rememberSaveable { mutableStateOf("None") } // Default to a safe value
+
+    var symptomIrregularPeriods by rememberSaveable { mutableStateOf(false) }
+    var symptomWeightGain by rememberSaveable { mutableStateOf(false) }
+    var symptomAcne by rememberSaveable { mutableStateOf(false) }
+    var symptomHairLoss by rememberSaveable { mutableStateOf(false) }
+
+    var lacto by rememberSaveable { mutableStateOf(false) }
+    var vegetarian by rememberSaveable { mutableStateOf(false) }
+    var pescatarian by rememberSaveable { mutableStateOf(false) }
+    var noPork by rememberSaveable { mutableStateOf(false) }
+    var noBeef by rememberSaveable { mutableStateOf(false) }
+    var budget by rememberSaveable { mutableStateOf("2000") }
 
     val colorScheme = MaterialTheme.colorScheme
 
@@ -119,7 +120,7 @@ fun UserProfileScreen(
                         if (symptomAcne) symptoms.add("Acne")
                         if (symptomHairLoss) symptoms.add("Hair loss")
                         userViewModel.updatePcosDetails(insulinLevel, symptoms, emptyList())
-                        
+
                         val restrictions = mutableListOf<String>()
                         if (lacto) restrictions.add("Lactose Intolerant")
                         if (vegetarian) restrictions.add("Vegetarian")
@@ -128,7 +129,7 @@ fun UserProfileScreen(
                         if (noBeef) restrictions.add("No Beef")
                         userViewModel.updateDietaryRestrictions(restrictions)
                         userViewModel.updateBudget(clampInt(budget, min = 0, max = 20000, fallback = 2000))
-                        
+
                         onNext()
                     }
                 }
@@ -215,7 +216,7 @@ fun BottomActionRow(
         } else {
             Spacer(Modifier.width(1.dp))
         }
-        
+
         Button(
             onClick = onNext,
             shape = MaterialTheme.shapes.large,
@@ -298,9 +299,9 @@ fun StepOneIdentity(name: String, onName: (String) -> Unit, age: String, onAge: 
                 color = MaterialTheme.colorScheme.error
             )
         }
-        
+
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
-            OutlinedTextField(value = activity, onValueChange = {}, readOnly = true, label = { Text("Activity Level") }, modifier = Modifier.menuAnchor().fillMaxWidth(), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }, shape = MaterialTheme.shapes.medium, colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = color))
+            OutlinedTextField(value = activity, onValueChange = {}, readOnly = true, label = { Text("Activity Level") }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }, shape = MaterialTheme.shapes.medium, colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = color))
             ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 options.forEach { opt -> DropdownMenuItem(text = { Text(opt) }, onClick = { onActivity(opt); expanded = false }) }
             }
@@ -322,7 +323,7 @@ fun StepTwoMedical(insulin: String, onInsulin: (String) -> Unit, s1: Boolean, on
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionTitle("Medical Profile")
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
-            OutlinedTextField(value = insulin, onValueChange = {}, readOnly = true, label = { Text("Insulin Resistance") }, modifier = Modifier.menuAnchor().fillMaxWidth(), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }, shape = MaterialTheme.shapes.medium, colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = color))
+            OutlinedTextField(value = insulin, onValueChange = {}, readOnly = true, label = { Text("Insulin Resistance") }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }, shape = MaterialTheme.shapes.medium, colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = color))
             ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 options.forEach { opt -> DropdownMenuItem(text = { Text(opt) }, onClick = { onInsulin(opt); expanded = false }) }
             }
@@ -354,7 +355,7 @@ fun StepThreeDiet(r1: Boolean, onR1: (Boolean) -> Unit, r2: Boolean, onR2: (Bool
         CheckboxRow("Pescatarian", r3, color, onR3)
         CheckboxRow("Exclude Pork", r4, color, onR4)
         CheckboxRow("Exclude Beef", r5, color, onR5)
-        
+
         OutlinedTextField(
             value = budget,
             onValueChange = onBudget,

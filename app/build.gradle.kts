@@ -2,12 +2,25 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
 }
 
 android {
     namespace = "com.pcosina.app"
     // API 36 required for current versions of core-ktx and activity-compose
     compileSdk = 36
+
+    signingConfigs {
+        create("release") {
+            // Test-only signing config using the default debug keystore.
+            // This makes the release APK installable for Firebase App Distribution.
+            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
 
     defaultConfig {
         applicationId = "com.pcosina.app"
@@ -20,6 +33,7 @@ android {
         
         // POINTED TO YOUR VERIFIED PC IP
         buildConfigField("String", "BASE_URL", "\"http://192.168.1.48:8000/\"")
+        buildConfigField("String", "SENTRY_DSN", "\"\"")
     }
 
     buildTypes {
@@ -30,6 +44,7 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "BASE_URL", "\"https://pcosina-api.onrender.com/\"")
+            signingConfig = signingConfigs.getByName("release")
         }
         debug {
             buildConfigField("String", "BASE_URL", "\"http://192.168.1.48:8000/\"")
@@ -69,6 +84,15 @@ dependencies {
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
+    implementation(libs.google.material)
+    implementation(libs.androidx.appcompat)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics.ktx)
+    implementation(libs.firebase.auth.ktx)
+    implementation(libs.firebase.crashlytics.ktx)
+    implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.play.services.tasks)
+    implementation(libs.sentry.android)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -32,6 +32,7 @@ class UserPreferencesRepository(private val context: Context) {
         fun lastPlanTimestamp(userId: String) = longPreferencesKey("last_plan_timestamp_$userId")
         // Task #1: Persistent Grocery Storage
         fun groceryJson(userId: String) = stringPreferencesKey("grocery_json_$userId")
+        fun migrationLogged(userId: String) = booleanPreferencesKey("migration_logged_$userId")
     }
 
     private object LegacyKeys {
@@ -87,7 +88,10 @@ class UserPreferencesRepository(private val context: Context) {
 
             preferences[Keys.groceryJson(userId)] = preferences[LegacyKeys.groceryJson(email)] ?: ""
 
-            Log.i("PCOSINA", "Migrated legacy email data to UID for userId=$userId")
+            if (preferences[Keys.migrationLogged(userId)] != true) {
+                Log.i("PCOSINA", "Migrated legacy email data to UID for userId=$userId")
+                preferences[Keys.migrationLogged(userId)] = true
+            }
         }
     }
 

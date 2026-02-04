@@ -59,6 +59,27 @@ fun UserProfileScreen(
 
     val colorScheme = MaterialTheme.colorScheme
 
+    val ageValue = age.toIntOrNull()
+    val weightValue = weight.toIntOrNull()
+    val heightValue = height.toIntOrNull()
+    val budgetValue = budget.toIntOrNull()
+
+    val stepOneValid = displayName.isNotBlank() &&
+        ageValue != null && ageValue in 13..60 &&
+        weightValue != null && weightValue in 35..180 &&
+        heightValue != null && heightValue in 120..200
+
+    val stepTwoValid = insulinLevel.isNotBlank()
+
+    val stepThreeValid = budgetValue != null && budgetValue in 0..20000
+
+    val canProceed = when (currentStep) {
+        1 -> stepOneValid
+        2 -> stepTwoValid
+        3 -> stepThreeValid
+        else -> false
+    }
+
     Scaffold(
         topBar = {
             Column(modifier = Modifier.background(colorScheme.background)) {
@@ -74,8 +95,10 @@ fun UserProfileScreen(
             BottomActionRow(
                 currentStep = currentStep,
                 primaryColor = colorScheme.primary,
+                isNextEnabled = canProceed,
                 onBack = { if (currentStep > 1) currentStep-- },
                 onNext = {
+                    if (!canProceed) return@BottomActionRow
                     if (currentStep < 3) {
                         currentStep++
                     } else {
@@ -134,6 +157,19 @@ fun UserProfileScreen(
                             2 -> StepTwoMedical(insulinLevel, {insulinLevel=it}, symptomIrregularPeriods, {symptomIrregularPeriods=it}, symptomWeightGain, {symptomWeightGain=it}, symptomAcne, {symptomAcne=it}, symptomHairLoss, {symptomHairLoss=it}, colorScheme.primary)
                             3 -> StepThreeDiet(lacto, {lacto=it}, vegetarian, {vegetarian=it}, pescatarian, {pescatarian=it}, noPork, {noPork=it}, noBeef, {noBeef=it}, budget, {budget=it}, colorScheme.primary)
                         }
+
+                        if (!canProceed) {
+                            Text(
+                                text = when (currentStep) {
+                                    1 -> "Please complete all required fields with valid values."
+                                    2 -> "Please select your insulin resistance level."
+                                    3 -> "Please enter a valid weekly budget."
+                                    else -> ""
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
             }
@@ -160,7 +196,13 @@ fun OnboardingProgress(currentStep: Int, color: Color) {
 }
 
 @Composable
-fun BottomActionRow(currentStep: Int, primaryColor: Color, onBack: () -> Unit, onNext: () -> Unit) {
+fun BottomActionRow(
+    currentStep: Int,
+    primaryColor: Color,
+    isNextEnabled: Boolean,
+    onBack: () -> Unit,
+    onNext: () -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(24.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -178,7 +220,8 @@ fun BottomActionRow(currentStep: Int, primaryColor: Color, onBack: () -> Unit, o
             onClick = onNext,
             shape = MaterialTheme.shapes.large,
             colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
-            modifier = Modifier.height(52.dp).width(140.dp)
+            modifier = Modifier.height(52.dp).width(140.dp),
+            enabled = isNextEnabled
         ) {
             Text(if (currentStep < 3) "Next" else "Complete", fontWeight = FontWeight.Bold)
         }

@@ -154,6 +154,9 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
         if (!password.any { it.isLetter() } || !password.any { it.isDigit() }) {
             return "Password must include at least one letter and one number"
         }
+        if (!password.any { !it.isLetterOrDigit() }) {
+            return "Password must include at least one special character"
+        }
         return null
     }
 

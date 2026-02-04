@@ -15,6 +15,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.PCOSINA"
         android:usesCleartextTraffic="true">
+        <meta-data
+            android:name="io.sentry.enabled"
+            android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

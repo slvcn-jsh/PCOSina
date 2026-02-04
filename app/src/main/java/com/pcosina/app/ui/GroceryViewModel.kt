@@ -18,6 +18,9 @@ class GroceryViewModel(private val repository: UserPreferencesRepository) : View
     private val _groceryItems = MutableStateFlow<List<DummyData.GroceryItem>>(emptyList())
     val groceryItems: StateFlow<List<DummyData.GroceryItem>> = _groceryItems.asStateFlow()
 
+    private val _lastPlanTimestamp = MutableStateFlow<Long?>(null)
+    val lastPlanTimestamp: StateFlow<Long?> = _lastPlanTimestamp.asStateFlow()
+
     private var currentUserId: String = ""
     private val gson = Gson()
 
@@ -27,6 +30,8 @@ class GroceryViewModel(private val repository: UserPreferencesRepository) : View
         viewModelScope.launch {
             try {
                 val json = repository.getGroceryJson(userId).first()
+                val ts = repository.getSavedPlanTimestamp(userId).first()
+                _lastPlanTimestamp.value = if (ts > 0) ts else null
                 if (!json.isNullOrBlank()) {
                     val type = object : TypeToken<List<DummyData.GroceryItem>>() {}.type
                     _groceryItems.value = gson.fromJson(json, type)
@@ -72,6 +77,7 @@ class GroceryViewModel(private val repository: UserPreferencesRepository) : View
     fun reset() {
         currentUserId = ""
         _groceryItems.value = emptyList()
+        _lastPlanTimestamp.value = null
     }
 
     class Factory(private val repository: UserPreferencesRepository) : ViewModelProvider.Factory {

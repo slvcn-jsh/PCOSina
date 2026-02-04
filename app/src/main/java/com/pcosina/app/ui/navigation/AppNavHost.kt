@@ -255,6 +255,7 @@ fun AppNavHost(
             TabScaffold(navController = navController) { contentPadding ->
                 GroceryListScreen(
                     groceryViewModel = groceryViewModel,
+                    userViewModel = userViewModel,
                     modifier = Modifier.padding(contentPadding)
                 )
             }

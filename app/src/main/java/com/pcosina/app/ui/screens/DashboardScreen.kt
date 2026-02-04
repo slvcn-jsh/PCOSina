@@ -12,9 +12,12 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -49,6 +52,8 @@ fun DashboardScreen(
     val mealPlanState by mealPlanViewModel.uiState.collectAsState()
     val metrics by mealPlanViewModel.planMetrics.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
+    val showMarkersInfo = rememberSaveable { mutableStateOf(false) }
+    val showTargetInfo = rememberSaveable { mutableStateOf(false) }
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(colorScheme.background),
@@ -83,17 +88,30 @@ fun DashboardScreen(
                 StatCard(title = "Target", value = dailyCalorieTarget.toString(), subtitle = "kcal/day", modifier = Modifier.weight(1f))
                 StatCard(title = "Current", value = "${profile.weightKg}", subtitle = "kg", modifier = Modifier.weight(1f))
             }
+            TextButton(onClick = { showTargetInfo.value = true }, modifier = Modifier.padding(start = 4.dp)) {
+                Icon(Icons.Filled.Info, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("How target kcal/day is computed?")
+            }
         }
 
         item {
             val hasPlan = mealPlanState is MealPlanUiState.Success
             
-            Text(
-                text = "Live Metabolic Markers",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp),
-                color = colorScheme.secondary,
-                modifier = Modifier.padding(start = 4.dp).alpha(if (hasPlan) 1f else 0.5f)
-            )
+            Row(
+                modifier = Modifier.padding(start = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Live Metabolic Markers",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp),
+                    color = colorScheme.secondary,
+                    modifier = Modifier.alpha(if (hasPlan) 1f else 0.5f)
+                )
+                IconButton(onClick = { showMarkersInfo.value = true }) {
+                    Icon(Icons.Filled.Info, contentDescription = "Info", tint = colorScheme.onSurfaceVariant)
+                }
+            }
             
             Card(
                 shape = MaterialTheme.shapes.extraLarge,
@@ -117,7 +135,7 @@ fun DashboardScreen(
             val planState = mealPlanState
             val currentMeal = if (planState is MealPlanUiState.Success) {
                 planState.response.days.firstOrNull()?.meals?.firstOrNull()
-            } else null
+                        } else null
 
             Card(
                 shape = MaterialTheme.shapes.extraLarge,
@@ -188,6 +206,54 @@ fun DashboardScreen(
         }
 
         item { Spacer(Modifier.height(12.dp)) }
+    }
+
+    if (showMarkersInfo.value) {
+        AlertDialog(
+            onDismissRequest = { showMarkersInfo.value = false },
+            confirmButton = {
+                TextButton(onClick = { showMarkersInfo.value = false }) { Text("Got it") }
+            },
+            title = { Text("Live Metabolic Markers") },
+            text = {
+                Text(
+                    "These values are computed from your weekly plan averages (21 meals). " +
+                    "If you log meal completion in Progress, the app uses completed meals for these averages."
+                )
+            }
+        )
+    }
+
+    if (showTargetInfo.value) {
+        val w = if (profile.weightKg > 0) profile.weightKg else 60
+        val h = if (profile.heightCm > 0) profile.heightCm else 155
+        val a = if (profile.age > 0) profile.age else 25
+        val bmr = (10 * w) + (6.25 * h) - (5 * a) - 161
+        val multiplier = when (profile.activityLevel) {
+            "Sedentary" -> 1.2
+            "Lightly Active" -> 1.375
+            "Moderately Active" -> 1.55
+            "Very Active" -> 1.725
+            else -> 1.375
+        }
+        val maintenance = (bmr * multiplier).toInt()
+        val adjusted = if (profile.goal.contains("Weight Loss", true)) maintenance - 500 else maintenance
+        AlertDialog(
+            onDismissRequest = { showTargetInfo.value = false },
+            confirmButton = {
+                TextButton(onClick = { showTargetInfo.value = false }) { Text("Got it") }
+            },
+            title = { Text("Target kcal/day") },
+            text = {
+                Text(
+                    "Computed using Mifflin-St Jeor (female):\n" +
+                    "BMR = 10×$w + 6.25×$h − 5×$a − 161 = ${bmr.toInt()}.\n" +
+                    "Activity multiplier (${profile.activityLevel}) = $multiplier.\n" +
+                    "Maintenance ≈ $maintenance kcal/day.\n" +
+                    "Goal adjustment → $adjusted kcal/day."
+                )
+            }
+        )
     }
 }
 

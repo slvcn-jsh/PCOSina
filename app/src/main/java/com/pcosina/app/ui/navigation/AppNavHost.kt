@@ -28,6 +28,7 @@ import com.pcosina.app.data.repository.UserPreferencesRepository
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanViewModel
+import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.BottomNavBar
 import com.pcosina.app.ui.navigation.Routes.RecipeIdArg
@@ -44,6 +45,8 @@ import com.pcosina.app.ui.screens.SettingsScreen
 import com.pcosina.app.ui.screens.SignUpScreen
 import com.pcosina.app.ui.screens.SplashScreen
 import com.pcosina.app.ui.screens.UserProfileScreen
+import com.pcosina.app.data.repository.FeedbackRepository
+import com.pcosina.app.BuildConfig
 import com.google.firebase.analytics.FirebaseAnalytics
 
 /**
@@ -76,6 +79,7 @@ fun AppNavHost(
     val userPrefsRepository = remember { UserPreferencesRepository(context) }
     val authRepository = remember { AuthRepository(context) }
     val mealPlanRepository = remember { MealPlanRepository() }
+    val feedbackRepository = remember { FeedbackRepository(BuildConfig.BASE_URL) }
     
     // ViewModels
     val userViewModel: UserViewModel = viewModel(
@@ -89,6 +93,9 @@ fun AppNavHost(
             repository = mealPlanRepository,
             userPrefsRepository = userPrefsRepository
         )
+    )
+    val progressViewModel: ProgressViewModel = viewModel(
+        factory = ProgressViewModel.Factory(userPrefsRepository, feedbackRepository)
     )
     // FIXED: Use Factory to prevent RuntimeException (NoSuchMethodException)
     val groceryViewModel: GroceryViewModel = viewModel(
@@ -263,6 +270,10 @@ fun AppNavHost(
         composable(Routes.Progress) {
             TabScaffold(navController = navController) { contentPadding ->
                 ProgressScreen(
+                    userViewModel = userViewModel,
+                    mealPlanViewModel = mealPlanViewModel,
+                    progressViewModel = progressViewModel,
+                    userId = session.currentUserUid ?: "",
                     onBackToDashboard = {
                         navController.navigate(Routes.Dashboard) {
                             tabNavigationOptions()

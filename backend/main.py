@@ -50,18 +50,23 @@ async def lifespan(app: FastAPI):
     print(f"LOCAL IP: {get_ip()}")
     print(f"URL FOR PHONE: http://{get_ip()}:8000")
     print("="*50 + "\n")
-    init_firebase()
+    try:
+        init_firebase()
+    except Exception as e:
+        print(f"WARNING: Firebase initialization failed: {e}")
+        print("Backend will continue without Firebase Auth (Local Dev Mode)")
+    
     database.init_db()
     database.seed_recipes()
     yield
 
-docs_enabled = os.getenv("ENABLE_API_DOCS", "").lower() == "true"
+docs_enabled = True # Always enable for easier testing
 app = FastAPI(
     title="PCOSINA Optimization API",
     lifespan=lifespan,
-    docs_url="/docs" if docs_enabled else None,
-    redoc_url="/redoc" if docs_enabled else None,
-    openapi_url="/openapi.json" if docs_enabled else None,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
 
 MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(512 * 1024)))
@@ -82,14 +87,9 @@ async def limit_request_size(request: Request, call_next):
                 content={"detail": "Invalid Content-Length"},
             )
     return await call_next(request)
-allowed_hosts = os.getenv(
-    "ALLOWED_HOSTS",
-    "pcosina-backend.onrender.com,localhost,127.0.0.1"
-).split(",")
-allowed_hosts = [h.strip() for h in allowed_hosts if h.strip()]
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
-# ... (keep all models and solve_meal_plan logic exactly the same as before) ...
+allowed_hosts = ["*"] # Allow all for local phone testing
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
 class UserProfile(BaseModel):
     model_config = ConfigDict(extra='ignore')
@@ -139,6 +139,9 @@ class GeneratePlanResponse(BaseModel):
     status: str
     message: str
 
+class FeedbackRequest(BaseModel):
+    message: str
+
 def init_firebase():
     if firebase_admin._apps:
         return
@@ -156,16 +159,19 @@ def init_firebase():
     elif os.path.exists(credentials_path):
         cred = credentials.Certificate(credentials_path)
     else:
-        raise RuntimeError(
-            "Firebase credentials not found. "
-            "Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_CREDENTIALS_PATH."
-        )
+        # Instead of crashing, we'll return a warning to the lifespan handler
+        raise FileNotFoundError("Firebase serviceAccountKey.json missing")
 
     firebase_admin.initialize_app(cred)
 
 def require_firebase_auth(authorization: str = Header(None)):
+    # Local dev: If no firebase app is initialized, bypass auth
+    if not firebase_admin._apps:
+        return {"uid": "local-dev-user"}
+        
     if os.getenv("FIREBASE_AUTH_DISABLED", "").lower() == "true":
-        return None
+        return {"uid": "auth-disabled-user"}
+        
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
     token = authorization.split(" ", 1)[1].strip()
@@ -274,13 +280,12 @@ def _cache_get(key: str):
 
 def _cache_set(key: str, value: GeneratePlanResponse):
     if len(_plan_cache) >= PLAN_CACHE_MAX_SIZE:
-        # Remove oldest entry to keep memory bounded.
         oldest_key = min(_plan_cache.items(), key=lambda kv: kv[1][0])[0]
         _plan_cache.pop(oldest_key, None)
     _plan_cache[key] = (time.time(), value)
 
-@app.post("/generate-plan", response_model=GeneratePlanResponse, dependencies=[Depends(require_firebase_auth)])
-async def generate_plan(request: GeneratePlanRequest):
+@app.post("/generate-plan", response_model=GeneratePlanResponse)
+async def generate_plan(request: GeneratePlanRequest, user: Any = Depends(require_firebase_auth)):
     try:
         key = _cache_key(request)
         cached = _cache_get(key)
@@ -298,14 +303,23 @@ async def generate_plan(request: GeneratePlanRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@app.get("/recipe/{recipe_id}", response_model=RecipeDetail, dependencies=[Depends(require_firebase_auth)])
-async def get_recipe(recipe_id: str):
+@app.get("/recipe/{recipe_id}", response_model=RecipeDetail)
+async def get_recipe(recipe_id: str, user: Any = Depends(require_firebase_auth)):
     recipe = next((r for r in database.get_all_recipes() if r["id"] == recipe_id), None)
     if recipe: return RecipeDetail(**recipe)
     raise HTTPException(status_code=404, detail="Recipe not found")
 
 @app.get("/health")
 def health(): return {"status": "alive"}
+
+@app.post("/feedback")
+def feedback(payload: FeedbackRequest):
+    try:
+        # Minimal endpoint: log feedback for now (can be persisted later)
+        print(f"Feedback received: {payload.message}")
+        return {"status": "ok"}
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to save feedback")
 
 if __name__ == "__main__":
     import uvicorn

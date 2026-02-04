@@ -33,6 +33,9 @@ class UserPreferencesRepository(private val context: Context) {
         // Task #1: Persistent Grocery Storage
         fun groceryJson(userId: String) = stringPreferencesKey("grocery_json_$userId")
         fun migrationLogged(userId: String) = booleanPreferencesKey("migration_logged_$userId")
+        fun dailyLogsJson(userId: String) = stringPreferencesKey("daily_logs_json_$userId")
+        fun feedbackQueueJson(userId: String) = stringPreferencesKey("feedback_queue_json_$userId")
+        fun weeklyJournal(userId: String, weekStart: String) = stringPreferencesKey("weekly_journal_${userId}_$weekStart")
     }
 
     private object LegacyKeys {
@@ -146,5 +149,24 @@ class UserPreferencesRepository(private val context: Context) {
     fun getGroceryJson(userId: String): Flow<String?> = context.dataStore.data.map { it[Keys.groceryJson(userId)] }
     suspend fun saveGroceryJson(userId: String, json: String) {
         context.dataStore.edit { it[Keys.groceryJson(userId)] = json }
+    }
+
+    fun getDailyLogsJson(userId: String): Flow<String?> = context.dataStore.data.map { it[Keys.dailyLogsJson(userId)] }
+    suspend fun saveDailyLogsJson(userId: String, json: String) {
+        context.dataStore.edit { it[Keys.dailyLogsJson(userId)] = json }
+    }
+
+    fun getWeeklyJournal(userId: String, weekStart: String): Flow<String?> =
+        context.dataStore.data.map { it[Keys.weeklyJournal(userId, weekStart)] }
+
+    suspend fun saveWeeklyJournal(userId: String, weekStart: String, text: String) {
+        context.dataStore.edit { it[Keys.weeklyJournal(userId, weekStart)] = text }
+    }
+
+    fun getFeedbackQueueJson(userId: String): Flow<String?> =
+        context.dataStore.data.map { it[Keys.feedbackQueueJson(userId)] }
+
+    suspend fun saveFeedbackQueueJson(userId: String, json: String) {
+        context.dataStore.edit { it[Keys.feedbackQueueJson(userId)] = json }
     }
 }

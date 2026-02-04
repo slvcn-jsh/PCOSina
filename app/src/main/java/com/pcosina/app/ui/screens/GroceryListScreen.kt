@@ -36,6 +36,7 @@ import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.DummyData.GroceryItem
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.components.GradientHeader
+import com.pcosina.app.ui.theme.PcosinaSuccess
 
 @Composable
 fun GroceryListScreen(
@@ -114,7 +115,7 @@ fun GroceryListScreen(
                     LinearProgressIndicator(
                         progress = { costProgress },
                         modifier = Modifier.fillMaxWidth(),
-                        color = if (totalCost <= totalBudget) Color(0xFF0ABF6A) else MaterialTheme.colorScheme.error,
+                        color = if (totalCost <= totalBudget) PcosinaSuccess else MaterialTheme.colorScheme.error,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant,
                     )
                     OutlinedButton(

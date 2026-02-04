@@ -119,11 +119,12 @@ fun GoalSelectionScreen(
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color.Transparent,
                 disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = Color.White,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             ),
             contentPadding = PaddingValues(0.dp),
         ) {
+            val colorScheme = MaterialTheme.colorScheme
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -131,8 +132,8 @@ fun GoalSelectionScreen(
                         if (hasSelection)
                             Brush.horizontalGradient(
                                 colors = listOf(
-                                    Color(0xFF0ABF6A),
-                                    Color(0xFF2D9CDB),
+                                    colorScheme.primary,
+                                    colorScheme.secondary,
                                 )
                             )
                         else Brush.horizontalGradient(

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "950408114415",
+    "project_id": "pcosina",
+    "storage_bucket": "pcosina.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:950408114415:android:0b3c55b663b7638c20ab1a",
+        "android_client_info": {
+          "package_name": "com.pcosina.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC22XopcgtJpnz5DC7CG7JaaFJqAQII-SI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -2,10 +2,22 @@ package com.pcosina.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+// PCOSINA Brand Palette
+val PcosinaPink = Color(0xFFFC6B7D)
+val PcosinaDeepRose = Color(0xFF8C3A45)
+val PcosinaSoftPink = Color(0xFFFFE4E8)
+val PcosinaLightPink = Color(0xFFFFB4BC)
+val PcosinaSurface = Color(0xFFFFF6F8)
+val PcosinaSurfaceAlt = Color(0xFFFFF0F3)
+val PcosinaMidnight = Color(0xFF2B1B20)
+val PcosinaMuted = Color(0xFF7B6C71)
+val PcosinaInfo = Color(0xFF2E6ACF)
+val PcosinaSuccess = Color(0xFF2E7D32)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
+// Standard Scheme Mapping
+val PrimaryPink = PcosinaPink
+val SecondaryRose = PcosinaDeepRose
+val TertiaryPink = PcosinaLightPink
+
+val Pink80 = Color(0xFFEFB8C8)
 val Pink40 = Color(0xFF7D5260)

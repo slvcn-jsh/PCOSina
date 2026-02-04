@@ -22,9 +22,11 @@ fun MacroProgressBar(
     progress: Float,
     modifier: Modifier = Modifier,
     valueText: String? = null,
-    barColor: Color = Color(0xFFFC6B7D), // Primary Pink
+    barColor: Color? = null,
 ) {
     val clamped = progress.coerceIn(0f, 1f)
+    val colorScheme = MaterialTheme.colorScheme
+    val progressColor = barColor ?: colorScheme.primary
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -55,8 +57,8 @@ fun MacroProgressBar(
         LinearProgressIndicator(
             progress = { clamped },
             modifier = Modifier.fillMaxWidth(),
-            color = barColor,
-            trackColor = barColor.copy(alpha = 0.2f), // Softer pink track
+            color = progressColor,
+            trackColor = progressColor.copy(alpha = 0.2f),
         )
     }
 }

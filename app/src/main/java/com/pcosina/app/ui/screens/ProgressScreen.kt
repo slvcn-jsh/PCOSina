@@ -1,28 +1,13 @@
 package com.pcosina.app.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.Button
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.TrendingDown
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,13 +15,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.components.MacroProgressBar
 import com.pcosina.app.ui.components.StatCard
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun ProgressScreen(
@@ -44,17 +32,25 @@ fun ProgressScreen(
     modifier: Modifier = Modifier,
 ) {
     var feedback by rememberSaveable { mutableStateOf("") }
+    val colorScheme = MaterialTheme.colorScheme
+    
+    // Dynamic date range
+    val today = LocalDate.now()
+    val startOfWeek = today.minusDays(today.dayOfWeek.value.toLong() - 1)
+    val endOfWeek = startOfWeek.plusDays(6)
+    val formatter = DateTimeFormatter.ofPattern("MMM dd")
+    val weekLabel = "${startOfWeek.format(formatter)} - ${endOfWeek.format(formatter)}"
 
     LazyColumn(
-        modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier.fillMaxSize().background(colorScheme.background),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
             Box {
                 GradientHeader(
-                    title = "Your Progress",
-                    subtitle = "Week 1 • Jan 20-26, 2025",
+                    title = "Weekly Insights",
+                    subtitle = "Monitoring your metabolic markers",
                     containerHeight = 180,
                 )
                 IconButton(
@@ -66,7 +62,7 @@ fun ProgressScreen(
                     Icon(
                         imageVector = Icons.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = Color.White,
+                        tint = colorScheme.onPrimary,
                     )
                 }
             }
@@ -78,21 +74,15 @@ fun ProgressScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 StatCard(
-                    title = "Avg Adherence",
-                    value = "87%",
-                    subtitle = "",
+                    title = "Plan Adherence",
+                    value = "92%",
+                    subtitle = weekLabel,
                     modifier = Modifier.weight(1f),
                 )
                 StatCard(
-                    title = "This Week",
-                    value = "-1.2kg",
-                    subtitle = "",
-                    modifier = Modifier.weight(1f),
-                )
-                StatCard(
-                    title = "Meals Prep",
-                    value = "21",
-                    subtitle = "",
+                    title = "Weight Delta",
+                    value = "-0.8kg",
+                    subtitle = "This Week",
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -101,65 +91,49 @@ fun ProgressScreen(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             ) {
                 Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text(
-                        text = "Weekly Adherence",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(imageVector = Icons.Default.TrendingDown, contentDescription = null, tint = colorScheme.primary)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Daily Compliance",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = colorScheme.secondary
+                        )
+                    }
                     val days = listOf(
-                        "Mon" to 85,
-                        "Tue" to 90,
-                        "Wed" to 75,
-                        "Thu" to 95,
-                        "Fri" to 88,
-                        "Sat" to 92,
-                        "Sun" to 87,
+                        "Mon" to 0.85f, "Tue" to 0.95f, "Wed" to 0.70f, 
+                        "Thu" to 1.0f, "Fri" to 0.90f, "Sat" to 0.88f, "Sun" to 0.92f
                     )
-                    days.forEach { (label, value) ->
+                    days.forEach { (label, progress) ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             Text(
                                 text = label,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.labelLarge,
                                 modifier = Modifier.width(40.dp),
+                                color = colorScheme.onSurfaceVariant
                             )
-                            Box(
-                                modifier = Modifier
-                                    .height(8.dp)
-                                    .weight(1f)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.surfaceVariant,
-                                        shape = MaterialTheme.shapes.extraSmall,
-                                    ),
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(fraction = value / 100f)
-                                        .height(8.dp)
-                                        .background(
-                                            Brush.horizontalGradient(
-                                                colors = listOf(
-                                                    Color(0xFF0ABF6A),
-                                                    Color(0xFF2D9CDB),
-                                                )
-                                            ),
-                                            shape = MaterialTheme.shapes.extraSmall,
-                                        ),
-                                )
-                            }
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.weight(1f).height(6.dp).clip(CircleShape),
+                                color = if (progress >= 0.9f) colorScheme.primary else colorScheme.primary.copy(alpha = 0.5f),
+                                trackColor = colorScheme.surfaceVariant,
+                            )
                             Text(
-                                text = "$value%",
-                                style = MaterialTheme.typography.labelMedium,
+                                text = "${(progress * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = colorScheme.secondary
                             )
                         }
                     }
@@ -170,58 +144,54 @@ fun ProgressScreen(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
             ) {
                 Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Text(
-                        text = "Average Daily Macros",
-                        style = MaterialTheme.typography.titleMedium,
+                        text = "Aggregated Macros",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = colorScheme.onSurface
                     )
-                    MacroProgressBar(label = "Protein", progress = 0.78f, valueText = "78 / 80g")
-                    MacroProgressBar(label = "Carbs", progress = 0.91f, valueText = "165 / 180g")
-                    MacroProgressBar(label = "Fats", progress = 0.9f, valueText = "45 / 50g")
+                    MacroProgressBar(label = "Protein", progress = 0.82f, valueText = "Avg 75g")
+                    MacroProgressBar(label = "Carbs", progress = 0.45f, valueText = "Avg 110g")
+                    MacroProgressBar(label = "Fats", progress = 0.68f, valueText = "Avg 48g")
                 }
             }
         }
 
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "Weekly Journal",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = colorScheme.secondary,
+                    modifier = Modifier.padding(start = 4.dp)
+                )
+                OutlinedTextField(
+                    value = feedback,
+                    onValueChange = { feedback = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp),
+                    placeholder = { Text("How do you feel this week? (e.g., Energy levels, symptoms)") },
+                    shape = MaterialTheme.shapes.large,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = colorScheme.primary)
+                )
+                Button(
+                    onClick = { /* no-op */ },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
                 ) {
-                    Text(
-                        text = "Share Your Feedback",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    OutlinedTextField(
-                        value = feedback,
-                        onValueChange = { feedback = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(120.dp),
-                        placeholder = { Text("Type your feedback here...") },
-                    )
-                    Button(
-                        onClick = { /* no-op */ },
-                        modifier = Modifier.align(Alignment.End),
-                    ) {
-                        Text("Submit Feedback")
-                    }
+                    Text("Save Weekly Reflection", fontWeight = FontWeight.Bold)
                 }
             }
         }
 
-        item { Spacer(Modifier.height(8.dp)) }
+        item { Spacer(Modifier.height(24.dp)) }
     }
 }

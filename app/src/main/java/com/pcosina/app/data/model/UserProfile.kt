@@ -4,10 +4,10 @@ import androidx.compose.runtime.Immutable
 
 @Immutable
 data class UserProfile(
-    val displayName: String = "Maria",
-    val age: Int = 25,
-    val heightCm: Int = 160,
-    val weightKg: Int = 65,
+    val displayName: String = "",
+    val age: Int = 0,
+    val heightCm: Int = 0,
+    val weightKg: Int = 0,
     val activityLevel: String = "Lightly Active",
     val goal: String = "Support PCOS symptom management",
     val insulinResistanceLevel: String = "Mild",
@@ -19,5 +19,7 @@ data class UserProfile(
     val allergies: List<String> = emptyList(),
     val weeklyBudgetPhp: Int = 2000,
     val maxCookingTimeMinutes: Int = 45,
-    val varietyPreference: String = "Balanced", // e.g., "High Variety", "Meal Prep Friendly"
+    val varietyPreference: String = "Balanced",
+    
+    val isProfileCompleted: Boolean = false
 )

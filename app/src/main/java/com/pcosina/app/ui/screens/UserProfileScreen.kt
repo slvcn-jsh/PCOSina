@@ -18,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -57,24 +56,23 @@ fun UserProfileScreen(
     var noBeef by rememberSaveable { mutableStateOf(profile.dietaryRestrictions.contains("No Beef")) }
     var budget by rememberSaveable { mutableStateOf(if (profile.weeklyBudgetPhp > 0) profile.weeklyBudgetPhp.toString() else "2000") }
 
-    val primaryColor = Color(0xFFFC6B7D)
-    val secondaryColor = Color(0xFF8C3A45)
+    val colorScheme = MaterialTheme.colorScheme
 
     Scaffold(
         topBar = {
-            Column(modifier = Modifier.background(Color(0xFFFFF9F9))) {
+            Column(modifier = Modifier.background(colorScheme.background)) {
                 GradientHeader(
                     title = "Profile Setup",
                     subtitle = "Step $currentStep of 3",
                     containerHeight = 140
                 )
-                OnboardingProgress(currentStep, primaryColor)
+                OnboardingProgress(currentStep, colorScheme.primary)
             }
         },
         bottomBar = {
             BottomActionRow(
                 currentStep = currentStep,
-                primaryColor = primaryColor,
+                primaryColor = colorScheme.primary,
                 onBack = { if (currentStep > 1) currentStep-- },
                 onNext = {
                     if (currentStep < 3) {
@@ -112,7 +110,7 @@ fun UserProfileScreen(
                 }
             )
         },
-        containerColor = Color(0xFFFFF9F9)
+        containerColor = colorScheme.background
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             AnimatedContent(
@@ -125,20 +123,20 @@ fun UserProfileScreen(
                     }
                 },
                 label = "stepAnimation"
-            ) { step ->
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
-                ) {
-                    when (step) {
-                        1 -> StepOneIdentity(displayName, {displayName=it}, age, {age=it}, weight, {weight=it}, height, {height=it}, activityLevel, {activityLevel=it}, primaryColor)
-                        2 -> StepTwoMedical(insulinLevel, {insulinLevel=it}, symptomIrregularPeriods, {symptomIrregularPeriods=it}, symptomWeightGain, {symptomWeightGain=it}, symptomAcne, {symptomAcne=it}, symptomHairLoss, {symptomHairLoss=it}, primaryColor)
-                        3 -> StepThreeDiet(lacto, {lacto=it}, vegetarian, {vegetarian=it}, pescatarian, {pescatarian=it}, noPork, {noPork=it}, noBeef, {noBeef=it}, budget, {budget=it}, primaryColor)
+                ) { step ->
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        when (step) {
+                            1 -> StepOneIdentity(displayName, {displayName=it}, age, {age=it}, weight, {weight=it}, height, {height=it}, activityLevel, {activityLevel=it}, colorScheme.primary)
+                            2 -> StepTwoMedical(insulinLevel, {insulinLevel=it}, symptomIrregularPeriods, {symptomIrregularPeriods=it}, symptomWeightGain, {symptomWeightGain=it}, symptomAcne, {symptomAcne=it}, symptomHairLoss, {symptomHairLoss=it}, colorScheme.primary)
+                            3 -> StepThreeDiet(lacto, {lacto=it}, vegetarian, {vegetarian=it}, pescatarian, {pescatarian=it}, noPork, {noPork=it}, noBeef, {noBeef=it}, budget, {budget=it}, colorScheme.primary)
+                        }
                     }
                 }
             }
         }
-    }
 }
 
 @Composable
@@ -154,7 +152,7 @@ fun OnboardingProgress(currentStep: Int, color: Color) {
                     .weight(1f)
                     .height(4.dp)
                     .clip(CircleShape)
-                    .background(if (step <= currentStep) color else Color.LightGray.copy(alpha = 0.3f))
+                    .background(if (step <= currentStep) color else MaterialTheme.colorScheme.surfaceVariant)
             )
         }
     }
@@ -169,7 +167,7 @@ fun BottomActionRow(currentStep: Int, primaryColor: Color, onBack: () -> Unit, o
     ) {
         if (currentStep > 1) {
             TextButton(onClick = onBack) {
-                Text("Back", color = Color.Gray)
+                Text("Back", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             Spacer(Modifier.width(1.dp))
@@ -266,7 +264,7 @@ fun StepOneIdentity(name: String, onName: (String) -> Unit, age: String, onAge: 
         Text(
             text = "Choose the closest match for a typical week.",
             style = MaterialTheme.typography.bodySmall,
-            color = Color.Gray
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -285,11 +283,11 @@ fun StepTwoMedical(insulin: String, onInsulin: (String) -> Unit, s1: Boolean, on
                 options.forEach { opt -> DropdownMenuItem(text = { Text(opt) }, onClick = { onInsulin(opt); expanded = false }) }
             }
         }
-        Text("Select active symptoms (optional):", style = MaterialTheme.typography.labelLarge, color = Color.Gray)
+        Text("Select active symptoms (optional):", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             text = "Helps tailor recommendations. Leave blank if unsure.",
             style = MaterialTheme.typography.bodySmall,
-            color = Color.Gray
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         CheckboxRow("Irregular periods", s1, color, onS1)
         CheckboxRow("Weight gain", s2, color, onS2)
@@ -305,7 +303,7 @@ fun StepThreeDiet(r1: Boolean, onR1: (Boolean) -> Unit, r2: Boolean, onR2: (Bool
         Text(
             text = "Select only what applies to you.",
             style = MaterialTheme.typography.bodySmall,
-            color = Color.Gray
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         CheckboxRow("Lactose Intolerant", r1, color, onR1)
         CheckboxRow("Vegetarian", r2, color, onR2)
@@ -329,7 +327,7 @@ fun StepThreeDiet(r1: Boolean, onR1: (Boolean) -> Unit, r2: Boolean, onR2: (Bool
 
 @Composable
 fun SectionTitle(text: String) {
-    Text(text = text, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp), color = Color(0xFF8C3A45))
+    Text(text = text, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp), color = MaterialTheme.colorScheme.secondary)
 }
 
 @Composable
@@ -340,7 +338,7 @@ private fun CheckboxRow(label: String, checked: Boolean, accentColor: Color, onC
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Checkbox(checked = checked, onCheckedChange = onCheckedChange, colors = CheckboxDefaults.colors(checkedColor = accentColor))
-        Text(text = label, style = MaterialTheme.typography.bodyLarge, color = if (checked) Color.Black else Color.DarkGray)
+        Text(text = label, style = MaterialTheme.typography.bodyLarge, color = if (checked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

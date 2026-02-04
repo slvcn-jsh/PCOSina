@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronRight
@@ -18,7 +17,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -51,21 +49,19 @@ fun MealPlanScreen(
     LaunchedEffect(Unit) {
         isOnline.value = isNetworkAvailable(context)
     }
+    val colorScheme = MaterialTheme.colorScheme
     
     // Track if we are currently extracting ingredients
     var isSyncingGroceries by remember { mutableStateOf(false) }
     
-    val primaryColor = Color(0xFFFC6B7D)
-    val secondaryColor = Color(0xFF8C3A45)
-
     when (val state = uiState) {
         is MealPlanUiState.Idle -> {
-            Box(modifier = modifier.fillMaxSize().background(Color(0xFFFFF9F9)), contentAlignment = Alignment.Center) {
+            Box(modifier = modifier.fillMaxSize().background(colorScheme.background), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     if (!isOnline.value) {
                         Text(
                             text = "Offline. Connect to the internet to generate your first plan.",
-                            color = Color.Gray,
+                            color = colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
                     }
@@ -79,8 +75,8 @@ fun MealPlanScreen(
                             analytics.logEvent("generate_plan", null)
                             mealPlanViewModel.generateMealPlan(userProfile)
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
-                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
+                        shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.height(56.dp).padding(horizontal = 32.dp)
                     ) {
                         Text(
@@ -92,15 +88,15 @@ fun MealPlanScreen(
             }
         }
         is MealPlanUiState.Loading -> {
-            Box(modifier = modifier.fillMaxSize().background(Color(0xFFFFF9F9)), contentAlignment = Alignment.Center) {
+            Box(modifier = modifier.fillMaxSize().background(colorScheme.background), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(color = primaryColor)
+                    CircularProgressIndicator(color = colorScheme.primary)
                     Spacer(Modifier.height(16.dp))
-                    Text("MILP Engine is optimizing...", color = secondaryColor)
+                    Text("MILP Engine is optimizing...", color = colorScheme.secondary)
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = "First run can take up to ~30s. Please keep the app open.",
-                        color = Color.Gray,
+                        color = colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
                 }
@@ -109,11 +105,11 @@ fun MealPlanScreen(
         is MealPlanUiState.Error -> {
             Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Error: ${state.message}", color = Color.Red)
+                    Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
                     if (!isOnline.value) {
                         Text(
                             text = "You are offline. Saved plans will still be available.",
-                            color = Color.Gray,
+                            color = colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 6.dp)
                         )
                     }
@@ -133,21 +129,21 @@ fun MealPlanScreen(
             val selectedDay = plan.days[selectedDayIndex]
 
             LazyColumn(
-                modifier = modifier.fillMaxSize().background(Color(0xFFFFF9F9)),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                modifier = modifier.fillMaxSize().background(colorScheme.background),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 item {
                     if (!isOnline.value) {
                         Card(
                             shape = MaterialTheme.shapes.large,
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3CD)),
+                            colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
                             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                         ) {
                             Text(
                                 text = "Offline mode: showing your last saved plan.",
-                                modifier = Modifier.padding(12.dp),
-                                color = Color(0xFF856404),
+                                modifier = Modifier.padding(14.dp),
+                                color = colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -163,17 +159,17 @@ fun MealPlanScreen(
                 item {
                     Card(
                         shape = MaterialTheme.shapes.extraLarge,
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(18.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Ready to shop?", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                                Text("Consolidate all 21 meals", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                Text("Consolidate all 21 meals", style = MaterialTheme.typography.bodySmall, color = colorScheme.onSurfaceVariant)
                             }
                             Button(
                                 onClick = { 
@@ -191,10 +187,10 @@ fun MealPlanScreen(
                                 },
                                 enabled = !isSyncingGroceries && isOnline.value,
                                 shape = MaterialTheme.shapes.medium,
-                                colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+                                colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
                             ) {
                                 if (isSyncingGroceries) {
-                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                    CircularProgressIndicator(color = colorScheme.onPrimary, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                                 } else {
                                     Icon(imageVector = Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(8.dp))
@@ -220,9 +216,9 @@ fun MealPlanScreen(
                                 onClick = { selectedDayIndex = index },
                                 label = { Text(day.dayLabel) },
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = primaryColor,
-                                    selectedLabelColor = Color.White,
-                                    labelColor = Color.Gray
+                                    selectedContainerColor = colorScheme.primary,
+                                    selectedLabelColor = colorScheme.onPrimary,
+                                    labelColor = colorScheme.onSurfaceVariant
                                 )
                             )
                         }
@@ -233,22 +229,22 @@ fun MealPlanScreen(
                 item {
                     Card(
                         shape = MaterialTheme.shapes.extraLarge,
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
                         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(20.dp),
+                            modifier = Modifier.fillMaxWidth().padding(18.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Icon(imageVector = Icons.Filled.CalendarMonth, contentDescription = null, tint = primaryColor)
+                                Icon(imageVector = Icons.Filled.CalendarMonth, contentDescription = null, tint = colorScheme.primary)
                                 Column {
                                     Text(text = "${selectedDay.dayLabel}'s Total", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                                    Text(text = "MILP Validated", style = MaterialTheme.typography.bodySmall, color = primaryColor)
+                                    Text(text = "MILP Validated", style = MaterialTheme.typography.bodySmall, color = colorScheme.primary)
                                 }
                             }
-                            Text(text = "${selectedDay.totalCalories} kcal", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = secondaryColor))
+                            Text(text = "${selectedDay.totalCalories} kcal", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = colorScheme.secondary))
                         }
                     }
                 }
@@ -258,25 +254,25 @@ fun MealPlanScreen(
                     Card(
                         onClick = { onRecipeClick(plannedMeal.recipeId) },
                         shape = MaterialTheme.shapes.extraLarge,
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
                         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
-                                modifier = Modifier.size(48.dp).background(Color(0xFFFFE4E8), CircleShape),
+                                modifier = Modifier.size(48.dp).background(colorScheme.surfaceVariant, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(text = if(plannedMeal.mealLabel == "Breakfast") "🍳" else if(plannedMeal.mealLabel == "Lunch") "🍱" else "🥘", fontSize = 24.sp)
                             }
                             Spacer(Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(text = plannedMeal.mealLabel.uppercase(), style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                                Text(text = plannedMeal.mealLabel.uppercase(), style = MaterialTheme.typography.labelSmall, color = colorScheme.onSurfaceVariant)
                                 Text(text = plannedMeal.title, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            Icon(imageVector = Icons.Filled.ChevronRight, contentDescription = null, tint = Color.LightGray)
+                            Icon(imageVector = Icons.Filled.ChevronRight, contentDescription = null, tint = colorScheme.onSurfaceVariant)
                         }
                     }
                 }

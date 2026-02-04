@@ -16,6 +16,7 @@ object Routes {
     
     // Main App
     const val Dashboard = "dashboard"
+    const val Settings = "settings"
 
     // Bottom tabs
     const val MealPlan = "meal_plan"

@@ -13,7 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -32,15 +31,14 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val profile by userViewModel.userProfile.collectAsState()
-    val primaryColor = Color(0xFFFC6B7D)
-    val secondaryColor = Color(0xFF8C3A45)
+    val colorScheme = MaterialTheme.colorScheme
     
     val userName = profile.displayName.ifBlank { "Warrior" }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFFFFF9F9))
+            .background(colorScheme.background)
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -54,7 +52,7 @@ fun SettingsScreen(
         // Personalized Profile Summary Card
         Card(
             shape = MaterialTheme.shapes.extraLarge,
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Row(
@@ -67,14 +65,14 @@ fun SettingsScreen(
                     modifier = Modifier
                         .size(64.dp)
                         .clip(CircleShape)
-                        .background(primaryColor.copy(alpha = 0.1f)),
+                        .background(colorScheme.primary.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = userName.take(1).uppercase(),
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = primaryColor
+                            color = colorScheme.primary
                         )
                     )
                 }
@@ -87,7 +85,7 @@ fun SettingsScreen(
                     Text(
                         text = "PCOS Management Active",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        color = colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -99,17 +97,17 @@ fun SettingsScreen(
             SettingsItem(icon = Icons.Default.Height, label = "Height", value = "${profile.heightCm} cm")
             SettingsItem(icon = Icons.Default.LocalFireDepartment, label = "Activity Level", value = profile.activityLevel)
             
-            Divider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = Color(0xFFEEEEEE))
+            Divider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
             
             Text(
                 text = "Current Focus:",
                 style = MaterialTheme.typography.labelLarge,
-                color = secondaryColor
+                color = colorScheme.secondary
             )
             Text(
                 text = profile.goal,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.DarkGray
+                color = colorScheme.onSurface
             )
 
             Spacer(Modifier.height(8.dp))
@@ -118,7 +116,7 @@ fun SettingsScreen(
                 onClick = onNavigateToOnboarding,
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
-                colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
             ) {
                 Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -133,7 +131,7 @@ fun SettingsScreen(
                 icon = Icons.Default.History,
                 label = "Clear Meal History",
                 description = "Reset generated plans for this account",
-                color = Color.Gray
+                color = colorScheme.onSurfaceVariant
             ) {
                 // Feature to clear specific plan data could be added here
             }
@@ -142,7 +140,7 @@ fun SettingsScreen(
                 icon = Icons.Default.Logout,
                 label = "Logout",
                 description = "Securely sign out of PCOSINA",
-                color = secondaryColor
+                color = colorScheme.secondary
             ) {
                 authViewModel.onLogout()
             }
@@ -152,7 +150,7 @@ fun SettingsScreen(
                     icon = Icons.Default.Warning,
                     label = "Test Crash (Debug only)",
                     description = "Send a test crash to Crashlytics",
-                    color = Color.Red
+                    color = MaterialTheme.colorScheme.error
                 ) {
                     FirebaseCrashlytics.getInstance().log("Manual test crash from Settings")
                     throw RuntimeException("Crashlytics test crash")
@@ -166,7 +164,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             style = MaterialTheme.typography.labelSmall,
-            color = Color.LightGray
+            color = colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(12.dp))
     }
@@ -178,12 +176,12 @@ fun SettingsSection(title: String, content: @Composable () -> Unit) {
         Text(
             text = title.uppercase(),
             style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.sp, fontWeight = FontWeight.Black),
-            color = Color(0xFF8C3A45),
+            color = MaterialTheme.colorScheme.secondary,
             modifier = Modifier.padding(start = 4.dp)
         )
         Card(
             shape = MaterialTheme.shapes.extraLarge,
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -197,11 +195,11 @@ fun SettingsSection(title: String, content: @Composable () -> Unit) {
 fun SettingsItem(icon: ImageVector, label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(imageVector = icon, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+            Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(12.dp))
             Text(text = label, style = MaterialTheme.typography.bodyLarge)
         }
-        Text(text = value, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold), color = Color(0xFFFC6B7D))
+        Text(text = value, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
     }
 }
 
@@ -209,7 +207,7 @@ fun SettingsItem(icon: ImageVector, label: String, value: String) {
 fun SettingsActionItem(icon: ImageVector, label: String, description: String, color: Color, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        color = Color.Transparent,
+        color = androidx.compose.ui.graphics.Color.Transparent,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
@@ -222,7 +220,7 @@ fun SettingsActionItem(icon: ImageVector, label: String, description: String, co
             Spacer(Modifier.width(16.dp))
             Column {
                 Text(text = label, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold), color = color)
-                Text(text = description, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text(text = description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

@@ -2,13 +2,11 @@ package com.pcosina.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -30,6 +28,7 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     val loginState by authViewModel.loginState.collectAsState()
     val analytics = FirebaseAnalytics.getInstance(LocalContext.current)
+    val colorScheme = MaterialTheme.colorScheme
 
     LaunchedEffect(loginState) {
         if (loginState is LoginState.Success) {
@@ -41,27 +40,28 @@ fun LoginScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFFFFF9F9))
+            .background(colorScheme.background)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "🌸",
-            fontSize = 64.sp,
-            modifier = Modifier.padding(bottom = 16.dp)
+            text = "PCOSINA",
+            style = MaterialTheme.typography.titleLarge.copy(letterSpacing = 2.sp),
+            color = colorScheme.secondary,
+            modifier = Modifier.padding(bottom = 8.dp)
         )
         
         Text(
             text = "Welcome Back",
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-            color = Color(0xFF8C3A45)
+            color = colorScheme.onBackground
         )
         
         Text(
             text = "Login to access your optimized plans",
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.Gray,
+            color = colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 32.dp)
         )
 
@@ -70,10 +70,10 @@ fun LoginScreen(
             onValueChange = { email = it },
             label = { Text("Email Address") },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
+            shape = MaterialTheme.shapes.medium,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFFFC6B7D),
-                focusedLabelColor = Color(0xFFFC6B7D)
+                focusedBorderColor = colorScheme.primary,
+                focusedLabelColor = colorScheme.primary
             )
         )
 
@@ -86,10 +86,10 @@ fun LoginScreen(
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
+            shape = MaterialTheme.shapes.medium,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFFFC6B7D),
-                focusedLabelColor = Color(0xFFFC6B7D)
+                focusedBorderColor = colorScheme.primary,
+                focusedLabelColor = colorScheme.primary
             )
         )
 
@@ -109,12 +109,12 @@ fun LoginScreen(
                 authViewModel.onLogin(email, password)
             },
             modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFC6B7D)),
+            shape = MaterialTheme.shapes.medium,
+            colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
             enabled = loginState !is LoginState.Loading
         ) {
             if (loginState is LoginState.Loading) {
-                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                CircularProgressIndicator(color = colorScheme.onPrimary, modifier = Modifier.size(24.dp))
             } else {
                 Text("Login", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
             }
@@ -124,7 +124,7 @@ fun LoginScreen(
             onClick = onNavigateToSignUp,
             modifier = Modifier.padding(top = 16.dp)
         ) {
-            Text("Don't have an account? Sign Up", color = Color(0xFF8C3A45))
+            Text("Don't have an account? Sign Up", color = colorScheme.secondary)
         }
     }
 }

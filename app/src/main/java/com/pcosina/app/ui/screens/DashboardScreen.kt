@@ -1,82 +1,73 @@
 package com.pcosina.app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
-import com.pcosina.app.ui.components.MacroProgressBar
+import com.pcosina.app.ui.components.MacroCircularGauge
 import com.pcosina.app.ui.components.StatCard
 
 @Composable
 fun DashboardScreen(
     userViewModel: UserViewModel,
+    authViewModel: AuthViewModel,
     mealPlanViewModel: MealPlanViewModel,
     onRecipeClick: (String) -> Unit,
     onViewPlan: () -> Unit = {},
     onViewIpo: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
+    onFeedback: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val profile by userViewModel.userProfile.collectAsState()
     val dailyCalorieTarget = userViewModel.dailyCalorieTarget
     val mealPlanState by mealPlanViewModel.uiState.collectAsState()
+    val metrics by mealPlanViewModel.planMetrics.collectAsState()
+    val colorScheme = MaterialTheme.colorScheme
 
     LazyColumn(
-        modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier.fillMaxSize().background(colorScheme.background),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
             Box {
                 GradientHeader(
-                    title = "Hello, ${profile.displayName}! 👋",
-                    subtitle = "Let's plan your healthy week",
-                    containerHeight = 190,
+                    title = "Hello, ${profile.displayName.ifBlank { "Warrior" }}! 👋",
+                    subtitle = "Scientific Nutrition for PCOS",
+                    containerHeight = 200,
                     trailing = {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            IconButton(onClick = {}) {
-                                Icon(
-                                    imageVector = Icons.Filled.Notifications,
-                                    contentDescription = "Notifications",
-                                    tint = androidx.compose.ui.graphics.Color.White,
-                                )
-                            }
-                            IconButton(onClick = {}) {
-                                Icon(
-                                    imageVector = Icons.Filled.AccountCircle,
-                                    contentDescription = "Profile",
-                                    tint = androidx.compose.ui.graphics.Color.White,
-                                )
-                            }
+                        IconButton(onClick = onNavigateToSettings) {
+                            Icon(
+                                imageVector = Icons.Filled.Settings,
+                                contentDescription = "Settings",
+                                tint = Color.White,
+                            )
                         }
                     },
                 )
@@ -84,195 +75,127 @@ fun DashboardScreen(
         }
 
         item {
-            // Quick stats row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                StatCard(
-                    title = "Goal",
-                    value = if (profile.goal.contains("Weight Loss")) "Loss" else "Balance",
-                    subtitle = "",
-                    modifier = Modifier.weight(1f),
-                )
-                StatCard(
-                    title = "Cal/day",
-                    value = dailyCalorieTarget.toString(),
-                    subtitle = "Target",
-                    modifier = Modifier.weight(1f),
-                )
-                StatCard(
-                    title = "Weight",
-                    value = "${profile.weightKg}kg",
-                    subtitle = "Current",
-                    modifier = Modifier.weight(1f),
-                )
+                StatCard(title = "Goal", value = if (profile.goal.contains("Weight Loss")) "Loss" else "Control", subtitle = "Focus", modifier = Modifier.weight(1f))
+                StatCard(title = "Target", value = dailyCalorieTarget.toString(), subtitle = "kcal/day", modifier = Modifier.weight(1f))
+                StatCard(title = "Current", value = "${profile.weightKg}", subtitle = "kg", modifier = Modifier.weight(1f))
             }
         }
 
         item {
-            // "How PCOSINA Works" card (IPO entry)
+            val hasPlan = mealPlanState is MealPlanUiState.Success
+            
+            Text(
+                text = "Live Metabolic Markers",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp),
+                color = colorScheme.secondary,
+                modifier = Modifier.padding(start = 4.dp).alpha(if (hasPlan) 1f else 0.5f)
+            )
+            
             Card(
-                onClick = onViewIpo,
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth().alpha(if (hasPlan) 1f else 0.6f)
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Card(
-                        shape = MaterialTheme.shapes.large,
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .height(56.dp)
-                                .padding(horizontal = 18.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Info,
-                                contentDescription = null,
-                            )
-                        }
-                    }
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(
-                            text = "How PCOSINA Works",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = "See the Input-Process-Output flow",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    MacroCircularGauge(label = "Protein", currentValue = metrics.avgProtein, targetValue = 85, color = colorScheme.primary, modifier = Modifier.weight(1f))
+                    MacroCircularGauge(label = "Carbs", currentValue = metrics.avgCarbs, targetValue = 220, color = colorScheme.tertiary, modifier = Modifier.weight(1f))
+                    MacroCircularGauge(label = "Fiber", currentValue = metrics.avgFiber, targetValue = 25, color = colorScheme.secondary, modifier = Modifier.weight(1f))
                 }
             }
         }
 
         item {
-            // "This Week's Plan" header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = "This Week's Plan",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = "View All",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .padding(horizontal = 4.dp)
-                        .clickableNoRipple { onViewPlan() },
-                )
-            }
-        }
+            val planState = mealPlanState
+            val currentMeal = if (planState is MealPlanUiState.Success) {
+                planState.response.days.firstOrNull()?.meals?.firstOrNull()
+            } else null
 
-        item {
-            // Plan preview card - Sync with real plan if it exists
             Card(
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    val currentMeal = if (mealPlanState is MealPlanUiState.Success) {
-                        (mealPlanState as MealPlanUiState.Success).response.days.firstOrNull()?.meals?.firstOrNull()
-                    } else null
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            text = "Next Meal",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        if (currentMeal != null) {
-                            Text(
-                                text = currentMeal.mealLabel,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(text = "NEXT OPTIMIZED MEAL", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp), color = colorScheme.primary)
+                    Text(text = currentMeal?.title ?: "No Active Plan", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
+                    
+                    if (currentMeal == null) {
+                        Text(text = "Tap to generate your scientifically balanced MILP plan.", style = MaterialTheme.typography.bodyMedium, color = colorScheme.onSurfaceVariant)
                     }
 
-                    Text(
-                        text = currentMeal?.title ?: "No Plan Generated",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = if (currentMeal != null) "Optimized for your PCOS profile" else "Tap below to create your MILP optimized plan",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    androidx.compose.material3.Button(
+                    Button(
                         onClick = { if (currentMeal != null) onRecipeClick(currentMeal.recipeId) else onViewPlan() },
-                        modifier = Modifier.padding(top = 4.dp),
+                        shape = MaterialTheme.shapes.medium,
+                        colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
                     ) {
-                        Text(if (currentMeal != null) "View Recipe" else "Generate Plan")
+                        Text(if (currentMeal != null) "View Cooking Steps" else "Initialize Engine")
                     }
                 }
             }
         }
 
         item {
-            // Today's macros
             Card(
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                onClick = onViewIpo,
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Text(
-                        text = "Today's Macros",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    MacroProgressBar(label = "Protein", progress = 0.56f, valueText = "45g / 80g")
-                    MacroProgressBar(label = "Carbs", progress = 0.67f, valueText = "120g / 180g")
-                    MacroProgressBar(label = "Fats", progress = 0.70f, valueText = "35g / 50g")
-                    MacroProgressBar(label = "Fiber", progress = 0.72f, valueText = "18g / 25g")
+                Row(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(56.dp).clip(CircleShape).background(colorScheme.primary).padding(12.dp), contentAlignment = Alignment.Center) {
+                        Icon(imageVector = Icons.Filled.Info, contentDescription = null, tint = colorScheme.onPrimary)
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Column {
+                        Text(text = "The PCOSINA Methodology", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = colorScheme.onSurface)
+                        Text(text = "Learn how our MILP solver works", style = MaterialTheme.typography.bodyMedium, color = colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }
 
-        item { Spacer(Modifier.height(6.dp)) }
+        item {
+            Card(
+                onClick = onFeedback,
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
+                Row(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(48.dp).clip(CircleShape).background(colorScheme.secondary).padding(10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(imageVector = Icons.Filled.Email, contentDescription = null, tint = colorScheme.onSecondary)
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Column {
+                        Text(text = "Send Feedback", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = colorScheme.secondary)
+                        Text(text = "Help us improve PCOSINA", style = MaterialTheme.typography.bodyMedium, color = colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+
+        item { Spacer(Modifier.height(12.dp)) }
     }
 }
 
 private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
     composed {
-        clickable(
+        this.clickable(
+            interactionSource = remember { MutableInteractionSource() },
             indication = null,
-            interactionSource = MutableInteractionSource(),
             onClick = onClick,
         )
     }

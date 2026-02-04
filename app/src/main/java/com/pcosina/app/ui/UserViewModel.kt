@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.pcosina.app.data.model.UserProfile
 import com.pcosina.app.data.repository.UserPreferencesRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,68 +17,90 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
     private val _userProfile = MutableStateFlow(UserProfile())
     val userProfile: StateFlow<UserProfile> = _userProfile.asStateFlow()
 
-    init {
-        viewModelScope.launch {
-            repository.userProfileFlow.collectLatest { profile ->
+    private val _isProfileLoading = MutableStateFlow(false)
+    val isProfileLoading: StateFlow<Boolean> = _isProfileLoading.asStateFlow()
+
+    private var profileJob: Job? = null
+    private var currentUserEmail: String = ""
+
+    fun loadProfileForUser(email: String) {
+        if (currentUserEmail == email) return
+        currentUserEmail = email
+        _userProfile.value = UserProfile() 
+        _isProfileLoading.value = true
+        profileJob?.cancel()
+        profileJob = viewModelScope.launch {
+            repository.getUserProfile(email).collectLatest { profile ->
                 _userProfile.value = profile
+                _isProfileLoading.value = false
             }
         }
     }
 
+    /**
+     * RESTORED: This was causing the "Unresolved Reference" crash.
+     */
+    fun updateProfileName(name: String) {
+        _userProfile.update { it.copy(displayName = name) }
+        saveProfile()
+    }
+
+    fun reset() {
+        currentUserEmail = ""
+        profileJob?.cancel()
+        _userProfile.value = UserProfile()
+        _isProfileLoading.value = false
+    }
+
     private fun saveProfile() {
+        if (currentUserEmail.isBlank()) return
         viewModelScope.launch {
-            repository.updateProfile(_userProfile.value)
+            repository.updateProfile(currentUserEmail, _userProfile.value)
         }
     }
 
     fun updatePersonalDetails(age: Int, weight: Int, height: Int, activity: String) {
         _userProfile.update { 
-            it.copy(
-                age = age,
-                weightKg = weight,
-                heightCm = height,
-                activityLevel = activity
-            )
+            it.copy(age = age, weightKg = weight, heightCm = height, activityLevel = activity)
         }
         saveProfile()
     }
 
     fun updatePcosDetails(insulin: String, symptoms: List<String>, comorbidities: List<String>) {
         _userProfile.update {
-            it.copy(
-                insulinResistanceLevel = insulin,
-                symptoms = symptoms,
-                comorbidities = comorbidities
-            )
+            it.copy(insulinResistanceLevel = insulin, symptoms = symptoms, comorbidities = comorbidities)
         }
         saveProfile()
     }
 
     fun updateDietaryRestrictions(restrictions: List<String>) {
-        _userProfile.update {
-            it.copy(dietaryRestrictions = restrictions)
-        }
+        _userProfile.update { it.copy(dietaryRestrictions = restrictions) }
         saveProfile()
     }
 
     fun updateBudget(budget: Int) {
-        _userProfile.update {
-            it.copy(weeklyBudgetPhp = budget)
-        }
+        _userProfile.update { it.copy(weeklyBudgetPhp = budget) }
         saveProfile()
     }
 
     fun updateGoal(goal: String) {
-        _userProfile.update {
-            it.copy(goal = goal)
-        }
+        _userProfile.update { it.copy(goal = goal) }
+        saveProfile()
+    }
+
+    fun setProfileCompleted(completed: Boolean) {
+        _userProfile.update { it.copy(isProfileCompleted = completed) }
         saveProfile()
     }
 
     val dailyCalorieTarget: Int
         get() {
             val profile = _userProfile.value
-            val bmr = (10 * profile.weightKg) + (6.25 * profile.heightCm) - (5 * profile.age) - 161
+            val w = if (profile.weightKg > 0) profile.weightKg else 60
+            val h = if (profile.heightCm > 0) profile.heightCm else 155
+            val a = if (profile.age > 0) profile.age else 25
+            
+            val bmr = (10 * w) + (6.25 * h) - (5 * a) - 161
             val activityMultiplier = when (profile.activityLevel) {
                 "Sedentary" -> 1.2
                 "Lightly Active" -> 1.375
@@ -87,10 +110,7 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
             }
             val maintenance = (bmr * activityMultiplier).toInt()
             
-            return when {
-                profile.goal.contains("Weight Loss", true) -> maintenance - 500
-                else -> maintenance
-            }
+            return if (profile.goal.contains("Weight Loss", true)) maintenance - 500 else maintenance
         }
 
     class Factory(private val repository: UserPreferencesRepository) : ViewModelProvider.Factory {

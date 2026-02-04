@@ -2,11 +2,7 @@ package com.pcosina.app.data.repository
 
 import android.content.Context
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
-import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.pcosina.app.data.model.UserProfile
 import kotlinx.coroutines.flow.Flow
@@ -18,56 +14,75 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "us
 
 class UserPreferencesRepository(private val context: Context) {
 
-    private object PreferencesKeys {
-        val NAME = stringPreferencesKey("user_name")
-        val AGE = intPreferencesKey("user_age")
-        val WEIGHT = intPreferencesKey("user_weight")
-        val HEIGHT = intPreferencesKey("user_height")
-        val ACTIVITY = stringPreferencesKey("user_activity")
-        val GOAL = stringPreferencesKey("user_goal")
-        val INSULIN = stringPreferencesKey("user_insulin")
-        val SYMPTOMS = stringPreferencesKey("user_symptoms")
-        val COMORBIDITIES = stringPreferencesKey("user_comorbidities")
-        val RESTRICTIONS = stringPreferencesKey("user_restrictions")
-        val BUDGET = intPreferencesKey("user_budget")
+    private object Keys {
+        fun name(email: String) = stringPreferencesKey("name_$email")
+        fun age(email: String) = intPreferencesKey("age_$email")
+        fun weight(email: String) = intPreferencesKey("weight_$email")
+        fun height(email: String) = intPreferencesKey("height_$email")
+        fun activity(email: String) = stringPreferencesKey("activity_$email")
+        fun goal(email: String) = stringPreferencesKey("goal_$email")
+        fun insulin(email: String) = stringPreferencesKey("insulin_$email")
+        fun symptoms(email: String) = stringPreferencesKey("symptoms_$email")
+        fun comorbidities(email: String) = stringPreferencesKey("comorbidities_$email")
+        fun restrictions(email: String) = stringPreferencesKey("restrictions_$email")
+        fun budget(email: String) = intPreferencesKey("budget_$email")
+        fun completed(email: String) = booleanPreferencesKey("onboarding_complete_$email")
+        fun lastPlanJson(email: String) = stringPreferencesKey("last_plan_json_$email")
+        fun lastPlanTimestamp(email: String) = longPreferencesKey("last_plan_timestamp_$email")
+        // Task #1: Persistent Grocery Storage
+        fun groceryJson(email: String) = stringPreferencesKey("grocery_json_$email")
     }
 
-    val userProfileFlow: Flow<UserProfile> = context.dataStore.data
+    fun getUserProfile(email: String): Flow<UserProfile> = context.dataStore.data
         .catch { exception ->
-            if (exception is IOException) {
-                emit(emptyPreferences())
-            } else {
-                throw exception
-            }
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
         }.map { preferences ->
             UserProfile(
-                displayName = preferences[PreferencesKeys.NAME] ?: "Maria",
-                age = preferences[PreferencesKeys.AGE] ?: 25,
-                weightKg = preferences[PreferencesKeys.WEIGHT] ?: 65,
-                heightCm = preferences[PreferencesKeys.HEIGHT] ?: 160,
-                activityLevel = preferences[PreferencesKeys.ACTIVITY] ?: "Lightly Active",
-                goal = preferences[PreferencesKeys.GOAL] ?: "Support PCOS symptom management",
-                insulinResistanceLevel = preferences[PreferencesKeys.INSULIN] ?: "Mild",
-                symptoms = preferences[PreferencesKeys.SYMPTOMS]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
-                comorbidities = preferences[PreferencesKeys.COMORBIDITIES]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
-                dietaryRestrictions = preferences[PreferencesKeys.RESTRICTIONS]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
-                weeklyBudgetPhp = preferences[PreferencesKeys.BUDGET] ?: 2000
+                displayName = preferences[Keys.name(email)] ?: "",
+                age = preferences[Keys.age(email)] ?: 0,
+                weightKg = preferences[Keys.weight(email)] ?: 0,
+                heightCm = preferences[Keys.height(email)] ?: 0,
+                activityLevel = preferences[Keys.activity(email)] ?: "Lightly Active",
+                goal = preferences[Keys.goal(email)] ?: "Support PCOS symptom management",
+                insulinResistanceLevel = preferences[Keys.insulin(email)] ?: "Mild",
+                symptoms = preferences[Keys.symptoms(email)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
+                comorbidities = preferences[Keys.comorbidities(email)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
+                dietaryRestrictions = preferences[Keys.restrictions(email)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
+                weeklyBudgetPhp = preferences[Keys.budget(email)] ?: 2000,
+                isProfileCompleted = preferences[Keys.completed(email)] ?: false
             )
         }
 
-    suspend fun updateProfile(profile: UserProfile) {
+    suspend fun updateProfile(email: String, profile: UserProfile) {
         context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.NAME] = profile.displayName
-            preferences[PreferencesKeys.AGE] = profile.age
-            preferences[PreferencesKeys.WEIGHT] = profile.weightKg
-            preferences[PreferencesKeys.HEIGHT] = profile.heightCm
-            preferences[PreferencesKeys.ACTIVITY] = profile.activityLevel
-            preferences[PreferencesKeys.GOAL] = profile.goal
-            preferences[PreferencesKeys.INSULIN] = profile.insulinResistanceLevel
-            preferences[PreferencesKeys.SYMPTOMS] = profile.symptoms.joinToString(",")
-            preferences[PreferencesKeys.COMORBIDITIES] = profile.comorbidities.joinToString(",")
-            preferences[PreferencesKeys.RESTRICTIONS] = profile.dietaryRestrictions.joinToString(",")
-            preferences[PreferencesKeys.BUDGET] = profile.weeklyBudgetPhp
+            preferences[Keys.name(email)] = profile.displayName
+            preferences[Keys.age(email)] = profile.age
+            preferences[Keys.weight(email)] = profile.weightKg
+            preferences[Keys.height(email)] = profile.heightCm
+            preferences[Keys.activity(email)] = profile.activityLevel
+            preferences[Keys.goal(email)] = profile.goal
+            preferences[Keys.insulin(email)] = profile.insulinResistanceLevel
+            preferences[Keys.symptoms(email)] = profile.symptoms.joinToString(",")
+            preferences[Keys.comorbidities(email)] = profile.comorbidities.joinToString(",")
+            preferences[Keys.restrictions(email)] = profile.dietaryRestrictions.joinToString(",")
+            preferences[Keys.budget(email)] = profile.weeklyBudgetPhp
+            preferences[Keys.completed(email)] = profile.isProfileCompleted
         }
+    }
+
+    fun getSavedPlanJson(email: String): Flow<String?> = context.dataStore.data.map { it[Keys.lastPlanJson(email)] }
+    fun getSavedPlanTimestamp(email: String): Flow<Long> = context.dataStore.data.map { it[Keys.lastPlanTimestamp(email)] ?: 0L }
+
+    suspend fun savePlanJson(email: String, json: String, timestamp: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.lastPlanJson(email)] = json
+            preferences[Keys.lastPlanTimestamp(email)] = timestamp
+        }
+    }
+
+    // Grocery Persistence Logic
+    fun getGroceryJson(email: String): Flow<String?> = context.dataStore.data.map { it[Keys.groceryJson(email)] }
+    suspend fun saveGroceryJson(email: String, json: String) {
+        context.dataStore.edit { it[Keys.groceryJson(email)] = json }
     }
 }

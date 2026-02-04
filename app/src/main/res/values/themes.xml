@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <style name="Theme.PCOSINA" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Use Material3 parent to prevent immediate runtime stop -->
+    <style name="Theme.PCOSINA" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#FC6B7D</item>
+        <item name="android:statusBarColor">#FC6B7D</item>
+    </style>
 </resources>

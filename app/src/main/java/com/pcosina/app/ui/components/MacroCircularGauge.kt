@@ -23,6 +23,7 @@ fun MacroCircularGauge(
     modifier: Modifier = Modifier
 ) {
     val progress = if (targetValue > 0) currentValue.toFloat() / targetValue.toFloat() else 0f
+    val colorScheme = MaterialTheme.colorScheme
     
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -59,7 +60,7 @@ fun MacroCircularGauge(
                 Text(
                     text = unit,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.Gray
+                    color = colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -67,7 +68,7 @@ fun MacroCircularGauge(
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-            color = Color.DarkGray
+            color = colorScheme.onSurfaceVariant
         )
     }
 }

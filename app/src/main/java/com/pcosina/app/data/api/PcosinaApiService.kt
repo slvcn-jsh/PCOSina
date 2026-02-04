@@ -31,7 +31,14 @@ data class GeneratePlanResponse(
     val message: String
 )
 
+data class HealthResponse(
+    val status: String
+)
+
 interface PcosinaApiService {
+    @GET("health")
+    suspend fun health(): HealthResponse
+
     @POST("generate-plan")
     suspend fun generatePlan(@Body request: GeneratePlanRequest): GeneratePlanResponse
 

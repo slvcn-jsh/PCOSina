@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -33,7 +32,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -60,34 +58,33 @@ fun SignUpScreen(
     val error by authViewModel.error.collectAsState()
     val isLoading by authViewModel.isLoading.collectAsState()
     val analytics = FirebaseAnalytics.getInstance(LocalContext.current)
-
-    val primaryColor = Color(0xFFFC6B7D)
-    val secondaryColor = Color(0xFF8C3A45)
+    val colorScheme = MaterialTheme.colorScheme
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFFFFF9F9))
+            .background(colorScheme.background)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "🌸",
-            fontSize = 64.sp,
-            modifier = Modifier.padding(bottom = 16.dp)
+            text = "PCOSINA",
+            style = MaterialTheme.typography.titleLarge.copy(letterSpacing = 2.sp),
+            color = colorScheme.secondary,
+            modifier = Modifier.padding(bottom = 8.dp)
         )
         
         Text(
             text = "Create Account",
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-            color = secondaryColor
+            color = colorScheme.onBackground
         )
         
         Text(
             text = "Your journey to balanced health starts here",
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.Gray,
+            color = colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 32.dp)
         )
 
@@ -96,10 +93,10 @@ fun SignUpScreen(
             onValueChange = { authViewModel.email.value = it },
             label = { Text("Email Address") },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
+            shape = MaterialTheme.shapes.medium,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = primaryColor,
-                focusedLabelColor = primaryColor
+                focusedBorderColor = colorScheme.primary,
+                focusedLabelColor = colorScheme.primary
             )
         )
 
@@ -114,14 +111,14 @@ fun SignUpScreen(
             trailingIcon = {
                 val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(imageVector = image, contentDescription = null, tint = primaryColor)
+                    Icon(imageVector = image, contentDescription = null, tint = colorScheme.primary)
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
+            shape = MaterialTheme.shapes.medium,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = primaryColor,
-                focusedLabelColor = primaryColor
+                focusedBorderColor = colorScheme.primary,
+                focusedLabelColor = colorScheme.primary
             )
         )
 
@@ -134,10 +131,10 @@ fun SignUpScreen(
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
+            shape = MaterialTheme.shapes.medium,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = primaryColor,
-                focusedLabelColor = primaryColor
+                focusedBorderColor = colorScheme.primary,
+                focusedLabelColor = colorScheme.primary
             )
         )
 
@@ -164,11 +161,11 @@ fun SignUpScreen(
             },
             modifier = Modifier.fillMaxWidth().height(56.dp),
             enabled = !isLoading && email.isNotBlank() && password.isNotBlank() && confirmPassword.isNotBlank(),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+            shape = MaterialTheme.shapes.medium,
+            colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
         ) {
             if (isLoading) {
-                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                CircularProgressIndicator(color = colorScheme.onPrimary, modifier = Modifier.size(24.dp))
             } else {
                 Text("Sign Up", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
             }
@@ -178,7 +175,7 @@ fun SignUpScreen(
             onClick = onNavigateToLogin,
             modifier = Modifier.padding(top = 16.dp)
         ) {
-            Text("Already have an account? Login", color = secondaryColor)
+            Text("Already have an account? Login", color = colorScheme.secondary)
         }
     }
 }

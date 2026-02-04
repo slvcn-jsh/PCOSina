@@ -1,52 +1,38 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.gms.google-services")
-    id("com.google.firebase.appdistribution")
-    id("com.google.firebase.crashlytics")
 }
 
 android {
     namespace = "com.pcosina.app"
+    // API 36 required for current versions of core-ktx and activity-compose
     compileSdk = 36
 
     defaultConfig {
         applicationId = "com.pcosina.app"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 16
-        versionName = "1.1.5"
+        targetSdk = 36
+        versionCode = 6
+        versionName = "1.05"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
+        // POINTED TO YOUR VERIFIED PC IP
         buildConfigField("String", "BASE_URL", "\"http://192.168.1.48:8000/\"")
-        buildConfigField("String", "SENTRY_DSN", "\"https://91e7fe2e7e460b73f1649eb8f8b39b22@o4510823495434240.ingest.us.sentry.io/4510823509983232\"")
     }
 
     buildTypes {
         release {
-            // Use debug signing for internal testing to ensure APK installs.
-            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "BASE_URL", "\"https://pcosina-backend.onrender.com/\"")
-            buildConfigField("String", "SENTRY_DSN", "\"https://91e7fe2e7e460b73f1649eb8f8b39b22@o4510823495434240.ingest.us.sentry.io/4510823509983232\"")
-            firebaseAppDistribution {
-                appId = "1:950408114415:android:0b3c55b663b7638c20ab1a"
-                groups = "QUADRANT"
-                artifactType = "APK"
-                releaseNotes = "Release build from dev branch."
-            }
+            buildConfigField("String", "BASE_URL", "\"https://pcosina-api.onrender.com/\"")
         }
         debug {
             buildConfigField("String", "BASE_URL", "\"http://192.168.1.48:8000/\"")
-            buildConfigField("String", "SENTRY_DSN", "\"https://91e7fe2e7e460b73f1649eb8f8b39b22@o4510823495434240.ingest.us.sentry.io/4510823509983232\"")
         }
     }
 
@@ -55,10 +41,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_11)
-        }
+    kotlinOptions {
+        jvmTarget = "11"
     }
 
     buildFeatures {
@@ -68,13 +52,7 @@ android {
 }
 
 dependencies {
-    implementation(platform("com.google.firebase:firebase-bom:34.8.0"))
-    implementation("com.google.firebase:firebase-analytics")
-    implementation("com.google.firebase:firebase-auth")
-    implementation("com.google.firebase:firebase-crashlytics")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
-    implementation("io.sentry:sentry-android:7.10.0")
-
+    // CORRECTED: All hyphens replaced with dots for Kotlin DSL compatibility
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -85,7 +63,6 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation("com.google.android.material:material:1.12.0")
     
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.retrofit)

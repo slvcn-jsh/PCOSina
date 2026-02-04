@@ -137,18 +137,19 @@ fun OnboardingScreen(
                     .height(56.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.Transparent,
-                    contentColor = Color.White,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
                 contentPadding = PaddingValues(0.dp),
             ) {
+                val colorScheme = MaterialTheme.colorScheme
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
                             brush = Brush.horizontalGradient(
                                 colors = listOf(
-                                    Color(0xFFFC6B7D),
-                                    Color(0xFFFF8A97),
+                                    colorScheme.primary,
+                                    colorScheme.secondary,
                                 )
                             )
                         ),

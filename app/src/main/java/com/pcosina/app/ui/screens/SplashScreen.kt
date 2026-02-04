@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,10 +27,13 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pcosina.app.R
 import kotlinx.coroutines.delay
 
 @Composable
@@ -46,10 +50,10 @@ fun SplashScreen(
     // Infinite alpha pulse for logo + loading bar
     val infiniteTransition = rememberInfiniteTransition(label = "splashPulse")
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
+        initialValue = 0.6f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 900),
+            animation = tween(durationMillis = 1200),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "splashPulseValue",
@@ -61,102 +65,81 @@ fun SplashScreen(
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFFFC6B7D), // Primary Pink
-                        Color(0xFFFF8A97), // Vibrant Pink
-                        Color(0xFFFFB4BC), // Light Pink
+                        MaterialTheme.colorScheme.primary,
+                        MaterialTheme.colorScheme.tertiary,
                     )
                 )
-            )
-            .padding(horizontal = 32.dp, vertical = 48.dp),
+            ),
     ) {
+        val colorScheme = MaterialTheme.colorScheme
         Column(
             modifier = Modifier
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween,
+                .fillMaxSize()
+                .padding(horizontal = 32.dp, vertical = 64.dp),
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.height(1.dp))
-
-            // Center content (logo + title/subtitle)
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                // Gradient circle logo with 🌸
-                Box(
-                    modifier = Modifier
-                        .size(96.dp)
-                        .clip(CircleShape)
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    Color(0xFFFC6B7D),
-                                    Color(0xFFFFB4BC),
-                                )
-                            )
-                        )
-                        .alpha(pulseAlpha),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "🌸",
-                        fontSize = 40.sp,
-                    )
-                }
-
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        text = "PCOSINA",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 2.sp,
-                        ),
-                        color = Color.White,
-                        textAlign = TextAlign.Center,
-                    )
-                    Text(
-                        text = "Personalized Meal Planning for PCOS",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.9f),
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-
-            // Bottom pulsing loading bar
+            // Logo Container
             Box(
                 modifier = Modifier
-                    .height(6.dp)
-                    .fillMaxSize(fraction = 0.18f)
+                    .size(180.dp)
+                    .clip(CircleShape)
+                    .background(colorScheme.onPrimary.copy(alpha = 0.15f))
+                    .padding(12.dp)
+                    .alpha(pulseAlpha),
+                contentAlignment = Alignment.Center,
             ) {
-                Box(
-                    modifier = Modifier
-                        .height(6.dp)
-                        .fillMaxSize()
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.25f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .height(6.dp)
-                            .fillMaxSize(fraction = 0.55f)
-                            .clip(CircleShape)
-                            .background(
-                                brush = Brush.horizontalGradient(
-                                    colors = listOf(
-                                        Color(0xFFFC6B7D),
-                                        Color(0xFFFFB4BC),
-                                    )
-                                )
-                            )
-                            .alpha(pulseAlpha),
-                    )
-                }
+                Image(
+                    painter = painterResource(id = R.drawable.pcosina_logo),
+                    contentDescription = "PCOSINA Logo",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
             }
+
+            Spacer(Modifier.height(32.dp))
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "PCOSINA",
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 6.sp,
+                    ),
+                    color = colorScheme.onPrimary,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = "Scientific • Personalized • Relevant",
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        letterSpacing = 1.sp
+                    ),
+                    color = colorScheme.onPrimary.copy(alpha = 0.85f),
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+
+        // Refined Loading Indicator at bottom
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 80.dp)
+                .height(3.dp)
+                .fillMaxSize(fraction = 0.25f)
+                .clip(CircleShape)
+                .background(colorScheme.onPrimary.copy(alpha = 0.2f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize(fraction = 0.6f)
+                    .clip(CircleShape)
+                    .background(colorScheme.onPrimary)
+                    .alpha(pulseAlpha)
+            )
         }
     }
 }

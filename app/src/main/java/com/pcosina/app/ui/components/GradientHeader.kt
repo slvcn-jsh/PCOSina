@@ -27,21 +27,23 @@ fun GradientHeader(
     subtitle: String? = null,
     modifier: Modifier = Modifier,
     containerHeight: Int = 160,
-    colors: List<Color> = listOf(
-        Color(0xFFFC6B7D), // Primary Pink
-        Color(0xFFFF8A97), // Vibrant Pink
-        Color(0xFFFFB4BC), // Light Pink
-    ),
+    colors: List<Color>? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val shape = MaterialTheme.shapes.extraLarge
+    val colorScheme = MaterialTheme.colorScheme
+    val gradientColors = colors ?: listOf(
+        colorScheme.primary,
+        colorScheme.secondary,
+        colorScheme.tertiary,
+    )
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(containerHeight.dp)
             .clip(shape)
             .background(
-                brush = Brush.linearGradient(colors)
+                brush = Brush.linearGradient(gradientColors)
             )
             .padding(horizontal = 18.dp, vertical = 16.dp)
     ) {

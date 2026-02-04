@@ -46,7 +46,6 @@ class MealPlanViewModel(
     private val _uiState = MutableStateFlow<MealPlanUiState>(MealPlanUiState.Idle)
     val uiState: StateFlow<MealPlanUiState> = _uiState.asStateFlow()
 
-    // Fixed: Expose the missing recipe state
     private val _recipeState = MutableStateFlow<RecipeDetailsUiState>(RecipeDetailsUiState.Idle)
     val recipeState: StateFlow<RecipeDetailsUiState> = _recipeState.asStateFlow()
 
@@ -104,7 +103,6 @@ class MealPlanViewModel(
     fun generateMealPlan(profile: UserProfile) {
         viewModelScope.launch {
             _uiState.value = MealPlanUiState.Loading
-            // Warm up the backend (helps with Render cold starts).
             repository.warmup()
             val result = repository.generatePlan(profile)
             result.onSuccess { response ->
@@ -124,9 +122,6 @@ class MealPlanViewModel(
         _uiState.value = MealPlanUiState.Error(message)
     }
 
-    /**
-     * Managed fetch logic for recipe details.
-     */
     fun loadRecipeDetails(recipeId: String) {
         viewModelScope.launch {
             _recipeState.value = RecipeDetailsUiState.Loading

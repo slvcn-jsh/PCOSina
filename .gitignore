@@ -22,3 +22,19 @@ Thumbs.db
 
 # Secrets
 backend/secrets/
+
+# Runtime / local artifacts
+**/__pycache__/
+*.pyc
+backend/pcosina.db
+backend/.env
+backend/output/
+backend/domain/__pycache__/
+backend/services/__pycache__/
+.gradle-user/
+.kotlin/errors/
+hs_err_pid*.log
+pcosina-current-HEAD.zip
+backend/pcosina-current-HEAD.zip
+output/
+ownership-map-out/

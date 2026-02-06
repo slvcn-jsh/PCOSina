@@ -619,10 +619,13 @@ def health(): return {"status": "alive"}
 @app.get("/db-status")
 def db_status():
     try:
+        db_mode_fn = getattr(database, "db_mode", None)
+        recipe_count_fn = getattr(database, "get_recipe_count", None)
+        sample_fn = getattr(database, "get_sample_recipes", None)
         return {
-            "db": database.db_mode(),
-            "recipes": database.get_recipe_count(),
-            "sample": database.get_sample_recipes(3),
+            "db": db_mode_fn() if callable(db_mode_fn) else "unknown",
+            "recipes": recipe_count_fn() if callable(recipe_count_fn) else None,
+            "sample": sample_fn(3) if callable(sample_fn) else [],
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"DB status failed: {e}")

@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -105,6 +106,10 @@ fun AppNavHost(
     val session by authViewModel.session.collectAsState()
     val userProfile by userViewModel.userProfile.collectAsState()
     val isProfileLoading by userViewModel.isProfileLoading.collectAsState()
+    val currentRoute by navController.currentBackStackEntryAsState()
+
+    val splashReady = remember { mutableStateOf(false) }
+    val hasNavigated = remember { mutableStateOf(false) }
 
     // Sync session to user data loading
     LaunchedEffect(Unit) {
@@ -118,6 +123,9 @@ fun AppNavHost(
             userViewModel.reset()
             mealPlanViewModel.reset()
             groceryViewModel.reset()
+            progressViewModel.reset()
+            splashReady.value = false
+            hasNavigated.value = false
         } else {
             session.currentUserEmail?.let { email ->
                 userPrefsRepository.migrateFromEmailIfNeeded(userId, email)
@@ -144,6 +152,34 @@ fun AppNavHost(
         }
     }
 
+    // Reset splash gate when navigating back to splash
+    LaunchedEffect(currentRoute?.destination?.route) {
+        if (currentRoute?.destination?.route == Routes.Splash) {
+            splashReady.value = false
+            hasNavigated.value = false
+        }
+    }
+
+    fun isLegacyProfileComplete(profile: com.pcosina.app.data.model.UserProfile): Boolean {
+        return profile.displayName.isNotBlank() ||
+            profile.age > 0 ||
+            profile.heightCm > 0 ||
+            profile.weightKg > 0 ||
+            profile.symptoms.isNotEmpty() ||
+            profile.comorbidities.isNotEmpty() ||
+            profile.dietaryRestrictions.isNotEmpty()
+    }
+
+    val inferredProfileCompleted = userProfile.isProfileCompleted || isLegacyProfileComplete(userProfile)
+
+    // Migrate legacy profiles to completed to avoid forcing onboarding
+    LaunchedEffect(session.currentUserUid, inferredProfileCompleted) {
+        val userId = session.currentUserUid
+        if (!userId.isNullOrBlank() && inferredProfileCompleted && !userProfile.isProfileCompleted) {
+            userViewModel.setProfileCompleted(true)
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -152,29 +188,29 @@ fun AppNavHost(
         composable(Routes.Splash) {
             SplashScreen(
                 onContinue = {
-                    // Logic Gate: Wait for initial load
-                    if (isProfileLoading) return@SplashScreen
-
-                    when {
-                        !session.isLoggedIn -> {
-                            navController.navigate(Routes.Login) {
-                                popUpTo(Routes.Splash) { inclusive = true }
-                            }
-                        }
-                        !userProfile.isProfileCompleted -> {
-                            navController.navigate(Routes.Onboarding) {
-                                popUpTo(Routes.Splash) { inclusive = true }
-                            }
-                        }
-                        else -> {
-                            navController.navigate(Routes.Dashboard) {
-                                popUpTo(Routes.Splash) { inclusive = true }
-                            }
-                        }
-                    }
+                    splashReady.value = true
                 },
                 modifier = Modifier.fillMaxSize(),
             )
+        }
+
+        // Splash gate: only navigate once splash delay finished and profile load complete
+        LaunchedEffect(
+            splashReady.value,
+            isProfileLoading,
+            session.isLoggedIn,
+            inferredProfileCompleted
+        ) {
+            if (!splashReady.value || isProfileLoading || hasNavigated.value) return@LaunchedEffect
+            val target = when {
+                !session.isLoggedIn -> Routes.Login
+                !inferredProfileCompleted -> Routes.Onboarding
+                else -> Routes.Dashboard
+            }
+            hasNavigated.value = true
+            navController.navigate(target) {
+                popUpTo(Routes.Splash) { inclusive = true }
+            }
         }
 
         composable(Routes.Login) {

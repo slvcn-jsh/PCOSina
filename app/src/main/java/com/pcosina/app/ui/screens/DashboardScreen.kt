@@ -37,6 +37,7 @@ import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.components.MacroCircularGauge
 import com.pcosina.app.ui.components.StatCard
 import com.pcosina.app.domain.HealthMetrics
+import java.util.Locale
 
 @Composable
 fun DashboardScreen(
@@ -55,6 +56,7 @@ fun DashboardScreen(
     val calorieBreakdown = userViewModel.calorieTargetBreakdown
     val mealPlanState by mealPlanViewModel.uiState.collectAsState()
     val metrics by mealPlanViewModel.planMetrics.collectAsState()
+    val planExplanation = (mealPlanState as? MealPlanUiState.Success)?.response?.explanation
     val colorScheme = MaterialTheme.colorScheme
     val showMarkersInfo = rememberSaveable { mutableStateOf(false) }
     val showTargetInfo = rememberSaveable { mutableStateOf(false) }
@@ -158,6 +160,71 @@ fun DashboardScreen(
                     MacroCircularGauge(label = "Protein", currentValue = metrics.avgProtein, targetValue = 85, color = colorScheme.primary, modifier = Modifier.weight(1f))
                     MacroCircularGauge(label = "Carbs", currentValue = metrics.avgCarbs, targetValue = 220, color = colorScheme.tertiary, modifier = Modifier.weight(1f))
                     MacroCircularGauge(label = "Fiber", currentValue = metrics.avgFiber, targetValue = 25, color = colorScheme.secondary, modifier = Modifier.weight(1f))
+                }
+            }
+        }
+
+        if (planExplanation != null) {
+            item {
+                Card(
+                    shape = MaterialTheme.shapes.extraLarge,
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Explainability Snapshot",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Quick view of solver signals for this plan.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        planExplanation.confidenceScore?.let {
+                            Text(
+                                text = "Confidence: $it%",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                color = colorScheme.secondary
+                            )
+                        }
+                        val lines = mutableListOf<String>()
+                        planExplanation.toleranceUsed?.let {
+                            val pct = String.format(Locale.ENGLISH, "%.0f", it * 100)
+                            lines.add("Tolerance used: $pct%")
+                        }
+                        planExplanation.maxPerWeek?.let {
+                            lines.add("Max repeats per recipe: $it")
+                        }
+                        planExplanation.pantryMatches?.let {
+                            lines.add("Pantry matches: $it")
+                        }
+                        if (planExplanation.budgetWeekly != null || planExplanation.estimatedWeeklyCost != null) {
+                            val budget = planExplanation.budgetWeekly?.let {
+                                "₱" + String.format(Locale.ENGLISH, "%.0f", it)
+                            }
+                            val est = planExplanation.estimatedWeeklyCost?.let { "₱$it" }
+                            val text = when {
+                                budget != null && est != null -> "Budget: $budget (est $est)"
+                                budget != null -> "Budget: $budget"
+                                est != null -> "Estimated weekly cost: $est"
+                                else -> null
+                            }
+                            if (text != null) lines.add(text)
+                        }
+                        lines.forEach { line ->
+                            Text(
+                                text = "• $line",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
         }

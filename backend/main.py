@@ -376,6 +376,7 @@ class GeneratePlanResponse(BaseModel):
     days: List[DayPlan]
     status: str
     message: str
+    explanation: Optional[Dict[str, Any]] = None
 
 class FeedbackRequest(BaseModel):
     message: str
@@ -435,7 +436,7 @@ def solve_meal_plan(request: GeneratePlanRequest, recipes: List[Dict], weight_se
     profile = request.profile
     conflict = validate_profile(profile)
     if conflict:
-        return None, conflict
+        return None, conflict, None
     num_days = max(1, int(request.days or 7))
     slot_count = num_days * 3
     slot_labels = ["Breakfast", "Lunch", "Dinner"]
@@ -458,7 +459,7 @@ def solve_meal_plan(request: GeneratePlanRequest, recipes: List[Dict], weight_se
     buckets = shortlist_candidates(profile, recipes)
     candidates = list({r["id"]: r for r in (buckets["Breakfast"] + buckets["Lunch"] + buckets["Dinner"] + buckets["Universal"])}.values())
     if len(candidates) < 10:
-        return None, "No safe recipes found."
+        return None, "No safe recipes found.", None
 
     pool = candidates
     meal_to_allowed = {"Breakfast": set(), "Lunch": set(), "Dinner": set()}
@@ -625,6 +626,7 @@ def solve_meal_plan(request: GeneratePlanRequest, recipes: List[Dict], weight_se
             if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
                 res_plan = []
                 day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                selected = []
                 for d in range(num_days):
                     meals = []
                     total = 0
@@ -633,12 +635,50 @@ def solve_meal_plan(request: GeneratePlanRequest, recipes: List[Dict], weight_se
                         for i in range(len(pool)):
                             if solver.Value(x[idx, i]):
                                 r = pool[i]
+                                selected.append(r)
                                 meals.append(PlannedMeal(mealLabel=slot_labels[m], recipeId=r["id"], title=r["title"]))
                                 total += int(r.get("calories", 0))
                                 break
                     res_plan.append(DayPlan(dayLabel=day_names[d] if d < 7 else f"Day {d+1}", meals=meals, totalCalories=total))
-                return res_plan, "Success"
-    return None, "Infeasible"
+                # Explanation payload for transparency & evaluation
+                daily_cals = []
+                daily_pro = []
+                daily_carb = []
+                daily_fat = []
+                for d in range(num_days):
+                    day_items = selected[d * 3:(d * 3 + 3)]
+                    daily_cals.append(sum(int(r.get("calories", 0)) for r in day_items))
+                    daily_pro.append(sum(int(r.get("proteinGrams", 0)) for r in day_items))
+                    daily_carb.append(sum(int(r.get("carbsGrams", 0)) for r in day_items))
+                    daily_fat.append(sum(int(r.get("fatsGrams", 0)) for r in day_items))
+                avg_cal = int(sum(daily_cals) / num_days) if num_days else 0
+                avg_pro = int(sum(daily_pro) / num_days) if num_days else 0
+                avg_carb = int(sum(daily_carb) / num_days) if num_days else 0
+                avg_fat = int(sum(daily_fat) / num_days) if num_days else 0
+                avg_dev = int(sum(abs(daily_cals[i] - daily_targets[i]) for i in range(num_days)) / num_days) if num_days else 0
+                pantry_matches = sum(int(r.get("_pantry_match", 0)) for r in selected)
+                unique_veg = len({t for r in selected for t in r.get("_veg_tokens", [])})
+                est_cost = sum(int(r.get("_cost_est", 0)) for r in selected)
+                explanation = {
+                    "targetCalories": target,
+                    "avgCalories": avg_cal,
+                    "avgCaloriesDeviation": avg_dev,
+                    "targetProtein": target_protein,
+                    "avgProtein": avg_pro,
+                    "targetCarbs": target_carbs,
+                    "avgCarbs": avg_carb,
+                    "targetFats": target_fats,
+                    "avgFats": avg_fat,
+                    "toleranceUsed": tol,
+                    "maxPerWeek": max_per_week,
+                    "pantryMatches": pantry_matches,
+                    "uniqueVegTokens": unique_veg,
+                    "budgetWeekly": budget_weekly,
+                    "estimatedWeeklyCost": est_cost,
+                    "restrictionCount": len(profile.dietaryRestrictions or []),
+                }
+                return res_plan, "Success", explanation
+    return None, "Infeasible", None
 
 def _cache_key(request: GeneratePlanRequest) -> str:
     try:
@@ -674,9 +714,15 @@ async def generate_plan(request: GeneratePlanRequest, user: Any = Depends(requir
             return cached
 
         all_recipes = database.get_all_recipes()
-        result, msg = solve_meal_plan(request, all_recipes)
+        result, msg, explanation = solve_meal_plan(request, all_recipes)
         if result:
-            response = GeneratePlanResponse(weekLabel=f"PCOSINA {request.days}-Day Plan", days=result, status="success", message=msg)
+            response = GeneratePlanResponse(
+                weekLabel=f"PCOSINA {request.days}-Day Plan",
+                days=result,
+                status="success",
+                message=msg,
+                explanation=explanation
+            )
             _cache_set(key, response)
             return response
         raise HTTPException(status_code=422, detail=f"Infeasible: {msg}")

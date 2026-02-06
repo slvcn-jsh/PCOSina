@@ -28,7 +28,27 @@ data class GeneratePlanResponse(
     val weekLabel: String,
     val days: List<DayPlanDto>,
     val status: String,
-    val message: String
+    val message: String,
+    val explanation: PlanExplanation? = null
+)
+
+data class PlanExplanation(
+    val targetCalories: Int? = null,
+    val avgCalories: Int? = null,
+    val avgCaloriesDeviation: Int? = null,
+    val targetProtein: Int? = null,
+    val avgProtein: Int? = null,
+    val targetCarbs: Int? = null,
+    val avgCarbs: Int? = null,
+    val targetFats: Int? = null,
+    val avgFats: Int? = null,
+    val toleranceUsed: Double? = null,
+    val maxPerWeek: Int? = null,
+    val pantryMatches: Int? = null,
+    val uniqueVegTokens: Int? = null,
+    val budgetWeekly: Double? = null,
+    val estimatedWeeklyCost: Int? = null,
+    val restrictionCount: Int? = null
 )
 
 data class HealthResponse(

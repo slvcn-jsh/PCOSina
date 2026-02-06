@@ -14,6 +14,7 @@ from firebase_admin import credentials, auth
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from services.meal_planner import solve_meal_plan
+from schema_contract import SCHEMA_VERSION, load_schema_contract
 from domain.models import (
     RecipeDetail,
     GeneratePlanRequest,
@@ -91,6 +92,12 @@ async def limit_request_size(request: Request, call_next):
             )
     return await call_next(request)
 
+@app.middleware("http")
+async def attach_schema_version(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-PCOSINA-Schema-Version"] = SCHEMA_VERSION
+    return response
+
 allowed_hosts = ["*"] # Allow all for local phone testing
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
@@ -157,6 +164,17 @@ def require_firebase_auth(authorization: str = Header(None)):
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
+def require_schema_version(x_pcosina_schema_version: str | None = Header(default=None)):
+    if x_pcosina_schema_version and x_pcosina_schema_version != SCHEMA_VERSION:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Schema version mismatch. Server={SCHEMA_VERSION}, Client={x_pcosina_schema_version}"
+        )
+
+@app.get("/schema")
+def schema_contract():
+    return load_schema_contract()
+
 def _cache_key(request: GeneratePlanRequest) -> str:
     try:
         return json.dumps(request.model_dump(), sort_keys=True)
@@ -183,7 +201,11 @@ def _cache_set(key: str, value: GeneratePlanResponse):
     _plan_cache[key] = (time.time(), value)
 
 @app.post("/generate-plan", response_model=GeneratePlanResponse)
-async def generate_plan(request: GeneratePlanRequest, user: Any = Depends(require_firebase_auth)):
+async def generate_plan(
+    request: GeneratePlanRequest,
+    user: Any = Depends(require_firebase_auth),
+    _: Any = Depends(require_schema_version)
+):
     try:
         key = _cache_key(request)
         cached = _cache_get(key)
@@ -232,7 +254,7 @@ def db_status():
         raise HTTPException(status_code=500, detail=f"DB status failed: {e}")
 
 @app.post("/feedback")
-def feedback(payload: FeedbackRequest):
+def feedback(payload: FeedbackRequest, _: Any = Depends(require_schema_version)):
     try:
         database.save_feedback(payload.message)
         return {"status": "ok"}

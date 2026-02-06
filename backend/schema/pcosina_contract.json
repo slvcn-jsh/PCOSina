@@ -1,0 +1,126 @@
+{
+  "schemaVersion": "1.0.0",
+  "title": "PCOSINA API Contract",
+  "description": "Shared request/response contract for PCOSINA backend and mobile client.",
+  "type": "object",
+  "properties": {
+    "GeneratePlanRequest": {
+      "type": "object",
+      "properties": {
+        "profile": { "$ref": "#/definitions/UserProfile" },
+        "days": { "type": "integer", "minimum": 1, "default": 7 },
+        "mealsPerDay": { "type": "integer", "minimum": 1, "default": 3 }
+      },
+      "required": ["profile"],
+      "additionalProperties": false
+    },
+    "GeneratePlanResponse": {
+      "type": "object",
+      "properties": {
+        "weekLabel": { "type": "string" },
+        "days": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/DayPlan" }
+        },
+        "status": { "type": "string" },
+        "message": { "type": "string" },
+        "explanation": { "$ref": "#/definitions/PlanExplanation" }
+      },
+      "required": ["weekLabel", "days", "status", "message"],
+      "additionalProperties": false
+    },
+    "FeedbackRequest": {
+      "type": "object",
+      "properties": {
+        "message": { "type": "string", "minLength": 1 }
+      },
+      "required": ["message"],
+      "additionalProperties": false
+    },
+    "HealthResponse": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string" }
+      },
+      "required": ["status"],
+      "additionalProperties": false
+    }
+  },
+  "definitions": {
+    "UserProfile": {
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "age": { "type": "integer", "minimum": 0 },
+        "heightCm": { "type": "integer", "minimum": 0 },
+        "weightKg": { "type": "integer", "minimum": 0 },
+        "activityLevel": { "type": "string" },
+        "goal": { "type": "string" },
+        "dietaryRestrictions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "pantryItems": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "budgetWeekly": { "type": ["number", "null"] },
+        "budgetMonthly": { "type": ["number", "null"] },
+        "insulinResistanceLevel": { "type": "string" },
+        "symptoms": { "type": "array", "items": { "type": "string" } },
+        "comorbidities": { "type": "array", "items": { "type": "string" } },
+        "allergies": { "type": "array", "items": { "type": "string" } },
+        "weeklyBudgetPhp": { "type": "integer" },
+        "maxCookingTimeMinutes": { "type": "integer" },
+        "varietyPreference": { "type": "string" },
+        "isProfileCompleted": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "DayPlan": {
+      "type": "object",
+      "properties": {
+        "dayLabel": { "type": "string" },
+        "meals": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/PlannedMeal" }
+        },
+        "totalCalories": { "type": "integer" }
+      },
+      "required": ["dayLabel", "meals", "totalCalories"],
+      "additionalProperties": false
+    },
+    "PlannedMeal": {
+      "type": "object",
+      "properties": {
+        "mealLabel": { "type": "string" },
+        "recipeId": { "type": "string" },
+        "title": { "type": "string" }
+      },
+      "required": ["mealLabel", "recipeId", "title"],
+      "additionalProperties": false
+    },
+    "PlanExplanation": {
+      "type": ["object", "null"],
+      "properties": {
+        "targetCalories": { "type": "integer" },
+        "avgCalories": { "type": "integer" },
+        "avgCaloriesDeviation": { "type": "integer" },
+        "targetProtein": { "type": "integer" },
+        "avgProtein": { "type": "integer" },
+        "targetCarbs": { "type": "integer" },
+        "avgCarbs": { "type": "integer" },
+        "targetFats": { "type": "integer" },
+        "avgFats": { "type": "integer" },
+        "toleranceUsed": { "type": "number" },
+        "maxPerWeek": { "type": "integer" },
+        "pantryMatches": { "type": "integer" },
+        "uniqueVegTokens": { "type": "integer" },
+        "budgetWeekly": { "type": ["number", "null"] },
+        "estimatedWeeklyCost": { "type": "integer" },
+        "restrictionCount": { "type": "integer" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

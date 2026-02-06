@@ -41,6 +41,7 @@ class MealPlanRepository {
             .addInterceptor { chain ->
                 val original = chain.request()
                 val requestBuilder = original.newBuilder()
+                    .addHeader("X-PCOSINA-Schema-Version", BuildConfig.SCHEMA_VERSION)
                 val currentUser = firebaseAuth.currentUser
                 if (currentUser != null) {
                     try {
@@ -56,6 +57,14 @@ class MealPlanRepository {
 
                 val request = requestBuilder.build()
                 var response = chain.proceed(request)
+                val responseSchema = response.header("X-PCOSINA-Schema-Version")
+                if (!responseSchema.isNullOrBlank() && responseSchema != BuildConfig.SCHEMA_VERSION) {
+                    // Log mismatched schema for visibility; keep running for backward compatibility.
+                    android.util.Log.w(
+                        "MealPlanRepository",
+                        "Schema version mismatch. Client=${BuildConfig.SCHEMA_VERSION}, Server=$responseSchema"
+                    )
+                }
                 var tryCount = 0
                 while (!response.isSuccessful && tryCount < 2) {
                     tryCount++

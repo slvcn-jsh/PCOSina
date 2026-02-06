@@ -2,6 +2,7 @@ package com.pcosina.app.data.repository
 
 import android.util.Log
 import com.google.gson.Gson
+import com.pcosina.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -25,7 +26,11 @@ class FeedbackRepository(
         val url = baseUrl.trimEnd('/') + "/feedback"
         val payload = mapOf("message" to message)
         val body = gson.toJson(payload).toRequestBody(jsonType)
-        val request = Request.Builder().url(url).post(body).build()
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("X-PCOSINA-Schema-Version", BuildConfig.SCHEMA_VERSION)
+            .post(body)
+            .build()
         return@withContext try {
             client.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {

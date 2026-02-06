@@ -392,6 +392,12 @@ def solve_meal_plan(
     weight_set: Optional[Dict[str, int]] = None
 ):
     profile = request.profile
+    debug_solver = _env_bool("PCOSINA_DEBUG_SOLVER", False)
+    debug_summary = {
+        "pool": 0,
+        "allowed_sizes": {},
+        "attempts": [],
+    }
     conflict = validate_profile(profile)
     if conflict:
         return None, conflict, None
@@ -425,6 +431,8 @@ def solve_meal_plan(
         return None, "No safe recipes found.", None
 
     pool = candidates
+    if debug_solver:
+        debug_summary["pool"] = len(pool)
     meal_to_allowed = {"Breakfast": set(), "Lunch": set(), "Dinner": set()}
     for i, r in enumerate(pool):
         mt = (r.get("mealType") or "Universal").lower()
@@ -444,6 +452,8 @@ def solve_meal_plan(
     for label in meal_to_allowed:
         if not meal_to_allowed[label]:
             meal_to_allowed[label] = set(range(len(pool)))
+    if debug_solver:
+        debug_summary["allowed_sizes"] = {k: len(v) for k, v in meal_to_allowed.items()}
     base_scores = []
     for r in pool:
         p = r.get("proteinGrams") or 0
@@ -600,6 +610,16 @@ def solve_meal_plan(
             solver.parameters.max_time_in_seconds = _env_float("PCOSINA_SOLVER_TIME_SECONDS", 3.0)
             solver.parameters.num_search_workers = _env_int("PCOSINA_SOLVER_WORKERS", 8)
             status = solver.Solve(model)
+            if debug_solver:
+                try:
+                    status_name = solver.StatusName(status)
+                except Exception:
+                    status_name = str(status)
+                debug_summary["attempts"].append({
+                    "tol": tol,
+                    "max_per_week": max_per_week,
+                    "status": status_name,
+                })
             if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
                 res_plan = []
                 day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -634,6 +654,9 @@ def solve_meal_plan(
         if (time.time() - started_at) >= total_time_limit:
             break
     if not _env_bool("PCOSINA_ALLOW_FALLBACK", False):
+        if debug_solver:
+            msg = json.dumps(debug_summary)[:1500]
+            return None, f"Infeasible | debug={msg}", None
         return None, "Infeasible", None
 
     # Optional fallback: build a greedy plan to avoid hard failure if MILP cannot find a solution in time.

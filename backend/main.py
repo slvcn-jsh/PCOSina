@@ -225,7 +225,9 @@ async def generate_plan(
             _cache_set(key, response)
             return response
         raise HTTPException(status_code=422, detail=f"Infeasible: {msg}")
-    except Exception as e:
+    except HTTPException:
+        raise
+    except Exception:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Internal server error")
 

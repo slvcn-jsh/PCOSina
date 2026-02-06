@@ -268,6 +268,116 @@ def _default_weight_set() -> Optional[Dict[str, int]]:
     return None
 
 
+def _build_explanation(
+    selected: List[Dict[str, Any]],
+    num_days: int,
+    daily_targets: List[int],
+    target: int,
+    target_protein: int,
+    target_carbs: int,
+    target_fats: int,
+    tol: float,
+    max_per_week: int,
+    profile: UserProfile,
+    budget_weekly: Optional[float],
+) -> Dict[str, Any]:
+    if not selected or num_days <= 0:
+        return {}
+    daily_cals = []
+    daily_pro = []
+    daily_carb = []
+    daily_fat = []
+    for d in range(num_days):
+        day_items = selected[d * 3:(d * 3 + 3)]
+        daily_cals.append(sum(int(r.get("calories", 0)) for r in day_items))
+        daily_pro.append(sum(int(r.get("proteinGrams", 0)) for r in day_items))
+        daily_carb.append(sum(int(r.get("carbsGrams", 0)) for r in day_items))
+        daily_fat.append(sum(int(r.get("fatsGrams", 0)) for r in day_items))
+    avg_cal = int(sum(daily_cals) / num_days)
+    avg_pro = int(sum(daily_pro) / num_days)
+    avg_carb = int(sum(daily_carb) / num_days)
+    avg_fat = int(sum(daily_fat) / num_days)
+    avg_dev = int(sum(abs(daily_cals[i] - daily_targets[i]) for i in range(num_days)) / num_days)
+    pantry_matches = sum(int(r.get("_pantry_match", 0)) for r in selected)
+    unique_veg = len({t for r in selected for t in r.get("_veg_tokens", [])})
+    est_cost = sum(int(r.get("_cost_est", 0)) for r in selected)
+    confidence = 100
+    confidence -= min(30, int(avg_dev / 10))
+    confidence -= min(10, int(max(0.0, tol - 0.2) * 50))
+    confidence -= max(0, int(max_per_week - 2) * 3)
+    confidence -= min(20, int(len(profile.dietaryRestrictions or []) * 2))
+    if budget_weekly and est_cost > budget_weekly:
+        overshoot = (est_cost - budget_weekly) / max(1.0, budget_weekly)
+        confidence -= min(15, int(overshoot * 50))
+    confidence = max(0, min(100, confidence))
+    return {
+        "confidenceScore": confidence,
+        "targetCalories": target,
+        "avgCalories": avg_cal,
+        "avgCaloriesDeviation": avg_dev,
+        "targetProtein": target_protein,
+        "avgProtein": avg_pro,
+        "targetCarbs": target_carbs,
+        "avgCarbs": avg_carb,
+        "targetFats": target_fats,
+        "avgFats": avg_fat,
+        "toleranceUsed": tol,
+        "maxPerWeek": max_per_week,
+        "pantryMatches": pantry_matches,
+        "uniqueVegTokens": unique_veg,
+        "budgetWeekly": budget_weekly,
+        "estimatedWeeklyCost": est_cost,
+        "restrictionCount": len(profile.dietaryRestrictions or []),
+    }
+
+
+def _greedy_fallback_plan(
+    pool: List[Dict[str, Any]],
+    meal_to_allowed: Dict[str, set],
+    slot_labels: List[str],
+    num_days: int,
+    base_scores: List[float],
+    max_per_week: int,
+) -> tuple[List[DayPlan], List[Dict[str, Any]]]:
+    selected: List[Dict[str, Any]] = []
+    res_plan: List[DayPlan] = []
+    usage = [0] * len(pool)
+    prev_idx = None
+    day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    for d in range(num_days):
+        meals = []
+        total = 0
+        for m in range(3):
+            label = slot_labels[m]
+            allowed = list(meal_to_allowed.get(label, set(range(len(pool)))))
+            allowed.sort(key=lambda i: base_scores[i], reverse=True)
+            pick = None
+            for idx in allowed:
+                if idx == prev_idx:
+                    continue
+                if usage[idx] >= max_per_week:
+                    continue
+                pick = idx
+                break
+            if pick is None:
+                for idx in allowed:
+                    if idx != prev_idx:
+                        pick = idx
+                        break
+            if pick is None and allowed:
+                pick = allowed[0]
+            if pick is None:
+                pick = 0
+            usage[pick] += 1
+            prev_idx = pick
+            r = pool[pick]
+            selected.append(r)
+            meals.append(PlannedMeal(mealLabel=label, recipeId=r["id"], title=r["title"]))
+            total += int(r.get("calories", 0))
+        res_plan.append(DayPlan(dayLabel=day_names[d] if d < 7 else f"Day {d + 1}", meals=meals, totalCalories=total))
+    return res_plan, selected
+
+
 def solve_meal_plan(
     request: GeneratePlanRequest,
     recipes: List[Dict],
@@ -326,6 +436,13 @@ def solve_meal_plan(
     for label in meal_to_allowed:
         if not meal_to_allowed[label]:
             meal_to_allowed[label] = set(range(len(pool)))
+    base_scores = []
+    for r in pool:
+        p = r.get("proteinGrams") or 0
+        cals = r.get("calories") or 0
+        pantry_bonus = (r.get("_pantry_match") or 0) * 1.5
+        base_scores.append((p * 2.0) - (r.get("_cost_est", 0) * 0.05) - abs(cals - 500) * 0.15 + pantry_bonus)
+
     for tol in tolerance_levels:
         protein_bounds = (int(target_protein * (1 - tol)), int(target_protein * (1 + tol)))
         carbs_bounds = (int(target_carbs * (1 - tol)), int(target_carbs * (1 + tol)))
@@ -346,12 +463,6 @@ def solve_meal_plan(
                 allowed = meal_to_allowed.get(meal_label, set(range(len(pool))))
                 model.Add(sum(x[s, i] for i in allowed) == 1)
             # Greedy warm-start (hint)
-            base_scores = []
-            for r in pool:
-                p = r.get("proteinGrams") or 0
-                cals = r.get("calories") or 0
-                pantry_bonus = (r.get("_pantry_match") or 0) * 1.5
-                base_scores.append((p * 2.0) - (r.get("_cost_est", 0) * 0.05) - abs(cals - 500) * 0.15 + pantry_bonus)
             prev_idx = None
             for s in range(slot_count):
                 meal_label = slot_labels[s % 3]
@@ -494,53 +605,44 @@ def solve_meal_plan(
                                 total += int(r.get("calories", 0))
                                 break
                     res_plan.append(DayPlan(dayLabel=day_names[d] if d < 7 else f"Day {d + 1}", meals=meals, totalCalories=total))
-                # Explanation payload for transparency & evaluation
-                daily_cals = []
-                daily_pro = []
-                daily_carb = []
-                daily_fat = []
-                for d in range(num_days):
-                    day_items = selected[d * 3:(d * 3 + 3)]
-                    daily_cals.append(sum(int(r.get("calories", 0)) for r in day_items))
-                    daily_pro.append(sum(int(r.get("proteinGrams", 0)) for r in day_items))
-                    daily_carb.append(sum(int(r.get("carbsGrams", 0)) for r in day_items))
-                    daily_fat.append(sum(int(r.get("fatsGrams", 0)) for r in day_items))
-                avg_cal = int(sum(daily_cals) / num_days) if num_days else 0
-                avg_pro = int(sum(daily_pro) / num_days) if num_days else 0
-                avg_carb = int(sum(daily_carb) / num_days) if num_days else 0
-                avg_fat = int(sum(daily_fat) / num_days) if num_days else 0
-                avg_dev = int(sum(abs(daily_cals[i] - daily_targets[i]) for i in range(num_days)) / num_days) if num_days else 0
-                pantry_matches = sum(int(r.get("_pantry_match", 0)) for r in selected)
-                unique_veg = len({t for r in selected for t in r.get("_veg_tokens", [])})
-                est_cost = sum(int(r.get("_cost_est", 0)) for r in selected)
-                # Confidence score: heuristic based on deviation, tolerance, repeats, and restrictions.
-                confidence = 100
-                confidence -= min(30, int(avg_dev / 10))
-                confidence -= min(10, int(max(0.0, tol - 0.2) * 50))
-                confidence -= max(0, int(max_per_week - 2) * 3)
-                confidence -= min(20, int(len(profile.dietaryRestrictions or []) * 2))
-                if budget_weekly and est_cost > budget_weekly:
-                    overshoot = (est_cost - budget_weekly) / max(1.0, budget_weekly)
-                    confidence -= min(15, int(overshoot * 50))
-                confidence = max(0, min(100, confidence))
-                explanation = {
-                    "confidenceScore": confidence,
-                    "targetCalories": target,
-                    "avgCalories": avg_cal,
-                    "avgCaloriesDeviation": avg_dev,
-                    "targetProtein": target_protein,
-                    "avgProtein": avg_pro,
-                    "targetCarbs": target_carbs,
-                    "avgCarbs": avg_carb,
-                    "targetFats": target_fats,
-                    "avgFats": avg_fat,
-                    "toleranceUsed": tol,
-                    "maxPerWeek": max_per_week,
-                    "pantryMatches": pantry_matches,
-                    "uniqueVegTokens": unique_veg,
-                    "budgetWeekly": budget_weekly,
-                    "estimatedWeeklyCost": est_cost,
-                    "restrictionCount": len(profile.dietaryRestrictions or []),
-                }
+                explanation = _build_explanation(
+                    selected,
+                    num_days,
+                    daily_targets,
+                    target,
+                    target_protein,
+                    target_carbs,
+                    target_fats,
+                    tol,
+                    max_per_week,
+                    profile,
+                    budget_weekly,
+                )
                 return res_plan, "Success", explanation
-    return None, "Infeasible", None
+    # Fallback: build a greedy plan to avoid hard failure if MILP cannot find a solution in time.
+    fallback_max = _env_int("PCOSINA_FALLBACK_MAX_PER_WEEK", 10)
+    res_plan, selected = _greedy_fallback_plan(
+        pool,
+        meal_to_allowed,
+        slot_labels,
+        num_days,
+        base_scores,
+        fallback_max,
+    )
+    explanation = _build_explanation(
+        selected,
+        num_days,
+        daily_targets,
+        target,
+        target_protein,
+        target_carbs,
+        target_fats,
+        tolerance_levels[-1] if tolerance_levels else 0.4,
+        fallback_max,
+        profile,
+        budget_weekly,
+    )
+    if explanation is not None:
+        explanation["fallbackUsed"] = True
+        explanation["fallbackReason"] = "MILP infeasible or timed out"
+    return res_plan, "Fallback: heuristic plan", explanation

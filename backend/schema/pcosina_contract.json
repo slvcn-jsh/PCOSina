@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.0.1",
   "title": "PCOSINA API Contract",
   "description": "Shared request/response contract for PCOSINA backend and mobile client.",
   "type": "object",
@@ -103,6 +103,7 @@
     "PlanExplanation": {
       "type": ["object", "null"],
       "properties": {
+        "confidenceScore": { "type": "integer", "minimum": 0, "maximum": 100 },
         "targetCalories": { "type": "integer" },
         "avgCalories": { "type": "integer" },
         "avgCaloriesDeviation": { "type": "integer" },

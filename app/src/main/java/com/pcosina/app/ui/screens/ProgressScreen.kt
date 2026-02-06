@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -58,6 +59,7 @@ fun ProgressScreen(
     val weeklyJournal by progressViewModel.weeklyJournal.collectAsState()
     val feedbackQueue by progressViewModel.feedbackQueue.collectAsState()
     val profile by userViewModel.userProfile.collectAsState()
+    var showConfidenceInfo by rememberSaveable { mutableStateOf(false) }
 
     val planTimestamp = (planState as? MealPlanUiState.Success)?.timestamp
     val weekStart = remember(planTimestamp) { weekStartDate(planTimestamp) }
@@ -240,6 +242,29 @@ fun ProgressScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant
                         )
+                        planExplanation.confidenceScore?.let { score ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "Confidence score: $score%",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                                IconButton(
+                                    onClick = { showConfidenceInfo = true },
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Info,
+                                        contentDescription = "Confidence info",
+                                        tint = colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
                         val items = mutableListOf<String>()
                         val avgDev = planExplanation.avgCaloriesDeviation
                         planExplanation.targetCalories?.let {
@@ -715,6 +740,23 @@ fun ProgressScreen(
         }
 
         item { Spacer(Modifier.height(24.dp)) }
+    }
+
+    if (showConfidenceInfo) {
+        AlertDialog(
+            onDismissRequest = { showConfidenceInfo = false },
+            confirmButton = {
+                TextButton(onClick = { showConfidenceInfo = false }) { Text("Got it") }
+            },
+            title = { Text("Confidence score") },
+            text = {
+                Text(
+                    "Heuristic score based on how tightly the plan matches calorie targets, " +
+                    "tolerance level used, repeat limits, and restriction complexity. " +
+                    "Higher is better."
+                )
+            }
+        )
     }
 }
 

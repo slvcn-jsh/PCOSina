@@ -33,6 +33,7 @@ data class GeneratePlanResponse(
 )
 
 data class PlanExplanation(
+    val confidenceScore: Int? = null,
     val targetCalories: Int? = null,
     val avgCalories: Int? = null,
     val avgCaloriesDeviation: Int? = null,

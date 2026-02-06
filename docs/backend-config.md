@@ -4,7 +4,7 @@ This document lists the runtime environment variables and API contract used by t
 
 ## API Contract
 
-- **Schema Version:** `1.0.0`
+- **Schema Version:** `1.0.1`
 - **Schema Endpoint:** `GET /schema`
 - **Response Header:** `X-PCOSINA-Schema-Version: 1.0.0`
 

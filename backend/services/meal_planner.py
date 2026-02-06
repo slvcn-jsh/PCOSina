@@ -507,7 +507,18 @@ def solve_meal_plan(
                 pantry_matches = sum(int(r.get("_pantry_match", 0)) for r in selected)
                 unique_veg = len({t for r in selected for t in r.get("_veg_tokens", [])})
                 est_cost = sum(int(r.get("_cost_est", 0)) for r in selected)
+                # Confidence score: heuristic based on deviation, tolerance, repeats, and restrictions.
+                confidence = 100
+                confidence -= min(30, int(avg_dev / 10))
+                confidence -= min(10, int(max(0.0, tol - 0.2) * 50))
+                confidence -= max(0, int(max_per_week - 2) * 3)
+                confidence -= min(20, int(len(profile.dietaryRestrictions or []) * 2))
+                if budget_weekly and est_cost > budget_weekly:
+                    overshoot = (est_cost - budget_weekly) / max(1.0, budget_weekly)
+                    confidence -= min(15, int(overshoot * 50))
+                confidence = max(0, min(100, confidence))
                 explanation = {
+                    "confidenceScore": confidence,
                     "targetCalories": target,
                     "avgCalories": avg_cal,
                     "avgCaloriesDeviation": avg_dev,

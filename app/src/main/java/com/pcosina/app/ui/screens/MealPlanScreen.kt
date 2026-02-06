@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -57,6 +58,7 @@ fun MealPlanScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var showConfidenceInfo by rememberSaveable { mutableStateOf(false) }
     
     // Track if we are currently extracting ingredients
     var isSyncingGroceries by remember { mutableStateOf(false) }
@@ -217,6 +219,29 @@ fun MealPlanScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = colorScheme.onSurfaceVariant
                                     )
+                                    explanation.confidenceScore?.let { score ->
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                text = "Confidence score: $score%",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = colorScheme.onSurfaceVariant
+                                            )
+                                            IconButton(
+                                                onClick = { showConfidenceInfo = true },
+                                                modifier = Modifier.size(20.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Info,
+                                                    contentDescription = "Confidence info",
+                                                    tint = colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
+                                    }
 
                                     val items = mutableListOf<String>()
                                     val avgDev = explanation.avgCaloriesDeviation
@@ -504,6 +529,23 @@ fun MealPlanScreen(
                 }
             }
         }
+    }
+
+    if (showConfidenceInfo) {
+        AlertDialog(
+            onDismissRequest = { showConfidenceInfo = false },
+            confirmButton = {
+                TextButton(onClick = { showConfidenceInfo = false }) { Text("Got it") }
+            },
+            title = { Text("Confidence score") },
+            text = {
+                Text(
+                    "Heuristic score based on how tightly the plan matches calorie targets, " +
+                    "tolerance level used, repeat limits, and restriction complexity. " +
+                    "Higher is better."
+                )
+            }
+        )
     }
 }
 

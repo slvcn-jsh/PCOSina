@@ -34,7 +34,7 @@ android {
         // POINTED TO YOUR VERIFIED PC IP
         buildConfigField("String", "BASE_URL", "\"http://192.168.1.48:8000/\"")
         buildConfigField("String", "SENTRY_DSN", "\"\"")
-        buildConfigField("String", "SCHEMA_VERSION", "\"1.0.0\"")
+        buildConfigField("String", "SCHEMA_VERSION", "\"1.0.1\"")
     }
 
     buildTypes {

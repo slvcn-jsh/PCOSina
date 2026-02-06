@@ -81,6 +81,7 @@ fun ProgressScreen(
     }
 
     val planDays = (planState as? MealPlanUiState.Success)?.response?.days.orEmpty()
+    val planExplanation = (planState as? MealPlanUiState.Success)?.response?.explanation
     val planByLabel = planDays.associateBy { it.dayLabel.lowercase(Locale.ENGLISH) }
     val selectedDayLabel = selectedDate.format(dayLabelFmt).lowercase(Locale.ENGLISH)
     val selectedPlanDay = planByLabel[selectedDayLabel]
@@ -214,6 +215,93 @@ fun ProgressScreen(
                 ) {
                     Text("Summary", style = MaterialTheme.typography.labelLarge, color = colorScheme.onSurfaceVariant)
                     Text("${(adherence * 100).toInt()}% • $kcalText • $proteinText", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
+        if (planExplanation != null) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = "Plan Explanation",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            text = "Signals used by the optimizer to balance nutrition, variety, and pantry use.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        val items = mutableListOf<String>()
+                        val avgDev = planExplanation.avgCaloriesDeviation
+                        planExplanation.targetCalories?.let {
+                            items.add("Target calories: ${it} kcal/day")
+                        }
+                        planExplanation.avgCalories?.let {
+                            val devText = if (avgDev != null) " (±$avgDev)" else ""
+                            items.add("Avg calories: ${it} kcal/day$devText")
+                        }
+                        val targetMacros = listOf(
+                            planExplanation.targetProtein?.let { "P ${it}g" },
+                            planExplanation.targetCarbs?.let { "C ${it}g" },
+                            planExplanation.targetFats?.let { "F ${it}g" }
+                        ).filterNotNull()
+                        if (targetMacros.isNotEmpty()) {
+                            items.add("Macro targets: ${targetMacros.joinToString(" • ")}")
+                        }
+                        val avgMacros = listOf(
+                            planExplanation.avgProtein?.let { "P ${it}g" },
+                            planExplanation.avgCarbs?.let { "C ${it}g" },
+                            planExplanation.avgFats?.let { "F ${it}g" }
+                        ).filterNotNull()
+                        if (avgMacros.isNotEmpty()) {
+                            items.add("Avg macros: ${avgMacros.joinToString(" • ")}")
+                        }
+                        planExplanation.toleranceUsed?.let {
+                            val pct = String.format(Locale.ENGLISH, "%.0f", it * 100)
+                            items.add("Tolerance used: $pct%")
+                        }
+                        planExplanation.maxPerWeek?.let {
+                            items.add("Max repeats per recipe: $it")
+                        }
+                        planExplanation.pantryMatches?.let {
+                            items.add("Pantry matches used: $it")
+                        }
+                        planExplanation.uniqueVegTokens?.let {
+                            items.add("Veg variety tokens: $it")
+                        }
+                        if (planExplanation.budgetWeekly != null || planExplanation.estimatedWeeklyCost != null) {
+                            val budget = planExplanation.budgetWeekly?.let {
+                                "₱" + String.format(Locale.ENGLISH, "%.0f", it)
+                            }
+                            val est = planExplanation.estimatedWeeklyCost?.let { "₱$it" }
+                            val text = when {
+                                budget != null && est != null -> "Budget weekly: $budget (est $est)"
+                                budget != null -> "Budget weekly: $budget"
+                                est != null -> "Estimated weekly cost: $est"
+                                else -> null
+                            }
+                            if (text != null) items.add(text)
+                        }
+                        planExplanation.restrictionCount?.let {
+                            items.add("Restriction count: $it")
+                        }
+                        items.forEach { line ->
+                            Text(
+                                text = "• $line",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
         }

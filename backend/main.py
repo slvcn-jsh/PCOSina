@@ -640,9 +640,12 @@ def feedback(payload: FeedbackRequest):
         raise HTTPException(status_code=500, detail="Failed to save feedback")
 
 @app.get("/admin/feedback", response_class=HTMLResponse)
-def admin_feedback(x_admin_token: str | None = Header(default=None)):
+def admin_feedback(
+    x_admin_token: str | None = Header(default=None),
+    token: str | None = None
+):
     expected = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
-    if not expected or x_admin_token != expected:
+    if not expected or (x_admin_token != expected and token != expected):
         raise HTTPException(status_code=401, detail="Unauthorized")
     try:
         items = database.get_recent_feedback(100)

@@ -11,6 +11,8 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Height
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Warning
@@ -21,14 +23,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Intent
+import android.net.Uri
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.pcosina.app.BuildConfig
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
+import com.pcosina.app.domain.HealthMetrics
 
 @Composable
 fun SettingsScreen(
@@ -39,8 +45,11 @@ fun SettingsScreen(
 ) {
     val profile by userViewModel.userProfile.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
+    val context = LocalContext.current
     
     val userName = profile.displayName.ifBlank { "Warrior" }
+    val baseUrl = BuildConfig.BASE_URL.trimEnd('/')
+    val schemaUrl = "$baseUrl/schema"
 
     Column(
         modifier = modifier
@@ -103,6 +112,10 @@ fun SettingsScreen(
             SettingsItem(icon = Icons.Default.MonitorWeight, label = "Current Weight", value = "${profile.weightKg} kg")
             SettingsItem(icon = Icons.Default.Height, label = "Height", value = "${profile.heightCm} cm")
             SettingsItem(icon = Icons.Default.LocalFireDepartment, label = "Activity Level", value = profile.activityLevel)
+            val bmiValue = HealthMetrics.bmi(profile.weightKg, profile.heightCm)
+            val bmiLabel = if (bmiValue > 0) String.format("%.1f", bmiValue) else "—"
+            val bmiCategory = HealthMetrics.bmiCategory(bmiValue)
+            SettingsItem(icon = Icons.Default.MonitorWeight, label = "BMI", value = "$bmiLabel ($bmiCategory)")
             
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
             
@@ -162,6 +175,28 @@ fun SettingsScreen(
                     FirebaseCrashlytics.getInstance().log("Manual test crash from Settings")
                     throw RuntimeException("Crashlytics test crash")
                 }
+            }
+        }
+
+        SettingsSection(title = "System") {
+            SettingsItem(
+                icon = Icons.Default.Info,
+                label = "Schema Version",
+                value = BuildConfig.SCHEMA_VERSION
+            )
+            SettingsItem(
+                icon = Icons.Default.History,
+                label = "API Base URL",
+                value = baseUrl
+            )
+            SettingsActionItem(
+                icon = Icons.Default.Link,
+                label = "View API Contract",
+                description = schemaUrl,
+                color = colorScheme.primary
+            ) {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(schemaUrl))
+                context.startActivity(intent)
             }
         }
 

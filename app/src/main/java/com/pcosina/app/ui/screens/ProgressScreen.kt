@@ -290,18 +290,13 @@ fun ProgressScreen(
                         if (avgMacros.isNotEmpty()) {
                             items.add("Avg macros: ${avgMacros.joinToString(" • ")}")
                         }
+                        val constraintItems = mutableListOf<String>()
                         planExplanation.toleranceUsed?.let {
                             val pct = String.format(Locale.ENGLISH, "%.0f", it * 100)
-                            items.add("Tolerance used: $pct%")
+                            constraintItems.add("Tolerance used: $pct%")
                         }
                         planExplanation.maxPerWeek?.let {
-                            items.add("Max repeats per recipe: $it")
-                        }
-                        planExplanation.pantryMatches?.let {
-                            items.add("Pantry matches used: $it")
-                        }
-                        planExplanation.uniqueVegTokens?.let {
-                            items.add("Veg variety tokens: $it")
+                            constraintItems.add("Max repeats per recipe: $it")
                         }
                         if (planExplanation.budgetWeekly != null || planExplanation.estimatedWeeklyCost != null) {
                             val budget = planExplanation.budgetWeekly?.let {
@@ -314,10 +309,16 @@ fun ProgressScreen(
                                 est != null -> "Estimated weekly cost: $est"
                                 else -> null
                             }
-                            if (text != null) items.add(text)
+                            if (text != null) constraintItems.add(text)
                         }
                         planExplanation.restrictionCount?.let {
-                            items.add("Restriction count: $it")
+                            constraintItems.add("Restriction count: $it")
+                        }
+                        planExplanation.pantryMatches?.let {
+                            items.add("Pantry matches used: $it")
+                        }
+                        planExplanation.uniqueVegTokens?.let {
+                            items.add("Veg variety tokens: $it")
                         }
                         items.forEach { line ->
                             Text(
@@ -325,6 +326,21 @@ fun ProgressScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = colorScheme.onSurfaceVariant
                             )
+                        }
+                        if (constraintItems.isNotEmpty()) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                text = "Constraint Summary",
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                color = colorScheme.onSurface
+                            )
+                            constraintItems.forEach { line ->
+                                Text(
+                                    text = "• $line",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }

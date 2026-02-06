@@ -320,6 +320,12 @@ def solve_meal_plan(
             meal_to_allowed["Breakfast"].add(i)
             meal_to_allowed["Lunch"].add(i)
             meal_to_allowed["Dinner"].add(i)
+    # Fallback: if any meal type is empty, allow all recipes for that slot.
+    # Some datasets only tag a single mealType (e.g., all "Lunch"), which would
+    # otherwise make breakfast/dinner infeasible.
+    for label in meal_to_allowed:
+        if not meal_to_allowed[label]:
+            meal_to_allowed[label] = set(range(len(pool)))
     for tol in tolerance_levels:
         protein_bounds = (int(target_protein * (1 - tol)), int(target_protein * (1 + tol)))
         carbs_bounds = (int(target_carbs * (1 - tol)), int(target_carbs * (1 + tol)))

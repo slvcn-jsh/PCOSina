@@ -639,15 +639,6 @@ def feedback(payload: FeedbackRequest):
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to save feedback")
 
-@app.get("/feedback/recent")
-def feedback_recent(x_admin_token: str | None = Header(default=None)):
-    expected = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
-    if not expected or x_admin_token != expected:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    try:
-        return {"status": "ok", "items": database.get_recent_feedback(50)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to load feedback: {e}")
 
 if __name__ == "__main__":
     import uvicorn

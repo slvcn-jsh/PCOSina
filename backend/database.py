@@ -157,7 +157,12 @@ def init_db():
     conn = _connect()
     cursor = conn.cursor()
     cursor.execute(_create_table_sql())
-    cursor.execute(_create_feedback_table_sql())
+    try:
+        cursor.execute(_create_feedback_table_sql())
+    except Exception as e:
+        # Defensive: ignore rare Postgres type-creation race for "feedback"
+        if "pg_type_typname_nsp_index" not in str(e):
+            raise
     conn.commit()
     conn.close()
 

@@ -39,6 +39,9 @@ class ProgressViewModel(
     private val _feedbackQueue = MutableStateFlow<List<FeedbackEntry>>(emptyList())
     val feedbackQueue: StateFlow<List<FeedbackEntry>> = _feedbackQueue.asStateFlow()
     private var isSendingFeedback = false
+    private val retryBaseDelayMs = 2000L
+    private val retryMaxDelayMs = 60000L
+    private val retryMaxAttempts = 5
 
     fun loadForUser(userId: String, weekStart: String, fallbackWeekStart: String? = null) {
         if (currentUserId == userId) {
@@ -164,12 +167,14 @@ class ProgressViewModel(
                 var i = 0
                 while (i < entries.size) {
                     val entry = entries[i]
-                    if (entry.status == "Queued" || entry.status == "Failed") {
-                        entries[i] = entry.copy(
+                    if ((entry.status == "Queued" || entry.status == "Failed") && shouldAttemptRetry(entry)) {
+                        val triedAt = System.currentTimeMillis()
+                        val sendingEntry = entry.copy(
                             status = "Sending",
-                            lastTriedAt = System.currentTimeMillis(),
+                            lastTriedAt = triedAt,
                             lastError = null
                         )
+                        entries[i] = sendingEntry
                         _feedbackQueue.value = entries.toList()
                         persistFeedback(entries)
                         val result = feedbackRepository.sendFeedback(entry.message)
@@ -178,11 +183,15 @@ class ProgressViewModel(
                             entries.removeAt(i)
                             i -= 1
                         } else {
-                            val nextAttempts = entry.attempts + 1
+                            val nextAttempts = sendingEntry.attempts + 1
                             val errorText = result.error ?: "Unknown error"
                             val isHttpError = errorText.startsWith("HTTP")
-                            val newStatus = if (isHttpError && nextAttempts >= 1) "Failed" else "Queued"
-                            entries[i] = entry.copy(
+                            val newStatus = if (nextAttempts >= retryMaxAttempts || (isHttpError && nextAttempts >= 1)) {
+                                "Failed"
+                            } else {
+                                "Queued"
+                            }
+                            entries[i] = sendingEntry.copy(
                                 status = newStatus,
                                 attempts = nextAttempts,
                                 lastError = errorText
@@ -202,11 +211,38 @@ class ProgressViewModel(
     fun retryFeedback(entryId: String, isOnline: Boolean) {
         if (currentUserId.isBlank()) return
         val updated = _feedbackQueue.value.map { entry ->
-            if (entry.id == entryId) entry.copy(status = "Queued", lastError = null) else entry
+            if (entry.id == entryId) entry.copy(status = "Queued", lastError = null, lastTriedAt = null) else entry
         }
         _feedbackQueue.value = updated
         persistFeedback(updated)
         trySendQueuedFeedback(isOnline)
+    }
+
+    fun retryAllFeedback(isOnline: Boolean) {
+        if (currentUserId.isBlank()) return
+        val updated = _feedbackQueue.value.map { entry ->
+            if (entry.status == "Failed") {
+                entry.copy(status = "Queued", lastError = null, lastTriedAt = null)
+            } else {
+                entry
+            }
+        }
+        _feedbackQueue.value = updated
+        persistFeedback(updated)
+        trySendQueuedFeedback(isOnline)
+    }
+
+    private fun retryDelayMs(attempts: Int): Long {
+        val exp = kotlin.math.min(attempts, 5)
+        val delay = retryBaseDelayMs * (1L shl exp)
+        return kotlin.math.min(delay, retryMaxDelayMs)
+    }
+
+    private fun shouldAttemptRetry(entry: FeedbackEntry): Boolean {
+        if (entry.attempts >= retryMaxAttempts) return false
+        val last = entry.lastTriedAt ?: return true
+        val waitMs = retryDelayMs(entry.attempts)
+        return (System.currentTimeMillis() - last) >= waitMs
     }
 
     private fun persistFeedback(entries: List<FeedbackEntry>) {

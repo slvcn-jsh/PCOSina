@@ -574,11 +574,22 @@ fun ProgressScreen(
                     }
                     if (feedbackQueue.isNotEmpty()) {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(
-                                text = "Queue Status",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = colorScheme.onSurfaceVariant
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Queue Status",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                                if (feedbackQueue.any { it.status == "Failed" }) {
+                                    TextButton(onClick = { progressViewModel.retryAllFeedback(isOnline.value) }) {
+                                        Text("Retry all")
+                                    }
+                                }
+                            }
                             feedbackQueue.forEach { entry ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),

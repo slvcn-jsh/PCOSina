@@ -61,6 +61,13 @@ def _env_float_list(name: str, default: List[float]) -> List[float]:
     return values if values else default
 
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in ("1", "true", "yes", "on")
+
+
 # -------------------------
 # Tagging + Normalization
 # -------------------------
@@ -626,7 +633,10 @@ def solve_meal_plan(
                 return res_plan, "Success", explanation
         if (time.time() - started_at) >= total_time_limit:
             break
-    # Fallback: build a greedy plan to avoid hard failure if MILP cannot find a solution in time.
+    if not _env_bool("PCOSINA_ALLOW_FALLBACK", False):
+        return None, "Infeasible", None
+
+    # Optional fallback: build a greedy plan to avoid hard failure if MILP cannot find a solution in time.
     fallback_max = _env_int("PCOSINA_FALLBACK_MAX_PER_WEEK", 10)
     res_plan, selected = _greedy_fallback_plan(
         pool,

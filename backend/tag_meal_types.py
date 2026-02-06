@@ -1,5 +1,6 @@
 import argparse
 import json
+import random
 import re
 from collections import Counter
 from pathlib import Path
@@ -153,6 +154,33 @@ def infer_meal_type(recipe: dict) -> str:
     return "Lunch"
 
 
+def assign_random_meal_types(recipes: list[dict], ratios: tuple[float, float, float], seed: int) -> None:
+    rng = random.Random(seed)
+    labels = ["Breakfast", "Lunch", "Dinner"]
+    total = len(recipes)
+    b_ratio, l_ratio, d_ratio = ratios
+    b_count = int(round(total * b_ratio))
+    l_count = int(round(total * l_ratio))
+    d_count = total - b_count - l_count
+    # Avoid negative due to rounding
+    if d_count < 0:
+        d_count = max(0, total - b_count - l_count)
+    counts = {"Breakfast": b_count, "Lunch": l_count, "Dinner": d_count}
+    pool = list(range(total))
+    rng.shuffle(pool)
+    idx = 0
+    for label in labels:
+        for _ in range(counts[label]):
+            if idx >= total:
+                break
+            recipes[pool[idx]]["mealType"] = label
+            idx += 1
+    # Any remaining (rounding leftovers)
+    while idx < total:
+        recipes[pool[idx]]["mealType"] = "Lunch"
+        idx += 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Heuristically tag recipes with meal types.")
     parser.add_argument("--write", action="store_true", help="Write changes to recipes.json")
@@ -160,6 +188,23 @@ def main() -> int:
         "--path",
         default="recipes.json",
         help="Path to recipes.json (default: recipes.json)",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["heuristic", "random"],
+        default="heuristic",
+        help="Tagging mode (default: heuristic)",
+    )
+    parser.add_argument(
+        "--ratios",
+        default="0.33,0.33,0.34",
+        help="Breakfast,Lunch,Dinner ratios for random mode (default: 0.33,0.33,0.34)",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for random mode (default: 42)",
     )
     parser.add_argument(
         "--sample",
@@ -179,14 +224,26 @@ def main() -> int:
 
     samples = {"Breakfast": [], "Lunch": [], "Dinner": []}
     changed = 0
+    if args.mode == "random":
+        ratio_parts = [p.strip() for p in str(args.ratios).split(",")]
+        if len(ratio_parts) != 3:
+            print("Invalid ratios. Use: Breakfast,Lunch,Dinner (e.g., 0.33,0.33,0.34)")
+            return 1
+        ratios = (float(ratio_parts[0]), float(ratio_parts[1]), float(ratio_parts[2]))
+        assign_random_meal_types(recipes, ratios, args.seed)
+        changed = len(recipes)
+    else:
+        for r in recipes:
+            new_type = infer_meal_type(r)
+            old_type = r.get("mealType")
+            if old_type != new_type:
+                changed += 1
+            r["mealType"] = new_type
+
     for r in recipes:
-        new_type = infer_meal_type(r)
-        old_type = r.get("mealType")
-        if old_type != new_type:
-            changed += 1
-        r["mealType"] = new_type
-        if len(samples[new_type]) < args.sample:
-            samples[new_type].append(r.get("name") or r.get("title") or r.get("id"))
+        mt = r.get("mealType") or "Unknown"
+        if mt in samples and len(samples[mt]) < args.sample:
+            samples[mt].append(r.get("name") or r.get("title") or r.get("id"))
 
     after = Counter((r.get("mealType") or "Unknown") for r in recipes)
 

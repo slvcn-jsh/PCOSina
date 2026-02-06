@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request, Depends, Header
+from fastapi import FastAPI, HTTPException, Request, Depends, Header, Form
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel, ConfigDict
@@ -653,7 +653,20 @@ def admin_feedback(x_admin_token: str | None = Header(default=None)):
     for item in items:
         msg = str(item.get("message", ""))
         created_at = str(item.get("created_at", ""))
-        rows.append(f"<tr><td>{created_at}</td><td>{msg}</td></tr>")
+        fid = item.get("id", "")
+        rows.append(
+            "<tr>"
+            f"<td>{created_at}</td>"
+            f"<td>{msg}</td>"
+            "<td>"
+            f"<form method='post' action='/admin/feedback/delete'>"
+            f"<input type='hidden' name='id' value='{fid}'/>"
+            f"<input type='hidden' name='token' value='{expected}'/>"
+            "<button type='submit'>Delete</button>"
+            "</form>"
+            "</td>"
+            "</tr>"
+        )
     rows_html = "\n".join(rows) if rows else "<tr><td colspan='2'>No feedback yet.</td></tr>"
 
     html = f"""
@@ -669,12 +682,13 @@ def admin_feedback(x_admin_token: str | None = Header(default=None)):
         th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }}
         th {{ background: #f0f0f0; }}
         tr:nth-child(even) {{ background: #fafafa; }}
+        button {{ padding: 6px 10px; }}
       </style>
     </head>
     <body>
       <h1>PCOSINA Feedback</h1>
       <table>
-        <thead><tr><th>Created At</th><th>Message</th></tr></thead>
+        <thead><tr><th>Created At</th><th>Message</th><th>Action</th></tr></thead>
         <tbody>
           {rows_html}
         </tbody>
@@ -683,6 +697,22 @@ def admin_feedback(x_admin_token: str | None = Header(default=None)):
     </html>
     """
     return HTMLResponse(content=html)
+
+@app.post("/admin/feedback/delete")
+def admin_feedback_delete(
+    id: int = Form(...),
+    token: str = Form(...),
+):
+    expected = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
+    if not expected or token != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        database.delete_feedback_by_id(id)
+        return HTMLResponse(
+            content="<html><body>Deleted. <a href='/admin/feedback'>Back</a></body></html>"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete feedback: {e}")
 
 
 if __name__ == "__main__":

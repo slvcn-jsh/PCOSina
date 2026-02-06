@@ -153,6 +153,19 @@ def get_recent_feedback(limit: int = 50):
     finally:
         conn.close()
 
+def delete_feedback_by_id(feedback_id: int) -> int:
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        if _use_postgres():
+            cur.execute("DELETE FROM feedback WHERE id = %s", (feedback_id,))
+        else:
+            cur.execute("DELETE FROM feedback WHERE id = ?", (feedback_id,))
+        conn.commit()
+        return cur.rowcount or 0
+    finally:
+        conn.close()
+
 def init_db():
     conn = _connect()
     cursor = conn.cursor()

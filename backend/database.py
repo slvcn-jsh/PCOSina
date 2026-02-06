@@ -221,6 +221,8 @@ def seed_recipes():
     if not os.path.exists("recipes.json"):
         return
 
+    force_reseed = os.getenv("PCOSINA_FORCE_RESEED", "").strip().lower() in ("1", "true", "yes")
+
     with open("recipes.json", "r") as f:
         recipes = json.load(f)
 
@@ -257,9 +259,9 @@ def seed_recipes():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         '''
 
-    # Avoid re-seeding if Postgres already has data
+    # Avoid re-seeding if Postgres already has data (unless forced)
     try:
-        if _use_postgres() and _recipe_count(conn) > 0:
+        if _use_postgres() and _recipe_count(conn) > 0 and not force_reseed:
             return
     except Exception:
         pass

@@ -66,7 +66,7 @@
   {
     "id": "ph_2",
     "name": "Sinigang Sa Miso",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -146,7 +146,7 @@
   {
     "id": "ph_3",
     "name": "Pork Ribs Caldereta",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -230,7 +230,7 @@
   {
     "id": "ph_4",
     "name": "How to Fry Pork Belly (Lechon Kawali)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -279,7 +279,7 @@
   {
     "id": "ph_5",
     "name": "Paksiw Na Baboy",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -344,7 +344,7 @@
   {
     "id": "ph_6",
     "name": "Filipino Chicken Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -408,7 +408,7 @@
   {
     "id": "ph_7",
     "name": "Laing Fried Rice Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -585,7 +585,7 @@
   {
     "id": "ph_10",
     "name": "Pork Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -641,7 +641,7 @@
   {
     "id": "ph_11",
     "name": "Pork Afritada Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -796,7 +796,7 @@
   {
     "id": "ph_13",
     "name": "Bulalo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -956,7 +956,7 @@
   {
     "id": "ph_15",
     "name": "Beef Mechado Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -1144,7 +1144,7 @@
   {
     "id": "ph_18",
     "name": "Pork Caldereta Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -1227,7 +1227,7 @@
   {
     "id": "ph_19",
     "name": "Chicken Afritada Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -1305,7 +1305,7 @@
   {
     "id": "ph_20",
     "name": "Bicol Express Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -1370,7 +1370,7 @@
   {
     "id": "ph_21",
     "name": "Adobo Fried Rice",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -1418,7 +1418,7 @@
   {
     "id": "ph_22",
     "name": "Pinakbet Tagalog",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -1621,7 +1621,7 @@
   {
     "id": "ph_24",
     "name": "Sprite Pork Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -1738,7 +1738,7 @@
   {
     "id": "ph_26",
     "name": "Pork and Chicken Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -1811,7 +1811,7 @@
   {
     "id": "ph_27",
     "name": "Paksiw na Pata Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -2065,7 +2065,7 @@
   {
     "id": "ph_31",
     "name": "Lechon Kawali Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -2278,7 +2278,7 @@
   {
     "id": "ph_34",
     "name": "Pork Adobo in Pineapple Juice with Boiled Egg",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -2478,7 +2478,7 @@
   {
     "id": "ph_37",
     "name": "Sinigang na Baboy with Gabi",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -2557,7 +2557,7 @@
   {
     "id": "ph_38",
     "name": "Chicken Pochero",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -2649,7 +2649,7 @@
   {
     "id": "ph_39",
     "name": "Easy Chicken Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -2789,7 +2789,7 @@
   {
     "id": "ph_41",
     "name": "Laing na Gabi",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -3159,7 +3159,7 @@
   {
     "id": "ph_47",
     "name": "Kare Kare Recipe  Panlasang Pinoy",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -3240,7 +3240,7 @@
   {
     "id": "ph_48",
     "name": "Filipino Style Chicken Curry",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -3318,7 +3318,7 @@
   {
     "id": "ph_49",
     "name": "How to Cook Bicol Express",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -3439,7 +3439,7 @@
   {
     "id": "ph_51",
     "name": "Sisig",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -3585,7 +3585,7 @@
   {
     "id": "ph_53",
     "name": "Paksiw na Bangus Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -3652,7 +3652,7 @@
   {
     "id": "ph_54",
     "name": "Salmon Sinigang Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -3726,7 +3726,7 @@
   {
     "id": "ph_55",
     "name": "Ginataang Lechon Kawali with Kalabasa and Long Green Beans",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -3794,7 +3794,7 @@
   {
     "id": "ph_56",
     "name": "Cheesy Chicken Afritada Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -3943,7 +3943,7 @@
   {
     "id": "ph_58",
     "name": "Sizzling Liempo Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -4096,7 +4096,7 @@
   {
     "id": "ph_60",
     "name": "Sinigang na Sugpo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -4252,7 +4252,7 @@
   {
     "id": "ph_62",
     "name": "How to Cook Bulalo and Tagaytay Mahogany Market Tour",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -4393,7 +4393,7 @@
   {
     "id": "ph_64",
     "name": "Crispy Bicol Express",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -4465,7 +4465,7 @@
   {
     "id": "ph_65",
     "name": "Sinigang na Bangus Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -4703,7 +4703,7 @@
   {
     "id": "ph_68",
     "name": "Bicol Express ala Bebet  Bisita Kusina Episode 1",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -4766,7 +4766,7 @@
   {
     "id": "ph_69",
     "name": "Filipino Shrimp Curry Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -4863,7 +4863,7 @@
   {
     "id": "ph_70",
     "name": "Paksiw na Salmon sa Gata",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -4935,7 +4935,7 @@
   {
     "id": "ph_71",
     "name": "Beef Ribs Sinigang",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -5153,7 +5153,7 @@
   {
     "id": "ph_74",
     "name": "Corned Beef Sinigang",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -5309,7 +5309,7 @@
   {
     "id": "ph_76",
     "name": "Adobong Baboy sa Gata (Pork Adobo in Coconut Milk)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -5377,7 +5377,7 @@
   {
     "id": "ph_77",
     "name": "Puchero Bulalo Recipe (Beef Shank Pochero)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -5681,7 +5681,7 @@
   {
     "id": "ph_80",
     "name": "Bacon and Egg Filipino Chicken Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -5750,7 +5750,7 @@
   {
     "id": "ph_81",
     "name": "Ginisang Ampalaya na May Itlog at Hipon (Sauteed Bitter Gourd)",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -5818,7 +5818,7 @@
   {
     "id": "ph_82",
     "name": "Beef Tinola Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -5986,7 +5986,7 @@
   {
     "id": "ph_84",
     "name": "Beef Bulalo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -6047,7 +6047,7 @@
   {
     "id": "ph_85",
     "name": "Pork Ginataan Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -6465,7 +6465,7 @@
   {
     "id": "ph_90",
     "name": "Lechon Belly Pork Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -6593,7 +6593,7 @@
   {
     "id": "ph_92",
     "name": "Crispy Lechon Belly Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -6714,7 +6714,7 @@
   {
     "id": "ph_94",
     "name": "Lechon Kawali",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -6858,7 +6858,7 @@
   {
     "id": "ph_96",
     "name": "Paksiw na Lechon Kawali",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -7296,7 +7296,7 @@
   {
     "id": "ph_101",
     "name": "Anghang Sarap Laing with Shrimp",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -7368,7 +7368,7 @@
   {
     "id": "ph_102",
     "name": "Sizzling Tuna Sisig",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -7513,7 +7513,7 @@
   {
     "id": "ph_104",
     "name": "Extremely Spicy Pork Adobo na Tuyo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -7574,7 +7574,7 @@
   {
     "id": "ph_105",
     "name": "How to Cook Sinampalukang Manok",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -7642,7 +7642,7 @@
   {
     "id": "ph_106",
     "name": "How To Cook Super Crispy Lechon Kawali",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -7998,7 +7998,7 @@
   {
     "id": "ph_111",
     "name": "Seafood Sinigang",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -8067,7 +8067,7 @@
   {
     "id": "ph_112",
     "name": "Chicken Adobo sa Gata",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -8181,7 +8181,7 @@
   {
     "id": "ph_114",
     "name": "Beef Short Rib Kare Kare",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -8257,7 +8257,7 @@
   {
     "id": "ph_115",
     "name": "Crispy Tofu Sisig",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -8388,7 +8388,7 @@
   {
     "id": "ph_117",
     "name": "Beef Short Rib Sinigang Na May Pakwan",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -8585,7 +8585,7 @@
   {
     "id": "ph_120",
     "name": "Sous Vide Chicken Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -8712,7 +8712,7 @@
   {
     "id": "ph_122",
     "name": "Sinigang na Salmon sa Miso",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -8778,7 +8778,7 @@
   {
     "id": "ph_123",
     "name": "Bulalo Beef Pares Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -8860,7 +8860,7 @@
   {
     "id": "ph_124",
     "name": "Shrimp Monggo with Lechon Kawali",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -9310,7 +9310,7 @@
   {
     "id": "ph_130",
     "name": "Chicken Adobo with Egg",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -9449,7 +9449,7 @@
   {
     "id": "ph_132",
     "name": "Pork Bicol Express",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -9519,7 +9519,7 @@
   {
     "id": "ph_133",
     "name": "Pinakbet with Squid in Coconut Milk (Pinakbet sa Gata)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -9719,7 +9719,7 @@
   {
     "id": "ph_136",
     "name": "Basic Tortang Talong Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -9765,7 +9765,7 @@
   {
     "id": "ph_137",
     "name": "Pata Paksiw Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -9844,7 +9844,7 @@
   {
     "id": "ph_138",
     "name": "Batangas Bulalo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -9911,7 +9911,7 @@
   {
     "id": "ph_139",
     "name": "Adobong Sitaw with Lechon Kawali",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -9982,7 +9982,7 @@
   {
     "id": "ph_140",
     "name": "Seafood Bicol Express",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -10051,7 +10051,7 @@
   {
     "id": "ph_141",
     "name": "Chicken Molo Soup Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -10131,7 +10131,7 @@
   {
     "id": "ph_142",
     "name": "Pork Pochero Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -10450,7 +10450,7 @@
   {
     "id": "ph_146",
     "name": "Pork Adobo with Sitaw Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -10656,7 +10656,7 @@
   {
     "id": "ph_149",
     "name": "Dinaldalem Recipe (Igado  Liver and Pork Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -10933,7 +10933,7 @@
   {
     "id": "ph_153",
     "name": "Pork Chop Bicol Express Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -11000,7 +11000,7 @@
   {
     "id": "ph_154",
     "name": "Pork Mechado Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -11084,7 +11084,7 @@
   {
     "id": "ph_155",
     "name": "Tuna Jaw Sinigang",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -11148,7 +11148,7 @@
   {
     "id": "ph_156",
     "name": "Basic Pork Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -11307,7 +11307,7 @@
   {
     "id": "ph_158",
     "name": "Pork Chop Sinigang",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -11376,7 +11376,7 @@
   {
     "id": "ph_159",
     "name": "Paksiw na Lechon Manok",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -11451,7 +11451,7 @@
   {
     "id": "ph_160",
     "name": "Chicken Afritada with Bell Pepper",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -11580,7 +11580,7 @@
   {
     "id": "ph_162",
     "name": "Sinigang na Buntot ng Baboy with Gabi",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -11650,7 +11650,7 @@
   {
     "id": "ph_163",
     "name": "Lechon Manok Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -11718,7 +11718,7 @@
   {
     "id": "ph_164",
     "name": "Lechon Manok Sauce Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -11921,7 +11921,7 @@
   {
     "id": "ph_167",
     "name": "Pinakbet with Lechon Kawali",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -12001,7 +12001,7 @@
   {
     "id": "ph_168",
     "name": "Tinumis Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -12072,7 +12072,7 @@
   {
     "id": "ph_169",
     "name": "Basic Chicken Afritada Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -12141,7 +12141,7 @@
   {
     "id": "ph_170",
     "name": "Bistek Silog",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -12421,7 +12421,7 @@
   {
     "id": "ph_174",
     "name": "Cansi Recipe (Ilonggo Bulalo and Sinigang in one Delicious Soup Dish)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -12564,7 +12564,7 @@
   {
     "id": "ph_176",
     "name": "Sinigang na Bangus Belly sa Miso",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -12811,7 +12811,7 @@
   {
     "id": "ph_180",
     "name": "Lechon Carajay Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -12873,7 +12873,7 @@
   {
     "id": "ph_181",
     "name": "Seafood Kare Kare Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -12962,7 +12962,7 @@
   {
     "id": "ph_182",
     "name": "Fried Daing na Bangus with Garlic Fried Rice, Fried Egg, and Pickled Papaya (Daing Silog)",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -13008,7 +13008,7 @@
   {
     "id": "ph_183",
     "name": "Pancit Molo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -13130,7 +13130,7 @@
   {
     "id": "ph_185",
     "name": "The Simplest Paksiw na Galunggong Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -13180,7 +13180,7 @@
   {
     "id": "ph_186",
     "name": "Excursion Chicken and Pork Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -13536,7 +13536,7 @@
   {
     "id": "ph_191",
     "name": "Slow Cook Pork Afritada",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -13659,7 +13659,7 @@
   {
     "id": "ph_193",
     "name": "Tortang Talong with Crab Meat (Eggplant Omelet with Crab)",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -13719,7 +13719,7 @@
   {
     "id": "ph_194",
     "name": "Sinigang na Lapu lapu sa Miso",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -13784,7 +13784,7 @@
   {
     "id": "ph_195",
     "name": "Adobong Pata (Ham Hock Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -13918,7 +13918,7 @@
   {
     "id": "ph_197",
     "name": "Paksiw na Pata with Pineapple",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -13997,7 +13997,7 @@
   {
     "id": "ph_198",
     "name": "Roasted Pork Belly (Lechon Liempo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -14052,7 +14052,7 @@
   {
     "id": "ph_199",
     "name": "Beef Sinigang sa Kamias (Sinigang na Baka)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -14195,7 +14195,7 @@
   {
     "id": "ph_201",
     "name": "Pork Ginataan with Squash and String Beans",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -14325,7 +14325,7 @@
   {
     "id": "ph_203",
     "name": "Crispy Pata Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -14511,7 +14511,7 @@
   {
     "id": "ph_206",
     "name": "Kale and Tuna Laing Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -14623,7 +14623,7 @@
   {
     "id": "ph_208",
     "name": "Chicken Liver and Gizzard Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -14791,7 +14791,7 @@
   {
     "id": "ph_210",
     "name": "Grilled Liempo Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -14856,7 +14856,7 @@
   {
     "id": "ph_211",
     "name": "Pork Adobo Paksiw with Jeprox and Shrimp Fried Rice",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -14964,7 +14964,7 @@
   {
     "id": "ph_213",
     "name": "Crock Pot Pork Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -15030,7 +15030,7 @@
   {
     "id": "ph_214",
     "name": "Laing with Shrimp Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -15088,7 +15088,7 @@
   {
     "id": "ph_215",
     "name": "Meatball Adobo with Shrimp Fried Rice and Egg",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -15198,7 +15198,7 @@
   {
     "id": "ph_217",
     "name": "Sinigang na Hipon sa Sampaloc",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -15265,7 +15265,7 @@
   {
     "id": "ph_218",
     "name": "Adobo Meatballs Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -15330,7 +15330,7 @@
   {
     "id": "ph_219",
     "name": "Sinigang na Bangus sa Bayabas",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -15396,7 +15396,7 @@
   {
     "id": "ph_220",
     "name": "Beef and Tripe Pochero Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -15480,7 +15480,7 @@
   {
     "id": "ph_221",
     "name": "Mahi-Mahi Paksiw Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -15535,7 +15535,7 @@
   {
     "id": "ph_222",
     "name": "Pork Adobo Flakes",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -15645,7 +15645,7 @@
   {
     "id": "ph_224",
     "name": "Sinigang na Isda sa Kamias with Miso",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -15715,7 +15715,7 @@
   {
     "id": "ph_225",
     "name": "Nilagang Pata Recipe (Boiled Pork Hock Soup)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -15774,7 +15774,7 @@
   {
     "id": "ph_226",
     "name": "Pork Sinigang sa Kamias",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -15847,7 +15847,7 @@
   {
     "id": "ph_227",
     "name": "Kare Kare Tripas",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -15926,7 +15926,7 @@
   {
     "id": "ph_228",
     "name": "Lechon Pata Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -15989,7 +15989,7 @@
   {
     "id": "ph_229",
     "name": "Panlasang Pinoy Laing Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -16049,7 +16049,7 @@
   {
     "id": "ph_230",
     "name": "Adobong Hipon sa Gata (Shrimp Adobo in Coconut Milk)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -16189,7 +16189,7 @@
   {
     "id": "ph_232",
     "name": "Sinigang na Liempo sa Sampaloc (Pork Sinigang)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -16331,7 +16331,7 @@
   {
     "id": "ph_234",
     "name": "Breakfast Daing na Bisugo with Sinangag",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -16370,7 +16370,7 @@
   {
     "id": "ph_235",
     "name": "Sinigang na Isda sa Kamias (Fish Sinigang)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -16513,7 +16513,7 @@
   {
     "id": "ph_237",
     "name": "Tasty Pork Afritada Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -16643,7 +16643,7 @@
   {
     "id": "ph_239",
     "name": "Adobo Pork Chops",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -16774,7 +16774,7 @@
   {
     "id": "ph_241",
     "name": "Sinigang na Liempo sa Sampaloc with Gabi",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -16851,7 +16851,7 @@
   {
     "id": "ph_242",
     "name": "Fried Fish Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -16880,7 +16880,7 @@
   {
     "id": "ph_243",
     "name": "Easy Pork Afritada Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -16954,7 +16954,7 @@
   {
     "id": "ph_244",
     "name": "Fish Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -17010,7 +17010,7 @@
   {
     "id": "ph_245",
     "name": "Pork Belly Sinigang sa Sampaloc",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -17069,7 +17069,7 @@
   {
     "id": "ph_246",
     "name": "Ginarep Recipe (Shrimp and Corn Soup)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -17202,7 +17202,7 @@
   {
     "id": "ph_248",
     "name": "Sayote Guisado with Chicken and Shrimp",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -17404,7 +17404,7 @@
   {
     "id": "ph_251",
     "name": "Beef Bicol Express",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -17464,7 +17464,7 @@
   {
     "id": "ph_252",
     "name": "Adobong Bulalo (Beef Shank Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -17788,7 +17788,7 @@
   {
     "id": "ph_257",
     "name": "Fried Bangus Sinigang sa Miso",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -17945,7 +17945,7 @@
   {
     "id": "ph_259",
     "name": "Sinigang na Tilapia sa Miso Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -18019,7 +18019,7 @@
   {
     "id": "ph_260",
     "name": "Pata Pochero Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -18098,7 +18098,7 @@
   {
     "id": "ph_261",
     "name": "Adobong Tahong Recipe (Mussels Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -18349,7 +18349,7 @@
   {
     "id": "ph_265",
     "name": "Spicy Pork Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -18423,7 +18423,7 @@
   {
     "id": "ph_266",
     "name": "Lechon Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -18572,7 +18572,7 @@
   {
     "id": "ph_268",
     "name": "Adobong Dilaw Recipe (Yellow Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -18644,7 +18644,7 @@
   {
     "id": "ph_269",
     "name": "Bagoong Rice Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -18698,7 +18698,7 @@
   {
     "id": "ph_270",
     "name": "Pork Adobo with Boiled Eggs",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -18773,7 +18773,7 @@
   {
     "id": "ph_271",
     "name": "Pork Adobo with Potato Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -18904,7 +18904,7 @@
   {
     "id": "ph_273",
     "name": "Spicy Laing Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -18971,7 +18971,7 @@
   {
     "id": "ph_274",
     "name": "Pork Adobo with Tofu Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -19041,7 +19041,7 @@
   {
     "id": "ph_275",
     "name": "KBL (Kadyos, Baboy, at Langka) Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -19158,7 +19158,7 @@
   {
     "id": "ph_277",
     "name": "Pochero Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -19246,7 +19246,7 @@
   {
     "id": "ph_278",
     "name": "Sinampalukang Manok Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -19377,7 +19377,7 @@
   {
     "id": "ph_280",
     "name": "Chicken Feet Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -19514,7 +19514,7 @@
   {
     "id": "ph_282",
     "name": "Sinigang na Bangus sa Miso",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -19580,7 +19580,7 @@
   {
     "id": "ph_283",
     "name": "Crispy Adobo Flakes Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -19612,7 +19612,7 @@
   {
     "id": "ph_284",
     "name": "Adobo Steak Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -19716,7 +19716,7 @@
   {
     "id": "ph_286",
     "name": "Bagoong Guisado Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -19831,7 +19831,7 @@
   {
     "id": "ph_288",
     "name": "Adobong Isaw Recipe (Small Intestine Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -19907,7 +19907,7 @@
   {
     "id": "ph_289",
     "name": "Dinuguan Laman-Loob Recipe (Blood Stew)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -19984,7 +19984,7 @@
   {
     "id": "ph_290",
     "name": "Paksiw na Isda Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -20119,7 +20119,7 @@
   {
     "id": "ph_292",
     "name": "Sinigang na Buto buto with Gabi Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -20497,7 +20497,7 @@
   {
     "id": "ph_297",
     "name": "Egg Foo Young Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -20647,7 +20647,7 @@
   {
     "id": "ph_299",
     "name": "Sinigang na Panga ng Tuna Recipe (Tuna jaw cooked in sour broth)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -20831,7 +20831,7 @@
   {
     "id": "ph_302",
     "name": "Adobong Kambing Recipe (Goat Meat Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -21009,7 +21009,7 @@
   {
     "id": "ph_305",
     "name": "Lechon Paksiw Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -21087,7 +21087,7 @@
   {
     "id": "ph_306",
     "name": "Lechon Sauce Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -21465,7 +21465,7 @@
   {
     "id": "ph_312",
     "name": "Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -21716,7 +21716,7 @@
   {
     "id": "ph_316",
     "name": "Beef Pochero Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -21807,7 +21807,7 @@
   {
     "id": "ph_317",
     "name": "Pinakbet Ilocano Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -22297,7 +22297,7 @@
   {
     "id": "ph_324",
     "name": "Ginataang Gulay (Filipino Vegetable Stew in Coconut Milk)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -22445,7 +22445,7 @@
   {
     "id": "ph_326",
     "name": "Authentic Bicolano Laing (Gabi Leaves in Coconut Milk)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -22691,7 +22691,7 @@
   {
     "id": "ph_329",
     "name": "Filipino Squid Caldereta (Kalderetang Pusit)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -23000,7 +23000,7 @@
   {
     "id": "ph_333",
     "name": "Sinigang Sa Miso",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -23079,7 +23079,7 @@
   {
     "id": "ph_334",
     "name": "Sinigang Pork Belly",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -23223,7 +23223,7 @@
   {
     "id": "ph_336",
     "name": "Sinigang na Bangus (Filipino Milkfish Sour Soup)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -23300,7 +23300,7 @@
   {
     "id": "ph_337",
     "name": "Sinigang na Tilapia with Gabi",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -23554,7 +23554,7 @@
   {
     "id": "ph_341",
     "name": "Ginataang Tilapia (Filipino Coconut Milk Fish Stew",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -23627,7 +23627,7 @@
   {
     "id": "ph_342",
     "name": "Ginataang Puso ng Saging (Creamy Coconut Banana Heart Stew)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -23689,7 +23689,7 @@
   {
     "id": "ph_343",
     "name": "Adobo Burrito Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -23751,7 +23751,7 @@
   {
     "id": "ph_344",
     "name": "Adobong Atay ng Manok (Chicken Liver Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -23820,7 +23820,7 @@
   {
     "id": "ph_345",
     "name": "Adobong Bisaya (Visayan Crispy Fried Pork Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -23882,7 +23882,7 @@
   {
     "id": "ph_346",
     "name": "Adobong Kambing (Filipino Goat Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -23962,7 +23962,7 @@
   {
     "id": "ph_347",
     "name": "Adobong Pato (Filipino Duck Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -24022,7 +24022,7 @@
   {
     "id": "ph_348",
     "name": "Tortang Talong (Filipino Eggplant Omelette)",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -24072,7 +24072,7 @@
   {
     "id": "ph_349",
     "name": "Adobong Dilaw (Filipino Yellow Turmeric Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -24133,7 +24133,7 @@
   {
     "id": "ph_350",
     "name": "Adobong Sitaw (Filipino String Bean Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -24191,7 +24191,7 @@
   {
     "id": "ph_351",
     "name": "Adobong Talong (Filipino Eggplant Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -24353,7 +24353,7 @@
   {
     "id": "ph_354",
     "name": "Adobo Pork Chops",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -24414,7 +24414,7 @@
   {
     "id": "ph_355",
     "name": "Chicken Adobo ala Humba Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -24490,7 +24490,7 @@
   {
     "id": "ph_356",
     "name": "Filipino Baby Back Ribs with Adobo Glaze Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -24556,7 +24556,7 @@
   {
     "id": "ph_357",
     "name": "Pork Caldereta (Kalderetang Baboy)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -24638,7 +24638,7 @@
   {
     "id": "ph_358",
     "name": "Filipino Pork Adobo (Adobong Baboy)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -24710,7 +24710,7 @@
   {
     "id": "ph_359",
     "name": "Ilonggo Pork Ribs Adobo with Atsuete (Adobong Pula)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -24853,7 +24853,7 @@
   {
     "id": "ph_361",
     "name": "The Best Grilled Chicken Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -24908,7 +24908,7 @@
   {
     "id": "ph_362",
     "name": "Tinolang Manok (Filipino Chicken Ginger Soup)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -24980,7 +24980,7 @@
   {
     "id": "ph_363",
     "name": "Chicken Caldereta (Kalderetang Manok)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -25072,7 +25072,7 @@
   {
     "id": "ph_364",
     "name": "Adobo Fried Chicken",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -25208,7 +25208,7 @@
   {
     "id": "ph_365",
     "name": "Crispy Adobo Chicken Wings",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -25305,7 +25305,7 @@
   {
     "id": "ph_366",
     "name": "Chicken Adobo with Liver Spread",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -25365,7 +25365,7 @@
   {
     "id": "ph_367",
     "name": "Tamarind Chicken Adobo (Adobong Manok sa Sampalok)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -25513,7 +25513,7 @@
   {
     "id": "ph_369",
     "name": "Adobo sa Asin (Adobong Puti)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -25566,7 +25566,7 @@
   {
     "id": "ph_370",
     "name": "Adobong Puso ng Saging (Filipino Banana Blossom Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -25630,7 +25630,7 @@
   {
     "id": "ph_371",
     "name": "Crispy Adobo Flakes Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -25661,7 +25661,7 @@
   {
     "id": "ph_372",
     "name": "Filipino Chicken and Pork Adobo (Adobong Manok at Baboy)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -25741,7 +25741,7 @@
   {
     "id": "ph_373",
     "name": "Adobo sa Gata (Pork Adobo in Coconut Milk)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -25869,7 +25869,7 @@
   {
     "id": "ph_375",
     "name": "Adobong Itlog (Filipino Egg Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -25941,7 +25941,7 @@
   {
     "id": "ph_376",
     "name": "Adobong Tuna (Filipino Tuna Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -25996,7 +25996,7 @@
   {
     "id": "ph_377",
     "name": "Filipino Beef Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -26070,7 +26070,7 @@
   {
     "id": "ph_378",
     "name": "Authentic Mushroom Sisig",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -26137,7 +26137,7 @@
   {
     "id": "ph_379",
     "name": "Mushroom Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -26191,7 +26191,7 @@
   {
     "id": "ph_380",
     "name": "Adobong Manok sa Patis (Filipino Chicken Adobo with Fish Sauce)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -26255,7 +26255,7 @@
   {
     "id": "ph_381",
     "name": "Filipino Chicken Adobo with Crispy Potatoes",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -26329,7 +26329,7 @@
   {
     "id": "ph_382",
     "name": "Sambal Chicken (Ayam Sambal)",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -26434,7 +26434,7 @@
   {
     "id": "ph_383",
     "name": "Adobong Paa ng Manok (Filipino Chicken Feet Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -26515,7 +26515,7 @@
   {
     "id": "ph_384",
     "name": "Filipino Sizzling Tofu Sisig",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -26597,7 +26597,7 @@
   {
     "id": "ph_385",
     "name": "Authentic Cebu Lechon Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -26746,7 +26746,7 @@
   {
     "id": "ph_387",
     "name": "Sinigang na Baka sa Bayabas (Filipino Beef and Guava Sour Soup)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -26818,7 +26818,7 @@
   {
     "id": "ph_388",
     "name": "Filipino Beef Mechado (Mechadong Baka)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -26912,7 +26912,7 @@
   {
     "id": "ph_389",
     "name": "Homemade Beef Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -26996,7 +26996,7 @@
   {
     "id": "ph_390",
     "name": "Corned Beef Sinigang",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -27112,7 +27112,7 @@
   {
     "id": "ph_392",
     "name": "Adobong Tahong (Filipino Mussels Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -27172,7 +27172,7 @@
   {
     "id": "ph_393",
     "name": "Crocodile Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -27262,7 +27262,7 @@
   {
     "id": "ph_394",
     "name": "Pork Bulanglang (Kapampangan Sinigang sa Bayabas)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -27313,7 +27313,7 @@
   {
     "id": "ph_395",
     "name": "Sinigang na Salmon Belly sa Kamias (Filipino Salmon Sour Soup)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -27474,7 +27474,7 @@
   {
     "id": "ph_397",
     "name": "Sinigang sa Pakwan (Watermelon Tamarind Beef Soup)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -27608,7 +27608,7 @@
   {
     "id": "ph_399",
     "name": "Authentic Sinampalukang Kambing (Filipino Sour Goat Soup)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -27689,7 +27689,7 @@
   {
     "id": "ph_400",
     "name": "Sinigang na Baka (Filipino Sour Beef Soup)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -27762,7 +27762,7 @@
   {
     "id": "ph_401",
     "name": "Sinigang na Hipon sa Calamansi (Filipino Shrimp Sour Soup)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -27894,7 +27894,7 @@
   {
     "id": "ph_403",
     "name": "Authentic Filipino Dinuguan (Pork Blood Stew)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -27990,7 +27990,7 @@
   {
     "id": "ph_404",
     "name": "Filipino Lechon Kawali (Crispy Pork Belly)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -28055,7 +28055,7 @@
   {
     "id": "ph_405",
     "name": "Paksiw na Pata (Filipino Braised Pork Hocks)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -28128,7 +28128,7 @@
   {
     "id": "ph_406",
     "name": "Filipino Pork Afritada (Afritadang Baboy)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -28213,7 +28213,7 @@
   {
     "id": "ph_407",
     "name": "Filipino Pork Pochero (Pocherong Baboy)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -28292,7 +28292,7 @@
   {
     "id": "ph_408",
     "name": "Pesang Manok (Filipino Ginger Chicken Soup)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -28355,7 +28355,7 @@
   {
     "id": "ph_409",
     "name": "Pinangat na Isda (Filipino Sour Fish Stew)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -28434,7 +28434,7 @@
   {
     "id": "ph_410",
     "name": "Authentic Sinigang na Manok (Filipino Sour Chicken Soup)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -28793,7 +28793,7 @@
   {
     "id": "ph_414",
     "name": "Ginataang Munggo at Baboy (Filipino Mung Bean Stew with Pork and Coconut Milk)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -28859,7 +28859,7 @@
   {
     "id": "ph_415",
     "name": "Sizzling Gambas Recipe (Restaurant-Style)",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -29023,7 +29023,7 @@
   {
     "id": "ph_417",
     "name": "Bulanglang na Bangus at Hipon (Filipino Milkfish and Shrimp Soup with Guava)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -29364,7 +29364,7 @@
   {
     "id": "ph_422",
     "name": "Paksiw na Bangus (Filipino Milkfish in Vinegar Stew)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -29435,7 +29435,7 @@
   {
     "id": "ph_423",
     "name": "Chicken Sisig (Sizzling Filipino Chicken)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -29513,7 +29513,7 @@
   {
     "id": "ph_424",
     "name": "Authentic Beef Papaitan (Papaitang Baka)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -29751,7 +29751,7 @@
   {
     "id": "ph_427",
     "name": "Kalderetang Kambing (Filipino Goat Caldereta)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -29858,7 +29858,7 @@
   {
     "id": "ph_428",
     "name": "Chicken Bicol Express (Manok na Bicol Express)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -29925,7 +29925,7 @@
   {
     "id": "ph_429",
     "name": "Filipino Fish Escabeche (Pesang Escabetse)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -29990,7 +29990,7 @@
   {
     "id": "ph_430",
     "name": "Tinumis sa Sampaloc (Filipino Pork Blood Stew with Tamarind)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -30154,7 +30154,7 @@
   {
     "id": "ph_432",
     "name": "Paksiw na Pata Batangas Style (Traditional Vinegar-Braised Pork Leg)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -30215,7 +30215,7 @@
   {
     "id": "ph_433",
     "name": "Pinoy Pork Sisig",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -30304,7 +30304,7 @@
   {
     "id": "ph_434",
     "name": "Andoks Litson Baka Recipe (Filipino Grilled Prime Rib)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -30388,7 +30388,7 @@
   {
     "id": "ph_435",
     "name": "Authentic Pocherong Bisaya (Visayan-Style Beef Pochero)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -30472,7 +30472,7 @@
   {
     "id": "ph_436",
     "name": "Bulanglang na Hipon (Kapampangan Shrimp Sinigang with Guava)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -30586,7 +30586,7 @@
   {
     "id": "ph_438",
     "name": "Waknatoy (Marikina Menudo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -30677,7 +30677,7 @@
   {
     "id": "ph_439",
     "name": "Paksiw na Lechon (Filipino Leftover Roast Pork Stew)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -30827,7 +30827,7 @@
   {
     "id": "ph_441",
     "name": "Authentic Bangus Sisig (Milkfish Sisig)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -30978,7 +30978,7 @@
   {
     "id": "ph_443",
     "name": "Pinangat ng Bicol (Tilmok, Tinulmok or Tinuktuk)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -31064,7 +31064,7 @@
   {
     "id": "ph_444",
     "name": "Adobong Hito (Filipino Catfish Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -31298,7 +31298,7 @@
   {
     "id": "ph_447",
     "name": "Filipino Beef Afritada (Afritadang Baka)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -31574,7 +31574,7 @@
   {
     "id": "ph_451",
     "name": "Classic Filipino Chicken Afritada (Afritadang Manok)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -31649,7 +31649,7 @@
   {
     "id": "ph_452",
     "name": "Lechon sa Hurno",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -31699,7 +31699,7 @@
   {
     "id": "ph_453",
     "name": "Salt and Pepper Pork Chops (Pritong Porkchop na may Asin at Paminta)",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -31937,7 +31937,7 @@
   {
     "id": "ph_456",
     "name": "Adobong Talaba (Filipino Oyster Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -32010,7 +32010,7 @@
   {
     "id": "ph_457",
     "name": "Filipino Chicken Curry (Ginataang Manok sa Curry)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -32258,7 +32258,7 @@
   {
     "id": "ph_460",
     "name": "Pinaputok na Tilapia (Filipino Stuffed Baked Fish)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -32330,7 +32330,7 @@
   {
     "id": "ph_461",
     "name": "Authentic Pinakbet Tagalog (Filipino Vegetable Stew)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -32479,7 +32479,7 @@
   {
     "id": "ph_463",
     "name": "Authentic Bicol Express",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -32734,7 +32734,7 @@
   {
     "id": "ph_466",
     "name": "Authentic Filipino Lechon Manok (Turbo Broiler Roasted Chicken)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -32802,7 +32802,7 @@
   {
     "id": "ph_467",
     "name": "Filipino Bulalo (Bone Marrow Soup)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -32889,7 +32889,7 @@
   {
     "id": "ph_468",
     "name": "Filipino Pork Menudo (Menudong Baboy)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -32989,7 +32989,7 @@
   {
     "id": "ph_469",
     "name": "Filipino Kare-Kare (Traditional Oxtail and Peanut Stew)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -33090,7 +33090,7 @@
   {
     "id": "ph_470",
     "name": "Authentic Sinigang na Baboy",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -33179,7 +33179,7 @@
   {
     "id": "ph_471",
     "name": "Filipino Beef Caldereta (Kalderetang Baka)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -33286,7 +33286,7 @@
   {
     "id": "ph_472",
     "name": "Lechon Paksiw Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -33674,7 +33674,7 @@
   {
     "id": "ph_477",
     "name": "Lechon Kawali Recipe (Fried Pork Belly)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -33730,7 +33730,7 @@
   {
     "id": "ph_478",
     "name": "Pork Pochero Recipe (Pocherong Baboy)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -33809,7 +33809,7 @@
   {
     "id": "ph_479",
     "name": "Sizzling Pork Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -33888,7 +33888,7 @@
   {
     "id": "ph_480",
     "name": "Pinakbet Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -34021,7 +34021,7 @@
   {
     "id": "ph_482",
     "name": "Pork Sinigang With Gabi Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -34096,7 +34096,7 @@
   {
     "id": "ph_483",
     "name": "Bicol Express Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -34163,7 +34163,7 @@
   {
     "id": "ph_484",
     "name": "Pork Afritada Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -34255,7 +34255,7 @@
   {
     "id": "ph_485",
     "name": "Beef Pochero Recipe (Pocherong Baka)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -34334,7 +34334,7 @@
   {
     "id": "ph_486",
     "name": "Beef Kaldereta Recipe (Caldereta)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -34450,7 +34450,7 @@
   {
     "id": "ph_487",
     "name": "Beef Sinigang Recipe (Sinigang Na Baka)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -34510,7 +34510,7 @@
   {
     "id": "ph_488",
     "name": "Batangas Bulalo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -34580,7 +34580,7 @@
   {
     "id": "ph_489",
     "name": "Beef Adobo Recipe (Adobong Baka)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -34851,7 +34851,7 @@
   {
     "id": "ph_493",
     "name": "Sinigang Na Hipon Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -34918,7 +34918,7 @@
   {
     "id": "ph_494",
     "name": "Adobong Pusit Recipe (Squid Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -35191,7 +35191,7 @@
   {
     "id": "ph_498",
     "name": "Creamy Chicken Adobo (Adobo Sa Gata)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -35254,7 +35254,7 @@
   {
     "id": "ph_499",
     "name": "Fish Sinigang Sa Kamias Recipe (Sinigang Na Isda)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -35310,7 +35310,7 @@
   {
     "id": "ph_500",
     "name": "Sinigang Na Salmon Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -35389,7 +35389,7 @@
   {
     "id": "ph_501",
     "name": "Bangus Sinigang Recipe (Sinigang Na Bangus)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -35457,7 +35457,7 @@
   {
     "id": "ph_502",
     "name": "Chicken Pochero Recipe (Pocherong Manok)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -35519,7 +35519,7 @@
   {
     "id": "ph_503",
     "name": "Tinolang Manok Recipe (Chicken Tinola)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -35654,7 +35654,7 @@
   {
     "id": "ph_505",
     "name": "Lechon Manok Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -35735,7 +35735,7 @@
   {
     "id": "ph_506",
     "name": "Chicken Afritada Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -35813,7 +35813,7 @@
   {
     "id": "ph_507",
     "name": "Adobong Paa nang Manok (Chicken Feet Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -36008,7 +36008,7 @@
   {
     "id": "ph_510",
     "name": "Pork Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -36071,7 +36071,7 @@
   {
     "id": "ph_511",
     "name": "Pork Adobo with Pineapple",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -36135,7 +36135,7 @@
   {
     "id": "ph_512",
     "name": "Paksiw na Lechon",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -36294,7 +36294,7 @@
   {
     "id": "ph_514",
     "name": "Chicken and Pork Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -36424,7 +36424,7 @@
   {
     "id": "ph_516",
     "name": "Lechon sa Hurno",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -36614,7 +36614,7 @@
   {
     "id": "ph_519",
     "name": "Sinigang na Baka",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -36752,7 +36752,7 @@
   {
     "id": "ph_521",
     "name": "Adobo sa Gata",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -37251,7 +37251,7 @@
   {
     "id": "ph_528",
     "name": "Laing",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -37331,7 +37331,7 @@
   {
     "id": "ph_529",
     "name": "Paksiw na Pata",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -37403,7 +37403,7 @@
   {
     "id": "ph_530",
     "name": "Bulalo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -37476,7 +37476,7 @@
   {
     "id": "ph_531",
     "name": "Kare-kareng Pata",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -37952,7 +37952,7 @@
   {
     "id": "ph_537",
     "name": "Sinigang na Salmon Belly sa Kamias",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -38028,7 +38028,7 @@
   {
     "id": "ph_538",
     "name": "Chicken Pochero",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -38320,7 +38320,7 @@
   {
     "id": "ph_542",
     "name": "Sizzling Sisig",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -38400,7 +38400,7 @@
   {
     "id": "ph_543",
     "name": "Chicken Bicol Express",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -38464,7 +38464,7 @@
   {
     "id": "ph_544",
     "name": "Pinakbet",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -38609,7 +38609,7 @@
   {
     "id": "ph_546",
     "name": "Sinigang na Inihaw na Liempo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -38691,7 +38691,7 @@
   {
     "id": "ph_547",
     "name": "Sinigang na Hito sa Miso",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -38864,7 +38864,7 @@
   {
     "id": "ph_549",
     "name": "Sinigang na Baka sa Bayabas",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -39150,7 +39150,7 @@
   {
     "id": "ph_553",
     "name": "Pinakbet with Crispy Lechon",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -39455,7 +39455,7 @@
   {
     "id": "ph_557",
     "name": "Paksiw na Bangus",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -39734,7 +39734,7 @@
   {
     "id": "ph_561",
     "name": "Lechon Kawali",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -40053,7 +40053,7 @@
   {
     "id": "ph_566",
     "name": "Slow Cooker Lechon",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -40091,7 +40091,7 @@
   {
     "id": "ph_567",
     "name": "Beef Afritada",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -40432,7 +40432,7 @@
   {
     "id": "ph_571",
     "name": "Chicken Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -40501,7 +40501,7 @@
   {
     "id": "ph_572",
     "name": "Chicken Adobo with Liver Spread",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -40753,7 +40753,7 @@
   {
     "id": "ph_576",
     "name": "Lechon Manok",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -40821,7 +40821,7 @@
   {
     "id": "ph_577",
     "name": "Pork Pochero",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -41037,7 +41037,7 @@
   {
     "id": "ph_580",
     "name": "Sinigang na Hipon sa Calamansi",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -41096,7 +41096,7 @@
   {
     "id": "ph_581",
     "name": "Bicol Express",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -41164,7 +41164,7 @@
   {
     "id": "ph_582",
     "name": "Corned Beef Sinigang",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -41223,7 +41223,7 @@
   {
     "id": "ph_583",
     "name": "Pork Afritada",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -41301,7 +41301,7 @@
   {
     "id": "ph_584",
     "name": "Pork Belly Lechon Roll",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -41357,7 +41357,7 @@
   {
     "id": "ph_585",
     "name": "Chicken Sisig",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -41679,7 +41679,7 @@
   {
     "id": "ph_589",
     "name": "Chicken Adobo with Tamarind",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -41735,7 +41735,7 @@
   {
     "id": "ph_590",
     "name": "Bangus Sisig",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -41950,7 +41950,7 @@
   {
     "id": "ph_593",
     "name": "Mexican Pork Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -42101,7 +42101,7 @@
   {
     "id": "ph_595",
     "name": "Pork Ribs Adobo with Atsuete",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -42316,7 +42316,7 @@
   {
     "id": "ph_598",
     "name": "Sinigang na Baboy",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -42403,7 +42403,7 @@
   {
     "id": "ph_599",
     "name": "Kare-kare Sauce Recipe (Tagalog Version)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -42516,7 +42516,7 @@
   {
     "id": "ph_601",
     "name": "Chicken Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -42602,7 +42602,7 @@
   {
     "id": "ph_602",
     "name": "Adobo Burrito Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -42668,7 +42668,7 @@
   {
     "id": "ph_603",
     "name": "Bicol Express Pork Chops Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -42793,7 +42793,7 @@
   {
     "id": "ph_605",
     "name": "Adobo Fried Rice Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -42863,7 +42863,7 @@
   {
     "id": "ph_606",
     "name": "Bulalo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -43045,7 +43045,7 @@
   {
     "id": "ph_609",
     "name": "Okoy With Kalabasa Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -43109,7 +43109,7 @@
   {
     "id": "ph_610",
     "name": "Sprite Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -43162,7 +43162,7 @@
   {
     "id": "ph_611",
     "name": "SPAM Sinigang Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -43294,7 +43294,7 @@
   {
     "id": "ph_613",
     "name": "Jollibee-Style Pancit Palabok Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -43375,7 +43375,7 @@
   {
     "id": "ph_614",
     "name": "Adobo Recipe With Pork and Beans",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -43435,7 +43435,7 @@
   {
     "id": "ph_615",
     "name": "Paksiw Na Tilapia Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -43548,7 +43548,7 @@
   {
     "id": "ph_617",
     "name": "Air Fryer Lechon Kawali Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -43594,7 +43594,7 @@
   {
     "id": "ph_618",
     "name": "Easy Pancit Canton Recipe With Squid Balls And Kikiam",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -43676,7 +43676,7 @@
   {
     "id": "ph_619",
     "name": "Corned Beef Sinigang Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -43732,7 +43732,7 @@
   {
     "id": "ph_620",
     "name": "Beef Caldereta Recipe With Gata",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -44026,7 +44026,7 @@
   {
     "id": "ph_624",
     "name": "Chicken Pork Adobo Recipe With Gochujang",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -44095,7 +44095,7 @@
   {
     "id": "ph_625",
     "name": "Kimchi Pork Sinigang Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -44294,7 +44294,7 @@
   {
     "id": "ph_628",
     "name": "Pork Adobo Recipe With Sinamak",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -44500,7 +44500,7 @@
   {
     "id": "ph_631",
     "name": "Fish Pochero Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -44609,7 +44609,7 @@
   {
     "id": "ph_633",
     "name": "Inihaw Na Sinigang Na Tuna Belly Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -44655,7 +44655,7 @@
   {
     "id": "ph_634",
     "name": "Pechay And Hibe Fried Rice Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -44799,7 +44799,7 @@
   {
     "id": "ph_636",
     "name": "Chicken Kare-Kare Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -44884,7 +44884,7 @@
   {
     "id": "ph_637",
     "name": "Chicken Adobo with Potatoes Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -44970,7 +44970,7 @@
   {
     "id": "ph_638",
     "name": "Paksiw na Pata Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -45100,7 +45100,7 @@
   {
     "id": "ph_640",
     "name": "Adobo Slab Rice Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -45278,7 +45278,7 @@
   {
     "id": "ph_643",
     "name": "Sinantolan Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -45585,7 +45585,7 @@
   {
     "id": "ph_648",
     "name": "Easy Chicken Pochero Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -45721,7 +45721,7 @@
   {
     "id": "ph_650",
     "name": "Pochero Recipe With Pork And Beans",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -45940,7 +45940,7 @@
   {
     "id": "ph_653",
     "name": "Baked Adobo Chicken Wings Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -46014,7 +46014,7 @@
   {
     "id": "ph_654",
     "name": "Veggie Sinigang Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -46077,7 +46077,7 @@
   {
     "id": "ph_655",
     "name": "Tapsilog Sushi Bake Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -46219,7 +46219,7 @@
   {
     "id": "ph_657",
     "name": "Pork Pata Nilaga Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -46302,7 +46302,7 @@
   {
     "id": "ph_658",
     "name": "Roasted Chicken Paksiw Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -46427,7 +46427,7 @@
   {
     "id": "ph_660",
     "name": "Sizzling Crispy Sisig",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -46507,7 +46507,7 @@
   {
     "id": "ph_661",
     "name": "Pork And Tofu Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -46782,7 +46782,7 @@
   {
     "id": "ph_665",
     "name": "Crispy Beef Bulalo Flakes Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -46927,7 +46927,7 @@
   {
     "id": "ph_667",
     "name": "Pork Ribs Tinola Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -47664,7 +47664,7 @@
   {
     "id": "ph_678",
     "name": "Indian Pork Curry Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -47810,7 +47810,7 @@
   {
     "id": "ph_680",
     "name": "Flavorful Chicken Afritada Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -47887,7 +47887,7 @@
   {
     "id": "ph_681",
     "name": "Delicious Pork Sinigang Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -48011,7 +48011,7 @@
   {
     "id": "ph_683",
     "name": "Crispy Pork Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -48073,7 +48073,7 @@
   {
     "id": "ph_684",
     "name": "Savory Chicken Embutido Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -48296,7 +48296,7 @@
   {
     "id": "ph_687",
     "name": "Filipino Ginataan Recipe - Paano Lutuin at mga Sangkap",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -48362,7 +48362,7 @@
   {
     "id": "ph_688",
     "name": "Pork Sisig Recipe - Paano Lutuin At Mga Sangkap",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -48595,7 +48595,7 @@
   {
     "id": "ph_691",
     "name": "Crispy Fried Chicken Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -48777,7 +48777,7 @@
   {
     "id": "ph_694",
     "name": "Sinigang Sa Miso Recipe - Paano Lutuin At Mga Sangkap",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -48981,7 +48981,7 @@
   {
     "id": "ph_697",
     "name": "Chicken And Shrimp Pad Thai-Style Noodles Recipe - Paano Lutuin At Mga Sangkap",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -49356,7 +49356,7 @@
   {
     "id": "ph_701",
     "name": "Beef Mechado Recipe - Paano Lutuin At Mga Sangkap",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -49423,7 +49423,7 @@
   {
     "id": "ph_702",
     "name": "Lechon Kawali Binagoongan sa Gata Recipe - Paano Lutuin At Mga Sangkap",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -49498,7 +49498,7 @@
   {
     "id": "ph_703",
     "name": "Crispy Pork Sinigang Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -49698,7 +49698,7 @@
   {
     "id": "ph_706",
     "name": "Lechon Paksiw Recipe - Paano Lutuin At Mga Sangkap",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -49769,7 +49769,7 @@
   {
     "id": "ph_707",
     "name": "Chicken Afritada Recipe - Paano Lutuin At Mga Sangkap",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -49908,7 +49908,7 @@
   {
     "id": "ph_709",
     "name": "Pochero Recipe - Paano Lutuin At Mga Sangkap",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -50112,7 +50112,7 @@
   {
     "id": "ph_712",
     "name": "Laing Recipe (Dahon Ng Gabi sa Gata) - Paano Lutuin At Mga Sangkap",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -50165,7 +50165,7 @@
   {
     "id": "ph_713",
     "name": "Beef Caldereta Recipe - Mga Sangkap At Paano Lutuin",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -50315,7 +50315,7 @@
   {
     "id": "ph_715",
     "name": "Sinigang na Baboy Recipe (Tagalog Recipe)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -50461,7 +50461,7 @@
   {
     "id": "ph_717",
     "name": "Bulalo Lugaw Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -50681,7 +50681,7 @@
   {
     "id": "ph_719",
     "name": "Tokwang Adobo Sa Gata Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -50797,7 +50797,7 @@
   {
     "id": "ph_721",
     "name": "Lumpiang Shanghai Recipe (Tagalog Version)",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -50961,7 +50961,7 @@
   {
     "id": "ph_723",
     "name": "Spicy Beef Bulalo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -51086,7 +51086,7 @@
   {
     "id": "ph_725",
     "name": "Sinigang Na Manok At Kalabasa Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -51194,7 +51194,7 @@
   {
     "id": "ph_727",
     "name": "Cebu-Style Boneless Lechon Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -51291,7 +51291,7 @@
   {
     "id": "ph_728",
     "name": "Creamy Bistek Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -51340,7 +51340,7 @@
   {
     "id": "ph_729",
     "name": "Paksiw Na Isda Recipe (Tagalog Version)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -51635,7 +51635,7 @@
   {
     "id": "ph_734",
     "name": "Spicy Tokwang Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -51860,7 +51860,7 @@
   {
     "id": "ph_738",
     "name": "Tuna Sinigang Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -51920,7 +51920,7 @@
   {
     "id": "ph_739",
     "name": "Tahong sa Tinola Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -52116,7 +52116,7 @@
   {
     "id": "ph_742",
     "name": "Shrimp Curry Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -52393,7 +52393,7 @@
   {
     "id": "ph_746",
     "name": "Adobong Baboy Na Tuyo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -52445,7 +52445,7 @@
   {
     "id": "ph_747",
     "name": "Sinigang Na Manok Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -52501,7 +52501,7 @@
   {
     "id": "ph_748",
     "name": "Tinolang Manok Sa Gata Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -52577,7 +52577,7 @@
   {
     "id": "ph_749",
     "name": "Sinigang na Baka Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -52642,7 +52642,7 @@
   {
     "id": "ph_750",
     "name": "Sinigang na Baboy sa Gabi Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -52789,7 +52789,7 @@
   {
     "id": "ph_752",
     "name": "Sinigang Na Baboy Sa Miso Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -52944,7 +52944,7 @@
   {
     "id": "ph_755",
     "name": "Pork Ribs Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -53138,7 +53138,7 @@
   {
     "id": "ph_758",
     "name": "Spicy Squid Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -53193,7 +53193,7 @@
   {
     "id": "ph_759",
     "name": "Chinese-Style Pork Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -53253,7 +53253,7 @@
   {
     "id": "ph_760",
     "name": "Adobo Squid with Oyster Sauce Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -53309,7 +53309,7 @@
   {
     "id": "ph_761",
     "name": "Tasty Chicken Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -53412,7 +53412,7 @@
   {
     "id": "ph_763",
     "name": "Lechon Macau Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -53523,7 +53523,7 @@
   {
     "id": "ph_765",
     "name": "Chicken And Shrimp Pad Thai-Style Noodles Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -53613,7 +53613,7 @@
   {
     "id": "ph_766",
     "name": "Red Rice Lugaw Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -53873,7 +53873,7 @@
   {
     "id": "ph_770",
     "name": "Pan-Fried Tilapia with Kare-Kare Sauce Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -54295,7 +54295,7 @@
   {
     "id": "ph_776",
     "name": "Salmon Head Sinigang sa Miso Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -54434,7 +54434,7 @@
   {
     "id": "ph_778",
     "name": "Bicol Express Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -54495,7 +54495,7 @@
   {
     "id": "ph_779",
     "name": "Beef Short Ribs Adobo with Coconut Cream Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -55033,7 +55033,7 @@
   {
     "id": "ph_787",
     "name": "Pakbet Fried Rice with Lechon Kawali Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -55180,7 +55180,7 @@
   {
     "id": "ph_789",
     "name": "Bringhe with Crispy Adobo Flakes Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -55275,7 +55275,7 @@
   {
     "id": "ph_790",
     "name": "Sisig Tacos Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -55339,7 +55339,7 @@
   {
     "id": "ph_791",
     "name": "Spicy Menudo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -55532,7 +55532,7 @@
   {
     "id": "ph_794",
     "name": "Sinangag na Sinigang (Sinigang Fried Rice) Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -55567,7 +55567,7 @@
   {
     "id": "ph_795",
     "name": "Spicy Beef Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -55693,7 +55693,7 @@
   {
     "id": "ph_797",
     "name": "Lechon Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -55835,7 +55835,7 @@
   {
     "id": "ph_799",
     "name": "Lechon Rice Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -55928,7 +55928,7 @@
   {
     "id": "ph_800",
     "name": "Pork Sinigang sa Mangga Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -55992,7 +55992,7 @@
   {
     "id": "ph_801",
     "name": "Lechon Kawali Hash Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -56048,7 +56048,7 @@
   {
     "id": "ph_802",
     "name": "Classic Filipino Lechon Kawali Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -56112,7 +56112,7 @@
   {
     "id": "ph_803",
     "name": "Seafood Sinigang Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -56176,7 +56176,7 @@
   {
     "id": "ph_804",
     "name": "Chicken and Pork Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -56232,7 +56232,7 @@
   {
     "id": "ph_805",
     "name": "Filipino Ginataan Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -56485,7 +56485,7 @@
   {
     "id": "ph_809",
     "name": "Yellow Curry Crab Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -56566,7 +56566,7 @@
   {
     "id": "ph_810",
     "name": "Adobo Chicken Wings Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -56622,7 +56622,7 @@
   {
     "id": "ph_811",
     "name": "Pork and Shrimp Meatballs in Soup Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -56789,7 +56789,7 @@
   {
     "id": "ph_813",
     "name": "Laing Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -56911,7 +56911,7 @@
   {
     "id": "ph_815",
     "name": "Calamansi and Patis-Glazed Lechon Kawali Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -56965,7 +56965,7 @@
   {
     "id": "ph_816",
     "name": "Seafood Sinigang Paella Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -57209,7 +57209,7 @@
   {
     "id": "ph_819",
     "name": "Chili-Garlic Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -57393,7 +57393,7 @@
   {
     "id": "ph_822",
     "name": "Shrimp Sinigang Rice Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -57456,7 +57456,7 @@
   {
     "id": "ph_823",
     "name": "Inihaw na Pinoy Paella Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -57658,7 +57658,7 @@
   {
     "id": "ph_824",
     "name": "Fried Chicken ala Pobre Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -57727,7 +57727,7 @@
   {
     "id": "ph_825",
     "name": "Laing (Taro Leaves in Coconut Milk) Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -57784,7 +57784,7 @@
   {
     "id": "ph_826",
     "name": "Sinigang na Salmon Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -57864,7 +57864,7 @@
   {
     "id": "ph_827",
     "name": "Laing with Crispy Shrimp Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -57945,7 +57945,7 @@
   {
     "id": "ph_828",
     "name": "Crunchy Lechon Kawali Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -57987,7 +57987,7 @@
   {
     "id": "ph_829",
     "name": "Kare-kare Sauce Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -58047,7 +58047,7 @@
   {
     "id": "ph_830",
     "name": "Lechon Manok with Sisig Rice Stuffing Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -58166,7 +58166,7 @@
   {
     "id": "ph_831",
     "name": "Adobo Sauce Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -58217,7 +58217,7 @@
   {
     "id": "ph_832",
     "name": "Sizzling Beef Tadyang (Sizzling Beef Ribs) Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -58331,7 +58331,7 @@
   {
     "id": "ph_833",
     "name": "Adobo sa Atsuete (Red Adobo) Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -58409,7 +58409,7 @@
   {
     "id": "ph_834",
     "name": "Bulalo with Lemongrass Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -58490,7 +58490,7 @@
   {
     "id": "ph_835",
     "name": "Pancit Molo with Aligue Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -58836,7 +58836,7 @@
   {
     "id": "ph_839",
     "name": "Crab Tortang Talong Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -59029,7 +59029,7 @@
   {
     "id": "ph_842",
     "name": "Adobo Pulled Pork Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -59092,7 +59092,7 @@
   {
     "id": "ph_843",
     "name": "Tilapia Curry Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -59250,7 +59250,7 @@
   {
     "id": "ph_846",
     "name": "Adobong Kangkong Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -59314,7 +59314,7 @@
   {
     "id": "ph_847",
     "name": "Pork Inasal Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -59425,7 +59425,7 @@
   {
     "id": "ph_849",
     "name": "Lechon Paksiw Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -59625,7 +59625,7 @@
   {
     "id": "ph_852",
     "name": "Tofu and Mushroom Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -59686,7 +59686,7 @@
   {
     "id": "ph_853",
     "name": "Grilled Pinakbet Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -59854,7 +59854,7 @@
   {
     "id": "ph_855",
     "name": "Sinigang na Hipon sa Sampaloc Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -59970,7 +59970,7 @@
   {
     "id": "ph_857",
     "name": "Lechon Kawali Paksiw Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -60101,7 +60101,7 @@
   {
     "id": "ph_859",
     "name": "Patis-Glazed Fried Chicken Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -60180,7 +60180,7 @@
   {
     "id": "ph_860",
     "name": "Easy Tofu Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -60257,7 +60257,7 @@
   {
     "id": "ph_861",
     "name": "Adobong Dilaw (Yellow Adobo) Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -60473,7 +60473,7 @@
   {
     "id": "ph_864",
     "name": "Grilled Shrimp in Aligue Sauce Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -60552,7 +60552,7 @@
   {
     "id": "ph_865",
     "name": "Adobo Congee Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -60583,7 +60583,7 @@
   {
     "id": "ph_866",
     "name": "Laswa (Vegetable Soup) Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -60654,7 +60654,7 @@
   {
     "id": "ph_867",
     "name": "Pesang Maya-Maya (Red Snapper Stew) Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -60710,7 +60710,7 @@
   {
     "id": "ph_868",
     "name": "Adobong Pula (Red Adobo) Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -60762,7 +60762,7 @@
   {
     "id": "ph_869",
     "name": "Sinigang na Hipon sa Bayabas Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -60877,7 +60877,7 @@
   {
     "id": "ph_871",
     "name": "Baked Pinakbet Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -60951,7 +60951,7 @@
   {
     "id": "ph_872",
     "name": "Hot Adobo Wings Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -61017,7 +61017,7 @@
   {
     "id": "ph_873",
     "name": "Stuffed Bicol Express Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -61095,7 +61095,7 @@
   {
     "id": "ph_874",
     "name": "Yellow Chicken Adobo (Adobo sa Dilaw) Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -61221,7 +61221,7 @@
   {
     "id": "ph_876",
     "name": "Sinigang na Baboy sa Bayabas Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -61376,7 +61376,7 @@
   {
     "id": "ph_878",
     "name": "Fresh Tuna Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -61746,7 +61746,7 @@
   {
     "id": "ph_883",
     "name": "Salmon Belly Sinigang Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -62134,7 +62134,7 @@
   {
     "id": "ph_888",
     "name": "Stuffed Squid Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -62343,7 +62343,7 @@
   {
     "id": "ph_891",
     "name": "Fried Pork Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -62383,7 +62383,7 @@
   {
     "id": "ph_892",
     "name": "Lugaw with Egg Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -62500,7 +62500,7 @@
   {
     "id": "ph_894",
     "name": "Sinigang na Baboy Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -62572,7 +62572,7 @@
   {
     "id": "ph_895",
     "name": "Tinola with Malunggay Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -62985,7 +62985,7 @@
   {
     "id": "ph_901",
     "name": "Crispy Lechon Liempo with Bagoong Sauce",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -63263,7 +63263,7 @@
   {
     "id": "ph_905",
     "name": "Guinataang Monggo Guisado Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -63329,7 +63329,7 @@
   {
     "id": "ph_906",
     "name": "Duck Adobo with Adobo Garlic Red Rice and Truffled Eggs",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -63487,7 +63487,7 @@
   {
     "id": "ph_908",
     "name": "Tinola Paella Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -63577,7 +63577,7 @@
   {
     "id": "ph_909",
     "name": "Sizzling Bulalo na Baka (Beef Shank) Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -63741,7 +63741,7 @@
   {
     "id": "ph_911",
     "name": "Beef Ribs Adobo sa Gata Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -63911,7 +63911,7 @@
   {
     "id": "ph_913",
     "name": "Adobong Sitaw (Adobo-style String Beans) Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -64184,7 +64184,7 @@
   {
     "id": "ph_917",
     "name": "Stir-Fried Seafood on Crispy Pancit Canton Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -64293,7 +64293,7 @@
   {
     "id": "ph_918",
     "name": "Salmon Head Kare-Kare",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -64383,7 +64383,7 @@
   {
     "id": "ph_919",
     "name": "Grilled Malunggay Stuffed Squid",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -64465,7 +64465,7 @@
   {
     "id": "ph_920",
     "name": "Grilled Tilapia with Tamarind Sauce",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -64772,7 +64772,7 @@
   {
     "id": "ph_924",
     "name": "Fresh Lumpiang Ubod",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -64955,7 +64955,7 @@
   {
     "id": "ph_926",
     "name": "Smoked Bangus Eggplant Torta",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -65032,7 +65032,7 @@
   {
     "id": "ph_927",
     "name": "Krispy Palabok",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -65094,7 +65094,7 @@
   {
     "id": "ph_928",
     "name": "Krispy Pata Sisig",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -65165,7 +65165,7 @@
   {
     "id": "ph_929",
     "name": "Chicken Bicol Express",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -65218,7 +65218,7 @@
   {
     "id": "ph_930",
     "name": "Chicken Inasal Rolls",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -65458,7 +65458,7 @@
   {
     "id": "ph_933",
     "name": "Lechon Kawali Binagoongan sa Gata Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -65537,7 +65537,7 @@
   {
     "id": "ph_934",
     "name": "Menudo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -65606,7 +65606,7 @@
   {
     "id": "ph_935",
     "name": "Mechado",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -65668,7 +65668,7 @@
   {
     "id": "ph_936",
     "name": "Kare-Kare",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -65750,7 +65750,7 @@
   {
     "id": "ph_937",
     "name": "Pork Afritada Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -65825,7 +65825,7 @@
   {
     "id": "ph_938",
     "name": "Chicken Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -65873,7 +65873,7 @@
   {
     "id": "ph_939",
     "name": "Roasted Tamarind Chicken Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -65913,7 +65913,7 @@
   {
     "id": "ph_940",
     "name": "Rosemary and Balsamic Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -65941,7 +65941,7 @@
   {
     "id": "ph_941",
     "name": "Thai Chicken Coconut Green Curry Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -66194,7 +66194,7 @@
   {
     "id": "ph_942",
     "name": "Chicken Satay with Nasi Goreng Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -66405,7 +66405,7 @@
   {
     "id": "ph_944",
     "name": "Banh Xeo (Vietnamese Pancake) Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -66828,7 +66828,7 @@
   {
     "id": "ph_949",
     "name": "Sinigang na Panga ng Tuna Recipe (Tuna Jaw in Sour Broth)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -66950,7 +66950,7 @@
   {
     "id": "ph_951",
     "name": "Adobong Hipon sa Gata Recipe (Shrimp Adobo in Coconut Milk)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -66998,7 +66998,7 @@
   {
     "id": "ph_952",
     "name": "Pork Adobo Patacones Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -67075,7 +67075,7 @@
   {
     "id": "ph_953",
     "name": "Fish Paksiw Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -67142,7 +67142,7 @@
   {
     "id": "ph_954",
     "name": "Lechon Kawali Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -67177,7 +67177,7 @@
   {
     "id": "ph_955",
     "name": "Beef Mechado Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -67244,7 +67244,7 @@
   {
     "id": "ph_956",
     "name": "Adobong Pusit Recipe (Squid Adobo)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -67293,7 +67293,7 @@
   {
     "id": "ph_957",
     "name": "Chicken Inasal Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -67357,7 +67357,7 @@
   {
     "id": "ph_958",
     "name": "Sizzling Tokwa't Baboy Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -67685,7 +67685,7 @@
   {
     "id": "ph_963",
     "name": "Green Curry Gising Gising Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -67754,7 +67754,7 @@
   {
     "id": "ph_964",
     "name": "Pork Adobo Paksiw Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -67880,7 +67880,7 @@
   {
     "id": "ph_966",
     "name": "Adobo-style Dulong Recipe (Anchovy Fry Spread)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -67923,7 +67923,7 @@
   {
     "id": "ph_967",
     "name": "Pancit Luglog Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -68009,7 +68009,7 @@
   {
     "id": "ph_968",
     "name": "Poqui Poqui Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -68058,7 +68058,7 @@
   {
     "id": "ph_969",
     "name": "Pochero Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -68145,7 +68145,7 @@
   {
     "id": "ph_970",
     "name": "Pancit Palabok Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -68245,7 +68245,7 @@
   {
     "id": "ph_971",
     "name": "Sinigang na Bangus sa Bayabas Recipe (Stewed Milkfish in Guava Soup)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -68303,7 +68303,7 @@
   {
     "id": "ph_972",
     "name": "Ginataang Alimasag Recipe (Crabs Cooked in Coconut Milk)",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -68348,7 +68348,7 @@
   {
     "id": "ph_973",
     "name": "Sinigang na Salmon sa Miso Recipe (Salmon in Tamarind Miso Soup)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -68414,7 +68414,7 @@
   {
     "id": "ph_974",
     "name": "Chicken Afritada Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -68484,7 +68484,7 @@
   {
     "id": "ph_975",
     "name": "Tofu Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -68618,7 +68618,7 @@
   {
     "id": "ph_977",
     "name": "Pata Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -68678,7 +68678,7 @@
   {
     "id": "ph_978",
     "name": "Mini Meatballs and Eggs Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -68735,7 +68735,7 @@
   {
     "id": "ph_979",
     "name": "Saucy Shrimp Sinigang",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -68766,7 +68766,7 @@
   {
     "id": "ph_980",
     "name": "Tortang Talong Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -68813,7 +68813,7 @@
   {
     "id": "ph_981",
     "name": "Bagoong Rice Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -68862,7 +68862,7 @@
   {
     "id": "ph_982",
     "name": "Grilled Chicken Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -68906,7 +68906,7 @@
   {
     "id": "ph_983",
     "name": "Spanish Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -68995,7 +68995,7 @@
   {
     "id": "ph_985",
     "name": "Sinigang Sa Miso Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -69349,7 +69349,7 @@
   {
     "id": "ph_991",
     "name": "Garlic Shrimp Lo Mein",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -69575,7 +69575,7 @@
   {
     "id": "ph_994",
     "name": "Pinakbet Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -69644,7 +69644,7 @@
   {
     "id": "ph_995",
     "name": "Pork Sisig Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -69720,7 +69720,7 @@
   {
     "id": "ph_996",
     "name": "Sour and Spicy Soup",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -69776,7 +69776,7 @@
   {
     "id": "ph_997",
     "name": "Fried Lumpia Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -69849,7 +69849,7 @@
   {
     "id": "ph_998",
     "name": "Easy Pancit Canton with Chicken Barbecue",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -69914,7 +69914,7 @@
   {
     "id": "ph_999",
     "name": "Adobo Flakes with Sinangag and Spicy Eggs",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -70023,7 +70023,7 @@
   {
     "id": "ph_1001",
     "name": "Fried Lumpiang Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -70153,7 +70153,7 @@
   {
     "id": "ph_1003",
     "name": "Sinigang na Hipon Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -70336,7 +70336,7 @@
   {
     "id": "ph_1006",
     "name": "Pork Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -70384,7 +70384,7 @@
   {
     "id": "ph_1007",
     "name": "Japanese Wings Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -70458,7 +70458,7 @@
   {
     "id": "ph_1008",
     "name": "Adobong Manok sa Gata with Chili and Ginger",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -70526,7 +70526,7 @@
   {
     "id": "ph_1009",
     "name": "Pancit Canton Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -70738,7 +70738,7 @@
   {
     "id": "ph_1011",
     "name": "Sinigang na Hipon sa Kamias",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -70885,7 +70885,7 @@
   {
     "id": "ph_1013",
     "name": "La Paz-Style Batchoy Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -70974,7 +70974,7 @@
   {
     "id": "ph_1014",
     "name": "Bangus Belly Sinigang",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -71124,7 +71124,7 @@
   {
     "id": "ph_1017",
     "name": "Shrimp and Coconut Soup",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -71253,7 +71253,7 @@
   {
     "id": "ph_1019",
     "name": "Chili-Honey Glazed Lechon Kawali",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -71335,7 +71335,7 @@
   {
     "id": "ph_1020",
     "name": "Congee",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -71466,7 +71466,7 @@
   {
     "id": "ph_1022",
     "name": "Two-way Adobo Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -71514,7 +71514,7 @@
   {
     "id": "ph_1023",
     "name": "Sisig Saud",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -71554,7 +71554,7 @@
   {
     "id": "ph_1024",
     "name": "Chicken Adobo Congee",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -71609,7 +71609,7 @@
   {
     "id": "ph_1025",
     "name": "Adobo sa Buko",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -71674,7 +71674,7 @@
   {
     "id": "ph_1026",
     "name": "Sinigang na Baboy sa Sampalok",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -71746,7 +71746,7 @@
   {
     "id": "ph_1027",
     "name": "Sinigang na Bangus sa Bayabas",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -71886,7 +71886,7 @@
   {
     "id": "ph_1029",
     "name": "Lechon Kawali Kare-Kare Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -71951,7 +71951,7 @@
   {
     "id": "ph_1030",
     "name": "Peppery Spicy Beef Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -72019,7 +72019,7 @@
   {
     "id": "ph_1031",
     "name": "Lemon Balm Lamb Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -72098,7 +72098,7 @@
   {
     "id": "ph_1032",
     "name": "Sinigang na Sugpo sa Kamias",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -72149,7 +72149,7 @@
   {
     "id": "ph_1033",
     "name": "Adobo de Campesino",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -72338,7 +72338,7 @@
   {
     "id": "ph_1036",
     "name": "Adobo sa Dilaw",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -72508,7 +72508,7 @@
   {
     "id": "ph_1039",
     "name": "Mercedita Uy De Baron's Paksiw Na Pata",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -72561,7 +72561,7 @@
   {
     "id": "ph_1040",
     "name": "Yellow Shrimp Curry Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -72743,7 +72743,7 @@
   {
     "id": "ph_1043",
     "name": "Classic Chicken and Pork Adobo",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -72799,7 +72799,7 @@
   {
     "id": "ph_1044",
     "name": "Parsley-Pork Balls in Curry Sauce",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -72873,7 +72873,7 @@
   {
     "id": "ph_1045",
     "name": "Sinigang",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -72945,7 +72945,7 @@
   {
     "id": "ph_1046",
     "name": "Lumpia Recipe",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -73039,7 +73039,7 @@
   {
     "id": "ph_1047",
     "name": "Sisig Triangles",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -73154,7 +73154,7 @@
   {
     "id": "ph_1049",
     "name": "Sinigang na Sugpo (Prawns in Sour Broth Soup)",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -73217,7 +73217,7 @@
   {
     "id": "ph_1050",
     "name": "Pinakbet Rice with Lechon Kawali Bits",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -73277,7 +73277,7 @@
   {
     "id": "ph_1051",
     "name": "Bagoong Fried Rice",
-    "mealType": "Lunch",
+    "mealType": "Breakfast",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -73401,7 +73401,7 @@
   {
     "id": "ph_1053",
     "name": "Garlic Adobo Flakes Benedict",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,
@@ -73487,7 +73487,7 @@
   {
     "id": "ph_1054",
     "name": "Adobo sa Puti Recipe",
-    "mealType": "Lunch",
+    "mealType": "Dinner",
     "tags": [],
     "nutrition": {
       "calories": null,

@@ -53,7 +53,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     
     val userName = profile.displayName.ifBlank { "Warrior" }
-    val baseUrl = BuildConfig.BASE_URL.trimEnd('/')
+    val baseUrl = BuildConfig.BASE_URL.trim().trim('"').trim('\'').trimEnd('/')
     val schemaUrl = "$baseUrl/schema"
     var tapCount by rememberSaveable { mutableStateOf(0) }
 

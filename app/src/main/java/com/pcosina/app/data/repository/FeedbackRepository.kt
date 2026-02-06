@@ -12,11 +12,12 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
 class FeedbackRepository(
-    private val baseUrl: String,
+    baseUrl: String,
     private val client: OkHttpClient = OkHttpClient.Builder()
         .callTimeout(15, TimeUnit.SECONDS)
         .build()
 ) {
+    private val baseUrl = normalizeBaseUrl(baseUrl)
     private val gson = Gson()
     private val jsonType = "application/json; charset=utf-8".toMediaType()
 
@@ -45,5 +46,23 @@ class FeedbackRepository(
             Log.e("FeedbackRepository", "sendFeedback exception: ${e.message}", e)
             SendResult(ok = false, error = e.message ?: "Network error")
         }
+    }
+
+    private fun normalizeBaseUrl(raw: String): String {
+        var url = raw.trim()
+        url = url.trim('"', '\'')
+        if (url.startsWith(":")) {
+            url = url.removePrefix(":")
+        }
+        if (url.startsWith("//")) {
+            url = "https:$url"
+        }
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            url = "https://$url"
+        }
+        if (!url.endsWith("/")) {
+            url += "/"
+        }
+        return url
     }
 }

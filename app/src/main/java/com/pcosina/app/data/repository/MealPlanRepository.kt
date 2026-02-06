@@ -81,7 +81,7 @@ class MealPlanRepository {
             .callTimeout(120, TimeUnit.SECONDS)
             .build()
 
-        val baseUrl = BuildConfig.BASE_URL
+        val baseUrl = normalizeBaseUrl(BuildConfig.BASE_URL)
         
         val retrofit = Retrofit.Builder()
             .baseUrl(baseUrl)
@@ -90,6 +90,24 @@ class MealPlanRepository {
             .build()
 
         apiService = retrofit.create(PcosinaApiService::class.java)
+    }
+
+    private fun normalizeBaseUrl(raw: String): String {
+        var url = raw.trim()
+        url = url.trim('"', '\'')
+        if (url.startsWith(":")) {
+            url = url.removePrefix(":")
+        }
+        if (url.startsWith("//")) {
+            url = "https:$url"
+        }
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            url = "https://$url"
+        }
+        if (!url.endsWith("/")) {
+            url += "/"
+        }
+        return url
     }
 
     suspend fun warmup(): Result<Unit> {

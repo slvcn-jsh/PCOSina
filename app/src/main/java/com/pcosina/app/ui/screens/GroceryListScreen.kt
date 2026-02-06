@@ -86,16 +86,19 @@ fun GroceryListScreen(
 
     val groups: Map<String, List<GroceryItem>> = filteredItems.groupBy { inferCategory(it) }
     val categoryOrder = listOf(
-        "Produce / Vegetables",
-        "Fruits",
-        "Proteins (Meat/Seafood)",
+        "Produce",
+        "Meat/Seafood",
         "Eggs & Dairy",
-        "Dry Goods / Grains",
+        "Dry Goods",
         "Spices & Condiments",
+        "Canned/Packaged",
+        "Beverages",
         "Others"
     )
+    val extraCategories = groups.keys.filter { it !in categoryOrder }.sorted()
+    val displayCategories = categoryOrder + extraCategories
 
-    var expandedMap by rememberSaveable { mutableStateOf(categoryOrder.associateWith { true }) }
+    var expandedMap by rememberSaveable { mutableStateOf(displayCategories.associateWith { true }) }
     val allExpanded = expandedMap.values.all { it }
     val weekLabel = remember(lastPlanTimestamp) { formatWeekRange(lastPlanTimestamp) }
 
@@ -232,7 +235,7 @@ fun GroceryListScreen(
                 Text("Categories", style = MaterialTheme.typography.titleMedium)
                 OutlinedButton(
                     onClick = {
-                        expandedMap = categoryOrder.associateWith { !allExpanded }
+                        expandedMap = displayCategories.associateWith { !allExpanded }
                     }
                 ) {
                     Text(if (allExpanded) "Collapse all" else "Expand all")
@@ -240,18 +243,19 @@ fun GroceryListScreen(
             }
         }
 
-        categoryOrder.forEach { category ->
+        displayCategories.forEach { category ->
             val items = groups[category].orEmpty()
             if (items.isEmpty()) return@forEach
             item {
                 CategoryCard(
                     icon = when (category) {
-                        "Produce / Vegetables" -> "🥬"
-                        "Fruits" -> "🍎"
-                        "Proteins (Meat/Seafood)" -> "🐟"
+                        "Produce" -> "🥬"
+                        "Meat/Seafood" -> "🐟"
                         "Eggs & Dairy" -> "🥚"
-                        "Dry Goods / Grains" -> "🌾"
+                        "Dry Goods" -> "🌾"
                         "Spices & Condiments" -> "🧂"
+                        "Canned/Packaged" -> "🥫"
+                        "Beverages" -> "🥤"
                         else -> "📦"
                     },
                     title = category,
@@ -377,41 +381,51 @@ private fun CategoryCard(
                 }
             }
             AnimatedVisibility(visible = expanded) {
-                items.forEach { item ->
-                    val checked = item.name in checkedNames
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items.forEach { item ->
+                        val checked = item.name in checkedNames
                         Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Checkbox(
-                                checked = checked,
-                                onCheckedChange = { onCheckedChange(item.name, it) },
-                            )
-                            Column {
-                                Text(
-                                    text = item.name,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = if (checked) MaterialTheme.colorScheme.onSurfaceVariant
-                                    else MaterialTheme.colorScheme.onSurface,
-                                    textDecoration = if (checked) TextDecoration.LineThrough else TextDecoration.None,
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Checkbox(
+                                    checked = checked,
+                                    onCheckedChange = { onCheckedChange(item.name, it) },
                                 )
-                                Text(
-                                    text = item.quantity,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    Text(
+                                        text = item.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (checked) MaterialTheme.colorScheme.onSurfaceVariant
+                                        else MaterialTheme.colorScheme.onSurface,
+                                        textDecoration = if (checked) TextDecoration.LineThrough else TextDecoration.None,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text = item.quantity,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    )
+                                }
                             }
+                            Text(
+                                text = "₱${if (checked) 0 else item.price}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (checked) MaterialTheme.colorScheme.onSurfaceVariant
+                                else MaterialTheme.colorScheme.onSurface,
+                            )
                         }
-                        Text(
-                            text = "₱${if (checked) 0 else item.price}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (checked) MaterialTheme.colorScheme.onSurfaceVariant
-                            else MaterialTheme.colorScheme.onSurface,
-                        )
                     }
                 }
             }
@@ -420,21 +434,48 @@ private fun CategoryCard(
 }
 
 private fun inferCategory(item: GroceryItem): String {
-    if (item.category.isNotBlank() && item.category != "Needed") return item.category
-    val name = item.name.lowercase(Locale.getDefault())
+    val raw = item.category.trim()
+    if (raw.isNotBlank()) {
+        val mapped = when (raw) {
+            "Produce / Vegetables",
+            "Fruits" -> "Produce"
+            "Proteins (Meat/Seafood)" -> "Meat/Seafood"
+            "Eggs & Dairy" -> "Eggs & Dairy"
+            "Dry Goods / Grains" -> "Dry Goods"
+            "Spices & Condiments" -> "Spices & Condiments"
+            "Canned/Packaged",
+            "Beverages",
+            "Produce",
+            "Meat/Seafood",
+            "Dry Goods",
+            "Others" -> raw
+            else -> null
+        }
+        if (mapped != null) return mapped
+        }
+    val name = item.name.lowercase(Locale.getDefault()).trim()
+    if (name.isBlank()) return "Others"
     return when {
-        listOf("lettuce", "spinach", "cabbage", "carrot", "broccoli", "kale", "tomato", "onion", "garlic", "pepper", "pechay", "ampalaya", "okra", "eggplant").any { name.contains(it) } ->
-            "Produce / Vegetables"
-        listOf("apple", "banana", "orange", "mango", "grape", "papaya", "pineapple", "strawberry", "melon").any { name.contains(it) } ->
-            "Fruits"
-        listOf("chicken", "beef", "pork", "fish", "salmon", "tuna", "shrimp", "tilapia", "meat").any { name.contains(it) } ->
-            "Proteins (Meat/Seafood)"
-        listOf("egg", "milk", "cheese", "yogurt", "butter").any { name.contains(it) } ->
-            "Eggs & Dairy"
-        listOf("rice", "oat", "bread", "pasta", "noodles", "flour", "grains").any { name.contains(it) } ->
-            "Dry Goods / Grains"
-        listOf("salt", "pepper", "soy", "sauce", "vinegar", "spice", "condiment", "oil").any { name.contains(it) } ->
+        listOf(
+            "lettuce","spinach","cabbage","carrot","broccoli","kale","tomato","onion","garlic","pepper",
+            "pechay","ampalaya","okra","eggplant","sayote","squash","ginger","gabi","kamote","cucumber",
+            "banana","apple","orange","mango","grape","papaya","pineapple","strawberry","melon","calamansi"
+        ).any { name.contains(it) } -> "Produce"
+        listOf(
+            "chicken","beef","pork","fish","salmon","tuna","shrimp","tilapia","meat","bangus","sardine",
+            "galunggong","tocino","longganisa"
+        ).any { name.contains(it) } -> "Meat/Seafood"
+        listOf("egg","milk","cheese","yogurt","butter","cream").any { name.contains(it) } -> "Eggs & Dairy"
+        listOf(
+            "rice","oat","bread","pasta","noodles","flour","grains","cereal","quinoa","barley",
+            "corn","frozen","dried","beans","lentils"
+        ).any { name.contains(it) } -> "Dry Goods"
+        listOf("salt","pepper","soy","sauce","vinegar","spice","condiment","oil","sugar","honey","bagoong").any { name.contains(it) } ->
             "Spices & Condiments"
+        listOf("canned","packaged","instant","biscuit","cracker","chips","snack","noodles").any { name.contains(it) } ->
+            "Canned/Packaged"
+        listOf("juice","soda","coffee","tea","water","milk tea").any { name.contains(it) } ->
+            "Beverages"
         else -> "Others"
     }
 }

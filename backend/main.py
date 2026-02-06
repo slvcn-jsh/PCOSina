@@ -251,9 +251,10 @@ allowed_hosts = ["*"] # Allow all for local phone testing
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
 @app.get("/", response_class=HTMLResponse)
-def root():
+def root(request: Request):
+    base = str(request.base_url).rstrip("/")
     token = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
-    admin_link = "/admin/feedback?token=" + token if token else "/admin/feedback?token=YOUR_TOKEN"
+    admin_link = f"{base}/admin/feedback?token={token}" if token else f"{base}/admin/feedback?token=YOUR_TOKEN"
     return HTMLResponse(
         content=f"""
         <!doctype html>
@@ -263,11 +264,11 @@ def root():
           <h1>PCOSINA Backend</h1>
           <p>API is running. Useful endpoints:</p>
           <ul>
-            <li><a href="/health">/health</a></li>
-            <li><a href="/docs">/docs</a></li>
+            <li><a href="{base}/health" target="_blank" rel="noopener noreferrer">{base}/health</a></li>
+            <li><a href="{base}/docs" target="_blank" rel="noopener noreferrer">{base}/docs</a></li>
           </ul>
           <p>Admin feedback requires a token:</p>
-          <p><a href="{admin_link}">{admin_link}</a></p>
+          <p><a href="{admin_link}" target="_blank" rel="noopener noreferrer">{admin_link}</a></p>
         </body>
         </html>
         """

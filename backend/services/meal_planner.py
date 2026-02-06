@@ -2,6 +2,7 @@ from typing import List, Optional, Dict, Any
 import json
 import os
 import random
+import time
 
 from ortools.sat.python import cp_model
 
@@ -443,11 +444,15 @@ def solve_meal_plan(
         pantry_bonus = (r.get("_pantry_match") or 0) * 1.5
         base_scores.append((p * 2.0) - (r.get("_cost_est", 0) * 0.05) - abs(cals - 500) * 0.15 + pantry_bonus)
 
+    total_time_limit = _env_float("PCOSINA_TOTAL_SOLVER_SECONDS", 8.0)
+    started_at = time.time()
     for tol in tolerance_levels:
         protein_bounds = (int(target_protein * (1 - tol)), int(target_protein * (1 + tol)))
         carbs_bounds = (int(target_carbs * (1 - tol)), int(target_carbs * (1 + tol)))
         fats_bounds = (int(target_fats * (1 - tol)), int(target_fats * (1 + tol)))
         for max_per_week in _env_int_list("PCOSINA_MAX_PER_WEEK", [2, 3, 4, 10]):
+            if (time.time() - started_at) >= total_time_limit:
+                break
             model = cp_model.CpModel()
             x = {}
             for s in range(slot_count):
@@ -619,6 +624,8 @@ def solve_meal_plan(
                     budget_weekly,
                 )
                 return res_plan, "Success", explanation
+        if (time.time() - started_at) >= total_time_limit:
+            break
     # Fallback: build a greedy plan to avoid hard failure if MILP cannot find a solution in time.
     fallback_max = _env_int("PCOSINA_FALLBACK_MAX_PER_WEEK", 10)
     res_plan, selected = _greedy_fallback_plan(

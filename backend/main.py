@@ -22,6 +22,54 @@ PLAN_CACHE_TTL_SECONDS = 600
 PLAN_CACHE_MAX_SIZE = 200
 _plan_cache = {}
 
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except Exception:
+        return default
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except Exception:
+        return default
+
+def _env_int_list(name: str, default: List[int]) -> List[int]:
+    raw = os.getenv(name)
+    if not raw:
+        return default
+    values: List[int] = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            values.append(int(part))
+        except Exception:
+            continue
+    return values if values else default
+
+def _env_float_list(name: str, default: List[float]) -> List[float]:
+    raw = os.getenv(name)
+    if not raw:
+        return default
+    values: List[float] = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            values.append(float(part))
+        except Exception:
+            continue
+    return values if values else default
+
 # -------------------------
 # Tagging + Normalization
 # -------------------------
@@ -173,11 +221,15 @@ def shortlist_candidates(profile: "UserProfile", recipes: List[Dict[str, Any]]) 
 
     for k in buckets:
         buckets[k].sort(key=score, reverse=True)
-        limit = 80 if restriction_count < 2 else 120
+        limit_default = _env_int("PCOSINA_SHORTLIST_LIMIT", 80)
+        limit_restricted = _env_int("PCOSINA_SHORTLIST_LIMIT_RESTRICTED", 120)
+        limit = limit_default if restriction_count < 2 else limit_restricted
         buckets[k] = buckets[k][:limit]
         if budget_weekly:
             buckets[k].sort(key=lambda r: r.get("_cost_est", 0))
-            keep = int(max(20, len(buckets[k]) * 0.8))
+            keep_min = _env_int("PCOSINA_SHORTLIST_KEEP_MIN", 20)
+            keep_ratio = _env_float("PCOSINA_SHORTLIST_KEEP_RATIO", 0.8)
+            keep = int(max(keep_min, len(buckets[k]) * keep_ratio))
             buckets[k] = buckets[k][:keep]
     return buckets
 
@@ -392,7 +444,8 @@ def solve_meal_plan(request: GeneratePlanRequest, recipes: List[Dict], weight_se
     target = int(bmr * 1.375)
     if "Weight Loss" in profile.goal: target -= 500
     target = max(1200, target)
-    seed_key = f"{profile.displayName}_{profile.age}_{profile.heightCm}_{profile.weightKg}_{profile.activityLevel}_{profile.goal}_{profile.dietaryRestrictions}_{num_days}"
+    seed_salt = os.getenv("PCOSINA_SEED_SALT", "").strip()
+    seed_key = f"{seed_salt}|{profile.displayName}_{profile.age}_{profile.heightCm}_{profile.weightKg}_{profile.activityLevel}_{profile.goal}_{profile.dietaryRestrictions}_{num_days}"
     rng = random.Random(seed_key)
     daily_targets = [target + rng.randint(-50, 50) for _ in range(num_days)]
     daily_targets = [max(1200, t) for t in daily_targets]
@@ -400,7 +453,7 @@ def solve_meal_plan(request: GeneratePlanRequest, recipes: List[Dict], weight_se
     target_protein = int((target * 0.25) / 4)
     target_carbs = int((target * 0.40) / 4)
     target_fats = int((target * 0.35) / 9)
-    tolerance_levels = [0.2, 0.3, 0.4]
+    tolerance_levels = _env_float_list("PCOSINA_TOLERANCE_LEVELS", [0.2, 0.3, 0.4])
     # Stage 1 pruning + shortlist
     buckets = shortlist_candidates(profile, recipes)
     candidates = list({r["id"]: r for r in (buckets["Breakfast"] + buckets["Lunch"] + buckets["Dinner"] + buckets["Universal"])}.values())
@@ -422,7 +475,7 @@ def solve_meal_plan(request: GeneratePlanRequest, recipes: List[Dict], weight_se
         protein_bounds = (int(target_protein * (1 - tol)), int(target_protein * (1 + tol)))
         carbs_bounds = (int(target_carbs * (1 - tol)), int(target_carbs * (1 + tol)))
         fats_bounds = (int(target_fats * (1 - tol)), int(target_fats * (1 + tol)))
-        for max_per_week in [2, 3, 4, 10]:
+        for max_per_week in _env_int_list("PCOSINA_MAX_PER_WEEK", [2, 3, 4, 10]):
             model = cp_model.CpModel()
             x = {}
             for s in range(slot_count):
@@ -566,8 +619,8 @@ def solve_meal_plan(request: GeneratePlanRequest, recipes: List[Dict], weight_se
                 diversity_penalty - (pantry_w * pantry_reward) - (diversity_w * diversity_reward)
             )
             solver = cp_model.CpSolver()
-            solver.parameters.max_time_in_seconds = 3.0
-            solver.parameters.num_search_workers = 8
+            solver.parameters.max_time_in_seconds = _env_float("PCOSINA_SOLVER_TIME_SECONDS", 3.0)
+            solver.parameters.num_search_workers = _env_int("PCOSINA_SOLVER_WORKERS", 8)
             status = solver.Solve(model)
             if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
                 res_plan = []

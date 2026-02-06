@@ -35,7 +35,8 @@ sealed class RecipeDetailsUiState {
 data class PlanMetrics(
     val avgProtein: Int = 0,
     val avgCarbs: Int = 0,
-    val avgFiber: Int = 0
+    val avgFiber: Int = 0,
+    val avgFats: Int = 0
 )
 
 class MealPlanViewModel(
@@ -84,10 +85,13 @@ class MealPlanViewModel(
                 val totalP = allDetails.sumOf { it.proteinGrams ?: 0 }
                 val totalC = allDetails.sumOf { it.carbsGrams ?: 0 }
                 val totalF = allDetails.sumOf { it.fiberGrams ?: 0 }
+                val totalFat = allDetails.sumOf { it.fatsGrams ?: 0 }
+                val dayDivisor = if (response.days.isNotEmpty()) response.days.size else 7
                 _planMetrics.value = PlanMetrics(
-                    avgProtein = (totalP / 7),
-                    avgCarbs = (totalC / 7),
-                    avgFiber = (totalF / 7)
+                    avgProtein = (totalP / dayDivisor),
+                    avgCarbs = (totalC / dayDivisor),
+                    avgFiber = (totalF / dayDivisor),
+                    avgFats = (totalFat / dayDivisor)
                 )
             }
         }
@@ -104,7 +108,8 @@ class MealPlanViewModel(
         viewModelScope.launch {
             _uiState.value = MealPlanUiState.Loading
             repository.warmup()
-            val result = repository.generatePlan(profile)
+            val effectiveProfile = resolveProfile(profile)
+            val result = repository.generatePlan(effectiveProfile)
             result.onSuccess { response ->
                 val now = System.currentTimeMillis()
                 _uiState.value = MealPlanUiState.Success(response, now)
@@ -113,9 +118,30 @@ class MealPlanViewModel(
                     userPrefsRepository.savePlanJson(currentUserId, gson.toJson(response), now)
                 }
             }.onFailure { error ->
-                _uiState.value = MealPlanUiState.Error(error.message ?: "Failed to connect to MILP engine")
+                val raw = error.message ?: "Failed to connect to MILP engine"
+                val message = if (raw.contains("Profile invalid", ignoreCase = true)) {
+                    "Profile incomplete. Please open Profile or Settings and save your age, height, and weight."
+                } else {
+                    raw
+                }
+                _uiState.value = MealPlanUiState.Error(message)
             }
         }
+    }
+
+    private fun resolveProfile(profile: UserProfile): UserProfile {
+        if (isProfileValid(profile)) return profile
+        return try {
+            if (currentUserId.isBlank()) profile
+            else userPrefsRepository.getUserProfile(currentUserId).first()
+        } catch (_: Exception) {
+            profile
+        }
+    }
+
+    private fun isProfileValid(profile: UserProfile): Boolean {
+        return profile.age > 0 && profile.heightCm > 0 && profile.weightKg > 0 &&
+            profile.activityLevel.isNotBlank() && profile.goal.isNotBlank()
     }
 
     fun showError(message: String) {

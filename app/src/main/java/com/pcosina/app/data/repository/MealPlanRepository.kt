@@ -103,6 +103,7 @@ class MealPlanRepository {
 
     suspend fun generatePlan(profile: UserProfile): Result<GeneratePlanResponse> {
         return try {
+            validateGeneratePlanProfile(profile)
             val response = apiService.generatePlan(GeneratePlanRequest(profile))
             Result.success(response)
         } catch (e: Exception) {
@@ -122,6 +123,18 @@ class MealPlanRepository {
             Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    private fun validateGeneratePlanProfile(profile: UserProfile) {
+        val problems = mutableListOf<String>()
+        if (profile.age <= 0) problems.add("Age must be greater than 0.")
+        if (profile.heightCm <= 0) problems.add("Height must be greater than 0.")
+        if (profile.weightKg <= 0) problems.add("Weight must be greater than 0.")
+        if (profile.activityLevel.isBlank()) problems.add("Activity level is required.")
+        if (profile.goal.isBlank()) problems.add("Goal is required.")
+        if (problems.isNotEmpty()) {
+            throw IllegalArgumentException("Profile invalid: " + problems.joinToString(" "))
         }
     }
 }

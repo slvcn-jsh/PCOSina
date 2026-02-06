@@ -264,35 +264,67 @@ def feedback(payload: FeedbackRequest, _: Any = Depends(require_schema_version))
 @app.get("/admin/feedback", response_class=HTMLResponse)
 def admin_feedback(
     x_admin_token: str | None = Header(default=None),
-    token: str | None = None
+    token: str | None = None,
+    q: str | None = None,
+    page: int = 1,
+    page_size: int = 25,
 ):
     expected = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
     if not expected or (x_admin_token != expected and token != expected):
         raise HTTPException(status_code=401, detail="Unauthorized")
     try:
-        items = database.get_recent_feedback(100)
+        items = database.get_recent_feedback(500)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load feedback: {e}")
 
+    query = (q or "").strip()
+    if query:
+        q_lower = query.lower()
+        items = [
+            item for item in items
+            if q_lower in str(item.get("message", "")).lower()
+        ]
+
+    page_size = max(5, min(200, int(page_size or 25)))
+    page = max(1, int(page or 1))
+    total = len(items)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    if page > total_pages:
+        page = total_pages
+    start = (page - 1) * page_size
+    end = start + page_size
+    page_items = items[start:end]
+
     rows = []
-    for item in items:
+    for item in page_items:
         msg = str(item.get("message", ""))
         created_at = str(item.get("created_at", ""))
         fid = item.get("id", "")
         rows.append(
             "<tr>"
+            "<td>"
+            f"<input type='checkbox' name='ids' value='{fid}' form='bulk-delete'/>"
+            "</td>"
             f"<td>{created_at}</td>"
             f"<td>{msg}</td>"
             "<td>"
             f"<form method='post' action='/admin/feedback/delete'>"
             f"<input type='hidden' name='id' value='{fid}'/>"
             f"<input type='hidden' name='token' value='{expected}'/>"
+            f"<input type='hidden' name='q' value='{query}'/>"
+            f"<input type='hidden' name='page' value='{page}'/>"
             "<button type='submit'>Delete</button>"
             "</form>"
             "</td>"
             "</tr>"
         )
-    rows_html = "\n".join(rows) if rows else "<tr><td colspan='2'>No feedback yet.</td></tr>"
+    rows_html = "\n".join(rows) if rows else "<tr><td colspan='4'>No feedback yet.</td></tr>"
+    base_params = f"token={expected}&page_size={page_size}"
+    if query:
+        base_params += f"&q={query}"
+    prev_page = max(1, page - 1)
+    next_page = min(total_pages, page + 1)
+    page_label = f"Page {page} of {total_pages} • {total} items"
 
     html = f"""
     <!doctype html>
@@ -303,17 +335,41 @@ def admin_feedback(
       <style>
         body {{ font-family: Arial, sans-serif; margin: 24px; background: #f7f7f7; }}
         h1 {{ margin-bottom: 12px; }}
+        form.inline {{ display: inline; }}
+        .toolbar {{ display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }}
+        .pill {{ background: #fff; padding: 8px 12px; border-radius: 8px; border: 1px solid #ddd; }}
         table {{ width: 100%; border-collapse: collapse; background: #fff; }}
         th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }}
         th {{ background: #f0f0f0; }}
         tr:nth-child(even) {{ background: #fafafa; }}
         button {{ padding: 6px 10px; }}
+        .nav a {{ margin-right: 10px; }}
       </style>
     </head>
     <body>
       <h1>PCOSINA Feedback</h1>
+      <div class="toolbar">
+        <form method="get" action="/admin/feedback" class="pill">
+          <input type="hidden" name="token" value="{expected}"/>
+          <input type="hidden" name="page_size" value="{page_size}"/>
+          <input type="text" name="q" value="{query}" placeholder="Search message..." />
+          <button type="submit">Search</button>
+        </form>
+        <form id="bulk-delete" method="post" action="/admin/feedback/delete-bulk" class="pill">
+          <input type="hidden" name="token" value="{expected}"/>
+          <input type="hidden" name="q" value="{query}"/>
+          <input type="hidden" name="page" value="{page}"/>
+          <input type="hidden" name="page_size" value="{page_size}"/>
+          <button type="submit">Delete selected</button>
+        </form>
+        <div class="pill">{page_label}</div>
+        <div class="nav">
+          <a href="/admin/feedback?{base_params}&page={prev_page}">Prev</a>
+          <a href="/admin/feedback?{base_params}&page={next_page}">Next</a>
+        </div>
+      </div>
       <table>
-        <thead><tr><th>Created At</th><th>Message</th><th>Action</th></tr></thead>
+        <thead><tr><th></th><th>Created At</th><th>Message</th><th>Action</th></tr></thead>
         <tbody>
           {rows_html}
         </tbody>
@@ -327,15 +383,51 @@ def admin_feedback(
 def admin_feedback_delete(
     id: int = Form(...),
     token: str = Form(...),
+    q: str | None = Form(default=None),
+    page: int = Form(default=1),
 ):
     expected = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
     if not expected or token != expected:
         raise HTTPException(status_code=401, detail="Unauthorized")
     try:
         database.delete_feedback_by_id(id)
-        return HTMLResponse(
-            content="<html><body>Deleted. <a href='/admin/feedback'>Back</a></body></html>"
-        )
+        q = (q or "").strip()
+        qs = f"?token={expected}"
+        if q:
+            qs += f"&q={q}"
+        if page and int(page) > 1:
+            qs += f"&page={int(page)}"
+        return HTMLResponse(content=f"<html><body>Deleted. <a href='/admin/feedback{qs}'>Back</a></body></html>")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete feedback: {e}")
+
+@app.post("/admin/feedback/delete-bulk")
+def admin_feedback_delete_bulk(
+    token: str = Form(...),
+    ids: list[str] = Form(default=[]),
+    q: str | None = Form(default=None),
+    page: int = Form(default=1),
+    page_size: int = Form(default=25),
+):
+    expected = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
+    if not expected or token != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    deleted = 0
+    try:
+        for raw in ids:
+            try:
+                fid = int(raw)
+            except Exception:
+                continue
+            database.delete_feedback_by_id(fid)
+            deleted += 1
+        q = (q or "").strip()
+        qs = f"?token={expected}&page_size={page_size}"
+        if q:
+            qs += f"&q={q}"
+        if page and int(page) > 1:
+            qs += f"&page={int(page)}"
+        return HTMLResponse(content=f"<html><body>Deleted {deleted}. <a href='/admin/feedback{qs}'>Back</a></body></html>")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete feedback: {e}")
 

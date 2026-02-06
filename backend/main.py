@@ -252,8 +252,10 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
 @app.get("/", response_class=HTMLResponse)
 def root():
+    token = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
+    admin_link = "/admin/feedback?token=" + token if token else "/admin/feedback?token=YOUR_TOKEN"
     return HTMLResponse(
-        content="""
+        content=f"""
         <!doctype html>
         <html>
         <head><meta charset="utf-8" /><title>PCOSINA Backend</title></head>
@@ -265,7 +267,7 @@ def root():
             <li><a href="/docs">/docs</a></li>
           </ul>
           <p>Admin feedback requires a token:</p>
-          <code>/admin/feedback?token=YOUR_TOKEN</code>
+          <p><a href="{admin_link}">{admin_link}</a></p>
         </body>
         </html>
         """

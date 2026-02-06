@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -27,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pcosina.app.BuildConfig
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
@@ -34,6 +36,7 @@ import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.components.MacroCircularGauge
 import com.pcosina.app.ui.components.StatCard
+import com.pcosina.app.domain.HealthMetrics
 
 @Composable
 fun DashboardScreen(
@@ -49,11 +52,13 @@ fun DashboardScreen(
 ) {
     val profile by userViewModel.userProfile.collectAsState()
     val dailyCalorieTarget = userViewModel.dailyCalorieTarget
+    val calorieBreakdown = userViewModel.calorieTargetBreakdown
     val mealPlanState by mealPlanViewModel.uiState.collectAsState()
     val metrics by mealPlanViewModel.planMetrics.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
     val showMarkersInfo = rememberSaveable { mutableStateOf(false) }
     val showTargetInfo = rememberSaveable { mutableStateOf(false) }
+    val showBmiInfo = rememberSaveable { mutableStateOf(false) }
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(colorScheme.background),
@@ -84,14 +89,40 @@ fun DashboardScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                StatCard(title = "Goal", value = if (profile.goal.contains("Weight Loss")) "Loss" else "Control", subtitle = "Focus", modifier = Modifier.weight(1f))
+                val goalLabel = when {
+                    profile.goal.contains("Weight Loss", true) -> "Loss"
+                    profile.goal.contains("Symptom", true) -> "Manage"
+                    profile.goal.contains("General", true) -> "Balance"
+                    else -> "Focus"
+                }
+                StatCard(title = "Goal", value = goalLabel, subtitle = "Focus", modifier = Modifier.weight(1f))
                 StatCard(title = "Target", value = dailyCalorieTarget.toString(), subtitle = "kcal/day", modifier = Modifier.weight(1f))
                 StatCard(title = "Current", value = "${profile.weightKg}", subtitle = "kg", modifier = Modifier.weight(1f))
             }
+            AssistChip(
+                onClick = { },
+                label = { Text("Schema v${BuildConfig.SCHEMA_VERSION}") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Verified,
+                        contentDescription = null
+                    )
+                },
+                colors = AssistChipDefaults.assistChipColors(
+                    containerColor = colorScheme.surfaceVariant,
+                    labelColor = colorScheme.onSurfaceVariant,
+                    leadingIconContentColor = colorScheme.secondary
+                )
+            )
             TextButton(onClick = { showTargetInfo.value = true }, modifier = Modifier.padding(start = 4.dp)) {
                 Icon(Icons.Filled.Info, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("How target kcal/day is computed?")
+            }
+            TextButton(onClick = { showBmiInfo.value = true }, modifier = Modifier.padding(start = 4.dp)) {
+                Icon(Icons.Filled.Info, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("How BMI is computed?")
             }
         }
 
@@ -225,19 +256,6 @@ fun DashboardScreen(
     }
 
     if (showTargetInfo.value) {
-        val w = if (profile.weightKg > 0) profile.weightKg else 60
-        val h = if (profile.heightCm > 0) profile.heightCm else 155
-        val a = if (profile.age > 0) profile.age else 25
-        val bmr = (10 * w) + (6.25 * h) - (5 * a) - 161
-        val multiplier = when (profile.activityLevel) {
-            "Sedentary" -> 1.2
-            "Lightly Active" -> 1.375
-            "Moderately Active" -> 1.55
-            "Very Active" -> 1.725
-            else -> 1.375
-        }
-        val maintenance = (bmr * multiplier).toInt()
-        val adjusted = if (profile.goal.contains("Weight Loss", true)) maintenance - 500 else maintenance
         AlertDialog(
             onDismissRequest = { showTargetInfo.value = false },
             confirmButton = {
@@ -247,10 +265,30 @@ fun DashboardScreen(
             text = {
                 Text(
                     "Computed using Mifflin-St Jeor (female):\n" +
-                    "BMR = 10×$w + 6.25×$h − 5×$a − 161 = ${bmr.toInt()}.\n" +
-                    "Activity multiplier (${profile.activityLevel}) = $multiplier.\n" +
-                    "Maintenance ≈ $maintenance kcal/day.\n" +
-                    "Goal adjustment → $adjusted kcal/day."
+                    "BMR = 10×weight + 6.25×height − 5×age − 161 = ${calorieBreakdown.bmr}.\n" +
+                    "Activity multiplier (${profile.activityLevel}) = ${calorieBreakdown.activityMultiplier}.\n" +
+                    "TDEE ≈ ${calorieBreakdown.tdee} kcal/day.\n" +
+                    "Goal adjustment → ${calorieBreakdown.goalAdjustment} kcal/day.\n" +
+                    "Target = ${calorieBreakdown.target} kcal/day."
+                )
+            }
+        )
+    }
+
+    if (showBmiInfo.value) {
+        val bmi = HealthMetrics.bmi(profile.weightKg, profile.heightCm)
+        val category = HealthMetrics.bmiCategory(bmi)
+        AlertDialog(
+            onDismissRequest = { showBmiInfo.value = false },
+            confirmButton = {
+                TextButton(onClick = { showBmiInfo.value = false }) { Text("Got it") }
+            },
+            title = { Text("BMI") },
+            text = {
+                Text(
+                    "BMI = weight(kg) / height(m)^2.\n" +
+                    "Example: 65 kg and 1.60 m → 65 / 1.6^2 = 25.4.\n" +
+                    "Your BMI ≈ ${"%.1f".format(bmi)} ($category)."
                 )
             }
         )

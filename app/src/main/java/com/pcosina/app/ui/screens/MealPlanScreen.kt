@@ -33,6 +33,7 @@ import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
 import com.google.firebase.analytics.FirebaseAnalytics
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -144,6 +145,7 @@ fun MealPlanScreen(
             is MealPlanUiState.Success -> {
                 val plan = state.response
                 val selectedDay = plan.days[selectedDayIndex]
+                val explanation = plan.explanation
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().background(colorScheme.background).padding(padding),
@@ -170,6 +172,14 @@ fun MealPlanScreen(
                             subtitle = "Target: ${userViewModel.dailyCalorieTarget} kcal/day",
                             containerHeight = 180
                         )
+                        if (userProfile.goal.contains("Symptom", true)) {
+                            Text(
+                                text = "Low‑GI guidance: favor high‑fiber carbs and balanced meals.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+                            )
+                        }
                         val weeklyBudget = if (userProfile.weeklyBudgetPhp > 0) userProfile.weeklyBudgetPhp else 2000
                         Spacer(Modifier.height(12.dp))
                         Card(
@@ -184,6 +194,93 @@ fun MealPlanScreen(
                             ) {
                                 Text("Weekly Budget", style = MaterialTheme.typography.bodyMedium)
                                 Text("₱$weeklyBudget", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                            }
+                        }
+
+                        if (explanation != null) {
+                            Spacer(Modifier.height(12.dp))
+                            Card(
+                                shape = MaterialTheme.shapes.extraLarge,
+                                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "Optimization Notes",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                    Text(
+                                        text = "These are solver signals used to balance nutrition, variety, and pantry use.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colorScheme.onSurfaceVariant
+                                    )
+
+                                    val items = mutableListOf<String>()
+                                    val avgDev = explanation.avgCaloriesDeviation
+                                    if (explanation.targetCalories != null) {
+                                        items.add("Target calories: ${explanation.targetCalories} kcal/day")
+                                    }
+                                    if (explanation.avgCalories != null) {
+                                        val devText = if (avgDev != null) " (±$avgDev)" else ""
+                                        items.add("Avg calories: ${explanation.avgCalories} kcal/day$devText")
+                                    }
+                                    val targetMacros = listOf(
+                                        explanation.targetProtein?.let { "P ${it}g" },
+                                        explanation.targetCarbs?.let { "C ${it}g" },
+                                        explanation.targetFats?.let { "F ${it}g" }
+                                    ).filterNotNull()
+                                    if (targetMacros.isNotEmpty()) {
+                                        items.add("Macro targets: ${targetMacros.joinToString(" • ")}")
+                                    }
+                                    val avgMacros = listOf(
+                                        explanation.avgProtein?.let { "P ${it}g" },
+                                        explanation.avgCarbs?.let { "C ${it}g" },
+                                        explanation.avgFats?.let { "F ${it}g" }
+                                    ).filterNotNull()
+                                    if (avgMacros.isNotEmpty()) {
+                                        items.add("Avg macros: ${avgMacros.joinToString(" • ")}")
+                                    }
+                                    explanation.toleranceUsed?.let {
+                                        val pct = String.format(Locale.ENGLISH, "%.0f", it * 100)
+                                        items.add("Tolerance used: $pct%")
+                                    }
+                                    explanation.maxPerWeek?.let {
+                                        items.add("Max repeats per recipe: $it")
+                                    }
+                                    explanation.pantryMatches?.let {
+                                        items.add("Pantry matches used: $it")
+                                    }
+                                    explanation.uniqueVegTokens?.let {
+                                        items.add("Veg variety tokens: $it")
+                                    }
+                                    if (explanation.budgetWeekly != null || explanation.estimatedWeeklyCost != null) {
+                                        val budget = explanation.budgetWeekly?.let {
+                                            "₱" + String.format(Locale.ENGLISH, "%.0f", it)
+                                        }
+                                        val est = explanation.estimatedWeeklyCost?.let { "₱$it" }
+                                        val text = when {
+                                            budget != null && est != null -> "Budget weekly: $budget (est $est)"
+                                            budget != null -> "Budget weekly: $budget"
+                                            est != null -> "Estimated weekly cost: $est"
+                                            else -> null
+                                        }
+                                        if (text != null) items.add(text)
+                                    }
+                                    explanation.restrictionCount?.let {
+                                        items.add("Restriction count: $it")
+                                    }
+
+                                    items.forEach { line ->
+                                        Text(
+                                            text = "• $line",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

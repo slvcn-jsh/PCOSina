@@ -38,3 +38,11 @@ pcosina-current-HEAD.zip
 backend/pcosina-current-HEAD.zip
 output/
 ownership-map-out/
+
+# Benchmark outputs
+backend/benchmark_*.csv
+backend/benchmark_*.svg
+backend/benchmark_*.json
+backend/weights_*.csv
+backend/best_weights.json
+backend/database_content.txt

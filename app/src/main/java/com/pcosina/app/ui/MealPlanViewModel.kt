@@ -129,7 +129,7 @@ class MealPlanViewModel(
         }
     }
 
-    private fun resolveProfile(profile: UserProfile): UserProfile {
+    private suspend fun resolveProfile(profile: UserProfile): UserProfile {
         if (isProfileValid(profile)) return profile
         return try {
             if (currentUserId.isBlank()) profile

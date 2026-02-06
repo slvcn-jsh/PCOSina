@@ -655,6 +655,7 @@ def solve_meal_plan(
             break
     if not _env_bool("PCOSINA_ALLOW_FALLBACK", False):
         if debug_solver:
+            print("MILP_DEBUG", json.dumps(debug_summary))
             msg = json.dumps(debug_summary)[:1500]
             return None, f"Infeasible | debug={msg}", None
         return None, "Infeasible", None

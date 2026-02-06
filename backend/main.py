@@ -250,6 +250,27 @@ async def limit_request_size(request: Request, call_next):
 allowed_hosts = ["*"] # Allow all for local phone testing
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
+@app.get("/", response_class=HTMLResponse)
+def root():
+    return HTMLResponse(
+        content="""
+        <!doctype html>
+        <html>
+        <head><meta charset="utf-8" /><title>PCOSINA Backend</title></head>
+        <body style="font-family: Arial, sans-serif; margin: 24px;">
+          <h1>PCOSINA Backend</h1>
+          <p>API is running. Useful endpoints:</p>
+          <ul>
+            <li><a href="/health">/health</a></li>
+            <li><a href="/docs">/docs</a></li>
+          </ul>
+          <p>Admin feedback requires a token:</p>
+          <code>/admin/feedback?token=YOUR_TOKEN</code>
+        </body>
+        </html>
+        """
+    )
+
 class UserProfile(BaseModel):
     model_config = ConfigDict(extra='ignore')
     displayName: str = "User"

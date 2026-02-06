@@ -2,6 +2,7 @@ package com.pcosina.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -29,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
+import androidx.compose.ui.input.pointer.pointerInput
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.pcosina.app.BuildConfig
 import com.pcosina.app.ui.AuthViewModel
@@ -44,6 +47,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val profile by userViewModel.userProfile.collectAsState()
+    val adminMode by userViewModel.adminMode.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
     val context = LocalContext.current
     
@@ -59,11 +63,27 @@ fun SettingsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        GradientHeader(
-            title = "Hi, $userName! ✨",
-            subtitle = "Your PCOS journey is uniquely yours.",
-            containerHeight = 180
-        )
+        Box(
+            modifier = Modifier.pointerInput(Unit) {
+                detectTapGestures(
+                    onLongPress = {
+                        val enabled = !adminMode
+                        userViewModel.toggleAdminMode()
+                        Toast.makeText(
+                            context,
+                            if (enabled) "Admin mode enabled" else "Admin mode disabled",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                )
+            }
+        ) {
+            GradientHeader(
+                title = "Hi, $userName! ✨",
+                subtitle = "Your PCOS journey is uniquely yours.",
+                containerHeight = 180
+            )
+        }
 
         // Personalized Profile Summary Card
         Card(
@@ -178,25 +198,27 @@ fun SettingsScreen(
             }
         }
 
-        SettingsSection(title = "System") {
-            SettingsItem(
-                icon = Icons.Default.Info,
-                label = "Schema Version",
-                value = BuildConfig.SCHEMA_VERSION
-            )
-            SettingsItem(
-                icon = Icons.Default.History,
-                label = "API Base URL",
-                value = baseUrl
-            )
-            SettingsActionItem(
-                icon = Icons.Default.Link,
-                label = "View API Contract",
-                description = schemaUrl,
-                color = colorScheme.primary
-            ) {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(schemaUrl))
-                context.startActivity(intent)
+        if (adminMode) {
+            SettingsSection(title = "System") {
+                SettingsItem(
+                    icon = Icons.Default.Info,
+                    label = "Schema Version",
+                    value = BuildConfig.SCHEMA_VERSION
+                )
+                SettingsItem(
+                    icon = Icons.Default.History,
+                    label = "API Base URL",
+                    value = baseUrl
+                )
+                SettingsActionItem(
+                    icon = Icons.Default.Link,
+                    label = "View API Contract",
+                    description = schemaUrl,
+                    color = colorScheme.primary
+                ) {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(schemaUrl))
+                    context.startActivity(intent)
+                }
             }
         }
 

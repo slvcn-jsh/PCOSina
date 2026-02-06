@@ -2,6 +2,7 @@ package com.pcosina.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,6 +26,8 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,6 +41,7 @@ import com.pcosina.app.ui.components.MacroCircularGauge
 import com.pcosina.app.ui.components.StatCard
 import com.pcosina.app.domain.HealthMetrics
 import java.util.Locale
+import android.widget.Toast
 
 @Composable
 fun DashboardScreen(
@@ -52,12 +56,14 @@ fun DashboardScreen(
     modifier: Modifier = Modifier,
 ) {
     val profile by userViewModel.userProfile.collectAsState()
+    val adminMode by userViewModel.adminMode.collectAsState()
     val dailyCalorieTarget = userViewModel.dailyCalorieTarget
     val calorieBreakdown = userViewModel.calorieTargetBreakdown
     val mealPlanState by mealPlanViewModel.uiState.collectAsState()
     val metrics by mealPlanViewModel.planMetrics.collectAsState()
     val planExplanation = (mealPlanState as? MealPlanUiState.Success)?.response?.explanation
     val colorScheme = MaterialTheme.colorScheme
+    val context = LocalContext.current
     val showMarkersInfo = rememberSaveable { mutableStateOf(false) }
     val showTargetInfo = rememberSaveable { mutableStateOf(false) }
     val showBmiInfo = rememberSaveable { mutableStateOf(false) }
@@ -69,20 +75,36 @@ fun DashboardScreen(
     ) {
         item {
             Box {
-                GradientHeader(
-                    title = "Hello, ${profile.displayName.ifBlank { "Warrior" }}! 👋",
-                    subtitle = "Scientific Nutrition for PCOS",
-                    containerHeight = 200,
-                    trailing = {
-                        IconButton(onClick = onNavigateToSettings) {
-                            Icon(
-                                imageVector = Icons.Filled.Settings,
-                                contentDescription = "Settings",
-                                tint = Color.White,
-                            )
-                        }
-                    },
-                )
+                Box(
+                    modifier = Modifier.pointerInput(Unit) {
+                        detectTapGestures(
+                            onLongPress = {
+                                val enabled = !adminMode
+                                userViewModel.toggleAdminMode()
+                                Toast.makeText(
+                                    context,
+                                    if (enabled) "Admin mode enabled" else "Admin mode disabled",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        )
+                    }
+                ) {
+                    GradientHeader(
+                        title = "Hello, ${profile.displayName.ifBlank { "Warrior" }}! 👋",
+                        subtitle = "Scientific Nutrition for PCOS",
+                        containerHeight = 200,
+                        trailing = {
+                            IconButton(onClick = onNavigateToSettings) {
+                                Icon(
+                                    imageVector = Icons.Filled.Settings,
+                                    contentDescription = "Settings",
+                                    tint = Color.White,
+                                )
+                            }
+                        },
+                    )
+                }
             }
         }
 
@@ -101,21 +123,23 @@ fun DashboardScreen(
                 StatCard(title = "Target", value = dailyCalorieTarget.toString(), subtitle = "kcal/day", modifier = Modifier.weight(1f))
                 StatCard(title = "Current", value = "${profile.weightKg}", subtitle = "kg", modifier = Modifier.weight(1f))
             }
-            AssistChip(
-                onClick = { },
-                label = { Text("Schema v${BuildConfig.SCHEMA_VERSION}") },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Filled.Verified,
-                        contentDescription = null
+            if (adminMode) {
+                AssistChip(
+                    onClick = { },
+                    label = { Text("Schema v${BuildConfig.SCHEMA_VERSION}") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Verified,
+                            contentDescription = null
+                        )
+                    },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = colorScheme.surfaceVariant,
+                        labelColor = colorScheme.onSurfaceVariant,
+                        leadingIconContentColor = colorScheme.secondary
                     )
-                },
-                colors = AssistChipDefaults.assistChipColors(
-                    containerColor = colorScheme.surfaceVariant,
-                    labelColor = colorScheme.onSurfaceVariant,
-                    leadingIconContentColor = colorScheme.secondary
                 )
-            )
+            }
             TextButton(onClick = { showTargetInfo.value = true }, modifier = Modifier.padding(start = 4.dp)) {
                 Icon(Icons.Filled.Info, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))

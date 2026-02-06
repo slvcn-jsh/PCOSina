@@ -16,6 +16,7 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "us
 class UserPreferencesRepository(private val context: Context) {
 
     private object Keys {
+        val adminMode = booleanPreferencesKey("admin_mode")
         fun name(userId: String) = stringPreferencesKey("name_$userId")
         fun age(userId: String) = intPreferencesKey("age_$userId")
         fun weight(userId: String) = intPreferencesKey("weight_$userId")
@@ -132,6 +133,14 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.restrictions(userId)] = profile.dietaryRestrictions.joinToString(",")
             preferences[Keys.budget(userId)] = profile.weeklyBudgetPhp
             preferences[Keys.completed(userId)] = profile.isProfileCompleted
+        }
+    }
+
+    fun getAdminMode(): Flow<Boolean> = context.dataStore.data.map { it[Keys.adminMode] ?: false }
+
+    suspend fun setAdminMode(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.adminMode] = enabled
         }
     }
 

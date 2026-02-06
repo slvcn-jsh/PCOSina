@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.pcosina.app.data.model.UserProfile
 import com.pcosina.app.data.repository.UserPreferencesRepository
+import com.pcosina.app.domain.CalorieTargetBreakdown
+import com.pcosina.app.domain.HealthMetrics
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,8 +22,19 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
     private val _isProfileLoading = MutableStateFlow(false)
     val isProfileLoading: StateFlow<Boolean> = _isProfileLoading.asStateFlow()
 
+    private val _adminMode = MutableStateFlow(false)
+    val adminMode: StateFlow<Boolean> = _adminMode.asStateFlow()
+
     private var profileJob: Job? = null
     private var currentUserId: String = ""
+
+    init {
+        viewModelScope.launch {
+            repository.getAdminMode().collectLatest { enabled ->
+                _adminMode.value = enabled
+            }
+        }
+    }
 
     fun loadProfileForUser(userId: String) {
         if (currentUserId == userId) return
@@ -50,6 +63,12 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
         profileJob?.cancel()
         _userProfile.value = UserProfile()
         _isProfileLoading.value = false
+    }
+
+    fun toggleAdminMode() {
+        viewModelScope.launch {
+            repository.setAdminMode(!_adminMode.value)
+        }
     }
 
     private fun saveProfile() {
@@ -96,21 +115,25 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
     val dailyCalorieTarget: Int
         get() {
             val profile = _userProfile.value
-            val w = if (profile.weightKg > 0) profile.weightKg else 60
-            val h = if (profile.heightCm > 0) profile.heightCm else 155
-            val a = if (profile.age > 0) profile.age else 25
-            
-            val bmr = (10 * w) + (6.25 * h) - (5 * a) - 161
-            val activityMultiplier = when (profile.activityLevel) {
-                "Sedentary" -> 1.2
-                "Lightly Active" -> 1.375
-                "Moderately Active" -> 1.55
-                "Very Active" -> 1.725
-                else -> 1.375
-            }
-            val maintenance = (bmr * activityMultiplier).toInt()
-            
-            return if (profile.goal.contains("Weight Loss", true)) maintenance - 500 else maintenance
+            return HealthMetrics.targetCaloriesPerDay(
+                weightKg = profile.weightKg,
+                heightCm = profile.heightCm,
+                age = profile.age,
+                activityLevel = profile.activityLevel,
+                goal = profile.goal
+            ).target
+        }
+
+    val calorieTargetBreakdown: CalorieTargetBreakdown
+        get() {
+            val profile = _userProfile.value
+            return HealthMetrics.targetCaloriesPerDay(
+                weightKg = profile.weightKg,
+                heightCm = profile.heightCm,
+                age = profile.age,
+                activityLevel = profile.activityLevel,
+                goal = profile.goal
+            )
         }
 
     class Factory(private val repository: UserPreferencesRepository) : ViewModelProvider.Factory {

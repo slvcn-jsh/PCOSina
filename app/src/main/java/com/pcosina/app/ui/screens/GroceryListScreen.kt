@@ -436,23 +436,26 @@ private fun CategoryCard(
 private fun inferCategory(item: GroceryItem): String {
     val raw = item.category.trim()
     if (raw.isNotBlank()) {
-        val mapped = when (raw) {
-            "Produce / Vegetables",
-            "Fruits" -> "Produce"
-            "Proteins (Meat/Seafood)" -> "Meat/Seafood"
-            "Eggs & Dairy" -> "Eggs & Dairy"
-            "Dry Goods / Grains" -> "Dry Goods"
-            "Spices & Condiments" -> "Spices & Condiments"
-            "Canned/Packaged",
-            "Beverages",
-            "Produce",
-            "Meat/Seafood",
-            "Dry Goods",
-            "Others" -> raw
-            else -> null
+        // "Needed" is a placeholder for uncategorized items; infer from name instead.
+        if (!raw.equals("Needed", ignoreCase = true)) {
+            val mapped = when (raw) {
+                "Produce / Vegetables",
+                "Fruits" -> "Produce"
+                "Proteins (Meat/Seafood)" -> "Meat/Seafood"
+                "Eggs & Dairy" -> "Eggs & Dairy"
+                "Dry Goods / Grains" -> "Dry Goods"
+                "Spices & Condiments" -> "Spices & Condiments"
+                "Canned/Packaged",
+                "Beverages",
+                "Produce",
+                "Meat/Seafood",
+                "Dry Goods",
+                "Others" -> raw
+                else -> raw // preserve custom categories
+            }
+            return mapped
         }
-        if (mapped != null) return mapped
-        }
+    }
     val name = item.name.lowercase(Locale.getDefault()).trim()
     if (name.isBlank()) return "Others"
     return when {

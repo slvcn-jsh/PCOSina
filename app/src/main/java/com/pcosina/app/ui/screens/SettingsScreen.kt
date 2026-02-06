@@ -54,6 +54,7 @@ fun SettingsScreen(
     val userName = profile.displayName.ifBlank { "Warrior" }
     val baseUrl = BuildConfig.BASE_URL.trimEnd('/')
     val schemaUrl = "$baseUrl/schema"
+    var tapCount by rememberSaveable { mutableStateOf(0) }
 
     Column(
         modifier = modifier
@@ -64,19 +65,23 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         Box(
-            modifier = Modifier.pointerInput(Unit) {
-                detectTapGestures(
-                    onLongPress = {
-                        val enabled = !adminMode
-                        userViewModel.toggleAdminMode()
-                        Toast.makeText(
-                            context,
-                            if (enabled) "Admin mode enabled" else "Admin mode disabled",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                )
-            }
+            modifier = Modifier
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onLongPress = {
+                            val enabled = !adminMode
+                            userViewModel.toggleAdminMode()
+                            Toast.makeText(
+                                context,
+                                if (enabled) "Admin mode enabled" else "Admin mode disabled",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    )
+                }
+                .clickable {
+                    tapCount += 1
+                }
         ) {
             GradientHeader(
                 title = "Hi, $userName! ✨",
@@ -195,6 +200,22 @@ fun SettingsScreen(
                     FirebaseCrashlytics.getInstance().log("Manual test crash from Settings")
                     throw RuntimeException("Crashlytics test crash")
                 }
+            }
+        }
+
+        if (!adminMode && tapCount >= 5) {
+            Card(
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Tip: long‑press the header to enable Admin mode.",
+                    modifier = Modifier.padding(14.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant
+                )
             }
         }
 

@@ -268,6 +268,7 @@ def admin_feedback(
     q: str | None = None,
     page: int = 1,
     page_size: int = 25,
+    export: str | None = None,
 ):
     expected = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
     if not expected or (x_admin_token != expected and token != expected):
@@ -284,6 +285,27 @@ def admin_feedback(
             item for item in items
             if q_lower in str(item.get("message", "")).lower()
         ]
+
+    if export:
+        fmt = export.lower().strip()
+        if fmt == "json":
+            payload = {
+                "count": len(items),
+                "items": items,
+            }
+            return JSONResponse(content=payload)
+        if fmt == "csv":
+            lines = ["id,created_at,message"]
+            for item in items:
+                fid = str(item.get("id", ""))
+                created_at = str(item.get("created_at", "")).replace("\n", " ").replace("\r", " ")
+                msg = str(item.get("message", "")).replace("\"", "\"\"").replace("\n", " ").replace("\r", " ")
+                lines.append(f"\"{fid}\",\"{created_at}\",\"{msg}\"")
+            return HTMLResponse(
+                content="\n".join(lines),
+                media_type="text/csv"
+            )
+        raise HTTPException(status_code=400, detail="Invalid export format. Use export=json or export=csv.")
 
     page_size = max(5, min(200, int(page_size or 25)))
     page = max(1, int(page or 1))
@@ -366,6 +388,10 @@ def admin_feedback(
         <div class="nav">
           <a href="/admin/feedback?{base_params}&page={prev_page}">Prev</a>
           <a href="/admin/feedback?{base_params}&page={next_page}">Next</a>
+        </div>
+        <div class="nav">
+          <a href="/admin/feedback?{base_params}&export=json">Export JSON</a>
+          <a href="/admin/feedback?{base_params}&export=csv">Export CSV</a>
         </div>
       </div>
       <table>

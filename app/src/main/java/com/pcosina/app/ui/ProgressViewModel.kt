@@ -39,9 +39,9 @@ class ProgressViewModel(
     private val _feedbackQueue = MutableStateFlow<List<FeedbackEntry>>(emptyList())
     val feedbackQueue: StateFlow<List<FeedbackEntry>> = _feedbackQueue.asStateFlow()
 
-    fun loadForUser(userId: String, weekStart: String) {
+    fun loadForUser(userId: String, weekStart: String, fallbackWeekStart: String? = null) {
         if (currentUserId == userId) {
-            loadWeeklyJournal(weekStart)
+            loadWeeklyJournal(weekStart, fallbackWeekStart)
             return
         }
         currentUserId = userId
@@ -57,17 +57,37 @@ class ProgressViewModel(
                 try { gson.fromJson(fq, feedbackType) } catch (_: Exception) { emptyList() }
             } else emptyList()
             // Drop already-sent entries to avoid stale queue items piling up
-            _feedbackQueue.value = entries.filter { it.status != "Sent" }
+            val normalized = entries.map { entry ->
+                if (entry.status == "Sending") {
+                    entry.copy(status = "Queued", lastError = null)
+                } else {
+                    entry
+                }
+            }.filter { it.status != "Sent" }
+            _feedbackQueue.value = normalized
 
-            loadWeeklyJournal(weekStart)
+            loadWeeklyJournal(weekStart, fallbackWeekStart)
         }
     }
 
-    fun loadWeeklyJournal(weekStart: String) {
+    fun loadWeeklyJournal(weekStart: String, fallbackWeekStart: String? = null) {
         if (currentUserId.isBlank()) return
         viewModelScope.launch {
-            val text = userPrefsRepository.getWeeklyJournal(currentUserId, weekStart).first()
-            _weeklyJournal.value = text ?: ""
+            val primary = userPrefsRepository.getWeeklyJournal(currentUserId, weekStart).first()
+            if (!primary.isNullOrBlank()) {
+                _weeklyJournal.value = primary
+                return@launch
+            }
+            if (!fallbackWeekStart.isNullOrBlank() && fallbackWeekStart != weekStart) {
+                val fallback = userPrefsRepository.getWeeklyJournal(currentUserId, fallbackWeekStart).first()
+                if (!fallback.isNullOrBlank()) {
+                    _weeklyJournal.value = fallback
+                    // Migrate legacy week key forward for future loads
+                    userPrefsRepository.saveWeeklyJournal(currentUserId, weekStart, fallback)
+                    return@launch
+                }
+            }
+            _weeklyJournal.value = ""
         }
     }
 
@@ -140,7 +160,7 @@ class ProgressViewModel(
             var i = 0
             while (i < entries.size) {
                 val entry = entries[i]
-                if (entry.status == "Queued" || entry.status == "Failed") {
+                if (entry.status == "Queued" || entry.status == "Failed" || entry.status == "Sending") {
                     entries[i] = entry.copy(
                         status = "Sending",
                         lastTriedAt = System.currentTimeMillis(),

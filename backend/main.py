@@ -269,12 +269,14 @@ def admin_feedback(
     page: int = 1,
     page_size: int = 25,
     export: str | None = None,
+    sort: str | None = None,
 ):
     expected = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
     if not expected or (x_admin_token != expected and token != expected):
         raise HTTPException(status_code=401, detail="Unauthorized")
     try:
-        items = database.get_recent_feedback(500)
+        order = "asc" if str(sort).lower() == "asc" else "desc"
+        items = database.get_recent_feedback(500, order=order)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load feedback: {e}")
 
@@ -335,13 +337,14 @@ def admin_feedback(
             f"<input type='hidden' name='token' value='{expected}'/>"
             f"<input type='hidden' name='q' value='{query}'/>"
             f"<input type='hidden' name='page' value='{page}'/>"
+            f"<input type='hidden' name='sort' value='{order}'/>"
             "<button type='submit'>Delete</button>"
             "</form>"
             "</td>"
             "</tr>"
         )
     rows_html = "\n".join(rows) if rows else "<tr><td colspan='4'>No feedback yet.</td></tr>"
-    base_params = f"token={expected}&page_size={page_size}"
+    base_params = f"token={expected}&page_size={page_size}&sort={order}"
     if query:
         base_params += f"&q={query}"
     prev_page = max(1, page - 1)
@@ -370,30 +373,34 @@ def admin_feedback(
     </head>
     <body>
       <h1>PCOSINA Feedback</h1>
-      <div class="toolbar">
-        <form method="get" action="/admin/feedback" class="pill">
-          <input type="hidden" name="token" value="{expected}"/>
-          <input type="hidden" name="page_size" value="{page_size}"/>
-          <input type="text" name="q" value="{query}" placeholder="Search message..." />
-          <button type="submit">Search</button>
-        </form>
-        <form id="bulk-delete" method="post" action="/admin/feedback/delete-bulk" class="pill">
-          <input type="hidden" name="token" value="{expected}"/>
-          <input type="hidden" name="q" value="{query}"/>
-          <input type="hidden" name="page" value="{page}"/>
-          <input type="hidden" name="page_size" value="{page_size}"/>
-          <button type="submit">Delete selected</button>
-        </form>
-        <div class="pill">{page_label}</div>
-        <div class="nav">
-          <a href="/admin/feedback?{base_params}&page={prev_page}">Prev</a>
-          <a href="/admin/feedback?{base_params}&page={next_page}">Next</a>
+        <div class="toolbar">
+          <form method="get" action="/admin/feedback" class="pill">
+            <input type="hidden" name="token" value="{expected}"/>
+            <input type="hidden" name="page_size" value="{page_size}"/>
+            <input type="hidden" name="sort" value="{order}"/>
+            <input type="text" name="q" value="{query}" placeholder="Search message..." />
+            <button type="submit">Search</button>
+          </form>
+          <form id="bulk-delete" method="post" action="/admin/feedback/delete-bulk" class="pill">
+            <input type="hidden" name="token" value="{expected}"/>
+            <input type="hidden" name="q" value="{query}"/>
+            <input type="hidden" name="page" value="{page}"/>
+            <input type="hidden" name="page_size" value="{page_size}"/>
+            <input type="hidden" name="sort" value="{order}"/>
+            <button type="submit">Delete selected</button>
+          </form>
+          <div class="pill">{page_label}</div>
+          <div class="nav">
+            <a href="/admin/feedback?{base_params}&page={prev_page}">Prev</a>
+            <a href="/admin/feedback?{base_params}&page={next_page}">Next</a>
+          </div>
+          <div class="nav">
+            <a href="/admin/feedback?{base_params}&export=json">Export JSON</a>
+            <a href="/admin/feedback?{base_params}&export=csv">Export CSV</a>
+            <a href="/admin/feedback?{base_params}&sort=desc">Newest first</a>
+            <a href="/admin/feedback?{base_params}&sort=asc">Oldest first</a>
+          </div>
         </div>
-        <div class="nav">
-          <a href="/admin/feedback?{base_params}&export=json">Export JSON</a>
-          <a href="/admin/feedback?{base_params}&export=csv">Export CSV</a>
-        </div>
-      </div>
       <table>
         <thead><tr><th></th><th>Created At</th><th>Message</th><th>Action</th></tr></thead>
         <tbody>
@@ -411,6 +418,7 @@ def admin_feedback_delete(
     token: str = Form(...),
     q: str | None = Form(default=None),
     page: int = Form(default=1),
+    sort: str | None = Form(default=None),
 ):
     expected = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
     if not expected or token != expected:
@@ -418,7 +426,8 @@ def admin_feedback_delete(
     try:
         database.delete_feedback_by_id(id)
         q = (q or "").strip()
-        qs = f"?token={expected}"
+        order = "asc" if str(sort).lower() == "asc" else "desc"
+        qs = f"?token={expected}&sort={order}"
         if q:
             qs += f"&q={q}"
         if page and int(page) > 1:
@@ -434,6 +443,7 @@ def admin_feedback_delete_bulk(
     q: str | None = Form(default=None),
     page: int = Form(default=1),
     page_size: int = Form(default=25),
+    sort: str | None = Form(default=None),
 ):
     expected = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
     if not expected or token != expected:
@@ -448,7 +458,8 @@ def admin_feedback_delete_bulk(
             database.delete_feedback_by_id(fid)
             deleted += 1
         q = (q or "").strip()
-        qs = f"?token={expected}&page_size={page_size}"
+        order = "asc" if str(sort).lower() == "asc" else "desc"
+        qs = f"?token={expected}&page_size={page_size}&sort={order}"
         if q:
             qs += f"&q={q}"
         if page and int(page) > 1:

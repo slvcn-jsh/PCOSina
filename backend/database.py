@@ -138,16 +138,17 @@ def save_feedback(message: str):
     finally:
         conn.close()
 
-def get_recent_feedback(limit: int = 50):
+def get_recent_feedback(limit: int = 50, order: str = "desc"):
     conn = _connect()
     try:
         cur = conn.cursor()
+        order_dir = "ASC" if str(order).lower() == "asc" else "DESC"
         if _use_postgres():
-            cur.execute("SELECT id, message, created_at FROM feedback ORDER BY id DESC LIMIT %s", (limit,))
+            cur.execute(f"SELECT id, message, created_at FROM feedback ORDER BY id {order_dir} LIMIT %s", (limit,))
             rows = cur.fetchall()
             return [{"id": r[0], "message": r[1], "created_at": str(r[2])} for r in rows]
         else:
-            cur.execute("SELECT id, message, created_at FROM feedback ORDER BY id DESC LIMIT ?", (limit,))
+            cur.execute(f"SELECT id, message, created_at FROM feedback ORDER BY id {order_dir} LIMIT ?", (limit,))
             rows = cur.fetchall()
             return [{"id": r[0], "message": r[1], "created_at": r[2]} for r in rows]
     finally:
@@ -329,16 +330,17 @@ def save_feedback(message: str):
     finally:
         conn.close()
 
-def get_recent_feedback(limit: int = 50):
+def get_recent_feedback(limit: int = 50, order: str = "desc"):
     conn = _connect()
     try:
         cur = conn.cursor()
+        order_dir = "ASC" if str(order).lower() == "asc" else "DESC"
         if _use_postgres():
-            cur.execute("SELECT id, message, created_at FROM feedback ORDER BY id DESC LIMIT %s", (limit,))
+            cur.execute(f"SELECT id, message, created_at FROM feedback ORDER BY id {order_dir} LIMIT %s", (limit,))
             rows = cur.fetchall()
             return [{"id": r[0], "message": r[1], "created_at": str(r[2])} for r in rows]
         else:
-            cur.execute("SELECT id, message, created_at FROM feedback ORDER BY id DESC LIMIT ?", (limit,))
+            cur.execute(f"SELECT id, message, created_at FROM feedback ORDER BY id {order_dir} LIMIT ?", (limit,))
             rows = cur.fetchall()
             return [{"id": r[0], "message": r[1], "created_at": r[2]} for r in rows]
     finally:

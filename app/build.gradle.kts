@@ -31,8 +31,15 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
-        // POINTED TO YOUR VERIFIED PC IP
-        buildConfigField("String", "BASE_URL", "\"http://192.168.1.48:8000/\"")
+        val releaseBaseUrl = "https://pcosina-backend.onrender.com/"
+        fun validateBaseUrl(name: String, url: String) {
+            val pattern = Regex("^https?://.+/$")
+            if (!pattern.matches(url)) {
+                throw GradleException("Invalid BASE_URL for $name: $url")
+            }
+        }
+        validateBaseUrl("release", releaseBaseUrl)
+        buildConfigField("String", "BASE_URL", "\"$releaseBaseUrl\"")
         buildConfigField("String", "SENTRY_DSN", "\"\"")
         buildConfigField("String", "SCHEMA_VERSION", "\"1.0.1\"")
     }
@@ -44,11 +51,21 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "BASE_URL", "\"https://pcosina-backend.onrender.com/\"")
+            val releaseBaseUrl = "https://pcosina-backend.onrender.com/"
+            val pattern = Regex("^https?://.+/$")
+            if (!pattern.matches(releaseBaseUrl)) {
+                throw GradleException("Invalid BASE_URL for release: $releaseBaseUrl")
+            }
+            buildConfigField("String", "BASE_URL", "\"$releaseBaseUrl\"")
             signingConfig = signingConfigs.getByName("release")
         }
         debug {
-            buildConfigField("String", "BASE_URL", "\"http://192.168.1.48:8000/\"")
+            val debugBaseUrl = "http://192.168.1.48:8000/"
+            val pattern = Regex("^https?://.+/$")
+            if (!pattern.matches(debugBaseUrl)) {
+                throw GradleException("Invalid BASE_URL for debug: $debugBaseUrl")
+            }
+            buildConfigField("String", "BASE_URL", "\"$debugBaseUrl\"")
         }
     }
 

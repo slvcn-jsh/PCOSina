@@ -56,7 +56,8 @@ class ProgressViewModel(
             val entries: List<FeedbackEntry> = if (!fq.isNullOrBlank()) {
                 try { gson.fromJson(fq, feedbackType) } catch (_: Exception) { emptyList() }
             } else emptyList()
-            _feedbackQueue.value = entries
+            // Drop already-sent entries to avoid stale queue items piling up
+            _feedbackQueue.value = entries.filter { it.status != "Sent" }
 
             loadWeeklyJournal(weekStart)
         }
@@ -117,6 +118,13 @@ class ProgressViewModel(
         }
     }
 
+    fun reset() {
+        currentUserId = ""
+        _dailyLogs.value = emptyMap()
+        _weeklyJournal.value = ""
+        _feedbackQueue.value = emptyList()
+    }
+
     fun queueFeedback(message: String) {
         if (currentUserId.isBlank()) return
         val entry = FeedbackEntry(id = UUID.randomUUID().toString(), message = message)
@@ -128,15 +136,50 @@ class ProgressViewModel(
     fun trySendQueuedFeedback(isOnline: Boolean) {
         if (!isOnline || currentUserId.isBlank()) return
         viewModelScope.launch {
-            val updated = _feedbackQueue.value.map { entry ->
-                if (entry.status == "Queued") {
-                    val ok = feedbackRepository.sendFeedback(entry.message)
-                    if (ok) entry.copy(status = "Sent") else entry.copy(status = "Failed")
-                } else entry
+            val entries = _feedbackQueue.value.toMutableList()
+            var i = 0
+            while (i < entries.size) {
+                val entry = entries[i]
+                if (entry.status == "Queued" || entry.status == "Failed") {
+                    entries[i] = entry.copy(
+                        status = "Sending",
+                        lastTriedAt = System.currentTimeMillis(),
+                        lastError = null
+                    )
+                    _feedbackQueue.value = entries.toList()
+                    persistFeedback(entries)
+                    val result = feedbackRepository.sendFeedback(entry.message)
+                    if (result.ok) {
+                        // Remove successful entries so they don't pile up in the UI
+                        entries.removeAt(i)
+                        i -= 1
+                    } else {
+                        val nextAttempts = entry.attempts + 1
+                        val errorText = result.error ?: "Unknown error"
+                        val isHttpError = errorText.startsWith("HTTP")
+                        val newStatus = if (isHttpError && nextAttempts >= 1) "Failed" else "Queued"
+                        entries[i] = entry.copy(
+                            status = newStatus,
+                            attempts = nextAttempts,
+                            lastError = errorText
+                        )
+                    }
+                }
+                i += 1
             }
-            _feedbackQueue.value = updated
-            persistFeedback(updated)
+            _feedbackQueue.value = entries.toList()
+            persistFeedback(entries)
         }
+    }
+
+    fun retryFeedback(entryId: String, isOnline: Boolean) {
+        if (currentUserId.isBlank()) return
+        val updated = _feedbackQueue.value.map { entry ->
+            if (entry.id == entryId) entry.copy(status = "Queued", lastError = null) else entry
+        }
+        _feedbackQueue.value = updated
+        persistFeedback(updated)
+        trySendQueuedFeedback(isOnline)
     }
 
     private fun persistFeedback(entries: List<FeedbackEntry>) {

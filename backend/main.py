@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request, Depends, Header
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional, Dict, Any
 import json
@@ -638,6 +638,51 @@ def feedback(payload: FeedbackRequest):
         return {"status": "ok"}
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to save feedback")
+
+@app.get("/admin/feedback", response_class=HTMLResponse)
+def admin_feedback(x_admin_token: str | None = Header(default=None)):
+    expected = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
+    if not expected or x_admin_token != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        items = database.get_recent_feedback(100)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load feedback: {e}")
+
+    rows = []
+    for item in items:
+        msg = str(item.get("message", ""))
+        created_at = str(item.get("created_at", ""))
+        rows.append(f"<tr><td>{created_at}</td><td>{msg}</td></tr>")
+    rows_html = "\n".join(rows) if rows else "<tr><td colspan='2'>No feedback yet.</td></tr>"
+
+    html = f"""
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>PCOSINA Feedback</title>
+      <style>
+        body {{ font-family: Arial, sans-serif; margin: 24px; background: #f7f7f7; }}
+        h1 {{ margin-bottom: 12px; }}
+        table {{ width: 100%; border-collapse: collapse; background: #fff; }}
+        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }}
+        th {{ background: #f0f0f0; }}
+        tr:nth-child(even) {{ background: #fafafa; }}
+      </style>
+    </head>
+    <body>
+      <h1>PCOSINA Feedback</h1>
+      <table>
+        <thead><tr><th>Created At</th><th>Message</th></tr></thead>
+        <tbody>
+          {rows_html}
+        </tbody>
+      </table>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
 
 
 if __name__ == "__main__":

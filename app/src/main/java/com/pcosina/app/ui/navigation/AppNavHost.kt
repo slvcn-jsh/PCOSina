@@ -180,6 +180,25 @@ fun AppNavHost(
         }
     }
 
+    // Splash gate: only navigate once splash delay finished and profile load complete
+    LaunchedEffect(
+        splashReady.value,
+        isProfileLoading,
+        session.isLoggedIn,
+        inferredProfileCompleted
+    ) {
+        if (!splashReady.value || isProfileLoading || hasNavigated.value) return@LaunchedEffect
+        val target = when {
+            !session.isLoggedIn -> Routes.Login
+            !inferredProfileCompleted -> Routes.Onboarding
+            else -> Routes.Dashboard
+        }
+        hasNavigated.value = true
+        navController.navigate(target) {
+            popUpTo(Routes.Splash) { inclusive = true }
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -192,25 +211,6 @@ fun AppNavHost(
                 },
                 modifier = Modifier.fillMaxSize(),
             )
-        }
-
-        // Splash gate: only navigate once splash delay finished and profile load complete
-        LaunchedEffect(
-            splashReady.value,
-            isProfileLoading,
-            session.isLoggedIn,
-            inferredProfileCompleted
-        ) {
-            if (!splashReady.value || isProfileLoading || hasNavigated.value) return@LaunchedEffect
-            val target = when {
-                !session.isLoggedIn -> Routes.Login
-                !inferredProfileCompleted -> Routes.Onboarding
-                else -> Routes.Dashboard
-            }
-            hasNavigated.value = true
-            navController.navigate(target) {
-                popUpTo(Routes.Splash) { inclusive = true }
-            }
         }
 
         composable(Routes.Login) {

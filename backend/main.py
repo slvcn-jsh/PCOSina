@@ -626,6 +626,7 @@ def db_status():
             "db": db_mode_fn() if callable(db_mode_fn) else "unknown",
             "recipes": recipe_count_fn() if callable(recipe_count_fn) else None,
             "sample": sample_fn(3) if callable(sample_fn) else [],
+            "db_module": getattr(database, "__file__", str(database)),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"DB status failed: {e}")
@@ -645,8 +646,8 @@ def feedback_recent(x_admin_token: str | None = Header(default=None)):
         raise HTTPException(status_code=401, detail="Unauthorized")
     try:
         return {"status": "ok", "items": database.get_recent_feedback(50)}
-    except Exception:
-        raise HTTPException(status_code=500, detail="Failed to load feedback")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load feedback: {e}")
 
 if __name__ == "__main__":
     import uvicorn

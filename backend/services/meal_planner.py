@@ -636,13 +636,14 @@ def solve_meal_plan(
                 return res_plan, "Success", explanation
         if (time.time() - started_at) >= total_time_limit:
             break
-    debug_note = "Infeasible"
-    if debug_solver:
-        print("MILP_DEBUG", json.dumps(debug_summary))
-        msg = json.dumps(debug_summary)[:1500]
-        debug_note = f"Infeasible | debug={msg}"
+    if not _env_bool("PCOSINA_ALLOW_FALLBACK", False):
+        if debug_solver:
+            print("MILP_DEBUG", json.dumps(debug_summary))
+            msg = json.dumps(debug_summary)[:1500]
+            return None, f"Infeasible | debug={msg}", None
+        return None, "Infeasible", None
 
-    # Fallback: build a greedy plan to avoid hard failure if MILP cannot find a solution in time.
+    # Optional fallback: build a greedy plan to avoid hard failure if MILP cannot find a solution in time.
     fallback_max = _env_int("PCOSINA_FALLBACK_MAX_PER_WEEK", 10)
     res_plan, selected = _greedy_fallback_plan(
         pool,
@@ -667,5 +668,5 @@ def solve_meal_plan(
     )
     if explanation is not None:
         explanation["fallbackUsed"] = True
-        explanation["fallbackReason"] = debug_note
+        explanation["fallbackReason"] = "MILP infeasible or timed out"
     return res_plan, "Fallback: heuristic plan", explanation

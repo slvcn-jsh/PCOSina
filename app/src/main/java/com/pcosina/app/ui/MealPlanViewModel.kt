@@ -77,15 +77,16 @@ class MealPlanViewModel(
 
     private fun calculateMetrics(response: GeneratePlanResponse) {
         viewModelScope.launch {
-            val recipeIds = response.days.flatMap { it.meals }.map { it.recipeId }.distinct()
-            val deferredDetails = recipeIds.map { id -> async { repository.getRecipeDetails(id).getOrNull() } }
+            val mealIds = response.days.flatMap { it.meals }.mapNotNull { it.recipeId }
+            val countsById = mealIds.groupingBy { it }.eachCount()
+            val deferredDetails = countsById.keys.map { id -> async { repository.getRecipeDetails(id).getOrNull() } }
             val allDetails = deferredDetails.awaitAll().filterNotNull()
             
             if (allDetails.isNotEmpty()) {
-                val totalP = allDetails.sumOf { it.proteinGrams ?: 0 }
-                val totalC = allDetails.sumOf { it.carbsGrams ?: 0 }
-                val totalF = allDetails.sumOf { it.fiberGrams ?: 0 }
-                val totalFat = allDetails.sumOf { it.fatsGrams ?: 0 }
+                val totalP = allDetails.sumOf { (it.proteinGrams ?: 0) * (countsById[it.id] ?: 1) }
+                val totalC = allDetails.sumOf { (it.carbsGrams ?: 0) * (countsById[it.id] ?: 1) }
+                val totalF = allDetails.sumOf { (it.fiberGrams ?: 0) * (countsById[it.id] ?: 1) }
+                val totalFat = allDetails.sumOf { (it.fatsGrams ?: 0) * (countsById[it.id] ?: 1) }
                 val dayDivisor = if (response.days.isNotEmpty()) response.days.size else 7
                 _planMetrics.value = PlanMetrics(
                     avgProtein = (totalP / dayDivisor),

@@ -43,6 +43,22 @@ class ProgressViewModel(
     private val retryMaxDelayMs = 60000L
     private val retryMaxAttempts = 5
 
+    companion object {
+        private const val MEAL_KEY_SEPARATOR = "::"
+
+        fun buildMealKey(mealLabel: String, recipeId: String): String {
+            return "$mealLabel$MEAL_KEY_SEPARATOR$recipeId"
+        }
+
+        fun extractRecipeId(mealKey: String): String {
+            return if (mealKey.contains(MEAL_KEY_SEPARATOR)) {
+                mealKey.substringAfter(MEAL_KEY_SEPARATOR)
+            } else {
+                mealKey
+            }
+        }
+    }
+
     fun loadForUser(userId: String, weekStart: String, fallbackWeekStart: String? = null) {
         if (currentUserId == userId) {
             loadWeeklyJournal(weekStart, fallbackWeekStart)
@@ -103,13 +119,17 @@ class ProgressViewModel(
         }
     }
 
-    fun toggleMeal(date: LocalDate, mealId: String) {
+    fun toggleMeal(date: LocalDate, recipeId: String, mealLabel: String) {
         val key = date.format(dateFmt)
         val current = _dailyLogs.value[key]
-        val updatedIds = if (current?.completedMealIds?.contains(mealId) == true) {
-            current.completedMealIds.filterNot { it == mealId }
+        val mealKey = buildMealKey(mealLabel, recipeId)
+        val currentIds = current?.completedMealIds ?: emptyList()
+        val hasKey = currentIds.contains(mealKey)
+        val hasLegacy = currentIds.contains(recipeId)
+        val updatedIds = if (hasKey || hasLegacy) {
+            currentIds.filterNot { it == mealKey || it == recipeId }
         } else {
-            (current?.completedMealIds ?: emptyList()) + mealId
+            currentIds + mealKey
         }
         val updated = (current ?: DailyLog(date = key)).copy(
             completedMealIds = updatedIds,

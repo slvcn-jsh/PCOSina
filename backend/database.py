@@ -105,6 +105,25 @@ def _create_table_sql() -> str:
             steps_json TEXT
         )
     """
+
+def _ensure_recipe_columns(conn):
+    cur = conn.cursor()
+    if _use_postgres():
+        cur.execute("ALTER TABLE recipes ADD COLUMN IF NOT EXISTS minutes INTEGER")
+        cur.execute("ALTER TABLE recipes ADD COLUMN IF NOT EXISTS ingredients_json TEXT")
+        cur.execute("ALTER TABLE recipes ADD COLUMN IF NOT EXISTS steps_json TEXT")
+    else:
+        cur.execute("PRAGMA table_info(recipes)")
+        cols = {row[1] for row in cur.fetchall()}
+        if "minutes" not in cols:
+            cur.execute("ALTER TABLE recipes ADD COLUMN minutes INTEGER")
+        if "ingredients_json" not in cols:
+            cur.execute("ALTER TABLE recipes ADD COLUMN ingredients_json TEXT")
+        if "steps_json" not in cols:
+            cur.execute("ALTER TABLE recipes ADD COLUMN steps_json TEXT")
+    cur.execute("UPDATE recipes SET minutes = COALESCE(minutes, 25)")
+    cur.execute("UPDATE recipes SET ingredients_json = COALESCE(ingredients_json, '[]')")
+    cur.execute("UPDATE recipes SET steps_json = COALESCE(steps_json, '[]')")
     
 def _create_feedback_table_sql() -> str:
     if _use_postgres():
@@ -171,6 +190,7 @@ def init_db():
     conn = _connect()
     cursor = conn.cursor()
     cursor.execute(_create_table_sql())
+    _ensure_recipe_columns(conn)
     try:
         cursor.execute(_create_feedback_table_sql())
     except Exception as e:

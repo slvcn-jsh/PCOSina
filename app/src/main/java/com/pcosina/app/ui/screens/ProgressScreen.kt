@@ -127,21 +127,27 @@ fun ProgressScreen(
     var completedMacroAvailable by remember { mutableStateOf(false) }
 
     LaunchedEffect(logs, planState) {
-        val completedIds = logs.filterKeys { isInWeek(it, weekStart) }
-            .values.flatMap { it.completedMealIds }.distinct()
-        val sourceIds = if (completedIds.isNotEmpty()) completedIds else {
-            planDays.flatMap { it.meals }.map { it.recipeId }.distinct()
-        }
-        completedMacroAvailable = completedIds.isNotEmpty()
+        val completedMealKeys = logs.filterKeys { isInWeek(it, weekStart) }
+            .values.flatMap { it.completedMealIds }
+        val completedCountsByRecipe = completedMealKeys
+            .groupingBy { ProgressViewModel.extractRecipeId(it) }
+            .eachCount()
+        val plannedCountsByRecipe = planDays.flatMap { it.meals }
+            .map { it.recipeId }
+            .groupingBy { it }
+            .eachCount()
+        val useCompleted = completedCountsByRecipe.isNotEmpty()
+        val countsByRecipe = if (useCompleted) completedCountsByRecipe else plannedCountsByRecipe
+        completedMacroAvailable = useCompleted
         macroLabel = if (completedMacroAvailable) "Completed meals (avg/day, weekly)" else "Planned macros (avg/day, weekly)"
-        val details = sourceIds.mapNotNull { id ->
+        val details = countsByRecipe.keys.mapNotNull { id ->
             mealPlanViewModel.getRecipeDetails(id).getOrNull()
         }
         val dayDivisor = if (planDays.isNotEmpty()) planDays.size else 7
         if (details.isNotEmpty()) {
-            avgProtein = details.sumOf { it.proteinGrams ?: 0 } / dayDivisor
-            avgCarbs = details.sumOf { it.carbsGrams ?: 0 } / dayDivisor
-            avgFats = details.sumOf { it.fatsGrams ?: 0 } / dayDivisor
+            avgProtein = details.sumOf { (it.proteinGrams ?: 0) * (countsByRecipe[it.id] ?: 1) } / dayDivisor
+            avgCarbs = details.sumOf { (it.carbsGrams ?: 0) * (countsByRecipe[it.id] ?: 1) } / dayDivisor
+            avgFats = details.sumOf { (it.fatsGrams ?: 0) * (countsByRecipe[it.id] ?: 1) } / dayDivisor
         } else {
             avgProtein = 0
             avgCarbs = 0
@@ -623,9 +629,16 @@ fun ProgressScreen(
                     } else {
                         plannedMealsForDay.forEach { meal ->
                             val dateKey = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
-                            val checked = logs[dateKey]?.completedMealIds?.contains(meal.recipeId) == true
+                            val mealKey = ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)
+                            val completedIds = logs[dateKey]?.completedMealIds.orEmpty()
+                            val checked = completedIds.contains(mealKey) || completedIds.contains(meal.recipeId)
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(checked = checked, onCheckedChange = { progressViewModel.toggleMeal(selectedDate, meal.recipeId) })
+                                Checkbox(
+                                    checked = checked,
+                                    onCheckedChange = {
+                                        progressViewModel.toggleMeal(selectedDate, meal.recipeId, meal.mealLabel)
+                                    }
+                                )
                                 Text(meal.title)
                             }
                         }

@@ -200,9 +200,10 @@ class MealPlanViewModel(
         }
     }
 
-    suspend fun getGrocerySourcesForRecipe(recipeId: String): List<GroceryItemSource> {
-        val detail = repository.getRecipeDetails(recipeId).getOrNull() ?: return emptyList()
-        return detail.ingredients.map { GroceryItemSource(it.name, it.quantity) }
+    suspend fun getGrocerySourcesForRecipe(recipeId: String): Result<List<GroceryItemSource>> {
+        val detail = repository.getRecipeDetails(recipeId).getOrNull()
+            ?: return Result.failure(IllegalStateException("Recipe details unavailable"))
+        return Result.success(detail.ingredients.map { GroceryItemSource(it.name, it.quantity) })
     }
 
     fun extractGrocerySourcesForPlan(onComplete: (Map<String, List<GroceryItemSource>>) -> Unit) {

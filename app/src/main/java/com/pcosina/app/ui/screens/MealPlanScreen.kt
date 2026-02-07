@@ -756,20 +756,26 @@ fun MealPlanScreen(
                                                         target.mealIndex,
                                                         target.mealLabel
                                                     )
-                                                    val items = mealPlanViewModel.getGrocerySourcesForRecipe(option.id)
+                                                    val itemsResult = mealPlanViewModel.getGrocerySourcesForRecipe(option.id)
                                                     mealPlanViewModel.swapMeal(
                                                         target.dayIndex,
                                                         target.mealIndex,
                                                         option.id,
                                                         option.title
                                                     )
-                                                    if (items.isEmpty()) {
+                                                    itemsResult.onSuccess { items ->
+                                                        if (groceryViewModel.hasSourcesForMeal(mealId)) {
+                                                            groceryViewModel.replaceMealItems(mealId, items)
+                                                            if (items.isEmpty()) {
+                                                                snackbarHostState.showSnackbar("Meal swapped. Grocery items cleared for this meal.")
+                                                            } else {
+                                                                snackbarHostState.showSnackbar("Meal swapped and grocery list updated.")
+                                                            }
+                                                        } else {
+                                                            snackbarHostState.showSnackbar("Meal swapped. Sync groceries to update list.")
+                                                        }
+                                                    }.onFailure {
                                                         snackbarHostState.showSnackbar("Meal swapped. Grocery update skipped (ingredients unavailable).")
-                                                    } else if (groceryViewModel.hasSourcesForMeal(mealId)) {
-                                                        groceryViewModel.replaceMealItems(mealId, items)
-                                                        snackbarHostState.showSnackbar("Meal swapped and grocery list updated.")
-                                                    } else {
-                                                        snackbarHostState.showSnackbar("Meal swapped. Sync groceries to update list.")
                                                     }
                                                 } catch (e: Exception) {
                                                     snackbarHostState.showSnackbar("Swap failed. Please try again.")

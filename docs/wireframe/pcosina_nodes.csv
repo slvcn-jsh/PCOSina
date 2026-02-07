@@ -1,0 +1,14 @@
+id,label,type,group
+WF_Splash,Splash,screen,auth
+WF_Login,Login,screen,auth
+WF_SignUp,Sign Up,screen,auth
+WF_Onboarding,Onboarding,screen,onboarding
+WF_UserProfile,User Profile,screen,onboarding
+WF_GoalSelection,Goal Selection,screen,onboarding
+WF_Dashboard,Dashboard,screen,tabs
+WF_MealPlan,Meal Plan,screen,tabs
+WF_GroceryList,Grocery List,screen,tabs
+WF_Progress,Progress,screen,tabs
+WF_Ipo,IPO Visualization,screen,tabs
+WF_Settings,Settings,screen,settings
+WF_RecipeDetails,Recipe Details,screen,detail

@@ -34,6 +34,9 @@ backend/services/__pycache__/
 .gradle-user/
 .kotlin/errors/
 hs_err_pid*.log
+
+# Secrets
+backend/backend/secrets/
 pcosina-current-HEAD.zip
 backend/pcosina-current-HEAD.zip
 output/

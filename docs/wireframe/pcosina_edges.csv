@@ -1,0 +1,34 @@
+from,to,label
+WF_Splash,WF_Login,Not logged in
+WF_Splash,WF_Onboarding,Logged in + profile incomplete
+WF_Splash,WF_Dashboard,Logged in + profile complete
+
+WF_Login,WF_Splash,Login success
+WF_Login,WF_SignUp,Go to sign up
+WF_SignUp,WF_Onboarding,Sign up success
+WF_SignUp,WF_Login,Go to login
+
+WF_Onboarding,WF_UserProfile,Next
+WF_UserProfile,WF_GoalSelection,Next
+WF_GoalSelection,WF_Dashboard,Finish
+
+WF_Dashboard,WF_Settings,Open settings
+WF_Settings,WF_Onboarding,Re-do onboarding
+
+WF_Dashboard,WF_RecipeDetails,Recipe click
+WF_MealPlan,WF_RecipeDetails,Recipe click
+
+WF_RecipeDetails,WF_Dashboard,Back
+WF_RecipeDetails,WF_GroceryList,Add to grocery
+
+WF_Progress,WF_Dashboard,Back to dashboard
+WF_Ipo,WF_Dashboard,Back to dashboard
+
+WF_Dashboard,WF_MealPlan,Tab
+WF_Dashboard,WF_GroceryList,Tab
+WF_Dashboard,WF_Progress,Tab
+WF_Dashboard,WF_Ipo,Tab
+WF_MealPlan,WF_Dashboard,Tab
+WF_GroceryList,WF_Dashboard,Tab
+WF_Progress,WF_Dashboard,Tab
+WF_Ipo,WF_Dashboard,Tab

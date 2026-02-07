@@ -269,6 +269,16 @@ def shortlist_candidates(profile: UserProfile, recipes: List[Dict[str, Any]]) ->
     return buckets
 
 
+def _calorie_bin(calories: int) -> str:
+    if calories < 350:
+        return "lt350"
+    if calories < 500:
+        return "350_499"
+    if calories < 650:
+        return "500_649"
+    return "ge650"
+
+
 def _cap_pool(pool: List[Dict[str, Any]], max_pool: int) -> List[Dict[str, Any]]:
     if len(pool) <= max_pool:
         return pool
@@ -285,6 +295,8 @@ def _cap_pool(pool: List[Dict[str, Any]], max_pool: int) -> List[Dict[str, Any]]
         if rid in selected_ids:
             continue
         group = r.get("_protein_group") or "other"
+        calories = int(r.get("calories") or 0)
+        group = f"{group}:{_calorie_bin(calories)}"
         groups.setdefault(group, []).append((score, rid, r))
     group_keys = sorted(groups.keys())
     while len(selected) < max_pool and group_keys:
@@ -483,7 +495,7 @@ def solve_meal_plan(
         return None, "No safe recipes found.", None
 
     pool = candidates
-    max_pool_size = 160
+    max_pool_size = 100
     if len(pool) > max_pool_size:
         if debug_solver:
             debug_summary["pool_pre_cap"] = len(pool)

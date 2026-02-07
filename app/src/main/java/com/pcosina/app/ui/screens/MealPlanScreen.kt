@@ -763,7 +763,9 @@ fun MealPlanScreen(
                                                         option.id,
                                                         option.title
                                                     )
-                                                    if (groceryViewModel.hasSourcesForMeal(mealId)) {
+                                                    if (items.isEmpty()) {
+                                                        snackbarHostState.showSnackbar("Meal swapped. Grocery update skipped (ingredients unavailable).")
+                                                    } else if (groceryViewModel.hasSourcesForMeal(mealId)) {
                                                         groceryViewModel.replaceMealItems(mealId, items)
                                                         snackbarHostState.showSnackbar("Meal swapped and grocery list updated.")
                                                     } else {

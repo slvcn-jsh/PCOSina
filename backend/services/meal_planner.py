@@ -188,6 +188,13 @@ def estimate_cost(recipe: Dict[str, Any]) -> int:
     return int(len(ings) * 8 + cal * 0.4)
 
 
+def _base_score(recipe: Dict[str, Any]) -> float:
+    p = recipe.get("proteinGrams") or 0
+    cals = recipe.get("calories") or 0
+    pantry_bonus = (recipe.get("_pantry_match") or 0) * 1.5
+    return (p * 2.0) - (recipe.get("_cost_est", 0) * 0.05) - abs(cals - 500) * 0.15 + pantry_bonus
+
+
 def passes_restrictions(profile: UserProfile, tags: List[str], ing_tokens: List[str]) -> bool:
     restrictions = set(profile.dietaryRestrictions or [])
     tagset = set(tags)
@@ -247,14 +254,8 @@ def shortlist_candidates(profile: UserProfile, recipes: List[Dict[str, Any]]) ->
         else:
             buckets["Universal"].append(r)
 
-    def score(recipe: Dict[str, Any]) -> float:
-        p = recipe.get("proteinGrams") or 0
-        cals = recipe.get("calories") or 0
-        pantry_bonus = (recipe.get("_pantry_match") or 0) * 1.5
-        return (p * 2.0) - (recipe["_cost_est"] * 0.05) - abs(cals - 500) * 0.15 + pantry_bonus
-
     for k in buckets:
-        buckets[k].sort(key=score, reverse=True)
+        buckets[k].sort(key=_base_score, reverse=True)
         limit_default = _env_int("PCOSINA_SHORTLIST_LIMIT", 80)
         limit_restricted = _env_int("PCOSINA_SHORTLIST_LIMIT_RESTRICTED", 120)
         limit = limit_default if restriction_count < 2 else limit_restricted
@@ -266,6 +267,52 @@ def shortlist_candidates(profile: UserProfile, recipes: List[Dict[str, Any]]) ->
             keep = int(max(keep_min, len(buckets[k]) * keep_ratio))
             buckets[k] = buckets[k][:keep]
     return buckets
+
+
+def _cap_pool(pool: List[Dict[str, Any]], max_pool: int) -> List[Dict[str, Any]]:
+    if len(pool) <= max_pool:
+        return pool
+    scored = []
+    for r in pool:
+        rid = str(r.get("id", ""))
+        scored.append((_base_score(r), rid, r))
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    top_k = max(1, int(max_pool * 0.6))
+    selected = [r for _, _, r in scored[:top_k]]
+    selected_ids = {str(r.get("id", "")) for r in selected}
+    groups: Dict[str, List[tuple]] = {}
+    for score, rid, r in scored[top_k:]:
+        if rid in selected_ids:
+            continue
+        group = r.get("_protein_group") or "other"
+        groups.setdefault(group, []).append((score, rid, r))
+    group_keys = sorted(groups.keys())
+    while len(selected) < max_pool and group_keys:
+        progressed = False
+        for group in list(group_keys):
+            if len(selected) >= max_pool:
+                break
+            bucket = groups[group]
+            if not bucket:
+                group_keys.remove(group)
+                continue
+            _, rid, r = bucket.pop(0)
+            if rid in selected_ids:
+                continue
+            selected.append(r)
+            selected_ids.add(rid)
+            progressed = True
+        if not progressed:
+            break
+    if len(selected) < max_pool:
+        for _, rid, r in scored:
+            if len(selected) >= max_pool:
+                break
+            if rid in selected_ids:
+                continue
+            selected.append(r)
+            selected_ids.add(rid)
+    return selected
 
 
 def _default_weight_set() -> Optional[Dict[str, int]]:
@@ -436,6 +483,11 @@ def solve_meal_plan(
         return None, "No safe recipes found.", None
 
     pool = candidates
+    max_pool_size = 160
+    if len(pool) > max_pool_size:
+        if debug_solver:
+            debug_summary["pool_pre_cap"] = len(pool)
+        pool = _cap_pool(pool, max_pool_size)
     if debug_solver:
         debug_summary["pool"] = len(pool)
     # Treat all recipes as valid for all meal slots (ignore mealType tags).
@@ -444,10 +496,7 @@ def solve_meal_plan(
         debug_summary["allowed_sizes"] = {k: len(v) for k, v in meal_to_allowed.items()}
     base_scores = []
     for r in pool:
-        p = r.get("proteinGrams") or 0
-        cals = r.get("calories") or 0
-        pantry_bonus = (r.get("_pantry_match") or 0) * 1.5
-        base_scores.append((p * 2.0) - (r.get("_cost_est", 0) * 0.05) - abs(cals - 500) * 0.15 + pantry_bonus)
+        base_scores.append(_base_score(r))
 
     # Render/free instances are CPU-limited; give the solver more time by default.
     total_time_limit = _env_float_min("PCOSINA_TOTAL_SOLVER_SECONDS", 25.0)

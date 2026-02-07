@@ -15,7 +15,8 @@ android {
         create("release") {
             // Test-only signing config using the default debug keystore.
             // This makes the release APK installable for Firebase App Distribution.
-            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+            val androidHome = System.getenv("ANDROID_USER_HOME") ?: "${System.getProperty("user.home")}/.android"
+            storeFile = file("$androidHome/debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"

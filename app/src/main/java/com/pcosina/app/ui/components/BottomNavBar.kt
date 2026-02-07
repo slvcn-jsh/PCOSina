@@ -3,7 +3,7 @@ package com.pcosina.app.ui.components
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
-import androidx.compose.material.icons.filled.ListAlt
+import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material3.Icon
@@ -29,7 +29,7 @@ data class BottomNavItem(
 val DefaultBottomNavItems: List<BottomNavItem> = listOf(
     BottomNavItem(route = Routes.Dashboard, label = "Home", icon = Icons.Filled.Home),
     BottomNavItem(route = Routes.MealPlan, label = "Plan", icon = Icons.Filled.RestaurantMenu),
-    BottomNavItem(route = Routes.GroceryList, label = "Grocery", icon = Icons.Filled.ListAlt),
+    BottomNavItem(route = Routes.GroceryList, label = "Grocery", icon = Icons.AutoMirrored.Filled.ListAlt),
     BottomNavItem(route = Routes.Progress, label = "Progress", icon = Icons.Filled.Insights),
     BottomNavItem(route = Routes.Ipo, label = "IPO", icon = Icons.Filled.PieChart),
 )

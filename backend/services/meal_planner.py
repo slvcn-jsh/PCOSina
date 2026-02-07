@@ -433,25 +433,8 @@ def solve_meal_plan(
     pool = candidates
     if debug_solver:
         debug_summary["pool"] = len(pool)
-    meal_to_allowed = {"Breakfast": set(), "Lunch": set(), "Dinner": set()}
-    for i, r in enumerate(pool):
-        mt = (r.get("mealType") or "Universal").lower()
-        if "break" in mt:
-            meal_to_allowed["Breakfast"].add(i)
-        if "lunch" in mt:
-            meal_to_allowed["Lunch"].add(i)
-        if "dinner" in mt:
-            meal_to_allowed["Dinner"].add(i)
-        if mt == "universal":
-            meal_to_allowed["Breakfast"].add(i)
-            meal_to_allowed["Lunch"].add(i)
-            meal_to_allowed["Dinner"].add(i)
-    # Fallback: if any meal type is empty, allow all recipes for that slot.
-    # Some datasets only tag a single mealType (e.g., all "Lunch"), which would
-    # otherwise make breakfast/dinner infeasible.
-    for label in meal_to_allowed:
-        if not meal_to_allowed[label]:
-            meal_to_allowed[label] = set(range(len(pool)))
+    # Treat all recipes as valid for all meal slots (ignore mealType tags).
+    meal_to_allowed = {label: set(range(len(pool))) for label in slot_labels}
     if debug_solver:
         debug_summary["allowed_sizes"] = {k: len(v) for k, v in meal_to_allowed.items()}
     base_scores = []

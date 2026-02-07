@@ -444,7 +444,8 @@ def solve_meal_plan(
         pantry_bonus = (r.get("_pantry_match") or 0) * 1.5
         base_scores.append((p * 2.0) - (r.get("_cost_est", 0) * 0.05) - abs(cals - 500) * 0.15 + pantry_bonus)
 
-    total_time_limit = _env_float("PCOSINA_TOTAL_SOLVER_SECONDS", 8.0)
+    # Render/free instances are CPU-limited; give the solver more time by default.
+    total_time_limit = _env_float("PCOSINA_TOTAL_SOLVER_SECONDS", 25.0)
     started_at = time.time()
     for tol in tolerance_levels:
         protein_bounds = (int(target_protein * (1 - tol)), int(target_protein * (1 + tol)))
@@ -590,8 +591,9 @@ def solve_meal_plan(
                 diversity_penalty - (pantry_w * pantry_reward) - (diversity_w * diversity_reward)
             )
             solver = cp_model.CpSolver()
-            solver.parameters.max_time_in_seconds = _env_float("PCOSINA_SOLVER_TIME_SECONDS", 3.0)
-            solver.parameters.num_search_workers = _env_int("PCOSINA_SOLVER_WORKERS", 8)
+            solver.parameters.max_time_in_seconds = _env_float("PCOSINA_SOLVER_TIME_SECONDS", 6.0)
+            cpu_count = os.cpu_count() or 1
+            solver.parameters.num_search_workers = _env_int("PCOSINA_SOLVER_WORKERS", min(4, cpu_count))
             status = solver.Solve(model)
             if debug_solver:
                 try:

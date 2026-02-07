@@ -85,7 +85,7 @@ fun SplashScreen(
                     .size(180.dp)
                     .clip(CircleShape)
                     .background(colorScheme.onPrimary.copy(alpha = 0.15f))
-                    .padding(12.dp)
+                    .padding(6.dp)
                     .alpha(pulseAlpha),
                 contentAlignment = Alignment.Center,
             ) {
@@ -93,7 +93,7 @@ fun SplashScreen(
                     painter = painterResource(id = R.drawable.pcosina_logo),
                     contentDescription = "PCOSINA Logo",
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit
+                    contentScale = ContentScale.Crop
                 )
             }
 

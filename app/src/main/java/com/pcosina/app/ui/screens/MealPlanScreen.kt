@@ -763,7 +763,8 @@ fun MealPlanScreen(
                                                         option.id,
                                                         option.title
                                                     )
-                                                    itemsResult.onSuccess { items ->
+                                                    val items = itemsResult.getOrNull()
+                                                    if (items != null) {
                                                         if (groceryViewModel.hasSourcesForMeal(mealId)) {
                                                             groceryViewModel.replaceMealItems(mealId, items)
                                                             if (items.isEmpty()) {
@@ -774,7 +775,7 @@ fun MealPlanScreen(
                                                         } else {
                                                             snackbarHostState.showSnackbar("Meal swapped. Sync groceries to update list.")
                                                         }
-                                                    }.onFailure {
+                                                    } else {
                                                         snackbarHostState.showSnackbar("Meal swapped. Grocery update skipped (ingredients unavailable).")
                                                     }
                                                 } catch (e: Exception) {

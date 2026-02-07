@@ -32,6 +32,8 @@ backend/output/
 backend/domain/__pycache__/
 backend/services/__pycache__/
 .gradle-user/
+.android/
+.kotlin-daemon/
 .kotlin/errors/
 hs_err_pid*.log
 

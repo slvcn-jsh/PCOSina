@@ -5,6 +5,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -13,7 +14,9 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -32,9 +35,19 @@ import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
+import com.pcosina.app.ui.util.buildMealReasons
 import com.google.firebase.analytics.FirebaseAnalytics
+import com.pcosina.app.data.api.RecipeSummaryDto
 import kotlinx.coroutines.launch
 import java.util.Locale
+
+private data class SwapTarget(
+    val dayIndex: Int,
+    val mealIndex: Int,
+    val mealLabel: String,
+    val recipeId: String,
+    val mealTitle: String
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +59,7 @@ fun MealPlanScreen(
     modifier: Modifier = Modifier,
 ) {
     val uiState by mealPlanViewModel.uiState.collectAsState()
+    val currentPlan = (uiState as? MealPlanUiState.Success)?.response
     val userProfile by userViewModel.userProfile.collectAsState()
     var selectedDayIndex by rememberSaveable { mutableStateOf(0) }
     val context = LocalContext.current
@@ -63,6 +77,13 @@ fun MealPlanScreen(
     // Track if we are currently extracting ingredients
     var isSyncingGroceries by remember { mutableStateOf(false) }
     var syncSuccess by remember { mutableStateOf(false) }
+    var swapTarget by remember { mutableStateOf<SwapTarget?>(null) }
+    var swapOptions by remember { mutableStateOf<List<RecipeSummaryDto>>(emptyList()) }
+    var swapQuery by remember { mutableStateOf("") }
+    var swapLoading by remember { mutableStateOf(false) }
+    var swapApplying by remember { mutableStateOf(false) }
+    var swapError by remember { mutableStateOf<String?>(null) }
+    val swapSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     LaunchedEffect(syncSuccess) {
         if (syncSuccess) {
@@ -148,6 +169,17 @@ fun MealPlanScreen(
                 val plan = state.response
                 val selectedDay = plan.days[selectedDayIndex]
                 val explanation = plan.explanation
+                val recipeCounts = remember(plan) {
+                    plan.days.flatMap { it.meals }.groupingBy { it.recipeId }.eachCount()
+                }
+                LaunchedEffect(plan.weekLabel) {
+                    swapTarget = null
+                    swapOptions = emptyList()
+                    swapQuery = ""
+                    swapLoading = false
+                    swapApplying = false
+                    swapError = null
+                }
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().background(colorScheme.background).padding(padding),
@@ -353,15 +385,15 @@ fun MealPlanScreen(
                                         }
                                         analytics.logEvent("sync_groceries", null)
                                         isSyncingGroceries = true
-                                        mealPlanViewModel.extractAllGroceryItems { items ->
-                                            if (items.isEmpty()) {
+                                        mealPlanViewModel.extractGrocerySourcesForPlan { sources ->
+                                            if (sources.isEmpty()) {
                                                 isSyncingGroceries = false
                                                 scope.launch {
                                                     snackbarHostState.showSnackbar("No items to sync yet")
                                                 }
-                                                return@extractAllGroceryItems
+                                                return@extractGrocerySourcesForPlan
                                             }
-                                            groceryViewModel.addItems(items)
+                                            groceryViewModel.setPlanSources(sources)
                                             isSyncingGroceries = false
                                             syncSuccess = true
                                             scope.launch {
@@ -514,7 +546,7 @@ fun MealPlanScreen(
                     }
 
                     // 4. Meals list
-                    items(selectedDay.meals) { plannedMeal ->
+                    itemsIndexed(selectedDay.meals) { mealIndex, plannedMeal ->
                         Card(
                             onClick = { onRecipeClick(plannedMeal.recipeId) },
                             shape = MaterialTheme.shapes.extraLarge,
@@ -535,8 +567,71 @@ fun MealPlanScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(text = plannedMeal.mealLabel.uppercase(), style = MaterialTheme.typography.labelSmall, color = colorScheme.onSurfaceVariant)
                                     Text(text = plannedMeal.title, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    val reasons = remember(plannedMeal.recipeId, explanation, recipeCounts) {
+                                        buildMealReasons(
+                                            recipeId = plannedMeal.recipeId,
+                                            recipeCounts = recipeCounts,
+                                            explanation = explanation,
+                                            budgetPhp = userProfile.weeklyBudgetPhp
+                                        )
+                                    }
+                                    if (reasons.isNotEmpty()) {
+                                        Text(
+                                            text = "Why: " + reasons.joinToString(" • "),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = colorScheme.onSurfaceVariant,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
-                                Icon(imageVector = Icons.Filled.ChevronRight, contentDescription = null, tint = colorScheme.onSurfaceVariant)
+                                IconButton(
+                                    onClick = {
+                                        isOnline.value = isNetworkAvailable(context)
+                                        if (!isOnline.value) {
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar("Swap requires internet for recipe options.")
+                                            }
+                                            return@IconButton
+                                        }
+                                        val target = SwapTarget(
+                                            dayIndex = selectedDayIndex,
+                                            mealIndex = mealIndex,
+                                            mealLabel = plannedMeal.mealLabel,
+                                            recipeId = plannedMeal.recipeId,
+                                            mealTitle = plannedMeal.title
+                                        )
+                                        swapTarget = target
+                                        swapQuery = ""
+                                        swapOptions = emptyList()
+                                        swapError = null
+                                        swapLoading = true
+                                        scope.launch {
+                                            val result = mealPlanViewModel.getSwapOptions(plannedMeal.mealLabel, 40)
+                                            result.onSuccess { list ->
+                                                val filtered = list.filter { it.id != plannedMeal.recipeId }
+                                                swapOptions = filtered
+                                                if (filtered.isEmpty()) {
+                                                    swapError = "No swaps available for ${plannedMeal.mealLabel}."
+                                                }
+                                            }.onFailure { e ->
+                                                swapError = e.message ?: "Unable to load swap options."
+                                            }
+                                            swapLoading = false
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.SwapHoriz,
+                                        contentDescription = "Swap meal",
+                                        tint = colorScheme.primary
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.Filled.ChevronRight,
+                                    contentDescription = null,
+                                    tint = colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
@@ -563,8 +658,137 @@ fun MealPlanScreen(
             }
         )
     }
-}
 
+    if (swapTarget != null && currentPlan != null) {
+        val target = swapTarget!!
+        val filteredOptions = remember(swapOptions, swapQuery) {
+            if (swapQuery.isBlank()) swapOptions
+            else swapOptions.filter { it.title.contains(swapQuery, ignoreCase = true) }
+        }
+        ModalBottomSheet(
+            onDismissRequest = { if (!swapApplying) swapTarget = null },
+            sheetState = swapSheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = "Swap ${target.mealLabel}",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+                Text(
+                    text = "Replace: ${target.mealTitle}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = swapQuery,
+                    onValueChange = { swapQuery = it },
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    label = { Text("Search recipes") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (swapLoading) {
+                    Spacer(Modifier.height(10.dp))
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+                swapError?.let {
+                    Spacer(Modifier.height(10.dp))
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+                Spacer(Modifier.height(12.dp))
+                if (!swapLoading && filteredOptions.isEmpty()) {
+                    Text(
+                        "No options found.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 320.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(filteredOptions) { option ->
+                            Card(
+                                shape = MaterialTheme.shapes.large,
+                                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = option.title,
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        val meta = listOfNotNull(
+                                            option.mealType?.takeIf { it.isNotBlank() },
+                                            option.minutes?.let { "${it} min" }
+                                        )
+                                        if (meta.isNotEmpty()) {
+                                            Text(
+                                                text = meta.joinToString(" • "),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                    TextButton(
+                                        enabled = !swapApplying,
+                                        onClick = {
+                                            if (swapApplying) return@TextButton
+                                            swapApplying = true
+                                            scope.launch {
+                                                try {
+                                                    val mealId = mealPlanViewModel.buildMealInstanceId(
+                                                        currentPlan.weekLabel,
+                                                        target.dayIndex,
+                                                        target.mealIndex,
+                                                        target.mealLabel
+                                                    )
+                                                    val items = mealPlanViewModel.getGrocerySourcesForRecipe(option.id)
+                                                    mealPlanViewModel.swapMeal(
+                                                        target.dayIndex,
+                                                        target.mealIndex,
+                                                        option.id,
+                                                        option.title
+                                                    )
+                                                    if (groceryViewModel.hasSourcesForMeal(mealId)) {
+                                                        groceryViewModel.replaceMealItems(mealId, items)
+                                                        snackbarHostState.showSnackbar("Meal swapped and grocery list updated.")
+                                                    } else {
+                                                        snackbarHostState.showSnackbar("Meal swapped. Sync groceries to update list.")
+                                                    }
+                                                } catch (e: Exception) {
+                                                    snackbarHostState.showSnackbar("Swap failed. Please try again.")
+                                                } finally {
+                                                    swapApplying = false
+                                                    swapTarget = null
+                                                }
+                                            }
+                                        }
+                                    ) {
+                                        Text("Swap")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+            }
+        }
+    }
 private fun isNetworkAvailable(context: Context): Boolean {
     val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     val network = cm.activeNetwork ?: return false

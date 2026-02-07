@@ -5,6 +5,7 @@ import com.pcosina.app.data.api.GeneratePlanRequest
 import com.pcosina.app.data.api.GeneratePlanResponse
 import com.pcosina.app.data.api.PcosinaApiService
 import com.pcosina.app.data.api.RecipeDetailDto
+import com.pcosina.app.data.api.RecipeSummaryDto
 import com.pcosina.app.data.model.UserProfile
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
@@ -138,6 +139,15 @@ class MealPlanRepository {
             synchronized(recipeCache) {
                 recipeCache[recipeId] = response
             }
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getRecipeSummaries(mealType: String, limit: Int = 50): Result<List<RecipeSummaryDto>> {
+        return try {
+            val response = apiService.getRecipeSummaries(mealType = mealType, limit = limit)
             Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)

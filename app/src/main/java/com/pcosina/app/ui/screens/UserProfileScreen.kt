@@ -58,6 +58,7 @@ fun UserProfileScreen(
     var noPork by rememberSaveable { mutableStateOf(false) }
     var noBeef by rememberSaveable { mutableStateOf(false) }
     var budget by rememberSaveable { mutableStateOf("2000") }
+    var pantryText by rememberSaveable { mutableStateOf(profile.pantryItems.joinToString(", ")) }
 
     val colorScheme = MaterialTheme.colorScheme
 
@@ -76,6 +77,9 @@ fun UserProfileScreen(
         }
         if (activityLevel.isBlank()) {
             activityLevel = profile.activityLevel
+        }
+        if (pantryText.isBlank() && profile.pantryItems.isNotEmpty()) {
+            pantryText = profile.pantryItems.joinToString(", ")
         }
     }
 
@@ -100,6 +104,49 @@ fun UserProfileScreen(
         else -> false
     }
 
+    fun persistStepData(step: Int, markComplete: Boolean) {
+        if (displayName.isNotBlank()) {
+            userViewModel.updateProfileName(displayName)
+        }
+        val safeAge = age.toIntOrNull()?.coerceIn(13, 60)
+        val safeWeight = weight.toIntOrNull()?.coerceIn(35, 180)
+        val safeHeight = height.toIntOrNull()?.coerceIn(120, 200)
+        if (safeAge != null && safeWeight != null && safeHeight != null) {
+            userViewModel.updatePersonalDetails(
+                age = safeAge,
+                weight = safeWeight,
+                height = safeHeight,
+                activity = activityLevel
+            )
+        }
+        if (step >= 2 && insulinLevel.isNotBlank()) {
+            val symptoms = mutableListOf<String>()
+            if (symptomIrregularPeriods) symptoms.add("Irregular periods")
+            if (symptomWeightGain) symptoms.add("Weight gain")
+            if (symptomAcne) symptoms.add("Acne")
+            if (symptomHairLoss) symptoms.add("Hair loss")
+            userViewModel.updatePcosDetails(insulinLevel, symptoms, emptyList())
+        }
+        if (step >= 3) {
+            val restrictions = mutableListOf<String>()
+            if (lacto) restrictions.add("Lactose Intolerant")
+            if (vegetarian) restrictions.add("Vegetarian")
+            if (pescatarian) restrictions.add("Pescatarian")
+            if (noPork) restrictions.add("No Pork")
+            if (noBeef) restrictions.add("No Beef")
+            userViewModel.updateDietaryRestrictions(restrictions)
+            val budgetSafe = budgetValue?.coerceIn(0, 20000)
+            if (budgetSafe != null) {
+                userViewModel.updateBudget(budgetSafe)
+            }
+            val pantryItems = pantryText.split(",")
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+            userViewModel.updatePantryItems(pantryItems)
+        }
+        userViewModel.setProfileCompleted(markComplete)
+    }
+
     Scaffold(
         topBar = {
             Column(modifier = Modifier.background(colorScheme.background)) {
@@ -116,39 +163,19 @@ fun UserProfileScreen(
                 currentStep = currentStep,
                 primaryColor = colorScheme.primary,
                 isNextEnabled = canProceed,
-                onBack = { if (currentStep > 1) currentStep-- },
+                onBack = {
+                    if (currentStep > 1) {
+                        persistStepData(currentStep, markComplete = false)
+                        currentStep--
+                    }
+                },
                 onNext = {
                     if (!canProceed) return@BottomActionRow
                     if (currentStep < 3) {
+                        persistStepData(currentStep, markComplete = false)
                         currentStep++
                     } else {
-                        // FINAL SAVE TO VIEWMODEL
-                        userViewModel.updateProfileName(displayName)
-                        val safeAge = clampInt(age, min = 13, max = 60, fallback = 25)
-                        val safeWeight = clampInt(weight, min = 35, max = 180, fallback = 65)
-                        val safeHeight = clampInt(height, min = 120, max = 200, fallback = 160)
-                        userViewModel.updatePersonalDetails(
-                            age = safeAge,
-                            weight = safeWeight,
-                            height = safeHeight,
-                            activity = activityLevel
-                        )
-                        val symptoms = mutableListOf<String>()
-                        if (symptomIrregularPeriods) symptoms.add("Irregular periods")
-                        if (symptomWeightGain) symptoms.add("Weight gain")
-                        if (symptomAcne) symptoms.add("Acne")
-                        if (symptomHairLoss) symptoms.add("Hair loss")
-                        userViewModel.updatePcosDetails(insulinLevel, symptoms, emptyList())
-
-                        val restrictions = mutableListOf<String>()
-                        if (lacto) restrictions.add("Lactose Intolerant")
-                        if (vegetarian) restrictions.add("Vegetarian")
-                        if (pescatarian) restrictions.add("Pescatarian")
-                        if (noPork) restrictions.add("No Pork")
-                        if (noBeef) restrictions.add("No Beef")
-                        userViewModel.updateDietaryRestrictions(restrictions)
-                        userViewModel.updateBudget(clampInt(budget, min = 0, max = 20000, fallback = 2000))
-
+                        persistStepData(currentStep, markComplete = true)
                         onNext()
                     }
                 }
@@ -175,7 +202,16 @@ fun UserProfileScreen(
                         when (step) {
                             1 -> StepOneIdentity(displayName, {displayName=it}, age, {age=it}, weight, {weight=it}, height, {height=it}, activityLevel, {activityLevel=it}, colorScheme.primary)
                             2 -> StepTwoMedical(insulinLevel, {insulinLevel=it}, symptomIrregularPeriods, {symptomIrregularPeriods=it}, symptomWeightGain, {symptomWeightGain=it}, symptomAcne, {symptomAcne=it}, symptomHairLoss, {symptomHairLoss=it}, colorScheme.primary)
-                            3 -> StepThreeDiet(lacto, {lacto=it}, vegetarian, {vegetarian=it}, pescatarian, {pescatarian=it}, noPork, {noPork=it}, noBeef, {noBeef=it}, budget, {budget=it}, colorScheme.primary)
+                            3 -> StepThreeDiet(
+                                lacto, {lacto=it},
+                                vegetarian, {vegetarian=it},
+                                pescatarian, {pescatarian=it},
+                                noPork, {noPork=it},
+                                noBeef, {noBeef=it},
+                                budget, {budget=it},
+                                pantryText, {pantryText=it},
+                                colorScheme.primary
+                            )
                         }
 
                         if (!canProceed) {
@@ -361,7 +397,23 @@ fun StepTwoMedical(insulin: String, onInsulin: (String) -> Unit, s1: Boolean, on
 }
 
 @Composable
-fun StepThreeDiet(r1: Boolean, onR1: (Boolean) -> Unit, r2: Boolean, onR2: (Boolean) -> Unit, r3: Boolean, onR3: (Boolean) -> Unit, r4: Boolean, onR4: (Boolean) -> Unit, r5: Boolean, onR5: (Boolean) -> Unit, budget: String, onBudget: (String) -> Unit, color: Color) {
+fun StepThreeDiet(
+    r1: Boolean,
+    onR1: (Boolean) -> Unit,
+    r2: Boolean,
+    onR2: (Boolean) -> Unit,
+    r3: Boolean,
+    onR3: (Boolean) -> Unit,
+    r4: Boolean,
+    onR4: (Boolean) -> Unit,
+    r5: Boolean,
+    onR5: (Boolean) -> Unit,
+    budget: String,
+    onBudget: (String) -> Unit,
+    pantryText: String,
+    onPantryText: (String) -> Unit,
+    color: Color
+) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionTitle("Preferences & Budget")
         Text(
@@ -386,6 +438,17 @@ fun StepThreeDiet(r1: Boolean, onR1: (Boolean) -> Unit, r2: Boolean, onR2: (Bool
             prefix = { Text("₱ ") },
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
         )
+
+        OutlinedTextField(
+            value = pantryText,
+            onValueChange = onPantryText,
+            label = { Text("Pantry items (comma-separated)") },
+            supportingText = { Text("Example: eggs, oats, tuna") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
+        )
     }
 }
 
@@ -404,11 +467,6 @@ private fun CheckboxRow(label: String, checked: Boolean, accentColor: Color, onC
         Checkbox(checked = checked, onCheckedChange = onCheckedChange, colors = CheckboxDefaults.colors(checkedColor = accentColor))
         Text(text = label, style = MaterialTheme.typography.bodyLarge, color = if (checked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
     }
-}
-
-private fun clampInt(raw: String, min: Int, max: Int, fallback: Int): Int {
-    val value = raw.toIntOrNull() ?: return fallback
-    return value.coerceIn(min, max)
 }
 
 private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =

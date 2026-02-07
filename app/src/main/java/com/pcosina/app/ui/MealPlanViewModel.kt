@@ -6,7 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.pcosina.app.data.api.GeneratePlanResponse
 import com.pcosina.app.data.api.RecipeDetailDto
+import com.pcosina.app.data.api.RecipeSummaryDto
 import com.pcosina.app.data.model.DummyData
+import com.pcosina.app.data.model.GroceryItemSource
 import com.pcosina.app.data.model.UserProfile
 import com.pcosina.app.data.repository.MealPlanRepository
 import com.pcosina.app.data.repository.UserPreferencesRepository
@@ -165,6 +167,65 @@ class MealPlanViewModel(
         return repository.getRecipeDetails(recipeId)
     }
 
+    suspend fun getSwapOptions(mealLabel: String, limit: Int = 30): Result<List<RecipeSummaryDto>> {
+        return repository.getRecipeSummaries(mealLabel, limit)
+    }
+
+    fun swapMeal(dayIndex: Int, mealIndex: Int, newRecipeId: String, newTitle: String) {
+        val currentState = _uiState.value
+        if (currentState !is MealPlanUiState.Success) return
+        viewModelScope.launch {
+            val response = currentState.response
+            val days = response.days.toMutableList()
+            val day = days.getOrNull(dayIndex) ?: return@launch
+            val meals = day.meals.toMutableList()
+            val oldMeal = meals.getOrNull(mealIndex) ?: return@launch
+            if (oldMeal.recipeId == newRecipeId) return@launch
+
+            val oldDetail = repository.getRecipeDetails(oldMeal.recipeId).getOrNull()
+            val newDetail = repository.getRecipeDetails(newRecipeId).getOrNull()
+            val oldCal = oldDetail?.calories ?: 0
+            val newCal = newDetail?.calories ?: 0
+
+            meals[mealIndex] = oldMeal.copy(recipeId = newRecipeId, title = newTitle)
+            val newTotal = (day.totalCalories - oldCal + newCal).coerceAtLeast(0)
+            days[dayIndex] = day.copy(meals = meals, totalCalories = newTotal)
+
+            val updated = response.copy(days = days)
+            _uiState.value = MealPlanUiState.Success(updated, currentState.timestamp)
+            calculateMetrics(updated)
+            if (currentUserId.isNotBlank()) {
+                userPrefsRepository.savePlanJson(currentUserId, gson.toJson(updated), currentState.timestamp)
+            }
+        }
+    }
+
+    suspend fun getGrocerySourcesForRecipe(recipeId: String): List<GroceryItemSource> {
+        val detail = repository.getRecipeDetails(recipeId).getOrNull() ?: return emptyList()
+        return detail.ingredients.map { GroceryItemSource(it.name, it.quantity) }
+    }
+
+    fun extractGrocerySourcesForPlan(onComplete: (Map<String, List<GroceryItemSource>>) -> Unit) {
+        val currentState = _uiState.value
+        if (currentState !is MealPlanUiState.Success) return
+        viewModelScope.launch {
+            val plan = currentState.response
+            val recipeIds = plan.days.flatMap { it.meals }.mapNotNull { it.recipeId }.distinct()
+            val deferredDetails = recipeIds.map { id -> async { repository.getRecipeDetails(id).getOrNull() } }
+            val allDetails = deferredDetails.awaitAll().filterNotNull()
+            val detailsById = allDetails.associateBy { it.id }
+            val sources = mutableMapOf<String, List<GroceryItemSource>>()
+            plan.days.forEachIndexed { dayIndex, day ->
+                day.meals.forEachIndexed { mealIndex, meal ->
+                    val detail = detailsById[meal.recipeId] ?: return@forEachIndexed
+                    val mealId = buildMealInstanceId(plan.weekLabel, dayIndex, mealIndex, meal.mealLabel)
+                    sources[mealId] = detail.ingredients.map { GroceryItemSource(it.name, it.quantity) }
+                }
+            }
+            onComplete(sources)
+        }
+    }
+
     fun extractAllGroceryItems(onComplete: (List<DummyData.GroceryItem>) -> Unit) {
         val currentState = _uiState.value
         if (currentState is MealPlanUiState.Success) {
@@ -184,6 +245,10 @@ class MealPlanViewModel(
                 onComplete(consolidated)
             }
         }
+    }
+
+    fun buildMealInstanceId(weekLabel: String, dayIndex: Int, mealIndex: Int, mealLabel: String): String {
+        return "${weekLabel}_d${dayIndex}_m${mealIndex}_$mealLabel"
     }
 
     class Factory(

@@ -129,6 +129,11 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
         saveProfile()
     }
 
+    fun updatePantryItems(items: List<String>) {
+        _userProfile.update { it.copy(pantryItems = items) }
+        saveProfile()
+    }
+
     fun updateGoal(goal: String) {
         _userProfile.update { it.copy(goal = goal) }
         saveProfile()

@@ -27,12 +27,14 @@ class UserPreferencesRepository(private val context: Context) {
         fun symptoms(userId: String) = stringPreferencesKey("symptoms_$userId")
         fun comorbidities(userId: String) = stringPreferencesKey("comorbidities_$userId")
         fun restrictions(userId: String) = stringPreferencesKey("restrictions_$userId")
+        fun pantry(userId: String) = stringPreferencesKey("pantry_$userId")
         fun budget(userId: String) = intPreferencesKey("budget_$userId")
         fun completed(userId: String) = booleanPreferencesKey("onboarding_complete_$userId")
         fun lastPlanJson(userId: String) = stringPreferencesKey("last_plan_json_$userId")
         fun lastPlanTimestamp(userId: String) = longPreferencesKey("last_plan_timestamp_$userId")
         // Task #1: Persistent Grocery Storage
         fun groceryJson(userId: String) = stringPreferencesKey("grocery_json_$userId")
+        fun grocerySourcesJson(userId: String) = stringPreferencesKey("grocery_sources_json_$userId")
         fun migrationLogged(userId: String) = booleanPreferencesKey("migration_logged_$userId")
         fun dailyLogsJson(userId: String) = stringPreferencesKey("daily_logs_json_$userId")
         fun feedbackQueueJson(userId: String) = stringPreferencesKey("feedback_queue_json_$userId")
@@ -50,6 +52,7 @@ class UserPreferencesRepository(private val context: Context) {
         fun symptoms(email: String) = stringPreferencesKey("symptoms_$email")
         fun comorbidities(email: String) = stringPreferencesKey("comorbidities_$email")
         fun restrictions(email: String) = stringPreferencesKey("restrictions_$email")
+        fun pantry(email: String) = stringPreferencesKey("pantry_$email")
         fun budget(email: String) = intPreferencesKey("budget_$email")
         fun completed(email: String) = booleanPreferencesKey("onboarding_complete_$email")
         fun lastPlanJson(email: String) = stringPreferencesKey("last_plan_json_$email")
@@ -84,6 +87,7 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.symptoms(userId)] = preferences[LegacyKeys.symptoms(email)] ?: ""
             preferences[Keys.comorbidities(userId)] = preferences[LegacyKeys.comorbidities(email)] ?: ""
             preferences[Keys.restrictions(userId)] = preferences[LegacyKeys.restrictions(email)] ?: ""
+            preferences[Keys.pantry(userId)] = preferences[LegacyKeys.pantry(email)] ?: ""
             preferences[Keys.budget(userId)] = preferences[LegacyKeys.budget(email)] ?: 2000
             preferences[Keys.completed(userId)] = preferences[LegacyKeys.completed(email)] ?: false
 
@@ -114,6 +118,7 @@ class UserPreferencesRepository(private val context: Context) {
                 symptoms = preferences[Keys.symptoms(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
                 comorbidities = preferences[Keys.comorbidities(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
                 dietaryRestrictions = preferences[Keys.restrictions(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
+                pantryItems = preferences[Keys.pantry(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
                 weeklyBudgetPhp = preferences[Keys.budget(userId)] ?: 2000,
                 isProfileCompleted = preferences[Keys.completed(userId)] ?: false
             )
@@ -131,6 +136,7 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.symptoms(userId)] = profile.symptoms.joinToString(",")
             preferences[Keys.comorbidities(userId)] = profile.comorbidities.joinToString(",")
             preferences[Keys.restrictions(userId)] = profile.dietaryRestrictions.joinToString(",")
+            preferences[Keys.pantry(userId)] = profile.pantryItems.joinToString(",")
             preferences[Keys.budget(userId)] = profile.weeklyBudgetPhp
             preferences[Keys.completed(userId)] = profile.isProfileCompleted
         }
@@ -158,6 +164,13 @@ class UserPreferencesRepository(private val context: Context) {
     fun getGroceryJson(userId: String): Flow<String?> = context.dataStore.data.map { it[Keys.groceryJson(userId)] }
     suspend fun saveGroceryJson(userId: String, json: String) {
         context.dataStore.edit { it[Keys.groceryJson(userId)] = json }
+    }
+
+    fun getGrocerySourcesJson(userId: String): Flow<String?> =
+        context.dataStore.data.map { it[Keys.grocerySourcesJson(userId)] }
+
+    suspend fun saveGrocerySourcesJson(userId: String, json: String) {
+        context.dataStore.edit { it[Keys.grocerySourcesJson(userId)] = json }
     }
 
     fun getDailyLogsJson(userId: String): Flow<String?> = context.dataStore.data.map { it[Keys.dailyLogsJson(userId)] }

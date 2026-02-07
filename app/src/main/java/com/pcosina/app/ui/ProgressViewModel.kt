@@ -154,6 +154,28 @@ class ProgressViewModel(
         persistLogs(newMap)
     }
 
+    fun saveReflection(
+        date: LocalDate,
+        energyLevel: Int?,
+        cravingsLevel: Int?,
+        moodLevel: Int?,
+        symptomsNote: String?
+    ) {
+        val key = date.format(dateFmt)
+        val current = _dailyLogs.value[key]
+        val updated = (current ?: DailyLog(date = key)).copy(
+            energyLevel = energyLevel,
+            cravingsLevel = cravingsLevel,
+            moodLevel = moodLevel,
+            symptomsNote = symptomsNote?.takeIf { it.isNotBlank() },
+            timestamp = System.currentTimeMillis()
+        )
+        val newMap = _dailyLogs.value.toMutableMap()
+        newMap[key] = updated
+        _dailyLogs.value = newMap
+        persistLogs(newMap)
+    }
+
     fun saveWeeklyJournal(weekStart: String, text: String) {
         if (currentUserId.isBlank()) return
         viewModelScope.launch {

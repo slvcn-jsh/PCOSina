@@ -30,6 +30,7 @@ import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.components.MacroProgressBar
 import com.pcosina.app.ui.components.StatCard
+import com.pcosina.app.ui.util.buildMealReasons
 import com.pcosina.app.domain.HealthMetrics
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -84,6 +85,9 @@ fun ProgressScreen(
 
     val planDays = (planState as? MealPlanUiState.Success)?.response?.days.orEmpty()
     val planExplanation = (planState as? MealPlanUiState.Success)?.response?.explanation
+    val recipeCounts = remember(planDays) {
+        planDays.flatMap { it.meals }.groupingBy { it.recipeId }.eachCount()
+    }
     val planByLabel = planDays.associateBy { it.dayLabel.lowercase(Locale.ENGLISH) }
     val selectedDayLabel = selectedDate.format(dayLabelFmt).lowercase(Locale.ENGLISH)
     val selectedPlanDay = planByLabel[selectedDayLabel]
@@ -102,10 +106,18 @@ fun ProgressScreen(
     val weightEnd = weightEntries.lastOrNull()
 
     var weightInput by rememberSaveable { mutableStateOf("") }
+    var energyLevel by rememberSaveable { mutableStateOf<Int?>(null) }
+    var cravingsLevel by rememberSaveable { mutableStateOf<Int?>(null) }
+    var moodLevel by rememberSaveable { mutableStateOf<Int?>(null) }
+    var symptomNote by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(logs, selectedDate) {
         val key = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
-        val w = logs[key]?.weightKg
-        weightInput = w?.toString() ?: ""
+        val log = logs[key]
+        weightInput = log?.weightKg?.toString() ?: ""
+        energyLevel = log?.energyLevel
+        cravingsLevel = log?.cravingsLevel
+        moodLevel = log?.moodLevel
+        symptomNote = log?.symptomsNote ?: ""
     }
 
     var journalText by rememberSaveable { mutableStateOf("") }
@@ -632,6 +644,14 @@ fun ProgressScreen(
                             val mealKey = ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)
                             val completedIds = logs[dateKey]?.completedMealIds.orEmpty()
                             val checked = completedIds.contains(mealKey) || completedIds.contains(meal.recipeId)
+                            val reasons = remember(meal.recipeId, planExplanation, recipeCounts, profile.weeklyBudgetPhp) {
+                                buildMealReasons(
+                                    recipeId = meal.recipeId,
+                                    recipeCounts = recipeCounts,
+                                    explanation = planExplanation,
+                                    budgetPhp = profile.weeklyBudgetPhp
+                                )
+                            }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(
                                     checked = checked,
@@ -639,9 +659,93 @@ fun ProgressScreen(
                                         progressViewModel.toggleMeal(selectedDate, meal.recipeId, meal.mealLabel)
                                     }
                                 )
-                                Text(meal.title)
+                                Column {
+                                    Text(meal.title)
+                                    if (reasons.isNotEmpty()) {
+                                        Text(
+                                            text = "Why: " + reasons.joinToString(" • "),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = colorScheme.onSurfaceVariant,
+                                            maxLines = 2,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text("Daily Reflection", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                    Text(
+                        text = "Quick check-in to observe patterns. This is not medical advice.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    Text("Energy", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        (1..5).forEach { value ->
+                            FilterChip(
+                                selected = energyLevel == value,
+                                onClick = { energyLevel = value },
+                                label = { Text(value.toString()) }
+                            )
+                        }
+                    }
+                    Text("Cravings", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        (1..5).forEach { value ->
+                            FilterChip(
+                                selected = cravingsLevel == value,
+                                onClick = { cravingsLevel = value },
+                                label = { Text(value.toString()) }
+                            )
+                        }
+                    }
+                    Text("Mood", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        (1..5).forEach { value ->
+                            FilterChip(
+                                selected = moodLevel == value,
+                                onClick = { moodLevel = value },
+                                label = { Text(value.toString()) }
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = symptomNote,
+                        onValueChange = { symptomNote = it },
+                        label = { Text("Symptoms / notes (optional)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Button(
+                        onClick = {
+                            progressViewModel.saveReflection(
+                                selectedDate,
+                                energyLevel,
+                                cravingsLevel,
+                                moodLevel,
+                                symptomNote
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = MaterialTheme.shapes.medium,
+                        colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
+                    ) {
+                        Text("Save Reflection")
                     }
                 }
             }

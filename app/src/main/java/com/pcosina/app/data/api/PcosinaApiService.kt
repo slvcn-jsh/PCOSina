@@ -5,6 +5,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 data class PlannedMealDto(
     val mealLabel: String,
@@ -56,6 +57,13 @@ data class HealthResponse(
     val status: String
 )
 
+data class RecipeSummaryDto(
+    val id: String,
+    val title: String,
+    val mealType: String? = null,
+    val minutes: Int? = null
+)
+
 interface PcosinaApiService {
     @GET("health")
     suspend fun health(): HealthResponse
@@ -65,4 +73,10 @@ interface PcosinaApiService {
 
     @GET("recipe/{id}")
     suspend fun getRecipe(@Path("id") recipeId: String): RecipeDetailDto
+
+    @GET("recipes/summary")
+    suspend fun getRecipeSummaries(
+        @Query("meal_type") mealType: String? = null,
+        @Query("limit") limit: Int = 50
+    ): List<RecipeSummaryDto>
 }

@@ -36,6 +36,12 @@ class RecipeDetail(BaseModel):
     ingredients: List[Ingredient]
     steps: List[str]
 
+class RecipeSummary(BaseModel):
+    id: str
+    title: str
+    mealType: str
+    minutes: int
+
 
 class GeneratePlanRequest(BaseModel):
     profile: UserProfile

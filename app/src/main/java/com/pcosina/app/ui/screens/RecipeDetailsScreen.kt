@@ -19,6 +19,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.ui.GroceryViewModel
+import com.pcosina.app.ui.MealPlanUiState
+import com.pcosina.app.ui.util.buildMealReasons
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.RecipeDetailsUiState
 
@@ -33,6 +35,7 @@ fun RecipeDetailsScreen(
 ) {
     // Observe the centralized state from the ViewModel
     val state by mealPlanViewModel.recipeState.collectAsState()
+    val planState by mealPlanViewModel.uiState.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
 
     // Trigger the fetch when the screen opens or ID changes
@@ -57,6 +60,18 @@ fun RecipeDetailsScreen(
         }
         is RecipeDetailsUiState.Success -> {
             val r = (state as RecipeDetailsUiState.Success).recipe
+            val plan = (planState as? MealPlanUiState.Success)?.response
+            val recipeCounts = remember(plan) {
+                plan?.days?.flatMap { it.meals }?.groupingBy { it.recipeId }?.eachCount() ?: emptyMap()
+            }
+            val reasons = remember(recipeId, plan?.explanation, recipeCounts) {
+                buildMealReasons(
+                    recipeId = recipeId,
+                    recipeCounts = recipeCounts,
+                    explanation = plan?.explanation,
+                    budgetPhp = 0
+                )
+            }
             
             LazyColumn(
                 modifier = modifier.fillMaxSize().background(colorScheme.background),
@@ -117,6 +132,20 @@ fun RecipeDetailsScreen(
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text(text = "⏱ ${r.minutes ?: 20} min", style = MaterialTheme.typography.bodyMedium, color = colorScheme.onSurfaceVariant)
                                 Text(text = "👤 1 serving", style = MaterialTheme.typography.bodyMedium, color = colorScheme.onSurfaceVariant)
+                            }
+                            if (reasons.isNotEmpty()) {
+                                Text(
+                                    text = "Why selected",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                                reasons.forEach { line ->
+                                    Text(
+                                        text = "• $line",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }

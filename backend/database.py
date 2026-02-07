@@ -337,6 +337,69 @@ def get_all_recipes():
     finally:
         conn.close()
 
+def get_recipe_summaries(meal_type: str | None = None, limit: int = 50):
+    if not _use_postgres() and not os.path.exists(DB_NAME):
+        return []
+    limit = max(1, min(int(limit or 50), 200))
+    conn = _connect()
+    if _use_postgres() and dict_row is not None:
+        cursor = conn.cursor(row_factory=dict_row)
+    else:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+    try:
+        if meal_type:
+            if _use_postgres():
+                cursor.execute(
+                    """
+                    SELECT id, title, meal_type, minutes
+                    FROM recipes
+                    WHERE meal_type ILIKE %s OR meal_type ILIKE '%%universal%%'
+                    ORDER BY id
+                    LIMIT %s
+                    """,
+                    (f"%{meal_type}%", limit)
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT id, title, meal_type, minutes
+                    FROM recipes
+                    WHERE lower(meal_type) LIKE lower(?) OR lower(meal_type) LIKE '%universal%'
+                    ORDER BY id
+                    LIMIT ?
+                    """,
+                    (f"%{meal_type}%", limit)
+                )
+        else:
+            cursor.execute(
+                "SELECT id, title, meal_type, minutes FROM recipes ORDER BY id LIMIT ?",
+                (limit,)
+            ) if not _use_postgres() else cursor.execute(
+                "SELECT id, title, meal_type, minutes FROM recipes ORDER BY id LIMIT %s",
+                (limit,)
+            )
+        rows = cursor.fetchall()
+        summaries = []
+        for row in rows:
+            if isinstance(row, dict):
+                summaries.append({
+                    "id": row.get("id"),
+                    "title": row.get("title"),
+                    "mealType": row.get("meal_type"),
+                    "minutes": row.get("minutes"),
+                })
+            else:
+                summaries.append({
+                    "id": row["id"],
+                    "title": row["title"],
+                    "mealType": row["meal_type"],
+                    "minutes": row["minutes"],
+                })
+        return summaries
+    finally:
+        conn.close()
+
 def save_feedback(message: str):
     conn = _connect()
     try:

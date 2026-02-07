@@ -17,6 +17,7 @@ from services.meal_planner import solve_meal_plan
 from schema_contract import SCHEMA_VERSION, load_schema_contract
 from domain.models import (
     RecipeDetail,
+    RecipeSummary,
     GeneratePlanRequest,
     GeneratePlanResponse,
     FeedbackRequest,
@@ -236,6 +237,18 @@ async def get_recipe(recipe_id: str, user: Any = Depends(require_firebase_auth))
     recipe = next((r for r in database.get_all_recipes() if r["id"] == recipe_id), None)
     if recipe: return RecipeDetail(**recipe)
     raise HTTPException(status_code=404, detail="Recipe not found")
+
+@app.get("/recipes/summary", response_model=list[RecipeSummary])
+def recipe_summaries(
+    meal_type: str | None = None,
+    limit: int = 50,
+    _: Any = Depends(require_firebase_auth),
+):
+    try:
+        rows = database.get_recipe_summaries(meal_type, limit)
+        return [RecipeSummary(**r) for r in rows]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Recipe summaries failed: {e}")
 
 @app.get("/health")
 def health(): return {"status": "alive"}

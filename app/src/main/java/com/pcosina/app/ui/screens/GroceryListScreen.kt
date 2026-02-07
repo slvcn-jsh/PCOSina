@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.font.FontWeight
 import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.DummyData.GroceryItem
 import com.pcosina.app.ui.GroceryViewModel
@@ -74,10 +75,29 @@ fun GroceryListScreen(
     val totalItems = allItems.size
     val weeklyBudget = if (userProfile.weeklyBudgetPhp > 0) userProfile.weeklyBudgetPhp else 2000
     var checkedNames by remember { mutableStateOf(setOf<String>()) }
+    var pantryOptOut by remember { mutableStateOf(setOf<String>()) }
 
     var budgetMode by rememberSaveable { mutableStateOf("Weekly") }
     val displayBudget = if (budgetMode == "Weekly") weeklyBudget.toDouble() else weeklyBudget * 4.33
     val derivedWeekly = if (budgetMode == "Monthly") (displayBudget / 4.33) else displayBudget
+
+    val pantryItems = remember(userProfile.pantryItems) {
+        userProfile.pantryItems.map { it.trim() }.filter { it.isNotBlank() }
+    }
+    val pantryTokens = remember(pantryItems) {
+        pantryItems.map { it.lowercase(Locale.getDefault()) }.toSet()
+    }
+    val pantryMatches = remember(allItems, pantryTokens) {
+        allItems.filter { item ->
+            val name = item.name.lowercase(Locale.getDefault())
+            pantryTokens.any { token ->
+                name.contains(token) || token.contains(name)
+            }
+        }.map { it.name }.toSet()
+    }
+    val effectiveCheckedNames = remember(checkedNames, pantryMatches, pantryOptOut) {
+        checkedNames + pantryMatches.filter { it !in pantryOptOut }
+    }
 
     var searchQuery by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
     val filteredItems = if (searchQuery.text.isBlank()) allItems else allItems.filter {
@@ -103,7 +123,7 @@ fun GroceryListScreen(
     val weekLabel = remember(lastPlanTimestamp) { formatWeekRange(lastPlanTimestamp) }
 
     val totalCost = allItems
-        .filter { it.name !in checkedNames }
+        .filter { it.name !in effectiveCheckedNames }
         .sumOf { it.price }
     val savings = displayBudget.toInt() - totalCost
     val costProgress = (totalCost.toFloat() / displayBudget.toFloat()).coerceIn(0f, 1f)
@@ -118,6 +138,77 @@ fun GroceryListScreen(
                 title = "Grocery List",
                 subtitle = weekLabel,
             )
+        }
+
+        item {
+            Card(
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "Pantry Inventory",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = "Items here are treated as “use-first” during planning.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    var pantryInput by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = pantryInput,
+                            onValueChange = { pantryInput = it },
+                            label = { Text("Add pantry item") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                val value = pantryInput.text.trim()
+                                if (value.isNotBlank()) {
+                                    val updated = (pantryItems + value).distinctBy { it.lowercase(Locale.getDefault()) }
+                                    userViewModel.updatePantryItems(updated)
+                                    pantryInput = TextFieldValue("")
+                                }
+                            }
+                        ) {
+                            Text("Add")
+                        }
+                    }
+                    if (pantryItems.isEmpty()) {
+                        Text(
+                            text = "No pantry items yet.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            items(pantryItems.size) { idx ->
+                                val item = pantryItems[idx]
+                                FilterChip(
+                                    selected = true,
+                                    onClick = {
+                                        val updated = pantryItems.filterNot { it.equals(item, true) }
+                                        userViewModel.updatePantryItems(updated)
+                                    },
+                                    label = { Text(item) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         item {
@@ -136,7 +227,7 @@ fun GroceryListScreen(
             ) {
                 SummaryTile(
                     title = "Total Items",
-                    value = "${checkedNames.size}/$totalItems",
+                    value = "${effectiveCheckedNames.size}/$totalItems",
                     modifier = Modifier.weight(1f),
                 )
                 SummaryTile(
@@ -204,7 +295,8 @@ fun GroceryListScreen(
                             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
                                 val listText = allItems.joinToString("\n") { 
-                                    "- ${it.name} (${it.quantity})" + (if (it.name in checkedNames) " [CHECKED]" else "")
+                                    val pantryTag = if (it.name in pantryMatches) " [PANTRY]" else ""
+                                    "- ${it.name} (${it.quantity})" + pantryTag + (if (it.name in effectiveCheckedNames) " [CHECKED]" else "")
                                 }
                                 putExtra(Intent.EXTRA_TEXT, "My PCOSINA Grocery List:\n\n$listText")
                             }
@@ -268,8 +360,14 @@ fun GroceryListScreen(
                     },
                     checkedNames = checkedNames,
                     onCheckedChange = { name, checked ->
-                        checkedNames = if (checked) checkedNames + name else checkedNames - name
+                        if (name in pantryMatches) {
+                            pantryOptOut = if (checked) pantryOptOut - name else pantryOptOut + name
+                        } else {
+                            checkedNames = if (checked) checkedNames + name else checkedNames - name
+                        }
                     },
+                    pantryMatches = pantryMatches,
+                    pantryOptOut = pantryOptOut,
                 )
             }
         }
@@ -351,6 +449,8 @@ private fun CategoryCard(
     onToggle: () -> Unit,
     checkedNames: Set<String>,
     onCheckedChange: (String, Boolean) -> Unit,
+    pantryMatches: Set<String>,
+    pantryOptOut: Set<String>,
 ) {
     Card(
         shape = MaterialTheme.shapes.large,
@@ -383,7 +483,8 @@ private fun CategoryCard(
             AnimatedVisibility(visible = expanded) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items.forEach { item ->
-                        val checked = item.name in checkedNames
+                        val pantryMatch = item.name in pantryMatches
+                        val checked = if (pantryMatch) item.name !in pantryOptOut else item.name in checkedNames
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -410,6 +511,13 @@ private fun CategoryCard(
                                         maxLines = 1,
                                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                     )
+                                    if (pantryMatch) {
+                                        Text(
+                                            text = "Use first • Pantry",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                     Text(
                                         text = item.quantity,
                                         style = MaterialTheme.typography.labelMedium,

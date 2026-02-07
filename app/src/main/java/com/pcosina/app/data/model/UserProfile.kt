@@ -20,6 +20,8 @@ data class UserProfile(
     val weeklyBudgetPhp: Int = 2000,
     val maxCookingTimeMinutes: Int = 45,
     val varietyPreference: String = "Balanced",
+
+    val pantryItems: List<String> = emptyList(),
     
     val isProfileCompleted: Boolean = false
 )

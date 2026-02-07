@@ -36,6 +36,7 @@ fun UserProfileScreen(
     modifier: Modifier = Modifier,
 ) {
     val profile by userViewModel.userProfile.collectAsState()
+    val isProfileLoading by userViewModel.isProfileLoading.collectAsState()
     var currentStep by rememberSaveable { mutableStateOf(1) }
 
     // State Persistence with safe defaults
@@ -60,6 +61,24 @@ fun UserProfileScreen(
 
     val colorScheme = MaterialTheme.colorScheme
 
+    LaunchedEffect(profile) {
+        if (displayName.isBlank() && profile.displayName.isNotBlank()) {
+            displayName = profile.displayName
+        }
+        if (age.isBlank() && profile.age > 0) {
+            age = profile.age.toString()
+        }
+        if (weight.isBlank() && profile.weightKg > 0) {
+            weight = profile.weightKg.toString()
+        }
+        if (height.isBlank() && profile.heightCm > 0) {
+            height = profile.heightCm.toString()
+        }
+        if (activityLevel.isBlank()) {
+            activityLevel = profile.activityLevel
+        }
+    }
+
     val ageValue = age.toIntOrNull()
     val weightValue = weight.toIntOrNull()
     val heightValue = height.toIntOrNull()
@@ -74,7 +93,7 @@ fun UserProfileScreen(
 
     val stepThreeValid = budgetValue != null && budgetValue in 0..20000
 
-    val canProceed = when (currentStep) {
+    val canProceed = !isProfileLoading && when (currentStep) {
         1 -> stepOneValid
         2 -> stepTwoValid
         3 -> stepThreeValid
@@ -162,7 +181,7 @@ fun UserProfileScreen(
                         if (!canProceed) {
                             Text(
                                 text = when (currentStep) {
-                                    1 -> "Please complete all required fields with valid values."
+                                    1 -> if (isProfileLoading) "Loading profile. Please wait..." else "Please complete all required fields with valid values."
                                     2 -> "Please select your insulin resistance level."
                                     3 -> "Please enter a valid weekly budget."
                                     else -> ""

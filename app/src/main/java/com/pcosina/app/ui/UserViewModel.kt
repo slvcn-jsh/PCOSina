@@ -27,6 +27,7 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
 
     private var profileJob: Job? = null
     private var currentUserId: String = ""
+    private var pendingProfile: UserProfile? = null
 
     init {
         viewModelScope.launch {
@@ -37,17 +38,31 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
     }
 
     fun loadProfileForUser(userId: String) {
-        if (currentUserId == userId) return
+        if (currentUserId == userId) {
+            flushPendingProfile()
+            return
+        }
         currentUserId = userId
-        _userProfile.value = UserProfile() 
+        _userProfile.value = pendingProfile ?: UserProfile()
         _isProfileLoading.value = true
         profileJob?.cancel()
         profileJob = viewModelScope.launch {
             repository.getUserProfile(userId).collectLatest { profile ->
-                _userProfile.value = profile
+                val pending = pendingProfile
+                if (pending != null) {
+                    if (profile == pending) {
+                        pendingProfile = null
+                        _userProfile.value = profile
+                    } else {
+                        _userProfile.value = pending
+                    }
+                } else {
+                    _userProfile.value = profile
+                }
                 _isProfileLoading.value = false
             }
         }
+        flushPendingProfile()
     }
 
     /**
@@ -63,6 +78,7 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
         profileJob?.cancel()
         _userProfile.value = UserProfile()
         _isProfileLoading.value = false
+        pendingProfile = null
     }
 
     fun toggleAdminMode() {
@@ -72,9 +88,20 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
     }
 
     private fun saveProfile() {
-        if (currentUserId.isBlank()) return
+        if (currentUserId.isBlank()) {
+            pendingProfile = _userProfile.value
+            return
+        }
         viewModelScope.launch {
             repository.updateProfile(currentUserId, _userProfile.value)
+        }
+    }
+
+    private fun flushPendingProfile() {
+        val pending = pendingProfile ?: return
+        if (currentUserId.isBlank()) return
+        viewModelScope.launch {
+            repository.updateProfile(currentUserId, pending)
         }
     }
 

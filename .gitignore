@@ -37,6 +37,11 @@ hs_err_pid*.log
 
 # Secrets
 backend/backend/secrets/
+
+# Local release notes and thesis docs
+release-notes.txt
+backend/release-notes.txt
+docs/thesis/
 pcosina-current-HEAD.zip
 backend/pcosina-current-HEAD.zip
 output/

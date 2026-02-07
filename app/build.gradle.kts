@@ -26,8 +26,8 @@ android {
         applicationId = "com.pcosina.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 29
-        versionName = "1.08.7"
+        versionCode = 30
+        versionName = "1.08.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         

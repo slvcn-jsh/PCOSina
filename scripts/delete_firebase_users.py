@@ -23,15 +23,19 @@ def init_firebase():
     firebase_admin.initialize_app(cred)
 
 
-def delete_all_users(dry_run: bool = True) -> int:
+def delete_all_users(dry_run: bool = True, unverified_only: bool = False) -> int:
     deleted = 0
     if dry_run:
-        for _ in auth.list_users().iterate_all():
+        for user in auth.list_users().iterate_all():
+            if unverified_only and user.email_verified:
+                continue
             deleted += 1
         return deleted
 
     batch = []
     for user in auth.list_users().iterate_all():
+        if unverified_only and user.email_verified:
+            continue
         batch.append(user.uid)
         if len(batch) == 1000:
             auth.delete_users(batch)
@@ -44,19 +48,24 @@ def delete_all_users(dry_run: bool = True) -> int:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Delete all Firebase Auth users.")
+    parser = argparse.ArgumentParser(description="Delete Firebase Auth users.")
     parser.add_argument("--confirm", action="store_true", help="Actually delete users.")
+    parser.add_argument(
+        "--unverified-only",
+        action="store_true",
+        help="Only delete users with email_verified == False.",
+    )
     args = parser.parse_args()
 
     init_firebase()
 
     if not args.confirm:
-        count = delete_all_users(dry_run=True)
+        count = delete_all_users(dry_run=True, unverified_only=args.unverified_only)
         print(f"Dry run: {count} users would be deleted.")
         print("Re-run with --confirm to delete.")
         return
 
-    count = delete_all_users(dry_run=False)
+    count = delete_all_users(dry_run=False, unverified_only=args.unverified_only)
     print(f"Deleted {count} users.")
 
 

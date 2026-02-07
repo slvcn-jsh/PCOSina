@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.pcosina.app.ui.AuthViewModel
+import com.pcosina.app.ui.SignUpState
 
 @Composable
 fun SignUpScreen(
@@ -57,6 +58,7 @@ fun SignUpScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     val error by authViewModel.error.collectAsState()
     val isLoading by authViewModel.isLoading.collectAsState()
+    val signUpState by authViewModel.signUpState.collectAsState()
     val analytics = FirebaseAnalytics.getInstance(LocalContext.current)
     val colorScheme = MaterialTheme.colorScheme
 
@@ -87,6 +89,20 @@ fun SignUpScreen(
             color = colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 32.dp)
         )
+
+        if (signUpState is SignUpState.VerificationSent) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            ) {
+                Text(
+                    text = "Verification email sent. Please check your inbox and verify before logging in.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.primary
+                )
+            }
+        }
 
         OutlinedTextField(
             value = email,
@@ -155,7 +171,6 @@ fun SignUpScreen(
                 authViewModel.onSignUp { success ->
                     if (success) {
                         analytics.logEvent("sign_up_success", null)
-                        onSignUpSuccess()
                     }
                 }
             },
@@ -176,6 +191,15 @@ fun SignUpScreen(
             modifier = Modifier.padding(top = 16.dp)
         ) {
             Text("Already have an account? Login", color = colorScheme.secondary)
+        }
+
+        if (signUpState is SignUpState.VerificationSent) {
+            TextButton(
+                onClick = onSignUpSuccess,
+                modifier = Modifier.padding(top = 6.dp)
+            ) {
+                Text("Go to Login", color = colorScheme.primary)
+            }
         }
     }
 }

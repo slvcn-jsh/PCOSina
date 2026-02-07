@@ -230,7 +230,7 @@ fun AppNavHost(
             SignUpScreen(
                 authViewModel = authViewModel,
                 onSignUpSuccess = {
-                    navController.navigate(Routes.Onboarding) {
+                    navController.navigate(Routes.Login) {
                         popUpTo(Routes.SignUp) { inclusive = true }
                     }
                 },

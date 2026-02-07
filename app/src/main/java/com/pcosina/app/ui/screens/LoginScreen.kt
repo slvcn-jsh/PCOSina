@@ -13,9 +13,15 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.LoginState
+import com.pcosina.app.R
 
 @Composable
 fun LoginScreen(
@@ -29,6 +35,27 @@ fun LoginScreen(
     val loginState by authViewModel.loginState.collectAsState()
     val analytics = FirebaseAnalytics.getInstance(LocalContext.current)
     val colorScheme = MaterialTheme.colorScheme
+    val context = LocalContext.current
+
+    val googleSignInClient = remember {
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(context.getString(R.string.default_web_client_id))
+            .requestEmail()
+            .build()
+        GoogleSignIn.getClient(context, gso)
+    }
+
+    val googleLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        try {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            val account = task.getResult(ApiException::class.java)
+            authViewModel.onGoogleLogin(account.idToken)
+        } catch (_: Exception) {
+            authViewModel.onGoogleLogin(null)
+        }
+    }
 
     LaunchedEffect(loginState) {
         if (loginState is LoginState.Success) {
@@ -99,6 +126,11 @@ fun LoginScreen(
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(top = 8.dp)
             )
+            if ((loginState as LoginState.Error).message.contains("verify", ignoreCase = true)) {
+                TextButton(onClick = { authViewModel.resendVerification(email, password) }) {
+                    Text("Resend verification email", color = colorScheme.primary)
+                }
+            }
         }
 
         Spacer(Modifier.height(32.dp))
@@ -118,6 +150,17 @@ fun LoginScreen(
             } else {
                 Text("Login", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
             }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        OutlinedButton(
+            onClick = { googleLauncher.launch(googleSignInClient.signInIntent) },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = MaterialTheme.shapes.medium,
+            enabled = loginState !is LoginState.Loading
+        ) {
+            Text("Continue with Google", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
         }
 
         TextButton(

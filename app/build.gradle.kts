@@ -111,6 +111,7 @@ dependencies {
     implementation(libs.firebase.crashlytics.ktx)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.play.services.tasks)
+    implementation(libs.play.services.auth)
     implementation(libs.sentry.android)
 
     testImplementation(libs.junit)

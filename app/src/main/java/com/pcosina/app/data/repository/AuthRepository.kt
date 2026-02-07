@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.pcosina.app.data.model.Session
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -62,6 +63,8 @@ class AuthRepository(private val context: Context) {
     suspend fun signUp(email: String, password: String): Result<Unit> {
         return try {
             firebaseAuth.createUserWithEmailAndPassword(email, password).await()
+            firebaseAuth.currentUser?.sendEmailVerification()?.await()
+            firebaseAuth.signOut()
             syncSessionFromFirebase()
             Result.success(Unit)
         } catch (e: Exception) {
@@ -72,6 +75,36 @@ class AuthRepository(private val context: Context) {
     suspend fun login(email: String, password: String): Result<Unit> {
         return try {
             firebaseAuth.signInWithEmailAndPassword(email, password).await()
+            val user = firebaseAuth.currentUser
+            user?.reload()?.await()
+            if (user != null && !user.isEmailVerified) {
+                firebaseAuth.signOut()
+                syncSessionFromFirebase()
+                return Result.failure(IllegalStateException("Please verify your email before logging in."))
+            }
+            syncSessionFromFirebase()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun loginWithGoogle(idToken: String): Result<Unit> {
+        return try {
+            val credential = GoogleAuthProvider.getCredential(idToken, null)
+            firebaseAuth.signInWithCredential(credential).await()
+            syncSessionFromFirebase()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun resendVerification(email: String, password: String): Result<Unit> {
+        return try {
+            firebaseAuth.signInWithEmailAndPassword(email, password).await()
+            firebaseAuth.currentUser?.sendEmailVerification()?.await()
+            firebaseAuth.signOut()
             syncSessionFromFirebase()
             Result.success(Unit)
         } catch (e: Exception) {

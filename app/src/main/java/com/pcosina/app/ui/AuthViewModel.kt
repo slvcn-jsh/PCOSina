@@ -22,7 +22,7 @@ sealed interface LoginState {
 sealed interface SignUpState {
     data object Idle : SignUpState
     data object Loading : SignUpState
-    data object Success : SignUpState
+    data object VerificationSent : SignUpState
     data class Error(val message: String) : SignUpState
 }
 
@@ -75,7 +75,8 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
                 _loginState.value = LoginState.Success
                 clearForm()
             } else {
-                _loginState.value = LoginState.Error(result.exceptionOrNull()?.message ?: "Login failed")
+                val msg = result.exceptionOrNull()?.message ?: "Login failed"
+                _loginState.value = LoginState.Error(msg)
             }
         }
     }
@@ -110,7 +111,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
             val result = repository.signUp(trimmedEmail, password.value)
             _isLoading.value = false
             if (result.isSuccess) {
-                _signUpState.value = SignUpState.Success
+                _signUpState.value = SignUpState.VerificationSent
                 onResult(true)
                 clearForm()
             } else {
@@ -118,6 +119,44 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
                 _signUpState.value = SignUpState.Error(msg)
                 _error.value = msg
                 onResult(false)
+            }
+        }
+    }
+
+    fun resendVerification(emailValue: String, passwordValue: String) {
+        val trimmedEmail = emailValue.trim()
+        val emailError = validateEmail(trimmedEmail)
+        if (emailError != null) {
+            _loginState.value = LoginState.Error(emailError)
+            return
+        }
+        if (passwordValue.isBlank()) {
+            _loginState.value = LoginState.Error("Password is required to resend verification.")
+            return
+        }
+        viewModelScope.launch {
+            _loginState.value = LoginState.Loading
+            val result = repository.resendVerification(trimmedEmail, passwordValue)
+            if (result.isSuccess) {
+                _loginState.value = LoginState.Error("Verification email sent. Please check your inbox.")
+            } else {
+                _loginState.value = LoginState.Error(result.exceptionOrNull()?.message ?: "Failed to send verification email")
+            }
+        }
+    }
+
+    fun onGoogleLogin(idToken: String?) {
+        if (idToken.isNullOrBlank()) {
+            _loginState.value = LoginState.Error("Google sign-in failed. Try again.")
+            return
+        }
+        viewModelScope.launch {
+            _loginState.value = LoginState.Loading
+            val result = repository.loginWithGoogle(idToken)
+            if (result.isSuccess) {
+                _loginState.value = LoginState.Success
+            } else {
+                _loginState.value = LoginState.Error(result.exceptionOrNull()?.message ?: "Google sign-in failed")
             }
         }
     }

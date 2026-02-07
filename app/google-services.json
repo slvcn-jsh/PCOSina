@@ -12,7 +12,20 @@
           "package_name": "com.pcosina.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "950408114415-5ot3rfr23mouu23s82thdhn4huu1df4l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pcosina.app",
+            "certificate_hash": "a25486115cbe56b6fe7faf71103961c5f1c6df6e"
+          }
+        },
+        {
+          "client_id": "950408114415-oaub4cqbmpt2kprona3ha3qj3d0k959t.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyC22XopcgtJpnz5DC7CG7JaaFJqAQII-SI"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "950408114415-oaub4cqbmpt2kprona3ha3qj3d0k959t.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

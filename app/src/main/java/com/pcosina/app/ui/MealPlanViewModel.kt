@@ -4,11 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
+import com.pcosina.app.data.api.DayPlanDto
 import com.pcosina.app.data.api.GeneratePlanResponse
 import com.pcosina.app.data.api.RecipeDetailDto
 import com.pcosina.app.data.api.RecipeSummaryDto
 import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.GroceryItemSource
+import com.pcosina.app.data.model.PlanInstance
 import com.pcosina.app.data.model.UserProfile
 import com.pcosina.app.data.repository.MealPlanRepository
 import com.pcosina.app.data.repository.UserPreferencesRepository
@@ -19,6 +21,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
+import java.time.temporal.WeekFields
+import java.util.Locale
 
 sealed class MealPlanUiState {
     object Idle : MealPlanUiState()
@@ -55,6 +63,21 @@ class MealPlanViewModel(
     private val _planMetrics = MutableStateFlow(PlanMetrics())
     val planMetrics: StateFlow<PlanMetrics> = _planMetrics.asStateFlow()
 
+    private val _planHistory = MutableStateFlow<List<PlanInstance>>(emptyList())
+    val planHistory: StateFlow<List<PlanInstance>> = _planHistory.asStateFlow()
+
+    private val _activePlanId = MutableStateFlow<String?>(null)
+    val activePlanId: StateFlow<String?> = _activePlanId.asStateFlow()
+
+    private val _activeWeekStart = MutableStateFlow<String?>(null)
+    val activeWeekStart: StateFlow<String?> = _activeWeekStart.asStateFlow()
+
+    private val _activeWeekEnd = MutableStateFlow<String?>(null)
+    val activeWeekEnd: StateFlow<String?> = _activeWeekEnd.asStateFlow()
+
+    private val _planExpired = MutableStateFlow(false)
+    val planExpired: StateFlow<Boolean> = _planExpired.asStateFlow()
+
     private var currentUserId: String = ""
     private val gson = Gson()
 
@@ -62,17 +85,53 @@ class MealPlanViewModel(
         currentUserId = userId
         viewModelScope.launch {
             _uiState.value = MealPlanUiState.Idle 
-            val savedJson = userPrefsRepository.getSavedPlanJson(userId).first()
-            val savedTimestamp = userPrefsRepository.getSavedPlanTimestamp(userId).first()
-            
-            if (!savedJson.isNullOrBlank()) {
-                try {
-                    val response = gson.fromJson(savedJson, GeneratePlanResponse::class.java)
-                    _uiState.value = MealPlanUiState.Success(response, savedTimestamp)
-                    calculateMetrics(response)
-                } catch (e: Exception) {
-                    _uiState.value = MealPlanUiState.Idle
+            var history = loadPlanHistory(userId)
+            if (history.isEmpty()) {
+                val savedJson = userPrefsRepository.getSavedPlanJson(userId).first()
+                val savedTimestamp = userPrefsRepository.getSavedPlanTimestamp(userId).first()
+                if (!savedJson.isNullOrBlank()) {
+                    try {
+                        val response = gson.fromJson(savedJson, GeneratePlanResponse::class.java)
+                        val start = weekStartDate(savedTimestamp)
+                        val end = start.plusDays(6)
+                        val id = start.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                        val instance = PlanInstance(
+                            id = id,
+                            weekStart = id,
+                            weekEnd = end.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                            generatedAt = if (savedTimestamp > 0) savedTimestamp else System.currentTimeMillis(),
+                            response = normalizeResponse(response.copy(weekLabel = weekLabelFor(start)))
+                        )
+                        history = listOf(instance)
+                        savePlanHistory(history)
+                        userPrefsRepository.saveActivePlanId(userId, id)
+                    } catch (_: Exception) {
+                        history = emptyList()
+                    }
                 }
+            }
+            val normalizedHistory = history.map { it.copy(response = normalizeResponse(it.response)) }
+            if (normalizedHistory != history) {
+                savePlanHistory(normalizedHistory)
+            }
+            _planHistory.value = normalizedHistory
+            val activeId = userPrefsRepository.getActivePlanId(userId).first()
+            val currentWeekId = weekStartDate(System.currentTimeMillis()).format(DateTimeFormatter.ISO_LOCAL_DATE)
+            val active = when {
+                normalizedHistory.any { it.id == currentWeekId } -> normalizedHistory.first { it.id == currentWeekId }
+                !activeId.isNullOrBlank() -> normalizedHistory.firstOrNull { it.id == activeId }
+                else -> normalizedHistory.maxByOrNull { it.generatedAt }
+            }
+            val expired = active?.let { isExpired(it) } ?: false
+            _planExpired.value = expired && (normalizedHistory.none { it.id == currentWeekId })
+            _activePlanId.value = active?.id
+            _activeWeekStart.value = active?.weekStart
+            _activeWeekEnd.value = active?.weekEnd
+            if (active != null && !expired) {
+                _uiState.value = MealPlanUiState.Success(active.response, active.generatedAt)
+                calculateMetrics(active.response)
+            } else {
+                _uiState.value = MealPlanUiState.Idle
             }
         }
     }
@@ -105,6 +164,11 @@ class MealPlanViewModel(
         _uiState.value = MealPlanUiState.Idle
         _recipeState.value = RecipeDetailsUiState.Idle
         _planMetrics.value = PlanMetrics()
+        _planHistory.value = emptyList()
+        _activePlanId.value = null
+        _activeWeekStart.value = null
+        _activeWeekEnd.value = null
+        _planExpired.value = false
     }
 
     fun generateMealPlan(profile: UserProfile) {
@@ -115,10 +179,27 @@ class MealPlanViewModel(
             val result = repository.generatePlan(effectiveProfile)
             result.onSuccess { response ->
                 val now = System.currentTimeMillis()
-                _uiState.value = MealPlanUiState.Success(response, now)
-                calculateMetrics(response)
+                val start = weekStartDate(now)
+                val end = start.plusDays(6)
+                val id = start.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                val withLabel = normalizeResponse(response.copy(weekLabel = weekLabelFor(start)))
+                val instance = PlanInstance(
+                    id = id,
+                    weekStart = id,
+                    weekEnd = end.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                    generatedAt = now,
+                    response = withLabel
+                )
+                _uiState.value = MealPlanUiState.Success(withLabel, now)
+                calculateMetrics(withLabel)
                 if (currentUserId.isNotBlank()) {
-                    userPrefsRepository.savePlanJson(currentUserId, gson.toJson(response), now)
+                    upsertPlanInstance(instance)
+                    userPrefsRepository.savePlanJson(currentUserId, gson.toJson(withLabel), now)
+                    userPrefsRepository.saveActivePlanId(currentUserId, id)
+                    _activePlanId.value = id
+                    _activeWeekStart.value = instance.weekStart
+                    _activeWeekEnd.value = instance.weekEnd
+                    _planExpired.value = false
                 }
             }.onFailure { error ->
                 val raw = error.message ?: "Failed to connect to MILP engine"
@@ -196,6 +277,7 @@ class MealPlanViewModel(
             calculateMetrics(updated)
             if (currentUserId.isNotBlank()) {
                 userPrefsRepository.savePlanJson(currentUserId, gson.toJson(updated), currentState.timestamp)
+                updateActivePlanResponse(updated)
             }
         }
     }
@@ -216,10 +298,11 @@ class MealPlanViewModel(
             val allDetails = deferredDetails.awaitAll().filterNotNull()
             val detailsById = allDetails.associateBy { it.id }
             val sources = mutableMapOf<String, List<GroceryItemSource>>()
+            val planId = _activePlanId.value ?: plan.weekLabel
             plan.days.forEachIndexed { dayIndex, day ->
                 day.meals.forEachIndexed { mealIndex, meal ->
                     val detail = detailsById[meal.recipeId] ?: return@forEachIndexed
-                    val mealId = buildMealInstanceId(plan.weekLabel, dayIndex, mealIndex, meal.mealLabel)
+                    val mealId = buildMealInstanceId(planId, dayIndex, mealIndex, meal.mealLabel)
                     sources[mealId] = detail.ingredients.map { GroceryItemSource(it.name, it.quantity) }
                 }
             }
@@ -250,6 +333,124 @@ class MealPlanViewModel(
 
     fun buildMealInstanceId(weekLabel: String, dayIndex: Int, mealIndex: Int, mealLabel: String): String {
         return "${weekLabel}_d${dayIndex}_m${mealIndex}_$mealLabel"
+    }
+
+    fun selectPlan(planId: String) {
+        val plan = _planHistory.value.firstOrNull { it.id == planId } ?: return
+        _activePlanId.value = plan.id
+        _activeWeekStart.value = plan.weekStart
+        _activeWeekEnd.value = plan.weekEnd
+        _planExpired.value = isExpired(plan)
+        _uiState.value = MealPlanUiState.Success(plan.response, plan.generatedAt)
+        calculateMetrics(plan.response)
+        if (currentUserId.isNotBlank()) {
+            viewModelScope.launch {
+                userPrefsRepository.saveActivePlanId(currentUserId, plan.id)
+            }
+        }
+    }
+
+    fun clearPlanHistory() {
+        if (currentUserId.isBlank()) return
+        viewModelScope.launch {
+            userPrefsRepository.clearPlanHistory(currentUserId)
+            _planHistory.value = emptyList()
+            _activePlanId.value = null
+            _activeWeekStart.value = null
+            _activeWeekEnd.value = null
+            _planExpired.value = false
+            _uiState.value = MealPlanUiState.Idle
+            _planMetrics.value = PlanMetrics()
+        }
+    }
+
+    private fun isExpired(plan: PlanInstance): Boolean {
+        return try {
+            val end = LocalDate.parse(plan.weekEnd, DateTimeFormatter.ISO_LOCAL_DATE)
+            end.isBefore(LocalDate.now())
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun weekStartDate(timestamp: Long): LocalDate {
+        val date = java.time.Instant.ofEpochMilli(timestamp).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        val firstDay = WeekFields.of(Locale.getDefault()).firstDayOfWeek
+        return date.with(TemporalAdjusters.previousOrSame(firstDay))
+    }
+
+    private fun weekLabelFor(start: LocalDate): String {
+        val end = start.plusDays(6)
+        val fmt = DateTimeFormatter.ofPattern("MMM d", Locale.getDefault())
+        val fmtYear = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault())
+        return if (start.year == end.year) {
+            "${start.format(fmt)} – ${end.format(fmtYear)}"
+        } else {
+            "${start.format(fmtYear)} – ${end.format(fmtYear)}"
+        }
+    }
+
+    private suspend fun loadPlanHistory(userId: String): List<PlanInstance> {
+        val json = userPrefsRepository.getPlanHistoryJson(userId).first()
+        if (json.isNullOrBlank()) return emptyList()
+        return try {
+            val type = object : com.google.gson.reflect.TypeToken<List<PlanInstance>>() {}.type
+            gson.fromJson(json, type)
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun savePlanHistory(history: List<PlanInstance>) {
+        if (currentUserId.isBlank()) return
+        viewModelScope.launch {
+            userPrefsRepository.savePlanHistoryJson(currentUserId, gson.toJson(history))
+        }
+    }
+
+    private fun upsertPlanInstance(instance: PlanInstance) {
+        val updated = _planHistory.value.toMutableList()
+        val idx = updated.indexOfFirst { it.id == instance.id }
+        if (idx >= 0) updated[idx] = instance else updated.add(instance)
+        _planHistory.value = updated.sortedBy { it.weekStart }
+        savePlanHistory(_planHistory.value)
+    }
+
+    private fun updateActivePlanResponse(updated: GeneratePlanResponse) {
+        val activeId = _activePlanId.value ?: return
+        val normalized = normalizeResponse(updated)
+        val updatedHistory = _planHistory.value.map { plan ->
+            if (plan.id == activeId) plan.copy(response = normalized) else plan
+        }
+        _planHistory.value = updatedHistory
+        savePlanHistory(updatedHistory)
+    }
+
+    private fun normalizeResponse(response: GeneratePlanResponse): GeneratePlanResponse {
+        val dayOrder = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+        val byCanonical = response.days.mapNotNull { day ->
+            val canonical = canonicalDayLabel(day.dayLabel) ?: return@mapNotNull null
+            canonical to day.copy(dayLabel = canonical)
+        }.toMap()
+        val normalized = dayOrder.map { label ->
+            byCanonical[label] ?: DayPlanDto(label, emptyList(), 0)
+        }
+        return response.copy(days = normalized)
+    }
+
+    private fun canonicalDayLabel(label: String): String? {
+        val raw = label.trim().lowercase(Locale.ENGLISH)
+        if (raw.isBlank()) return null
+        return when {
+            raw.startsWith("mon") || raw.startsWith("monday") || raw.startsWith("lun") || raw.startsWith("lunes") -> "Mon"
+            raw.startsWith("tue") || raw.startsWith("tues") || raw.startsWith("tuesday") || raw.startsWith("mar") || raw.startsWith("martes") -> "Tue"
+            raw.startsWith("wed") || raw.startsWith("weds") || raw.startsWith("wednesday") || raw.startsWith("miy") || raw.startsWith("miyerkules") -> "Wed"
+            raw.startsWith("thu") || raw.startsWith("thur") || raw.startsWith("thurs") || raw.startsWith("thursday") || raw.startsWith("huw") || raw.startsWith("huwebes") -> "Thu"
+            raw.startsWith("fri") || raw.startsWith("friday") || raw.startsWith("biy") || raw.startsWith("biyernes") -> "Fri"
+            raw.startsWith("sat") || raw.startsWith("saturday") || raw.startsWith("sab") || raw.startsWith("sabado") -> "Sat"
+            raw.startsWith("sun") || raw.startsWith("sunday") || raw.startsWith("lin") || raw.startsWith("linggo") -> "Sun"
+            else -> null
+        }
     }
 
     class Factory(

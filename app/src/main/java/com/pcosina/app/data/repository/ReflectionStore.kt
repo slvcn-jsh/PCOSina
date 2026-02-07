@@ -1,0 +1,74 @@
+package com.pcosina.app.data.repository
+
+import android.content.Context
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
+import com.google.gson.Gson
+import java.io.File
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+
+class ReflectionStore(private val context: Context) {
+    private val gson = Gson()
+    private val prefs by lazy {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            context,
+            "pcosina_reflections",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
+
+    private fun dailyLogsKey(userId: String) = "daily_logs_$userId"
+    private fun weeklyKey(userId: String, weekStart: String) = "weekly_journal_${userId}_$weekStart"
+
+    fun getDailyLogsJson(userId: String): String? = prefs.getString(dailyLogsKey(userId), null)
+
+    fun saveDailyLogsJson(userId: String, json: String) {
+        prefs.edit().putString(dailyLogsKey(userId), json).apply()
+    }
+
+    fun getWeeklyJournal(userId: String, weekStart: String): String? =
+        prefs.getString(weeklyKey(userId, weekStart), null)
+
+    fun saveWeeklyJournal(userId: String, weekStart: String, text: String) {
+        prefs.edit().putString(weeklyKey(userId, weekStart), text).apply()
+    }
+
+    fun getAllWeeklyJournals(userId: String): Map<String, String> {
+        return prefs.all
+            .filterKeys { it.startsWith("weekly_journal_${userId}_") }
+            .mapValues { it.value?.toString().orEmpty() }
+    }
+
+    fun clearForUser(userId: String) {
+        val editor = prefs.edit()
+        prefs.all.keys.forEach { key ->
+            if (key == dailyLogsKey(userId) || key.startsWith("weekly_journal_${userId}_")) {
+                editor.remove(key)
+            }
+        }
+        editor.apply()
+    }
+
+    fun exportReflections(userId: String): File {
+        val dailyLogsJson = getDailyLogsJson(userId)
+        val dailyLogs = if (!dailyLogsJson.isNullOrBlank()) {
+            try { gson.fromJson(dailyLogsJson, Array<Any>::class.java).toList() } catch (_: Exception) { emptyList() }
+        } else emptyList()
+        val export = mapOf(
+            "exportedAt" to LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE),
+            "dailyLogs" to dailyLogs,
+            "weeklyJournals" to getAllWeeklyJournals(userId)
+        )
+        val json = gson.toJson(export)
+        val fileName = "pcosina_reflections_${userId}_${System.currentTimeMillis()}.json"
+        val outFile = File(context.cacheDir, fileName)
+        outFile.writeText(json)
+        return outFile
+    }
+}

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -40,6 +41,11 @@ import com.google.firebase.analytics.FirebaseAnalytics
 import com.pcosina.app.data.api.RecipeSummaryDto
 import kotlinx.coroutines.launch
 import java.util.Locale
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
+import java.time.temporal.WeekFields
 
 private data class SwapTarget(
     val dayIndex: Int,
@@ -59,6 +65,10 @@ fun MealPlanScreen(
     modifier: Modifier = Modifier,
 ) {
     val uiState by mealPlanViewModel.uiState.collectAsState()
+    val planHistory by mealPlanViewModel.planHistory.collectAsState()
+    val activePlanId by mealPlanViewModel.activePlanId.collectAsState()
+    val planExpired by mealPlanViewModel.planExpired.collectAsState()
+    val activeWeekStart by mealPlanViewModel.activeWeekStart.collectAsState()
     val currentPlan = (uiState as? MealPlanUiState.Success)?.response
     val userProfile by userViewModel.userProfile.collectAsState()
     var selectedDayIndex by rememberSaveable { mutableStateOf(0) }
@@ -69,6 +79,13 @@ fun MealPlanScreen(
         isOnline.value = isNetworkAvailable(context)
     }
     val colorScheme = MaterialTheme.colorScheme
+    val weekStartDate = remember(activeWeekStart) {
+        val base = activeWeekStart?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            ?: LocalDate.now()
+        val firstDay = WeekFields.of(Locale.getDefault()).firstDayOfWeek
+        base.with(TemporalAdjusters.previousOrSame(firstDay))
+    }
+    val dayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -90,6 +107,9 @@ fun MealPlanScreen(
             kotlinx.coroutines.delay(2000)
             syncSuccess = false
         }
+    }
+    LaunchedEffect(activePlanId) {
+        selectedDayIndex = 0
     }
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -124,6 +144,23 @@ fun MealPlanScreen(
                                 if (isOnline.value) "Generate My Optimized Plan" else "Generate (Internet required)",
                                 fontWeight = FontWeight.Bold
                             )
+                        }
+                        if (planHistory.isNotEmpty()) {
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                text = "View past weeks",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(planHistory.sortedByDescending { it.weekStart }) { instance ->
+                                    FilterChip(
+                                        selected = false,
+                                        onClick = { mealPlanViewModel.selectPlan(instance.id) },
+                                        label = { Text(instance.response.weekLabel) }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -167,8 +204,13 @@ fun MealPlanScreen(
             }
             is MealPlanUiState.Success -> {
                 val plan = state.response
-                val selectedDay = plan.days[selectedDayIndex]
+                val planByLabel = plan.days.associateBy { it.dayLabel.lowercase(Locale.ENGLISH) }
+                val selectedLabel = dayLabels.getOrNull(selectedDayIndex) ?: "Mon"
+                val selectedDay = planByLabel[selectedLabel.lowercase(Locale.ENGLISH)]
                 val explanation = plan.explanation
+                val selectedMeals = selectedDay?.meals.orEmpty()
+                val selectedDayLabel = selectedDay?.dayLabel ?: selectedLabel
+                val selectedDayCalories = selectedDay?.totalCalories ?: 0
                 val recipeCounts = remember(plan) {
                     plan.days.flatMap { it.meals }.groupingBy { it.recipeId }.eachCount()
                 }
@@ -206,6 +248,67 @@ fun MealPlanScreen(
                             subtitle = "Target: ${userViewModel.dailyCalorieTarget} kcal/day",
                             containerHeight = 180
                         )
+                        if (planExpired) {
+                            Spacer(Modifier.height(10.dp))
+                            Card(
+                                shape = MaterialTheme.shapes.large,
+                                colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "This week has ended.",
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                    Text(
+                                        text = "Generate a new week to keep tracking current meals.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Button(
+                            onClick = {
+                                isOnline.value = isNetworkAvailable(context)
+                                if (!isOnline.value) {
+                                    mealPlanViewModel.showError("Offline. Connect to the internet to generate a new plan.")
+                                    return@Button
+                                }
+                                mealPlanViewModel.generateMealPlan(userProfile)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                        ) {
+                            Text("Generate New Week", fontWeight = FontWeight.Bold)
+                        }
+                        if (planHistory.isNotEmpty()) {
+                            Spacer(Modifier.height(10.dp))
+                            Text(
+                                text = "Week History",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(planHistory.sortedByDescending { it.weekStart }) { instance ->
+                                    val selected = instance.id == activePlanId
+                                    FilterChip(
+                                        selected = selected,
+                                        onClick = { mealPlanViewModel.selectPlan(instance.id) },
+                                        label = { Text(instance.response.weekLabel) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = colorScheme.primary,
+                                            selectedLabelColor = colorScheme.onPrimary
+                                        )
+                                    )
+                                }
+                            }
+                        }
                         if (userProfile.goal.contains("Symptom", true)) {
                             Text(
                                 text = "Low‑GI guidance: favor high‑fiber carbs and balanced meals.",
@@ -427,8 +530,7 @@ fun MealPlanScreen(
 
                     // 2. Day selector chips + navigation hint
                     item {
-                        val dayCount = plan.days.size
-                        val hasWeekend = plan.days.any { it.dayLabel.equals("Sat", true) || it.dayLabel.equals("Sun", true) }
+                        val dayCount = dayLabels.size
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -440,15 +542,11 @@ fun MealPlanScreen(
                             ) {
                                 Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous day")
                             }
-                            if (dayCount > 5) {
-                                Text(
-                                    text = "Swipe → for more days",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = colorScheme.onSurfaceVariant
-                                )
-                            } else {
-                                Spacer(Modifier.width(1.dp))
-                            }
+                            Text(
+                                text = "Swipe → for more days",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = colorScheme.onSurfaceVariant
+                            )
                             IconButton(
                                 onClick = { if (selectedDayIndex < dayCount - 1) selectedDayIndex++ },
                                 enabled = selectedDayIndex < dayCount - 1
@@ -463,12 +561,14 @@ fun MealPlanScreen(
                                 .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            plan.days.forEachIndexed { index, day ->
+                            val todayLabel = LocalDate.now().format(DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH))
+                            dayLabels.forEachIndexed { index, label ->
                                 val selected = index == selectedDayIndex
+                                val isToday = label.equals(todayLabel, true)
                                 FilterChip(
                                     selected = selected,
                                     onClick = { selectedDayIndex = index },
-                                    label = { Text(day.dayLabel) },
+                                    label = { Text(if (isToday) "$label • Today" else label) },
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = colorScheme.primary,
                                         selectedLabelColor = colorScheme.onPrimary,
@@ -494,31 +594,6 @@ fun MealPlanScreen(
                                 if (i != dayCount - 1) Spacer(Modifier.width(6.dp))
                             }
                         }
-                        if (hasWeekend) {
-                            Spacer(Modifier.height(6.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                FilterChip(
-                                    selected = plan.days.getOrNull(selectedDayIndex)?.dayLabel.equals("Sat", true),
-                                    onClick = {
-                                        val idx = plan.days.indexOfFirst { it.dayLabel.equals("Sat", true) }
-                                        if (idx >= 0) selectedDayIndex = idx
-                                    },
-                                    label = { Text("Sat") }
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                FilterChip(
-                                    selected = plan.days.getOrNull(selectedDayIndex)?.dayLabel.equals("Sun", true),
-                                    onClick = {
-                                        val idx = plan.days.indexOfFirst { it.dayLabel.equals("Sun", true) }
-                                        if (idx >= 0) selectedDayIndex = idx
-                                    },
-                                    label = { Text("Sun") }
-                                )
-                            }
-                        }
                     }
 
                     // 3. Daily summary card
@@ -536,17 +611,32 @@ fun MealPlanScreen(
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     Icon(imageVector = Icons.Filled.CalendarMonth, contentDescription = null, tint = colorScheme.primary)
                                     Column {
-                                        Text(text = "${selectedDay.dayLabel}'s Total", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                                        Text(text = "${selectedDayLabel}'s Total", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                                         Text(text = "MILP Validated", style = MaterialTheme.typography.bodySmall, color = colorScheme.primary)
                                     }
                                 }
-                                Text(text = "${selectedDay.totalCalories} kcal", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = colorScheme.secondary))
+                                Text(text = "${selectedDayCalories} kcal", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = colorScheme.secondary))
                             }
                         }
                     }
 
                     // 4. Meals list
-                    itemsIndexed(selectedDay.meals) { mealIndex, plannedMeal ->
+                    if (selectedMeals.isEmpty()) {
+                        item {
+                            Card(
+                                shape = MaterialTheme.shapes.extraLarge,
+                                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                            ) {
+                                Text(
+                                    text = "No meals planned for $selectedDayLabel.",
+                                    modifier = Modifier.padding(16.dp),
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    itemsIndexed(selectedMeals) { mealIndex, plannedMeal ->
                         Card(
                             onClick = { onRecipeClick(plannedMeal.recipeId) },
                             shape = MaterialTheme.shapes.extraLarge,
@@ -751,7 +841,7 @@ fun MealPlanScreen(
                                             scope.launch {
                                                 try {
                                                     val mealId = mealPlanViewModel.buildMealInstanceId(
-                                                        currentPlan.weekLabel,
+                                                        activePlanId ?: currentPlan.weekLabel,
                                                         target.dayIndex,
                                                         target.mealIndex,
                                                         target.mealLabel

@@ -21,6 +21,8 @@ class UserPreferencesRepository(private val context: Context) {
         fun age(userId: String) = intPreferencesKey("age_$userId")
         fun weight(userId: String) = intPreferencesKey("weight_$userId")
         fun height(userId: String) = intPreferencesKey("height_$userId")
+        fun weightUnit(userId: String) = stringPreferencesKey("weight_unit_$userId")
+        fun heightUnit(userId: String) = stringPreferencesKey("height_unit_$userId")
         fun activity(userId: String) = stringPreferencesKey("activity_$userId")
         fun goal(userId: String) = stringPreferencesKey("goal_$userId")
         fun insulin(userId: String) = stringPreferencesKey("insulin_$userId")
@@ -32,9 +34,12 @@ class UserPreferencesRepository(private val context: Context) {
         fun completed(userId: String) = booleanPreferencesKey("onboarding_complete_$userId")
         fun lastPlanJson(userId: String) = stringPreferencesKey("last_plan_json_$userId")
         fun lastPlanTimestamp(userId: String) = longPreferencesKey("last_plan_timestamp_$userId")
+        fun planHistoryJson(userId: String) = stringPreferencesKey("plan_history_json_$userId")
+        fun activePlanId(userId: String) = stringPreferencesKey("active_plan_id_$userId")
         // Task #1: Persistent Grocery Storage
         fun groceryJson(userId: String) = stringPreferencesKey("grocery_json_$userId")
         fun grocerySourcesJson(userId: String) = stringPreferencesKey("grocery_sources_json_$userId")
+        fun grocerySnapshotsJson(userId: String) = stringPreferencesKey("grocery_snapshots_json_$userId")
         fun migrationLogged(userId: String) = booleanPreferencesKey("migration_logged_$userId")
         fun dailyLogsJson(userId: String) = stringPreferencesKey("daily_logs_json_$userId")
         fun feedbackQueueJson(userId: String) = stringPreferencesKey("feedback_queue_json_$userId")
@@ -46,6 +51,8 @@ class UserPreferencesRepository(private val context: Context) {
         fun age(email: String) = intPreferencesKey("age_$email")
         fun weight(email: String) = intPreferencesKey("weight_$email")
         fun height(email: String) = intPreferencesKey("height_$email")
+        fun weightUnit(email: String) = stringPreferencesKey("weight_unit_$email")
+        fun heightUnit(email: String) = stringPreferencesKey("height_unit_$email")
         fun activity(email: String) = stringPreferencesKey("activity_$email")
         fun goal(email: String) = stringPreferencesKey("goal_$email")
         fun insulin(email: String) = stringPreferencesKey("insulin_$email")
@@ -81,6 +88,8 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.age(userId)] = preferences[LegacyKeys.age(email)] ?: 0
             preferences[Keys.weight(userId)] = preferences[LegacyKeys.weight(email)] ?: 0
             preferences[Keys.height(userId)] = preferences[LegacyKeys.height(email)] ?: 0
+            preferences[Keys.weightUnit(userId)] = preferences[LegacyKeys.weightUnit(email)] ?: "kg"
+            preferences[Keys.heightUnit(userId)] = preferences[LegacyKeys.heightUnit(email)] ?: "cm"
             preferences[Keys.activity(userId)] = preferences[LegacyKeys.activity(email)] ?: "Lightly Active"
             preferences[Keys.goal(userId)] = preferences[LegacyKeys.goal(email)] ?: "Support PCOS symptom management"
             preferences[Keys.insulin(userId)] = preferences[LegacyKeys.insulin(email)] ?: "Mild"
@@ -112,6 +121,8 @@ class UserPreferencesRepository(private val context: Context) {
                 age = preferences[Keys.age(userId)] ?: 0,
                 weightKg = preferences[Keys.weight(userId)] ?: 0,
                 heightCm = preferences[Keys.height(userId)] ?: 0,
+                weightUnit = preferences[Keys.weightUnit(userId)] ?: "kg",
+                heightUnit = preferences[Keys.heightUnit(userId)] ?: "cm",
                 activityLevel = preferences[Keys.activity(userId)] ?: "Lightly Active",
                 goal = preferences[Keys.goal(userId)] ?: "Support PCOS symptom management",
                 insulinResistanceLevel = preferences[Keys.insulin(userId)] ?: "Mild",
@@ -130,6 +141,8 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.age(userId)] = profile.age
             preferences[Keys.weight(userId)] = profile.weightKg
             preferences[Keys.height(userId)] = profile.heightCm
+            preferences[Keys.weightUnit(userId)] = profile.weightUnit
+            preferences[Keys.heightUnit(userId)] = profile.heightUnit
             preferences[Keys.activity(userId)] = profile.activityLevel
             preferences[Keys.goal(userId)] = profile.goal
             preferences[Keys.insulin(userId)] = profile.insulinResistanceLevel
@@ -152,11 +165,26 @@ class UserPreferencesRepository(private val context: Context) {
 
     fun getSavedPlanJson(userId: String): Flow<String?> = context.dataStore.data.map { it[Keys.lastPlanJson(userId)] }
     fun getSavedPlanTimestamp(userId: String): Flow<Long> = context.dataStore.data.map { it[Keys.lastPlanTimestamp(userId)] ?: 0L }
+    fun getPlanHistoryJson(userId: String): Flow<String?> = context.dataStore.data.map { it[Keys.planHistoryJson(userId)] }
+    fun getActivePlanId(userId: String): Flow<String?> = context.dataStore.data.map { it[Keys.activePlanId(userId)] }
 
     suspend fun savePlanJson(userId: String, json: String, timestamp: Long) {
         context.dataStore.edit { preferences ->
             preferences[Keys.lastPlanJson(userId)] = json
             preferences[Keys.lastPlanTimestamp(userId)] = timestamp
+        }
+    }
+
+    suspend fun savePlanHistoryJson(userId: String, json: String) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.planHistoryJson(userId)] = json
+        }
+    }
+
+    suspend fun saveActivePlanId(userId: String, id: String?) {
+        context.dataStore.edit { preferences ->
+            if (id.isNullOrBlank()) preferences.remove(Keys.activePlanId(userId))
+            else preferences[Keys.activePlanId(userId)] = id
         }
     }
 
@@ -171,6 +199,13 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun saveGrocerySourcesJson(userId: String, json: String) {
         context.dataStore.edit { it[Keys.grocerySourcesJson(userId)] = json }
+    }
+
+    fun getGrocerySnapshotsJson(userId: String): Flow<String?> =
+        context.dataStore.data.map { it[Keys.grocerySnapshotsJson(userId)] }
+
+    suspend fun saveGrocerySnapshotsJson(userId: String, json: String) {
+        context.dataStore.edit { it[Keys.grocerySnapshotsJson(userId)] = json }
     }
 
     fun getDailyLogsJson(userId: String): Flow<String?> = context.dataStore.data.map { it[Keys.dailyLogsJson(userId)] }
@@ -190,5 +225,22 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun saveFeedbackQueueJson(userId: String, json: String) {
         context.dataStore.edit { it[Keys.feedbackQueueJson(userId)] = json }
+    }
+
+    suspend fun clearPlanHistory(userId: String) {
+        context.dataStore.edit { preferences ->
+            preferences.remove(Keys.planHistoryJson(userId))
+            preferences.remove(Keys.activePlanId(userId))
+            preferences.remove(Keys.lastPlanJson(userId))
+            preferences.remove(Keys.lastPlanTimestamp(userId))
+        }
+    }
+
+    suspend fun clearGrocerySnapshots(userId: String) {
+        context.dataStore.edit { preferences ->
+            preferences.remove(Keys.grocerySnapshotsJson(userId))
+            preferences.remove(Keys.groceryJson(userId))
+            preferences.remove(Keys.grocerySourcesJson(userId))
+        }
     }
 }

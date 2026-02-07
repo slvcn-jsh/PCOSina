@@ -8,6 +8,7 @@ import com.google.gson.reflect.TypeToken
 import com.pcosina.app.data.model.DailyLog
 import com.pcosina.app.data.model.FeedbackEntry
 import com.pcosina.app.data.repository.FeedbackRepository
+import com.pcosina.app.data.repository.ReflectionStore
 import com.pcosina.app.data.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,7 @@ import java.util.UUID
 
 class ProgressViewModel(
     private val userPrefsRepository: UserPreferencesRepository,
+    private val reflectionStore: ReflectionStore,
     private val feedbackRepository: FeedbackRepository
 ) : ViewModel() {
 
@@ -66,7 +68,14 @@ class ProgressViewModel(
         }
         currentUserId = userId
         viewModelScope.launch {
-            val json = userPrefsRepository.getDailyLogsJson(userId).first()
+            var json = reflectionStore.getDailyLogsJson(userId)
+            if (json.isNullOrBlank()) {
+                val legacy = userPrefsRepository.getDailyLogsJson(userId).first()
+                if (!legacy.isNullOrBlank()) {
+                    reflectionStore.saveDailyLogsJson(userId, legacy)
+                    json = legacy
+                }
+            }
             val list: List<DailyLog> = if (!json.isNullOrBlank()) {
                 try { gson.fromJson(json, logType) } catch (_: Exception) { emptyList() }
             } else emptyList()
@@ -93,17 +102,17 @@ class ProgressViewModel(
     fun loadWeeklyJournal(weekStart: String, fallbackWeekStart: String? = null) {
         if (currentUserId.isBlank()) return
         viewModelScope.launch {
-            val primary = userPrefsRepository.getWeeklyJournal(currentUserId, weekStart).first()
+            val primary = reflectionStore.getWeeklyJournal(currentUserId, weekStart)
             if (!primary.isNullOrBlank()) {
                 _weeklyJournal.value = primary
                 return@launch
             }
             if (!fallbackWeekStart.isNullOrBlank() && fallbackWeekStart != weekStart) {
-                val fallback = userPrefsRepository.getWeeklyJournal(currentUserId, fallbackWeekStart).first()
+                val fallback = reflectionStore.getWeeklyJournal(currentUserId, fallbackWeekStart)
                 if (!fallback.isNullOrBlank()) {
                     _weeklyJournal.value = fallback
                     // Migrate legacy week key forward for future loads
-                    userPrefsRepository.saveWeeklyJournal(currentUserId, weekStart, fallback)
+                    reflectionStore.saveWeeklyJournal(currentUserId, weekStart, fallback)
                     return@launch
                 }
             }
@@ -115,7 +124,7 @@ class ProgressViewModel(
         if (currentUserId.isBlank()) return
         viewModelScope.launch {
             val json = gson.toJson(map.values.toList())
-            userPrefsRepository.saveDailyLogsJson(currentUserId, json)
+            reflectionStore.saveDailyLogsJson(currentUserId, json)
         }
     }
 
@@ -159,6 +168,7 @@ class ProgressViewModel(
         energyLevel: Int?,
         cravingsLevel: Int?,
         moodLevel: Int?,
+        symptomTags: List<String>,
         symptomsNote: String?
     ) {
         val key = date.format(dateFmt)
@@ -167,6 +177,7 @@ class ProgressViewModel(
             energyLevel = energyLevel,
             cravingsLevel = cravingsLevel,
             moodLevel = moodLevel,
+            symptomTags = symptomTags,
             symptomsNote = symptomsNote?.takeIf { it.isNotBlank() },
             timestamp = System.currentTimeMillis()
         )
@@ -179,7 +190,7 @@ class ProgressViewModel(
     fun saveWeeklyJournal(weekStart: String, text: String) {
         if (currentUserId.isBlank()) return
         viewModelScope.launch {
-            userPrefsRepository.saveWeeklyJournal(currentUserId, weekStart, text)
+            reflectionStore.saveWeeklyJournal(currentUserId, weekStart, text)
             _weeklyJournal.value = text
         }
     }
@@ -189,6 +200,18 @@ class ProgressViewModel(
         _dailyLogs.value = emptyMap()
         _weeklyJournal.value = ""
         _feedbackQueue.value = emptyList()
+    }
+
+    fun exportReflections(): java.io.File? {
+        if (currentUserId.isBlank()) return null
+        return reflectionStore.exportReflections(currentUserId)
+    }
+
+    fun clearReflectionsForUser() {
+        if (currentUserId.isBlank()) return
+        reflectionStore.clearForUser(currentUserId)
+        _dailyLogs.value = emptyMap()
+        _weeklyJournal.value = ""
     }
 
     fun queueFeedback(message: String) {
@@ -296,12 +319,13 @@ class ProgressViewModel(
 
     class Factory(
         private val userPrefsRepository: UserPreferencesRepository,
+        private val reflectionStore: ReflectionStore,
         private val feedbackRepository: FeedbackRepository
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(ProgressViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return ProgressViewModel(userPrefsRepository, feedbackRepository) as T
+                return ProgressViewModel(userPrefsRepository, reflectionStore, feedbackRepository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

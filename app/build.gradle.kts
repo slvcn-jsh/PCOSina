@@ -113,6 +113,7 @@ dependencies {
     implementation(libs.play.services.tasks)
     implementation(libs.play.services.auth)
     implementation(libs.sentry.android)
+    implementation(libs.androidx.security.crypto)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

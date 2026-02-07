@@ -12,6 +12,7 @@ object Routes {
     // Onboarding flow
     const val Onboarding = "onboarding"
     const val UserProfile = "user_profile"
+    const val UserProfileEdit = "user_profile_edit"
     const val GoalSelection = "goal_selection"
     
     // Main App

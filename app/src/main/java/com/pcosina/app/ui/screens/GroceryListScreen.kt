@@ -51,6 +51,7 @@ import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.theme.PcosinaSuccess
+import com.pcosina.app.domain.PriceCatalog
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -69,6 +70,7 @@ fun GroceryListScreen(
     val context = LocalContext.current
     val addedItems by groceryViewModel.groceryItems.collectAsState()
     val lastPlanTimestamp by groceryViewModel.lastPlanTimestamp.collectAsState()
+    val activePlanId by groceryViewModel.activePlanId.collectAsState()
     val userProfile by userViewModel.userProfile.collectAsState()
     
     // Combine dummy static list with dynamic added items
@@ -121,11 +123,16 @@ fun GroceryListScreen(
 
     var expandedMap by rememberSaveable { mutableStateOf(displayCategories.associateWith { true }) }
     val allExpanded = expandedMap.values.all { it }
-    val weekLabel = remember(lastPlanTimestamp) { formatWeekRange(lastPlanTimestamp) }
+    val weekLabel = remember(activePlanId, lastPlanTimestamp) {
+        formatWeekRange(activePlanId, lastPlanTimestamp)
+    }
 
+    fun effectivePrice(item: GroceryItem): Int {
+        return if (item.price > 0) item.price else PriceCatalog.estimatePrice(item.name)
+    }
     val totalCost = allItems
         .filter { it.name !in effectiveCheckedNames }
-        .sumOf { it.price }
+        .sumOf { effectivePrice(it) }
     val savings = displayBudget.toInt() - totalCost
     val costProgress = (totalCost.toFloat() / displayBudget.toFloat()).coerceIn(0f, 1f)
 
@@ -369,6 +376,7 @@ fun GroceryListScreen(
                     },
                     pantryMatches = pantryMatches,
                     pantryOptOut = pantryOptOut,
+                    priceResolver = { effectivePrice(it) }
                 )
             }
         }
@@ -452,6 +460,7 @@ private fun CategoryCard(
     onCheckedChange: (String, Boolean) -> Unit,
     pantryMatches: Set<String>,
     pantryOptOut: Set<String>,
+    priceResolver: (GroceryItem) -> Int,
 ) {
     Card(
         shape = MaterialTheme.shapes.large,
@@ -529,7 +538,7 @@ private fun CategoryCard(
                                 }
                             }
                             Text(
-                                text = "₱${if (checked) 0 else item.price}",
+                                text = "₱${if (checked) 0 else priceResolver(item)}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = if (checked) MaterialTheme.colorScheme.onSurfaceVariant
                                 else MaterialTheme.colorScheme.onSurface,
@@ -565,42 +574,21 @@ private fun inferCategory(item: GroceryItem): String {
             return mapped
         }
     }
-    val name = item.name.lowercase(Locale.getDefault()).trim()
-    if (name.isBlank()) return "Others"
-    return when {
-        listOf(
-            "lettuce","spinach","cabbage","carrot","broccoli","kale","tomato","onion","garlic","pepper",
-            "pechay","ampalaya","okra","eggplant","sayote","squash","ginger","gabi","kamote","cucumber",
-            "banana","apple","orange","mango","grape","papaya","pineapple","strawberry","melon","calamansi"
-        ).any { name.contains(it) } -> "Produce"
-        listOf(
-            "chicken","beef","pork","fish","salmon","tuna","shrimp","tilapia","meat","bangus","sardine",
-            "galunggong","tocino","longganisa"
-        ).any { name.contains(it) } -> "Meat/Seafood"
-        listOf("egg","milk","cheese","yogurt","butter","cream").any { name.contains(it) } -> "Eggs & Dairy"
-        listOf(
-            "rice","oat","bread","pasta","noodles","flour","grains","cereal","quinoa","barley",
-            "corn","frozen","dried","beans","lentils"
-        ).any { name.contains(it) } -> "Dry Goods"
-        listOf("salt","pepper","soy","sauce","vinegar","spice","condiment","oil","sugar","honey","bagoong").any { name.contains(it) } ->
-            "Spices & Condiments"
-        listOf("canned","packaged","instant","biscuit","cracker","chips","snack","noodles").any { name.contains(it) } ->
-            "Canned/Packaged"
-        listOf("juice","soda","coffee","tea","water","milk tea").any { name.contains(it) } ->
-            "Beverages"
-        else -> "Others"
-    }
+    return PriceCatalog.inferCategory(item.name)
 }
 
-private fun formatWeekRange(timestamp: Long?): String {
+private fun formatWeekRange(weekStartId: String?, timestamp: Long?): String {
     val zone = ZoneId.systemDefault()
-    val baseDate = if (timestamp != null && timestamp > 0) {
+    val baseDate = if (!weekStartId.isNullOrBlank()) {
+        runCatching { LocalDate.parse(weekStartId, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
+    } else null
+    val resolved = baseDate ?: if (timestamp != null && timestamp > 0) {
         Instant.ofEpochMilli(timestamp).atZone(zone).toLocalDate()
     } else {
         LocalDate.now(zone)
     }
     val weekFields = WeekFields.of(Locale.getDefault())
-    val start = baseDate.with(TemporalAdjusters.previousOrSame(weekFields.firstDayOfWeek))
+    val start = resolved.with(TemporalAdjusters.previousOrSame(weekFields.firstDayOfWeek))
     val end = start.plusDays(6)
     val sameYear = start.year == end.year
     val fmt = DateTimeFormatter.ofPattern("MMM d", Locale.getDefault())

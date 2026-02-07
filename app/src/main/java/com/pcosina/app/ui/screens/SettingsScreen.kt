@@ -36,15 +36,23 @@ import androidx.compose.ui.input.pointer.pointerInput
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.pcosina.app.BuildConfig
 import com.pcosina.app.ui.AuthViewModel
+import com.pcosina.app.ui.GroceryViewModel
+import com.pcosina.app.ui.MealPlanViewModel
+import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.domain.HealthMetrics
+import com.pcosina.app.domain.UnitConverter
 
 @Composable
 fun SettingsScreen(
     userViewModel: UserViewModel,
     authViewModel: AuthViewModel,
-    onNavigateToOnboarding: () -> Unit,
+    mealPlanViewModel: MealPlanViewModel,
+    groceryViewModel: GroceryViewModel,
+    progressViewModel: ProgressViewModel,
+    userId: String,
+    onNavigateToProfileEdit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val profile by userViewModel.userProfile.collectAsState()
@@ -56,6 +64,8 @@ fun SettingsScreen(
     val baseUrl = BuildConfig.BASE_URL.trim().trim('"').trim('\'').trimEnd('/')
     val schemaUrl = "$baseUrl/schema"
     var tapCount by rememberSaveable { mutableStateOf(0) }
+
+    var showClearDialog by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -135,8 +145,19 @@ fun SettingsScreen(
 
         // Health & Goals Section
         SettingsSection(title = "Health Markers") {
-            SettingsItem(icon = Icons.Default.MonitorWeight, label = "Current Weight", value = "${profile.weightKg} kg")
-            SettingsItem(icon = Icons.Default.Height, label = "Height", value = "${profile.heightCm} cm")
+            val weightText = if (profile.weightUnit == UnitConverter.WEIGHT_LB) {
+                "${UnitConverter.kgToLb(profile.weightKg)} lb"
+            } else {
+                "${profile.weightKg} kg"
+            }
+            val heightText = if (profile.heightUnit == UnitConverter.HEIGHT_FT_IN) {
+                val (ft, inch) = UnitConverter.cmToFeetInches(profile.heightCm)
+                "${ft}ft ${inch}in"
+            } else {
+                "${profile.heightCm} cm"
+            }
+            SettingsItem(icon = Icons.Default.MonitorWeight, label = "Current Weight", value = weightText)
+            SettingsItem(icon = Icons.Default.Height, label = "Height", value = heightText)
             SettingsItem(icon = Icons.Default.LocalFireDepartment, label = "Activity Level", value = profile.activityLevel)
             val bmiValue = HealthMetrics.bmi(profile.weightKg, profile.heightCm)
             val bmiLabel = if (bmiValue > 0) String.format("%.1f", bmiValue) else "—"
@@ -159,7 +180,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(8.dp))
             
             Button(
-                onClick = onNavigateToOnboarding,
+                onClick = onNavigateToProfileEdit,
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
                 colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
@@ -179,7 +200,7 @@ fun SettingsScreen(
                 description = "Reset generated plans for this account",
                 color = colorScheme.onSurfaceVariant
             ) {
-                // Feature to clear specific plan data could be added here
+                showClearDialog = true
             }
             
             SettingsActionItem(
@@ -253,6 +274,27 @@ fun SettingsScreen(
             color = colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(12.dp))
+    }
+
+    if (showClearDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDialog = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (userId.isNotBlank()) {
+                        mealPlanViewModel.clearPlanHistory()
+                        groceryViewModel.clearForUser()
+                        progressViewModel.clearReflectionsForUser()
+                    }
+                    showClearDialog = false
+                }) { Text("Clear") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearDialog = false }) { Text("Cancel") }
+            },
+            title = { Text("Clear meal history?") },
+            text = { Text("This removes plans, grocery snapshots, and adherence logs for this account.") }
+        )
     }
 }
 

@@ -26,6 +26,7 @@ import androidx.navigation.navArgument
 import com.pcosina.app.data.repository.AuthRepository
 import com.pcosina.app.data.repository.MealPlanRepository
 import com.pcosina.app.data.repository.UserPreferencesRepository
+import com.pcosina.app.data.repository.ReflectionStore
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanViewModel
@@ -81,6 +82,7 @@ fun AppNavHost(
     val authRepository = remember { AuthRepository(context) }
     val mealPlanRepository = remember { MealPlanRepository() }
     val feedbackRepository = remember { FeedbackRepository(BuildConfig.BASE_URL) }
+    val reflectionStore = remember { ReflectionStore(context) }
     
     // ViewModels
     val userViewModel: UserViewModel = viewModel(
@@ -96,7 +98,7 @@ fun AppNavHost(
         )
     )
     val progressViewModel: ProgressViewModel = viewModel(
-        factory = ProgressViewModel.Factory(userPrefsRepository, feedbackRepository)
+        factory = ProgressViewModel.Factory(userPrefsRepository, reflectionStore, feedbackRepository)
     )
     // FIXED: Use Factory to prevent RuntimeException (NoSuchMethodException)
     val groceryViewModel: GroceryViewModel = viewModel(
@@ -107,6 +109,7 @@ fun AppNavHost(
     val userProfile by userViewModel.userProfile.collectAsState()
     val isProfileLoading by userViewModel.isProfileLoading.collectAsState()
     val currentRoute by navController.currentBackStackEntryAsState()
+    val activePlanId by mealPlanViewModel.activePlanId.collectAsState()
 
     val splashReady = remember { mutableStateOf(false) }
     val hasNavigated = remember { mutableStateOf(false) }
@@ -134,6 +137,10 @@ fun AppNavHost(
             mealPlanViewModel.loadSavedPlan(userId)
             groceryViewModel.loadGroceryForUser(userId)
         }
+    }
+
+    LaunchedEffect(activePlanId) {
+        groceryViewModel.setActivePlan(activePlanId)
     }
 
     // Auth Guard
@@ -250,6 +257,16 @@ fun AppNavHost(
             UserProfileScreen(
                 userViewModel = userViewModel,
                 onNext = { navController.navigate(Routes.GoalSelection) },
+                isEditMode = false,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        composable(Routes.UserProfileEdit) {
+            UserProfileScreen(
+                userViewModel = userViewModel,
+                onNext = { navController.popBackStack(Routes.Settings, false) },
+                isEditMode = true,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -336,7 +353,11 @@ fun AppNavHost(
             SettingsScreen(
                 userViewModel = userViewModel,
                 authViewModel = authViewModel,
-                onNavigateToOnboarding = { navController.navigate(Routes.Onboarding) },
+                mealPlanViewModel = mealPlanViewModel,
+                groceryViewModel = groceryViewModel,
+                progressViewModel = progressViewModel,
+                userId = session.currentUserUid ?: "",
+                onNavigateToProfileEdit = { navController.navigate(Routes.UserProfileEdit) },
                 modifier = Modifier.fillMaxSize(),
             )
         }

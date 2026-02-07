@@ -27,12 +27,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
+import com.pcosina.app.domain.UnitConverter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserProfileScreen(
     userViewModel: UserViewModel,
     onNext: () -> Unit,
+    isEditMode: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val profile by userViewModel.userProfile.collectAsState()
@@ -42,8 +44,20 @@ fun UserProfileScreen(
     // State Persistence with safe defaults
     var displayName by rememberSaveable { mutableStateOf(profile.displayName) }
     var age by rememberSaveable { mutableStateOf(if (profile.age > 0) profile.age.toString() else "") }
-    var weight by rememberSaveable { mutableStateOf(if (profile.weightKg > 0) profile.weightKg.toString() else "") }
-    var height by rememberSaveable { mutableStateOf(if (profile.heightCm > 0) profile.heightCm.toString() else "") }
+    var weightUnit by rememberSaveable { mutableStateOf(profile.weightUnit) }
+    var heightUnit by rememberSaveable { mutableStateOf(profile.heightUnit) }
+    var lastWeightUnit by rememberSaveable { mutableStateOf(profile.weightUnit) }
+    var lastHeightUnit by rememberSaveable { mutableStateOf(profile.heightUnit) }
+    var weight by rememberSaveable {
+        val value = if (profile.weightKg > 0) {
+            if (profile.weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.kgToLb(profile.weightKg).toString()
+            else profile.weightKg.toString()
+        } else ""
+        mutableStateOf(value)
+    }
+    var heightCmInput by rememberSaveable { mutableStateOf(if (profile.heightCm > 0) profile.heightCm.toString() else "") }
+    var heightFtInput by rememberSaveable { mutableStateOf("") }
+    var heightInInput by rememberSaveable { mutableStateOf("") }
     var activityLevel by rememberSaveable { mutableStateOf(profile.activityLevel) }
     var insulinLevel by rememberSaveable { mutableStateOf("None") } // Default to a safe value
 
@@ -70,10 +84,19 @@ fun UserProfileScreen(
             age = profile.age.toString()
         }
         if (weight.isBlank() && profile.weightKg > 0) {
-            weight = profile.weightKg.toString()
+            weight = if (weightUnit == UnitConverter.WEIGHT_LB) {
+                UnitConverter.kgToLb(profile.weightKg).toString()
+            } else {
+                profile.weightKg.toString()
+            }
         }
-        if (height.isBlank() && profile.heightCm > 0) {
-            height = profile.heightCm.toString()
+        if (heightCmInput.isBlank() && profile.heightCm > 0) {
+            heightCmInput = profile.heightCm.toString()
+        }
+        if (profile.heightCm > 0 && (heightFtInput.isBlank() && heightInInput.isBlank())) {
+            val (ft, inch) = UnitConverter.cmToFeetInches(profile.heightCm)
+            heightFtInput = if (ft > 0) ft.toString() else ""
+            heightInInput = if (inch > 0) inch.toString() else "0"
         }
         if (activityLevel.isBlank()) {
             activityLevel = profile.activityLevel
@@ -83,15 +106,56 @@ fun UserProfileScreen(
         }
     }
 
+    LaunchedEffect(weightUnit) {
+        if (lastWeightUnit != weightUnit) {
+            val currentKg = if (lastWeightUnit == UnitConverter.WEIGHT_LB) {
+                weight.toIntOrNull()?.let { UnitConverter.lbToKg(it) }
+            } else {
+                weight.toIntOrNull()
+            }
+            weight = if (weightUnit == UnitConverter.WEIGHT_LB) {
+                currentKg?.let { UnitConverter.kgToLb(it).toString() } ?: ""
+            } else {
+                currentKg?.toString() ?: ""
+            }
+            lastWeightUnit = weightUnit
+        }
+    }
+
+    LaunchedEffect(heightUnit) {
+        if (lastHeightUnit != heightUnit) {
+            if (heightUnit == UnitConverter.HEIGHT_FT_IN) {
+                val cm = heightCmInput.toIntOrNull() ?: 0
+                val (ft, inch) = UnitConverter.cmToFeetInches(cm)
+                heightFtInput = if (ft > 0) ft.toString() else ""
+                heightInInput = inch.toString()
+            } else {
+                val ft = heightFtInput.toIntOrNull() ?: 0
+                val inch = heightInInput.toIntOrNull() ?: 0
+                heightCmInput = UnitConverter.feetInchesToCm(ft, inch).toString()
+            }
+            lastHeightUnit = heightUnit
+        }
+    }
+
     val ageValue = age.toIntOrNull()
-    val weightValue = weight.toIntOrNull()
-    val heightValue = height.toIntOrNull()
+    val weightInputValue = weight.toIntOrNull()
+    val weightValueKg = weightInputValue?.let {
+        if (weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.lbToKg(it) else it
+    }
+    val heightValueCm = if (heightUnit == UnitConverter.HEIGHT_FT_IN) {
+        val ft = heightFtInput.toIntOrNull()
+        val inch = heightInInput.toIntOrNull()
+        if (ft != null && inch != null) UnitConverter.feetInchesToCm(ft, inch) else null
+    } else {
+        heightCmInput.toIntOrNull()
+    }
     val budgetValue = budget.toIntOrNull()
 
-    val stepOneValid = displayName.isNotBlank() &&
+    val stepOneValid = (isEditMode || displayName.isNotBlank()) &&
         ageValue != null && ageValue in 13..60 &&
-        weightValue != null && weightValue in 35..180 &&
-        heightValue != null && heightValue in 120..200
+        weightValueKg != null && weightValueKg in 35..180 &&
+        heightValueCm != null && heightValueCm in 120..200
 
     val stepTwoValid = insulinLevel.isNotBlank()
 
@@ -105,12 +169,13 @@ fun UserProfileScreen(
     }
 
     fun persistStepData(step: Int, markComplete: Boolean) {
-        if (displayName.isNotBlank()) {
+        if (!isEditMode && displayName.isNotBlank()) {
             userViewModel.updateProfileName(displayName)
         }
         val safeAge = age.toIntOrNull()?.coerceIn(13, 60)
-        val safeWeight = weight.toIntOrNull()?.coerceIn(35, 180)
-        val safeHeight = height.toIntOrNull()?.coerceIn(120, 200)
+        val safeWeight = weightValueKg?.coerceIn(35, 180)
+        val safeHeight = heightValueCm?.coerceIn(120, 200)
+        userViewModel.updateUnitPreferences(heightUnit, weightUnit)
         if (safeAge != null && safeWeight != null && safeHeight != null) {
             userViewModel.updatePersonalDetails(
                 age = safeAge,
@@ -144,14 +209,14 @@ fun UserProfileScreen(
                 .filter { it.isNotBlank() }
             userViewModel.updatePantryItems(pantryItems)
         }
-        userViewModel.setProfileCompleted(markComplete)
+        userViewModel.setProfileCompleted(markComplete || isEditMode)
     }
 
     Scaffold(
         topBar = {
             Column(modifier = Modifier.background(colorScheme.background)) {
                 GradientHeader(
-                    title = "Profile Setup",
+                    title = if (isEditMode) "Update Health Data" else "Profile Setup",
                     subtitle = "Step $currentStep of 3",
                     containerHeight = 140
                 )
@@ -200,7 +265,28 @@ fun UserProfileScreen(
                         verticalArrangement = Arrangement.spacedBy(20.dp)
                     ) {
                         when (step) {
-                            1 -> StepOneIdentity(displayName, {displayName=it}, age, {age=it}, weight, {weight=it}, height, {height=it}, activityLevel, {activityLevel=it}, colorScheme.primary)
+                            1 -> StepOneIdentity(
+                                name = displayName,
+                                onName = { displayName = it },
+                                age = age,
+                                onAge = { age = it },
+                                weight = weight,
+                                onWeight = { weight = it },
+                                weightUnit = weightUnit,
+                                onWeightUnit = { weightUnit = it },
+                                heightUnit = heightUnit,
+                                onHeightUnit = { heightUnit = it },
+                                heightCm = heightCmInput,
+                                onHeightCm = { heightCmInput = it },
+                                heightFt = heightFtInput,
+                                onHeightFt = { heightFtInput = it },
+                                heightIn = heightInInput,
+                                onHeightIn = { heightInInput = it },
+                                activity = activityLevel,
+                                onActivity = { activityLevel = it },
+                                color = colorScheme.primary,
+                                showName = !isEditMode
+                            )
                             2 -> StepTwoMedical(insulinLevel, {insulinLevel=it}, symptomIrregularPeriods, {symptomIrregularPeriods=it}, symptomWeightGain, {symptomWeightGain=it}, symptomAcne, {symptomAcne=it}, symptomHairLoss, {symptomHairLoss=it}, colorScheme.primary)
                             3 -> StepThreeDiet(
                                 lacto, {lacto=it},
@@ -286,28 +372,60 @@ fun BottomActionRow(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StepOneIdentity(name: String, onName: (String) -> Unit, age: String, onAge: (String) -> Unit, weight: String, onWeight: (String) -> Unit, height: String, onHeight: (String) -> Unit, activity: String, onActivity: (String) -> Unit, color: Color) {
+fun StepOneIdentity(
+    name: String,
+    onName: (String) -> Unit,
+    age: String,
+    onAge: (String) -> Unit,
+    weight: String,
+    onWeight: (String) -> Unit,
+    weightUnit: String,
+    onWeightUnit: (String) -> Unit,
+    heightUnit: String,
+    onHeightUnit: (String) -> Unit,
+    heightCm: String,
+    onHeightCm: (String) -> Unit,
+    heightFt: String,
+    onHeightFt: (String) -> Unit,
+    heightIn: String,
+    onHeightIn: (String) -> Unit,
+    activity: String,
+    onActivity: (String) -> Unit,
+    color: Color,
+    showName: Boolean
+) {
     val options = listOf("Sedentary", "Lightly Active", "Moderately Active", "Very Active")
     var expanded by remember { mutableStateOf(false) }
     val ageValue = age.toIntOrNull()
     val weightValue = weight.toIntOrNull()
-    val heightValue = height.toIntOrNull()
+    val weightKg = weightValue?.let {
+        if (weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.lbToKg(it) else it
+    }
+    val heightCmValue = if (heightUnit == UnitConverter.HEIGHT_FT_IN) {
+        val ft = heightFt.toIntOrNull()
+        val inch = heightIn.toIntOrNull()
+        if (ft != null && inch != null) UnitConverter.feetInchesToCm(ft, inch) else null
+    } else {
+        heightCm.toIntOrNull()
+    }
     val ageOutOfRange = ageValue != null && (ageValue < 13 || ageValue > 60)
-    val weightOutOfRange = weightValue != null && (weightValue < 35 || weightValue > 180)
-    val heightOutOfRange = heightValue != null && (heightValue < 120 || heightValue > 200)
+    val weightOutOfRange = weightKg != null && (weightKg < 35 || weightKg > 180)
+    val heightOutOfRange = heightCmValue != null && (heightCmValue < 120 || heightCmValue > 200)
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionTitle("Personal Details")
-        OutlinedTextField(
-            value = name,
-            onValueChange = onName,
-            label = { Text("Display name") },
-            supportingText = { Text("Shown on your dashboard and plan.") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
-        )
+        if (showName) {
+            OutlinedTextField(
+                value = name,
+                onValueChange = onName,
+                label = { Text("Display name") },
+                supportingText = { Text("Shown on your dashboard and plan.") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
+            )
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(
                 value = age,
@@ -322,12 +440,24 @@ fun StepOneIdentity(name: String, onName: (String) -> Unit, age: String, onAge: 
             OutlinedTextField(
                 value = weight,
                 onValueChange = onWeight,
-                label = { Text("Weight (kg)") },
-                supportingText = { Text("Used for nutrition targets (35–180).") },
+                label = { Text(if (weightUnit == UnitConverter.WEIGHT_LB) "Weight (lb)" else "Weight (kg)") },
+                supportingText = { Text("Used for nutrition targets.") },
                 modifier = Modifier.weight(1f),
                 shape = MaterialTheme.shapes.medium,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = weightUnit == UnitConverter.WEIGHT_KG,
+                onClick = { onWeightUnit(UnitConverter.WEIGHT_KG) },
+                label = { Text("kg") }
+            )
+            FilterChip(
+                selected = weightUnit == UnitConverter.WEIGHT_LB,
+                onClick = { onWeightUnit(UnitConverter.WEIGHT_LB) },
+                label = { Text("lb") }
             )
         }
         if (ageOutOfRange || weightOutOfRange) {
@@ -337,16 +467,51 @@ fun StepOneIdentity(name: String, onName: (String) -> Unit, age: String, onAge: 
                 color = MaterialTheme.colorScheme.error
             )
         }
-        OutlinedTextField(
-            value = height,
-            onValueChange = onHeight,
-            label = { Text("Height (cm)") },
-            supportingText = { Text("Used to estimate calorie needs (120–200).") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
-        )
+        if (heightUnit == UnitConverter.HEIGHT_FT_IN) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = heightFt,
+                    onValueChange = onHeightFt,
+                    label = { Text("Height (ft)") },
+                    modifier = Modifier.weight(1f),
+                    shape = MaterialTheme.shapes.medium,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
+                )
+                OutlinedTextField(
+                    value = heightIn,
+                    onValueChange = onHeightIn,
+                    label = { Text("Height (in)") },
+                    modifier = Modifier.weight(1f),
+                    shape = MaterialTheme.shapes.medium,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
+                )
+            }
+        } else {
+            OutlinedTextField(
+                value = heightCm,
+                onValueChange = onHeightCm,
+                label = { Text("Height (cm)") },
+                supportingText = { Text("Used to estimate calorie needs (120–200).") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = heightUnit == UnitConverter.HEIGHT_CM,
+                onClick = { onHeightUnit(UnitConverter.HEIGHT_CM) },
+                label = { Text("cm") }
+            )
+            FilterChip(
+                selected = heightUnit == UnitConverter.HEIGHT_FT_IN,
+                onClick = { onHeightUnit(UnitConverter.HEIGHT_FT_IN) },
+                label = { Text("ft/in") }
+            )
+        }
         if (heightOutOfRange) {
             Text(
                 text = "Tip: keep height 120–200 cm for accurate targets.",

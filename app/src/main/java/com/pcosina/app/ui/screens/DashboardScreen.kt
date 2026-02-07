@@ -40,6 +40,7 @@ import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.components.MacroCircularGauge
 import com.pcosina.app.ui.components.StatCard
 import com.pcosina.app.domain.HealthMetrics
+import com.pcosina.app.domain.UnitConverter
 import java.util.Locale
 import android.widget.Toast
 
@@ -121,7 +122,13 @@ fun DashboardScreen(
                 }
                 StatCard(title = "Goal", value = goalLabel, subtitle = "Focus", modifier = Modifier.weight(1f))
                 StatCard(title = "Target", value = dailyCalorieTarget.toString(), subtitle = "kcal/day", modifier = Modifier.weight(1f))
-                StatCard(title = "Current", value = "${profile.weightKg}", subtitle = "kg", modifier = Modifier.weight(1f))
+                val weightLabel = if (profile.weightUnit == UnitConverter.WEIGHT_LB) {
+                    "${UnitConverter.kgToLb(profile.weightKg)}"
+                } else {
+                    "${profile.weightKg}"
+                }
+                val weightUnit = if (profile.weightUnit == UnitConverter.WEIGHT_LB) "lb" else "kg"
+                StatCard(title = "Current", value = weightLabel, subtitle = weightUnit, modifier = Modifier.weight(1f))
             }
             if (adminMode) {
                 AssistChip(

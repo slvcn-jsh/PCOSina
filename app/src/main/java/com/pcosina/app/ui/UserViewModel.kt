@@ -112,6 +112,11 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
         saveProfile()
     }
 
+    fun updateUnitPreferences(heightUnit: String, weightUnit: String) {
+        _userProfile.update { it.copy(heightUnit = heightUnit, weightUnit = weightUnit) }
+        saveProfile()
+    }
+
     fun updatePcosDetails(insulin: String, symptoms: List<String>, comorbidities: List<String>) {
         _userProfile.update {
             it.copy(insulinResistanceLevel = insulin, symptoms = symptoms, comorbidities = comorbidities)

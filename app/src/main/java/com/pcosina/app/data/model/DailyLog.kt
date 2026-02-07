@@ -7,6 +7,7 @@ data class DailyLog(
     val energyLevel: Int? = null, // 1-5
     val cravingsLevel: Int? = null, // 1-5
     val moodLevel: Int? = null, // 1-5
+    val symptomTags: List<String> = emptyList(),
     val symptomsNote: String? = null,
     val journalText: String? = null,
     val timestamp: Long = System.currentTimeMillis()

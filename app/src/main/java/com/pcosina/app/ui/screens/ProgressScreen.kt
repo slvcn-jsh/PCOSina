@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -21,8 +22,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import android.content.Context
+import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.widget.Toast
+import androidx.core.content.FileProvider
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
@@ -32,6 +36,7 @@ import com.pcosina.app.ui.components.MacroProgressBar
 import com.pcosina.app.ui.components.StatCard
 import com.pcosina.app.ui.util.buildMealReasons
 import com.pcosina.app.domain.HealthMetrics
+import com.pcosina.app.domain.UnitConverter
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -39,6 +44,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
+import java.time.temporal.ChronoUnit
 import java.time.DayOfWeek
 import java.util.Locale
 
@@ -56,6 +62,7 @@ fun ProgressScreen(
     val scope = rememberCoroutineScope()
     val planState by mealPlanViewModel.uiState.collectAsState()
     val planMetrics by mealPlanViewModel.planMetrics.collectAsState()
+    val activeWeekStart by mealPlanViewModel.activeWeekStart.collectAsState()
     val logs by progressViewModel.dailyLogs.collectAsState()
     val weeklyJournal by progressViewModel.weeklyJournal.collectAsState()
     val feedbackQueue by progressViewModel.feedbackQueue.collectAsState()
@@ -63,7 +70,10 @@ fun ProgressScreen(
     var showConfidenceInfo by rememberSaveable { mutableStateOf(false) }
 
     val planTimestamp = (planState as? MealPlanUiState.Success)?.timestamp
-    val weekStart = remember(planTimestamp) { weekStartDate(planTimestamp) }
+    val weekStart = remember(activeWeekStart, planTimestamp) {
+        activeWeekStart?.let { runCatching { LocalDate.parse(it, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull() }
+            ?: weekStartDate(planTimestamp)
+    }
     val weekLabel = remember(weekStart) { weekLabelFor(weekStart) }
     val weekStartKey = weekStart.format(DateTimeFormatter.ISO_LOCAL_DATE)
     val fallbackWeekStartKey = remember(planTimestamp) {
@@ -76,6 +86,7 @@ fun ProgressScreen(
     val selectedDate = weekStart.plusDays(selectedDayIndex.toLong())
     val weekDays = (0..6).map { weekStart.plusDays(it.toLong()) }
     val dayLabelFmt = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
+    val todayLabel = LocalDate.now().format(dayLabelFmt)
 
     LaunchedEffect(userId, weekStartKey, fallbackWeekStartKey) {
         if (userId.isNotBlank()) {
@@ -96,7 +107,12 @@ fun ProgressScreen(
     val completedMealsCount = logs.filterKeys { isInWeek(it, weekStart) }
         .values.sumOf { it.completedMealIds.size }
     val adherence = if (plannedMealsCount > 0) completedMealsCount.toFloat() / plannedMealsCount else 0f
+    val lastLogDate = logs.keys.mapNotNull { runCatching { LocalDate.parse(it, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull() }
+        .maxOrNull()
+    val daysSinceLog = lastLogDate?.let { ChronoUnit.DAYS.between(it, LocalDate.now()) } ?: Long.MAX_VALUE
+    val showStaleBanner = daysSinceLog >= 3
 
+    val goalType = HealthMetrics.goalTypeFromText(profile.goal)
     val weightEntries = logs.filterKeys { isInWeek(it, weekStart) }.toSortedMap()
         .values.mapNotNull { it.weightKg }
     val weightDelta = if (weightEntries.size >= 2) {
@@ -104,19 +120,44 @@ fun ProgressScreen(
     } else null
     val weightStart = weightEntries.firstOrNull()
     val weightEnd = weightEntries.lastOrNull()
+    val allWeights = logs.toSortedMap()
+        .mapNotNull { (dateKey, log) ->
+            log.weightKg?.let { LocalDate.parse(dateKey, DateTimeFormatter.ISO_LOCAL_DATE) to it }
+        }
+    val startingWeight = allWeights.firstOrNull()?.second
+    val latestWeight = allWeights.lastOrNull()?.second
+    val totalDelta = if (startingWeight != null && latestWeight != null) latestWeight - startingWeight else null
+    val today = LocalDate.now()
+    val monthWeights = allWeights.filter { it.first.year == today.year && it.first.month == today.month }
+    val monthDelta = if (monthWeights.size >= 2) monthWeights.last().second - monthWeights.first().second else null
+    val targetWeightKg = if (goalType == com.pcosina.app.domain.GoalType.WEIGHT_LOSS && startingWeight != null) {
+        (startingWeight - 5f).coerceAtLeast(40f)
+    } else null
+    val weightProgress = if (startingWeight != null && latestWeight != null && targetWeightKg != null) {
+        val total = startingWeight - targetWeightKg
+        if (total <= 0f) 0f else ((startingWeight - latestWeight) / total).coerceIn(0f, 1f)
+    } else null
 
     var weightInput by rememberSaveable { mutableStateOf("") }
     var energyLevel by rememberSaveable { mutableStateOf<Int?>(null) }
     var cravingsLevel by rememberSaveable { mutableStateOf<Int?>(null) }
     var moodLevel by rememberSaveable { mutableStateOf<Int?>(null) }
+    var symptomTags by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var symptomNote by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(logs, selectedDate) {
         val key = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
         val log = logs[key]
-        weightInput = log?.weightKg?.toString() ?: ""
+        weightInput = log?.weightKg?.let { kg ->
+            if (profile.weightUnit == UnitConverter.WEIGHT_LB) {
+                String.format(Locale.ENGLISH, "%.1f", UnitConverter.kgToLb(kg))
+            } else {
+                String.format(Locale.ENGLISH, "%.1f", kg)
+            }
+        } ?: ""
         energyLevel = log?.energyLevel
         cravingsLevel = log?.cravingsLevel
         moodLevel = log?.moodLevel
+        symptomTags = log?.symptomTags ?: emptyList()
         symptomNote = log?.symptomsNote ?: ""
     }
 
@@ -128,8 +169,15 @@ fun ProgressScreen(
     var feedbackText by rememberSaveable { mutableStateOf("") }
     val isOnline = remember { mutableStateOf(isNetworkAvailable(context)) }
     LaunchedEffect(Unit) { isOnline.value = isNetworkAvailable(context) }
-    val goalType = HealthMetrics.goalTypeFromText(profile.goal)
     val showWeightEntryAtTop = goalType == com.pcosina.app.domain.GoalType.WEIGHT_LOSS
+    val weightUnitLabel = if (profile.weightUnit == UnitConverter.WEIGHT_LB) "lb" else "kg"
+    val displayWeight: (Float) -> String = { kg ->
+        val value = if (profile.weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.kgToLb(kg) else kg
+        String.format(Locale.ENGLISH, "%.1f", value)
+    }
+    val symptomOptions = remember {
+        listOf("Bloating", "Cramps", "Acne", "Headache", "Fatigue", "Mood swings")
+    }
 
     // Macro aggregation
     var macroLabel by remember { mutableStateOf("Planned macros (avg/day, weekly plan)") }
@@ -194,6 +242,24 @@ fun ProgressScreen(
             }
         }
 
+        if (showStaleBanner) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                ) {
+                    Text(
+                        text = "You haven't logged anything in a few days. A quick check‑in helps keep trends accurate.",
+                        modifier = Modifier.padding(14.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -207,7 +273,7 @@ fun ProgressScreen(
                 )
                 StatCard(
                     title = "Weight Delta",
-                    value = weightDelta?.let { String.format("%.1fkg", it) } ?: "—",
+                    value = weightDelta?.let { "${displayWeight(it)} $weightUnitLabel" } ?: "—",
                     subtitle = "This Week",
                     modifier = Modifier.weight(1f),
                 )
@@ -378,19 +444,39 @@ fun ProgressScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text("Weight Entry (Selected Day)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                        val startText = weightStart?.let { String.format("%.1fkg", it) } ?: "—"
-                        val endText = weightEnd?.let { String.format("%.1fkg", it) } ?: "—"
+                        val startText = weightStart?.let { "${displayWeight(it)} $weightUnitLabel" } ?: "—"
+                        val endText = weightEnd?.let { "${displayWeight(it)} $weightUnitLabel" } ?: "—"
                         Text(
                             text = "Start → End: $startText → $endText",
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant
                         )
+                        val monthlyText = monthDelta?.let { "${displayWeight(it)} $weightUnitLabel" } ?: "—"
+                        val totalText = totalDelta?.let { "${displayWeight(it)} $weightUnitLabel" } ?: "—"
+                        Text(
+                            text = "Monthly delta: $monthlyText • Total delta: $totalText",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        if (weightProgress != null && targetWeightKg != null) {
+                            val targetText = "${displayWeight(targetWeightKg)} $weightUnitLabel"
+                            Text(
+                                text = "Progress toward target: $targetText",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                            LinearProgressIndicator(
+                                progress = { weightProgress },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = colorScheme.primary
+                            )
+                        }
                         val recentWeights = logs.toSortedMap()
                             .filterKeys { isInWeek(it, weekStart) }
                             .mapNotNull { (dateKey, log) ->
                                 log.weightKg?.let { w ->
                                     val label = LocalDate.parse(dateKey, DateTimeFormatter.ISO_LOCAL_DATE).format(dayLabelFmt)
-                                    "$label ${String.format("%.1fkg", w)}"
+                                    "$label ${displayWeight(w)} $weightUnitLabel"
                                 }
                             }
                             .takeLast(5)
@@ -405,13 +491,16 @@ fun ProgressScreen(
                         OutlinedTextField(
                             value = weightInput,
                             onValueChange = { weightInput = it },
-                            label = { Text("Weight (kg)") },
+                            label = { Text("Weight ($weightUnitLabel)") },
                             modifier = Modifier.fillMaxWidth()
                         )
                         Button(
                             onClick = {
                                 val value = weightInput.toFloatOrNull()
-                                progressViewModel.setWeight(selectedDate, value)
+                                val kgValue = value?.let {
+                                    if (profile.weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.lbToKg(it) else it
+                                }
+                                progressViewModel.setWeight(selectedDate, kgValue)
                             },
                             modifier = Modifier.fillMaxWidth().height(48.dp),
                             shape = MaterialTheme.shapes.medium,
@@ -608,6 +697,29 @@ fun ProgressScreen(
                 ) {
                     Text("Save Weekly Reflection", fontWeight = FontWeight.Bold)
                 }
+                OutlinedButton(
+                    onClick = {
+                        val file = progressViewModel.exportReflections()
+                        if (file == null) {
+                            Toast.makeText(context, "No reflections to export.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            val uri = FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.fileprovider",
+                                file
+                            )
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "application/json"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Export reflections"))
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                ) {
+                    Text("Export Reflections (Local)")
+                }
             }
         }
 
@@ -629,10 +741,11 @@ fun ProgressScreen(
                     ) {
                         itemsIndexed(weekDays) { idx, date ->
                             val label = date.format(dayLabelFmt)
+                            val isToday = label == todayLabel
                             FilterChip(
                                 selected = selectedDayIndex == idx,
                                 onClick = { selectedDayIndex = idx },
-                                label = { Text(label) }
+                                label = { Text(if (isToday) "$label • Today" else label) }
                             )
                         }
                     }
@@ -695,6 +808,17 @@ fun ProgressScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.onSurfaceVariant
                     )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        itemsIndexed(weekDays) { idx, date ->
+                            val label = date.format(dayLabelFmt)
+                            val isToday = label == todayLabel
+                            FilterChip(
+                                selected = selectedDayIndex == idx,
+                                onClick = { selectedDayIndex = idx },
+                                label = { Text(if (isToday) "$label • Today" else label) }
+                            )
+                        }
+                    }
                     Text("Energy", style = MaterialTheme.typography.labelLarge)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         (1..5).forEach { value ->
@@ -725,6 +849,23 @@ fun ProgressScreen(
                             )
                         }
                     }
+                    Text("Symptoms", style = MaterialTheme.typography.labelLarge)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(symptomOptions) { symptom ->
+                            val selected = symptomTags.contains(symptom)
+                            FilterChip(
+                                selected = selected,
+                                onClick = {
+                                    symptomTags = if (selected) {
+                                        symptomTags.filterNot { it == symptom }
+                                    } else {
+                                        symptomTags + symptom
+                                    }
+                                },
+                                label = { Text(symptom) }
+                            )
+                        }
+                    }
                     OutlinedTextField(
                         value = symptomNote,
                         onValueChange = { symptomNote = it },
@@ -738,6 +879,7 @@ fun ProgressScreen(
                                 energyLevel,
                                 cravingsLevel,
                                 moodLevel,
+                                symptomTags,
                                 symptomNote
                             )
                         },
@@ -767,13 +909,16 @@ fun ProgressScreen(
                         OutlinedTextField(
                             value = weightInput,
                             onValueChange = { weightInput = it },
-                            label = { Text("Weight (kg)") },
+                            label = { Text("Weight ($weightUnitLabel)") },
                             modifier = Modifier.fillMaxWidth()
                         )
                         Button(
                             onClick = {
                                 val value = weightInput.toFloatOrNull()
-                                progressViewModel.setWeight(selectedDate, value)
+                                val kgValue = value?.let {
+                                    if (profile.weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.lbToKg(it) else it
+                                }
+                                progressViewModel.setWeight(selectedDate, kgValue)
                             },
                             modifier = Modifier.fillMaxWidth().height(48.dp),
                             shape = MaterialTheme.shapes.medium,

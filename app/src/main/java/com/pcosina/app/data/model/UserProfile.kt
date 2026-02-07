@@ -8,6 +8,8 @@ data class UserProfile(
     val age: Int = 0,
     val heightCm: Int = 0,
     val weightKg: Int = 0,
+    val heightUnit: String = "cm",
+    val weightUnit: String = "kg",
     val activityLevel: String = "Lightly Active",
     val goal: String = "Support PCOS symptom management",
     val insulinResistanceLevel: String = "Mild",

@@ -52,10 +52,18 @@ import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.DummyData.GroceryItem
 import com.pcosina.app.data.model.PantryEntry
 import com.pcosina.app.ui.GroceryViewModel
+import com.pcosina.app.ui.MealPlanUiState
+import com.pcosina.app.ui.MealPlanViewModel
+import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
+import com.pcosina.app.ui.components.GuidedJourneyCard
 import com.pcosina.app.ui.components.GradientHeader
+import com.pcosina.app.ui.components.ExpandableSection
 import com.pcosina.app.ui.theme.PcosinaSuccess
 import com.pcosina.app.domain.PriceCatalog
+import com.pcosina.app.ui.util.GuidedJourneyInput
+import com.pcosina.app.ui.util.resolveGuidedJourneyStep
+import com.pcosina.app.ui.navigation.Routes
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -73,6 +81,9 @@ import androidx.compose.ui.text.input.ImeAction
 fun GroceryListScreen(
     groceryViewModel: GroceryViewModel,
     userViewModel: UserViewModel,
+    mealPlanViewModel: MealPlanViewModel,
+    progressViewModel: ProgressViewModel,
+    onNavigateToRoute: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -80,6 +91,10 @@ fun GroceryListScreen(
     val lastPlanTimestamp by groceryViewModel.lastPlanTimestamp.collectAsState()
     val activePlanId by groceryViewModel.activePlanId.collectAsState()
     val userProfile by userViewModel.userProfile.collectAsState()
+    val planHistory by mealPlanViewModel.planHistory.collectAsState()
+    val planState by mealPlanViewModel.uiState.collectAsState()
+    val lastReviewedWeek by mealPlanViewModel.lastReviewedWeek.collectAsState()
+    val logs by progressViewModel.dailyLogs.collectAsState()
     val focusManager = LocalFocusManager.current
     
     // Combine dummy static list with dynamic added items
@@ -88,6 +103,20 @@ fun GroceryListScreen(
     val weeklyBudget = userProfile.weeklyBudgetPhp.takeIf { it > 0 }
     var checkedNames by remember { mutableStateOf(setOf<String>()) }
     var pantryOptOut by remember { mutableStateOf(setOf<String>()) }
+    val hasPlan = planHistory.isNotEmpty() || planState is MealPlanUiState.Success
+    val hasReviewedWeek = activePlanId != null && activePlanId == lastReviewedWeek
+    val hasGrocery = addedItems.isNotEmpty()
+    val hasTracked = logs.isNotEmpty()
+    val guidedStep = resolveGuidedJourneyStep(
+        GuidedJourneyInput(
+            profileComplete = userProfile.isProfileCompleted,
+            goal = userProfile.goal,
+            hasPlan = hasPlan,
+            hasReviewedWeek = hasReviewedWeek,
+            hasGrocery = hasGrocery,
+            hasTracked = hasTracked
+        )
+    )
 
     var budgetMode by rememberSaveable { mutableStateOf("Weekly") }
     val displayBudget = weeklyBudget?.let { if (budgetMode == "Weekly") it.toDouble() else it * 4.33 }
@@ -162,23 +191,50 @@ fun GroceryListScreen(
         }
 
         item {
-            Card(
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            GuidedJourneyCard(
+                step = guidedStep,
+                onContinue = { step -> onNavigateToRoute(step.route) }
+            )
+        }
+
+        if (!hasPlan) {
+            item {
+                Card(
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Generate a plan to unlock grocery lists.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedButton(onClick = { onNavigateToRoute(Routes.MealPlan) }) {
+                            Text("Go to Plan")
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            ExpandableSection(
+                title = "Pantry Inventory",
+                subtitle = "Optional. Use-first items for planning",
+                defaultExpanded = false
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
+                        .padding(top = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = "Pantry Inventory",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Text(
-                        text = "Optional. Items here are treated as “use-first” during planning.",
+                        text = "Items here are treated as “use-first” during planning.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -187,47 +243,47 @@ fun GroceryListScreen(
                     var pantryExpiry by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(
-                            value = pantryInput,
-                            onValueChange = { pantryInput = it },
-                            label = { Text("Add pantry item") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = pantryQty,
-                            onValueChange = { pantryQty = it },
-                            label = { Text("Qty") },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(
-                            value = pantryExpiry,
-                            onValueChange = { pantryExpiry = it },
-                            label = { Text("Expiry (YYYY-MM-DD)") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedButton(
-                            onClick = {
-                                val name = pantryInput.text.trim()
-                                if (name.isNotBlank()) {
-                                    val newEntry = PantryEntry(
-                                        name = name,
-                                        quantity = pantryQty.text.trim().takeIf { it.isNotBlank() },
-                                        expiryDate = pantryExpiry.text.trim().takeIf { it.isNotBlank() }
-                                    )
-                                    val updated = (pantryEntries + newEntry)
-                                        .distinctBy { it.name.lowercase(Locale.getDefault()) }
-                                    userViewModel.updatePantryEntries(updated)
-                                    pantryInput = TextFieldValue("")
-                                    pantryQty = TextFieldValue("")
-                                    pantryExpiry = TextFieldValue("")
-                                }
-                            }
-                        ) {
-                            Text("Add")
+                            OutlinedTextField(
+                                value = pantryInput,
+                                onValueChange = { pantryInput = it },
+                                label = { Text("Add pantry item") },
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = pantryQty,
+                                onValueChange = { pantryQty = it },
+                                label = { Text("Qty") },
+                                modifier = Modifier.weight(1f)
+                            )
                         }
-                    }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = pantryExpiry,
+                                onValueChange = { pantryExpiry = it },
+                                label = { Text("Expiry (YYYY-MM-DD)") },
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    val name = pantryInput.text.trim()
+                                    if (name.isNotBlank()) {
+                                        val newEntry = PantryEntry(
+                                            name = name,
+                                            quantity = pantryQty.text.trim().takeIf { it.isNotBlank() },
+                                            expiryDate = pantryExpiry.text.trim().takeIf { it.isNotBlank() }
+                                        )
+                                        val updated = (pantryEntries + newEntry)
+                                            .distinctBy { it.name.lowercase(Locale.getDefault()) }
+                                        userViewModel.updatePantryEntries(updated)
+                                        pantryInput = TextFieldValue("")
+                                        pantryQty = TextFieldValue("")
+                                        pantryExpiry = TextFieldValue("")
+                                    }
+                                }
+                            ) {
+                                Text("Add")
+                            }
+                        }
                     }
                     if (pantryItems.isEmpty()) {
                         Text(

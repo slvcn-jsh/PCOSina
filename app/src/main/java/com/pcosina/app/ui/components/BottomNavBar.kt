@@ -38,6 +38,8 @@ val DefaultBottomNavItems: List<BottomNavItem> = listOf(
 fun BottomNavBar(
     currentDestination: NavDestination?,
     onNavigateToRoute: (String) -> Unit,
+    enabledRoutes: Set<String> = DefaultBottomNavItems.map { it.route }.toSet(),
+    onDisabledRouteClick: (String) -> Unit = {},
     items: List<BottomNavItem> = DefaultBottomNavItems,
 ) {
     NavigationBar {
@@ -45,16 +47,27 @@ fun BottomNavBar(
             val selected = currentDestination
                 ?.hierarchy
                 ?.any { it.route == item.route } == true
+            val isEnabled = enabledRoutes.contains(item.route)
 
             NavigationBarItem(
                 selected = selected,
-                onClick = { onNavigateToRoute(item.route) },
+                onClick = {
+                    if (!isEnabled) {
+                        onDisabledRouteClick(item.route)
+                        return@NavigationBarItem
+                    }
+                    onNavigateToRoute(item.route)
+                },
                 icon = { Icon(imageVector = item.icon, contentDescription = item.label) },
                 label = { Text(text = item.label, style = MaterialTheme.typography.labelSmall) },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = MaterialTheme.colorScheme.primary,
                     selectedTextColor = MaterialTheme.colorScheme.primary,
                     indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                    unselectedIconColor = if (isEnabled) MaterialTheme.colorScheme.onSurfaceVariant
+                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    unselectedTextColor = if (isEnabled) MaterialTheme.colorScheme.onSurfaceVariant
+                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                 ),
             )
         }

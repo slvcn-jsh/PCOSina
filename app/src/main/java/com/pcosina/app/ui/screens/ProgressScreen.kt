@@ -35,12 +35,18 @@ import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
+import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.components.GradientHeader
+import com.pcosina.app.ui.components.GuidedJourneyCard
 import com.pcosina.app.ui.components.MacroProgressBar
 import com.pcosina.app.ui.components.StatCard
+import com.pcosina.app.ui.components.ExpandableSection
 import com.pcosina.app.ui.util.buildMealReasons
+import com.pcosina.app.ui.util.GuidedJourneyInput
+import com.pcosina.app.ui.util.resolveGuidedJourneyStep
 import com.pcosina.app.domain.HealthMetrics
 import com.pcosina.app.domain.UnitConverter
+import com.pcosina.app.ui.navigation.Routes
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -57,8 +63,10 @@ fun ProgressScreen(
     userViewModel: UserViewModel,
     mealPlanViewModel: MealPlanViewModel,
     progressViewModel: ProgressViewModel,
+    groceryViewModel: GroceryViewModel,
     userId: String,
     onBackToDashboard: () -> Unit,
+    onNavigateToRoute: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -68,16 +76,32 @@ fun ProgressScreen(
     val activeWeekStart by mealPlanViewModel.activeWeekStart.collectAsState()
     val planHistory by mealPlanViewModel.planHistory.collectAsState()
     val activePlanId by mealPlanViewModel.activePlanId.collectAsState()
+    val lastReviewedWeek by mealPlanViewModel.lastReviewedWeek.collectAsState()
     val logs by progressViewModel.dailyLogs.collectAsState()
     val weeklyJournal by progressViewModel.weeklyJournal.collectAsState()
     val weeklySpend by progressViewModel.weeklySpend.collectAsState()
     val feedbackQueue by progressViewModel.feedbackQueue.collectAsState()
     val planFeedbackTags by progressViewModel.planFeedbackTags.collectAsState()
     val profile by userViewModel.userProfile.collectAsState()
+    val groceryItems by groceryViewModel.groceryItems.collectAsState()
     var showConfidenceInfo by rememberSaveable { mutableStateOf(false) }
     var showMacroInfo by rememberSaveable { mutableStateOf(false) }
     var showSpendInfo by rememberSaveable { mutableStateOf(false) }
     var showLowGiInfo by rememberSaveable { mutableStateOf(false) }
+    val hasPlan = planHistory.isNotEmpty() || planState is MealPlanUiState.Success
+    val hasReviewedWeek = activePlanId != null && activePlanId == lastReviewedWeek
+    val hasGrocery = groceryItems.isNotEmpty()
+    val hasTracked = logs.isNotEmpty()
+    val guidedStep = resolveGuidedJourneyStep(
+        GuidedJourneyInput(
+            profileComplete = profile.isProfileCompleted,
+            goal = profile.goal,
+            hasPlan = hasPlan,
+            hasReviewedWeek = hasReviewedWeek,
+            hasGrocery = hasGrocery,
+            hasTracked = hasTracked
+        )
+    )
 
     val planTimestamp = (planState as? MealPlanUiState.Success)?.timestamp
     val weekStart = remember(activeWeekStart, planTimestamp) {
@@ -276,6 +300,38 @@ fun ProgressScreen(
                         contentDescription = "Back",
                         tint = colorScheme.onPrimary,
                     )
+                }
+            }
+        }
+
+        item {
+            GuidedJourneyCard(
+                step = guidedStep,
+                onContinue = { step -> onNavigateToRoute(step.route) }
+            )
+        }
+
+        if (!hasPlan) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Generate a plan to start tracking progress.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        OutlinedButton(onClick = { onNavigateToRoute(Routes.MealPlan) }) {
+                            Text("Go to Plan")
+                        }
+                    }
                 }
             }
         }
@@ -1040,53 +1096,53 @@ fun ProgressScreen(
         }
 
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "Weekly Journal",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = colorScheme.secondary,
-                    modifier = Modifier.padding(start = 4.dp)
-                )
-                OutlinedTextField(
-                    value = journalText,
-                    onValueChange = { journalText = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(140.dp),
-                    placeholder = { Text("How do you feel this week? (e.g., Energy levels, symptoms)") },
-                    shape = MaterialTheme.shapes.large,
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = colorScheme.primary)
-                )
-                Button(
-                    onClick = { progressViewModel.saveWeeklyJournal(weekStartKey, journalText) },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
-                ) {
-                    Text("Save Weekly Reflection", fontWeight = FontWeight.Bold)
-                }
-                OutlinedButton(
-                    onClick = {
-                        val file = progressViewModel.exportReflections()
-                        if (file == null) {
-                            Toast.makeText(context, "No reflections to export.", Toast.LENGTH_SHORT).show()
-                        } else {
-                            val uri = FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.fileprovider",
-                                file
-                            )
-                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                type = "application/json"
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            ExpandableSection(
+                title = "Weekly Journal",
+                subtitle = "Optional weekly reflection",
+                defaultExpanded = false
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = journalText,
+                        onValueChange = { journalText = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp),
+                        placeholder = { Text("How do you feel this week? (e.g., Energy levels, symptoms)") },
+                        shape = MaterialTheme.shapes.large,
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = colorScheme.primary)
+                    )
+                    Button(
+                        onClick = { progressViewModel.saveWeeklyJournal(weekStartKey, journalText) },
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = MaterialTheme.shapes.medium,
+                        colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
+                    ) {
+                        Text("Save Weekly Reflection", fontWeight = FontWeight.Bold)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            val file = progressViewModel.exportReflections()
+                            if (file == null) {
+                                Toast.makeText(context, "No reflections to export.", Toast.LENGTH_SHORT).show()
+                            } else {
+                                val uri = FileProvider.getUriForFile(
+                                    context,
+                                    "${context.packageName}.fileprovider",
+                                    file
+                                )
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "application/json"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(intent, "Export reflections"))
                             }
-                            context.startActivity(Intent.createChooser(intent, "Export reflections"))
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().height(48.dp)
-                ) {
-                    Text("Export Reflections (Local)")
+                        },
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        Text("Export Reflections (Local)")
+                    }
                 }
             }
         }
@@ -1170,17 +1226,15 @@ fun ProgressScreen(
         }
 
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ExpandableSection(
+                title = "Daily Reflection",
+                subtitle = "Quick check-in for patterns",
+                defaultExpanded = false
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
+                    modifier = Modifier.padding(top = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text("Daily Reflection", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                     Text(
                         text = "Quick check-in to observe patterns. This is not medical advice.",
                         style = MaterialTheme.typography.bodySmall,
@@ -1316,17 +1370,15 @@ fun ProgressScreen(
         }
 
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ExpandableSection(
+                title = "Send Feedback",
+                subtitle = "Queued if offline",
+                defaultExpanded = false
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
+                    modifier = Modifier.padding(top = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("Send Feedback", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                     OutlinedTextField(
                         value = feedbackText,
                         onValueChange = { feedbackText = it },

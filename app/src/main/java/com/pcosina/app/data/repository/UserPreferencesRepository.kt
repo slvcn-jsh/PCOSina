@@ -61,6 +61,7 @@ class UserPreferencesRepository(private val context: Context) {
         fun weeklyJournal(userId: String, weekStart: String) = stringPreferencesKey("weekly_journal_${userId}_$weekStart")
         fun planFeedbackTags(userId: String) = stringPreferencesKey("plan_feedback_tags_$userId")
         fun remindersEnabled(userId: String) = booleanPreferencesKey("reminders_enabled_$userId")
+        fun lastReviewedWeek(userId: String) = stringPreferencesKey("last_reviewed_week_$userId")
     }
 
     private object LegacyKeys {
@@ -286,6 +287,13 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun savePlanFeedbackTags(userId: String, tags: List<String>) {
         context.dataStore.edit { it[Keys.planFeedbackTags(userId)] = tags.joinToString(",") }
+    }
+
+    fun getLastReviewedWeek(userId: String): Flow<String?> =
+        context.dataStore.data.map { it[Keys.lastReviewedWeek(userId)] }
+
+    suspend fun saveLastReviewedWeek(userId: String, weekStart: String) {
+        context.dataStore.edit { it[Keys.lastReviewedWeek(userId)] = weekStart }
     }
 
     fun getRemindersEnabled(userId: String): Flow<Boolean> =

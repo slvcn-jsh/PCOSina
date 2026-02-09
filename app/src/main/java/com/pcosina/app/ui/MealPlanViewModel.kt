@@ -80,6 +80,8 @@ class MealPlanViewModel(
 
     private val _planExpired = MutableStateFlow(false)
     val planExpired: StateFlow<Boolean> = _planExpired.asStateFlow()
+    private val _lastReviewedWeek = MutableStateFlow<String?>(null)
+    val lastReviewedWeek: StateFlow<String?> = _lastReviewedWeek.asStateFlow()
 
     private var currentUserId: String = ""
     private val gson = Gson()
@@ -120,6 +122,8 @@ class MealPlanViewModel(
             }
             _planHistory.value = normalizedHistory
             val activeId = userPrefsRepository.getActivePlanId(userId).first()
+            val reviewed = userPrefsRepository.getLastReviewedWeek(userId).first()
+            _lastReviewedWeek.value = reviewed
             val currentWeekId = weekStartDate(System.currentTimeMillis()).format(DateTimeFormatter.ISO_LOCAL_DATE)
             val active = when {
                 normalizedHistory.any { it.id == currentWeekId } -> normalizedHistory.first { it.id == currentWeekId }
@@ -382,8 +386,18 @@ class MealPlanViewModel(
             _activeWeekStart.value = null
             _activeWeekEnd.value = null
             _planExpired.value = false
+            _lastReviewedWeek.value = null
             _uiState.value = MealPlanUiState.Idle
             _planMetrics.value = PlanMetrics()
+        }
+    }
+
+    fun markWeekReviewed(weekStart: String?) {
+        val key = weekStart?.trim().orEmpty()
+        if (key.isBlank() || currentUserId.isBlank()) return
+        _lastReviewedWeek.value = key
+        viewModelScope.launch {
+            userPrefsRepository.saveLastReviewedWeek(currentUserId, key)
         }
     }
 

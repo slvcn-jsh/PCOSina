@@ -35,9 +35,13 @@ import android.net.NetworkCapabilities
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
+import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
+import com.pcosina.app.ui.components.GuidedJourneyCard
 import com.pcosina.app.ui.util.buildMealReasons
+import com.pcosina.app.ui.util.GuidedJourneyInput
+import com.pcosina.app.ui.util.resolveGuidedJourneyStep
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.pcosina.app.data.api.RecipeSummaryDto
 import kotlinx.coroutines.launch
@@ -62,8 +66,10 @@ fun MealPlanScreen(
     userViewModel: UserViewModel,
     mealPlanViewModel: MealPlanViewModel,
     groceryViewModel: GroceryViewModel,
+    progressViewModel: ProgressViewModel,
     onRecipeClick: (String) -> Unit,
     onViewProgress: () -> Unit = {},
+    onNavigateToRoute: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val uiState by mealPlanViewModel.uiState.collectAsState()
@@ -71,8 +77,11 @@ fun MealPlanScreen(
     val activePlanId by mealPlanViewModel.activePlanId.collectAsState()
     val planExpired by mealPlanViewModel.planExpired.collectAsState()
     val activeWeekStart by mealPlanViewModel.activeWeekStart.collectAsState()
+    val lastReviewedWeek by mealPlanViewModel.lastReviewedWeek.collectAsState()
     val currentPlan = (uiState as? MealPlanUiState.Success)?.response
     val userProfile by userViewModel.userProfile.collectAsState()
+    val groceryItems by groceryViewModel.groceryItems.collectAsState()
+    val logs by progressViewModel.dailyLogs.collectAsState()
     var selectedDayIndex by rememberSaveable { mutableStateOf(0) }
     val context = LocalContext.current
     val analytics = FirebaseAnalytics.getInstance(context)
@@ -111,12 +120,29 @@ fun MealPlanScreen(
     }
     val previousPlan = sortedHistory.getOrNull(activeIndex - 1)
     val nextPlan = sortedHistory.getOrNull(activeIndex + 1)
+    val hasPlan = planHistory.isNotEmpty() || uiState is MealPlanUiState.Success
+    val hasReviewedWeek = activePlanId != null && activePlanId == lastReviewedWeek
+    val hasGrocery = groceryItems.isNotEmpty()
+    val hasTracked = logs.isNotEmpty()
+    val guidedStep = resolveGuidedJourneyStep(
+        GuidedJourneyInput(
+            profileComplete = userProfile.isProfileCompleted,
+            goal = userProfile.goal,
+            hasPlan = hasPlan,
+            hasReviewedWeek = hasReviewedWeek,
+            hasGrocery = hasGrocery,
+            hasTracked = hasTracked
+        )
+    )
 
     LaunchedEffect(syncSuccess) {
         if (syncSuccess) {
             kotlinx.coroutines.delay(2000)
             syncSuccess = false
         }
+    }
+    LaunchedEffect(activePlanId) {
+        activePlanId?.let { mealPlanViewModel.markWeekReviewed(it) }
     }
     LaunchedEffect(activePlanId) {
         selectedDayIndex = 0
@@ -129,6 +155,12 @@ fun MealPlanScreen(
             is MealPlanUiState.Idle -> {
                 Box(modifier = Modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding().padding(padding), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        GuidedJourneyCard(
+                            step = guidedStep,
+                            onContinue = { step -> onNavigateToRoute(step.route) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(16.dp))
                         if (!isOnline.value) {
                             Text(
                                 text = "Offline. Connect to the internet to generate your first plan.",
@@ -193,6 +225,12 @@ fun MealPlanScreen(
             is MealPlanUiState.Error -> {
                 Box(modifier = Modifier.fillMaxSize().statusBarsPadding().padding(padding), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        GuidedJourneyCard(
+                            step = guidedStep,
+                            onContinue = { step -> onNavigateToRoute(step.route) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(16.dp))
                         Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
                         if (!isOnline.value) {
                             Text(
@@ -238,6 +276,12 @@ fun MealPlanScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
+                item {
+                    GuidedJourneyCard(
+                        step = guidedStep,
+                        onContinue = { step -> onNavigateToRoute(step.route) }
+                    )
+                }
                 item {
                     if (!isOnline.value) {
                         Card(

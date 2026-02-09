@@ -36,12 +36,18 @@ import com.pcosina.app.BuildConfig
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
+import com.pcosina.app.ui.GroceryViewModel
+import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
+import com.pcosina.app.ui.components.GuidedJourneyCard
 import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.components.MacroCircularGauge
 import com.pcosina.app.ui.components.StatCard
+import com.pcosina.app.ui.components.ExpandableSection
 import com.pcosina.app.domain.HealthMetrics
 import com.pcosina.app.domain.UnitConverter
+import com.pcosina.app.ui.util.GuidedJourneyInput
+import com.pcosina.app.ui.util.resolveGuidedJourneyStep
 import java.util.Locale
 import android.widget.Toast
 
@@ -50,11 +56,14 @@ fun DashboardScreen(
     userViewModel: UserViewModel,
     authViewModel: AuthViewModel,
     mealPlanViewModel: MealPlanViewModel,
+    groceryViewModel: GroceryViewModel,
+    progressViewModel: ProgressViewModel,
     onRecipeClick: (String) -> Unit,
     onViewPlan: () -> Unit = {},
     onViewProgress: () -> Unit = {},
     onViewIpo: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
+    onNavigateToRoute: (String) -> Unit = {},
     onFeedback: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -67,11 +76,29 @@ fun DashboardScreen(
     val planExpired by mealPlanViewModel.planExpired.collectAsState()
     val planExplanation = (mealPlanState as? MealPlanUiState.Success)?.response?.explanation
     val planHistory by mealPlanViewModel.planHistory.collectAsState()
+    val lastReviewedWeek by mealPlanViewModel.lastReviewedWeek.collectAsState()
+    val groceryItems by groceryViewModel.groceryItems.collectAsState()
+    val logs by progressViewModel.dailyLogs.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
     val context = LocalContext.current
     val showMarkersInfo = rememberSaveable { mutableStateOf(false) }
     val showTargetInfo = rememberSaveable { mutableStateOf(false) }
     val showBmiInfo = rememberSaveable { mutableStateOf(false) }
+    val hasPlan = planHistory.isNotEmpty() || mealPlanState is MealPlanUiState.Success
+    val activePlanId = mealPlanViewModel.activePlanId.collectAsState().value
+    val hasReviewedWeek = activePlanId != null && activePlanId == lastReviewedWeek
+    val hasGrocery = groceryItems.isNotEmpty()
+    val hasTracked = logs.isNotEmpty()
+    val guidedStep = resolveGuidedJourneyStep(
+        GuidedJourneyInput(
+            profileComplete = profile.isProfileCompleted,
+            goal = profile.goal,
+            hasPlan = hasPlan,
+            hasReviewedWeek = hasReviewedWeek,
+            hasGrocery = hasGrocery,
+            hasTracked = hasTracked
+        )
+    )
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding(),
@@ -109,6 +136,51 @@ fun DashboardScreen(
                             }
                         },
                     )
+                }
+            }
+        }
+
+        item {
+            GuidedJourneyCard(
+                step = guidedStep,
+                onContinue = { step -> onNavigateToRoute(step.route) }
+            )
+        }
+
+        item {
+            Card(
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "Goal Progress Snapshot",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = "This week supports: ${profile.goal}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colorScheme.onSurface
+                    )
+                    val avgKcal = planExplanation?.avgCalories ?: 0
+                    val estCost = planExplanation?.estimatedWeeklyCost
+                    Text(
+                        text = "Planned meals: ${if (hasPlan) 21 else 0} • Avg kcal/day: ${if (avgKcal > 0) avgKcal else "—"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    if (estCost != null) {
+                        Text(
+                            text = "Estimated weekly cost: ₱$estCost",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
@@ -173,31 +245,13 @@ fun DashboardScreen(
         }
 
         item {
-            val hasPlan = mealPlanState is MealPlanUiState.Success || planHistory.isNotEmpty()
-            
-            Row(
-                modifier = Modifier.padding(start = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Live Metabolic Markers",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp),
-                    color = colorScheme.secondary,
-                    modifier = Modifier.alpha(if (hasPlan) 1f else 0.5f)
-                )
-                IconButton(onClick = { showMarkersInfo.value = true }) {
-                    Icon(Icons.Filled.Info, contentDescription = "Info", tint = colorScheme.onSurfaceVariant)
-                }
-            }
-            
-            Card(
-                shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier.fillMaxWidth().alpha(if (hasPlan) 1f else 0.6f)
+            ExpandableSection(
+                title = "Advanced Metrics",
+                subtitle = "Macro averages and solver signals",
+                defaultExpanded = false
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(20.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -205,29 +259,19 @@ fun DashboardScreen(
                     MacroCircularGauge(label = "Carbs", currentValue = metrics.avgCarbs, targetValue = 220, color = colorScheme.tertiary, modifier = Modifier.weight(1f))
                     MacroCircularGauge(label = "Fiber", currentValue = metrics.avgFiber, targetValue = 25, color = colorScheme.secondary, modifier = Modifier.weight(1f))
                 }
-            }
-            if (planExpired) {
-                Spacer(Modifier.height(10.dp))
-                Card(
-                    shape = MaterialTheme.shapes.large,
-                    colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "Your plan is expired.",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            text = "Generate a new week to stay current.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant
-                        )
-                        TextButton(onClick = onViewPlan) { Text("Generate new week") }
-                    }
+                TextButton(onClick = { showMarkersInfo.value = true }) {
+                    Icon(Icons.Filled.Info, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("How these are computed")
+                }
+                if (planExpired) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "Your plan is expired. Generate a new week to stay current.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    TextButton(onClick = onViewPlan) { Text("Generate new week") }
                 }
             }
         }
@@ -285,26 +329,15 @@ fun DashboardScreen(
 
         if (planExplanation != null) {
             item {
-                Card(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                    modifier = Modifier.fillMaxWidth()
+                ExpandableSection(
+                    title = "Advanced Solver Notes",
+                    subtitle = "Why the plan looks this way",
+                    defaultExpanded = false
                 ) {
                     Column(
-                        modifier = Modifier.padding(18.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(
-                            text = "Explainability Snapshot",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Quick view of solver signals for this plan.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant
-                        )
                         planExplanation.confidenceScore?.let {
                             Text(
                                 text = "Confidence: $it%",

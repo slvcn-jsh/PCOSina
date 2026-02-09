@@ -33,6 +33,7 @@ import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.BottomNavBar
+import com.pcosina.app.ui.components.DefaultBottomNavItems
 import com.pcosina.app.ui.navigation.Routes.RecipeIdArg
 import com.pcosina.app.ui.screens.DashboardScreen
 import com.pcosina.app.ui.screens.GoalSelectionScreen
@@ -52,6 +53,11 @@ import com.pcosina.app.BuildConfig
 import com.google.firebase.analytics.FirebaseAnalytics
 import android.widget.Toast
 import com.pcosina.app.notifications.NotificationHelper
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
+import java.time.temporal.WeekFields
+import java.util.Locale
 
 /**
  * App navigation host.
@@ -114,6 +120,8 @@ fun AppNavHost(
     val isProfileLoading by userViewModel.isProfileLoading.collectAsState()
     val currentRoute by navController.currentBackStackEntryAsState()
     val activePlanId by mealPlanViewModel.activePlanId.collectAsState()
+    val activeWeekStart by mealPlanViewModel.activeWeekStart.collectAsState()
+    val planHistory by mealPlanViewModel.planHistory.collectAsState()
     val remindersEnabled by userViewModel.remindersEnabled.collectAsState()
 
     val splashReady = remember { mutableStateOf(false) }
@@ -157,6 +165,16 @@ fun AppNavHost(
         groceryViewModel.setActivePlan(activePlanId)
     }
 
+    LaunchedEffect(session.currentUserUid, activeWeekStart) {
+        val userId = session.currentUserUid
+        if (userId.isNullOrBlank()) return@LaunchedEffect
+        val weekStart = activeWeekStart
+            ?: LocalDate.now()
+                .with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
+                .format(DateTimeFormatter.ISO_LOCAL_DATE)
+        progressViewModel.loadForUser(userId, weekStart)
+    }
+
     // Auth Guard
     LaunchedEffect(session.isLoggedIn) {
         val currentRoute = navController.currentBackStackEntry?.destination?.route
@@ -192,6 +210,22 @@ fun AppNavHost(
     }
 
     val inferredProfileCompleted = userProfile.isProfileCompleted || isLegacyProfileComplete(userProfile)
+    val hasPlan = planHistory.isNotEmpty() || mealPlanViewModel.uiState.value is com.pcosina.app.ui.MealPlanUiState.Success
+    val enabledRoutes = remember(hasPlan) {
+        val base = mutableSetOf(
+            Routes.Dashboard,
+            Routes.MealPlan,
+            Routes.GroceryList,
+            Routes.Progress,
+            Routes.Ipo
+        )
+        if (!hasPlan) {
+            base.remove(Routes.GroceryList)
+            base.remove(Routes.Progress)
+            base.remove(Routes.Ipo)
+        }
+        base
+    }
 
     // Migrate legacy profiles to completed to avoid forcing onboarding
     LaunchedEffect(session.currentUserUid, inferredProfileCompleted) {
@@ -300,52 +334,100 @@ fun AppNavHost(
 
         // Bottom tab destinations
         composable(Routes.Dashboard) {
-            TabScaffold(navController = navController) { contentPadding ->
+            TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
                 DashboardScreen(
                     userViewModel = userViewModel,
                     authViewModel = authViewModel,
                     mealPlanViewModel = mealPlanViewModel,
+                    groceryViewModel = groceryViewModel,
+                    progressViewModel = progressViewModel,
                     onRecipeClick = { id -> navController.navigate(Routes.recipeDetailsRoute(id)) },
                     onViewPlan = { navController.navigate(Routes.MealPlan) { tabNavigationOptions() } },
                     onViewProgress = { navController.navigate(Routes.Progress) { tabNavigationOptions() } },
                     onViewIpo = { navController.navigate(Routes.Ipo) { tabNavigationOptions() } },
                     onNavigateToSettings = { navController.navigate(Routes.Settings) },
+                    onNavigateToRoute = { route ->
+                        when (route) {
+                            Routes.UserProfile -> navController.navigate(Routes.UserProfileEdit)
+                            Routes.GoalSelection -> navController.navigate(Routes.GoalSelection)
+                            Routes.MealPlan,
+                            Routes.GroceryList,
+                            Routes.Progress,
+                            Routes.Ipo,
+                            Routes.Dashboard -> navController.navigate(route) { tabNavigationOptions() }
+                            else -> navController.navigate(route)
+                        }
+                    },
                     onFeedback = onFeedback,
                     modifier = Modifier.padding(contentPadding),
                 )
             }
         }
         composable(Routes.MealPlan) {
-            TabScaffold(navController = navController) { contentPadding ->
+            TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
                 MealPlanScreen(
                     userViewModel = userViewModel,
                     mealPlanViewModel = mealPlanViewModel,
                     groceryViewModel = groceryViewModel,
+                    progressViewModel = progressViewModel,
                     onRecipeClick = { id -> navController.navigate(Routes.recipeDetailsRoute(id)) },
                     onViewProgress = { navController.navigate(Routes.Progress) { tabNavigationOptions() } },
+                    onNavigateToRoute = { route ->
+                        when (route) {
+                            Routes.UserProfile -> navController.navigate(Routes.UserProfileEdit)
+                            Routes.GoalSelection -> navController.navigate(Routes.GoalSelection)
+                            Routes.MealPlan,
+                            Routes.GroceryList,
+                            Routes.Progress -> navController.navigate(route) { tabNavigationOptions() }
+                            else -> navController.navigate(route)
+                        }
+                    },
                     modifier = Modifier.padding(contentPadding),
                 )
             }
         }
         composable(Routes.GroceryList) {
-            TabScaffold(navController = navController) { contentPadding ->
+            TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
                 GroceryListScreen(
                     groceryViewModel = groceryViewModel,
                     userViewModel = userViewModel,
+                    mealPlanViewModel = mealPlanViewModel,
+                    progressViewModel = progressViewModel,
+                    onNavigateToRoute = { route ->
+                        when (route) {
+                            Routes.UserProfile -> navController.navigate(Routes.UserProfileEdit)
+                            Routes.GoalSelection -> navController.navigate(Routes.GoalSelection)
+                            Routes.MealPlan,
+                            Routes.GroceryList,
+                            Routes.Progress -> navController.navigate(route) { tabNavigationOptions() }
+                            else -> navController.navigate(route)
+                        }
+                    },
                     modifier = Modifier.padding(contentPadding)
                 )
             }
         }
         composable(Routes.Progress) {
-            TabScaffold(navController = navController) { contentPadding ->
+            TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
                 ProgressScreen(
                     userViewModel = userViewModel,
                     mealPlanViewModel = mealPlanViewModel,
                     progressViewModel = progressViewModel,
+                    groceryViewModel = groceryViewModel,
                     userId = session.currentUserUid ?: "",
                     onBackToDashboard = {
                         navController.navigate(Routes.Dashboard) {
                             tabNavigationOptions()
+                        }
+                    },
+                    onNavigateToRoute = { route ->
+                        when (route) {
+                            Routes.UserProfile -> navController.navigate(Routes.UserProfileEdit)
+                            Routes.GoalSelection -> navController.navigate(Routes.GoalSelection)
+                            Routes.MealPlan,
+                            Routes.GroceryList,
+                            Routes.Progress -> navController.navigate(route) { tabNavigationOptions() }
+                            else -> navController.navigate(route)
                         }
                     },
                     modifier = Modifier.padding(contentPadding),
@@ -353,7 +435,7 @@ fun AppNavHost(
             }
         }
         composable(Routes.Ipo) {
-            TabScaffold(navController = navController) { contentPadding ->
+            TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
                 IpoVisualizationScreen(
                     onBackToDashboard = {
                         navController.navigate(Routes.Dashboard) {
@@ -405,10 +487,12 @@ fun AppNavHost(
 @Composable
 private fun TabScaffold(
     navController: NavHostController,
+    enabledRoutes: Set<String> = DefaultBottomNavItems.map { it.route }.toSet(),
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val currentBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentDestination = currentBackStackEntry?.destination
+    val context = LocalContext.current
 
     Scaffold(
         bottomBar = {
@@ -420,6 +504,11 @@ private fun TabScaffold(
                         tabNavigationOptions()
                     }
                 },
+                enabledRoutes = enabledRoutes,
+                onDisabledRouteClick = {
+                    Toast.makeText(context, "Generate a plan to unlock this tab.", Toast.LENGTH_SHORT).show()
+                    navController.navigate(Routes.MealPlan) { tabNavigationOptions() }
+                }
             )
         },
     ) { innerPadding ->

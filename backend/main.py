@@ -27,7 +27,6 @@ from domain.models import (
 PLAN_CACHE_TTL_SECONDS = 600
 PLAN_CACHE_MAX_SIZE = 200
 _plan_cache = {}
-_plan_jobs: Dict[str, Dict[str, Any]] = {}
 
 ENVIRONMENT = os.getenv("PCOSINA_ENV", "development").lower()
 IS_PRODUCTION = ENVIRONMENT in ("prod", "production")
@@ -257,24 +256,20 @@ def _cache_set(key: str, value: GeneratePlanResponse):
 
 
 def _set_job(job_id: str, status: str, result: GeneratePlanResponse | None = None, error: str | None = None):
-    payload = _plan_jobs.get(job_id, {})
-    payload.update({
-        "status": status,
-        "updatedAt": time.time(),
-    })
+    payload = None
     if result is not None:
-        payload["result"] = result
-    if error is not None:
-        payload["error"] = error
-    _plan_jobs[job_id] = payload
+        if hasattr(result, "model_dump"):
+            payload = result.model_dump()
+        elif hasattr(result, "dict"):
+            payload = result.dict()
+        else:
+            payload = result
+    result_json = json.dumps(payload) if payload is not None else None
+    database.update_plan_job(job_id, status=status, result_json=result_json, error=error)
 
 
 def _init_job(job_id: str):
-    _plan_jobs[job_id] = {
-        "status": "queued",
-        "createdAt": time.time(),
-        "updatedAt": time.time(),
-    }
+    database.create_plan_job(job_id)
 
 
 def _run_job(job_id: str, request: GeneratePlanRequest):
@@ -303,6 +298,8 @@ async def generate_plan(
     _: Any = Depends(require_schema_version)
 ):
     try:
+        if int(request.mealsPerDay or 3) != 3:
+            raise HTTPException(status_code=400, detail="Only mealsPerDay=3 is supported.")
         key = _cache_key(request)
         cached = _cache_get(key)
         if cached is not None:
@@ -335,6 +332,8 @@ async def generate_plan_async(
     user: Any = Depends(require_firebase_auth),
     _: Any = Depends(require_schema_version)
 ):
+    if int(request.mealsPerDay or 3) != 3:
+        raise HTTPException(status_code=400, detail="Only mealsPerDay=3 is supported.")
     job_id = uuid.uuid4().hex
     _init_job(job_id)
     background_tasks.add_task(_run_job, job_id, request)
@@ -343,7 +342,7 @@ async def generate_plan_async(
 
 @app.get("/plan-jobs/{job_id}")
 def get_plan_job(job_id: str, user: Any = Depends(require_firebase_auth)):
-    job = _plan_jobs.get(job_id)
+    job = database.get_plan_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job

@@ -198,6 +198,29 @@ def _create_feedback_table_sql() -> str:
         )
     """
 
+def _create_plan_jobs_table_sql() -> str:
+    if _use_postgres():
+        return """
+            CREATE TABLE IF NOT EXISTS plan_jobs (
+                id TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                created_at BIGINT NOT NULL,
+                updated_at BIGINT NOT NULL,
+                result_json TEXT,
+                error TEXT
+            )
+        """
+    return """
+        CREATE TABLE IF NOT EXISTS plan_jobs (
+            id TEXT PRIMARY KEY,
+            status TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL,
+            result_json TEXT,
+            error TEXT
+        )
+    """
+
 def save_feedback(message: str):
     conn = _connect()
     try:
@@ -249,12 +272,121 @@ def init_db():
     _ensure_recipe_columns(conn)
     try:
         cursor.execute(_create_feedback_table_sql())
+        cursor.execute(_create_plan_jobs_table_sql())
     except Exception as e:
         # Defensive: ignore rare Postgres type-creation race for "feedback"
         if "pg_type_typname_nsp_index" not in str(e):
             raise
     conn.commit()
     conn.close()
+
+def create_plan_job(job_id: str):
+    conn = _connect()
+    try:
+        now = int(time.time() * 1000)
+        cur = conn.cursor()
+        if _use_postgres():
+            cur.execute(
+                """
+                INSERT INTO plan_jobs (id, status, created_at, updated_at)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    updated_at = EXCLUDED.updated_at
+                """,
+                (job_id, "queued", now, now)
+            )
+        else:
+            cur.execute(
+                """
+                INSERT INTO plan_jobs (id, status, created_at, updated_at, result_json, error)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    status = excluded.status,
+                    updated_at = excluded.updated_at
+                """,
+                (job_id, "queued", now, now, None, None)
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+def update_plan_job(job_id: str, status: str, result_json: str | None = None, error: str | None = None):
+    conn = _connect()
+    try:
+        now = int(time.time() * 1000)
+        cur = conn.cursor()
+        if _use_postgres():
+            cur.execute(
+                """
+                INSERT INTO plan_jobs (id, status, created_at, updated_at, result_json, error)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    updated_at = EXCLUDED.updated_at,
+                    result_json = COALESCE(EXCLUDED.result_json, plan_jobs.result_json),
+                    error = COALESCE(EXCLUDED.error, plan_jobs.error)
+                """,
+                (job_id, status, now, now, result_json, error)
+            )
+        else:
+            cur.execute(
+                """
+                INSERT INTO plan_jobs (id, status, created_at, updated_at, result_json, error)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    status = excluded.status,
+                    updated_at = excluded.updated_at,
+                    result_json = COALESCE(excluded.result_json, plan_jobs.result_json),
+                    error = COALESCE(excluded.error, plan_jobs.error)
+                """,
+                (job_id, status, now, now, result_json, error)
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+def get_plan_job(job_id: str):
+    conn = _connect()
+    try:
+        if _use_postgres() and dict_row is not None:
+            cur = conn.cursor(row_factory=dict_row)
+        else:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+        if _use_postgres():
+            cur.execute("SELECT id, status, created_at, updated_at, result_json, error FROM plan_jobs WHERE id = %s", (job_id,))
+        else:
+            cur.execute("SELECT id, status, created_at, updated_at, result_json, error FROM plan_jobs WHERE id = ?", (job_id,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        if isinstance(row, dict):
+            result_json = row.get("result_json")
+            payload = {
+                "id": row.get("id"),
+                "status": row.get("status"),
+                "createdAt": row.get("created_at"),
+                "updatedAt": row.get("updated_at"),
+                "error": row.get("error"),
+            }
+        else:
+            result_json = row["result_json"]
+            payload = {
+                "id": row["id"],
+                "status": row["status"],
+                "createdAt": row["created_at"],
+                "updatedAt": row["updated_at"],
+                "error": row["error"],
+            }
+        if result_json:
+            try:
+                payload["result"] = json.loads(result_json)
+            except Exception:
+                payload["result"] = result_json
+        return payload
+    finally:
+        conn.close()
 
 def _recipe_count(conn) -> int:
     cur = conn.cursor()

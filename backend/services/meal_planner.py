@@ -610,6 +610,8 @@ def solve_meal_plan(
     conflict = validate_profile(profile)
     if conflict:
         return None, conflict, None
+    if int(request.mealsPerDay or 3) != 3:
+        return None, "Only mealsPerDay=3 is supported in this version.", None
     num_days = max(1, int(request.days or 7))
     slot_labels = MEAL_LABELS
     slot_count = num_days * len(slot_labels)

@@ -7,6 +7,7 @@ import time
 from ortools.sat.python import cp_model
 
 from domain.models import GeneratePlanRequest, PlannedMeal, DayPlan, UserProfile
+from price_catalog import estimate_recipe_cost
 
 
 def _env_int(name: str, default: int) -> int:
@@ -96,6 +97,36 @@ ING_SYNONYMS = {
     "tokwa": "tofu",
 }
 
+ALLERGEN_SYNONYMS = {
+    "peanut": "peanut",
+    "peanuts": "peanut",
+    "nuts": "nuts",
+    "tree_nut": "nuts",
+    "almond": "nuts",
+    "cashew": "nuts",
+    "walnut": "nuts",
+    "hazelnut": "nuts",
+    "dairy": "dairy",
+    "milk": "dairy",
+    "gatas": "dairy",
+    "cheese": "dairy",
+    "keso": "dairy",
+    "egg": "egg",
+    "itlog": "egg",
+    "fish": "fish",
+    "isda": "fish",
+    "shellfish": "shellfish",
+    "shrimp": "shellfish",
+    "hipon": "shellfish",
+    "crab": "shellfish",
+    "soy": "soy",
+    "toyo": "soy",
+    "tofu": "soy",
+    "wheat": "wheat",
+    "gluten": "gluten",
+    "sesame": "sesame",
+}
+
 MEAT_TOKENS = {"pork", "beef", "chicken", "meat", "lamb", "goat", "duck"}
 SEAFOOD_TOKENS = {"fish", "shrimp", "squid", "tuna", "salmon", "crab", "seafood"}
 DAIRY_TOKENS = {"dairy", "milk", "cheese", "yogurt", "cream", "butter"}
@@ -114,6 +145,8 @@ VEG_TOKENS = {
     "cabbage", "carrot", "onion", "garlic", "eggplant", "tomato",
     "string_beans", "bok_choy", "squash", "gourd", "bitter_gourd"
 }
+
+MEAL_LABELS = ["Breakfast", "Lunch", "Dinner"]
 
 
 def _normalize_token(t: str) -> str:
@@ -150,6 +183,32 @@ def normalize_pantry(pantry: List[str]) -> List[str]:
     return tokens
 
 
+def normalize_allergies(allergies: List[str]) -> List[str]:
+    tokens = []
+    for item in allergies or []:
+        for raw in str(item).replace("/", " ").replace("-", " ").split():
+            tok = _normalize_token(raw)
+            if tok:
+                tokens.append(ALLERGEN_SYNONYMS.get(tok, tok))
+    return tokens
+
+
+def infer_allowed_meals(meal_type: str | None) -> List[str]:
+    if not meal_type:
+        return MEAL_LABELS
+    raw = meal_type.lower()
+    if "universal" in raw:
+        return MEAL_LABELS
+    labels = []
+    if "break" in raw:
+        labels.append("Breakfast")
+    if "lunch" in raw:
+        labels.append("Lunch")
+    if "dinner" in raw:
+        labels.append("Dinner")
+    return labels or MEAL_LABELS
+
+
 def infer_tags(recipe: Dict[str, Any]) -> List[str]:
     tags = set([t.lower() for t in recipe.get("tags", []) if t])
     ing_tokens = set(normalize_ingredients(recipe.get("ingredients", [])))
@@ -184,8 +243,12 @@ def infer_protein_group(ing_tokens: List[str]) -> str:
 
 def estimate_cost(recipe: Dict[str, Any]) -> int:
     ings = recipe.get("ingredients", [])
+    catalog_cost = estimate_recipe_cost(ings)
+    if catalog_cost > 0:
+        return catalog_cost
     cal = recipe.get("calories") or 0
-    return int(len(ings) * 8 + cal * 0.4)
+    rough = (len(ings) * 6) + (cal * 0.15)
+    return int(max(30, min(450, rough)))
 
 
 def _base_score(recipe: Dict[str, Any]) -> float:
@@ -199,6 +262,9 @@ def passes_restrictions(profile: UserProfile, tags: List[str], ing_tokens: List[
     restrictions = set(profile.dietaryRestrictions or [])
     tagset = set(tags)
     toks = set(ing_tokens)
+    allergy_tokens = set(normalize_allergies(profile.allergies or []))
+    if allergy_tokens and (toks & allergy_tokens):
+        return False
     if "No Pork" in restrictions and "pork" in toks:
         return False
     if "No Beef" in restrictions and "beef" in toks:
@@ -221,25 +287,104 @@ def validate_profile(profile: UserProfile) -> Optional[str]:
     return None
 
 
+def resolve_budget_weekly(profile: UserProfile) -> Optional[float]:
+    if profile.weeklyBudgetPhp and profile.weeklyBudgetPhp > 0:
+        return float(profile.weeklyBudgetPhp)
+    if profile.budgetWeekly and profile.budgetWeekly > 0:
+        return float(profile.budgetWeekly)
+    if profile.budgetMonthly and profile.budgetMonthly > 0:
+        return float(profile.budgetMonthly) / 4.33
+    return None
+
+
+def macro_ratios(insulin_level: str | None) -> tuple[float, float, float]:
+    raw = (insulin_level or "").lower()
+    if "severe" in raw:
+        return (0.30, 0.30, 0.40)
+    if "moderate" in raw:
+        return (0.28, 0.35, 0.37)
+    return (0.25, 0.40, 0.35)
+
+
+def activity_multiplier(level: str | None) -> float:
+    raw = (level or "").strip()
+    if raw == "Sedentary":
+        return 1.2
+    if raw == "Moderately Active":
+        return 1.55
+    if raw == "Very Active":
+        return 1.725
+    return 1.375
+
+
+def variety_weights(preference: str | None) -> Dict[str, int]:
+    raw = (preference or "").lower()
+    if "high" in raw:
+        return {"repeat_weight": 7, "group_weight": 3, "diversity_weight": 2, "pantry_weight": 1}
+    if "low" in raw:
+        return {"repeat_weight": 3, "group_weight": 1, "diversity_weight": 1, "pantry_weight": 1}
+    return {"repeat_weight": 5, "group_weight": 2, "diversity_weight": 1, "pantry_weight": 1}
+
+
+def adjust_max_per_week(base: List[int], preference: str | None) -> List[int]:
+    raw = (preference or "").lower()
+    if "high" in raw:
+        return [v for v in base if v <= 4] or [2, 3, 4]
+    if "low" in raw:
+        extended = sorted(set(base + [6, 8, 10]))
+        return extended
+    return base
+
+
+def priority_overrides(priority: str | None) -> Dict[str, int]:
+    raw = (priority or "").lower()
+    if "budget" in raw:
+        return {
+            "budget_mult": 2,
+            "repeat_weight": 3,
+            "group_weight": 1,
+            "diversity_weight": 1,
+            "macro_mult": 1,
+            "variety_mult": 1,
+        }
+    if "variety" in raw:
+        return {
+            "budget_mult": 1,
+            "repeat_weight": 7,
+            "group_weight": 3,
+            "diversity_weight": 2,
+            "macro_mult": 1,
+            "variety_mult": 2,
+        }
+    if "nutrition" in raw or "tight" in raw:
+        return {
+            "budget_mult": 1,
+            "macro_mult": 2,
+            "variety_mult": 1,
+        }
+    return {"budget_mult": 1, "macro_mult": 1, "variety_mult": 1}
+
+
 def shortlist_candidates(profile: UserProfile, recipes: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
     buckets = {"Breakfast": [], "Lunch": [], "Dinner": [], "Universal": []}
     restriction_count = len(profile.dietaryRestrictions or [])
-    budget_weekly = None
-    if profile.budgetWeekly and profile.budgetWeekly > 0:
-        budget_weekly = float(profile.budgetWeekly)
-    elif profile.budgetMonthly and profile.budgetMonthly > 0:
-        budget_weekly = float(profile.budgetMonthly) / 4.33
+    budget_weekly = resolve_budget_weekly(profile)
+    max_cook = profile.maxCookingTimeMinutes if profile.maxCookingTimeMinutes and profile.maxCookingTimeMinutes > 0 else None
     pantry_tokens = set(normalize_pantry(profile.pantryItems or []))
     for r in recipes:
         tags = infer_tags(r)
         ing_tokens = normalize_ingredients(r.get("ingredients", []))
         if not passes_restrictions(profile, tags, ing_tokens):
             continue
+        minutes = int(r.get("minutes") or 0)
+        if max_cook is not None and minutes > max_cook:
+            continue
         r["_tags"] = tags
         r["_ing_tokens"] = ing_tokens
         r["_cost_est"] = estimate_cost(r)
         r["_protein_group"] = infer_protein_group(ing_tokens)
         r["_veg_tokens"] = infer_veg_tokens(ing_tokens)
+        r["_allowed_meals"] = infer_allowed_meals(r.get("mealType"))
         if pantry_tokens:
             r["_pantry_match"] = len(set(ing_tokens) & pantry_tokens)
         else:
@@ -466,15 +611,15 @@ def solve_meal_plan(
     if conflict:
         return None, conflict, None
     num_days = max(1, int(request.days or 7))
-    slot_count = num_days * 3
-    slot_labels = ["Breakfast", "Lunch", "Dinner"]
+    slot_labels = MEAL_LABELS
+    slot_count = num_days * len(slot_labels)
     w, h, a = (
         profile.weightKg if profile.weightKg > 0 else 65,
         profile.heightCm if profile.heightCm > 0 else 160,
         profile.age if profile.age > 0 else 25
     )
     bmr = (10 * w) + (6.25 * h) - (5 * a) - 161
-    target = int(bmr * 1.375)
+    target = int(bmr * activity_multiplier(profile.activityLevel))
     if "Weight Loss" in profile.goal:
         target -= 500
     target = max(1200, target)
@@ -483,10 +628,11 @@ def solve_meal_plan(
     rng = random.Random(seed_key)
     daily_targets = [target + rng.randint(-50, 50) for _ in range(num_days)]
     daily_targets = [max(1200, t) for t in daily_targets]
-    # Macro targets based on calories (PCOS-friendly balanced)
-    target_protein = int((target * 0.25) / 4)
-    target_carbs = int((target * 0.40) / 4)
-    target_fats = int((target * 0.35) / 9)
+    # Macro targets based on calories, adjusted by insulin resistance level
+    protein_ratio, carb_ratio, fat_ratio = macro_ratios(profile.insulinResistanceLevel)
+    target_protein = int((target * protein_ratio) / 4)
+    target_carbs = int((target * carb_ratio) / 4)
+    target_fats = int((target * fat_ratio) / 9)
     tolerance_levels = _env_float_list("PCOSINA_TOLERANCE_LEVELS", [0.2, 0.3, 0.4])
     # Stage 1 pruning + shortlist
     buckets = shortlist_candidates(profile, recipes)
@@ -502,8 +648,16 @@ def solve_meal_plan(
         pool = _cap_pool(pool, max_pool_size)
     if debug_solver:
         debug_summary["pool"] = len(pool)
-    # Treat all recipes as valid for all meal slots (ignore mealType tags).
-    meal_to_allowed = {label: set(range(len(pool))) for label in slot_labels}
+    # Enforce mealType where possible; Universal recipes are allowed everywhere.
+    meal_to_allowed = {}
+    for label in slot_labels:
+        allowed = set(
+            i for i, r in enumerate(pool)
+            if label in (r.get("_allowed_meals") or MEAL_LABELS)
+        )
+        meal_to_allowed[label] = allowed
+    if any(len(v) == 0 for v in meal_to_allowed.values()):
+        meal_to_allowed = {label: set(range(len(pool))) for label in slot_labels}
     if debug_solver:
         debug_summary["allowed_sizes"] = {k: len(v) for k, v in meal_to_allowed.items()}
     base_scores = []
@@ -513,11 +667,15 @@ def solve_meal_plan(
     # Render/free instances are CPU-limited; give the solver more time by default.
     total_time_limit = _env_float_min("PCOSINA_TOTAL_SOLVER_SECONDS", 25.0)
     started_at = time.time()
+    max_per_week_list = adjust_max_per_week(
+        _env_int_list("PCOSINA_MAX_PER_WEEK", [2, 3, 4, 10]),
+        profile.varietyPreference
+    )
     for tol in tolerance_levels:
         protein_bounds = (int(target_protein * (1 - tol)), int(target_protein * (1 + tol)))
         carbs_bounds = (int(target_carbs * (1 - tol)), int(target_carbs * (1 + tol)))
         fats_bounds = (int(target_fats * (1 - tol)), int(target_fats * (1 + tol)))
-        for max_per_week in _env_int_list("PCOSINA_MAX_PER_WEEK", [2, 3, 4, 10]):
+        for max_per_week in max_per_week_list:
             if (time.time() - started_at) >= total_time_limit:
                 break
             model = cp_model.CpModel()
@@ -592,17 +750,16 @@ def solve_meal_plan(
                 diversity_slack = model.NewIntVar(0, min_diversity, "diversity_slack")
                 model.Add(sum(veg_cov.values()) + diversity_slack >= min_diversity)
             pantry_bonus_vars = []
+            pantry_match_total = None
             pantry = set(normalize_pantry(profile.pantryItems or []))
             if pantry:
                 for i in range(len(pool)):
                     match_count = len(set(pool[i].get("_ing_tokens", [])) & pantry)
                     if match_count > 0:
                         pantry_bonus_vars.append(match_count * sum(x[s, i] for s in range(slot_count)))
-            budget_weekly = None
-            if profile.budgetWeekly and profile.budgetWeekly > 0:
-                budget_weekly = float(profile.budgetWeekly)
-            elif profile.budgetMonthly and profile.budgetMonthly > 0:
-                budget_weekly = float(profile.budgetMonthly) / 4.33
+                if pantry_bonus_vars:
+                    pantry_match_total = sum(pantry_bonus_vars)
+            budget_weekly = resolve_budget_weekly(profile)
             if budget_weekly:
                 total_cost = sum(x[s, i] * int(pool[i].get("_cost_est", 0)) for s in range(slot_count) for i in range(len(pool)))
                 budget_over = model.NewIntVar(0, 1000000, "budget_over")
@@ -614,6 +771,7 @@ def solve_meal_plan(
             dev_pro_vars = []
             dev_carb_vars = []
             dev_fat_vars = []
+            meal_err_vars = []
             for d in range(num_days):
                 day_slots = range(d * 3, d * 3 + 3)
                 day_cals = sum(x[s, i] * int(pool[i].get("calories", 0)) for s in day_slots for i in range(len(pool)))
@@ -636,28 +794,64 @@ def solve_meal_plan(
                 model.Add(carbs_bounds[0] - day_carb <= dev_carb)
                 model.Add(day_fat - fats_bounds[1] <= dev_fat)
                 model.Add(fats_bounds[0] - day_fat <= dev_fat)
+                # Meal-level calorie balance (soft)
+                target_meal = max(300, int(daily_targets[d] / 3))
+                for m in range(3):
+                    slot = d * 3 + m
+                    meal_cals = sum(x[slot, i] * int(pool[i].get("calories", 0)) for i in range(len(pool)))
+                    meal_err = model.NewIntVar(0, 1200, f"meal_err_{slot}")
+                    model.Add(meal_err >= meal_cals - target_meal)
+                    model.Add(meal_err >= target_meal - meal_cals)
+                    meal_err_vars.append(meal_err)
             total_err = sum(err_vars)
             total_dev_pro = sum(dev_pro_vars)
             total_dev_carb = sum(dev_carb_vars)
             total_dev_fat = sum(dev_fat_vars)
+            total_meal_err = sum(meal_err_vars) if meal_err_vars else 0
             total_repeat_over = sum(repeat_over_vars)
             total_group_over = sum(group_over_vars) if group_over_vars else 0
             budget_penalty = budget_over if budget_over is not None else 0
             pantry_reward = sum(pantry_bonus_vars) if pantry_bonus_vars else 0
             diversity_reward = sum(veg_cov.values()) if veg_cov else 0
             diversity_penalty = (5 * diversity_slack) if diversity_slack is not None else 0
-            weights = weight_set or _default_weight_set() or {}
-            repeat_w = int(weights.get("repeat_weight", 5))
-            group_w = int(weights.get("group_weight", 2))
-            diversity_w = int(weights.get("diversity_weight", 1))
+            pantry_min_slack = None
+            pantry_min_penalty = 0
+            if pantry and pantry_match_total is not None:
+                pantry_min = min(4, len(pantry))
+                pantry_min_slack = model.NewIntVar(0, pantry_min, "pantry_min_slack")
+                model.Add(pantry_match_total + pantry_min_slack >= pantry_min)
+                pantry_min_penalty = pantry_min_slack * 3
+            priority = priority_overrides(profile.planningPriority)
+            weights = variety_weights(profile.varietyPreference)
+            weights.update(_default_weight_set() or {})
+            if weight_set:
+                weights.update(weight_set)
+            if "repeat_weight" in priority:
+                weights["repeat_weight"] = priority["repeat_weight"]
+            if "group_weight" in priority:
+                weights["group_weight"] = priority["group_weight"]
+            if "diversity_weight" in priority:
+                weights["diversity_weight"] = priority["diversity_weight"]
+            repeat_w = int(weights.get("repeat_weight", 5)) * int(priority.get("variety_mult", 1))
+            group_w = int(weights.get("group_weight", 2)) * int(priority.get("variety_mult", 1))
+            diversity_w = int(weights.get("diversity_weight", 1)) * int(priority.get("variety_mult", 1))
             pantry_w = int(weights.get("pantry_weight", 1))
+            macro_mult = int(priority.get("macro_mult", 1))
+            budget_mult = int(priority.get("budget_mult", 1))
             model.Minimize(
-                total_err + (2 * total_dev_pro) + total_dev_carb + total_dev_fat +
-                budget_penalty + (repeat_w * total_repeat_over) + (group_w * total_group_over) +
+                (macro_mult * total_err) + (macro_mult * total_meal_err) +
+                (macro_mult * 2 * total_dev_pro) + (macro_mult * total_dev_carb) + (macro_mult * total_dev_fat) +
+                (budget_mult * budget_penalty) + (repeat_w * total_repeat_over) + (group_w * total_group_over) +
                 diversity_penalty - (pantry_w * pantry_reward) - (diversity_w * diversity_reward)
+                + pantry_min_penalty
             )
             solver = cp_model.CpSolver()
-            solver.parameters.max_time_in_seconds = _env_float_min("PCOSINA_SOLVER_TIME_SECONDS", 6.0)
+            base_time = _env_float_min("PCOSINA_SOLVER_TIME_SECONDS", 6.0)
+            max_time = _env_float_min("PCOSINA_SOLVER_MAX_SECONDS", 12.0)
+            size_factor = max(0.0, (len(pool) - 60) / 40.0)
+            restriction_factor = min(4.0, len(profile.dietaryRestrictions or []) / 2.0)
+            adaptive_time = min(max_time, base_time + size_factor + restriction_factor)
+            solver.parameters.max_time_in_seconds = adaptive_time
             cpu_count = os.cpu_count() or 1
             solver.parameters.num_search_workers = _env_int("PCOSINA_SOLVER_WORKERS", min(4, cpu_count))
             status = solver.Solve(model)

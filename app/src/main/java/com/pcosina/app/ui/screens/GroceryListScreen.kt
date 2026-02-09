@@ -10,13 +10,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -28,6 +30,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,7 +43,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -47,6 +50,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontWeight
 import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.DummyData.GroceryItem
+import com.pcosina.app.data.model.PantryEntry
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
@@ -60,6 +64,10 @@ import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
 import java.util.Locale
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 
 @Composable
 fun GroceryListScreen(
@@ -72,20 +80,22 @@ fun GroceryListScreen(
     val lastPlanTimestamp by groceryViewModel.lastPlanTimestamp.collectAsState()
     val activePlanId by groceryViewModel.activePlanId.collectAsState()
     val userProfile by userViewModel.userProfile.collectAsState()
+    val focusManager = LocalFocusManager.current
     
     // Combine dummy static list with dynamic added items
     val allItems = DummyData.groceryList + addedItems
     val totalItems = allItems.size
-    val weeklyBudget = if (userProfile.weeklyBudgetPhp > 0) userProfile.weeklyBudgetPhp else 2000
+    val weeklyBudget = userProfile.weeklyBudgetPhp.takeIf { it > 0 }
     var checkedNames by remember { mutableStateOf(setOf<String>()) }
     var pantryOptOut by remember { mutableStateOf(setOf<String>()) }
 
     var budgetMode by rememberSaveable { mutableStateOf("Weekly") }
-    val displayBudget = if (budgetMode == "Weekly") weeklyBudget.toDouble() else weeklyBudget * 4.33
-    val derivedWeekly = if (budgetMode == "Monthly") (displayBudget / 4.33) else displayBudget
+    val displayBudget = weeklyBudget?.let { if (budgetMode == "Weekly") it.toDouble() else it * 4.33 }
+    val derivedWeekly = displayBudget?.let { if (budgetMode == "Monthly") (it / 4.33) else it }
 
-    val pantryItems = remember(userProfile.pantryItems) {
-        userProfile.pantryItems.map { it.trim() }.filter { it.isNotBlank() }
+    val pantryEntries by userViewModel.pantryEntries.collectAsState()
+    val pantryItems = remember(pantryEntries) {
+        pantryEntries.map { it.name.trim() }.filter { it.isNotBlank() }
     }
     val pantryTokens = remember(pantryItems) {
         pantryItems.map { it.lowercase(Locale.getDefault()) }.toSet()
@@ -103,6 +113,7 @@ fun GroceryListScreen(
     }
 
     var searchQuery by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
+    var sortAlpha by rememberSaveable { mutableStateOf(false) }
     val filteredItems = if (searchQuery.text.isBlank()) allItems else allItems.filter {
         it.name.contains(searchQuery.text, ignoreCase = true)
     }
@@ -133,11 +144,13 @@ fun GroceryListScreen(
     val totalCost = allItems
         .filter { it.name !in effectiveCheckedNames }
         .sumOf { effectivePrice(it) }
-    val savings = displayBudget.toInt() - totalCost
-    val costProgress = (totalCost.toFloat() / displayBudget.toFloat()).coerceIn(0f, 1f)
+    val savings = displayBudget?.toInt()?.minus(totalCost) ?: 0
+    val costProgress = if (displayBudget != null && displayBudget > 0) {
+        (totalCost.toFloat() / displayBudget.toFloat()).coerceIn(0f, 1f)
+    } else 0f
 
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().statusBarsPadding(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -165,30 +178,56 @@ fun GroceryListScreen(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     Text(
-                        text = "Items here are treated as “use-first” during planning.",
+                        text = "Optional. Items here are treated as “use-first” during planning.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     var pantryInput by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    var pantryQty by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
+                    var pantryExpiry by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(
                             value = pantryInput,
                             onValueChange = { pantryInput = it },
                             label = { Text("Add pantry item") },
                             modifier = Modifier.weight(1f)
                         )
+                        OutlinedTextField(
+                            value = pantryQty,
+                            onValueChange = { pantryQty = it },
+                            label = { Text("Qty") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = pantryExpiry,
+                            onValueChange = { pantryExpiry = it },
+                            label = { Text("Expiry (YYYY-MM-DD)") },
+                            modifier = Modifier.weight(1f)
+                        )
                         OutlinedButton(
                             onClick = {
-                                val value = pantryInput.text.trim()
-                                if (value.isNotBlank()) {
-                                    val updated = (pantryItems + value).distinctBy { it.lowercase(Locale.getDefault()) }
-                                    userViewModel.updatePantryItems(updated)
+                                val name = pantryInput.text.trim()
+                                if (name.isNotBlank()) {
+                                    val newEntry = PantryEntry(
+                                        name = name,
+                                        quantity = pantryQty.text.trim().takeIf { it.isNotBlank() },
+                                        expiryDate = pantryExpiry.text.trim().takeIf { it.isNotBlank() }
+                                    )
+                                    val updated = (pantryEntries + newEntry)
+                                        .distinctBy { it.name.lowercase(Locale.getDefault()) }
+                                    userViewModel.updatePantryEntries(updated)
                                     pantryInput = TextFieldValue("")
+                                    pantryQty = TextFieldValue("")
+                                    pantryExpiry = TextFieldValue("")
                                 }
                             }
                         ) {
                             Text("Add")
                         }
+                    }
                     }
                     if (pantryItems.isEmpty()) {
                         Text(
@@ -198,22 +237,44 @@ fun GroceryListScreen(
                         )
                     } else {
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            items(pantryItems.size) { idx ->
-                                val item = pantryItems[idx]
-                                FilterChip(
+                            items(pantryEntries.size) { idx ->
+                                val entry = pantryEntries[idx]
+                                val expiryText = entry.expiryDate?.trim()
+                                val expiryDate = expiryText?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                                val isExpired = expiryDate?.isBefore(LocalDate.now()) == true
+                                val labelText = buildString {
+                                    append(entry.name)
+                                    entry.quantity?.let { append(" • $it") }
+                                    expiryText?.let {
+                                        append(" • exp $it")
+                                        if (isExpired) append(" (expired)")
+                                    }
+                                }
+                                InputChip(
                                     selected = true,
                                     onClick = {
-                                        val updated = pantryItems.filterNot { it.equals(item, true) }
-                                        userViewModel.updatePantryItems(updated)
+                                        val updated = pantryEntries.filterNot { it.name.equals(entry.name, true) }
+                                        userViewModel.updatePantryEntries(updated)
                                     },
-                                    label = { Text(item) },
-                                    colors = FilterChipDefaults.filterChipColors(
+                                    label = { Text(labelText) },
+                                    trailingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Filled.Close,
+                                            contentDescription = "Remove",
+                                        )
+                                    },
+                                    colors = InputChipDefaults.inputChipColors(
                                         selectedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
                                         selectedLabelColor = MaterialTheme.colorScheme.onSurface
                                     )
                                 )
                             }
                         }
+                        Text(
+                            text = "Tap the X to remove an item.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -224,7 +285,9 @@ fun GroceryListScreen(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 label = { Text("Search items") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() })
             )
         }
 
@@ -234,7 +297,7 @@ fun GroceryListScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 SummaryTile(
-                    title = "Total Items",
+                    title = "Total ingredients",
                     value = "${effectiveCheckedNames.size}/$totalItems",
                     modifier = Modifier.weight(1f),
                 )
@@ -247,7 +310,6 @@ fun GroceryListScreen(
         }
 
         item {
-            // Budget alert card
             Card(
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -259,50 +321,67 @@ fun GroceryListScreen(
                         .padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
-                            selected = budgetMode == "Weekly",
-                            onClick = { budgetMode = "Weekly" },
-                            label = { Text("Weekly") },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                            )
+                    if (displayBudget == null) {
+                        Text(
+                            text = "Budget not set",
+                            style = MaterialTheme.typography.titleMedium,
                         )
-                        FilterChip(
-                            selected = budgetMode == "Monthly",
-                            onClick = { budgetMode = "Monthly" },
-                            label = { Text("Monthly") },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                        Text(
+                            text = "Estimates are shown without a budget limit. Set a weekly budget in Profile if you want alerts.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = budgetMode == "Weekly",
+                                onClick = { budgetMode = "Weekly" },
+                                label = { Text("Weekly") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                )
                             )
+                            FilterChip(
+                                selected = budgetMode == "Monthly",
+                                onClick = { budgetMode = "Monthly" },
+                                label = { Text("Monthly (≈ weekly × 4.33)") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            )
+                        }
+                        Text(
+                            text = if (totalCost <= displayBudget) "Within Budget! 🎉" else "Over Budget! ⚠️",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = if (budgetMode == "Weekly") {
+                                "Estimated ₱$totalCost of ₱${displayBudget.toInt()} weekly budget. ${if (savings >= 0) "Saving ₱$savings!" else "₱${-savings} over budget!"}"
+                            } else {
+                                "Estimated ₱$totalCost of ₱${displayBudget.toInt()} monthly budget. Weekly equivalent ₱${derivedWeekly?.toInt() ?: 0}."
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = "Budget is projected, not actual. Log actual spending in Progress.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        LinearProgressIndicator(
+                            progress = { costProgress },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = if (totalCost <= displayBudget) PcosinaSuccess else MaterialTheme.colorScheme.error,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
                         )
                     }
-                    Text(
-                        text = if (totalCost <= displayBudget) "Within Budget! 🎉" else "Over Budget! ⚠️",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = if (budgetMode == "Weekly") {
-                            "Estimated ₱$totalCost of ₱${displayBudget.toInt()} weekly budget. ${if (savings >= 0) "Saving ₱$savings!" else "₱${-savings} over budget!"}"
-                        } else {
-                            "Estimated ₱$totalCost of ₱${displayBudget.toInt()} monthly budget. Weekly equivalent ₱${derivedWeekly.toInt()}."
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    LinearProgressIndicator(
-                        progress = { costProgress },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = if (totalCost <= displayBudget) PcosinaSuccess else MaterialTheme.colorScheme.error,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                    )
                     OutlinedButton(
                         onClick = {
                             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
-                                val listText = allItems.joinToString("\n") { 
+                                val listText = allItems.joinToString("\n") {
                                     val pantryTag = if (it.name in pantryMatches) " [PANTRY]" else ""
                                     "- ${it.name} (${it.quantity})" + pantryTag + (if (it.name in effectiveCheckedNames) " [CHECKED]" else "")
                                 }
@@ -315,11 +394,11 @@ fun GroceryListScreen(
                             .padding(top = 4.dp),
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.Download,
+                            imageVector = Icons.Filled.Share,
                             contentDescription = null,
                             modifier = Modifier.padding(end = 6.dp),
                         )
-                        Text("Share/Download List")
+                        Text("Share/Copy List")
                     }
                 }
             }
@@ -333,18 +412,31 @@ fun GroceryListScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Categories", style = MaterialTheme.typography.titleMedium)
-                OutlinedButton(
-                    onClick = {
-                        expandedMap = displayCategories.associateWith { !allExpanded }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = sortAlpha,
+                        onClick = { sortAlpha = !sortAlpha },
+                        label = { Text("A–Z") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            expandedMap = displayCategories.associateWith { !allExpanded }
+                        }
+                    ) {
+                        Text(if (allExpanded) "Collapse all" else "Expand all")
                     }
-                ) {
-                    Text(if (allExpanded) "Collapse all" else "Expand all")
                 }
             }
         }
 
         displayCategories.forEach { category ->
-            val items = groups[category].orEmpty()
+            val items = groups[category].orEmpty().let { list ->
+                if (sortAlpha) list.sortedBy { it.name.lowercase(Locale.getDefault()) } else list
+            }
             if (items.isEmpty()) return@forEach
             item {
                 CategoryCard(

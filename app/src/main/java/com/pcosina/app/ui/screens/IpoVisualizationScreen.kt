@@ -2,6 +2,7 @@ package com.pcosina.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -23,7 +24,7 @@ fun IpoVisualizationScreen(
     val colorScheme = MaterialTheme.colorScheme
 
     LazyColumn(
-        modifier = modifier.fillMaxSize().background(colorScheme.background),
+        modifier = modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -101,7 +102,7 @@ fun IpoVisualizationScreen(
                 shape = MaterialTheme.shapes.large,
                 colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
             ) {
-                Text("Back to Research Center", fontWeight = FontWeight.Bold)
+                Text("Back to Home", fontWeight = FontWeight.Bold)
             }
         }
         

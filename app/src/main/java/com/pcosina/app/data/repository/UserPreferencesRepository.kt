@@ -5,15 +5,25 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import android.util.Log
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.pcosina.app.data.model.PantryEntry
 import com.pcosina.app.data.model.UserProfile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 
+// Local-only preferences; per-user isolation is handled by key prefixes (userId/email).
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_prefs")
 
+/**
+ * Local-only persistence for profile, plans, and cached groceries.
+ * This does not sync to any cloud backend; use explicit API calls for remote data.
+ */
 class UserPreferencesRepository(private val context: Context) {
+    private val gson = Gson()
+    private val pantryType = object : TypeToken<List<PantryEntry>>() {}.type
 
     private object Keys {
         val adminMode = booleanPreferencesKey("admin_mode")
@@ -29,8 +39,13 @@ class UserPreferencesRepository(private val context: Context) {
         fun symptoms(userId: String) = stringPreferencesKey("symptoms_$userId")
         fun comorbidities(userId: String) = stringPreferencesKey("comorbidities_$userId")
         fun restrictions(userId: String) = stringPreferencesKey("restrictions_$userId")
+        fun allergies(userId: String) = stringPreferencesKey("allergies_$userId")
         fun pantry(userId: String) = stringPreferencesKey("pantry_$userId")
+        fun pantryEntries(userId: String) = stringPreferencesKey("pantry_entries_$userId")
         fun budget(userId: String) = intPreferencesKey("budget_$userId")
+        fun maxCookingTime(userId: String) = intPreferencesKey("max_cooking_time_$userId")
+        fun variety(userId: String) = stringPreferencesKey("variety_pref_$userId")
+        fun planningPriority(userId: String) = stringPreferencesKey("planning_priority_$userId")
         fun completed(userId: String) = booleanPreferencesKey("onboarding_complete_$userId")
         fun lastPlanJson(userId: String) = stringPreferencesKey("last_plan_json_$userId")
         fun lastPlanTimestamp(userId: String) = longPreferencesKey("last_plan_timestamp_$userId")
@@ -44,6 +59,8 @@ class UserPreferencesRepository(private val context: Context) {
         fun dailyLogsJson(userId: String) = stringPreferencesKey("daily_logs_json_$userId")
         fun feedbackQueueJson(userId: String) = stringPreferencesKey("feedback_queue_json_$userId")
         fun weeklyJournal(userId: String, weekStart: String) = stringPreferencesKey("weekly_journal_${userId}_$weekStart")
+        fun planFeedbackTags(userId: String) = stringPreferencesKey("plan_feedback_tags_$userId")
+        fun remindersEnabled(userId: String) = booleanPreferencesKey("reminders_enabled_$userId")
     }
 
     private object LegacyKeys {
@@ -59,8 +76,13 @@ class UserPreferencesRepository(private val context: Context) {
         fun symptoms(email: String) = stringPreferencesKey("symptoms_$email")
         fun comorbidities(email: String) = stringPreferencesKey("comorbidities_$email")
         fun restrictions(email: String) = stringPreferencesKey("restrictions_$email")
+        fun allergies(email: String) = stringPreferencesKey("allergies_$email")
         fun pantry(email: String) = stringPreferencesKey("pantry_$email")
+        fun pantryEntries(email: String) = stringPreferencesKey("pantry_entries_$email")
         fun budget(email: String) = intPreferencesKey("budget_$email")
+        fun maxCookingTime(email: String) = intPreferencesKey("max_cooking_time_$email")
+        fun variety(email: String) = stringPreferencesKey("variety_pref_$email")
+        fun planningPriority(email: String) = stringPreferencesKey("planning_priority_$email")
         fun completed(email: String) = booleanPreferencesKey("onboarding_complete_$email")
         fun lastPlanJson(email: String) = stringPreferencesKey("last_plan_json_$email")
         fun lastPlanTimestamp(email: String) = longPreferencesKey("last_plan_timestamp_$email")
@@ -96,8 +118,12 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.symptoms(userId)] = preferences[LegacyKeys.symptoms(email)] ?: ""
             preferences[Keys.comorbidities(userId)] = preferences[LegacyKeys.comorbidities(email)] ?: ""
             preferences[Keys.restrictions(userId)] = preferences[LegacyKeys.restrictions(email)] ?: ""
+            preferences[Keys.allergies(userId)] = preferences[LegacyKeys.allergies(email)] ?: ""
             preferences[Keys.pantry(userId)] = preferences[LegacyKeys.pantry(email)] ?: ""
-            preferences[Keys.budget(userId)] = preferences[LegacyKeys.budget(email)] ?: 2000
+            preferences[Keys.budget(userId)] = preferences[LegacyKeys.budget(email)] ?: 0
+            preferences[Keys.maxCookingTime(userId)] = preferences[LegacyKeys.maxCookingTime(email)] ?: 45
+            preferences[Keys.variety(userId)] = preferences[LegacyKeys.variety(email)] ?: "Balanced"
+            preferences[Keys.planningPriority(userId)] = preferences[LegacyKeys.planningPriority(email)] ?: "Balanced"
             preferences[Keys.completed(userId)] = preferences[LegacyKeys.completed(email)] ?: false
 
             preferences[Keys.lastPlanJson(userId)] = preferences[LegacyKeys.lastPlanJson(email)] ?: ""
@@ -129,8 +155,12 @@ class UserPreferencesRepository(private val context: Context) {
                 symptoms = preferences[Keys.symptoms(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
                 comorbidities = preferences[Keys.comorbidities(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
                 dietaryRestrictions = preferences[Keys.restrictions(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
+                allergies = preferences[Keys.allergies(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
                 pantryItems = preferences[Keys.pantry(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
-                weeklyBudgetPhp = preferences[Keys.budget(userId)] ?: 2000,
+                weeklyBudgetPhp = preferences[Keys.budget(userId)] ?: 0,
+                maxCookingTimeMinutes = preferences[Keys.maxCookingTime(userId)] ?: 45,
+                varietyPreference = preferences[Keys.variety(userId)] ?: "Balanced",
+                planningPriority = preferences[Keys.planningPriority(userId)] ?: "Balanced",
                 isProfileCompleted = preferences[Keys.completed(userId)] ?: false
             )
         }
@@ -149,9 +179,31 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.symptoms(userId)] = profile.symptoms.joinToString(",")
             preferences[Keys.comorbidities(userId)] = profile.comorbidities.joinToString(",")
             preferences[Keys.restrictions(userId)] = profile.dietaryRestrictions.joinToString(",")
+            preferences[Keys.allergies(userId)] = profile.allergies.joinToString(",")
             preferences[Keys.pantry(userId)] = profile.pantryItems.joinToString(",")
             preferences[Keys.budget(userId)] = profile.weeklyBudgetPhp
+            preferences[Keys.maxCookingTime(userId)] = profile.maxCookingTimeMinutes
+            preferences[Keys.variety(userId)] = profile.varietyPreference
+            preferences[Keys.planningPriority(userId)] = profile.planningPriority
             preferences[Keys.completed(userId)] = profile.isProfileCompleted
+        }
+    }
+
+    fun getPantryEntries(userId: String): Flow<List<PantryEntry>> =
+        context.dataStore.data.map { prefs ->
+            val json = prefs[Keys.pantryEntries(userId)]
+            if (!json.isNullOrBlank()) {
+                try { gson.fromJson<List<PantryEntry>>(json, pantryType) } catch (_: Exception) { emptyList() }
+            } else {
+                // Fallback to legacy pantry list (names only)
+                val names = prefs[Keys.pantry(userId)]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
+                names.map { PantryEntry(name = it) }
+            }
+        }
+
+    suspend fun savePantryEntries(userId: String, entries: List<PantryEntry>) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.pantryEntries(userId)] = gson.toJson(entries)
         }
     }
 
@@ -227,6 +279,22 @@ class UserPreferencesRepository(private val context: Context) {
         context.dataStore.edit { it[Keys.feedbackQueueJson(userId)] = json }
     }
 
+    fun getPlanFeedbackTags(userId: String): Flow<List<String>> =
+        context.dataStore.data.map {
+            it[Keys.planFeedbackTags(userId)]?.split(",")?.filter { tag -> tag.isNotBlank() } ?: emptyList()
+        }
+
+    suspend fun savePlanFeedbackTags(userId: String, tags: List<String>) {
+        context.dataStore.edit { it[Keys.planFeedbackTags(userId)] = tags.joinToString(",") }
+    }
+
+    fun getRemindersEnabled(userId: String): Flow<Boolean> =
+        context.dataStore.data.map { it[Keys.remindersEnabled(userId)] ?: false }
+
+    suspend fun setRemindersEnabled(userId: String, enabled: Boolean) {
+        context.dataStore.edit { it[Keys.remindersEnabled(userId)] = enabled }
+    }
+
     suspend fun clearPlanHistory(userId: String) {
         context.dataStore.edit { preferences ->
             preferences.remove(Keys.planHistoryJson(userId))
@@ -241,6 +309,17 @@ class UserPreferencesRepository(private val context: Context) {
             preferences.remove(Keys.grocerySnapshotsJson(userId))
             preferences.remove(Keys.groceryJson(userId))
             preferences.remove(Keys.grocerySourcesJson(userId))
+        }
+    }
+
+    suspend fun clearLegacyReflections(userId: String) {
+        context.dataStore.edit { preferences ->
+            preferences.remove(Keys.dailyLogsJson(userId))
+            val weeklyPrefix = "weekly_journal_${userId}_"
+            preferences.asMap().keys
+                .filter { it.name.startsWith(weeklyPrefix) }
+                .toList()
+                .forEach { preferences.remove(it) }
         }
     }
 }

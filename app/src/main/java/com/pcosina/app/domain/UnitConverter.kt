@@ -18,7 +18,11 @@ object UnitConverter {
         val totalInches = cm / 2.54
         val feet = (totalInches / 12).toInt()
         val inches = (totalInches - (feet * 12)).roundToInt()
-        return feet to inches.coerceIn(0, 11)
+        return if (inches >= 12) {
+            (feet + 1) to 0
+        } else {
+            feet to inches.coerceIn(0, 11)
+        }
     }
 
     fun feetInchesToCm(feet: Int, inches: Int): Int {

@@ -8,6 +8,10 @@ import java.io.File
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
+/**
+ * Local-only encrypted storage for sensitive reflections and spending logs.
+ * Data stays on-device and is not synced to any backend.
+ */
 class ReflectionStore(private val context: Context) {
     private val gson = Gson()
     private val prefs by lazy {
@@ -25,6 +29,7 @@ class ReflectionStore(private val context: Context) {
 
     private fun dailyLogsKey(userId: String) = "daily_logs_$userId"
     private fun weeklyKey(userId: String, weekStart: String) = "weekly_journal_${userId}_$weekStart"
+    private fun weeklySpendKey(userId: String, weekStart: String) = "weekly_spend_${userId}_$weekStart"
 
     fun getDailyLogsJson(userId: String): String? = prefs.getString(dailyLogsKey(userId), null)
 
@@ -39,6 +44,17 @@ class ReflectionStore(private val context: Context) {
         prefs.edit().putString(weeklyKey(userId, weekStart), text).apply()
     }
 
+    fun getWeeklySpend(userId: String, weekStart: String): Int? {
+        return prefs.getString(weeklySpendKey(userId, weekStart), null)?.toIntOrNull()
+    }
+
+    fun saveWeeklySpend(userId: String, weekStart: String, value: Int?) {
+        val editor = prefs.edit()
+        if (value == null) editor.remove(weeklySpendKey(userId, weekStart))
+        else editor.putString(weeklySpendKey(userId, weekStart), value.toString())
+        editor.apply()
+    }
+
     fun getAllWeeklyJournals(userId: String): Map<String, String> {
         return prefs.all
             .filterKeys { it.startsWith("weekly_journal_${userId}_") }
@@ -48,7 +64,7 @@ class ReflectionStore(private val context: Context) {
     fun clearForUser(userId: String) {
         val editor = prefs.edit()
         prefs.all.keys.forEach { key ->
-            if (key == dailyLogsKey(userId) || key.startsWith("weekly_journal_${userId}_")) {
+            if (key == dailyLogsKey(userId) || key.startsWith("weekly_journal_${userId}_") || key.startsWith("weekly_spend_${userId}_")) {
                 editor.remove(key)
             }
         }
@@ -63,7 +79,10 @@ class ReflectionStore(private val context: Context) {
         val export = mapOf(
             "exportedAt" to LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE),
             "dailyLogs" to dailyLogs,
-            "weeklyJournals" to getAllWeeklyJournals(userId)
+            "weeklyJournals" to getAllWeeklyJournals(userId),
+            "weeklySpending" to prefs.all
+                .filterKeys { it.startsWith("weekly_spend_${userId}_") }
+                .mapValues { it.value?.toString().orEmpty() }
         )
         val json = gson.toJson(export)
         val fileName = "pcosina_reflections_${userId}_${System.currentTimeMillis()}.json"

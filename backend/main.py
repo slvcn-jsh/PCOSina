@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request, Depends, Header, Form
+from fastapi import FastAPI, HTTPException, Request, Depends, Header, Form, BackgroundTasks
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import JSONResponse, HTMLResponse
 from typing import Dict, Any
@@ -7,6 +7,7 @@ import os
 import time
 import traceback
 import socket
+import uuid
 from contextlib import asynccontextmanager
 import database
 import firebase_admin
@@ -26,6 +27,10 @@ from domain.models import (
 PLAN_CACHE_TTL_SECONDS = 600
 PLAN_CACHE_MAX_SIZE = 200
 _plan_cache = {}
+_plan_jobs: Dict[str, Dict[str, Any]] = {}
+
+ENVIRONMENT = os.getenv("PCOSINA_ENV", "development").lower()
+IS_PRODUCTION = ENVIRONMENT in ("prod", "production")
 
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
@@ -65,16 +70,24 @@ async def lifespan(app: FastAPI):
     database.seed_recipes()
     yield
 
-docs_enabled = True # Always enable for easier testing
+docs_flag = os.getenv("PCOSINA_ENABLE_DOCS")
+if docs_flag is None:
+    docs_enabled = not IS_PRODUCTION
+else:
+    docs_enabled = docs_flag.strip().lower() in ("1", "true", "yes", "on")
+
 app = FastAPI(
     title="PCOSINA Optimization API",
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url="/docs" if docs_enabled else None,
+    redoc_url="/redoc" if docs_enabled else None,
+    openapi_url="/openapi.json" if docs_enabled else None,
 )
 
 MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(512 * 1024)))
+RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("PCOSINA_RATE_LIMIT_WINDOW_SECONDS", "60"))
+RATE_LIMIT_MAX = int(os.getenv("PCOSINA_RATE_LIMIT_MAX", "60"))
+_rate_limit: Dict[str, list] = {}
 
 @app.middleware("http")
 async def limit_request_size(request: Request, call_next):
@@ -94,12 +107,35 @@ async def limit_request_size(request: Request, call_next):
     return await call_next(request)
 
 @app.middleware("http")
+async def rate_limit(request: Request, call_next):
+    ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    window = RATE_LIMIT_WINDOW_SECONDS
+    max_req = RATE_LIMIT_MAX
+    bucket = _rate_limit.get(ip, [])
+    bucket = [t for t in bucket if now - t < window]
+    if len(bucket) >= max_req:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Too many requests"},
+        )
+    bucket.append(now)
+    _rate_limit[ip] = bucket
+    return await call_next(request)
+
+@app.middleware("http")
 async def attach_schema_version(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-PCOSINA-Schema-Version"] = SCHEMA_VERSION
     return response
 
-allowed_hosts = ["*"] # Allow all for local phone testing
+allowed_hosts_raw = os.getenv("PCOSINA_ALLOWED_HOSTS", "").strip()
+if allowed_hosts_raw:
+    allowed_hosts = [host.strip() for host in allowed_hosts_raw.split(",") if host.strip()]
+elif IS_PRODUCTION:
+    allowed_hosts = ["pcosina-backend.onrender.com"]
+else:
+    allowed_hosts = ["*"]  # Allow all for local phone testing
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
 @app.get("/", response_class=HTMLResponse)
@@ -107,6 +143,7 @@ def root(request: Request):
     base = str(request.base_url).rstrip("/")
     token = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
     admin_link = f"{base}/admin/feedback?token={token}" if token else f"{base}/admin/feedback?token=YOUR_TOKEN"
+    admin_note = "Use X-Admin-Token header for production."
     return HTMLResponse(
         content=f"""
         <!doctype html>
@@ -121,6 +158,7 @@ def root(request: Request):
           </ul>
           <p>Admin feedback requires a token:</p>
           <p><a href="{admin_link}" target="_blank" rel="noopener noreferrer">{admin_link}</a></p>
+          <p style="color:#666;">{admin_note}</p>
         </body>
         </html>
         """
@@ -130,6 +168,8 @@ def init_firebase():
     if firebase_admin._apps:
         return
     if os.getenv("FIREBASE_AUTH_DISABLED", "").lower() == "true":
+        if IS_PRODUCTION:
+            raise RuntimeError("FIREBASE_AUTH_DISABLED is not allowed in production")
         return
 
     credentials_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
@@ -151,9 +191,13 @@ def init_firebase():
 def require_firebase_auth(authorization: str = Header(None)):
     # Local dev: If no firebase app is initialized, bypass auth
     if not firebase_admin._apps:
+        if IS_PRODUCTION:
+            raise HTTPException(status_code=503, detail="Auth service unavailable")
         return {"uid": "local-dev-user"}
         
     if os.getenv("FIREBASE_AUTH_DISABLED", "").lower() == "true":
+        if IS_PRODUCTION:
+            raise HTTPException(status_code=503, detail="Auth disabled in production")
         return {"uid": "auth-disabled-user"}
         
     if not authorization or not authorization.startswith("Bearer "):
@@ -177,13 +221,23 @@ def schema_contract():
     return load_schema_contract()
 
 def _cache_key(request: GeneratePlanRequest) -> str:
+    def normalize_profile(profile_obj: Any) -> Dict[str, Any]:
+        data = profile_obj.model_dump() if hasattr(profile_obj, "model_dump") else profile_obj.dict()
+        for key in ["dietaryRestrictions", "pantryItems", "allergies", "symptoms", "comorbidities"]:
+            raw = data.get(key)
+            if isinstance(raw, list):
+                data[key] = sorted([str(x).strip() for x in raw if str(x).strip()])
+        return data
     try:
-        return json.dumps(request.model_dump(), sort_keys=True)
+        payload = request.model_dump()
     except Exception:
-        return json.dumps({
+        payload = {
             "profile": request.profile.model_dump() if hasattr(request.profile, "model_dump") else request.profile.dict(),
             "days": request.days
-        }, sort_keys=True)
+        }
+    if "profile" in payload:
+        payload["profile"] = normalize_profile(request.profile)
+    return json.dumps(payload, sort_keys=True)
 
 def _cache_get(key: str):
     item = _plan_cache.get(key)
@@ -200,6 +254,47 @@ def _cache_set(key: str, value: GeneratePlanResponse):
         oldest_key = min(_plan_cache.items(), key=lambda kv: kv[1][0])[0]
         _plan_cache.pop(oldest_key, None)
     _plan_cache[key] = (time.time(), value)
+
+
+def _set_job(job_id: str, status: str, result: GeneratePlanResponse | None = None, error: str | None = None):
+    payload = _plan_jobs.get(job_id, {})
+    payload.update({
+        "status": status,
+        "updatedAt": time.time(),
+    })
+    if result is not None:
+        payload["result"] = result
+    if error is not None:
+        payload["error"] = error
+    _plan_jobs[job_id] = payload
+
+
+def _init_job(job_id: str):
+    _plan_jobs[job_id] = {
+        "status": "queued",
+        "createdAt": time.time(),
+        "updatedAt": time.time(),
+    }
+
+
+def _run_job(job_id: str, request: GeneratePlanRequest):
+    try:
+        _set_job(job_id, "running")
+        all_recipes = database.get_all_recipes()
+        result, msg, explanation = solve_meal_plan(request, all_recipes)
+        if result:
+            response = GeneratePlanResponse(
+                weekLabel=f"PCOSINA {request.days}-Day Plan",
+                days=result,
+                status="success",
+                message=msg,
+                explanation=explanation
+            )
+            _set_job(job_id, "done", result=response)
+        else:
+            _set_job(job_id, "error", error=f"Infeasible: {msg}")
+    except Exception as e:
+        _set_job(job_id, "error", error=str(e))
 
 @app.post("/generate-plan", response_model=GeneratePlanResponse)
 async def generate_plan(
@@ -231,6 +326,27 @@ async def generate_plan(
     except Exception:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.post("/generate-plan-async")
+async def generate_plan_async(
+    request: GeneratePlanRequest,
+    background_tasks: BackgroundTasks,
+    user: Any = Depends(require_firebase_auth),
+    _: Any = Depends(require_schema_version)
+):
+    job_id = uuid.uuid4().hex
+    _init_job(job_id)
+    background_tasks.add_task(_run_job, job_id, request)
+    return {"jobId": job_id, "status": "queued"}
+
+
+@app.get("/plan-jobs/{job_id}")
+def get_plan_job(job_id: str, user: Any = Depends(require_firebase_auth)):
+    job = _plan_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
 
 @app.get("/recipe/{recipe_id}", response_model=RecipeDetail)
 async def get_recipe(recipe_id: str, user: Any = Depends(require_firebase_auth)):
@@ -287,7 +403,8 @@ def admin_feedback(
     sort: str | None = None,
 ):
     expected = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
-    if not expected or (x_admin_token != expected and token != expected):
+    allow_query = not IS_PRODUCTION
+    if not expected or (x_admin_token != expected and (not allow_query or token != expected)):
         raise HTTPException(status_code=401, detail="Unauthorized")
     try:
         order = "asc" if str(sort).lower() == "asc" else "desc"
@@ -366,6 +483,9 @@ def admin_feedback(
     next_page = min(total_pages, page + 1)
     page_label = f"Page {page} of {total_pages} • {total} items"
 
+    prod_notice = ""
+    if IS_PRODUCTION:
+        prod_notice = "<div class='pill'>Production mode: use X-Admin-Token header for actions.</div>"
     html = f"""
     <!doctype html>
     <html>
@@ -389,6 +509,7 @@ def admin_feedback(
     <body>
       <h1>PCOSINA Feedback</h1>
         <div class="toolbar">
+          {prod_notice}
           <form method="get" action="/admin/feedback" class="pill">
             <input type="hidden" name="token" value="{expected}"/>
             <input type="hidden" name="page_size" value="{page_size}"/>
@@ -434,10 +555,18 @@ def admin_feedback_delete(
     q: str | None = Form(default=None),
     page: int = Form(default=1),
     sort: str | None = Form(default=None),
+    x_admin_token: str | None = Header(default=None),
 ):
     expected = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
-    if not expected or token != expected:
+    allow_query = not IS_PRODUCTION
+    if not expected:
         raise HTTPException(status_code=401, detail="Unauthorized")
+    if IS_PRODUCTION:
+        if x_admin_token != expected:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+    else:
+        if x_admin_token != expected and token != expected:
+            raise HTTPException(status_code=401, detail="Unauthorized")
     try:
         database.delete_feedback_by_id(id)
         q = (q or "").strip()
@@ -459,10 +588,17 @@ def admin_feedback_delete_bulk(
     page: int = Form(default=1),
     page_size: int = Form(default=25),
     sort: str | None = Form(default=None),
+    x_admin_token: str | None = Header(default=None),
 ):
     expected = os.getenv("ADMIN_FEEDBACK_TOKEN", "").strip()
-    if not expected or token != expected:
+    if not expected:
         raise HTTPException(status_code=401, detail="Unauthorized")
+    if IS_PRODUCTION:
+        if x_admin_token != expected:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+    else:
+        if x_admin_token != expected and token != expected:
+            raise HTTPException(status_code=401, detail="Unauthorized")
     deleted = 0
     try:
         for raw in ids:

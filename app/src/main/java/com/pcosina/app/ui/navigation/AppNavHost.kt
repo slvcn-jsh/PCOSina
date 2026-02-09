@@ -50,6 +50,8 @@ import com.pcosina.app.ui.screens.UserProfileScreen
 import com.pcosina.app.data.repository.FeedbackRepository
 import com.pcosina.app.BuildConfig
 import com.google.firebase.analytics.FirebaseAnalytics
+import android.widget.Toast
+import com.pcosina.app.notifications.NotificationHelper
 
 /**
  * App navigation host.
@@ -74,6 +76,8 @@ fun AppNavHost(
         }
         if (intent.resolveActivity(context.packageManager) != null) {
             context.startActivity(intent)
+        } else {
+            Toast.makeText(context, "No email app found. Use Progress → Send Feedback.", Toast.LENGTH_LONG).show()
         }
     }
     
@@ -110,6 +114,7 @@ fun AppNavHost(
     val isProfileLoading by userViewModel.isProfileLoading.collectAsState()
     val currentRoute by navController.currentBackStackEntryAsState()
     val activePlanId by mealPlanViewModel.activePlanId.collectAsState()
+    val remindersEnabled by userViewModel.remindersEnabled.collectAsState()
 
     val splashReady = remember { mutableStateOf(false) }
     val hasNavigated = remember { mutableStateOf(false) }
@@ -127,6 +132,7 @@ fun AppNavHost(
             mealPlanViewModel.reset()
             groceryViewModel.reset()
             progressViewModel.reset()
+            NotificationHelper.cancelDailyReminder(context)
             splashReady.value = false
             hasNavigated.value = false
         } else {
@@ -136,6 +142,14 @@ fun AppNavHost(
             userViewModel.loadProfileForUser(userId)
             mealPlanViewModel.loadSavedPlan(userId)
             groceryViewModel.loadGroceryForUser(userId)
+        }
+    }
+
+    LaunchedEffect(session.currentUserUid, remindersEnabled) {
+        if (session.currentUserUid.isNullOrBlank() || !remindersEnabled) {
+            NotificationHelper.cancelDailyReminder(context)
+        } else {
+            NotificationHelper.scheduleDailyReminder(context)
         }
     }
 
@@ -293,6 +307,7 @@ fun AppNavHost(
                     mealPlanViewModel = mealPlanViewModel,
                     onRecipeClick = { id -> navController.navigate(Routes.recipeDetailsRoute(id)) },
                     onViewPlan = { navController.navigate(Routes.MealPlan) { tabNavigationOptions() } },
+                    onViewProgress = { navController.navigate(Routes.Progress) { tabNavigationOptions() } },
                     onViewIpo = { navController.navigate(Routes.Ipo) { tabNavigationOptions() } },
                     onNavigateToSettings = { navController.navigate(Routes.Settings) },
                     onFeedback = onFeedback,
@@ -307,6 +322,7 @@ fun AppNavHost(
                     mealPlanViewModel = mealPlanViewModel,
                     groceryViewModel = groceryViewModel,
                     onRecipeClick = { id -> navController.navigate(Routes.recipeDetailsRoute(id)) },
+                    onViewProgress = { navController.navigate(Routes.Progress) { tabNavigationOptions() } },
                     modifier = Modifier.padding(contentPadding),
                 )
             }

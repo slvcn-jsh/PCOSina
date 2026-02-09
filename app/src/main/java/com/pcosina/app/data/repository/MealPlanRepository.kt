@@ -23,6 +23,11 @@ class MealPlanRepository {
             return size > 200
         }
     }
+    private val summaryCache = object : LinkedHashMap<String, List<RecipeSummaryDto>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<RecipeSummaryDto>>?): Boolean {
+            return size > 50
+        }
+    }
 
     init {
         val firebaseAuth = FirebaseAuth.getInstance()
@@ -147,7 +152,14 @@ class MealPlanRepository {
 
     suspend fun getRecipeSummaries(mealType: String, limit: Int = 50): Result<List<RecipeSummaryDto>> {
         return try {
+            val key = "${mealType.lowercase()}_$limit"
+            synchronized(summaryCache) {
+                summaryCache[key]?.let { return Result.success(it) }
+            }
             val response = apiService.getRecipeSummaries(mealType = mealType, limit = limit)
+            synchronized(summaryCache) {
+                summaryCache[key] = response
+            }
             Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)

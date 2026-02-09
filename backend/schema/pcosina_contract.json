@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0.1",
+  "schemaVersion": "1.2.0",
   "title": "PCOSINA API Contract",
   "description": "Shared request/response contract for PCOSINA backend and mobile client.",
   "type": "object",
@@ -54,6 +54,8 @@
         "age": { "type": "integer", "minimum": 0 },
         "heightCm": { "type": "integer", "minimum": 0 },
         "weightKg": { "type": "integer", "minimum": 0 },
+        "heightUnit": { "type": "string" },
+        "weightUnit": { "type": "string" },
         "activityLevel": { "type": "string" },
         "goal": { "type": "string" },
         "dietaryRestrictions": {
@@ -73,6 +75,7 @@
         "weeklyBudgetPhp": { "type": "integer" },
         "maxCookingTimeMinutes": { "type": "integer" },
         "varietyPreference": { "type": "string" },
+        "planningPriority": { "type": "string" },
         "isProfileCompleted": { "type": "boolean" }
       },
       "additionalProperties": true

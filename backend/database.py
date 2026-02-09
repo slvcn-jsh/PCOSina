@@ -1,7 +1,6 @@
 import sqlite3
 import json
 import os
-import random
 import time
 
 try:
@@ -71,6 +70,63 @@ def _infer_tags(recipe):
     if fiber >= 8: tags.add("high_fiber")
     if c <= 35: tags.add("low_carb")
     return list(tags)
+
+
+def _median(values: list[int]) -> int:
+    if not values:
+        return 0
+    sorted_vals = sorted(values)
+    mid = len(sorted_vals) // 2
+    if len(sorted_vals) % 2 == 1:
+        return int(sorted_vals[mid])
+    return int((sorted_vals[mid - 1] + sorted_vals[mid]) / 2)
+
+
+def _compute_nutrition_medians(recipes: list[dict]) -> dict:
+    calories = []
+    protein = []
+    carbs = []
+    fats = []
+    fiber = []
+    for r in recipes:
+        nut = r.get("nutrition", {}) or {}
+        for key, bucket in [
+            ("calories", calories),
+            ("protein_g", protein),
+            ("carbs_g", carbs),
+            ("fat_g", fats),
+            ("fiber_g", fiber),
+        ]:
+            raw = nut.get(key)
+            if raw is not None and raw != 0:
+                try:
+                    bucket.append(int(raw))
+                except Exception:
+                    continue
+    return {
+        "calories": _median(calories) or 500,
+        "protein_g": _median(protein) or 25,
+        "carbs_g": _median(carbs) or 45,
+        "fat_g": _median(fats) or 15,
+        "fiber_g": _median(fiber) or 6,
+    }
+
+
+def _normalize_nutrition(nut: dict, medians: dict) -> tuple[int, int, int, int, int]:
+    def pick(key: str, default: int) -> int:
+        raw = nut.get(key)
+        if raw is None or raw == 0:
+            return default
+        try:
+            return max(0, int(raw))
+        except Exception:
+            return default
+    cal = pick("calories", medians["calories"])
+    prot = pick("protein_g", medians["protein_g"])
+    carb = pick("carbs_g", medians["carbs_g"])
+    fat = pick("fat_g", medians["fat_g"])
+    fiber = pick("fiber_g", medians["fiber_g"])
+    return cal, prot, carb, fat, fiber
 
 def _use_postgres() -> bool:
     return DATABASE_URL.startswith("postgres")
@@ -245,6 +301,7 @@ def seed_recipes():
 
     with open("recipes.json", "r") as f:
         recipes = json.load(f)
+    medians = _compute_nutrition_medians(recipes)
 
     conn = _connect()
     cursor = conn.cursor()
@@ -288,12 +345,7 @@ def seed_recipes():
 
     for r in recipes:
         nut = r.get("nutrition", {})
-        # Safe Placeholder logic for 1k+ dataset
-        cal = nut.get("calories")
-        if cal is None or cal == 0:
-            cal, prot, carb, fat, fiber = random.randint(450, 650), random.randint(20, 35), random.randint(40, 60), random.randint(10, 20), random.randint(4, 10)
-        else:
-            prot, carb, fat, fiber = nut.get("protein_g") or 0, nut.get("carbs_g") or 0, nut.get("fat_g") or 0, nut.get("fiber_g") or 0
+        cal, prot, carb, fat, fiber = _normalize_nutrition(nut, medians)
 
         tags = _infer_tags(r)
         cursor.execute(insert_sql, (

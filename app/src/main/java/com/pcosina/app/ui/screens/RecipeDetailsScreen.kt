@@ -2,6 +2,7 @@ package com.pcosina.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -45,12 +46,12 @@ fun RecipeDetailsScreen(
 
     when (state) {
         is RecipeDetailsUiState.Loading -> {
-            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(modifier = modifier.fillMaxSize().statusBarsPadding(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = colorScheme.primary)
             }
         }
         is RecipeDetailsUiState.Error -> {
-            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(modifier = modifier.fillMaxSize().statusBarsPadding(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(text = (state as RecipeDetailsUiState.Error).message, color = colorScheme.error)
                     Spacer(Modifier.height(16.dp))
@@ -74,7 +75,7 @@ fun RecipeDetailsScreen(
             }
             
             LazyColumn(
-                modifier = modifier.fillMaxSize().background(colorScheme.background),
+                modifier = modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding(),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {

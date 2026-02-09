@@ -9,6 +9,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -28,6 +30,8 @@ import androidx.compose.ui.unit.sp
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.domain.UnitConverter
+import kotlin.math.roundToInt
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,8 +75,14 @@ fun UserProfileScreen(
     var pescatarian by rememberSaveable { mutableStateOf(false) }
     var noPork by rememberSaveable { mutableStateOf(false) }
     var noBeef by rememberSaveable { mutableStateOf(false) }
-    var budget by rememberSaveable { mutableStateOf("2000") }
+    var budget by rememberSaveable {
+        mutableStateOf(if (profile.weeklyBudgetPhp > 0) profile.weeklyBudgetPhp.toString() else "")
+    }
     var pantryText by rememberSaveable { mutableStateOf(profile.pantryItems.joinToString(", ")) }
+    var allergiesText by rememberSaveable { mutableStateOf(profile.allergies.joinToString(", ")) }
+    var maxCookingTime by rememberSaveable { mutableStateOf(profile.maxCookingTimeMinutes.toString()) }
+    var varietyPref by rememberSaveable { mutableStateOf(profile.varietyPreference) }
+    var planningPriority by rememberSaveable { mutableStateOf(profile.planningPriority) }
 
     val colorScheme = MaterialTheme.colorScheme
 
@@ -101,8 +111,23 @@ fun UserProfileScreen(
         if (activityLevel.isBlank()) {
             activityLevel = profile.activityLevel
         }
+        if (insulinLevel == "None" && profile.insulinResistanceLevel.isNotBlank()) {
+            insulinLevel = profile.insulinResistanceLevel
+        }
         if (pantryText.isBlank() && profile.pantryItems.isNotEmpty()) {
             pantryText = profile.pantryItems.joinToString(", ")
+        }
+        if (allergiesText.isBlank() && profile.allergies.isNotEmpty()) {
+            allergiesText = profile.allergies.joinToString(", ")
+        }
+        if (budget.isBlank() && profile.weeklyBudgetPhp > 0) {
+            budget = profile.weeklyBudgetPhp.toString()
+        }
+        if (varietyPref.isBlank()) {
+            varietyPref = profile.varietyPreference
+        }
+        if (planningPriority.isBlank()) {
+            planningPriority = profile.planningPriority
         }
     }
 
@@ -150,7 +175,8 @@ fun UserProfileScreen(
     } else {
         heightCmInput.toIntOrNull()
     }
-    val budgetValue = budget.toIntOrNull()
+    val budgetValue = parseBudgetInput(budget)
+    val maxCookingValue = maxCookingTime.toIntOrNull()
 
     val stepOneValid = (isEditMode || displayName.isNotBlank()) &&
         ageValue != null && ageValue in 13..60 &&
@@ -159,7 +185,8 @@ fun UserProfileScreen(
 
     val stepTwoValid = insulinLevel.isNotBlank()
 
-    val stepThreeValid = budgetValue != null && budgetValue in 0..20000
+    val stepThreeValid = (budgetValue == null || budgetValue in 1..20000) &&
+        maxCookingValue != null && maxCookingValue in 10..240
 
     val canProceed = !isProfileLoading && when (currentStep) {
         1 -> stepOneValid
@@ -200,14 +227,19 @@ fun UserProfileScreen(
             if (noPork) restrictions.add("No Pork")
             if (noBeef) restrictions.add("No Beef")
             userViewModel.updateDietaryRestrictions(restrictions)
-            val budgetSafe = budgetValue?.coerceIn(0, 20000)
-            if (budgetSafe != null) {
-                userViewModel.updateBudget(budgetSafe)
-            }
+            val budgetSafe = budgetValue?.coerceIn(1, 20000)
+            if (budgetSafe != null) userViewModel.updateBudget(budgetSafe) else userViewModel.updateBudget(0)
+            val maxCookSafe = maxCookingValue?.coerceIn(10, 240) ?: 45
+            userViewModel.updateCookingPreferences(maxCookSafe, varietyPref.ifBlank { "Balanced" })
+            userViewModel.updatePlanningPriority(planningPriority.ifBlank { "Balanced" })
             val pantryItems = pantryText.split(",")
                 .map { it.trim() }
                 .filter { it.isNotBlank() }
             userViewModel.updatePantryItems(pantryItems)
+            val allergyItems = allergiesText.split(",")
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+            userViewModel.updateAllergies(allergyItems)
         }
         userViewModel.setProfileCompleted(markComplete || isEditMode)
     }
@@ -294,8 +326,12 @@ fun UserProfileScreen(
                                 pescatarian, {pescatarian=it},
                                 noPork, {noPork=it},
                                 noBeef, {noBeef=it},
-                                budget, {budget=it},
+                                budget, { budget = sanitizeBudgetInput(it) },
+                                maxCookingTime, { maxCookingTime = it },
+                                varietyPref, { varietyPref = it },
+                                planningPriority, { planningPriority = it },
                                 pantryText, {pantryText=it},
+                                allergiesText, { allergiesText = it },
                                 colorScheme.primary
                             )
                         }
@@ -305,7 +341,7 @@ fun UserProfileScreen(
                                 text = when (currentStep) {
                                     1 -> if (isProfileLoading) "Loading profile. Please wait..." else "Please complete all required fields with valid values."
                                     2 -> "Please select your insulin resistance level."
-                                    3 -> "Please enter a valid weekly budget."
+                                    3 -> "Please enter a valid cooking time. Budget is optional."
                                     else -> ""
                                 },
                                 style = MaterialTheme.typography.bodySmall,
@@ -526,8 +562,15 @@ fun StepOneIdentity(
                 options.forEach { opt -> DropdownMenuItem(text = { Text(opt) }, onClick = { onActivity(opt); expanded = false }) }
             }
         }
+        val activityHint = when (activity) {
+            "Sedentary" -> "Little to no exercise; mostly seated work."
+            "Lightly Active" -> "Light activity 1–3 days/week."
+            "Moderately Active" -> "Moderate activity 3–5 days/week."
+            "Very Active" -> "Hard exercise 6–7 days/week."
+            else -> "Choose the closest match for a typical week."
+        }
         Text(
-            text = "Choose the closest match for a typical week.",
+            text = activityHint,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -561,6 +604,7 @@ fun StepTwoMedical(insulin: String, onInsulin: (String) -> Unit, s1: Boolean, on
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StepThreeDiet(
     r1: Boolean,
@@ -575,10 +619,35 @@ fun StepThreeDiet(
     onR5: (Boolean) -> Unit,
     budget: String,
     onBudget: (String) -> Unit,
+    maxCookingTime: String,
+    onMaxCookingTime: (String) -> Unit,
+    varietyPreference: String,
+    onVarietyPreference: (String) -> Unit,
+    planningPriority: String,
+    onPlanningPriority: (String) -> Unit,
     pantryText: String,
     onPantryText: (String) -> Unit,
+    allergiesText: String,
+    onAllergiesText: (String) -> Unit,
     color: Color
 ) {
+    val varietyOptions = listOf("Low", "Balanced", "High")
+    var varietyExpanded by remember { mutableStateOf(false) }
+    val priorityOptions = listOf("Budget First", "Balanced", "Variety First", "Nutrition Tight")
+    val commonAllergens = listOf(
+        "Dairy" to "dairy",
+        "Eggs" to "egg",
+        "Peanuts" to "peanut",
+        "Tree Nuts" to "nuts",
+        "Soy" to "soy",
+        "Gluten/Wheat" to "gluten",
+        "Fish" to "fish",
+        "Shellfish" to "shellfish"
+    )
+    val allergyTokens = allergiesText.split(",")
+        .map { it.trim().lowercase(Locale.getDefault()) }
+        .filter { it.isNotBlank() }
+        .toMutableList()
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionTitle("Preferences & Budget")
         Text(
@@ -595,8 +664,8 @@ fun StepThreeDiet(
         OutlinedTextField(
             value = budget,
             onValueChange = onBudget,
-            label = { Text("Weekly Budget (PHP)") },
-            supportingText = { Text("Optional. Used for ingredient suggestions.") },
+            label = { Text("Weekly Budget (optional)") },
+            supportingText = { Text("Leave blank if not using a budget. Used for cost estimates only.") },
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -605,10 +674,104 @@ fun StepThreeDiet(
         )
 
         OutlinedTextField(
+            value = maxCookingTime,
+            onValueChange = onMaxCookingTime,
+            label = { Text("Max Cooking Time (minutes)") },
+            supportingText = { Text("Used to filter recipes by prep time (10–240).") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
+        )
+
+        ExposedDropdownMenuBox(
+            expanded = varietyExpanded,
+            onExpandedChange = { varietyExpanded = !varietyExpanded }
+        ) {
+            OutlinedTextField(
+                value = varietyPreference,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Variety Preference") },
+                supportingText = { Text("Controls repeat limits and diversity.") },
+                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = varietyExpanded) },
+                shape = MaterialTheme.shapes.medium,
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = color)
+            )
+            ExposedDropdownMenu(expanded = varietyExpanded, onDismissRequest = { varietyExpanded = false }) {
+                varietyOptions.forEach { opt ->
+                    DropdownMenuItem(
+                        text = { Text(opt) },
+                        onClick = {
+                            onVarietyPreference(opt)
+                            varietyExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        Text(
+            text = "Planning Priority",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "Controls what the planner prioritizes when trade-offs exist.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        priorityOptions.chunked(2).forEach { rowItems ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                rowItems.forEach { opt ->
+                    FilterChip(
+                        selected = planningPriority == opt,
+                        onClick = { onPlanningPriority(opt) },
+                        label = { Text(opt) }
+                    )
+                }
+            }
+        }
+
+        Text(
+            text = "Allergies",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(commonAllergens) { (label, token) ->
+                val selected = allergyTokens.contains(token)
+                FilterChip(
+                    selected = selected,
+                    onClick = {
+                        val updated = if (selected) {
+                            allergyTokens.filterNot { it == token }
+                        } else {
+                            allergyTokens + token
+                        }
+                        onAllergiesText(updated.distinct().joinToString(", "))
+                    },
+                    label = { Text(label) }
+                )
+            }
+        }
+        OutlinedTextField(
             value = pantryText,
             onValueChange = onPantryText,
-            label = { Text("Pantry items (comma-separated)") },
+            label = { Text("Pantry items (optional)") },
             supportingText = { Text("Example: eggs, oats, tuna") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
+        )
+
+        OutlinedTextField(
+            value = allergiesText,
+            onValueChange = onAllergiesText,
+            label = { Text("Allergies (comma-separated)") },
+            supportingText = { Text("Example: peanuts, dairy, shellfish") },
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
@@ -642,3 +805,15 @@ private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
             onClick = onClick,
         )
     }
+
+private fun sanitizeBudgetInput(text: String): String {
+    return text.filter { it.isDigit() || it == ',' || it == '.' }
+}
+
+private fun parseBudgetInput(text: String): Int? {
+    val cleaned = text.replace(",", "").trim()
+    if (cleaned.isBlank()) return null
+    val value = cleaned.toDoubleOrNull() ?: return null
+    if (value <= 0) return null
+    return value.roundToInt().coerceAtMost(20000)
+}

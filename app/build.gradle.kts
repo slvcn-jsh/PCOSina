@@ -6,6 +6,7 @@ plugins {
     id("com.google.firebase.crashlytics")
 }
 
+
 android {
     namespace = "com.pcosina.app"
     // API 36 required for current versions of core-ktx and activity-compose
@@ -42,7 +43,7 @@ android {
         validateBaseUrl("release", releaseBaseUrl)
         buildConfigField("String", "BASE_URL", "\"$releaseBaseUrl\"")
         buildConfigField("String", "SENTRY_DSN", "\"\"")
-        buildConfigField("String", "SCHEMA_VERSION", "\"1.0.1\"")
+        buildConfigField("String", "SCHEMA_VERSION", "\"1.2.0\"")
     }
 
     buildTypes {

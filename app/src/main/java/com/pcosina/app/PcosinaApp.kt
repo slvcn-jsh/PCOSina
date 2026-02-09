@@ -2,10 +2,12 @@ package com.pcosina.app
 
 import android.app.Application
 import io.sentry.android.core.SentryAndroid
+import com.pcosina.app.notifications.NotificationHelper
 
 class PcosinaApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        NotificationHelper.createChannel(this)
 
         if (BuildConfig.SENTRY_DSN.isNotBlank()) {
             SentryAndroid.init(this) { options ->

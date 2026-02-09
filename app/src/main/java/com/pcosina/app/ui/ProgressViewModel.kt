@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.pcosina.app.data.model.DailyLog
+import com.pcosina.app.data.model.DemoWeekSeed
 import com.pcosina.app.data.model.FeedbackEntry
 import com.pcosina.app.data.repository.FeedbackRepository
 import com.pcosina.app.data.repository.ReflectionStore
@@ -37,9 +38,13 @@ class ProgressViewModel(
 
     private val _weeklyJournal = MutableStateFlow("")
     val weeklyJournal: StateFlow<String> = _weeklyJournal.asStateFlow()
+    private val _weeklySpend = MutableStateFlow<Int?>(null)
+    val weeklySpend: StateFlow<Int?> = _weeklySpend.asStateFlow()
 
     private val _feedbackQueue = MutableStateFlow<List<FeedbackEntry>>(emptyList())
     val feedbackQueue: StateFlow<List<FeedbackEntry>> = _feedbackQueue.asStateFlow()
+    private val _planFeedbackTags = MutableStateFlow<List<String>>(emptyList())
+    val planFeedbackTags: StateFlow<List<String>> = _planFeedbackTags.asStateFlow()
     private var isSendingFeedback = false
     private val retryBaseDelayMs = 2000L
     private val retryMaxDelayMs = 60000L
@@ -64,6 +69,7 @@ class ProgressViewModel(
     fun loadForUser(userId: String, weekStart: String, fallbackWeekStart: String? = null) {
         if (currentUserId == userId) {
             loadWeeklyJournal(weekStart, fallbackWeekStart)
+            loadWeeklySpend(weekStart, fallbackWeekStart)
             return
         }
         currentUserId = userId
@@ -96,6 +102,9 @@ class ProgressViewModel(
             _feedbackQueue.value = normalized
 
             loadWeeklyJournal(weekStart, fallbackWeekStart)
+            loadWeeklySpend(weekStart, fallbackWeekStart)
+            val tags = userPrefsRepository.getPlanFeedbackTags(userId).first()
+            _planFeedbackTags.value = tags
         }
     }
 
@@ -107,6 +116,12 @@ class ProgressViewModel(
                 _weeklyJournal.value = primary
                 return@launch
             }
+            val legacyPrimary = userPrefsRepository.getWeeklyJournal(currentUserId, weekStart).first()
+            if (!legacyPrimary.isNullOrBlank()) {
+                reflectionStore.saveWeeklyJournal(currentUserId, weekStart, legacyPrimary)
+                _weeklyJournal.value = legacyPrimary
+                return@launch
+            }
             if (!fallbackWeekStart.isNullOrBlank() && fallbackWeekStart != weekStart) {
                 val fallback = reflectionStore.getWeeklyJournal(currentUserId, fallbackWeekStart)
                 if (!fallback.isNullOrBlank()) {
@@ -115,8 +130,35 @@ class ProgressViewModel(
                     reflectionStore.saveWeeklyJournal(currentUserId, weekStart, fallback)
                     return@launch
                 }
+                val legacyFallback = userPrefsRepository.getWeeklyJournal(currentUserId, fallbackWeekStart).first()
+                if (!legacyFallback.isNullOrBlank()) {
+                    reflectionStore.saveWeeklyJournal(currentUserId, fallbackWeekStart, legacyFallback)
+                    reflectionStore.saveWeeklyJournal(currentUserId, weekStart, legacyFallback)
+                    _weeklyJournal.value = legacyFallback
+                    return@launch
+                }
             }
             _weeklyJournal.value = ""
+        }
+    }
+
+    fun loadWeeklySpend(weekStart: String, fallbackWeekStart: String? = null) {
+        if (currentUserId.isBlank()) return
+        viewModelScope.launch {
+            val primary = reflectionStore.getWeeklySpend(currentUserId, weekStart)
+            if (primary != null) {
+                _weeklySpend.value = primary
+                return@launch
+            }
+            if (!fallbackWeekStart.isNullOrBlank() && fallbackWeekStart != weekStart) {
+                val fallback = reflectionStore.getWeeklySpend(currentUserId, fallbackWeekStart)
+                if (fallback != null) {
+                    reflectionStore.saveWeeklySpend(currentUserId, weekStart, fallback)
+                    _weeklySpend.value = fallback
+                    return@launch
+                }
+            }
+            _weeklySpend.value = null
         }
     }
 
@@ -150,11 +192,12 @@ class ProgressViewModel(
         persistLogs(newMap)
     }
 
-    fun setWeight(date: LocalDate, weight: Float?) {
+    fun setWeight(date: LocalDate, weight: Float?, note: String? = null) {
         val key = date.format(dateFmt)
         val current = _dailyLogs.value[key]
         val updated = (current ?: DailyLog(date = key)).copy(
             weightKg = weight,
+            weightNote = note?.takeIf { it.isNotBlank() },
             timestamp = System.currentTimeMillis()
         )
         val newMap = _dailyLogs.value.toMutableMap()
@@ -195,11 +238,33 @@ class ProgressViewModel(
         }
     }
 
+    fun saveWeeklySpend(weekStart: String, value: Int?) {
+        if (currentUserId.isBlank()) return
+        reflectionStore.saveWeeklySpend(currentUserId, weekStart, value)
+        _weeklySpend.value = value
+    }
+
     fun reset() {
         currentUserId = ""
         _dailyLogs.value = emptyMap()
         _weeklyJournal.value = ""
+        _weeklySpend.value = null
         _feedbackQueue.value = emptyList()
+        _planFeedbackTags.value = emptyList()
+    }
+
+    fun togglePlanFeedbackTag(tag: String) {
+        if (currentUserId.isBlank()) return
+        val current = _planFeedbackTags.value.toMutableList()
+        if (current.contains(tag)) {
+            current.remove(tag)
+        } else {
+            current.add(tag)
+        }
+        _planFeedbackTags.value = current
+        viewModelScope.launch {
+            userPrefsRepository.savePlanFeedbackTags(currentUserId, current)
+        }
     }
 
     fun exportReflections(): java.io.File? {
@@ -210,8 +275,24 @@ class ProgressViewModel(
     fun clearReflectionsForUser() {
         if (currentUserId.isBlank()) return
         reflectionStore.clearForUser(currentUserId)
+        viewModelScope.launch {
+            userPrefsRepository.clearLegacyReflections(currentUserId)
+        }
         _dailyLogs.value = emptyMap()
         _weeklyJournal.value = ""
+        _weeklySpend.value = null
+    }
+
+    fun seedDemoWeeks(seeds: List<DemoWeekSeed>) {
+        if (currentUserId.isBlank()) return
+        val updated = _dailyLogs.value.toMutableMap()
+        seeds.forEach { seed ->
+            seed.dailyLogs.forEach { log -> updated[log.date] = log }
+            reflectionStore.saveWeeklyJournal(currentUserId, seed.planInstance.weekStart, seed.weeklyJournal)
+            reflectionStore.saveWeeklySpend(currentUserId, seed.planInstance.weekStart, seed.weeklySpend)
+        }
+        _dailyLogs.value = updated
+        persistLogs(updated)
     }
 
     fun queueFeedback(message: String) {

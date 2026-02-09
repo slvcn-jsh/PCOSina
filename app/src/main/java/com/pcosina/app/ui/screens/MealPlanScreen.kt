@@ -3,6 +3,7 @@ package com.pcosina.app.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -62,6 +63,7 @@ fun MealPlanScreen(
     mealPlanViewModel: MealPlanViewModel,
     groceryViewModel: GroceryViewModel,
     onRecipeClick: (String) -> Unit,
+    onViewProgress: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val uiState by mealPlanViewModel.uiState.collectAsState()
@@ -90,6 +92,7 @@ fun MealPlanScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showConfidenceInfo by rememberSaveable { mutableStateOf(false) }
+    var showLowGiInfo by rememberSaveable { mutableStateOf(false) }
     
     // Track if we are currently extracting ingredients
     var isSyncingGroceries by remember { mutableStateOf(false) }
@@ -101,6 +104,13 @@ fun MealPlanScreen(
     var swapApplying by remember { mutableStateOf(false) }
     var swapError by remember { mutableStateOf<String?>(null) }
     val swapSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sortedHistory = remember(planHistory) { planHistory.sortedBy { it.weekStart } }
+    val activeIndex = remember(activePlanId, sortedHistory) {
+        sortedHistory.indexOfFirst { it.id == activePlanId }.takeIf { it >= 0 }
+            ?: (sortedHistory.size - 1)
+    }
+    val previousPlan = sortedHistory.getOrNull(activeIndex - 1)
+    val nextPlan = sortedHistory.getOrNull(activeIndex + 1)
 
     LaunchedEffect(syncSuccess) {
         if (syncSuccess) {
@@ -117,7 +127,7 @@ fun MealPlanScreen(
     ) { padding ->
         when (val state = uiState) {
             is MealPlanUiState.Idle -> {
-                Box(modifier = Modifier.fillMaxSize().background(colorScheme.background).padding(padding), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding().padding(padding), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         if (!isOnline.value) {
                             Text(
@@ -166,7 +176,7 @@ fun MealPlanScreen(
                 }
             }
             is MealPlanUiState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize().background(colorScheme.background).padding(padding), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding().padding(padding), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(color = colorScheme.primary)
                         Spacer(Modifier.height(16.dp))
@@ -181,7 +191,7 @@ fun MealPlanScreen(
                 }
             }
             is MealPlanUiState.Error -> {
-                Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize().statusBarsPadding().padding(padding), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
                         if (!isOnline.value) {
@@ -224,7 +234,7 @@ fun MealPlanScreen(
                 }
 
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().background(colorScheme.background).padding(padding),
+                    modifier = Modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding().padding(padding),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
@@ -308,29 +318,90 @@ fun MealPlanScreen(
                                     )
                                 }
                             }
+                            Spacer(Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedButton(
+                                    onClick = { previousPlan?.let { mealPlanViewModel.selectPlan(it.id) } },
+                                    enabled = previousPlan != null
+                                ) {
+                                    Icon(Icons.Filled.ChevronLeft, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Prev")
+                                }
+                                TextButton(onClick = onViewProgress) { Text("View Insights") }
+                                OutlinedButton(
+                                    onClick = { nextPlan?.let { mealPlanViewModel.selectPlan(it.id) } },
+                                    enabled = nextPlan != null
+                                ) {
+                                    Text("Next")
+                                    Spacer(Modifier.width(4.dp))
+                                    Icon(Icons.Filled.ChevronRight, contentDescription = null)
+                                }
+                            }
                         }
                         if (userProfile.goal.contains("Symptom", true)) {
+                            Row(
+                                modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "Low‑GI guidance: favor high‑fiber carbs and balanced meals.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                                IconButton(
+                                    onClick = { showLowGiInfo = true },
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Info,
+                                        contentDescription = "Low-GI guidance",
+                                        tint = colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
                             Text(
-                                text = "Low‑GI guidance: favor high‑fiber carbs and balanced meals.",
+                                text = "Why: steadier carb choices can support energy consistency. Guidance only.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+                                modifier = Modifier.padding(start = 4.dp)
                             )
                         }
-                        val weeklyBudget = if (userProfile.weeklyBudgetPhp > 0) userProfile.weeklyBudgetPhp else 2000
+                        val weeklyBudget = userProfile.weeklyBudgetPhp.takeIf { it > 0 }
                         Spacer(Modifier.height(12.dp))
                         Card(
                             shape = MaterialTheme.shapes.large,
                             colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
                             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                         ) {
-                            Row(
+                            Column(
                                 modifier = Modifier.fillMaxWidth().padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text("Weekly Budget", style = MaterialTheme.typography.bodyMedium)
-                                Text("₱$weeklyBudget", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                                if (weeklyBudget == null) {
+                                    Text(
+                                        text = "Not set yet. Add a weekly budget in Profile.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colorScheme.onSurfaceVariant
+                                    )
+                                } else {
+                                    Text(
+                                        text = "₱$weeklyBudget",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                    Text(
+                                        text = "Projected only. Log actual spending in Progress.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
 
@@ -744,6 +815,22 @@ fun MealPlanScreen(
                     "Heuristic score based on how tightly the plan matches calorie targets, " +
                     "tolerance level used, repeat limits, and restriction complexity. " +
                     "Higher is better."
+                )
+            }
+        )
+    }
+
+    if (showLowGiInfo) {
+        AlertDialog(
+            onDismissRequest = { showLowGiInfo = false },
+            confirmButton = {
+                TextButton(onClick = { showLowGiInfo = false }) { Text("Got it") }
+            },
+            title = { Text("Low‑GI guidance") },
+            text = {
+                Text(
+                    "We favor higher‑fiber, balanced meals to support steadier energy. " +
+                    "This is guidance only and not medical treatment."
                 )
             }
         )

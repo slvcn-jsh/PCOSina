@@ -8,10 +8,13 @@ import com.pcosina.app.data.api.DayPlanDto
 import com.pcosina.app.data.api.GeneratePlanResponse
 import com.pcosina.app.data.api.RecipeDetailDto
 import com.pcosina.app.data.api.RecipeSummaryDto
+import com.pcosina.app.data.api.PlanExplanation
 import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.GroceryItemSource
 import com.pcosina.app.data.model.PlanInstance
 import com.pcosina.app.data.model.UserProfile
+import com.pcosina.app.data.model.DemoWeekSeed
+import com.pcosina.app.data.model.DailyLog
 import com.pcosina.app.data.repository.MealPlanRepository
 import com.pcosina.app.data.repository.UserPreferencesRepository
 import kotlinx.coroutines.async
@@ -80,6 +83,7 @@ class MealPlanViewModel(
 
     private var currentUserId: String = ""
     private val gson = Gson()
+    private val dayOrder = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
     fun loadSavedPlan(userId: String) {
         currentUserId = userId
@@ -176,7 +180,8 @@ class MealPlanViewModel(
             _uiState.value = MealPlanUiState.Loading
             repository.warmup()
             val effectiveProfile = resolveProfile(profile)
-            val result = repository.generatePlan(effectiveProfile)
+            val tunedProfile = applyFeedbackTuning(effectiveProfile)
+            val result = repository.generatePlan(tunedProfile)
             result.onSuccess { response ->
                 val now = System.currentTimeMillis()
                 val start = weekStartDate(now)
@@ -211,6 +216,24 @@ class MealPlanViewModel(
                 _uiState.value = MealPlanUiState.Error(message)
             }
         }
+    }
+
+    private suspend fun applyFeedbackTuning(profile: UserProfile): UserProfile {
+        if (currentUserId.isBlank()) return profile
+        val tags = userPrefsRepository.getPlanFeedbackTags(currentUserId).first()
+        if (tags.isEmpty()) return profile
+        var tuned = profile
+        if (tags.any { it.equals("Too repetitive", true) }) {
+            tuned = tuned.copy(varietyPreference = "High")
+        }
+        if (tags.any { it.equals("Too expensive", true) }) {
+            val lowered = (tuned.weeklyBudgetPhp * 0.9f).toInt()
+            tuned = tuned.copy(weeklyBudgetPhp = lowered.coerceAtLeast(0))
+        }
+        if (tags.any { it.equals("Too hard to cook", true) }) {
+            tuned = tuned.copy(maxCookingTimeMinutes = (tuned.maxCookingTimeMinutes - 10).coerceAtLeast(10))
+        }
+        return tuned
     }
 
     private suspend fun resolveProfile(profile: UserProfile): UserProfile {
@@ -364,6 +387,168 @@ class MealPlanViewModel(
         }
     }
 
+    fun seedDemoWeeks(profile: UserProfile): List<DemoWeekSeed> {
+        if (currentUserId.isBlank()) return emptyList()
+        val basePlan = when (val state = _uiState.value) {
+            is MealPlanUiState.Success -> state.response
+            else -> _planHistory.value.maxByOrNull { it.generatedAt }?.response
+        } ?: buildFallbackPlan(profile)
+
+        val baseStart = weekStartDate(System.currentTimeMillis())
+        val weeks = listOf(0L, 1L, 2L).map { baseStart.minusWeeks(it) }
+        val seeds = weeks.mapIndexed { index, start ->
+            val response = buildVariantPlan(basePlan, start, index)
+            val id = start.format(DateTimeFormatter.ISO_LOCAL_DATE)
+            val end = start.plusDays(6).format(DateTimeFormatter.ISO_LOCAL_DATE)
+            val instance = PlanInstance(
+                id = id,
+                weekStart = id,
+                weekEnd = end,
+                generatedAt = System.currentTimeMillis() - (index * 7L * 24 * 60 * 60 * 1000),
+                response = response
+            )
+            DemoWeekSeed(
+                planInstance = instance,
+                dailyLogs = buildDemoLogs(instance, index),
+                weeklyJournal = demoJournalText(index),
+                weeklySpend = demoWeeklySpend(index, response)
+            )
+        }
+
+        val history = seeds.map { it.planInstance }.sortedBy { it.weekStart }
+        _planHistory.value = history
+        savePlanHistory(history)
+        val active = history.maxByOrNull { it.generatedAt } ?: history.last()
+        _activePlanId.value = active.id
+        _activeWeekStart.value = active.weekStart
+        _activeWeekEnd.value = active.weekEnd
+        _planExpired.value = isExpired(active) && (history.none { it.id == weekStartDate(System.currentTimeMillis()).format(DateTimeFormatter.ISO_LOCAL_DATE) })
+        _uiState.value = MealPlanUiState.Success(active.response, active.generatedAt)
+        calculateMetrics(active.response)
+        viewModelScope.launch {
+            userPrefsRepository.saveActivePlanId(currentUserId, active.id)
+        }
+        return seeds
+    }
+
+    private fun buildFallbackPlan(profile: UserProfile): GeneratePlanResponse {
+        val meals = listOf(
+            Pair("Breakfast", "Demo Oatmeal Bowl"),
+            Pair("Lunch", "Demo Chicken Tinola"),
+            Pair("Dinner", "Demo Veggie Stir-fry")
+        )
+        val days = dayOrder.mapIndexed { idx, label ->
+            val plannedMeals = meals.mapIndexed { mIndex, (mealLabel, title) ->
+                com.pcosina.app.data.api.PlannedMealDto(
+                    mealLabel = mealLabel,
+                    recipeId = "demo_${idx}_$mIndex",
+                    title = title
+                )
+            }
+            val kcal = 1600 + (idx * 10)
+            com.pcosina.app.data.api.DayPlanDto(
+                dayLabel = label,
+                meals = plannedMeals,
+                totalCalories = kcal
+            )
+        }
+        val explanation = PlanExplanation(
+            targetCalories = profile.age.takeIf { it > 0 }?.let { 1800 } ?: null,
+            avgCalories = days.sumOf { it.totalCalories } / days.size,
+            avgProtein = 85,
+            avgCarbs = 210,
+            avgFats = 60,
+            estimatedWeeklyCost = 1500,
+            pantryMatches = profile.pantryItems.size.takeIf { it > 0 } ?: 0
+        )
+        return GeneratePlanResponse(
+            weekLabel = weekLabelFor(weekStartDate(System.currentTimeMillis())),
+            days = days,
+            status = "demo",
+            message = "Demo plan generated locally.",
+            explanation = explanation
+        )
+    }
+
+    private fun buildVariantPlan(base: GeneratePlanResponse, start: LocalDate, index: Int): GeneratePlanResponse {
+        val calorieDelta = when (index) {
+            1 -> 40
+            2 -> -30
+            else -> 0
+        }
+        val adjustedDays = base.days.mapIndexed { dayIndex, day ->
+            val meals = day.meals.toMutableList()
+            if (index > 0 && meals.size >= 2 && dayIndex % 2 == index % 2) {
+                val tmp = meals.first()
+                meals[0] = meals.last()
+                meals[meals.lastIndex] = tmp
+            }
+            day.copy(
+                meals = meals,
+                totalCalories = (day.totalCalories + calorieDelta).coerceAtLeast(0)
+            )
+        }
+        val baseExplain = base.explanation
+        val estimated = baseExplain?.estimatedWeeklyCost?.plus(index * 60)
+            ?: (1500 + index * 60)
+        val explanation = baseExplain?.copy(
+            avgCalories = adjustedDays.sumOf { it.totalCalories } / adjustedDays.size,
+            estimatedWeeklyCost = estimated,
+            pantryMatches = (baseExplain.pantryMatches ?: 0) + index
+        ) ?: PlanExplanation(
+            avgCalories = adjustedDays.sumOf { it.totalCalories } / adjustedDays.size,
+            avgProtein = 85,
+            avgCarbs = 210,
+            avgFats = 60,
+            estimatedWeeklyCost = estimated,
+            pantryMatches = index
+        )
+        return base.copy(
+            weekLabel = weekLabelFor(start),
+            days = normalizeResponse(base.copy(days = adjustedDays)).days,
+            explanation = explanation
+        )
+    }
+
+    private fun buildDemoLogs(instance: PlanInstance, index: Int): List<DailyLog> {
+        val start = LocalDate.parse(instance.weekStart, DateTimeFormatter.ISO_LOCAL_DATE)
+        val logs = mutableListOf<DailyLog>()
+        instance.response.days.forEachIndexed { dayIndex, day ->
+            val date = start.plusDays(dayIndex.toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE)
+            val completedMeals = day.meals.filterIndexed { mealIndex, _ ->
+                (dayIndex + mealIndex + index) % 2 == 0
+            }.map { meal ->
+                ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)
+            }
+            val weight = when (index) {
+                0 -> 65f
+                1 -> 64.5f
+                else -> 64f
+            } + (dayIndex * 0.05f)
+            logs.add(
+                DailyLog(
+                    date = date,
+                    completedMealIds = completedMeals,
+                    weightKg = weight
+                )
+            )
+        }
+        return logs
+    }
+
+    private fun demoJournalText(index: Int): String {
+        return when (index) {
+            0 -> "Baseline week. Focused on getting used to the plan."
+            1 -> "Week 2 felt more consistent. Cooking felt easier."
+            else -> "Week 3: better routine and improved meal prep."
+        }
+    }
+
+    private fun demoWeeklySpend(index: Int, response: GeneratePlanResponse): Int? {
+        val base = response.explanation?.estimatedWeeklyCost ?: 1500
+        return (base + index * 40).coerceAtLeast(0)
+    }
+
     private fun isExpired(plan: PlanInstance): Boolean {
         return try {
             val end = LocalDate.parse(plan.weekEnd, DateTimeFormatter.ISO_LOCAL_DATE)
@@ -427,7 +612,6 @@ class MealPlanViewModel(
     }
 
     private fun normalizeResponse(response: GeneratePlanResponse): GeneratePlanResponse {
-        val dayOrder = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
         val byCanonical = response.days.mapNotNull { day ->
             val canonical = canonicalDayLabel(day.dayLabel) ?: return@mapNotNull null
             canonical to day.copy(dayLabel = canonical)

@@ -2,15 +2,19 @@ package com.pcosina.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -18,8 +22,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import android.content.Context
 import android.content.Intent
@@ -37,7 +41,6 @@ import com.pcosina.app.ui.components.StatCard
 import com.pcosina.app.ui.util.buildMealReasons
 import com.pcosina.app.domain.HealthMetrics
 import com.pcosina.app.domain.UnitConverter
-import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -47,6 +50,7 @@ import java.time.temporal.WeekFields
 import java.time.temporal.ChronoUnit
 import java.time.DayOfWeek
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun ProgressScreen(
@@ -59,15 +63,21 @@ fun ProgressScreen(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val planState by mealPlanViewModel.uiState.collectAsState()
     val planMetrics by mealPlanViewModel.planMetrics.collectAsState()
     val activeWeekStart by mealPlanViewModel.activeWeekStart.collectAsState()
+    val planHistory by mealPlanViewModel.planHistory.collectAsState()
+    val activePlanId by mealPlanViewModel.activePlanId.collectAsState()
     val logs by progressViewModel.dailyLogs.collectAsState()
     val weeklyJournal by progressViewModel.weeklyJournal.collectAsState()
+    val weeklySpend by progressViewModel.weeklySpend.collectAsState()
     val feedbackQueue by progressViewModel.feedbackQueue.collectAsState()
+    val planFeedbackTags by progressViewModel.planFeedbackTags.collectAsState()
     val profile by userViewModel.userProfile.collectAsState()
     var showConfidenceInfo by rememberSaveable { mutableStateOf(false) }
+    var showMacroInfo by rememberSaveable { mutableStateOf(false) }
+    var showSpendInfo by rememberSaveable { mutableStateOf(false) }
+    var showLowGiInfo by rememberSaveable { mutableStateOf(false) }
 
     val planTimestamp = (planState as? MealPlanUiState.Success)?.timestamp
     val weekStart = remember(activeWeekStart, planTimestamp) {
@@ -96,6 +106,13 @@ fun ProgressScreen(
 
     val planDays = (planState as? MealPlanUiState.Success)?.response?.days.orEmpty()
     val planExplanation = (planState as? MealPlanUiState.Success)?.response?.explanation
+    val sortedHistory = remember(planHistory) { planHistory.sortedBy { it.weekStart } }
+    val activeIndex = remember(activePlanId, sortedHistory) {
+        sortedHistory.indexOfFirst { it.id == activePlanId }.takeIf { it >= 0 }
+            ?: (sortedHistory.size - 1)
+    }
+    val previousPlan = sortedHistory.getOrNull(activeIndex - 1)
+    val currentPlanInstance = sortedHistory.getOrNull(activeIndex)
     val recipeCounts = remember(planDays) {
         planDays.flatMap { it.meals }.groupingBy { it.recipeId }.eachCount()
     }
@@ -139,12 +156,14 @@ fun ProgressScreen(
     } else null
 
     var weightInput by rememberSaveable { mutableStateOf("") }
+    var weightNote by rememberSaveable { mutableStateOf("") }
+    var weeklySpendInput by rememberSaveable { mutableStateOf("") }
     var energyLevel by rememberSaveable { mutableStateOf<Int?>(null) }
     var cravingsLevel by rememberSaveable { mutableStateOf<Int?>(null) }
     var moodLevel by rememberSaveable { mutableStateOf<Int?>(null) }
     var symptomTags by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var symptomNote by rememberSaveable { mutableStateOf("") }
-    LaunchedEffect(logs, selectedDate) {
+    LaunchedEffect(logs, selectedDate, profile.weightUnit) {
         val key = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
         val log = logs[key]
         weightInput = log?.weightKg?.let { kg ->
@@ -154,11 +173,15 @@ fun ProgressScreen(
                 String.format(Locale.ENGLISH, "%.1f", kg)
             }
         } ?: ""
+        weightNote = log?.weightNote ?: ""
         energyLevel = log?.energyLevel
         cravingsLevel = log?.cravingsLevel
         moodLevel = log?.moodLevel
         symptomTags = log?.symptomTags ?: emptyList()
         symptomNote = log?.symptomsNote ?: ""
+    }
+    LaunchedEffect(weeklySpend, weekStartKey) {
+        weeklySpendInput = weeklySpend?.toString() ?: ""
     }
 
     var journalText by rememberSaveable { mutableStateOf("") }
@@ -178,9 +201,24 @@ fun ProgressScreen(
     val symptomOptions = remember {
         listOf("Bloating", "Cramps", "Acne", "Headache", "Fatigue", "Mood swings")
     }
+    val planFeedbackOptions = remember {
+        listOf("Too repetitive", "Too expensive", "Too hard to cook")
+    }
+    val selectedDateLabel = remember(selectedDate) {
+        selectedDate.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH))
+    }
+    val projectedWeeklyCost = planExplanation?.estimatedWeeklyCost
+    val budgetTarget = planExplanation?.budgetWeekly?.toInt()
+        ?: profile.weeklyBudgetPhp.takeIf { it > 0 }
+    fun parseCurrencyInput(raw: String): Int? {
+        val clean = raw.replace(",", "").trim()
+        if (clean.isBlank()) return null
+        val value = clean.toDoubleOrNull() ?: return null
+        return value.roundToInt()
+    }
 
     // Macro aggregation
-    var macroLabel by remember { mutableStateOf("Planned macros (avg/day, weekly plan)") }
+    var macroLabel by remember { mutableStateOf("Planned average (per day)") }
     var avgProtein by remember { mutableStateOf(0) }
     var avgCarbs by remember { mutableStateOf(0) }
     var avgFats by remember { mutableStateOf(0) }
@@ -199,7 +237,7 @@ fun ProgressScreen(
         val useCompleted = completedCountsByRecipe.isNotEmpty()
         val countsByRecipe = if (useCompleted) completedCountsByRecipe else plannedCountsByRecipe
         completedMacroAvailable = useCompleted
-        macroLabel = if (completedMacroAvailable) "Completed meals (avg/day, weekly)" else "Planned macros (avg/day, weekly)"
+        macroLabel = if (completedMacroAvailable) "Completed average (per day)" else "Planned average (per day)"
         val details = countsByRecipe.keys.mapNotNull { id ->
             mealPlanViewModel.getRecipeDetails(id).getOrNull()
         }
@@ -216,7 +254,7 @@ fun ProgressScreen(
     }
 
     LazyColumn(
-        modifier = modifier.fillMaxSize().background(colorScheme.background),
+        modifier = modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -224,7 +262,7 @@ fun ProgressScreen(
             Box {
                 GradientHeader(
                     title = "Weekly Insights",
-                    subtitle = "Monitoring your metabolic markers",
+                    subtitle = "Tracking your meals and trends",
                     containerHeight = 180,
                 )
                 IconButton(
@@ -238,6 +276,68 @@ fun ProgressScreen(
                         contentDescription = "Back",
                         tint = colorScheme.onPrimary,
                     )
+                }
+            }
+        }
+
+        if (sortedHistory.isNotEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text("Week History", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        val currentLabel = currentPlanInstance?.response?.weekLabel ?: weekLabel
+                        Text(
+                            text = "Selected: $currentLabel",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(sortedHistory) { instance ->
+                                FilterChip(
+                                    selected = instance.id == activePlanId,
+                                    onClick = { mealPlanViewModel.selectPlan(instance.id) },
+                                    label = { Text(instance.response.weekLabel) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = colorScheme.primary,
+                                        selectedLabelColor = colorScheme.onPrimary
+                                    )
+                                )
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedButton(
+                                onClick = { previousPlan?.let { mealPlanViewModel.selectPlan(it.id) } },
+                                enabled = previousPlan != null
+                            ) {
+                                Icon(Icons.Filled.ChevronLeft, contentDescription = null)
+                                Spacer(Modifier.width(6.dp))
+                                Text("Prev")
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    val next = sortedHistory.getOrNull(activeIndex + 1)
+                                    next?.let { mealPlanViewModel.selectPlan(it.id) }
+                                },
+                                enabled = activeIndex >= 0 && activeIndex < sortedHistory.lastIndex
+                            ) {
+                                Text("Next")
+                                Spacer(Modifier.width(6.dp))
+                                Icon(Icons.Filled.ChevronRight, contentDescription = null)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -281,6 +381,62 @@ fun ProgressScreen(
         }
 
         item {
+            val currentStats = currentPlanInstance?.let { computeWeekStats(it.response) }
+            val prevStats = previousPlan?.let { computeWeekStats(it.response) }
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("Insights: Week-over-Week", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                    if (currentStats == null) {
+                        Text(
+                            text = "Generate a plan to see insights.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                    } else if (prevStats == null) {
+                        Text(
+                            text = "Baseline week. Future weeks will compare here.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        val changes = buildWeekChanges(currentStats, prevStats)
+                        changes.forEach { line ->
+                            Text(
+                                text = "• $line",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                        }
+                        val whyLines = buildWeekWhy(currentStats, prevStats)
+                        if (whyLines.isNotEmpty()) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                text = "Why this changed",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = colorScheme.onSurface
+                            )
+                            whyLines.forEach { line ->
+                                Text(
+                                    text = "• $line",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
             val avgKcal = if (planDays.isNotEmpty()) {
                 (planDays.sumOf { it.totalCalories } / planDays.size)
             } else 0
@@ -305,6 +461,88 @@ fun ProgressScreen(
             }
         }
 
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Weekly Spending",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        IconButton(onClick = { showSpendInfo = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.Info,
+                                contentDescription = "Spending info",
+                                tint = colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    val projectedText = projectedWeeklyCost?.let { "₱$it" } ?: "—"
+                    val budgetText = budgetTarget?.let { "₱$it" } ?: "Not set"
+                    Text(
+                        text = "Projected from plan: $projectedText",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Budget target: $budgetText",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = weeklySpendInput,
+                        onValueChange = { weeklySpendInput = it },
+                        label = { Text("Actual spending (₱)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    Button(
+                        onClick = {
+                            val spendValue = parseCurrencyInput(weeklySpendInput)
+                            if (spendValue == null && weeklySpendInput.isNotBlank()) {
+                                Toast.makeText(context, "Enter a valid amount.", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            progressViewModel.saveWeeklySpend(weekStartKey, spendValue)
+                        },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = MaterialTheme.shapes.medium,
+                        colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
+                    ) {
+                        Text("Save Actual Spending")
+                    }
+                    val spendValue = weeklySpend
+                    if (spendValue != null && projectedWeeklyCost != null) {
+                        val variance = spendValue - projectedWeeklyCost
+                        val varianceText = if (variance >= 0) "+₱$variance vs projected" else "-₱${-variance} vs projected"
+                        Text(
+                            text = "Difference: $varianceText",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        text = "Optional. Stored locally for your tracking.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
         if (planExplanation != null) {
             item {
                 Card(
@@ -323,6 +561,11 @@ fun ProgressScreen(
                         )
                         Text(
                             text = "Signals used by the optimizer to balance nutrition, variety, and pantry use.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "Projected values are estimates. Log actual spending below.",
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant
                         )
@@ -431,6 +674,37 @@ fun ProgressScreen(
             }
         }
 
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text("Plan Feedback", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                    Text(
+                        text = "Pick what didn’t work. This tunes your next plan.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(planFeedbackOptions) { tag ->
+                            val selected = planFeedbackTags.contains(tag)
+                            FilterChip(
+                                selected = selected,
+                                onClick = { progressViewModel.togglePlanFeedbackTag(tag) },
+                                label = { Text(tag) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         if (showWeightEntryAtTop) {
             item {
                 Card(
@@ -444,6 +718,16 @@ fun ProgressScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text("Weight Entry (Selected Day)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Text(
+                            text = "Selected date: $selectedDateLabel",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "Stored in kg internally • shown in $weightUnitLabel",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
                         val startText = weightStart?.let { "${displayWeight(it)} $weightUnitLabel" } ?: "—"
                         val endText = weightEnd?.let { "${displayWeight(it)} $weightUnitLabel" } ?: "—"
                         Text(
@@ -494,19 +778,69 @@ fun ProgressScreen(
                             label = { Text("Weight ($weightUnitLabel)") },
                             modifier = Modifier.fillMaxWidth()
                         )
+                        OutlinedTextField(
+                            value = weightNote,
+                            onValueChange = { weightNote = it },
+                            label = { Text("Weight note (optional)") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                         Button(
                             onClick = {
                                 val value = weightInput.toFloatOrNull()
                                 val kgValue = value?.let {
                                     if (profile.weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.lbToKg(it) else it
                                 }
-                                progressViewModel.setWeight(selectedDate, kgValue)
+                                progressViewModel.setWeight(selectedDate, kgValue, weightNote)
                             },
                             modifier = Modifier.fillMaxWidth().height(48.dp),
                             shape = MaterialTheme.shapes.medium,
                             colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
                         ) {
                             Text("Save Weight")
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = "Weight History",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    if (allWeights.isEmpty()) {
+                        Text(
+                            text = "No weight logs yet.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        allWeights.takeLast(7).reversed().forEach { (date, kg) ->
+                            val label = date.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH))
+                            val noteKey = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                            val note = logs[noteKey]?.weightNote
+                            Text(
+                                text = "$label • ${displayWeight(kg)} $weightUnitLabel",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                            if (!note.isNullOrBlank()) {
+                                Text(
+                                    text = "Note: $note",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -538,7 +872,23 @@ fun ProgressScreen(
                         }
                         com.pcosina.app.domain.GoalType.SYMPTOM_MANAGEMENT -> {
                             Text("Emphasis: steady fiber + protein consistency.", color = colorScheme.onSurfaceVariant)
-                            Text("Guidance: choose low‑GI carbs and balanced meals.", color = colorScheme.onSurfaceVariant)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text("Guidance: choose low‑GI carbs and balanced meals.", color = colorScheme.onSurfaceVariant)
+                                IconButton(
+                                    onClick = { showLowGiInfo = true },
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Info,
+                                        contentDescription = "Low-GI guidance",
+                                        tint = colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
                             if (planMetrics.avgProtein > 0 || planMetrics.avgFiber > 0) {
                                 Text(
                                     text = "Plan averages: Protein ${planMetrics.avgProtein}g/day • Fiber ${planMetrics.avgFiber}g/day",
@@ -570,14 +920,19 @@ fun ProgressScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.TrendingDown, contentDescription = null, tint = colorScheme.primary)
+                        Icon(imageVector = Icons.Filled.CheckCircle, contentDescription = null, tint = colorScheme.primary)
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "Daily Compliance",
+                            text = "Meal Completion",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = colorScheme.secondary
                         )
                     }
+                    Text(
+                        text = "Tracks how many planned meals you completed each day.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
                     val days = listOf(
                         "Mon" to 0.0f, "Tue" to 0.0f, "Wed" to 0.0f,
                         "Thu" to 0.0f, "Fri" to 0.0f, "Sat" to 0.0f, "Sun" to 0.0f
@@ -628,11 +983,24 @@ fun ProgressScreen(
                     modifier = Modifier.padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Text(
-                        text = "Aggregated Macros",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = colorScheme.onSurface
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Macro Summary",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = colorScheme.onSurface
+                        )
+                        IconButton(onClick = { showMacroInfo = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.Info,
+                                contentDescription = "Macro info",
+                                tint = colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                     Text(text = macroLabel, style = MaterialTheme.typography.labelSmall, color = colorScheme.onSurfaceVariant)
                     if (!isOnline.value) {
                         Text(
@@ -735,6 +1103,16 @@ fun ProgressScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text("Daily Meal Check-off", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                    Text(
+                        text = "Selected day: $selectedDateLabel",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Manual check-off: log what you actually ate. Ingredients not required.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
                     LazyRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -912,13 +1290,19 @@ fun ProgressScreen(
                             label = { Text("Weight ($weightUnitLabel)") },
                             modifier = Modifier.fillMaxWidth()
                         )
+                        OutlinedTextField(
+                            value = weightNote,
+                            onValueChange = { weightNote = it },
+                            label = { Text("Weight note (optional)") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                         Button(
                             onClick = {
                                 val value = weightInput.toFloatOrNull()
                                 val kgValue = value?.let {
                                     if (profile.weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.lbToKg(it) else it
                                 }
-                                progressViewModel.setWeight(selectedDate, kgValue)
+                                progressViewModel.setWeight(selectedDate, kgValue, weightNote)
                             },
                             modifier = Modifier.fillMaxWidth().height(48.dp),
                             shape = MaterialTheme.shapes.medium,
@@ -1036,6 +1420,54 @@ fun ProgressScreen(
             }
         )
     }
+
+    if (showMacroInfo) {
+        AlertDialog(
+            onDismissRequest = { showMacroInfo = false },
+            confirmButton = {
+                TextButton(onClick = { showMacroInfo = false }) { Text("Got it") }
+            },
+            title = { Text("Macro summary") },
+            text = {
+                Text(
+                    "This compares planned averages with what you actually checked off. " +
+                    "If you’re offline, macro details may be incomplete."
+                )
+            }
+        )
+    }
+
+    if (showSpendInfo) {
+        AlertDialog(
+            onDismissRequest = { showSpendInfo = false },
+            confirmButton = {
+                TextButton(onClick = { showSpendInfo = false }) { Text("Got it") }
+            },
+            title = { Text("Weekly spending") },
+            text = {
+                Text(
+                    "Projected cost is an estimate from the plan. " +
+                    "Actual spending is optional and stored locally on your device."
+                )
+            }
+        )
+    }
+
+    if (showLowGiInfo) {
+        AlertDialog(
+            onDismissRequest = { showLowGiInfo = false },
+            confirmButton = {
+                TextButton(onClick = { showLowGiInfo = false }) { Text("Got it") }
+            },
+            title = { Text("Low‑GI guidance") },
+            text = {
+                Text(
+                    "We favor higher‑fiber, balanced meals to support steadier energy. " +
+                    "This is guidance only and not medical treatment."
+                )
+            }
+        )
+    }
 }
 
 private fun weekStartDate(
@@ -1063,4 +1495,90 @@ private fun isNetworkAvailable(context: Context): Boolean {
     val network = cm.activeNetwork ?: return false
     val caps = cm.getNetworkCapabilities(network) ?: return false
     return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+}
+
+private data class WeekStats(
+    val avgCalories: Int,
+    val varietyCount: Int,
+    val estCost: Int?,
+    val avgProtein: Int?,
+    val avgCarbs: Int?,
+    val avgFats: Int?,
+    val pantryMatches: Int?
+)
+
+private fun computeWeekStats(plan: com.pcosina.app.data.api.GeneratePlanResponse): WeekStats {
+    val avgCalories = if (plan.days.isNotEmpty()) {
+        plan.days.sumOf { it.totalCalories } / plan.days.size
+    } else 0
+    val variety = plan.days.flatMap { it.meals }.map { it.recipeId }.distinct().size
+    val explanation = plan.explanation
+    return WeekStats(
+        avgCalories = avgCalories,
+        varietyCount = variety,
+        estCost = explanation?.estimatedWeeklyCost,
+        avgProtein = explanation?.avgProtein,
+        avgCarbs = explanation?.avgCarbs,
+        avgFats = explanation?.avgFats,
+        pantryMatches = explanation?.pantryMatches
+    )
+}
+
+private fun buildWeekChanges(current: WeekStats, previous: WeekStats): List<String> {
+    val lines = mutableListOf<String>()
+    val kcalDiff = current.avgCalories - previous.avgCalories
+    val kcalText = when {
+        kcalDiff > 0 -> "↑$kcalDiff"
+        kcalDiff < 0 -> "↓${-kcalDiff}"
+        else -> "no change"
+    }
+    lines.add("Avg kcal/day: ${current.avgCalories} ($kcalText)")
+    val varietyDiff = current.varietyCount - previous.varietyCount
+    val varietyText = when {
+        varietyDiff > 0 -> "↑$varietyDiff"
+        varietyDiff < 0 -> "↓${-varietyDiff}"
+        else -> "no change"
+    }
+    lines.add("Variety count: ${current.varietyCount} ($varietyText)")
+    if (current.estCost != null && previous.estCost != null) {
+        val costDiff = current.estCost - previous.estCost
+        val costText = when {
+            costDiff > 0 -> "↑₱$costDiff"
+            costDiff < 0 -> "↓₱${-costDiff}"
+            else -> "no change"
+        }
+        lines.add("Estimated cost: ₱${current.estCost} ($costText)")
+    }
+    if (current.avgProtein != null && previous.avgProtein != null) {
+        val diff = current.avgProtein - previous.avgProtein
+        val diffText = when {
+            diff > 0 -> "↑$diff"
+            diff < 0 -> "↓${-diff}"
+            else -> "no change"
+        }
+        lines.add("Avg protein: ${current.avgProtein}g ($diffText)")
+    }
+    return lines
+}
+
+private fun buildWeekWhy(current: WeekStats, previous: WeekStats): List<String> {
+    val reasons = mutableListOf<String>()
+    if (current.avgCalories < previous.avgCalories) {
+        reasons.add("Calories lowered to stay closer to your target range.")
+    }
+    if (current.varietyCount > previous.varietyCount) {
+        reasons.add("Variety increased to reduce repeats across the week.")
+    }
+    if (current.estCost != null && previous.estCost != null && current.estCost < previous.estCost) {
+        reasons.add("Estimated cost decreased to align with budget control.")
+    }
+    val pantryCurrent = current.pantryMatches ?: 0
+    val pantryPrev = previous.pantryMatches ?: 0
+    if (pantryCurrent > pantryPrev) {
+        reasons.add("More pantry items were prioritized to reduce waste.")
+    }
+    if (reasons.isEmpty()) {
+        reasons.add("Changes are within normal optimization tolerance.")
+    }
+    return reasons
 }

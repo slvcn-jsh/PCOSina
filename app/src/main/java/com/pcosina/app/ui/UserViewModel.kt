@@ -3,6 +3,7 @@ package com.pcosina.app.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.pcosina.app.data.model.PantryEntry
 import com.pcosina.app.data.model.UserProfile
 import com.pcosina.app.data.repository.UserPreferencesRepository
 import com.pcosina.app.domain.CalorieTargetBreakdown
@@ -24,8 +25,14 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
 
     private val _adminMode = MutableStateFlow(false)
     val adminMode: StateFlow<Boolean> = _adminMode.asStateFlow()
+    private val _pantryEntries = MutableStateFlow<List<PantryEntry>>(emptyList())
+    val pantryEntries: StateFlow<List<PantryEntry>> = _pantryEntries.asStateFlow()
+    private val _remindersEnabled = MutableStateFlow(false)
+    val remindersEnabled: StateFlow<Boolean> = _remindersEnabled.asStateFlow()
 
     private var profileJob: Job? = null
+    private var pantryJob: Job? = null
+    private var remindersJob: Job? = null
     private var currentUserId: String = ""
     private var pendingProfile: UserProfile? = null
 
@@ -46,6 +53,8 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
         _userProfile.value = pendingProfile ?: UserProfile()
         _isProfileLoading.value = true
         profileJob?.cancel()
+        pantryJob?.cancel()
+        remindersJob?.cancel()
         profileJob = viewModelScope.launch {
             repository.getUserProfile(userId).collectLatest { profile ->
                 val pending = pendingProfile
@@ -62,6 +71,16 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
                 _isProfileLoading.value = false
             }
         }
+        pantryJob = viewModelScope.launch {
+            repository.getPantryEntries(userId).collectLatest { entries ->
+                _pantryEntries.value = entries
+            }
+        }
+        remindersJob = viewModelScope.launch {
+            repository.getRemindersEnabled(userId).collectLatest { enabled ->
+                _remindersEnabled.value = enabled
+            }
+        }
         flushPendingProfile()
     }
 
@@ -76,8 +95,12 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
     fun reset() {
         currentUserId = ""
         profileJob?.cancel()
+        pantryJob?.cancel()
+        remindersJob?.cancel()
         _userProfile.value = UserProfile()
         _isProfileLoading.value = false
+        _pantryEntries.value = emptyList()
+        _remindersEnabled.value = false
         pendingProfile = null
     }
 
@@ -129,6 +152,21 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
         saveProfile()
     }
 
+    fun updateAllergies(allergies: List<String>) {
+        _userProfile.update { it.copy(allergies = allergies) }
+        saveProfile()
+    }
+
+    fun updateCookingPreferences(maxMinutes: Int, variety: String) {
+        _userProfile.update { it.copy(maxCookingTimeMinutes = maxMinutes, varietyPreference = variety) }
+        saveProfile()
+    }
+
+    fun updatePlanningPriority(priority: String) {
+        _userProfile.update { it.copy(planningPriority = priority) }
+        saveProfile()
+    }
+
     fun updateBudget(budget: Int) {
         _userProfile.update { it.copy(weeklyBudgetPhp = budget) }
         saveProfile()
@@ -137,6 +175,37 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
     fun updatePantryItems(items: List<String>) {
         _userProfile.update { it.copy(pantryItems = items) }
         saveProfile()
+        val existing = _pantryEntries.value.associateBy { it.name.lowercase() }
+        val entries = items.mapNotNull { raw ->
+            val name = raw.trim()
+            if (name.isBlank()) null else (existing[name.lowercase()]?.copy(name = name) ?: PantryEntry(name = name))
+        }
+        _pantryEntries.value = entries
+        if (currentUserId.isBlank()) return
+        viewModelScope.launch {
+            repository.savePantryEntries(currentUserId, entries)
+        }
+    }
+
+    fun updatePantryEntries(entries: List<PantryEntry>) {
+        _pantryEntries.value = entries
+        val names = entries.map { it.name.trim() }
+            .filter { it.isNotBlank() }
+            .distinctBy { it.lowercase() }
+        _userProfile.update { it.copy(pantryItems = names) }
+        saveProfile()
+        if (currentUserId.isBlank()) return
+        viewModelScope.launch {
+            repository.savePantryEntries(currentUserId, entries)
+        }
+    }
+
+    fun setRemindersEnabled(enabled: Boolean) {
+        _remindersEnabled.value = enabled
+        if (currentUserId.isBlank()) return
+        viewModelScope.launch {
+            repository.setRemindersEnabled(currentUserId, enabled)
+        }
     }
 
     fun updateGoal(goal: String) {

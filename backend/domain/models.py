@@ -1,20 +1,31 @@
 from typing import List, Optional, Dict, Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class UserProfile(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
     displayName: str = "User"
     age: int = 25
     heightCm: int = 160
     weightKg: int = 65
+    heightUnit: str = "cm"
+    weightUnit: str = "kg"
     activityLevel: str = "Lightly Active"
     goal: str = "General Health"
+    insulinResistanceLevel: str = "Mild"
+    symptoms: List[str] = []
+    comorbidities: List[str] = []
     dietaryRestrictions: List[str] = []
-    pantryItems: List[str] = []
+    allergies: List[str] = []
+    weeklyBudgetPhp: Optional[int] = Field(default=None, alias="weeklyBudgetPhp")
     budgetWeekly: Optional[float] = None
     budgetMonthly: Optional[float] = None
+    maxCookingTimeMinutes: int = 45
+    varietyPreference: str = "Balanced"
+    planningPriority: str = "Balanced"
+    pantryItems: List[str] = []
+    isProfileCompleted: bool = False
 
 
 class Ingredient(BaseModel):
@@ -46,6 +57,7 @@ class RecipeSummary(BaseModel):
 class GeneratePlanRequest(BaseModel):
     profile: UserProfile
     days: int = 7
+    mealsPerDay: int = 3
 
 
 class PlannedMeal(BaseModel):

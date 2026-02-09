@@ -9,3 +9,14 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn -k uvicorn.workers.UvicornWorker -w 2 -t 120 -b 0.0.0.0:$PORT main:app
     healthCheckPath: /health
+    envVars:
+      - key: PCOSINA_ENV
+        value: production
+      - key: PCOSINA_ENABLE_DOCS
+        value: "false"
+      - key: PCOSINA_ALLOWED_HOSTS
+        value: pcosina-backend.onrender.com
+      - key: PCOSINA_RATE_LIMIT_WINDOW_SECONDS
+        value: "60"
+      - key: PCOSINA_RATE_LIMIT_MAX
+        value: "60"

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -29,10 +30,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.core.content.ContextCompat
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.pcosina.app.BuildConfig
 import com.pcosina.app.ui.AuthViewModel
@@ -43,6 +47,14 @@ import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.domain.HealthMetrics
 import com.pcosina.app.domain.UnitConverter
+import com.pcosina.app.notifications.NotificationHelper
+import android.Manifest
+import android.os.Build
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
+import java.time.temporal.WeekFields
+import java.util.Locale
 
 @Composable
 fun SettingsScreen(
@@ -57,6 +69,7 @@ fun SettingsScreen(
 ) {
     val profile by userViewModel.userProfile.collectAsState()
     val adminMode by userViewModel.adminMode.collectAsState()
+    val remindersEnabled by userViewModel.remindersEnabled.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
     val context = LocalContext.current
     
@@ -66,12 +79,24 @@ fun SettingsScreen(
     var tapCount by rememberSaveable { mutableStateOf(0) }
 
     var showClearDialog by rememberSaveable { mutableStateOf(false) }
+    var showLogoutDialog by rememberSaveable { mutableStateOf(false) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            userViewModel.setRemindersEnabled(true)
+            NotificationHelper.scheduleDailyReminder(context)
+        } else {
+            Toast.makeText(context, "Notification permission denied.", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(colorScheme.background)
             .verticalScroll(rememberScrollState())
+            .statusBarsPadding()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
@@ -190,6 +215,11 @@ fun SettingsScreen(
                 Spacer(Modifier.width(8.dp))
                 Text("Update Health Data", fontWeight = FontWeight.Bold)
             }
+            Text(
+                text = "Includes budget and preferences on Step 3.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colorScheme.onSurfaceVariant
+            )
         }
 
         // Account Actions
@@ -209,7 +239,7 @@ fun SettingsScreen(
                 description = "Securely sign out of PCOSINA",
                 color = colorScheme.secondary
             ) {
-                authViewModel.onLogout()
+                showLogoutDialog = true
             }
 
             if (BuildConfig.DEBUG) {
@@ -262,6 +292,63 @@ fun SettingsScreen(
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(schemaUrl))
                     context.startActivity(intent)
                 }
+                if (BuildConfig.DEBUG) {
+                    SettingsActionItem(
+                        icon = Icons.Default.Info,
+                        label = "Seed Demo Weeks",
+                        description = "Generate 3 weeks of demo plans + progress",
+                        color = colorScheme.primary
+                    ) {
+                        if (userId.isBlank()) {
+                            Toast.makeText(context, "Sign in first to seed demo weeks.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            val start = LocalDate.now().with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
+                            progressViewModel.loadForUser(userId, start.format(DateTimeFormatter.ISO_LOCAL_DATE))
+                            val seeds = mealPlanViewModel.seedDemoWeeks(profile)
+                            progressViewModel.seedDemoWeeks(seeds)
+                            Toast.makeText(context, "Seeded 3 demo weeks.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingsSection(title = "Notifications") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Daily Reminder", style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        text = "Reminds you to check your plan and log progress (7:00 PM).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = remindersEnabled,
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                val granted = ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.POST_NOTIFICATIONS
+                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                if (!granted) {
+                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    return@Switch
+                                }
+                            }
+                            userViewModel.setRemindersEnabled(true)
+                            NotificationHelper.scheduleDailyReminder(context)
+                        } else {
+                            userViewModel.setRemindersEnabled(false)
+                            NotificationHelper.cancelDailyReminder(context)
+                        }
+                    }
+                )
             }
         }
 
@@ -294,6 +381,23 @@ fun SettingsScreen(
             },
             title = { Text("Clear meal history?") },
             text = { Text("This removes plans, grocery snapshots, and adherence logs for this account.") }
+        )
+    }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLogoutDialog = false
+                    authViewModel.onLogout()
+                }) { Text("Logout") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") }
+            },
+            title = { Text("Logout?") },
+            text = { Text("You will need to sign in again to access your data.") }
         )
     }
 }

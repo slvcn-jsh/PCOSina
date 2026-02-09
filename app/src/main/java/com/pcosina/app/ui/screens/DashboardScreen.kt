@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -51,6 +52,7 @@ fun DashboardScreen(
     mealPlanViewModel: MealPlanViewModel,
     onRecipeClick: (String) -> Unit,
     onViewPlan: () -> Unit = {},
+    onViewProgress: () -> Unit = {},
     onViewIpo: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onFeedback: () -> Unit = {},
@@ -62,7 +64,9 @@ fun DashboardScreen(
     val calorieBreakdown = userViewModel.calorieTargetBreakdown
     val mealPlanState by mealPlanViewModel.uiState.collectAsState()
     val metrics by mealPlanViewModel.planMetrics.collectAsState()
+    val planExpired by mealPlanViewModel.planExpired.collectAsState()
     val planExplanation = (mealPlanState as? MealPlanUiState.Success)?.response?.explanation
+    val planHistory by mealPlanViewModel.planHistory.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
     val context = LocalContext.current
     val showMarkersInfo = rememberSaveable { mutableStateOf(false) }
@@ -70,7 +74,7 @@ fun DashboardScreen(
     val showBmiInfo = rememberSaveable { mutableStateOf(false) }
 
     LazyColumn(
-        modifier = modifier.fillMaxSize().background(colorScheme.background),
+        modifier = modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -130,6 +134,15 @@ fun DashboardScreen(
                 val weightUnit = if (profile.weightUnit == UnitConverter.WEIGHT_LB) "lb" else "kg"
                 StatCard(title = "Current", value = weightLabel, subtitle = weightUnit, modifier = Modifier.weight(1f))
             }
+            val bmi = HealthMetrics.bmi(profile.weightKg, profile.heightCm)
+            if (bmi > 0) {
+                Text(
+                    text = "BMI: ${String.format(Locale.ENGLISH, "%.1f", bmi)} (${HealthMetrics.bmiCategory(bmi)})",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp, top = 6.dp)
+                )
+            }
             if (adminMode) {
                 AssistChip(
                     onClick = { },
@@ -160,7 +173,7 @@ fun DashboardScreen(
         }
 
         item {
-            val hasPlan = mealPlanState is MealPlanUiState.Success
+            val hasPlan = mealPlanState is MealPlanUiState.Success || planHistory.isNotEmpty()
             
             Row(
                 modifier = Modifier.padding(start = 4.dp),
@@ -191,6 +204,81 @@ fun DashboardScreen(
                     MacroCircularGauge(label = "Protein", currentValue = metrics.avgProtein, targetValue = 85, color = colorScheme.primary, modifier = Modifier.weight(1f))
                     MacroCircularGauge(label = "Carbs", currentValue = metrics.avgCarbs, targetValue = 220, color = colorScheme.tertiary, modifier = Modifier.weight(1f))
                     MacroCircularGauge(label = "Fiber", currentValue = metrics.avgFiber, targetValue = 25, color = colorScheme.secondary, modifier = Modifier.weight(1f))
+                }
+            }
+            if (planExpired) {
+                Spacer(Modifier.height(10.dp))
+                Card(
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Your plan is expired.",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            text = "Generate a new week to stay current.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        TextButton(onClick = onViewPlan) { Text("Generate new week") }
+                    }
+                }
+            }
+        }
+
+        item {
+            val hasPlan = mealPlanState is MealPlanUiState.Success || planHistory.isNotEmpty()
+            Card(
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Your PCOSINA Journey",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = if (hasPlan) "Step 1 done: Plan generated." else "Step 1: Generate your weekly plan.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Step 2: Review week history.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Step 3: Check insights & progress.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = onViewPlan,
+                            shape = MaterialTheme.shapes.medium,
+                            colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(if (hasPlan) "View Week History" else "Generate Plan")
+                        }
+                        OutlinedButton(
+                            onClick = onViewProgress,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("View Insights")
+                        }
+                    }
                 }
             }
         }
@@ -327,8 +415,8 @@ fun DashboardScreen(
                     }
                     Spacer(Modifier.width(16.dp))
                     Column {
-                        Text(text = "Send Feedback", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = colorScheme.secondary)
-                        Text(text = "Help us improve PCOSINA", style = MaterialTheme.typography.bodyMedium, color = colorScheme.onSurfaceVariant)
+                        Text(text = "Email Feedback", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = colorScheme.secondary)
+                        Text(text = "For detailed issues. Quick feedback is in Progress.", style = MaterialTheme.typography.bodyMedium, color = colorScheme.onSurfaceVariant)
                     }
                 }
             }

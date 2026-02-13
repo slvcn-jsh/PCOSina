@@ -468,10 +468,14 @@ def seed_recipes():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         '''
 
-    # Avoid re-seeding if Postgres already has data (unless forced)
+    # For Postgres, avoid full reseed only when counts are already up-to-date.
+    # This keeps startup fast while still syncing new recipes added to recipes.json.
     try:
-        if _use_postgres() and _recipe_count(conn) > 0 and not force_reseed:
-            return
+        if _use_postgres() and not force_reseed:
+            existing_count = _recipe_count(conn)
+            if existing_count >= len(recipes):
+                return
+            print(f"DATABASE SYNC NEEDED: db={existing_count}, file={len(recipes)}")
     except Exception:
         pass
 

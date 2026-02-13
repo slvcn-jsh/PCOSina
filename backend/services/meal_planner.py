@@ -639,8 +639,12 @@ def solve_meal_plan(
     # Stage 1 pruning + shortlist
     buckets = shortlist_candidates(profile, recipes)
     candidates = list({r["id"]: r for r in (buckets["Breakfast"] + buckets["Lunch"] + buckets["Dinner"] + buckets["Universal"])}.values())
+    allow_fallback = _env_bool("PCOSINA_ALLOW_FALLBACK", True)
     if len(candidates) < 10:
-        return None, "No safe recipes found.", None
+        if not allow_fallback:
+            return None, "No safe recipes found.", None
+        if len(candidates) == 0:
+            return None, "No safe recipes found.", None
 
     pool = candidates
     max_pool_size = 100
@@ -900,7 +904,7 @@ def solve_meal_plan(
                 return res_plan, "Success", explanation
         if (time.time() - started_at) >= total_time_limit:
             break
-    if not _env_bool("PCOSINA_ALLOW_FALLBACK", False):
+    if not allow_fallback:
         if debug_solver:
             print("MILP_DEBUG", json.dumps(debug_summary))
             msg = json.dumps(debug_summary)[:1500]

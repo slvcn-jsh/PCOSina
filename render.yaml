@@ -20,3 +20,5 @@ services:
         value: "60"
       - key: PCOSINA_RATE_LIMIT_MAX
         value: "60"
+      - key: PCOSINA_ALLOW_FALLBACK
+        value: "true"

@@ -22,3 +22,5 @@ services:
         value: "60"
       - key: PCOSINA_ALLOW_FALLBACK
         value: "true"
+      - key: PCOSINA_MAX_POOL_SIZE
+        value: "300"

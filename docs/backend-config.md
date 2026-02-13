@@ -66,6 +66,14 @@ The mobile client sends `X-PCOSINA-Schema-Version` on API calls. If the header i
 - `PCOSINA_TOLERANCE_LEVELS`  
   Comma-separated float list. Default: `0.2,0.3,0.4`.
 
+- `PCOSINA_ALLOW_FALLBACK`  
+  Enables heuristic fallback when MILP is infeasible or times out.  
+  Default: `true`.
+
+- `PCOSINA_MAX_POOL_SIZE`  
+  Maximum shortlisted recipe candidates passed to MILP after pruning.  
+  Default: `300`.
+
 - `PCOSINA_MAX_PER_WEEK`  
   Comma-separated int list for max repeats. Default: `2,3,4,10`.
 

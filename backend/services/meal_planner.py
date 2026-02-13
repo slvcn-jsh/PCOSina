@@ -647,7 +647,7 @@ def solve_meal_plan(
             return None, "No safe recipes found.", None
 
     pool = candidates
-    max_pool_size = 100
+    max_pool_size = _env_int("PCOSINA_MAX_POOL_SIZE", 300)
     if len(pool) > max_pool_size:
         if debug_solver:
             debug_summary["pool_pre_cap"] = len(pool)

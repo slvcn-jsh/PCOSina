@@ -73535,5 +73535,1172 @@
       "Put water, bay leaf, peppercorn, sugar, and salt in a pot and add in meat mixture.",
       "Let boil then lower heat and simmer meat until tender, about 30 to 40 minutes."
     ]
+  },
+  {
+    "id": "ph_qk_001",
+    "name": "Garlic Brown Rice with Kangkong",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 360,
+      "protein_g": 9,
+      "carbs_g": 58,
+      "fat_g": 9,
+      "fiber_g": 7
+    },
+    "ingredients": [
+      {
+        "name": "brown rice cooked",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "kangkong chopped",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "2 tbsp"
+      },
+      {
+        "name": "iodized salt",
+        "quantity": "pinch"
+      }
+    ],
+    "instructions": [
+      "Heat oil and saute garlic and onion for 1 minute.",
+      "Add kangkong and cook until just wilted.",
+      "Fold in cooked brown rice, season lightly, and serve warm."
+    ],
+    "minutes": 15
+  },
+  {
+    "id": "ph_qk_002",
+    "name": "Sayote Carrot Ginger Stir Fry Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "pcos_friendly"
+    ],
+    "nutrition": {
+      "calories": 340,
+      "protein_g": 8,
+      "carbs_g": 54,
+      "fat_g": 9,
+      "fiber_g": 8
+    },
+    "ingredients": [
+      {
+        "name": "sayote sliced",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "carrot sliced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "ginger minced",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute ginger and garlic in oil.",
+      "Add sayote and carrot and stir fry until crisp-tender.",
+      "Serve over warm brown rice."
+    ],
+    "minutes": 16
+  },
+  {
+    "id": "ph_qk_003",
+    "name": "Monggo Tomato Malunggay Quick Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 390,
+      "protein_g": 14,
+      "carbs_g": 62,
+      "fat_g": 8,
+      "fiber_g": 12
+    },
+    "ingredients": [
+      {
+        "name": "cooked monggo",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "tomato diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "malunggay leaves",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "2 tbsp"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute onion and garlic briefly.",
+      "Add cooked monggo and tomato and simmer for 3 minutes.",
+      "Stir in malunggay, cook 1 minute, and serve."
+    ],
+    "minutes": 18
+  },
+  {
+    "id": "ph_qk_004",
+    "name": "Ampalaya Onion Tomato Saute with Rice",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan"
+    ],
+    "nutrition": {
+      "calories": 320,
+      "protein_g": 7,
+      "carbs_g": 53,
+      "fat_g": 8,
+      "fiber_g": 9
+    },
+    "ingredients": [
+      {
+        "name": "ampalaya sliced thin",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "tomato wedges",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion sliced",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "1 clove"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and onion in oil.",
+      "Add ampalaya and tomato, cook until just tender.",
+      "Serve with brown rice."
+    ],
+    "minutes": 15
+  },
+  {
+    "id": "ph_qk_005",
+    "name": "Cabbage Sitaw Garlic Stir Fry",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan"
+    ],
+    "nutrition": {
+      "calories": 300,
+      "protein_g": 8,
+      "carbs_g": 46,
+      "fat_g": 8,
+      "fiber_g": 8
+    },
+    "ingredients": [
+      {
+        "name": "cabbage shredded",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "sitaw cut short",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "2 tbsp"
+      },
+      {
+        "name": "red rice cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and onion in a hot pan.",
+      "Add sitaw then cabbage and stir fry until crisp-tender.",
+      "Serve with warm red rice."
+    ],
+    "minutes": 16
+  },
+  {
+    "id": "ph_qk_006",
+    "name": "Kalabasa Pechay Rice Plate",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 350,
+      "protein_g": 8,
+      "carbs_g": 57,
+      "fat_g": 8,
+      "fiber_g": 9
+    },
+    "ingredients": [
+      {
+        "name": "kalabasa cubed small",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "pechay chopped",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "2 tbsp"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and onion, then add kalabasa with a splash of water.",
+      "Cook until kalabasa is tender and fold in pechay.",
+      "Serve with brown rice."
+    ],
+    "minutes": 18
+  },
+  {
+    "id": "ph_qk_007",
+    "name": "Talong Kamatis Basil Saute",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan"
+    ],
+    "nutrition": {
+      "calories": 315,
+      "protein_g": 7,
+      "carbs_g": 50,
+      "fat_g": 9,
+      "fiber_g": 8
+    },
+    "ingredients": [
+      {
+        "name": "talong diced",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "tomato chopped",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "fresh basil leaves",
+        "quantity": "1 tbsp"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Cook garlic in oil until fragrant.",
+      "Add talong and tomato and cook until tender.",
+      "Finish with basil and serve over rice."
+    ],
+    "minutes": 17
+  },
+  {
+    "id": "ph_qk_008",
+    "name": "Okra Tomato Onion Rice Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "pcos_friendly"
+    ],
+    "nutrition": {
+      "calories": 330,
+      "protein_g": 8,
+      "carbs_g": 53,
+      "fat_g": 8,
+      "fiber_g": 10
+    },
+    "ingredients": [
+      {
+        "name": "okra sliced",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "tomato chopped",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion sliced",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "1 clove"
+      },
+      {
+        "name": "red rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute onion and garlic.",
+      "Add okra and tomato and cook briefly until just tender.",
+      "Serve with rice."
+    ],
+    "minutes": 14
+  },
+  {
+    "id": "ph_qk_009",
+    "name": "Ginisang Upo at Carrot",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan"
+    ],
+    "nutrition": {
+      "calories": 305,
+      "protein_g": 7,
+      "carbs_g": 49,
+      "fat_g": 8,
+      "fiber_g": 7
+    },
+    "ingredients": [
+      {
+        "name": "upo sliced",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "carrot diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "2 tbsp"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and onion.",
+      "Add carrot then upo and cook until tender.",
+      "Serve with brown rice."
+    ],
+    "minutes": 16
+  },
+  {
+    "id": "ph_qk_010",
+    "name": "Mushroom Pechay Garlic Rice",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 345,
+      "protein_g": 10,
+      "carbs_g": 53,
+      "fat_g": 9,
+      "fiber_g": 7
+    },
+    "ingredients": [
+      {
+        "name": "button mushrooms sliced",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "pechay chopped",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "2 tbsp"
+      },
+      {
+        "name": "red rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and onion in oil.",
+      "Add mushrooms and cook until browned.",
+      "Add pechay briefly and serve with rice."
+    ],
+    "minutes": 15
+  },
+  {
+    "id": "ph_qk_011",
+    "name": "Red Rice Chickpea Tomato Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 410,
+      "protein_g": 14,
+      "carbs_g": 62,
+      "fat_g": 10,
+      "fiber_g": 11
+    },
+    "ingredients": [
+      {
+        "name": "cooked chickpeas",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "tomato diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "2 tbsp"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "1 clove"
+      },
+      {
+        "name": "red rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Warm chickpeas with garlic, onion, and tomato in a pan.",
+      "Season lightly and simmer for 3 minutes.",
+      "Serve over red rice."
+    ],
+    "minutes": 15
+  },
+  {
+    "id": "ph_qk_012",
+    "name": "Quick Pinakbet Style Veggie Saute",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 335,
+      "protein_g": 8,
+      "carbs_g": 54,
+      "fat_g": 8,
+      "fiber_g": 10
+    },
+    "ingredients": [
+      {
+        "name": "kalabasa cubed",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "talong sliced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "sitaw cut short",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "okra sliced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "1/2 cup"
+      }
+    ],
+    "instructions": [
+      "Saute garlic, then add hard vegetables first.",
+      "Add remaining vegetables and cook until just tender.",
+      "Serve with brown rice."
+    ],
+    "minutes": 20
+  },
+  {
+    "id": "ph_qk_013",
+    "name": "Kamote Monggo Power Plate",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 400,
+      "protein_g": 13,
+      "carbs_g": 66,
+      "fat_g": 8,
+      "fiber_g": 12
+    },
+    "ingredients": [
+      {
+        "name": "kamote boiled cubed",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "cooked monggo",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "malunggay leaves",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "1 clove"
+      },
+      {
+        "name": "tomato diced",
+        "quantity": "1/3 cup"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Warm monggo with garlic and tomato.",
+      "Add kamote and malunggay and heat through.",
+      "Serve warm as one-bowl meal."
+    ],
+    "minutes": 14
+  },
+  {
+    "id": "ph_qk_014",
+    "name": "Pechay Kalabasa Tomato Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan"
+    ],
+    "nutrition": {
+      "calories": 325,
+      "protein_g": 8,
+      "carbs_g": 52,
+      "fat_g": 8,
+      "fiber_g": 9
+    },
+    "ingredients": [
+      {
+        "name": "pechay chopped",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "kalabasa diced small",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "tomato chopped",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion sliced",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "1 clove"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "1/2 cup"
+      }
+    ],
+    "instructions": [
+      "Cook kalabasa with onion and garlic until tender.",
+      "Add tomato and pechay and cook briefly.",
+      "Serve with brown rice."
+    ],
+    "minutes": 17
+  },
+  {
+    "id": "ph_qk_015",
+    "name": "Adobong Kangkong No Soy",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan"
+    ],
+    "nutrition": {
+      "calories": 290,
+      "protein_g": 7,
+      "carbs_g": 44,
+      "fat_g": 8,
+      "fiber_g": 7
+    },
+    "ingredients": [
+      {
+        "name": "kangkong chopped",
+        "quantity": "2 cups"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "onion sliced",
+        "quantity": "2 tbsp"
+      },
+      {
+        "name": "cane vinegar",
+        "quantity": "1 tbsp"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and onion.",
+      "Add kangkong and vinegar and cook until wilted.",
+      "Serve with warm rice."
+    ],
+    "minutes": 12
+  },
+  {
+    "id": "ph_qk_016",
+    "name": "Tomato Onion Malunggay Rice Soup",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "pcos_friendly"
+    ],
+    "nutrition": {
+      "calories": 310,
+      "protein_g": 7,
+      "carbs_g": 52,
+      "fat_g": 7,
+      "fiber_g": 6
+    },
+    "ingredients": [
+      {
+        "name": "brown rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "tomato diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "malunggay leaves",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "1 clove"
+      },
+      {
+        "name": "water",
+        "quantity": "1.5 cups"
+      }
+    ],
+    "instructions": [
+      "Boil water with garlic and onion for 2 minutes.",
+      "Add tomato and rice and simmer until hot.",
+      "Add malunggay before serving."
+    ],
+    "minutes": 15
+  },
+  {
+    "id": "ph_qk_017",
+    "name": "Chickpea Talong Tomato Saute",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 395,
+      "protein_g": 14,
+      "carbs_g": 58,
+      "fat_g": 10,
+      "fiber_g": 11
+    },
+    "ingredients": [
+      {
+        "name": "cooked chickpeas",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "talong diced",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "tomato diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "1 clove"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "2 tbsp"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and onion in oil.",
+      "Add talong and tomato and cook until soft.",
+      "Stir in chickpeas and heat through."
+    ],
+    "minutes": 18
+  },
+  {
+    "id": "ph_qk_018",
+    "name": "Lettuce Cucumber Tomato Rice Plate",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "low_carb"
+    ],
+    "nutrition": {
+      "calories": 280,
+      "protein_g": 6,
+      "carbs_g": 42,
+      "fat_g": 8,
+      "fiber_g": 7
+    },
+    "ingredients": [
+      {
+        "name": "lettuce chopped",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "cucumber diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "tomato diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "red rice cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "cane vinegar",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Mix lettuce, cucumber, and tomato.",
+      "Dress lightly with vinegar and olive oil.",
+      "Serve with warm rice."
+    ],
+    "minutes": 10
+  },
+  {
+    "id": "ph_qk_019",
+    "name": "Kamatis Pipino Monggo Salad Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 340,
+      "protein_g": 12,
+      "carbs_g": 52,
+      "fat_g": 8,
+      "fiber_g": 10
+    },
+    "ingredients": [
+      {
+        "name": "cooked monggo drained",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "tomato diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "cucumber diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion minced",
+        "quantity": "1 tbsp"
+      },
+      {
+        "name": "cane vinegar",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Combine monggo, tomato, cucumber, and onion in a bowl.",
+      "Toss with vinegar and olive oil.",
+      "Serve chilled or at room temperature."
+    ],
+    "minutes": 12
+  },
+  {
+    "id": "ph_qk_020",
+    "name": "Quick Ginisang Repolyo at Carrot",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan"
+    ],
+    "nutrition": {
+      "calories": 295,
+      "protein_g": 7,
+      "carbs_g": 47,
+      "fat_g": 8,
+      "fiber_g": 8
+    },
+    "ingredients": [
+      {
+        "name": "repolyo shredded",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "carrot strips",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "1 clove"
+      },
+      {
+        "name": "onion sliced",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and onion.",
+      "Add carrot and cabbage and cook briefly.",
+      "Serve with rice."
+    ],
+    "minutes": 13
+  },
+  {
+    "id": "ph_qk_021",
+    "name": "Kalabasa Carrot Garlic Mash Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 300,
+      "protein_g": 6,
+      "carbs_g": 51,
+      "fat_g": 7,
+      "fiber_g": 9
+    },
+    "ingredients": [
+      {
+        "name": "kalabasa cubed small",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "carrot cubed small",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "1 clove"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "iodized salt",
+        "quantity": "pinch"
+      }
+    ],
+    "instructions": [
+      "Steam kalabasa and carrot until tender.",
+      "Mash with garlic, oil, and a pinch of salt.",
+      "Serve with warm rice."
+    ],
+    "minutes": 18
+  },
+  {
+    "id": "ph_qk_022",
+    "name": "Pipino Onion Tomato Red Rice Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan"
+    ],
+    "nutrition": {
+      "calories": 285,
+      "protein_g": 6,
+      "carbs_g": 44,
+      "fat_g": 8,
+      "fiber_g": 6
+    },
+    "ingredients": [
+      {
+        "name": "cucumber chopped",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "tomato chopped",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "2 tbsp"
+      },
+      {
+        "name": "red rice cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "cane vinegar",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Combine cucumber, tomato, and onion.",
+      "Season with vinegar and olive oil.",
+      "Serve with red rice."
+    ],
+    "minutes": 10
+  },
+  {
+    "id": "ph_qk_023",
+    "name": "Sitaw Tomato Garlic Rice Plate",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan"
+    ],
+    "nutrition": {
+      "calories": 310,
+      "protein_g": 8,
+      "carbs_g": 50,
+      "fat_g": 8,
+      "fiber_g": 9
+    },
+    "ingredients": [
+      {
+        "name": "sitaw cut short",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "tomato wedges",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "onion sliced",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute onion and garlic.",
+      "Add sitaw and tomato and cook until tender-crisp.",
+      "Serve with brown rice."
+    ],
+    "minutes": 14
+  },
+  {
+    "id": "ph_qk_024",
+    "name": "Ginisang Pechay at Upo Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "pcos_friendly"
+    ],
+    "nutrition": {
+      "calories": 300,
+      "protein_g": 7,
+      "carbs_g": 48,
+      "fat_g": 8,
+      "fiber_g": 8
+    },
+    "ingredients": [
+      {
+        "name": "pechay chopped",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "upo sliced thin",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "2 tbsp"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and onion.",
+      "Add upo and cook until just tender.",
+      "Add pechay, cook 1 minute, and serve with rice."
+    ],
+    "minutes": 13
   }
 ]

@@ -637,34 +637,10 @@ def solve_meal_plan(
     target_fats = int((target * fat_ratio) / 9)
     tolerance_levels = _env_float_list("PCOSINA_TOLERANCE_LEVELS", [0.2, 0.3, 0.4])
     # Stage 1 pruning + shortlist
-    def _collect_candidates(p: UserProfile) -> tuple[Dict[str, List[Dict[str, Any]]], List[Dict[str, Any]]]:
-        b = shortlist_candidates(p, recipes)
-        c = list({r["id"]: r for r in (b["Breakfast"] + b["Lunch"] + b["Dinner"] + b["Universal"])}.values())
-        return b, c
-
-    buckets, candidates = _collect_candidates(profile)
-    allow_fallback = _env_bool("PCOSINA_ALLOW_FALLBACK", True)
-    relaxed_cooking_time_used = False
-    relaxed_cooking_time_to = 0
-    if len(candidates) == 0:
-        base_max_cook = int(profile.maxCookingTimeMinutes or 0)
-        relax_to = _env_int("PCOSINA_RELAX_MAX_COOKING_MINUTES", 45)
-        if 0 < base_max_cook < relax_to:
-            relaxed_profile = profile.model_copy(update={"maxCookingTimeMinutes": relax_to})
-            relaxed_buckets, relaxed_candidates = _collect_candidates(relaxed_profile)
-            if len(relaxed_candidates) > 0:
-                buckets = relaxed_buckets
-                candidates = relaxed_candidates
-                relaxed_cooking_time_used = True
-                relaxed_cooking_time_to = relax_to
-                if debug_solver:
-                    debug_summary["relaxedCookingTimeFrom"] = base_max_cook
-                    debug_summary["relaxedCookingTimeTo"] = relax_to
+    buckets = shortlist_candidates(profile, recipes)
+    candidates = list({r["id"]: r for r in (buckets["Breakfast"] + buckets["Lunch"] + buckets["Dinner"] + buckets["Universal"])}.values())
     if len(candidates) < 10:
-        if not allow_fallback:
-            return None, "No safe recipes found.", None
-        if len(candidates) == 0:
-            return None, "No safe recipes found.", None
+        return None, "No safe recipes found.", None
 
     pool = candidates
     max_pool_size = _env_int("PCOSINA_MAX_POOL_SIZE", 300)
@@ -921,46 +897,11 @@ def solve_meal_plan(
                     profile,
                     budget_weekly,
                 )
-                if explanation is not None and relaxed_cooking_time_used:
-                    explanation["relaxedCookingTimeUsed"] = True
-                    explanation["relaxedCookingTimeTo"] = relaxed_cooking_time_to
                 return res_plan, "Success", explanation
         if (time.time() - started_at) >= total_time_limit:
             break
-    if not allow_fallback:
-        if debug_solver:
-            print("MILP_DEBUG", json.dumps(debug_summary))
-            msg = json.dumps(debug_summary)[:1500]
-            return None, f"Infeasible | debug={msg}", None
-        return None, "Infeasible", None
-
-    # Optional fallback: build a greedy plan to avoid hard failure if MILP cannot find a solution in time.
-    fallback_max = _env_int("PCOSINA_FALLBACK_MAX_PER_WEEK", 10)
-    res_plan, selected = _greedy_fallback_plan(
-        pool,
-        meal_to_allowed,
-        slot_labels,
-        num_days,
-        base_scores,
-        fallback_max,
-    )
-    explanation = _build_explanation(
-        selected,
-        num_days,
-        daily_targets,
-        target,
-        target_protein,
-        target_carbs,
-        target_fats,
-        tolerance_levels[-1] if tolerance_levels else 0.4,
-        fallback_max,
-        profile,
-        budget_weekly,
-    )
-    if explanation is not None:
-        explanation["fallbackUsed"] = True
-        explanation["fallbackReason"] = "MILP infeasible or timed out"
-        if relaxed_cooking_time_used:
-            explanation["relaxedCookingTimeUsed"] = True
-            explanation["relaxedCookingTimeTo"] = relaxed_cooking_time_to
-    return res_plan, "Fallback: heuristic plan", explanation
+    if debug_solver:
+        print("MILP_DEBUG", json.dumps(debug_summary))
+        msg = json.dumps(debug_summary)[:1500]
+        return None, f"Infeasible | debug={msg}", None
+    return None, "Infeasible", None

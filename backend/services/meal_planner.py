@@ -694,6 +694,11 @@ def solve_meal_plan(
                 meal_label = slot_labels[s % 3]
                 allowed = meal_to_allowed.get(meal_label, set(range(len(pool))))
                 model.Add(sum(x[s, i] for i in allowed) == 1)
+                # Force non-allowed meal-type assignments to zero. Without this,
+                # disallowed binaries remain free and bloat CP-SAT search.
+                for i in range(len(pool)):
+                    if i not in allowed:
+                        model.Add(x[s, i] == 0)
             # Greedy warm-start (hint)
             prev_idx = None
             for s in range(slot_count):

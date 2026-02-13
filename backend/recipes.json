@@ -74702,5 +74702,1641 @@
       "Add pechay, cook 1 minute, and serve with rice."
     ],
     "minutes": 13
+  },
+  {
+    "id": "ph_qk_025",
+    "name": "Monggo Malunggay Red Rice Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 395,
+      "protein_g": 15,
+      "carbs_g": 63,
+      "fat_g": 8,
+      "fiber_g": 12
+    },
+    "ingredients": [
+      {
+        "name": "monggo cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "malunggay leaves",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "tomato diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "red rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and tomato in oil.",
+      "Add cooked monggo and simmer for 3 minutes.",
+      "Fold in malunggay and serve with red rice."
+    ],
+    "minutes": 18
+  },
+  {
+    "id": "ph_qk_026",
+    "name": "Ginisang Upo at Kamatis with Brown Rice",
+    "mealType": "Lunch",
+    "tags": [
+      "quick",
+      "vegan"
+    ],
+    "nutrition": {
+      "calories": 340,
+      "protein_g": 9,
+      "carbs_g": 55,
+      "fat_g": 8,
+      "fiber_g": 8
+    },
+    "ingredients": [
+      {
+        "name": "upo sliced",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "tomato chopped",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion sliced",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute onion and garlic.",
+      "Add upo and tomato, then cook until tender.",
+      "Serve warm with brown rice."
+    ],
+    "minutes": 16
+  },
+  {
+    "id": "ph_qk_027",
+    "name": "Kangkong Garlic Calamansi Rice",
+    "mealType": "Dinner",
+    "tags": [
+      "quick",
+      "vegan"
+    ],
+    "nutrition": {
+      "calories": 330,
+      "protein_g": 8,
+      "carbs_g": 51,
+      "fat_g": 8,
+      "fiber_g": 7
+    },
+    "ingredients": [
+      {
+        "name": "kangkong chopped",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "3 cloves"
+      },
+      {
+        "name": "calamansi juice",
+        "quantity": "1 tbsp"
+      },
+      {
+        "name": "white rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Cook garlic in oil until fragrant.",
+      "Add kangkong and toss quickly.",
+      "Add calamansi juice and serve with rice."
+    ],
+    "minutes": 14
+  },
+  {
+    "id": "ph_qk_028",
+    "name": "Kalabasa Sitaw Ginger Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 355,
+      "protein_g": 9,
+      "carbs_g": 56,
+      "fat_g": 8,
+      "fiber_g": 10
+    },
+    "ingredients": [
+      {
+        "name": "kalabasa cubed",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "sitaw cut",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "ginger sliced",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "onion sliced",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "red rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute onion and ginger.",
+      "Add kalabasa and sitaw with a splash of water.",
+      "Cook until soft and serve with red rice."
+    ],
+    "minutes": 20
+  },
+  {
+    "id": "ph_qk_029",
+    "name": "Talong Tomato Onion Rice Bowl",
+    "mealType": "Lunch",
+    "tags": [
+      "quick",
+      "vegan"
+    ],
+    "nutrition": {
+      "calories": 320,
+      "protein_g": 7,
+      "carbs_g": 52,
+      "fat_g": 7,
+      "fiber_g": 8
+    },
+    "ingredients": [
+      {
+        "name": "talong cubed",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "tomato chopped",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute onion and garlic.",
+      "Cook talong until tender, then add tomato.",
+      "Serve over warm brown rice."
+    ],
+    "minutes": 18
+  },
+  {
+    "id": "ph_qk_030",
+    "name": "Pinakbet Lite No Bagoong",
+    "mealType": "Dinner",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 345,
+      "protein_g": 9,
+      "carbs_g": 54,
+      "fat_g": 8,
+      "fiber_g": 10
+    },
+    "ingredients": [
+      {
+        "name": "kalabasa cubed",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "okra sliced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "talong sliced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "sitaw cut",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "tomato chopped",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "white rice cooked",
+        "quantity": "3/4 cup"
+      }
+    ],
+    "instructions": [
+      "Combine vegetables in a pan with a little water.",
+      "Simmer until vegetables are cooked but still firm.",
+      "Serve with white rice."
+    ],
+    "minutes": 22
+  },
+  {
+    "id": "ph_qk_031",
+    "name": "Pechay Carrot Ginger Lugaw",
+    "mealType": "Breakfast",
+    "tags": [
+      "quick",
+      "vegan"
+    ],
+    "nutrition": {
+      "calories": 300,
+      "protein_g": 7,
+      "carbs_g": 52,
+      "fat_g": 5,
+      "fiber_g": 6
+    },
+    "ingredients": [
+      {
+        "name": "cooked rice",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "water",
+        "quantity": "1 1/2 cup"
+      },
+      {
+        "name": "pechay chopped",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "carrot diced",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "ginger minced",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "1 clove"
+      }
+    ],
+    "instructions": [
+      "Simmer rice and water until porridge thickens.",
+      "Add ginger, garlic, carrot, and pechay.",
+      "Cook briefly and serve hot."
+    ],
+    "minutes": 20
+  },
+  {
+    "id": "ph_qk_032",
+    "name": "Saba Oats Peanut-Free Porridge",
+    "mealType": "Breakfast",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 315,
+      "protein_g": 8,
+      "carbs_g": 57,
+      "fat_g": 5,
+      "fiber_g": 7
+    },
+    "ingredients": [
+      {
+        "name": "rolled oats",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "saba banana sliced",
+        "quantity": "1 small"
+      },
+      {
+        "name": "water",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "cinnamon powder",
+        "quantity": "pinch"
+      },
+      {
+        "name": "chia seeds",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Cook oats in water until creamy.",
+      "Add saba slices and cinnamon.",
+      "Top with chia before serving."
+    ],
+    "minutes": 12
+  },
+  {
+    "id": "ph_qk_033",
+    "name": "Okra Kamatis Sibuyas Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 325,
+      "protein_g": 8,
+      "carbs_g": 50,
+      "fat_g": 7,
+      "fiber_g": 9
+    },
+    "ingredients": [
+      {
+        "name": "okra sliced",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "tomato chopped",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion sliced",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "red rice cooked",
+        "quantity": "3/4 cup"
+      }
+    ],
+    "instructions": [
+      "Saute onion and garlic.",
+      "Add okra and tomato, cook until tender.",
+      "Serve with red rice."
+    ],
+    "minutes": 15
+  },
+  {
+    "id": "ph_qk_034",
+    "name": "Repolyo Sitaw Garlic Stir Fry",
+    "mealType": "Lunch",
+    "tags": [
+      "quick",
+      "vegan"
+    ],
+    "nutrition": {
+      "calories": 310,
+      "protein_g": 8,
+      "carbs_g": 47,
+      "fat_g": 7,
+      "fiber_g": 8
+    },
+    "ingredients": [
+      {
+        "name": "repolyo shredded",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "sitaw cut",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "white rice cooked",
+        "quantity": "3/4 cup"
+      }
+    ],
+    "instructions": [
+      "Stir fry onion and garlic.",
+      "Add sitaw then repolyo and cook quickly.",
+      "Serve with warm white rice."
+    ],
+    "minutes": 16
+  },
+  {
+    "id": "ph_qk_035",
+    "name": "Adlai Vegetable Bowl with Calamansi",
+    "mealType": "Dinner",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 360,
+      "protein_g": 10,
+      "carbs_g": 58,
+      "fat_g": 7,
+      "fiber_g": 9
+    },
+    "ingredients": [
+      {
+        "name": "adlai cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "pechay chopped",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "carrot sliced",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "calamansi juice",
+        "quantity": "1 tbsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and carrot.",
+      "Add pechay and cooked adlai.",
+      "Finish with calamansi juice."
+    ],
+    "minutes": 17
+  },
+  {
+    "id": "ph_qk_036",
+    "name": "Bangus Flakes Garlic Brown Rice",
+    "mealType": "Breakfast",
+    "tags": [
+      "quick",
+      "pescatarian",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 430,
+      "protein_g": 26,
+      "carbs_g": 50,
+      "fat_g": 13,
+      "fiber_g": 5
+    },
+    "ingredients": [
+      {
+        "name": "bangus flakes cooked",
+        "quantity": "90 g"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "tomato wedges",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Pan heat bangus flakes briefly.",
+      "Saute garlic and combine with rice.",
+      "Serve with bangus and tomatoes."
+    ],
+    "minutes": 15
+  },
+  {
+    "id": "ph_qk_037",
+    "name": "Sardinas Malunggay Rice Bowl",
+    "mealType": "Lunch",
+    "tags": [
+      "quick",
+      "pescatarian",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 420,
+      "protein_g": 24,
+      "carbs_g": 48,
+      "fat_g": 14,
+      "fiber_g": 6
+    },
+    "ingredients": [
+      {
+        "name": "sardines in tomato sauce",
+        "quantity": "1/2 can"
+      },
+      {
+        "name": "malunggay leaves",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "white rice cooked",
+        "quantity": "3/4 cup"
+      }
+    ],
+    "instructions": [
+      "Saute onion and garlic.",
+      "Add sardines and simmer briefly.",
+      "Stir in malunggay and serve with rice."
+    ],
+    "minutes": 14
+  },
+  {
+    "id": "ph_qk_038",
+    "name": "Tilapia Ensaladang Talong Plate",
+    "mealType": "Dinner",
+    "tags": [
+      "quick",
+      "pescatarian",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 445,
+      "protein_g": 29,
+      "carbs_g": 46,
+      "fat_g": 14,
+      "fiber_g": 7
+    },
+    "ingredients": [
+      {
+        "name": "tilapia fillet grilled",
+        "quantity": "110 g"
+      },
+      {
+        "name": "talong roasted",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "tomato diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion sliced",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "3/4 cup"
+      }
+    ],
+    "instructions": [
+      "Grill tilapia until cooked.",
+      "Mix talong, tomato, and onion.",
+      "Serve fish with ensalada and rice."
+    ],
+    "minutes": 24
+  },
+  {
+    "id": "ph_qk_039",
+    "name": "Galunggong Tomato Stew Rice",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "pescatarian",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 435,
+      "protein_g": 27,
+      "carbs_g": 47,
+      "fat_g": 13,
+      "fiber_g": 5
+    },
+    "ingredients": [
+      {
+        "name": "galunggong fried",
+        "quantity": "100 g"
+      },
+      {
+        "name": "tomato chopped",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "white rice cooked",
+        "quantity": "3/4 cup"
+      }
+    ],
+    "instructions": [
+      "Simmer tomato, onion, and garlic.",
+      "Add galunggong and cook for 3 minutes.",
+      "Serve with warm rice."
+    ],
+    "minutes": 18
+  },
+  {
+    "id": "ph_qk_040",
+    "name": "Tuna Sayote Ginger Bowl",
+    "mealType": "Lunch",
+    "tags": [
+      "quick",
+      "pescatarian",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 410,
+      "protein_g": 28,
+      "carbs_g": 43,
+      "fat_g": 12,
+      "fiber_g": 6
+    },
+    "ingredients": [
+      {
+        "name": "tuna flakes in water",
+        "quantity": "1 can drained"
+      },
+      {
+        "name": "sayote julienned",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "ginger minced",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "2/3 cup"
+      }
+    ],
+    "instructions": [
+      "Saute ginger and garlic.",
+      "Add sayote and cook until crisp-tender.",
+      "Add tuna and serve with brown rice."
+    ],
+    "minutes": 16
+  },
+  {
+    "id": "ph_qk_041",
+    "name": "Sinigang na Isda Quick Bowl",
+    "mealType": "Dinner",
+    "tags": [
+      "quick",
+      "pescatarian",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 400,
+      "protein_g": 28,
+      "carbs_g": 41,
+      "fat_g": 11,
+      "fiber_g": 6
+    },
+    "ingredients": [
+      {
+        "name": "fish fillet",
+        "quantity": "110 g"
+      },
+      {
+        "name": "kangkong",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "labanos sliced",
+        "quantity": "1/3 cup"
+      },
+      {
+        "name": "tomato quartered",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "sinigang powder",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "white rice cooked",
+        "quantity": "2/3 cup"
+      }
+    ],
+    "instructions": [
+      "Boil water with tomato and sinigang mix.",
+      "Add fish and vegetables until cooked.",
+      "Serve with rice."
+    ],
+    "minutes": 22
+  },
+  {
+    "id": "ph_qk_042",
+    "name": "Daing na Bangus Kamatis Meal",
+    "mealType": "Breakfast",
+    "tags": [
+      "quick",
+      "pescatarian",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 440,
+      "protein_g": 27,
+      "carbs_g": 49,
+      "fat_g": 13,
+      "fiber_g": 4
+    },
+    "ingredients": [
+      {
+        "name": "daing na bangus",
+        "quantity": "100 g"
+      },
+      {
+        "name": "tomato slices",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion rings",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Pan cook daing na bangus.",
+      "Prepare tomato and onion side.",
+      "Serve together with brown rice."
+    ],
+    "minutes": 15
+  },
+  {
+    "id": "ph_qk_043",
+    "name": "Chicken Tinola Lite",
+    "mealType": "Dinner",
+    "tags": [
+      "quick",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 430,
+      "protein_g": 31,
+      "carbs_g": 40,
+      "fat_g": 12,
+      "fiber_g": 5
+    },
+    "ingredients": [
+      {
+        "name": "chicken breast cubes",
+        "quantity": "120 g"
+      },
+      {
+        "name": "sayote chunks",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "malunggay leaves",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "ginger sliced",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "white rice cooked",
+        "quantity": "2/3 cup"
+      }
+    ],
+    "instructions": [
+      "Simmer chicken with ginger.",
+      "Add sayote and cook until tender.",
+      "Add malunggay and serve with rice."
+    ],
+    "minutes": 26
+  },
+  {
+    "id": "ph_qk_044",
+    "name": "Chicken Afritada Lite Bowl",
+    "mealType": "Lunch",
+    "tags": [
+      "quick",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 455,
+      "protein_g": 30,
+      "carbs_g": 45,
+      "fat_g": 14,
+      "fiber_g": 6
+    },
+    "ingredients": [
+      {
+        "name": "chicken breast cubes",
+        "quantity": "120 g"
+      },
+      {
+        "name": "potato cubes",
+        "quantity": "1/3 cup"
+      },
+      {
+        "name": "carrot cubes",
+        "quantity": "1/3 cup"
+      },
+      {
+        "name": "tomato sauce",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "2/3 cup"
+      }
+    ],
+    "instructions": [
+      "Cook chicken until lightly browned.",
+      "Add vegetables and tomato sauce.",
+      "Simmer and serve with brown rice."
+    ],
+    "minutes": 28
+  },
+  {
+    "id": "ph_qk_045",
+    "name": "Chicken Adobo Garlic Rice",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 450,
+      "protein_g": 32,
+      "carbs_g": 44,
+      "fat_g": 13,
+      "fiber_g": 4
+    },
+    "ingredients": [
+      {
+        "name": "chicken breast strips",
+        "quantity": "120 g"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "3 cloves"
+      },
+      {
+        "name": "vinegar",
+        "quantity": "1 tbsp"
+      },
+      {
+        "name": "laurel leaf",
+        "quantity": "1 piece"
+      },
+      {
+        "name": "white rice cooked",
+        "quantity": "2/3 cup"
+      }
+    ],
+    "instructions": [
+      "Cook chicken with garlic until sealed.",
+      "Add vinegar and laurel, then simmer briefly.",
+      "Serve with garlic rice."
+    ],
+    "minutes": 22
+  },
+  {
+    "id": "ph_qk_046",
+    "name": "Chicken Sayote Ginger Rice",
+    "mealType": "Lunch",
+    "tags": [
+      "quick",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 425,
+      "protein_g": 30,
+      "carbs_g": 42,
+      "fat_g": 11,
+      "fiber_g": 5
+    },
+    "ingredients": [
+      {
+        "name": "chicken breast diced",
+        "quantity": "110 g"
+      },
+      {
+        "name": "sayote sliced",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "ginger minced",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "2/3 cup"
+      }
+    ],
+    "instructions": [
+      "Saute ginger and onion.",
+      "Cook chicken, then add sayote.",
+      "Serve with brown rice."
+    ],
+    "minutes": 20
+  },
+  {
+    "id": "ph_qk_047",
+    "name": "Chicken Kangkong Stir Fry Bowl",
+    "mealType": "Dinner",
+    "tags": [
+      "quick",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 420,
+      "protein_g": 31,
+      "carbs_g": 40,
+      "fat_g": 11,
+      "fiber_g": 5
+    },
+    "ingredients": [
+      {
+        "name": "chicken breast strips",
+        "quantity": "110 g"
+      },
+      {
+        "name": "kangkong chopped",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "tomato chopped",
+        "quantity": "1/3 cup"
+      },
+      {
+        "name": "white rice cooked",
+        "quantity": "2/3 cup"
+      }
+    ],
+    "instructions": [
+      "Cook chicken with garlic.",
+      "Add kangkong and tomato quickly.",
+      "Serve over warm rice."
+    ],
+    "minutes": 18
+  },
+  {
+    "id": "ph_qk_048",
+    "name": "Chicken Monggo Malunggay Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_protein",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 460,
+      "protein_g": 34,
+      "carbs_g": 47,
+      "fat_g": 11,
+      "fiber_g": 9
+    },
+    "ingredients": [
+      {
+        "name": "chicken breast shredded",
+        "quantity": "100 g"
+      },
+      {
+        "name": "monggo cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "malunggay leaves",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "red rice cooked",
+        "quantity": "2/3 cup"
+      }
+    ],
+    "instructions": [
+      "Saute onion, then add chicken and monggo.",
+      "Pour a little water and simmer.",
+      "Add malunggay and serve with rice."
+    ],
+    "minutes": 24
+  },
+  {
+    "id": "ph_qk_049",
+    "name": "Chicken Repolyo Carrot Rice",
+    "mealType": "Lunch",
+    "tags": [
+      "quick",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 435,
+      "protein_g": 30,
+      "carbs_g": 43,
+      "fat_g": 11,
+      "fiber_g": 6
+    },
+    "ingredients": [
+      {
+        "name": "chicken breast strips",
+        "quantity": "110 g"
+      },
+      {
+        "name": "repolyo shredded",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "carrot julienned",
+        "quantity": "1/3 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "2/3 cup"
+      }
+    ],
+    "instructions": [
+      "Cook chicken with garlic.",
+      "Add repolyo and carrot and stir fry.",
+      "Serve with brown rice."
+    ],
+    "minutes": 19
+  },
+  {
+    "id": "ph_qk_050",
+    "name": "Chicken Kalabasa Sitaw Plate",
+    "mealType": "Dinner",
+    "tags": [
+      "quick",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 445,
+      "protein_g": 31,
+      "carbs_g": 44,
+      "fat_g": 11,
+      "fiber_g": 7
+    },
+    "ingredients": [
+      {
+        "name": "chicken breast cubes",
+        "quantity": "110 g"
+      },
+      {
+        "name": "kalabasa cubed",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "sitaw cut",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "ginger minced",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "white rice cooked",
+        "quantity": "2/3 cup"
+      }
+    ],
+    "instructions": [
+      "Cook chicken with ginger.",
+      "Add kalabasa and sitaw until tender.",
+      "Serve with white rice."
+    ],
+    "minutes": 23
+  },
+  {
+    "id": "ph_qk_051",
+    "name": "Egg Tomato Sibuyas Rice Bowl",
+    "mealType": "Breakfast",
+    "tags": [
+      "quick",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 380,
+      "protein_g": 18,
+      "carbs_g": 45,
+      "fat_g": 13,
+      "fiber_g": 4
+    },
+    "ingredients": [
+      {
+        "name": "egg",
+        "quantity": "2 pieces"
+      },
+      {
+        "name": "tomato diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "1 clove"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "2/3 cup"
+      }
+    ],
+    "instructions": [
+      "Saute onion, garlic, and tomato.",
+      "Scramble eggs until set.",
+      "Serve with brown rice."
+    ],
+    "minutes": 12
+  },
+  {
+    "id": "ph_qk_052",
+    "name": "Tortang Talong Lite with Rice",
+    "mealType": "Breakfast",
+    "tags": [
+      "quick",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 390,
+      "protein_g": 17,
+      "carbs_g": 46,
+      "fat_g": 14,
+      "fiber_g": 6
+    },
+    "ingredients": [
+      {
+        "name": "talong roasted",
+        "quantity": "1 medium"
+      },
+      {
+        "name": "egg",
+        "quantity": "2 pieces"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "2 tbsp"
+      },
+      {
+        "name": "tomato chopped",
+        "quantity": "1/3 cup"
+      },
+      {
+        "name": "white rice cooked",
+        "quantity": "2/3 cup"
+      }
+    ],
+    "instructions": [
+      "Peel and mash roasted talong.",
+      "Mix with egg and onion, then pan cook.",
+      "Serve with tomato and rice."
+    ],
+    "minutes": 18
+  },
+  {
+    "id": "ph_qk_053",
+    "name": "Sardines Omelet Meal",
+    "mealType": "Breakfast",
+    "tags": [
+      "quick",
+      "pescatarian",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 410,
+      "protein_g": 24,
+      "carbs_g": 39,
+      "fat_g": 15,
+      "fiber_g": 4
+    },
+    "ingredients": [
+      {
+        "name": "egg",
+        "quantity": "2 pieces"
+      },
+      {
+        "name": "sardines in tomato sauce",
+        "quantity": "1/3 can"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "2 tbsp"
+      },
+      {
+        "name": "tomato chopped",
+        "quantity": "1/3 cup"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "1/2 cup"
+      }
+    ],
+    "instructions": [
+      "Beat eggs and fold in sardines.",
+      "Cook omelet with onion and tomato.",
+      "Serve with brown rice."
+    ],
+    "minutes": 14
+  },
+  {
+    "id": "ph_qk_054",
+    "name": "Chicken Arroz Caldo Lite",
+    "mealType": "Breakfast",
+    "tags": [
+      "quick",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 400,
+      "protein_g": 25,
+      "carbs_g": 47,
+      "fat_g": 9,
+      "fiber_g": 3
+    },
+    "ingredients": [
+      {
+        "name": "chicken breast shredded",
+        "quantity": "90 g"
+      },
+      {
+        "name": "cooked rice",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "ginger minced",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "1/4 cup"
+      }
+    ],
+    "instructions": [
+      "Simmer rice with water to make porridge.",
+      "Add ginger, garlic, onion, and chicken.",
+      "Cook until thick and serve hot."
+    ],
+    "minutes": 23
+  },
+  {
+    "id": "ph_qk_055",
+    "name": "Bangus Ampalaya Kamatis Bowl",
+    "mealType": "Dinner",
+    "tags": [
+      "quick",
+      "pescatarian",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 430,
+      "protein_g": 28,
+      "carbs_g": 43,
+      "fat_g": 13,
+      "fiber_g": 6
+    },
+    "ingredients": [
+      {
+        "name": "bangus fillet",
+        "quantity": "110 g"
+      },
+      {
+        "name": "ampalaya sliced",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "tomato chopped",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion sliced",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "red rice cooked",
+        "quantity": "2/3 cup"
+      }
+    ],
+    "instructions": [
+      "Pan cook bangus until done.",
+      "Saute ampalaya, onion, and tomato.",
+      "Serve together with red rice."
+    ],
+    "minutes": 22
+  },
+  {
+    "id": "ph_qk_056",
+    "name": "Tilapia Kangkong Ginger Soup",
+    "mealType": "Lunch",
+    "tags": [
+      "quick",
+      "pescatarian",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 405,
+      "protein_g": 29,
+      "carbs_g": 40,
+      "fat_g": 11,
+      "fiber_g": 5
+    },
+    "ingredients": [
+      {
+        "name": "tilapia fillet",
+        "quantity": "110 g"
+      },
+      {
+        "name": "kangkong",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "ginger sliced",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "tomato quartered",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "white rice cooked",
+        "quantity": "2/3 cup"
+      }
+    ],
+    "instructions": [
+      "Boil ginger and tomato in water.",
+      "Add tilapia and cook until done.",
+      "Add kangkong and serve with rice."
+    ],
+    "minutes": 20
+  },
+  {
+    "id": "ph_qk_057",
+    "name": "Chicken Pechay Tomato Rice",
+    "mealType": "Dinner",
+    "tags": [
+      "quick",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 430,
+      "protein_g": 30,
+      "carbs_g": 41,
+      "fat_g": 11,
+      "fiber_g": 5
+    },
+    "ingredients": [
+      {
+        "name": "chicken breast strips",
+        "quantity": "110 g"
+      },
+      {
+        "name": "pechay chopped",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "tomato chopped",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "2/3 cup"
+      }
+    ],
+    "instructions": [
+      "Cook chicken with garlic.",
+      "Add pechay and tomato until wilted.",
+      "Serve with brown rice."
+    ],
+    "minutes": 17
+  },
+  {
+    "id": "ph_qk_058",
+    "name": "No Soy Veggie Fried Rice",
+    "mealType": "Breakfast",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 340,
+      "protein_g": 9,
+      "carbs_g": 54,
+      "fat_g": 8,
+      "fiber_g": 7
+    },
+    "ingredients": [
+      {
+        "name": "brown rice cooked",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "carrot diced",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "repolyo shredded",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "peas",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "calamansi juice",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and vegetables.",
+      "Add rice and toss until hot.",
+      "Finish with calamansi juice."
+    ],
+    "minutes": 15
+  },
+  {
+    "id": "ph_qk_059",
+    "name": "Ginisang Kamote Tops with Rice",
+    "mealType": "Lunch",
+    "tags": [
+      "quick",
+      "vegan",
+      "high_fiber"
+    ],
+    "nutrition": {
+      "calories": 315,
+      "protein_g": 8,
+      "carbs_g": 49,
+      "fat_g": 7,
+      "fiber_g": 8
+    },
+    "ingredients": [
+      {
+        "name": "kamote tops",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "tomato chopped",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "1/4 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "white rice cooked",
+        "quantity": "3/4 cup"
+      }
+    ],
+    "instructions": [
+      "Saute onion and garlic.",
+      "Add kamote tops and tomato.",
+      "Cook briefly and serve with rice."
+    ],
+    "minutes": 14
+  },
+  {
+    "id": "ph_qk_060",
+    "name": "Paksiw na Isda Quick Meal",
+    "mealType": "Dinner",
+    "tags": [
+      "quick",
+      "pescatarian",
+      "high_protein"
+    ],
+    "nutrition": {
+      "calories": 405,
+      "protein_g": 30,
+      "carbs_g": 38,
+      "fat_g": 10,
+      "fiber_g": 4
+    },
+    "ingredients": [
+      {
+        "name": "fish slices",
+        "quantity": "110 g"
+      },
+      {
+        "name": "vinegar",
+        "quantity": "1 tbsp"
+      },
+      {
+        "name": "ginger sliced",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "eggplant sliced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "white rice cooked",
+        "quantity": "2/3 cup"
+      }
+    ],
+    "instructions": [
+      "Simmer fish with vinegar and ginger.",
+      "Add eggplant until tender.",
+      "Serve with warm rice."
+    ],
+    "minutes": 24
   }
 ]

@@ -10,7 +10,10 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.pcosina.app.data.model.Session
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.FirebaseNetworkException
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -96,7 +99,18 @@ class AuthRepository(private val context: Context) {
             syncSessionFromFirebase()
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            val mapped = when (e) {
+                is FirebaseAuthInvalidCredentialsException ->
+                    IllegalStateException(
+                        "Google credential rejected. Check Firebase SHA fingerprints and OAuth client setup."
+                    )
+                is FirebaseAuthInvalidUserException ->
+                    IllegalStateException("Google account is not available for sign-in.")
+                is FirebaseNetworkException ->
+                    IllegalStateException("Network error during Google sign-in. Please try again.")
+                else -> e
+            }
+            Result.failure(mapped)
         }
     }
 

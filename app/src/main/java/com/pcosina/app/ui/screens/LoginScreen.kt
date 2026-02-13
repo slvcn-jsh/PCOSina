@@ -15,13 +15,19 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import android.util.Log
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.analytics.FirebaseAnalytics
+import com.pcosina.app.BuildConfig
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.LoginState
 import com.pcosina.app.R
+import com.pcosina.app.ui.theme.UiMotionTokens
+import com.pcosina.app.ui.util.sampleFrameTiming
+import java.util.Locale
 
 @Composable
 fun LoginScreen(
@@ -52,8 +58,18 @@ fun LoginScreen(
             val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
             val account = task.getResult(ApiException::class.java)
             authViewModel.onGoogleLogin(account.idToken)
-        } catch (_: Exception) {
-            authViewModel.onGoogleLogin(null)
+        } catch (e: ApiException) {
+            val message = when (e.statusCode) {
+                GoogleSignInStatusCodes.SIGN_IN_CANCELLED -> "Google sign-in cancelled."
+                GoogleSignInStatusCodes.NETWORK_ERROR -> "Network issue during Google sign-in. Please try again."
+                GoogleSignInStatusCodes.DEVELOPER_ERROR ->
+                    "Google sign-in configuration error (DEVELOPER_ERROR). Contact support."
+                GoogleSignInStatusCodes.SIGN_IN_FAILED -> "Google sign-in failed. Please try again."
+                else -> "Google sign-in failed (code ${e.statusCode})."
+            }
+            authViewModel.onGoogleLoginFailure(message)
+        } catch (e: Exception) {
+            authViewModel.onGoogleLoginFailure("Google sign-in failed. ${e.message ?: ""}".trim())
         }
     }
 
@@ -61,6 +77,21 @@ fun LoginScreen(
         if (loginState is LoginState.Success) {
             analytics.logEvent("login_success", null)
             onLoginSuccess()
+        }
+    }
+    LaunchedEffect(Unit) {
+        if (BuildConfig.DEBUG) {
+            val stats = sampleFrameTiming(
+                windowMs = UiMotionTokens.MotionFrameProbeWindowMs,
+                jankThresholdMs = UiMotionTokens.FrameJankThresholdMs
+            )
+            Log.i(
+                "LoginMotion",
+                "frames=${stats.frames} avg=${"%.1f".format(Locale.ENGLISH, stats.avgFrameMs)}ms " +
+                    "p95=${"%.1f".format(Locale.ENGLISH, stats.p95FrameMs)}ms " +
+                    "max=${"%.1f".format(Locale.ENGLISH, stats.worstFrameMs)}ms " +
+                    "jank=${stats.jankFrames}/${stats.frames}"
+            )
         }
     }
 

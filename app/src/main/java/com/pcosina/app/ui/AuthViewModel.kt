@@ -147,7 +147,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
 
     fun onGoogleLogin(idToken: String?) {
         if (idToken.isNullOrBlank()) {
-            _loginState.value = LoginState.Error("Google sign-in failed. Try again.")
+            _loginState.value = LoginState.Error("Google sign-in failed: missing ID token.")
             return
         }
         viewModelScope.launch {
@@ -159,6 +159,10 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
                 _loginState.value = LoginState.Error(result.exceptionOrNull()?.message ?: "Google sign-in failed")
             }
         }
+    }
+
+    fun onGoogleLoginFailure(message: String) {
+        _loginState.value = LoginState.Error(message.ifBlank { "Google sign-in failed. Try again." })
     }
 
     fun onLogout() {

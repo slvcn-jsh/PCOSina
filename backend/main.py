@@ -317,6 +317,23 @@ async def generate_plan(
             )
             _cache_set(key, response)
             return response
+        profile = request.profile
+        print(
+            "PLAN_INFEASIBLE",
+            json.dumps(
+                {
+                    "message": msg,
+                    "days": int(request.days or 7),
+                    "mealsPerDay": int(request.mealsPerDay or 3),
+                    "restrictionCount": len(profile.dietaryRestrictions or []),
+                    "allergyCount": len(profile.allergies or []),
+                    "maxCookingTimeMinutes": profile.maxCookingTimeMinutes,
+                    "weeklyBudgetPhp": profile.weeklyBudgetPhp,
+                    "planningPriority": profile.planningPriority,
+                    "varietyPreference": profile.varietyPreference,
+                }
+            ),
+        )
         raise HTTPException(status_code=422, detail=f"Infeasible: {msg}")
     except HTTPException:
         raise

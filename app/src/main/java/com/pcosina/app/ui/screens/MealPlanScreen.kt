@@ -17,13 +17,13 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,9 +39,22 @@ import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.components.GuidedJourneyCard
+import com.pcosina.app.ui.components.AppFeedbackBanner
+import com.pcosina.app.ui.components.FeedbackActionState
+import com.pcosina.app.ui.components.FeedbackBannerData
+import com.pcosina.app.ui.components.FeedbackBannerTone
+import com.pcosina.app.ui.components.LoadingActionButton
+import com.pcosina.app.ui.components.StatusCenterCard
+import com.pcosina.app.ui.components.SyncStatusChip
+import com.pcosina.app.ui.components.TokenizedFilterChip
+import com.pcosina.app.notifications.NotificationScheduler
+import com.pcosina.app.ui.theme.UiChipTokens
+import com.pcosina.app.ui.theme.UiSpacingTokens
 import com.pcosina.app.ui.util.buildMealReasons
 import com.pcosina.app.ui.util.GuidedJourneyInput
+import com.pcosina.app.ui.util.primaryGoalLabel
 import com.pcosina.app.ui.util.resolveGuidedJourneyStep
+import com.pcosina.app.ui.util.supportsLowGiGuidance
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.pcosina.app.data.api.RecipeSummaryDto
 import kotlinx.coroutines.launch
@@ -60,6 +73,17 @@ private data class SwapTarget(
     val mealTitle: String
 )
 
+private enum class MealPlanBannerAction {
+    None,
+    RetryGenerate,
+    RetrySync
+}
+
+private data class MealPlanBannerState(
+    val data: FeedbackBannerData,
+    val action: MealPlanBannerAction = MealPlanBannerAction.None
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MealPlanScreen(
@@ -67,7 +91,7 @@ fun MealPlanScreen(
     mealPlanViewModel: MealPlanViewModel,
     groceryViewModel: GroceryViewModel,
     progressViewModel: ProgressViewModel,
-    onRecipeClick: (String) -> Unit,
+    onRecipeClick: (String, String?) -> Unit,
     onViewProgress: () -> Unit = {},
     onNavigateToRoute: (String) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -80,8 +104,10 @@ fun MealPlanScreen(
     val lastReviewedWeek by mealPlanViewModel.lastReviewedWeek.collectAsState()
     val currentPlan = (uiState as? MealPlanUiState.Success)?.response
     val userProfile by userViewModel.userProfile.collectAsState()
+    val notificationPrefs by userViewModel.notificationPreferences.collectAsState()
     val groceryItems by groceryViewModel.groceryItems.collectAsState()
     val logs by progressViewModel.dailyLogs.collectAsState()
+    val feedbackQueue by progressViewModel.feedbackQueue.collectAsState()
     var selectedDayIndex by rememberSaveable { mutableStateOf(0) }
     val context = LocalContext.current
     val analytics = FirebaseAnalytics.getInstance(context)
@@ -90,6 +116,9 @@ fun MealPlanScreen(
         isOnline.value = isNetworkAvailable(context)
     }
     val colorScheme = MaterialTheme.colorScheme
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    val weekChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 108.dp, medium = 164.dp)
+    val dayChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 102.dp, medium = 152.dp)
     val weekStartDate = remember(activeWeekStart) {
         val base = activeWeekStart?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
             ?: LocalDate.now()
@@ -97,6 +126,7 @@ fun MealPlanScreen(
         base.with(TemporalAdjusters.previousOrSame(firstDay))
     }
     val dayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+    var selectedDayAnchor by rememberSaveable { mutableStateOf<String?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -104,8 +134,11 @@ fun MealPlanScreen(
     var showLowGiInfo by rememberSaveable { mutableStateOf(false) }
     
     // Track if we are currently extracting ingredients
-    var isSyncingGroceries by remember { mutableStateOf(false) }
-    var syncSuccess by remember { mutableStateOf(false) }
+    var syncState by remember { mutableStateOf(FeedbackActionState.Idle) }
+    var generateActionState by remember { mutableStateOf(FeedbackActionState.Idle) }
+    var lastSyncStatus by remember { mutableStateOf("No sync yet") }
+    var pendingPlanReadyNotification by rememberSaveable { mutableStateOf(false) }
+    var feedbackBanner by remember { mutableStateOf<MealPlanBannerState?>(null) }
     var swapTarget by remember { mutableStateOf<SwapTarget?>(null) }
     var swapOptions by remember { mutableStateOf<List<RecipeSummaryDto>>(emptyList()) }
     var swapQuery by remember { mutableStateOf("") }
@@ -135,17 +168,188 @@ fun MealPlanScreen(
         )
     )
 
-    LaunchedEffect(syncSuccess) {
-        if (syncSuccess) {
-            kotlinx.coroutines.delay(2000)
-            syncSuccess = false
+    fun triggerPlanGeneration() {
+        isOnline.value = isNetworkAvailable(context)
+        if (!isOnline.value) {
+            generateActionState = FeedbackActionState.Error
+            feedbackBanner = MealPlanBannerState(
+                data = FeedbackBannerData(
+                    tone = FeedbackBannerTone.Error,
+                    message = "Failed—tap retry after reconnecting.",
+                    actionLabel = "Retry"
+                ),
+                action = MealPlanBannerAction.RetryGenerate
+            )
+            mealPlanViewModel.showError("Offline. Connect to the internet to generate a new plan.")
+            scope.launch {
+                kotlinx.coroutines.delay(1200)
+                if (generateActionState == FeedbackActionState.Error) {
+                    generateActionState = FeedbackActionState.Idle
+                }
+            }
+            return
+        }
+        analytics.logEvent("generate_plan", null)
+        feedbackBanner = MealPlanBannerState(
+            data = FeedbackBannerData(
+                tone = FeedbackBannerTone.Loading,
+                message = "Generating your weekly plan…"
+            )
+        )
+        mealPlanViewModel.generateMealPlan(userProfile)
+    }
+
+    fun triggerGrocerySync() {
+        isOnline.value = isNetworkAvailable(context)
+        if (!isOnline.value) {
+            syncState = FeedbackActionState.Error
+            lastSyncStatus = "Failed (offline)"
+            feedbackBanner = MealPlanBannerState(
+                data = FeedbackBannerData(
+                    tone = FeedbackBannerTone.Error,
+                    message = "Sync failed—tap retry when you're online.",
+                    actionLabel = "Retry"
+                ),
+                action = MealPlanBannerAction.RetrySync
+            )
+            scope.launch {
+                val userId = userViewModel.activeUserId
+                if (userId.isNotBlank()) {
+                    NotificationScheduler.notifyGrocerySyncResult(context, userId, success = false)
+                }
+            }
+            return
+        }
+        analytics.logEvent("sync_groceries", null)
+        syncState = FeedbackActionState.Loading
+        lastSyncStatus = "Syncing…"
+        feedbackBanner = MealPlanBannerState(
+            data = FeedbackBannerData(
+                tone = FeedbackBannerTone.Loading,
+                message = "Syncing groceries…"
+            )
+        )
+        mealPlanViewModel.extractGrocerySourcesForPlan { sources ->
+            if (sources.isEmpty()) {
+                syncState = FeedbackActionState.Error
+                lastSyncStatus = "Failed (no items)"
+                feedbackBanner = MealPlanBannerState(
+                    data = FeedbackBannerData(
+                        tone = FeedbackBannerTone.Error,
+                        message = "Failed—tap retry after regenerating your plan.",
+                        actionLabel = "Retry"
+                    ),
+                    action = MealPlanBannerAction.RetrySync
+                )
+                scope.launch {
+                    val userId = userViewModel.activeUserId
+                    if (userId.isNotBlank()) {
+                        NotificationScheduler.notifyGrocerySyncResult(context, userId, success = false)
+                    }
+                }
+                return@extractGrocerySourcesForPlan
+            }
+            groceryViewModel.setPlanSources(sources)
+            syncState = FeedbackActionState.Success
+            lastSyncStatus = "Synced successfully"
+            feedbackBanner = MealPlanBannerState(
+                data = FeedbackBannerData(
+                    tone = FeedbackBannerTone.Success,
+                    message = "Synced to Grocery List."
+                )
+            )
+            scope.launch {
+                val userId = userViewModel.activeUserId
+                if (userId.isNotBlank()) {
+                    NotificationScheduler.notifyGrocerySyncResult(context, userId, success = true)
+                }
+            }
+        }
+    }
+
+    val onFeedbackAction: (() -> Unit)? = when (feedbackBanner?.action) {
+        MealPlanBannerAction.RetryGenerate -> ({ triggerPlanGeneration() })
+        MealPlanBannerAction.RetrySync -> ({ triggerGrocerySync() })
+        else -> null
+    }
+
+    LaunchedEffect(syncState) {
+        if (syncState == FeedbackActionState.Success || syncState == FeedbackActionState.Error) {
+            kotlinx.coroutines.delay(1800)
+            syncState = FeedbackActionState.Idle
+        }
+    }
+    LaunchedEffect(uiState) {
+        when (uiState) {
+            is MealPlanUiState.Loading -> {
+                generateActionState = FeedbackActionState.Loading
+                pendingPlanReadyNotification = true
+                feedbackBanner = MealPlanBannerState(
+                    data = FeedbackBannerData(
+                        tone = FeedbackBannerTone.Loading,
+                        message = "Generating your weekly plan…"
+                    )
+                )
+            }
+            is MealPlanUiState.Success -> {
+                if (generateActionState == FeedbackActionState.Loading) {
+                    generateActionState = FeedbackActionState.Success
+                    feedbackBanner = MealPlanBannerState(
+                        data = FeedbackBannerData(
+                            tone = FeedbackBannerTone.Success,
+                            message = "Plan ready. Review your week and continue."
+                        )
+                    )
+                    kotlinx.coroutines.delay(1600)
+                    generateActionState = FeedbackActionState.Idle
+                }
+                if (pendingPlanReadyNotification) {
+                    val userId = userViewModel.activeUserId
+                    if (userId.isNotBlank()) {
+                        NotificationScheduler.notifyPlanReady(context, userId)
+                    }
+                    pendingPlanReadyNotification = false
+                }
+            }
+            is MealPlanUiState.Error -> {
+                pendingPlanReadyNotification = false
+                if (generateActionState == FeedbackActionState.Loading) {
+                    generateActionState = FeedbackActionState.Error
+                    feedbackBanner = MealPlanBannerState(
+                        data = FeedbackBannerData(
+                            tone = FeedbackBannerTone.Error,
+                            message = "Plan generation failed—tap retry.",
+                            actionLabel = "Retry"
+                        ),
+                        action = MealPlanBannerAction.RetryGenerate
+                    )
+                    kotlinx.coroutines.delay(1800)
+                    generateActionState = FeedbackActionState.Idle
+                }
+            }
+            else -> Unit
         }
     }
     LaunchedEffect(activePlanId) {
         activePlanId?.let { mealPlanViewModel.markWeekReviewed(it) }
     }
-    LaunchedEffect(activePlanId) {
-        selectedDayIndex = 0
+    LaunchedEffect(activePlanId, currentPlan?.weekLabel) {
+        val anchor = activePlanId ?: currentPlan?.weekLabel
+        if (anchor != null && anchor != selectedDayAnchor) {
+            selectedDayIndex = when (LocalDate.now().dayOfWeek) {
+                DayOfWeek.MONDAY -> 0
+                DayOfWeek.TUESDAY -> 1
+                DayOfWeek.WEDNESDAY -> 2
+                DayOfWeek.THURSDAY -> 3
+                DayOfWeek.FRIDAY -> 4
+                DayOfWeek.SATURDAY -> 5
+                DayOfWeek.SUNDAY -> 6
+            }
+            selectedDayAnchor = anchor
+        } else if (anchor == null && selectedDayAnchor != null) {
+            selectedDayIndex = 0
+            selectedDayAnchor = null
+        }
     }
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -154,38 +358,66 @@ fun MealPlanScreen(
         when (val state = uiState) {
             is MealPlanUiState.Idle -> {
                 Box(modifier = Modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding().padding(padding), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         GuidedJourneyCard(
                             step = guidedStep,
                             onContinue = { step -> onNavigateToRoute(step.route) },
                             modifier = Modifier.fillMaxWidth()
                         )
+                        feedbackBanner?.let { banner ->
+                            Spacer(Modifier.height(12.dp))
+                            AppFeedbackBanner(
+                                data = banner.data,
+                                onAction = onFeedbackAction,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                         Spacer(Modifier.height(16.dp))
+                        Card(
+                            shape = MaterialTheme.shapes.extraLarge,
+                            colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "Generate your first optimized week",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    text = "This creates your plan in about 30 seconds and unlocks the next steps.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
                         if (!isOnline.value) {
                             Text(
                                 text = "Offline. Connect to the internet to generate your first plan.",
                                 color = colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 12.dp)
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(bottom = 8.dp)
                             )
                         }
-                        Button(
-                            onClick = {
-                                isOnline.value = isNetworkAvailable(context)
-                                if (!isOnline.value) {
-                                    mealPlanViewModel.showError("Offline. Connect to the internet to generate a new plan.")
-                                    return@Button
-                                }
-                                analytics.logEvent("generate_plan", null)
-                                mealPlanViewModel.generateMealPlan(userProfile)
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
-                            shape = MaterialTheme.shapes.medium,
-                            modifier = Modifier.height(56.dp).padding(horizontal = 32.dp)
-                        ) {
-                            Text(
-                                if (isOnline.value) "Generate My Optimized Plan" else "Generate (Internet required)",
-                                fontWeight = FontWeight.Bold
-                            )
+                        LoadingActionButton(
+                            state = generateActionState,
+                            idleLabel = "Generate My Optimized Plan",
+                            loadingLabel = "Generating plan…",
+                            successLabel = "Plan Ready",
+                            errorLabel = "Retry Generation",
+                            onClick = { triggerPlanGeneration() },
+                            enabled = isOnline.value,
+                            modifier = Modifier.fillMaxWidth().height(52.dp)
+                        )
+                        TextButton(onClick = { isOnline.value = isNetworkAvailable(context) }) {
+                            Text(if (isOnline.value) "You’re online" else "Check connection")
                         }
                         if (planHistory.isNotEmpty()) {
                             Spacer(Modifier.height(16.dp))
@@ -196,10 +428,11 @@ fun MealPlanScreen(
                             )
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(planHistory.sortedByDescending { it.weekStart }) { instance ->
-                                    FilterChip(
+                                    TokenizedFilterChip(
                                         selected = false,
                                         onClick = { mealPlanViewModel.selectPlan(instance.id) },
-                                        label = { Text(instance.response.weekLabel) }
+                                        text = instance.response.weekLabel,
+                                        labelMaxWidth = weekChipLabelWidth
                                     )
                                 }
                             }
@@ -209,10 +442,17 @@ fun MealPlanScreen(
             }
             is MealPlanUiState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding().padding(padding), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         CircularProgressIndicator(color = colorScheme.primary)
                         Spacer(Modifier.height(16.dp))
-                        Text("MILP Engine is optimizing...", color = colorScheme.secondary)
+                        Text(
+                            "MILP Engine is optimizing…",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = colorScheme.secondary
+                        )
                         Spacer(Modifier.height(8.dp))
                         Text(
                             text = "First run can take up to ~30s. Please keep the app open.",
@@ -224,14 +464,46 @@ fun MealPlanScreen(
             }
             is MealPlanUiState.Error -> {
                 Box(modifier = Modifier.fillMaxSize().statusBarsPadding().padding(padding), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         GuidedJourneyCard(
                             step = guidedStep,
                             onContinue = { step -> onNavigateToRoute(step.route) },
                             modifier = Modifier.fillMaxWidth()
                         )
+                        feedbackBanner?.let { banner ->
+                            Spacer(Modifier.height(12.dp))
+                            AppFeedbackBanner(
+                                data = banner.data,
+                                onAction = onFeedbackAction,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                         Spacer(Modifier.height(16.dp))
-                        Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
+                        Card(
+                            shape = MaterialTheme.shapes.extraLarge,
+                            colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "We couldn’t generate your plan",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = state.message,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                         if (!isOnline.value) {
                             Text(
                                 text = "You are offline. Saved plans will still be available.",
@@ -239,14 +511,20 @@ fun MealPlanScreen(
                                 modifier = Modifier.padding(top = 6.dp)
                             )
                         }
-                        Button(onClick = {
-                            isOnline.value = isNetworkAvailable(context)
-                            if (!isOnline.value) {
-                                mealPlanViewModel.showError("Offline. Connect to the internet to generate a new plan.")
-                                return@Button
-                            }
-                            mealPlanViewModel.generateMealPlan(userProfile)
-                        }) { Text("Retry") }
+                        Spacer(Modifier.height(8.dp))
+                        LoadingActionButton(
+                            state = generateActionState,
+                            idleLabel = "Retry",
+                            loadingLabel = "Retrying…",
+                            successLabel = "Recovered",
+                            errorLabel = "Retry failed",
+                            onClick = { triggerPlanGeneration() },
+                            enabled = isOnline.value,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        TextButton(onClick = { isOnline.value = isNetworkAvailable(context) }) {
+                            Text(if (isOnline.value) "You’re online" else "Check connection")
+                        }
                     }
                 }
             }
@@ -273,13 +551,34 @@ fun MealPlanScreen(
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding().padding(padding),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = UiSpacingTokens.SectionGap),
+                    verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap),
                 ) {
                 item {
                     GuidedJourneyCard(
                         step = guidedStep,
                         onContinue = { step -> onNavigateToRoute(step.route) }
+                    )
+                }
+                item {
+                    feedbackBanner?.let { banner ->
+                        AppFeedbackBanner(
+                            data = banner.data,
+                            onAction = onFeedbackAction,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+                item {
+                    val queuedCount = feedbackQueue.count { it.status != "Sent" }
+                    val nextReminder = "Next reminders: B ${formatClock(notificationPrefs.breakfastHour, notificationPrefs.breakfastMinute)} • " +
+                        "L ${formatClock(notificationPrefs.lunchHour, notificationPrefs.lunchMinute)} • " +
+                        "D ${formatClock(notificationPrefs.dinnerHour, notificationPrefs.dinnerMinute)}"
+                    StatusCenterCard(
+                        queuedActionsLabel = "Queued actions: $queuedCount",
+                        syncLabel = "Last sync: $lastSyncStatus",
+                        planRangeLabel = "Plan range: ${plan.weekLabel}",
+                        nextReminderLabel = nextReminder
                     )
                 }
                 item {
@@ -302,6 +601,27 @@ fun MealPlanScreen(
                             subtitle = "Target: ${userViewModel.dailyCalorieTarget} kcal/day",
                             containerHeight = 180
                         )
+                        Spacer(Modifier.height(10.dp))
+                        Card(
+                            shape = MaterialTheme.shapes.large,
+                            colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "Aligned to your goal: ${primaryGoalLabel(userProfile.goal)}",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    text = "Why this matters: this week is optimized to support your selected goal.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                         if (planExpired) {
                             Spacer(Modifier.height(10.dp))
                             Card(
@@ -326,21 +646,16 @@ fun MealPlanScreen(
                             }
                         }
                         Spacer(Modifier.height(10.dp))
-                        Button(
-                            onClick = {
-                                isOnline.value = isNetworkAvailable(context)
-                                if (!isOnline.value) {
-                                    mealPlanViewModel.showError("Offline. Connect to the internet to generate a new plan.")
-                                    return@Button
-                                }
-                                mealPlanViewModel.generateMealPlan(userProfile)
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
-                            shape = MaterialTheme.shapes.medium,
-                            modifier = Modifier.fillMaxWidth().height(48.dp)
-                        ) {
-                            Text("Generate New Week", fontWeight = FontWeight.Bold)
-                        }
+                        LoadingActionButton(
+                            state = generateActionState,
+                            idleLabel = "Generate New Week",
+                            loadingLabel = "Generating…",
+                            successLabel = "Week ready",
+                            errorLabel = "Try again",
+                            onClick = { triggerPlanGeneration() },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
+                        )
                         if (planHistory.isNotEmpty()) {
                             Spacer(Modifier.height(10.dp))
                             Text(
@@ -351,10 +666,11 @@ fun MealPlanScreen(
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(planHistory.sortedByDescending { it.weekStart }) { instance ->
                                     val selected = instance.id == activePlanId
-                                    FilterChip(
+                                    TokenizedFilterChip(
                                         selected = selected,
                                         onClick = { mealPlanViewModel.selectPlan(instance.id) },
-                                        label = { Text(instance.response.weekLabel) },
+                                        text = instance.response.weekLabel,
+                                        labelMaxWidth = weekChipLabelWidth,
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = colorScheme.primary,
                                             selectedLabelColor = colorScheme.onPrimary
@@ -387,7 +703,7 @@ fun MealPlanScreen(
                                 }
                             }
                         }
-                        if (userProfile.goal.contains("Symptom", true)) {
+                        if (supportsLowGiGuidance(userProfile.goal)) {
                             Row(
                                 modifier = Modifier.padding(start = 4.dp, top = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -591,54 +907,18 @@ fun MealPlanScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("Ready to shop?", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                                     Text("Consolidate all 21 meals", style = MaterialTheme.typography.bodySmall, color = colorScheme.onSurfaceVariant)
+                                    Spacer(Modifier.height(6.dp))
+                                    SyncStatusChip(state = syncState)
                                 }
-                                Button(
-                                    onClick = { 
-                                        isOnline.value = isNetworkAvailable(context)
-                                        if (!isOnline.value) {
-                                            scope.launch {
-                                                snackbarHostState.showSnackbar("Sync requires internet for recipe details.")
-                                            }
-                                            return@Button
-                                        }
-                                        analytics.logEvent("sync_groceries", null)
-                                        isSyncingGroceries = true
-                                        mealPlanViewModel.extractGrocerySourcesForPlan { sources ->
-                                            if (sources.isEmpty()) {
-                                                isSyncingGroceries = false
-                                                scope.launch {
-                                                    snackbarHostState.showSnackbar("No items to sync yet")
-                                                }
-                                                return@extractGrocerySourcesForPlan
-                                            }
-                                            groceryViewModel.setPlanSources(sources)
-                                            isSyncingGroceries = false
-                                            syncSuccess = true
-                                            scope.launch {
-                                                snackbarHostState.showSnackbar("Synced to Grocery List")
-                                            }
-                                        }
-                                    },
-                                    enabled = !isSyncingGroceries && isOnline.value,
-                                    shape = MaterialTheme.shapes.medium,
-                                    colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
-                                ) {
-                                    when {
-                                        isSyncingGroceries -> {
-                                            CircularProgressIndicator(color = colorScheme.onPrimary, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                                        }
-                                        syncSuccess -> {
-                                            Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                                            Spacer(Modifier.width(8.dp))
-                                            Text("Synced")
-                                        }
-                                        else -> {
-                                            Icon(imageVector = Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(18.dp))
-                                            Spacer(Modifier.width(8.dp))
-                                            Text(if (isOnline.value) "Sync" else "Sync (Internet required)")
-                                        }
-                                    }
-                                }
+                                LoadingActionButton(
+                                    state = syncState,
+                                    idleLabel = if (isOnline.value) "Sync" else "Sync (Internet required)",
+                                    loadingLabel = "Syncing…",
+                                    successLabel = "Synced",
+                                    errorLabel = "Retry Sync",
+                                    onClick = { triggerGrocerySync() },
+                                    enabled = isOnline.value
+                                )
                             }
                         }
                     }
@@ -680,10 +960,11 @@ fun MealPlanScreen(
                             dayLabels.forEachIndexed { index, label ->
                                 val selected = index == selectedDayIndex
                                 val isToday = label.equals(todayLabel, true)
-                                FilterChip(
+                                TokenizedFilterChip(
                                     selected = selected,
                                     onClick = { selectedDayIndex = index },
-                                    label = { Text(if (isToday) "$label • Today" else label) },
+                                    text = if (isToday) "$label • Today" else label,
+                                    labelMaxWidth = dayChipLabelWidth,
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = colorScheme.primary,
                                         selectedLabelColor = colorScheme.onPrimary,
@@ -753,7 +1034,7 @@ fun MealPlanScreen(
                     }
                     itemsIndexed(selectedMeals) { mealIndex, plannedMeal ->
                         Card(
-                            onClick = { onRecipeClick(plannedMeal.recipeId) },
+                            onClick = { onRecipeClick(plannedMeal.recipeId, plannedMeal.mealLabel) },
                             shape = MaterialTheme.shapes.extraLarge,
                             colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
                             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -880,8 +1161,8 @@ fun MealPlanScreen(
         )
     }
 
-    if (swapTarget != null && currentPlan != null) {
-        val target = swapTarget!!
+    val target = swapTarget
+    if (target != null && currentPlan != null) {
         val filteredOptions = remember(swapOptions, swapQuery) {
             if (swapQuery.isBlank()) swapOptions
             else swapOptions.filter { it.title.contains(swapQuery, ignoreCase = true) }
@@ -1026,4 +1307,15 @@ private fun isNetworkAvailable(context: Context): Boolean {
     val network = cm.activeNetwork ?: return false
     val caps = cm.getNetworkCapabilities(network) ?: return false
     return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+}
+
+private fun formatClock(hour: Int, minute: Int): String {
+    val normalizedHour = hour.coerceIn(0, 23)
+    val normalizedMinute = minute.coerceIn(0, 59)
+    val amPm = if (normalizedHour >= 12) "PM" else "AM"
+    val displayHour = when (val h = normalizedHour % 12) {
+        0 -> 12
+        else -> h
+    }
+    return String.format(Locale.ENGLISH, "%d:%02d %s", displayHour, normalizedMinute, amPm)
 }

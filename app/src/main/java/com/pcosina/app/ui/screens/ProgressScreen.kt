@@ -1,5 +1,9 @@
 package com.pcosina.app.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -16,11 +20,14 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -41,8 +48,24 @@ import com.pcosina.app.ui.components.GuidedJourneyCard
 import com.pcosina.app.ui.components.MacroProgressBar
 import com.pcosina.app.ui.components.StatCard
 import com.pcosina.app.ui.components.ExpandableSection
+import com.pcosina.app.ui.components.AppFeedbackBanner
+import com.pcosina.app.ui.components.FeedbackActionState
+import com.pcosina.app.ui.components.FeedbackBannerData
+import com.pcosina.app.ui.components.FeedbackBannerTone
+import com.pcosina.app.ui.components.LoadingActionButton
+import com.pcosina.app.ui.components.TokenizedFilterChip
+import com.pcosina.app.ui.theme.UiChipTokens
+import com.pcosina.app.ui.theme.UiMotionTokens
+import com.pcosina.app.ui.theme.UiSpacingTokens
 import com.pcosina.app.ui.util.buildMealReasons
+import com.pcosina.app.ui.util.buildTodayLogSnapshot
 import com.pcosina.app.ui.util.GuidedJourneyInput
+import com.pcosina.app.ui.util.LockedFlowCopy
+import com.pcosina.app.ui.util.TodayMealDescriptor
+import com.pcosina.app.ui.util.formatFiberProgressShort
+import com.pcosina.app.ui.util.formatKcalProgressShort
+import com.pcosina.app.ui.util.formatProteinProgressShort
+import com.pcosina.app.ui.util.mealImpactNextSuggestion
 import com.pcosina.app.ui.util.resolveGuidedJourneyStep
 import com.pcosina.app.domain.HealthMetrics
 import com.pcosina.app.domain.UnitConverter
@@ -57,7 +80,10 @@ import java.time.temporal.ChronoUnit
 import java.time.DayOfWeek
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProgressScreen(
     userViewModel: UserViewModel,
@@ -70,6 +96,12 @@ fun ProgressScreen(
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    val weekChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 112.dp, medium = 168.dp)
+    val dayChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 102.dp, medium = 146.dp)
+    val feedbackChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 122.dp, medium = 176.dp)
+    val symptomChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 112.dp, medium = 160.dp)
+    val collapseWeekHistoryOnCompact = screenWidthDp <= 360
     val context = LocalContext.current
     val planState by mealPlanViewModel.uiState.collectAsState()
     val planMetrics by mealPlanViewModel.planMetrics.collectAsState()
@@ -88,10 +120,27 @@ fun ProgressScreen(
     var showMacroInfo by rememberSaveable { mutableStateOf(false) }
     var showSpendInfo by rememberSaveable { mutableStateOf(false) }
     var showLowGiInfo by rememberSaveable { mutableStateOf(false) }
+    var showLockedInfo by rememberSaveable { mutableStateOf(false) }
+    var showLoggingPolicyInfo by rememberSaveable { mutableStateOf(false) }
+    var weekHistoryExpanded by rememberSaveable(collapseWeekHistoryOnCompact) {
+        mutableStateOf(!collapseWeekHistoryOnCompact)
+    }
+    var mealImpactSummary by rememberSaveable { mutableStateOf<MealImpactSummary?>(null) }
+    var impactDetailsExpanded by rememberSaveable { mutableStateOf(false) }
+    var showImpactSheet by rememberSaveable { mutableStateOf(false) }
+    var dailyReflectionExpanded by rememberSaveable { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    var progressFeedbackBanner by remember { mutableStateOf<FeedbackBannerData?>(null) }
+    var reflectionSaveState by remember { mutableStateOf(FeedbackActionState.Idle) }
+    var weeklyReflectionSaveState by remember { mutableStateOf(FeedbackActionState.Idle) }
+    var weightSaveState by remember { mutableStateOf(FeedbackActionState.Idle) }
+    var feedbackSendState by remember { mutableStateOf(FeedbackActionState.Idle) }
     val hasPlan = planHistory.isNotEmpty() || planState is MealPlanUiState.Success
     val hasReviewedWeek = activePlanId != null && activePlanId == lastReviewedWeek
     val hasGrocery = groceryItems.isNotEmpty()
     val hasTracked = logs.isNotEmpty()
+    val progressLockedCopy = remember { LockedFlowCopy.progressLocked() }
     val guidedStep = resolveGuidedJourneyStep(
         GuidedJourneyInput(
             profileComplete = profile.isProfileCompleted,
@@ -116,7 +165,9 @@ fun ProgressScreen(
         weekStartDate(planTimestamp, fallbackStart).format(DateTimeFormatter.ISO_LOCAL_DATE)
     }
 
-    var selectedDayIndex by rememberSaveable { mutableStateOf(0) }
+    var selectedDayIndex by rememberSaveable(weekStartKey) {
+        mutableStateOf(initialSelectedDayIndex(weekStart))
+    }
     val selectedDate = weekStart.plusDays(selectedDayIndex.toLong())
     val weekDays = (0..6).map { weekStart.plusDays(it.toLong()) }
     val dayLabelFmt = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
@@ -144,6 +195,24 @@ fun ProgressScreen(
     val selectedDayLabel = selectedDate.format(dayLabelFmt).lowercase(Locale.ENGLISH)
     val selectedPlanDay = planByLabel[selectedDayLabel]
     val plannedMealsForDay = selectedPlanDay?.meals.orEmpty()
+    val selectedDateKey = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+    val selectedCompletedIds = logs[selectedDateKey]?.completedMealIds.orEmpty()
+    val selectedDayDescriptors = remember(plannedMealsForDay) {
+        plannedMealsForDay.map { meal ->
+            TodayMealDescriptor(
+                mealLabel = meal.mealLabel,
+                title = meal.title,
+                recipeId = meal.recipeId
+            )
+        }
+    }
+    val selectedDaySnapshot = remember(selectedDayDescriptors, selectedCompletedIds) {
+        buildTodayLogSnapshot(
+            todayMeals = selectedDayDescriptors,
+            completedMealIds = selectedCompletedIds
+        )
+    }
+    val selectedCompletedCount = selectedDaySnapshot.completedCount
     val plannedMealsCount = planDays.sumOf { it.meals.size }
     val completedMealsCount = logs.filterKeys { isInWeek(it, weekStart) }
         .values.sumOf { it.completedMealIds.size }
@@ -231,6 +300,72 @@ fun ProgressScreen(
     val selectedDateLabel = remember(selectedDate) {
         selectedDate.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH))
     }
+    val todayDate = LocalDate.now()
+    val todayIndexInWeek = remember(weekDays, todayDate) {
+        weekDays.indexOfFirst { it == todayDate }
+    }
+    val todayDayLabel = remember(todayDate, dayLabelFmt) {
+        todayDate.format(dayLabelFmt).lowercase(Locale.ENGLISH)
+    }
+    val todayDateKey = remember(todayDate) {
+        todayDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+    }
+    val todayMeals = remember(planByLabel, todayDayLabel) {
+        planByLabel[todayDayLabel]?.meals.orEmpty()
+    }
+    val todaySnapshot = remember(todayMeals, logs, todayDateKey) {
+        buildTodayLogSnapshot(
+            todayMeals = todayMeals.map { meal ->
+                TodayMealDescriptor(
+                    mealLabel = meal.mealLabel,
+                    title = meal.title,
+                    recipeId = meal.recipeId
+                )
+            },
+            completedMealIds = logs[todayDateKey]?.completedMealIds.orEmpty()
+        )
+    }
+    val todayStatusLine = remember(todaySnapshot.plannedCount, todaySnapshot.completionRatio) {
+        when {
+            todaySnapshot.plannedCount == 0 -> "No meals are scheduled for today yet."
+            todaySnapshot.completionRatio >= 1f -> "All meals logged today. Close your loop with reflection."
+            todaySnapshot.completionRatio >= 0.66f -> "You are close to today’s target."
+            todaySnapshot.completionRatio > 0f -> "Good momentum. Keep logging meals after you eat."
+            else -> "Start with your next meal to build today’s progress."
+        }
+    }
+    val isSelectedDateLoggable = remember(selectedDate, todayDate) {
+        progressViewModel.isDateLoggable(selectedDate, todayDate)
+    }
+    val selectedDateLoggingLockReason = remember(selectedDate, todayDate) {
+        progressViewModel.loggingLockReason(selectedDate, todayDate)
+    }
+    val sundayDate = remember(weekDays, dayLabelFmt) {
+        weekDays.firstOrNull { it.format(dayLabelFmt).equals("Sun", ignoreCase = true) }
+    }
+    val sundayKey = sundayDate?.format(DateTimeFormatter.ISO_LOCAL_DATE)
+    val sundayPlanMeals = planByLabel["sun"]?.meals.orEmpty()
+    val sundayDescriptors = remember(sundayPlanMeals) {
+        sundayPlanMeals.map { meal ->
+            TodayMealDescriptor(
+                mealLabel = meal.mealLabel,
+                title = meal.title,
+                recipeId = meal.recipeId
+            )
+        }
+    }
+    val sundaySnapshot = remember(sundayDescriptors, logs, sundayKey) {
+        if (sundayKey == null) {
+            buildTodayLogSnapshot(emptyList(), emptyList())
+        } else {
+            buildTodayLogSnapshot(
+                todayMeals = sundayDescriptors,
+                completedMealIds = logs[sundayKey]?.completedMealIds.orEmpty()
+            )
+        }
+    }
+    val sundayCompletedCount = sundaySnapshot.completedCount
+    val sundayComplete = sundaySnapshot.plannedCount > 0 && sundaySnapshot.completedCount >= sundaySnapshot.plannedCount
     val projectedWeeklyCost = planExplanation?.estimatedWeeklyCost
     val budgetTarget = planExplanation?.budgetWeekly?.toInt()
         ?: profile.weeklyBudgetPhp.takeIf { it > 0 }
@@ -276,12 +411,158 @@ fun ProgressScreen(
             avgFats = 0
         }
     }
+    LaunchedEffect(selectedDate) {
+        mealImpactSummary = null
+        impactDetailsExpanded = false
+        showImpactSheet = false
+    }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
+    fun scheduleReset(stateSetter: (FeedbackActionState) -> Unit, delayMs: Long = 1400L) {
+        coroutineScope.launch {
+            delay(delayMs)
+            stateSetter(FeedbackActionState.Idle)
+        }
+    }
+
+    fun saveWeightWithFeedback() {
+        if (!isSelectedDateLoggable) {
+            showLoggingPolicyInfo = true
+            weightSaveState = FeedbackActionState.Error
+            progressFeedbackBanner = FeedbackBannerData(
+                tone = FeedbackBannerTone.Error,
+                message = "Weight save blocked for this date."
+            )
+            scheduleReset({ weightSaveState = it })
+            return
+        }
+        weightSaveState = FeedbackActionState.Loading
+        progressFeedbackBanner = FeedbackBannerData(
+            tone = FeedbackBannerTone.Loading,
+            message = "Saving weight entry…"
+        )
+        val value = weightInput.toFloatOrNull()
+        val kgValue = value?.let {
+            if (profile.weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.lbToKg(it) else it
+        }
+        val saved = progressViewModel.setWeight(selectedDate, kgValue, weightNote)
+        if (!saved) {
+            showLoggingPolicyInfo = true
+            weightSaveState = FeedbackActionState.Error
+            progressFeedbackBanner = FeedbackBannerData(
+                tone = FeedbackBannerTone.Error,
+                message = "Couldn’t save weight. Try again for a loggable day."
+            )
+        } else {
+            weightSaveState = FeedbackActionState.Success
+            progressFeedbackBanner = FeedbackBannerData(
+                tone = FeedbackBannerTone.Success,
+                message = "Weight saved for today."
+            )
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "Weight saved for today.",
+                    duration = SnackbarDuration.Short
+                )
+            }
+        }
+        scheduleReset({ weightSaveState = it })
+    }
+
+    fun saveReflectionWithFeedback() {
+        if (!isSelectedDateLoggable) {
+            showLoggingPolicyInfo = true
+            reflectionSaveState = FeedbackActionState.Error
+            progressFeedbackBanner = FeedbackBannerData(
+                tone = FeedbackBannerTone.Error,
+                message = "Reflection save blocked for this date."
+            )
+            scheduleReset({ reflectionSaveState = it })
+            return
+        }
+        reflectionSaveState = FeedbackActionState.Loading
+        progressFeedbackBanner = FeedbackBannerData(
+            tone = FeedbackBannerTone.Loading,
+            message = "Saving reflection…"
+        )
+        val saved = progressViewModel.saveReflection(
+            selectedDate,
+            energyLevel,
+            cravingsLevel,
+            moodLevel,
+            symptomTags,
+            symptomNote
+        )
+        if (!saved) {
+            showLoggingPolicyInfo = true
+            reflectionSaveState = FeedbackActionState.Error
+            progressFeedbackBanner = FeedbackBannerData(
+                tone = FeedbackBannerTone.Error,
+                message = "Couldn’t save reflection. Try again for a loggable day."
+            )
+        } else {
+            reflectionSaveState = FeedbackActionState.Success
+            progressFeedbackBanner = FeedbackBannerData(
+                tone = FeedbackBannerTone.Success,
+                message = "Reflection saved for today."
+            )
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "Reflection saved for today.",
+                    duration = SnackbarDuration.Short
+                )
+            }
+        }
+        scheduleReset({ reflectionSaveState = it })
+    }
+
+    fun saveWeeklyJournalWithFeedback() {
+        weeklyReflectionSaveState = FeedbackActionState.Loading
+        progressFeedbackBanner = FeedbackBannerData(
+            tone = FeedbackBannerTone.Loading,
+            message = "Saving weekly reflection…"
+        )
+        progressViewModel.saveWeeklyJournal(weekStartKey, journalText)
+        weeklyReflectionSaveState = FeedbackActionState.Success
+        progressFeedbackBanner = FeedbackBannerData(
+            tone = FeedbackBannerTone.Success,
+            message = "Weekly reflection saved."
+        )
+        coroutineScope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(
+                message = "Weekly reflection saved.",
+                duration = SnackbarDuration.Short
+            )
+        }
+        scheduleReset({ weeklyReflectionSaveState = it })
+    }
+
+    fun submitFeedbackWithBanner() {
+        if (feedbackText.isBlank()) return
+        feedbackSendState = FeedbackActionState.Loading
+        progressFeedbackBanner = FeedbackBannerData(
+            tone = FeedbackBannerTone.Loading,
+            message = if (isOnline.value) "Sending feedback…" else "Queueing feedback for offline sync…"
+        )
+        progressViewModel.queueFeedback(feedbackText)
+        progressViewModel.trySendQueuedFeedback(isOnline.value)
+        feedbackText = ""
+        feedbackSendState = FeedbackActionState.Success
+        progressFeedbackBanner = FeedbackBannerData(
+            tone = FeedbackBannerTone.Success,
+            message = if (isOnline.value) "Feedback sent." else "Feedback queued for retry."
+        )
+        scheduleReset({ feedbackSendState = it })
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap),
+        ) {
         item {
             Box {
                 GradientHeader(
@@ -311,6 +592,170 @@ fun ProgressScreen(
             )
         }
 
+        progressFeedbackBanner?.let { banner ->
+            item {
+                AppFeedbackBanner(
+                    data = banner,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        item {
+            val queuedCount = feedbackQueue.count { it.status != "Sent" }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AssistChip(
+                    onClick = {
+                        coroutineScope.launch {
+                            snackbarHostState.currentSnackbarData?.dismiss()
+                            snackbarHostState.showSnackbar(
+                                message = if (isOnline.value) {
+                                    "Online: changes sync immediately."
+                                } else {
+                                    "Offline: actions are queued and retry when online."
+                                },
+                                duration = SnackbarDuration.Short
+                            )
+                        }
+                    },
+                    modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight),
+                    label = {
+                        Text(if (isOnline.value) "Online" else "Offline", maxLines = 1)
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = if (isOnline.value) Icons.Filled.CheckCircle else Icons.Filled.Info,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = if (isOnline.value) {
+                            colorScheme.primaryContainer.copy(alpha = 0.35f)
+                        } else {
+                            colorScheme.surfaceVariant
+                        },
+                        labelColor = colorScheme.onSurface,
+                        leadingIconContentColor = if (isOnline.value) colorScheme.primary else colorScheme.onSurfaceVariant
+                    )
+                )
+                if (queuedCount > 0) {
+                    AssistChip(
+                        onClick = {
+                            if (isOnline.value) {
+                                progressViewModel.trySendQueuedFeedback(isOnline = true)
+                            }
+                            coroutineScope.launch {
+                                snackbarHostState.currentSnackbarData?.dismiss()
+                                snackbarHostState.showSnackbar(
+                                    message = if (isOnline.value) {
+                                        "Retrying queued feedback now."
+                                    } else {
+                                        "Queue is saved locally until you reconnect."
+                                    },
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
+                        },
+                        modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight),
+                        label = { Text("Queue $queuedCount", maxLines = 1) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Info,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = colorScheme.surfaceVariant,
+                            labelColor = colorScheme.onSurface,
+                            leadingIconContentColor = colorScheme.onSurfaceVariant
+                        )
+                    )
+                }
+            }
+        }
+
+        if (hasPlan) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("progress_today_hub_card"),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Today Hub",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                        Text(
+                            text = "Meals completed today: ${todaySnapshot.completedCount}/${todaySnapshot.plannedCount}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = todayStatusLine,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                        todaySnapshot.nextMeal?.let { nextMeal ->
+                            Text(
+                                text = "Next: ${nextMeal.mealLabel} • ${nextMeal.title}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.primary,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                val nextMeal = todaySnapshot.nextMeal
+                                when {
+                                    nextMeal != null -> onNavigateToRoute(
+                                        Routes.recipeDetailsRoute(nextMeal.recipeId, nextMeal.mealLabel)
+                                    )
+                                    todaySnapshot.plannedCount == 0 -> onNavigateToRoute(Routes.MealPlan)
+                                    else -> {
+                                        if (todayIndexInWeek >= 0) selectedDayIndex = todayIndexInWeek
+                                        dailyReflectionExpanded = true
+                                        coroutineScope.launch {
+                                            snackbarHostState.currentSnackbarData?.dismiss()
+                                            snackbarHostState.showSnackbar(
+                                                message = "Today is complete. Add a short reflection.",
+                                                duration = SnackbarDuration.Short
+                                            )
+                                        }
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(44.dp),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
+                        ) {
+                            val label = when {
+                                todaySnapshot.nextMeal != null -> "Open Next Meal"
+                                todaySnapshot.plannedCount == 0 -> "Generate Today's Plan"
+                                else -> "Open Daily Reflection"
+                            }
+                            Text(label)
+                        }
+                    }
+                }
+            }
+        }
+
         if (!hasPlan) {
             item {
                 Card(
@@ -324,9 +769,23 @@ fun ProgressScreen(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "Generate a plan to start tracking progress.",
+                            text = progressLockedCopy.cardText,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = colorScheme.onSurfaceVariant
+                            color = colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                        AssistChip(
+                            onClick = { showLockedInfo = true },
+                            modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight),
+                            label = { Text(LockedFlowCopy.LearnMoreLabel) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Info,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         )
                         OutlinedButton(onClick = { onNavigateToRoute(Routes.MealPlan) }) {
                             Text("Go to Plan")
@@ -338,29 +797,40 @@ fun ProgressScreen(
 
         if (sortedHistory.isNotEmpty()) {
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                val currentLabel = currentPlanInstance?.response?.weekLabel ?: weekLabel
+                ExpandableSection(
+                    title = "Week History",
+                    subtitle = if (weekHistoryExpanded) {
+                        "Selected: $currentLabel"
+                    } else {
+                        "Selected: $currentLabel • Tap to switch weeks"
+                    },
+                    defaultExpanded = !collapseWeekHistoryOnCompact,
+                    expanded = weekHistoryExpanded,
+                    onExpandedChange = { weekHistoryExpanded = it }
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Text("Week History", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                        val currentLabel = currentPlanInstance?.response?.weekLabel ?: weekLabel
                         Text(
-                            text = "Selected: $currentLabel",
+                            text = "Switch weeks to compare trends.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant
+                            color = colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(sortedHistory) { instance ->
-                                FilterChip(
+                                TokenizedFilterChip(
                                     selected = instance.id == activePlanId,
-                                    onClick = { mealPlanViewModel.selectPlan(instance.id) },
-                                    label = { Text(instance.response.weekLabel) },
+                                    onClick = {
+                                        mealPlanViewModel.selectPlan(instance.id)
+                                        if (collapseWeekHistoryOnCompact) {
+                                            weekHistoryExpanded = false
+                                        }
+                                    },
+                                    text = instance.response.weekLabel,
+                                    labelMaxWidth = weekChipLabelWidth,
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = colorScheme.primary,
                                         selectedLabelColor = colorScheme.onPrimary
@@ -374,7 +844,12 @@ fun ProgressScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             OutlinedButton(
-                                onClick = { previousPlan?.let { mealPlanViewModel.selectPlan(it.id) } },
+                                onClick = {
+                                    previousPlan?.let { mealPlanViewModel.selectPlan(it.id) }
+                                    if (collapseWeekHistoryOnCompact && previousPlan != null) {
+                                        weekHistoryExpanded = false
+                                    }
+                                },
                                 enabled = previousPlan != null
                             ) {
                                 Icon(Icons.Filled.ChevronLeft, contentDescription = null)
@@ -385,6 +860,9 @@ fun ProgressScreen(
                                 onClick = {
                                     val next = sortedHistory.getOrNull(activeIndex + 1)
                                     next?.let { mealPlanViewModel.selectPlan(it.id) }
+                                    if (collapseWeekHistoryOnCompact && next != null) {
+                                        weekHistoryExpanded = false
+                                    }
                                 },
                                 enabled = activeIndex >= 0 && activeIndex < sortedHistory.lastIndex
                             ) {
@@ -410,8 +888,54 @@ fun ProgressScreen(
                         text = "You haven't logged anything in a few days. A quick check‑in helps keep trends accurate.",
                         modifier = Modifier.padding(14.dp),
                         style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
+                        color = colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
+                }
+            }
+        }
+
+        item {
+            ProgressSectionHeader(
+                title = "Week",
+                subtitle = "Review adherence, nutrition trends, and plan quality."
+            )
+        }
+
+        if (sundayComplete) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.primaryContainer.copy(alpha = 0.35f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "Sunday complete. Weekly check-off finished.",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Review week summary, then generate your next plan to keep momentum.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                        Button(
+                            onClick = { onNavigateToRoute(Routes.MealPlan) },
+                            modifier = Modifier.fillMaxWidth().height(44.dp),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
+                        ) {
+                            Text("Review week & generate next plan")
+                        }
+                    }
                 }
             }
         }
@@ -454,13 +978,17 @@ fun ProgressScreen(
                         Text(
                             text = "Generate a plan to see insights.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant
+                            color = colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                     } else if (prevStats == null) {
                         Text(
                             text = "Baseline week. Future weeks will compare here.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant
+                            color = colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                     } else {
                         val changes = buildWeekChanges(currentStats, prevStats)
@@ -601,20 +1129,12 @@ fun ProgressScreen(
 
         if (planExplanation != null) {
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                ExpandableSection(
+                    title = "Plan Explanation",
+                    subtitle = "How this week was optimized",
+                    defaultExpanded = false
                 ) {
-                    Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Text(
-                            text = "Plan Explanation",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
                             text = "Signals used by the optimizer to balance nutrition, variety, and pantry use.",
                             style = MaterialTheme.typography.bodySmall,
@@ -735,7 +1255,7 @@ fun ProgressScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.extraLarge,
                 colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
@@ -750,10 +1270,11 @@ fun ProgressScreen(
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(planFeedbackOptions) { tag ->
                             val selected = planFeedbackTags.contains(tag)
-                            FilterChip(
+                            TokenizedFilterChip(
                                 selected = selected,
                                 onClick = { progressViewModel.togglePlanFeedbackTag(tag) },
-                                label = { Text(tag) }
+                                text = tag,
+                                labelMaxWidth = feedbackChipLabelWidth
                             )
                         }
                     }
@@ -763,11 +1284,20 @@ fun ProgressScreen(
 
         if (showWeightEntryAtTop) {
             item {
+                ProgressSectionHeader(
+                    title = "Today",
+                    subtitle = "Quickly log today so your trends stay accurate."
+                )
+            }
+        }
+
+        if (showWeightEntryAtTop) {
+            item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.extraLarge,
                     colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 ) {
                     Column(
                         modifier = Modifier.padding(20.dp),
@@ -784,6 +1314,22 @@ fun ProgressScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant
                         )
+                        if (!isSelectedDateLoggable) {
+                            Text(
+                                text = selectedDateLoggingLockReason,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.error,
+                                maxLines = 2,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                            ProgressJumpToTodayAction(
+                                todayIndexInWeek = todayIndexInWeek,
+                                onJump = { selectedDayIndex = todayIndexInWeek }
+                            )
+                            ProgressLoggingPolicyLearnMoreChip(
+                                onClick = { showLoggingPolicyInfo = true }
+                            )
+                        }
                         val startText = weightStart?.let { "${displayWeight(it)} $weightUnitLabel" } ?: "—"
                         val endText = weightEnd?.let { "${displayWeight(it)} $weightUnitLabel" } ?: "—"
                         Text(
@@ -840,20 +1386,16 @@ fun ProgressScreen(
                             label = { Text("Weight note (optional)") },
                             modifier = Modifier.fillMaxWidth()
                         )
-                        Button(
-                            onClick = {
-                                val value = weightInput.toFloatOrNull()
-                                val kgValue = value?.let {
-                                    if (profile.weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.lbToKg(it) else it
-                                }
-                                progressViewModel.setWeight(selectedDate, kgValue, weightNote)
-                            },
+                        LoadingActionButton(
+                            state = weightSaveState,
+                            idleLabel = "Save Weight",
+                            loadingLabel = "Saving…",
+                            successLabel = "Saved",
+                            errorLabel = "Try Again",
+                            onClick = { saveWeightWithFeedback() },
                             modifier = Modifier.fillMaxWidth().height(48.dp),
-                            shape = MaterialTheme.shapes.medium,
-                            colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
-                        ) {
-                            Text("Save Weight")
-                        }
+                            enabled = isSelectedDateLoggable
+                        )
                     }
                 }
             }
@@ -969,7 +1511,7 @@ fun ProgressScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.extraLarge,
                 colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
@@ -1062,7 +1604,9 @@ fun ProgressScreen(
                         Text(
                             text = "Macro details require internet to fetch recipe nutrition.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant
+                            color = colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                     }
                     if (completedMacroAvailable) {
@@ -1095,6 +1639,429 @@ fun ProgressScreen(
             }
         }
 
+        if (!showWeightEntryAtTop) {
+            item {
+                ProgressSectionHeader(
+                    title = "Today",
+                    subtitle = "Quickly log today so your trends stay accurate."
+                )
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text("Daily Meal Check-off", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                    Text(
+                        text = "Selected day: $selectedDateLabel",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = if (isSelectedDateLoggable) {
+                            "Check off what you completed after each meal."
+                        } else {
+                            "Selected day is read-only. Meal logging is only available for today."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    if (!isSelectedDateLoggable) {
+                        ProgressJumpToTodayAction(
+                            todayIndexInWeek = todayIndexInWeek,
+                            onJump = { selectedDayIndex = todayIndexInWeek }
+                        )
+                        ProgressLoggingPolicyLearnMoreChip(
+                            onClick = { showLoggingPolicyInfo = true }
+                        )
+                    }
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        itemsIndexed(weekDays) { idx, date ->
+                            val label = date.format(dayLabelFmt)
+                            val isToday = label == todayLabel
+                            TokenizedFilterChip(
+                                selected = selectedDayIndex == idx,
+                                onClick = { selectedDayIndex = idx },
+                                text = if (isToday) "$label • Today" else label,
+                                labelMaxWidth = dayChipLabelWidth
+                            )
+                        }
+                    }
+                    if (plannedMealsForDay.isEmpty()) {
+                        Text(
+                            text = "No planned meals yet. Generate a plan first.",
+                            color = colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                    } else {
+                        plannedMealsForDay.forEach { meal ->
+                            val mealKey = ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)
+                            val checked = selectedCompletedIds.contains(mealKey) || selectedCompletedIds.contains(meal.recipeId)
+                            val reasons = remember(meal.recipeId, planExplanation, recipeCounts, profile.weeklyBudgetPhp) {
+                                buildMealReasons(
+                                    recipeId = meal.recipeId,
+                                    recipeCounts = recipeCounts,
+                                    explanation = planExplanation,
+                                    budgetPhp = profile.weeklyBudgetPhp
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ProgressMealCheckbox(
+                                    checked = checked,
+                                    loggable = isSelectedDateLoggable,
+                                    testTag = "progress_meal_checkbox_${meal.recipeId}",
+                                    onCheckedChange = {
+                                        if (!isSelectedDateLoggable) {
+                                            showLoggingPolicyInfo = true
+                                            return@ProgressMealCheckbox
+                                        }
+                                        val updated = progressViewModel.toggleMeal(
+                                            date = selectedDate,
+                                            recipeId = meal.recipeId,
+                                            mealLabel = meal.mealLabel
+                                        )
+                                        if (!updated) {
+                                            showLoggingPolicyInfo = true
+                                            progressFeedbackBanner = FeedbackBannerData(
+                                                tone = FeedbackBannerTone.Error,
+                                                message = "Couldn’t update meal log for this date."
+                                            )
+                                            return@ProgressMealCheckbox
+                                        }
+                                        if (!checked) {
+                                            val completedIdsAfterToggle = (selectedCompletedIds + mealKey).distinct()
+                                            val nextSnapshot = buildTodayLogSnapshot(
+                                                todayMeals = selectedDayDescriptors,
+                                                completedMealIds = completedIdsAfterToggle
+                                            )
+                                            val nextCompletedCount = nextSnapshot.completedCount
+                                            val ratio = if (plannedMealsForDay.isNotEmpty()) {
+                                                nextCompletedCount.toFloat() / plannedMealsForDay.size.toFloat()
+                                            } else {
+                                                0f
+                                            }
+                                            val dayCaloriesTarget = selectedPlanDay?.totalCalories ?: 0
+                                            val estimatedCalories = (dayCaloriesTarget * ratio).toInt()
+                                            val estimatedProtein = (planMetrics.avgProtein * ratio).toInt()
+                                            val estimatedFiber = (planMetrics.avgFiber * ratio).toInt()
+                                            val nextMealSlot = nextSnapshot.nextMeal
+                                            val nextMeal = nextMealSlot?.let { pending ->
+                                                plannedMealsForDay.firstOrNull { planned ->
+                                                    planned.recipeId == pending.recipeId &&
+                                                        planned.mealLabel.equals(pending.mealLabel, ignoreCase = true)
+                                                }
+                                            }
+                                            val nextSuggestion = mealImpactNextSuggestion(
+                                                completedMealLabel = meal.mealLabel,
+                                                nextMeal = nextMeal?.let { "${it.mealLabel} • ${it.title}" }
+                                            )
+                                            val statusLine = when {
+                                                ratio >= 1f -> "You’re on track today."
+                                                ratio >= 0.66f -> "Nice progress—you're close to today’s goal."
+                                                else -> "Great start. Keep building momentum meal by meal."
+                                            }
+                                            mealImpactSummary = MealImpactSummary(
+                                                statusLine = statusLine,
+                                                mealsDone = nextCompletedCount,
+                                                mealsPlanned = plannedMealsForDay.size,
+                                                estimatedCalories = estimatedCalories,
+                                                caloriesTarget = dayCaloriesTarget,
+                                                estimatedProtein = estimatedProtein,
+                                                proteinTarget = planMetrics.avgProtein,
+                                                estimatedFiber = estimatedFiber,
+                                                fiberTarget = planMetrics.avgFiber,
+                                                nextSuggestion = nextSuggestion,
+                                                nextMealRoute = nextMeal?.let {
+                                                    Routes.recipeDetailsRoute(it.recipeId, it.mealLabel)
+                                                }
+                                            )
+                                            impactDetailsExpanded = false
+                                            showImpactSheet = true
+                                            progressFeedbackBanner = FeedbackBannerData(
+                                                tone = FeedbackBannerTone.Success,
+                                                message = "Meal logged. Impact updated."
+                                            )
+                                            coroutineScope.launch {
+                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                snackbarHostState.showSnackbar(
+                                                    message = "Meal logged. Impact updated.",
+                                                    duration = SnackbarDuration.Short
+                                                )
+                                            }
+                                        } else {
+                                            mealImpactSummary = null
+                                            impactDetailsExpanded = false
+                                            showImpactSheet = false
+                                            progressFeedbackBanner = FeedbackBannerData(
+                                                tone = FeedbackBannerTone.Success,
+                                                message = "Meal unchecked for today."
+                                            )
+                                            coroutineScope.launch {
+                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                snackbarHostState.showSnackbar(
+                                                    message = "Meal unchecked.",
+                                                    duration = SnackbarDuration.Short
+                                                )
+                                            }
+                                        }
+                                    }
+                                )
+                                Column {
+                                    Text(meal.title)
+                                    if (reasons.isNotEmpty()) {
+                                        Text(
+                                            text = "Why: " + reasons.joinToString(" • "),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = colorScheme.onSurfaceVariant,
+                                            maxLines = 2,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        mealImpactSummary?.let { summary ->
+                            val compactSummary = screenWidthDp <= 360
+                            val impactHeadline = if (compactSummary) {
+                                "${summary.statusLine} ${summary.mealsDone}/${summary.mealsPlanned} meals."
+                            } else {
+                                "${summary.statusLine} ${summary.mealsDone}/${summary.mealsPlanned} meals • " +
+                                    "${formatKcalProgressShort(summary.estimatedCalories, summary.caloriesTarget)}."
+                            }
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp),
+                                shape = MaterialTheme.shapes.large,
+                                colors = CardDefaults.cardColors(
+                                    containerColor = colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                ),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = "Impact Summary",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = impactHeadline,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                    )
+                                    TextButton(
+                                        onClick = { impactDetailsExpanded = !impactDetailsExpanded },
+                                        modifier = Modifier.padding(horizontal = 0.dp)
+                                    ) {
+                                        Text(if (impactDetailsExpanded) "Hide details" else "View details")
+                                    }
+                                    if (impactDetailsExpanded) {
+                                        Text(
+                                            text = "${formatProteinProgressShort(summary.estimatedProtein, summary.proteinTarget)} • " +
+                                                formatFiberProgressShort(summary.estimatedFiber, summary.fiberTarget),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = colorScheme.onSurfaceVariant,
+                                            maxLines = 2,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = summary.nextSuggestion,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = colorScheme.primary,
+                                            maxLines = 2,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        )
+                                        summary.nextMealRoute?.let { route ->
+                                            OutlinedButton(
+                                                onClick = { onNavigateToRoute(route) },
+                                                modifier = Modifier.fillMaxWidth().height(40.dp),
+                                                shape = MaterialTheme.shapes.small
+                                            ) {
+                                                Text("Open Next Meal")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (isSelectedDateLoggable && plannedMealsForDay.isNotEmpty() && selectedCompletedCount >= plannedMealsForDay.size) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.primaryContainer.copy(alpha = 0.35f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "Daily closeout ready",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                        Text(
+                            text = "All meals logged today. Add a short reflection to close today’s loop.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                        Button(
+                            onClick = { dailyReflectionExpanded = true },
+                            modifier = Modifier.fillMaxWidth().height(42.dp),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
+                        ) {
+                            Text("Open Daily Reflection")
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            ProgressSectionHeader(
+                title = "Reflection",
+                subtitle = "Capture patterns and notes to improve next week."
+            )
+        }
+
+        item {
+            ExpandableSection(
+                title = "Daily Reflection",
+                subtitle = "Quick check-in for patterns",
+                defaultExpanded = false,
+                expanded = dailyReflectionExpanded,
+                onExpandedChange = { dailyReflectionExpanded = it }
+            ) {
+                Column(
+                    modifier = Modifier.padding(top = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        text = "Quick check-in to observe patterns. Decision-support only; not medical treatment.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    if (!isSelectedDateLoggable) {
+                        Text(
+                            text = selectedDateLoggingLockReason,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.error,
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                        ProgressJumpToTodayAction(
+                            todayIndexInWeek = todayIndexInWeek,
+                            onJump = { selectedDayIndex = todayIndexInWeek }
+                        )
+                    }
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        itemsIndexed(weekDays) { idx, date ->
+                            val label = date.format(dayLabelFmt)
+                            val isToday = label == todayLabel
+                            TokenizedFilterChip(
+                                selected = selectedDayIndex == idx,
+                                onClick = { selectedDayIndex = idx },
+                                text = if (isToday) "$label • Today" else label,
+                                labelMaxWidth = dayChipLabelWidth
+                            )
+                        }
+                    }
+                    Text("Energy", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        (1..5).forEach { value ->
+                            FilterChip(
+                                selected = energyLevel == value,
+                                onClick = { energyLevel = value },
+                                modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight),
+                                label = { Text(value.toString()) }
+                            )
+                        }
+                    }
+                    Text("Cravings", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        (1..5).forEach { value ->
+                            FilterChip(
+                                selected = cravingsLevel == value,
+                                onClick = { cravingsLevel = value },
+                                modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight),
+                                label = { Text(value.toString()) }
+                            )
+                        }
+                    }
+                    Text("Mood", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        (1..5).forEach { value ->
+                            FilterChip(
+                                selected = moodLevel == value,
+                                onClick = { moodLevel = value },
+                                modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight),
+                                label = { Text(value.toString()) }
+                            )
+                        }
+                    }
+                    Text("Symptoms", style = MaterialTheme.typography.labelLarge)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(symptomOptions) { symptom ->
+                            val selected = symptomTags.contains(symptom)
+                            TokenizedFilterChip(
+                                selected = selected,
+                                onClick = {
+                                    symptomTags = if (selected) {
+                                        symptomTags.filterNot { it == symptom }
+                                    } else {
+                                        symptomTags + symptom
+                                    }
+                                },
+                                text = symptom,
+                                labelMaxWidth = symptomChipLabelWidth
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = symptomNote,
+                        onValueChange = { symptomNote = it },
+                        label = { Text("Symptoms / notes (optional)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    LoadingActionButton(
+                        state = reflectionSaveState,
+                        idleLabel = "Save Reflection",
+                        loadingLabel = "Saving…",
+                        successLabel = "Saved",
+                        errorLabel = "Try Again",
+                        onClick = { saveReflectionWithFeedback() },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        enabled = isSelectedDateLoggable
+                    )
+                }
+            }
+        }
+
         item {
             ExpandableSection(
                 title = "Weekly Journal",
@@ -1112,14 +2079,15 @@ fun ProgressScreen(
                         shape = MaterialTheme.shapes.large,
                         colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = colorScheme.primary)
                     )
-                    Button(
-                        onClick = { progressViewModel.saveWeeklyJournal(weekStartKey, journalText) },
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                        shape = MaterialTheme.shapes.medium,
-                        colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
-                    ) {
-                        Text("Save Weekly Reflection", fontWeight = FontWeight.Bold)
-                    }
+                    LoadingActionButton(
+                        state = weeklyReflectionSaveState,
+                        idleLabel = "Save Weekly Reflection",
+                        loadingLabel = "Saving…",
+                        successLabel = "Saved",
+                        errorLabel = "Try Again",
+                        onClick = { saveWeeklyJournalWithFeedback() },
+                        modifier = Modifier.fillMaxWidth().height(52.dp)
+                    )
                     OutlinedButton(
                         onClick = {
                             val file = progressViewModel.exportReflections()
@@ -1147,197 +2115,35 @@ fun ProgressScreen(
             }
         }
 
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text("Daily Meal Check-off", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                    Text(
-                        text = "Selected day: $selectedDateLabel",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "Manual check-off: log what you actually ate. Ingredients not required.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
-                    )
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        itemsIndexed(weekDays) { idx, date ->
-                            val label = date.format(dayLabelFmt)
-                            val isToday = label == todayLabel
-                            FilterChip(
-                                selected = selectedDayIndex == idx,
-                                onClick = { selectedDayIndex = idx },
-                                label = { Text(if (isToday) "$label • Today" else label) }
-                            )
-                        }
-                    }
-                    if (plannedMealsForDay.isEmpty()) {
-                        Text("No planned meals yet. Generate a plan first.", color = colorScheme.onSurfaceVariant)
-                    } else {
-                        plannedMealsForDay.forEach { meal ->
-                            val dateKey = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
-                            val mealKey = ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)
-                            val completedIds = logs[dateKey]?.completedMealIds.orEmpty()
-                            val checked = completedIds.contains(mealKey) || completedIds.contains(meal.recipeId)
-                            val reasons = remember(meal.recipeId, planExplanation, recipeCounts, profile.weeklyBudgetPhp) {
-                                buildMealReasons(
-                                    recipeId = meal.recipeId,
-                                    recipeCounts = recipeCounts,
-                                    explanation = planExplanation,
-                                    budgetPhp = profile.weeklyBudgetPhp
-                                )
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(
-                                    checked = checked,
-                                    onCheckedChange = {
-                                        progressViewModel.toggleMeal(selectedDate, meal.recipeId, meal.mealLabel)
-                                    }
-                                )
-                                Column {
-                                    Text(meal.title)
-                                    if (reasons.isNotEmpty()) {
-                                        Text(
-                                            text = "Why: " + reasons.joinToString(" • "),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = colorScheme.onSurfaceVariant,
-                                            maxLines = 2,
-                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            ExpandableSection(
-                title = "Daily Reflection",
-                subtitle = "Quick check-in for patterns",
-                defaultExpanded = false
-            ) {
-                Column(
-                    modifier = Modifier.padding(top = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(
-                        text = "Quick check-in to observe patterns. This is not medical advice.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
-                    )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        itemsIndexed(weekDays) { idx, date ->
-                            val label = date.format(dayLabelFmt)
-                            val isToday = label == todayLabel
-                            FilterChip(
-                                selected = selectedDayIndex == idx,
-                                onClick = { selectedDayIndex = idx },
-                                label = { Text(if (isToday) "$label • Today" else label) }
-                            )
-                        }
-                    }
-                    Text("Energy", style = MaterialTheme.typography.labelLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        (1..5).forEach { value ->
-                            FilterChip(
-                                selected = energyLevel == value,
-                                onClick = { energyLevel = value },
-                                label = { Text(value.toString()) }
-                            )
-                        }
-                    }
-                    Text("Cravings", style = MaterialTheme.typography.labelLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        (1..5).forEach { value ->
-                            FilterChip(
-                                selected = cravingsLevel == value,
-                                onClick = { cravingsLevel = value },
-                                label = { Text(value.toString()) }
-                            )
-                        }
-                    }
-                    Text("Mood", style = MaterialTheme.typography.labelLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        (1..5).forEach { value ->
-                            FilterChip(
-                                selected = moodLevel == value,
-                                onClick = { moodLevel = value },
-                                label = { Text(value.toString()) }
-                            )
-                        }
-                    }
-                    Text("Symptoms", style = MaterialTheme.typography.labelLarge)
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(symptomOptions) { symptom ->
-                            val selected = symptomTags.contains(symptom)
-                            FilterChip(
-                                selected = selected,
-                                onClick = {
-                                    symptomTags = if (selected) {
-                                        symptomTags.filterNot { it == symptom }
-                                    } else {
-                                        symptomTags + symptom
-                                    }
-                                },
-                                label = { Text(symptom) }
-                            )
-                        }
-                    }
-                    OutlinedTextField(
-                        value = symptomNote,
-                        onValueChange = { symptomNote = it },
-                        label = { Text("Symptoms / notes (optional)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Button(
-                        onClick = {
-                            progressViewModel.saveReflection(
-                                selectedDate,
-                                energyLevel,
-                                cravingsLevel,
-                                moodLevel,
-                                symptomTags,
-                                symptomNote
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = MaterialTheme.shapes.medium,
-                        colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
-                    ) {
-                        Text("Save Reflection")
-                    }
-                }
-            }
-        }
-
         if (!showWeightEntryAtTop) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.extraLarge,
                     colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 ) {
                     Column(
                         modifier = Modifier.padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text("Weight Entry (Selected Day)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        if (!isSelectedDateLoggable) {
+                            Text(
+                                text = selectedDateLoggingLockReason,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.error,
+                                maxLines = 2,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                            ProgressJumpToTodayAction(
+                                todayIndexInWeek = todayIndexInWeek,
+                                onJump = { selectedDayIndex = todayIndexInWeek }
+                            )
+                            ProgressLoggingPolicyLearnMoreChip(
+                                onClick = { showLoggingPolicyInfo = true }
+                            )
+                        }
                         OutlinedTextField(
                             value = weightInput,
                             onValueChange = { weightInput = it },
@@ -1350,20 +2156,16 @@ fun ProgressScreen(
                             label = { Text("Weight note (optional)") },
                             modifier = Modifier.fillMaxWidth()
                         )
-                        Button(
-                            onClick = {
-                                val value = weightInput.toFloatOrNull()
-                                val kgValue = value?.let {
-                                    if (profile.weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.lbToKg(it) else it
-                                }
-                                progressViewModel.setWeight(selectedDate, kgValue, weightNote)
-                            },
+                        LoadingActionButton(
+                            state = weightSaveState,
+                            idleLabel = "Save Weight",
+                            loadingLabel = "Saving…",
+                            successLabel = "Saved",
+                            errorLabel = "Try Again",
+                            onClick = { saveWeightWithFeedback() },
                             modifier = Modifier.fillMaxWidth().height(48.dp),
-                            shape = MaterialTheme.shapes.medium,
-                            colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
-                        ) {
-                            Text("Save Weight")
-                        }
+                            enabled = isSelectedDateLoggable
+                        )
                     }
                 }
             }
@@ -1385,20 +2187,16 @@ fun ProgressScreen(
                         label = { Text("Feedback") },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Button(
-                        onClick = {
-                            if (feedbackText.isNotBlank()) {
-                                progressViewModel.queueFeedback(feedbackText)
-                                progressViewModel.trySendQueuedFeedback(isOnline.value)
-                                feedbackText = ""
-                            }
-                        },
+                    LoadingActionButton(
+                        state = feedbackSendState,
+                        idleLabel = "Send (Queued if offline)",
+                        loadingLabel = "Sending…",
+                        successLabel = "Sent",
+                        errorLabel = "Try Again",
+                        onClick = { submitFeedbackWithBanner() },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = MaterialTheme.shapes.medium,
-                        colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
-                    ) {
-                        Text("Send (Queued if offline)")
-                    }
+                        enabled = feedbackText.isNotBlank()
+                    )
                     if (feedbackQueue.isNotEmpty()) {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Row(
@@ -1441,7 +2239,7 @@ fun ProgressScreen(
                                 }
                                 if (!entry.lastError.isNullOrBlank()) {
                                     Text(
-                                        text = entry.lastError!!,
+                                        text = entry.lastError.orEmpty(),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = colorScheme.onSurfaceVariant
                                     )
@@ -1453,7 +2251,77 @@ fun ProgressScreen(
             }
         }
 
-        item { Spacer(Modifier.height(24.dp)) }
+            item { Spacer(Modifier.height(24.dp)) }
+        }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        )
+    }
+
+    val impactSheetSummary = mealImpactSummary
+    if (showImpactSheet && impactSheetSummary != null) {
+        ModalBottomSheet(
+            onDismissRequest = { showImpactSheet = false },
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Meal impact",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                )
+                Text(
+                    text = impactSheetSummary.statusLine,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.onSurface
+                )
+                Text(
+                    text = "Today: ${impactSheetSummary.mealsDone}/${impactSheetSummary.mealsPlanned} meals • " +
+                        formatKcalProgressShort(impactSheetSummary.estimatedCalories, impactSheetSummary.caloriesTarget),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "${formatProteinProgressShort(impactSheetSummary.estimatedProtein, impactSheetSummary.proteinTarget)} • " +
+                        formatFiberProgressShort(impactSheetSummary.estimatedFiber, impactSheetSummary.fiberTarget),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = impactSheetSummary.nextSuggestion,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.primary
+                )
+                impactSheetSummary.nextMealRoute?.let { route ->
+                    Button(
+                        onClick = {
+                            showImpactSheet = false
+                            onNavigateToRoute(route)
+                        },
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Text("Open Next Meal")
+                    }
+                }
+                OutlinedButton(
+                    onClick = { showImpactSheet = false },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 10.dp)
+                        .height(42.dp)
+                ) {
+                    Text("Done")
+                }
+            }
+        }
     }
 
     if (showConfidenceInfo) {
@@ -1520,6 +2388,154 @@ fun ProgressScreen(
             }
         )
     }
+
+    if (showLockedInfo) {
+        AlertDialog(
+            onDismissRequest = { showLockedInfo = false },
+            confirmButton = {
+                TextButton(onClick = { showLockedInfo = false }) { Text("Got it") }
+            },
+            title = { Text(progressLockedCopy.dialogTitle) },
+            text = {
+                Text(progressLockedCopy.dialogBody)
+            }
+        )
+    }
+
+    if (showLoggingPolicyInfo) {
+        ProgressLoggingPolicyDialog(
+            lockReason = selectedDateLoggingLockReason,
+            onDismiss = { showLoggingPolicyInfo = false }
+        )
+    }
+}
+
+@Composable
+private fun ProgressSectionHeader(
+    title: String,
+    subtitle: String
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.MicroGap)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+private data class MealImpactSummary(
+    val statusLine: String,
+    val mealsDone: Int,
+    val mealsPlanned: Int,
+    val estimatedCalories: Int,
+    val caloriesTarget: Int,
+    val estimatedProtein: Int,
+    val proteinTarget: Int,
+    val estimatedFiber: Int,
+    val fiberTarget: Int,
+    val nextSuggestion: String,
+    val nextMealRoute: String?
+)
+
+@Composable
+internal fun ProgressLoggingPolicyLearnMoreChip(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AssistChip(
+        onClick = onClick,
+        modifier = modifier
+            .heightIn(min = UiChipTokens.MinTouchHeight)
+            .testTag("progress_logging_policy_learn_more"),
+        label = { Text(LockedFlowCopy.LearnMoreLabel) },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Filled.Info,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    )
+}
+
+@Composable
+internal fun ProgressJumpToTodayAction(
+    todayIndexInWeek: Int,
+    onJump: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AnimatedVisibility(
+        visible = true,
+        enter = fadeIn(animationSpec = tween(UiMotionTokens.JumpToTodayRevealMs)) +
+            expandVertically(animationSpec = tween(UiMotionTokens.JumpToTodayRevealMs))
+    ) {
+        if (todayIndexInWeek >= 0) {
+            OutlinedButton(
+                onClick = onJump,
+                modifier = modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .testTag("progress_jump_to_today"),
+                shape = MaterialTheme.shapes.small
+            ) {
+                Text("Jump to Today")
+            }
+        } else {
+            Text(
+                text = "Today is outside this selected week.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = modifier
+            )
+        }
+    }
+}
+
+@Composable
+internal fun ProgressLoggingPolicyDialog(
+    lockReason: String,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Got it") }
+        },
+        title = { Text("Logging policy") },
+        text = {
+            Text(
+                "${ProgressViewModel.LoggingPolicySummary}\n\n$lockReason"
+            )
+        }
+    )
+}
+
+@Composable
+internal fun ProgressMealCheckbox(
+    checked: Boolean,
+    loggable: Boolean,
+    testTag: String,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Checkbox(
+        checked = checked,
+        enabled = loggable,
+        onCheckedChange = onCheckedChange,
+        modifier = Modifier.testTag(testTag)
+    )
+}
+
+private fun initialSelectedDayIndex(weekStart: LocalDate): Int {
+    val todayOffset = java.time.temporal.ChronoUnit.DAYS.between(weekStart, LocalDate.now()).toInt()
+    return todayOffset.coerceIn(0, 6)
 }
 
 private fun weekStartDate(

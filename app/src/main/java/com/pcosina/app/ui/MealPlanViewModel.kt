@@ -17,6 +17,8 @@ import com.pcosina.app.data.model.DemoWeekSeed
 import com.pcosina.app.data.model.DailyLog
 import com.pcosina.app.data.repository.MealPlanRepository
 import com.pcosina.app.data.repository.UserPreferencesRepository
+import com.pcosina.app.ui.util.goalTextForApi
+import com.pcosina.app.ui.util.hasGoalSelection
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -185,7 +187,8 @@ class MealPlanViewModel(
             repository.warmup()
             val effectiveProfile = resolveProfile(profile)
             val tunedProfile = applyFeedbackTuning(effectiveProfile)
-            val result = repository.generatePlan(tunedProfile)
+            val apiProfile = tunedProfile.copy(goal = goalTextForApi(tunedProfile.goal))
+            val result = repository.generatePlan(apiProfile)
             result.onSuccess { response ->
                 val now = System.currentTimeMillis()
                 val start = weekStartDate(now)
@@ -214,6 +217,13 @@ class MealPlanViewModel(
                 val raw = error.message ?: "Failed to connect to MILP engine"
                 val message = if (raw.contains("Profile invalid", ignoreCase = true)) {
                     "Profile incomplete. Please open Profile or Settings and save your age, height, and weight."
+                } else if (
+                    raw.contains("Infeasible", ignoreCase = true) ||
+                    raw.contains("No feasible", ignoreCase = true) ||
+                    raw.contains("No safe recipes", ignoreCase = true)
+                ) {
+                    "No feasible plan found for your current settings. " +
+                        "Try reducing restrictions/allergies, increasing max cooking time, or relaxing budget."
                 } else {
                     raw
                 }
@@ -252,7 +262,7 @@ class MealPlanViewModel(
 
     private fun isProfileValid(profile: UserProfile): Boolean {
         return profile.age > 0 && profile.heightCm > 0 && profile.weightKg > 0 &&
-            profile.activityLevel.isNotBlank() && profile.goal.isNotBlank()
+            profile.activityLevel.isNotBlank() && hasGoalSelection(profile.goal)
     }
 
     fun showError(message: String) {

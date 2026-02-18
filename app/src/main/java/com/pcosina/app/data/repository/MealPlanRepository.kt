@@ -9,10 +9,16 @@ import com.pcosina.app.data.api.RecipeSummaryDto
 import com.pcosina.app.data.model.UserProfile
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
+import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.HttpException
+import org.json.JSONObject
+import java.net.InetAddress
+import java.net.URI
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 
 class MealPlanRepository {
@@ -31,6 +37,12 @@ class MealPlanRepository {
 
     init {
         val firebaseAuth = FirebaseAuth.getInstance()
+        val normalizedBaseUrl = normalizeBaseUrl(BuildConfig.BASE_URL)
+        val backendHost = runCatching { URI(normalizedBaseUrl).host.orEmpty() }.getOrDefault("")
+        val dns = ResilientBackendDns(
+            backendHost = backendHost,
+            fallbackIps = listOf("216.24.57.7", "216.24.57.251")
+        )
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.BODY
@@ -44,6 +56,7 @@ class MealPlanRepository {
         // retries the connection 3 times before showing an error.
         val client = OkHttpClient.Builder()
             .addInterceptor(logging)
+            .dns(dns)
             .addInterceptor { chain ->
                 val original = chain.request()
                 val requestBuilder = original.newBuilder()
@@ -87,7 +100,7 @@ class MealPlanRepository {
             .callTimeout(120, TimeUnit.SECONDS)
             .build()
 
-        val baseUrl = normalizeBaseUrl(BuildConfig.BASE_URL)
+        val baseUrl = normalizedBaseUrl
         
         val retrofit = Retrofit.Builder()
             .baseUrl(baseUrl)
@@ -131,7 +144,7 @@ class MealPlanRepository {
             val response = apiService.generatePlan(GeneratePlanRequest(profile))
             Result.success(response)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(mapGeneratePlanException(e))
         }
     }
 
@@ -175,6 +188,84 @@ class MealPlanRepository {
         if (profile.goal.isBlank()) problems.add("Goal is required.")
         if (problems.isNotEmpty()) {
             throw IllegalArgumentException("Profile invalid: " + problems.joinToString(" "))
+        }
+    }
+
+    private fun mapGeneratePlanException(error: Exception): Exception {
+        if (error is UnknownHostException) {
+            val host = backendHost()
+            return IllegalStateException(
+                "Cannot reach backend host ($host). DNS lookup failed. " +
+                    "Check Private DNS/VPN/adblock settings, then try again."
+            )
+        }
+        if (error !is HttpException) return error
+        val detail = parseErrorDetail(error)
+        return when (error.code()) {
+            422 -> IllegalStateException(
+                if (detail.isNotBlank()) {
+                    detail
+                } else {
+                    "No feasible meal plan found for your current constraints. " +
+                        "Try relaxing restrictions/allergies, increasing max cooking time, or adjusting budget."
+                }
+            )
+            409 -> IllegalStateException(
+                if (detail.isNotBlank()) detail else "App and backend schema versions do not match."
+            )
+            401 -> IllegalStateException(
+                if (detail.isNotBlank()) detail else "Session expired. Please sign in again."
+            )
+            else -> IllegalStateException(
+                if (detail.isNotBlank()) "HTTP ${error.code()}: $detail"
+                else (error.message ?: "Request failed")
+            )
+        }
+    }
+
+    private fun parseErrorDetail(error: HttpException): String {
+        return try {
+            val body = error.response()?.errorBody()?.string()
+            if (body.isNullOrBlank()) return ""
+            JSONObject(body).optString("detail", "").trim()
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    private fun backendHost(): String {
+        val normalized = normalizeBaseUrl(BuildConfig.BASE_URL)
+        return runCatching { URI(normalized).host }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: "pcosina-backend.onrender.com"
+    }
+
+    private class ResilientBackendDns(
+        private val backendHost: String,
+        private val fallbackIps: List<String>
+    ) : Dns {
+        override fun lookup(hostname: String): List<InetAddress> {
+            return try {
+                Dns.SYSTEM.lookup(hostname)
+            } catch (e: UnknownHostException) {
+                if (hostname.equals(backendHost, ignoreCase = true)) {
+                    val fallback = fallbackIps.mapNotNull { ip ->
+                        runCatching { InetAddress.getByName(ip) }.getOrNull()
+                    }
+                    if (fallback.isNotEmpty()) {
+                        android.util.Log.w(
+                            "MealPlanRepository",
+                            "DNS lookup failed for $hostname. Using fallback backend IPs."
+                        )
+                        fallback
+                    } else {
+                        throw e
+                    }
+                } else {
+                    throw e
+                }
+            }
         }
     }
 }

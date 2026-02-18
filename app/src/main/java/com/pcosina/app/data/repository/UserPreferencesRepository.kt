@@ -5,28 +5,50 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import android.util.Log
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.pcosina.app.data.model.DailyLog
+import com.pcosina.app.data.model.NotificationLogEntry
+import com.pcosina.app.data.model.NotificationPreferences
 import com.pcosina.app.data.model.PantryEntry
 import com.pcosina.app.data.model.UserProfile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
+import java.time.LocalDate
 
-// Local-only preferences; per-user isolation is handled by key prefixes (userId/email).
+// Local preferences cache; per-user isolation is handled by key prefixes (userId/email).
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_prefs")
 
 /**
- * Local-only persistence for profile, plans, and cached groceries.
- * This does not sync to any cloud backend; use explicit API calls for remote data.
+ * Local-first persistence for profile, plans, and cached groceries.
+ * User profile data is also synced to Firestore to survive reinstall/new-device scenarios.
  */
 class UserPreferencesRepository(private val context: Context) {
     private val gson = Gson()
+    private val reflectionStore by lazy { ReflectionStore(context) }
+    private val firestore by lazy { FirebaseFirestore.getInstance() }
     private val pantryType = object : TypeToken<List<PantryEntry>>() {}.type
+    private val notificationLogsType = object : TypeToken<List<NotificationLogEntry>>() {}.type
+    private val notificationLastFiredType = object : TypeToken<Map<String, Long>>() {}.type
+    private val dailyLogsType = object : TypeToken<List<DailyLog>>() {}.type
+    private object Cloud {
+        const val profileCollection = "profiles"
+        const val updatedAtEpochMs = "updatedAtEpochMs"
+        const val syncTimeoutMs = 3000L
+        const val timestampSkewMs = 1000L
+    }
 
     private object Keys {
         val adminMode = booleanPreferencesKey("admin_mode")
+        val profileCompletionMigrationDone = booleanPreferencesKey("profile_completion_key_migration_done_v1")
+        fun profileUpdatedAt(userId: String) = longPreferencesKey("profile_updated_at_$userId")
         fun name(userId: String) = stringPreferencesKey("name_$userId")
         fun age(userId: String) = intPreferencesKey("age_$userId")
         fun weight(userId: String) = intPreferencesKey("weight_$userId")
@@ -46,7 +68,9 @@ class UserPreferencesRepository(private val context: Context) {
         fun maxCookingTime(userId: String) = intPreferencesKey("max_cooking_time_$userId")
         fun variety(userId: String) = stringPreferencesKey("variety_pref_$userId")
         fun planningPriority(userId: String) = stringPreferencesKey("planning_priority_$userId")
-        fun completed(userId: String) = booleanPreferencesKey("onboarding_complete_$userId")
+        fun profileCompleted(userId: String) = booleanPreferencesKey("profile_complete_$userId")
+        // Keep this persisted key for backward compatibility only.
+        fun profileCompletedLegacyAlias(userId: String) = booleanPreferencesKey("onboarding_complete_$userId")
         fun lastPlanJson(userId: String) = stringPreferencesKey("last_plan_json_$userId")
         fun lastPlanTimestamp(userId: String) = longPreferencesKey("last_plan_timestamp_$userId")
         fun planHistoryJson(userId: String) = stringPreferencesKey("plan_history_json_$userId")
@@ -62,6 +86,32 @@ class UserPreferencesRepository(private val context: Context) {
         fun planFeedbackTags(userId: String) = stringPreferencesKey("plan_feedback_tags_$userId")
         fun remindersEnabled(userId: String) = booleanPreferencesKey("reminders_enabled_$userId")
         fun lastReviewedWeek(userId: String) = stringPreferencesKey("last_reviewed_week_$userId")
+        fun progressMode(userId: String) = stringPreferencesKey("progress_mode_$userId")
+        fun progressAdvancedAnalyticsExpanded(userId: String) =
+            booleanPreferencesKey("progress_advanced_analytics_expanded_$userId")
+        fun notificationMaster(userId: String) = booleanPreferencesKey("notif_master_$userId")
+        fun notificationMeals(userId: String) = booleanPreferencesKey("notif_meals_$userId")
+        fun notificationPlanReady(userId: String) = booleanPreferencesKey("notif_plan_ready_$userId")
+        fun notificationGrocerySync(userId: String) = booleanPreferencesKey("notif_grocery_sync_$userId")
+        fun notificationWeeklyReset(userId: String) = booleanPreferencesKey("notif_weekly_reset_$userId")
+        fun notificationWeeklyResetDay(userId: String) = intPreferencesKey("notif_weekly_reset_day_$userId")
+        fun notificationWeeklyResetHour(userId: String) = intPreferencesKey("notif_weekly_reset_hour_$userId")
+        fun notificationWeeklyResetMinute(userId: String) = intPreferencesKey("notif_weekly_reset_minute_$userId")
+        fun notificationStreak(userId: String) = booleanPreferencesKey("notif_streak_$userId")
+        fun notificationInactivity(userId: String) = booleanPreferencesKey("notif_inactivity_$userId")
+        fun notificationBreakfastHour(userId: String) = intPreferencesKey("notif_breakfast_hour_$userId")
+        fun notificationBreakfastMinute(userId: String) = intPreferencesKey("notif_breakfast_minute_$userId")
+        fun notificationLunchHour(userId: String) = intPreferencesKey("notif_lunch_hour_$userId")
+        fun notificationLunchMinute(userId: String) = intPreferencesKey("notif_lunch_minute_$userId")
+        fun notificationDinnerHour(userId: String) = intPreferencesKey("notif_dinner_hour_$userId")
+        fun notificationDinnerMinute(userId: String) = intPreferencesKey("notif_dinner_minute_$userId")
+        fun notificationQuietEnabled(userId: String) = booleanPreferencesKey("notif_quiet_enabled_$userId")
+        fun notificationQuietStartHour(userId: String) = intPreferencesKey("notif_quiet_start_hour_$userId")
+        fun notificationQuietStartMinute(userId: String) = intPreferencesKey("notif_quiet_start_minute_$userId")
+        fun notificationQuietEndHour(userId: String) = intPreferencesKey("notif_quiet_end_hour_$userId")
+        fun notificationQuietEndMinute(userId: String) = intPreferencesKey("notif_quiet_end_minute_$userId")
+        fun notificationLogs(userId: String) = stringPreferencesKey("notif_logs_$userId")
+        fun notificationLastFiredJson(userId: String) = stringPreferencesKey("notif_last_fired_map_$userId")
     }
 
     private object LegacyKeys {
@@ -84,23 +134,56 @@ class UserPreferencesRepository(private val context: Context) {
         fun maxCookingTime(email: String) = intPreferencesKey("max_cooking_time_$email")
         fun variety(email: String) = stringPreferencesKey("variety_pref_$email")
         fun planningPriority(email: String) = stringPreferencesKey("planning_priority_$email")
-        fun completed(email: String) = booleanPreferencesKey("onboarding_complete_$email")
+        fun profileCompleted(email: String) = booleanPreferencesKey("profile_complete_$email")
+        // Keep this persisted key for backward compatibility only.
+        fun profileCompletedLegacyAlias(email: String) = booleanPreferencesKey("onboarding_complete_$email")
         fun lastPlanJson(email: String) = stringPreferencesKey("last_plan_json_$email")
         fun lastPlanTimestamp(email: String) = longPreferencesKey("last_plan_timestamp_$email")
         fun groceryJson(email: String) = stringPreferencesKey("grocery_json_$email")
     }
 
+    suspend fun migrateAllProfileCompletionAliases() {
+        context.dataStore.edit { preferences ->
+            if (preferences[Keys.profileCompletionMigrationDone] == true) return@edit
+            val legacyPrefix = "onboarding_complete_"
+            val newPrefix = "profile_complete_"
+            val legacyKeyNames = preferences.asMap().keys
+                .map { key -> key.name }
+                .filter { keyName -> keyName.startsWith(legacyPrefix) }
+            var migratedCount = 0
+
+            legacyKeyNames.forEach { legacyName ->
+                val suffix = legacyName.removePrefix(legacyPrefix)
+                if (suffix.isBlank()) return@forEach
+                val legacyKey = booleanPreferencesKey(legacyName)
+                val legacyValue = preferences[legacyKey] ?: return@forEach
+                val newKey = booleanPreferencesKey("$newPrefix$suffix")
+                if (!preferences.contains(newKey)) {
+                    preferences[newKey] = legacyValue
+                }
+                preferences.remove(legacyKey)
+                migratedCount += 1
+            }
+            preferences[Keys.profileCompletionMigrationDone] = true
+            if (migratedCount > 0) {
+                Log.i("PCOSINA", "Migrated $migratedCount legacy completion keys to profile_complete_*")
+            }
+        }
+    }
+
     suspend fun migrateFromEmailIfNeeded(userId: String, email: String) {
         if (userId.isBlank() || email.isBlank()) return
         context.dataStore.edit { preferences ->
-            val hasUidData = preferences.contains(Keys.completed(userId)) ||
+            val hasUidData = preferences.contains(Keys.profileCompleted(userId)) ||
+                preferences.contains(Keys.profileCompletedLegacyAlias(userId)) ||
                 preferences.contains(Keys.name(userId)) ||
                 preferences.contains(Keys.lastPlanJson(userId)) ||
                 preferences.contains(Keys.groceryJson(userId))
 
             if (hasUidData) return@edit
 
-            val hasLegacyData = preferences.contains(LegacyKeys.completed(email)) ||
+            val hasLegacyData = preferences.contains(LegacyKeys.profileCompleted(email)) ||
+                preferences.contains(LegacyKeys.profileCompletedLegacyAlias(email)) ||
                 preferences.contains(LegacyKeys.name(email)) ||
                 preferences.contains(LegacyKeys.lastPlanJson(email)) ||
                 preferences.contains(LegacyKeys.groceryJson(email))
@@ -114,7 +197,7 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.weightUnit(userId)] = preferences[LegacyKeys.weightUnit(email)] ?: "kg"
             preferences[Keys.heightUnit(userId)] = preferences[LegacyKeys.heightUnit(email)] ?: "cm"
             preferences[Keys.activity(userId)] = preferences[LegacyKeys.activity(email)] ?: "Lightly Active"
-            preferences[Keys.goal(userId)] = preferences[LegacyKeys.goal(email)] ?: "Support PCOS symptom management"
+            preferences[Keys.goal(userId)] = preferences[LegacyKeys.goal(email)] ?: ""
             preferences[Keys.insulin(userId)] = preferences[LegacyKeys.insulin(email)] ?: "Mild"
             preferences[Keys.symptoms(userId)] = preferences[LegacyKeys.symptoms(email)] ?: ""
             preferences[Keys.comorbidities(userId)] = preferences[LegacyKeys.comorbidities(email)] ?: ""
@@ -125,18 +208,44 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.maxCookingTime(userId)] = preferences[LegacyKeys.maxCookingTime(email)] ?: 45
             preferences[Keys.variety(userId)] = preferences[LegacyKeys.variety(email)] ?: "Balanced"
             preferences[Keys.planningPriority(userId)] = preferences[LegacyKeys.planningPriority(email)] ?: "Balanced"
-            preferences[Keys.completed(userId)] = preferences[LegacyKeys.completed(email)] ?: false
+            val legacyProfileCompleted = preferences[LegacyKeys.profileCompleted(email)]
+            val legacyProfileCompletedAlias = preferences[LegacyKeys.profileCompletedLegacyAlias(email)]
+            preferences[Keys.profileCompleted(userId)] = legacyProfileCompleted ?: legacyProfileCompletedAlias ?: false
+            preferences.remove(Keys.profileCompletedLegacyAlias(userId))
 
             preferences[Keys.lastPlanJson(userId)] = preferences[LegacyKeys.lastPlanJson(email)] ?: ""
             preferences[Keys.lastPlanTimestamp(userId)] = preferences[LegacyKeys.lastPlanTimestamp(email)] ?: 0L
 
             preferences[Keys.groceryJson(userId)] = preferences[LegacyKeys.groceryJson(email)] ?: ""
+            preferences[Keys.profileUpdatedAt(userId)] = System.currentTimeMillis()
 
             if (preferences[Keys.migrationLogged(userId)] != true) {
                 Log.i("PCOSINA", "Migrated legacy email data to UID for userId=$userId")
                 preferences[Keys.migrationLogged(userId)] = true
             }
         }
+    }
+
+    suspend fun migrateProfileCompletionKeyIfNeeded(userId: String) {
+        if (userId.isBlank()) return
+        context.dataStore.edit { preferences ->
+            val current = preferences[Keys.profileCompleted(userId)]
+            val legacyAlias = preferences[Keys.profileCompletedLegacyAlias(userId)]
+            when {
+                current == null && legacyAlias != null -> {
+                    preferences[Keys.profileCompleted(userId)] = legacyAlias
+                    preferences.remove(Keys.profileCompletedLegacyAlias(userId))
+                }
+                current != null && legacyAlias != null -> {
+                    preferences.remove(Keys.profileCompletedLegacyAlias(userId))
+                }
+            }
+        }
+    }
+
+    suspend fun countLegacyProfileCompletionAliases(): Int {
+        val prefs = context.dataStore.data.first()
+        return prefs.asMap().keys.count { it.name.startsWith("onboarding_complete_") }
     }
 
     fun getUserProfile(userId: String): Flow<UserProfile> = context.dataStore.data
@@ -151,7 +260,7 @@ class UserPreferencesRepository(private val context: Context) {
                 weightUnit = preferences[Keys.weightUnit(userId)] ?: "kg",
                 heightUnit = preferences[Keys.heightUnit(userId)] ?: "cm",
                 activityLevel = preferences[Keys.activity(userId)] ?: "Lightly Active",
-                goal = preferences[Keys.goal(userId)] ?: "Support PCOS symptom management",
+                goal = preferences[Keys.goal(userId)] ?: "",
                 insulinResistanceLevel = preferences[Keys.insulin(userId)] ?: "Mild",
                 symptoms = preferences[Keys.symptoms(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
                 comorbidities = preferences[Keys.comorbidities(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
@@ -162,11 +271,70 @@ class UserPreferencesRepository(private val context: Context) {
                 maxCookingTimeMinutes = preferences[Keys.maxCookingTime(userId)] ?: 45,
                 varietyPreference = preferences[Keys.variety(userId)] ?: "Balanced",
                 planningPriority = preferences[Keys.planningPriority(userId)] ?: "Balanced",
-                isProfileCompleted = preferences[Keys.completed(userId)] ?: false
+                isProfileCompleted = preferences[Keys.profileCompleted(userId)]
+                    ?: preferences[Keys.profileCompletedLegacyAlias(userId)]
+                    ?: false
             )
         }
 
+    suspend fun syncProfileWithCloud(userId: String) {
+        if (userId.isBlank()) return
+        try {
+            val localPreferences = context.dataStore.data.first()
+            val localProfile = userProfileFromPreferences(localPreferences, userId)
+            val localUpdatedAt = localPreferences[Keys.profileUpdatedAt(userId)] ?: 0L
+
+            val snapshot = withTimeoutOrNull(Cloud.syncTimeoutMs) {
+                firestore.collection(Cloud.profileCollection).document(userId).get().await()
+            } ?: return
+
+            if (!snapshot.exists()) {
+                if (hasMeaningfulProfileData(localProfile)) {
+                    val now = if (localUpdatedAt > 0L) localUpdatedAt else System.currentTimeMillis()
+                    syncProfileToCloud(userId, localProfile, now)
+                }
+                return
+            }
+
+            val data = snapshot.data ?: emptyMap()
+            val remoteProfile = userProfileFromCloudData(data)
+            val remoteUpdatedAt = (data[Cloud.updatedAtEpochMs] as? Number)?.toLong() ?: 0L
+            val remoteHasData = hasMeaningfulProfileData(remoteProfile)
+            val localHasData = hasMeaningfulProfileData(localProfile)
+            val now = System.currentTimeMillis()
+
+            when {
+                remoteHasData && (!localHasData || remoteUpdatedAt > localUpdatedAt + Cloud.timestampSkewMs) -> {
+                    updateProfileLocalOnly(
+                        userId = userId,
+                        profile = remoteProfile,
+                        updatedAtMs = if (remoteUpdatedAt > 0L) remoteUpdatedAt else now
+                    )
+                }
+                localHasData && (!remoteHasData || localUpdatedAt > remoteUpdatedAt + Cloud.timestampSkewMs) -> {
+                    val effectiveUpdatedAt = if (localUpdatedAt > 0L) localUpdatedAt else now
+                    syncProfileToCloud(userId, localProfile, effectiveUpdatedAt)
+                }
+                remoteHasData && localHasData && localUpdatedAt == 0L -> {
+                    updateProfileLocalOnly(
+                        userId = userId,
+                        profile = remoteProfile,
+                        updatedAtMs = if (remoteUpdatedAt > 0L) remoteUpdatedAt else now
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("PCOSINA", "Cloud profile sync skipped for userId=$userId: ${e.message}")
+        }
+    }
+
     suspend fun updateProfile(userId: String, profile: UserProfile) {
+        val now = System.currentTimeMillis()
+        updateProfileLocalOnly(userId, profile, now)
+        syncProfileToCloud(userId, profile, now)
+    }
+
+    private suspend fun updateProfileLocalOnly(userId: String, profile: UserProfile, updatedAtMs: Long) {
         context.dataStore.edit { preferences ->
             preferences[Keys.name(userId)] = profile.displayName
             preferences[Keys.age(userId)] = profile.age
@@ -186,8 +354,116 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.maxCookingTime(userId)] = profile.maxCookingTimeMinutes
             preferences[Keys.variety(userId)] = profile.varietyPreference
             preferences[Keys.planningPriority(userId)] = profile.planningPriority
-            preferences[Keys.completed(userId)] = profile.isProfileCompleted
+            preferences[Keys.profileCompleted(userId)] = profile.isProfileCompleted
+            preferences[Keys.profileUpdatedAt(userId)] = updatedAtMs
+            preferences.remove(Keys.profileCompletedLegacyAlias(userId))
         }
+    }
+
+    private suspend fun syncProfileToCloud(userId: String, profile: UserProfile, updatedAtMs: Long) {
+        if (userId.isBlank()) return
+        try {
+            val payload = mutableMapOf<String, Any>(
+                "displayName" to profile.displayName,
+                "age" to profile.age,
+                "heightCm" to profile.heightCm,
+                "weightKg" to profile.weightKg,
+                "heightUnit" to profile.heightUnit,
+                "weightUnit" to profile.weightUnit,
+                "activityLevel" to profile.activityLevel,
+                "goal" to profile.goal,
+                "insulinResistanceLevel" to profile.insulinResistanceLevel,
+                "symptoms" to profile.symptoms,
+                "comorbidities" to profile.comorbidities,
+                "dietaryRestrictions" to profile.dietaryRestrictions,
+                "allergies" to profile.allergies,
+                "weeklyBudgetPhp" to profile.weeklyBudgetPhp,
+                "maxCookingTimeMinutes" to profile.maxCookingTimeMinutes,
+                "varietyPreference" to profile.varietyPreference,
+                "planningPriority" to profile.planningPriority,
+                "pantryItems" to profile.pantryItems,
+                "isProfileCompleted" to profile.isProfileCompleted,
+                Cloud.updatedAtEpochMs to updatedAtMs
+            )
+            withTimeoutOrNull(Cloud.syncTimeoutMs) {
+                firestore.collection(Cloud.profileCollection)
+                    .document(userId)
+                    .set(payload, SetOptions.merge())
+                    .await()
+            }
+        } catch (e: Exception) {
+            Log.w("PCOSINA", "Cloud profile upload skipped for userId=$userId: ${e.message}")
+        }
+    }
+
+    private fun userProfileFromPreferences(preferences: Preferences, userId: String): UserProfile =
+        UserProfile(
+            displayName = preferences[Keys.name(userId)] ?: "",
+            age = preferences[Keys.age(userId)] ?: 0,
+            weightKg = preferences[Keys.weight(userId)] ?: 0,
+            heightCm = preferences[Keys.height(userId)] ?: 0,
+            weightUnit = preferences[Keys.weightUnit(userId)] ?: "kg",
+            heightUnit = preferences[Keys.heightUnit(userId)] ?: "cm",
+            activityLevel = preferences[Keys.activity(userId)] ?: "Lightly Active",
+            goal = preferences[Keys.goal(userId)] ?: "",
+            insulinResistanceLevel = preferences[Keys.insulin(userId)] ?: "Mild",
+            symptoms = preferences[Keys.symptoms(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
+            comorbidities = preferences[Keys.comorbidities(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
+            dietaryRestrictions = preferences[Keys.restrictions(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
+            allergies = preferences[Keys.allergies(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
+            pantryItems = preferences[Keys.pantry(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
+            weeklyBudgetPhp = preferences[Keys.budget(userId)] ?: 0,
+            maxCookingTimeMinutes = preferences[Keys.maxCookingTime(userId)] ?: 45,
+            varietyPreference = preferences[Keys.variety(userId)] ?: "Balanced",
+            planningPriority = preferences[Keys.planningPriority(userId)] ?: "Balanced",
+            isProfileCompleted = preferences[Keys.profileCompleted(userId)]
+                ?: preferences[Keys.profileCompletedLegacyAlias(userId)]
+                ?: false
+        )
+
+    private fun userProfileFromCloudData(data: Map<String, Any>): UserProfile {
+        fun readString(key: String, fallback: String): String =
+            (data[key] as? String)?.trim()?.takeIf { it.isNotEmpty() } ?: fallback
+        fun readInt(key: String, fallback: Int): Int =
+            (data[key] as? Number)?.toInt() ?: fallback
+        fun readBool(key: String, fallback: Boolean): Boolean =
+            (data[key] as? Boolean) ?: fallback
+        fun readStringList(key: String): List<String> =
+            (data[key] as? List<*>)?.mapNotNull { it?.toString()?.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+
+        return UserProfile(
+            displayName = readString("displayName", ""),
+            age = readInt("age", 0),
+            heightCm = readInt("heightCm", 0),
+            weightKg = readInt("weightKg", 0),
+            heightUnit = readString("heightUnit", "cm"),
+            weightUnit = readString("weightUnit", "kg"),
+            activityLevel = readString("activityLevel", "Lightly Active"),
+            goal = readString("goal", ""),
+            insulinResistanceLevel = readString("insulinResistanceLevel", "Mild"),
+            symptoms = readStringList("symptoms"),
+            comorbidities = readStringList("comorbidities"),
+            dietaryRestrictions = readStringList("dietaryRestrictions"),
+            allergies = readStringList("allergies"),
+            weeklyBudgetPhp = readInt("weeklyBudgetPhp", 0),
+            maxCookingTimeMinutes = readInt("maxCookingTimeMinutes", 45),
+            varietyPreference = readString("varietyPreference", "Balanced"),
+            planningPriority = readString("planningPriority", "Balanced"),
+            pantryItems = readStringList("pantryItems"),
+            isProfileCompleted = readBool("isProfileCompleted", false)
+        )
+    }
+
+    private fun hasMeaningfulProfileData(profile: UserProfile): Boolean {
+        return profile.displayName.isNotBlank() ||
+            profile.age > 0 ||
+            profile.heightCm > 0 ||
+            profile.weightKg > 0 ||
+            profile.goal.isNotBlank() ||
+            profile.symptoms.isNotEmpty() ||
+            profile.comorbidities.isNotEmpty() ||
+            profile.dietaryRestrictions.isNotEmpty() ||
+            profile.isProfileCompleted
     }
 
     fun getPantryEntries(userId: String): Flow<List<PantryEntry>> =
@@ -296,11 +572,193 @@ class UserPreferencesRepository(private val context: Context) {
         context.dataStore.edit { it[Keys.lastReviewedWeek(userId)] = weekStart }
     }
 
+    fun getProgressMode(userId: String): Flow<String> =
+        context.dataStore.data.map { prefs ->
+            prefs[Keys.progressMode(userId)] ?: "Today"
+        }
+
+    suspend fun saveProgressMode(userId: String, mode: String) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.progressMode(userId)] = mode
+        }
+    }
+
+    fun getProgressAdvancedAnalyticsExpanded(userId: String): Flow<Boolean> =
+        context.dataStore.data.map { prefs ->
+            prefs[Keys.progressAdvancedAnalyticsExpanded(userId)] ?: false
+        }
+
+    suspend fun saveProgressAdvancedAnalyticsExpanded(userId: String, expanded: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.progressAdvancedAnalyticsExpanded(userId)] = expanded
+        }
+    }
+
     fun getRemindersEnabled(userId: String): Flow<Boolean> =
-        context.dataStore.data.map { it[Keys.remindersEnabled(userId)] ?: false }
+        context.dataStore.data.map {
+            it[Keys.notificationMaster(userId)] ?: it[Keys.remindersEnabled(userId)] ?: false
+        }
 
     suspend fun setRemindersEnabled(userId: String, enabled: Boolean) {
-        context.dataStore.edit { it[Keys.remindersEnabled(userId)] = enabled }
+        context.dataStore.edit {
+            it[Keys.remindersEnabled(userId)] = enabled
+            it[Keys.notificationMaster(userId)] = enabled
+        }
+    }
+
+    fun getNotificationPreferences(userId: String): Flow<NotificationPreferences> =
+        context.dataStore.data.map { prefs ->
+            NotificationPreferences(
+                masterEnabled = prefs[Keys.notificationMaster(userId)]
+                    ?: prefs[Keys.remindersEnabled(userId)]
+                    ?: false,
+                mealRemindersEnabled = prefs[Keys.notificationMeals(userId)] ?: true,
+                planReadyEnabled = prefs[Keys.notificationPlanReady(userId)] ?: true,
+                grocerySyncEnabled = prefs[Keys.notificationGrocerySync(userId)] ?: true,
+                weeklyResetEnabled = prefs[Keys.notificationWeeklyReset(userId)] ?: true,
+                weeklyResetDayOfWeek = prefs[Keys.notificationWeeklyResetDay(userId)] ?: 1,
+                weeklyResetHour = prefs[Keys.notificationWeeklyResetHour(userId)] ?: 9,
+                weeklyResetMinute = prefs[Keys.notificationWeeklyResetMinute(userId)] ?: 0,
+                streakNudgesEnabled = prefs[Keys.notificationStreak(userId)] ?: false,
+                inactivityNudgesEnabled = prefs[Keys.notificationInactivity(userId)] ?: true,
+                breakfastHour = prefs[Keys.notificationBreakfastHour(userId)] ?: 8,
+                breakfastMinute = prefs[Keys.notificationBreakfastMinute(userId)] ?: 0,
+                lunchHour = prefs[Keys.notificationLunchHour(userId)] ?: 12,
+                lunchMinute = prefs[Keys.notificationLunchMinute(userId)] ?: 30,
+                dinnerHour = prefs[Keys.notificationDinnerHour(userId)] ?: 19,
+                dinnerMinute = prefs[Keys.notificationDinnerMinute(userId)] ?: 0,
+                quietHoursEnabled = prefs[Keys.notificationQuietEnabled(userId)] ?: false,
+                quietStartHour = prefs[Keys.notificationQuietStartHour(userId)] ?: 22,
+                quietStartMinute = prefs[Keys.notificationQuietStartMinute(userId)] ?: 0,
+                quietEndHour = prefs[Keys.notificationQuietEndHour(userId)] ?: 6,
+                quietEndMinute = prefs[Keys.notificationQuietEndMinute(userId)] ?: 30
+            )
+        }
+
+    suspend fun saveNotificationPreferences(userId: String, prefs: NotificationPreferences) {
+        context.dataStore.edit {
+            it[Keys.notificationMaster(userId)] = prefs.masterEnabled
+            it[Keys.remindersEnabled(userId)] = prefs.masterEnabled
+            it[Keys.notificationMeals(userId)] = prefs.mealRemindersEnabled
+            it[Keys.notificationPlanReady(userId)] = prefs.planReadyEnabled
+            it[Keys.notificationGrocerySync(userId)] = prefs.grocerySyncEnabled
+            it[Keys.notificationWeeklyReset(userId)] = prefs.weeklyResetEnabled
+            it[Keys.notificationWeeklyResetDay(userId)] = prefs.weeklyResetDayOfWeek.coerceIn(1, 7)
+            it[Keys.notificationWeeklyResetHour(userId)] = prefs.weeklyResetHour.coerceIn(0, 23)
+            it[Keys.notificationWeeklyResetMinute(userId)] = prefs.weeklyResetMinute.coerceIn(0, 59)
+            it[Keys.notificationStreak(userId)] = prefs.streakNudgesEnabled
+            it[Keys.notificationInactivity(userId)] = prefs.inactivityNudgesEnabled
+            it[Keys.notificationBreakfastHour(userId)] = prefs.breakfastHour
+            it[Keys.notificationBreakfastMinute(userId)] = prefs.breakfastMinute
+            it[Keys.notificationLunchHour(userId)] = prefs.lunchHour
+            it[Keys.notificationLunchMinute(userId)] = prefs.lunchMinute
+            it[Keys.notificationDinnerHour(userId)] = prefs.dinnerHour
+            it[Keys.notificationDinnerMinute(userId)] = prefs.dinnerMinute
+            it[Keys.notificationQuietEnabled(userId)] = prefs.quietHoursEnabled
+            it[Keys.notificationQuietStartHour(userId)] = prefs.quietStartHour
+            it[Keys.notificationQuietStartMinute(userId)] = prefs.quietStartMinute
+            it[Keys.notificationQuietEndHour(userId)] = prefs.quietEndHour
+            it[Keys.notificationQuietEndMinute(userId)] = prefs.quietEndMinute
+        }
+    }
+
+    fun getNotificationLogs(userId: String): Flow<List<NotificationLogEntry>> =
+        context.dataStore.data.map { prefs ->
+            val raw = prefs[Keys.notificationLogs(userId)]
+            if (raw.isNullOrBlank()) {
+                emptyList()
+            } else {
+                try {
+                    gson.fromJson<List<NotificationLogEntry>>(raw, notificationLogsType)
+                } catch (_: Exception) {
+                    emptyList()
+                }
+            }
+        }
+
+    suspend fun appendNotificationLog(userId: String, entry: NotificationLogEntry) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[Keys.notificationLogs(userId)]
+                ?.let {
+                    try {
+                        gson.fromJson<List<NotificationLogEntry>>(it, notificationLogsType)
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
+                }
+                .orEmpty()
+            val updated = (listOf(entry) + current).take(80)
+            prefs[Keys.notificationLogs(userId)] = gson.toJson(updated)
+        }
+    }
+
+    suspend fun getNotificationLastFired(userId: String, type: String): Long {
+        val prefs = context.dataStore.data.first()
+        val raw = prefs[Keys.notificationLastFiredJson(userId)] ?: return 0L
+        val map = try {
+            gson.fromJson<Map<String, Long>>(raw, notificationLastFiredType)
+        } catch (_: Exception) {
+            emptyMap()
+        }
+        return map[type] ?: 0L
+    }
+
+    suspend fun setNotificationLastFired(userId: String, type: String, timestamp: Long) {
+        context.dataStore.edit { prefs ->
+            val raw = prefs[Keys.notificationLastFiredJson(userId)]
+            val map = raw?.let {
+                try {
+                    gson.fromJson<Map<String, Long>>(it, notificationLastFiredType).toMutableMap()
+                } catch (_: Exception) {
+                    mutableMapOf()
+                }
+            } ?: mutableMapOf()
+            map[type] = timestamp
+            prefs[Keys.notificationLastFiredJson(userId)] = gson.toJson(map)
+        }
+    }
+
+    suspend fun markNotificationDelivered(
+        userId: String,
+        type: String,
+        title: String,
+        body: String,
+        deliveredAt: Long = System.currentTimeMillis()
+    ) {
+        setNotificationLastFired(userId, type, deliveredAt)
+        appendNotificationLog(
+            userId = userId,
+            entry = NotificationLogEntry(
+                type = type,
+                title = title,
+                body = body,
+                deliveredAt = deliveredAt
+            )
+        )
+    }
+
+    suspend fun getMostRecentDailyLogDate(userId: String): String? {
+        val reflectionDate = mostRecentDailyLogDateFromJson(
+            reflectionStore.getDailyLogsJson(userId)
+        )
+        val legacyDate = mostRecentDailyLogDateFromJson(
+            getDailyLogsJson(userId).first()
+        )
+        return listOfNotNull(reflectionDate, legacyDate)
+            .maxOrNull()
+            ?.toString()
+    }
+
+    private fun mostRecentDailyLogDateFromJson(raw: String?): LocalDate? {
+        if (raw.isNullOrBlank()) return null
+        val logs = try {
+            gson.fromJson<List<DailyLog>>(raw, dailyLogsType)
+        } catch (_: Exception) {
+            emptyList()
+        }
+        return logs.mapNotNull { log ->
+            runCatching { LocalDate.parse(log.date) }.getOrNull()
+        }.maxOrNull()
     }
 
     suspend fun clearPlanHistory(userId: String) {
@@ -309,6 +767,7 @@ class UserPreferencesRepository(private val context: Context) {
             preferences.remove(Keys.activePlanId(userId))
             preferences.remove(Keys.lastPlanJson(userId))
             preferences.remove(Keys.lastPlanTimestamp(userId))
+            preferences.remove(Keys.lastReviewedWeek(userId))
         }
     }
 

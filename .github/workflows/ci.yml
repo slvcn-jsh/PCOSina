@@ -36,6 +36,130 @@ jobs:
       - name: Build Release APK (assembleRelease)
         run: ./gradlew assembleRelease
 
+  connected-instrumentation:
+    name: Connected Instrumentation (API ${{ matrix.api-level }}, Pinned Emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [30, 34]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x ./gradlew
+
+      - name: Run full connected instrumentation suite
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          profile: pixel_4
+          locale: en_US
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb shell settings put system font_scale 1.0
+            ./gradlew :app:connectedDebugAndroidTest
+
+  compact-visual-regression:
+    name: Compact Visual Regression (API ${{ matrix.api-level }})
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [34]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x ./gradlew
+
+      - name: Run compact visual tests (strict verify before refresh)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          profile: pixel_4
+          locale: en_US
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb shell settings put system font_scale 1.0
+            if [ -f app/src/androidTest/assets/visual_baselines/compact_profile_step3.png ] && \
+               [ -f app/src/androidTest/assets/visual_baselines/compact_chip_row.png ] && \
+               [ -f app/src/androidTest/assets/visual_baselines/compact_dashboard_today_outcome.png ] && \
+               [ -f app/src/androidTest/assets/visual_baselines/compact_progress_top_section.png ] && \
+               [ -f app/src/androidTest/assets/visual_baselines/compact_mealplan_top_section.png ] && \
+               [ -f app/src/androidTest/assets/visual_baselines/compact_login_first_win_card.png ] && \
+               [ -f app/src/androidTest/assets/visual_baselines/compact_profile_first_win_card.png ] && \
+               [ -f app/src/androidTest/assets/visual_baselines/compact_goal_handoff_card.png ]; then
+              ./gradlew :app:connectedDebugAndroidTest \
+                -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest \
+                -Pandroid.testInstrumentationRunnerArguments.require_visual_baseline=true \
+                -Pandroid.testInstrumentationRunnerArguments.visual_delta_threshold=6.0
+
+              ./gradlew :app:connectedDebugAndroidTest \
+                -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest \
+                -Pandroid.testInstrumentationRunnerArguments.refresh_visual_baseline=true
+            else
+              echo "Full compact baseline set not committed yet; strict verify skipped."
+              ./gradlew :app:connectedDebugAndroidTest \
+                -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest \
+                -Pandroid.testInstrumentationRunnerArguments.refresh_visual_baseline=true
+            fi
+
+  ux-critical-flow:
+    name: UX Critical Flow Gates (API 34)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x ./gradlew
+
+      - name: Run first-win and reminder critical instrumentation tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          profile: pixel_4
+          locale: en_US
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb shell settings put system font_scale 1.0
+            ./gradlew :app:connectedDebugAndroidTest \
+              -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.FirstWinFlowUiTest \
+              -Pandroid.testInstrumentationRunnerArguments.first_win_timeout_ms=90000
+            ./gradlew :app:connectedDebugAndroidTest \
+              -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.MealPlanSwapBannerUiTest#statusCenter_showsReminderSummaryWhenNotificationsEnabled
+
   backend-smoke:
     name: Backend Dependency Smoke
     runs-on: ubuntu-latest

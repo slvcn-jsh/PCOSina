@@ -13,57 +13,49 @@ data class GuidedJourneyInput(
 )
 
 fun resolveGuidedJourneyStep(input: GuidedJourneyInput): GuidedJourneyStep {
-    val goalText = input.goal.ifBlank { "Your goal" }
     return when {
         !input.profileComplete -> GuidedJourneyStep(
             stepIndex = 1,
-            title = "Complete your profile",
-            rationale = "We need your basics to compute safe targets.",
-            cta = "Complete Profile",
+            title = "Complete Profile",
+            rationale = "This matters because your plan targets come from your profile data.",
             route = Routes.UserProfile
         )
-        input.goal.isBlank() -> GuidedJourneyStep(
+        !hasGoalSelection(input.goal) -> GuidedJourneyStep(
             stepIndex = 2,
-            title = "Select your goal",
-            rationale = "Your plan will align with $goalText.",
-            cta = "Choose Goal",
+            title = "Select Goal",
+            rationale = "This matters because we tailor your week to one clear outcome.",
             route = Routes.GoalSelection
         )
         !input.hasPlan -> GuidedJourneyStep(
             stepIndex = 3,
-            title = "Generate your first plan",
-            rationale = "This creates your week in 1 click.",
-            cta = "Generate Plan",
+            title = "Generate Plan",
+            rationale = "This matters because it gives you your first week in under a minute.",
             route = Routes.MealPlan,
             requiresInternet = true
         )
         !input.hasReviewedWeek -> GuidedJourneyStep(
             stepIndex = 4,
-            title = "Review this week",
-            rationale = "See your Mon–Sun meals and adjust if needed.",
-            cta = "Review Week",
+            title = "Review Week (Mon–Sun)",
+            rationale = "This matters because seeing the full week helps you stay consistent.",
             route = Routes.MealPlan
         )
         !input.hasGrocery -> GuidedJourneyStep(
             stepIndex = 5,
-            title = "Build your grocery list",
-            rationale = "Turn the plan into a ready-to-shop list.",
-            cta = "Open Grocery",
+            title = "Add to Grocery",
+            rationale = "This matters because your plan becomes a ready shopping list.",
             route = Routes.GroceryList
         )
         !input.hasTracked -> GuidedJourneyStep(
             stepIndex = 6,
-            title = "Track your week",
-            rationale = "Check off meals and log weight or notes.",
-            cta = "Open Progress",
+            title = "Track (check-offs + weight/reflection)",
+            rationale = "This matters because tracking turns plans into measurable progress.",
             route = Routes.Progress
         )
         else -> GuidedJourneyStep(
             stepIndex = 6,
-            title = "You’re on track",
-            rationale = "Keep logging to strengthen your weekly insights.",
-            cta = "Continue Week",
-            route = Routes.Progress
+            title = "Continue your week",
+            rationale = "This matters because staying on today’s meals keeps momentum.",
+            route = Routes.MealPlan
         )
     }
 }

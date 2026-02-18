@@ -23,7 +23,6 @@ data class GuidedJourneyStep(
     val totalSteps: Int = 6,
     val title: String,
     val rationale: String,
-    val cta: String,
     val route: String,
     val requiresInternet: Boolean = false
 )
@@ -50,17 +49,17 @@ fun GuidedJourneyCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Guided Journey",
+                    text = "You are on Step ${step.stepIndex}/${step.totalSteps}",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    text = "Step ${step.stepIndex}/${step.totalSteps}",
+                    text = "Guided Journey",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Text(
-                text = step.title,
+                text = "Next: ${step.title}",
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.primary
             )
@@ -71,7 +70,7 @@ fun GuidedJourneyCard(
             )
             if (step.requiresInternet) {
                 Text(
-                    text = "Requires internet connection.",
+                    text = "Internet required for this step.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -82,7 +81,7 @@ fun GuidedJourneyCard(
                 modifier = Modifier.fillMaxWidth().height(46.dp),
                 shape = MaterialTheme.shapes.medium
             ) {
-                Text(step.cta, fontWeight = FontWeight.Bold)
+                Text("Continue", fontWeight = FontWeight.Bold)
             }
         }
     }

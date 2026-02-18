@@ -11,7 +11,7 @@ data class UserProfile(
     val heightUnit: String = "cm",
     val weightUnit: String = "kg",
     val activityLevel: String = "Lightly Active",
-    val goal: String = "Support PCOS symptom management",
+    val goal: String = "",
     val insulinResistanceLevel: String = "Mild",
     val symptoms: List<String> = emptyList(),
     val comorbidities: List<String> = emptyList(),

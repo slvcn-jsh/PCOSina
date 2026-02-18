@@ -1,5 +1,6 @@
 package com.pcosina.app.ui
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -45,6 +46,11 @@ class ProgressViewModel(
     val feedbackQueue: StateFlow<List<FeedbackEntry>> = _feedbackQueue.asStateFlow()
     private val _planFeedbackTags = MutableStateFlow<List<String>>(emptyList())
     val planFeedbackTags: StateFlow<List<String>> = _planFeedbackTags.asStateFlow()
+    private val _savedProgressMode = MutableStateFlow("Today")
+    val savedProgressMode: StateFlow<String> = _savedProgressMode.asStateFlow()
+    private val _savedAdvancedWeekAnalyticsExpanded = MutableStateFlow(false)
+    val savedAdvancedWeekAnalyticsExpanded: StateFlow<Boolean> =
+        _savedAdvancedWeekAnalyticsExpanded.asStateFlow()
     private var isSendingFeedback = false
     private val retryBaseDelayMs = 2000L
     private val retryMaxDelayMs = 60000L
@@ -52,9 +58,18 @@ class ProgressViewModel(
 
     companion object {
         private const val MEAL_KEY_SEPARATOR = "::"
+        const val LoggingPolicySummary = "Logging is available for today only. Past and future days are read-only."
 
         fun buildMealKey(mealLabel: String, recipeId: String): String {
             return "$mealLabel$MEAL_KEY_SEPARATOR$recipeId"
+        }
+
+        fun extractMealLabel(mealKey: String): String? {
+            return if (mealKey.contains(MEAL_KEY_SEPARATOR)) {
+                mealKey.substringBefore(MEAL_KEY_SEPARATOR).takeIf { it.isNotBlank() }
+            } else {
+                null
+            }
         }
 
         fun extractRecipeId(mealKey: String): String {
@@ -66,10 +81,21 @@ class ProgressViewModel(
         }
     }
 
+    fun isDateLoggable(date: LocalDate, now: LocalDate = LocalDate.now()): Boolean = date == now
+
+    fun loggingLockReason(date: LocalDate, now: LocalDate = LocalDate.now()): String {
+        return when {
+            date.isAfter(now) -> "Future-day logging is locked. You can only log meals for today."
+            date.isBefore(now) -> "Past-day logging is locked. Log meals on the same day to keep insights accurate."
+            else -> ""
+        }
+    }
+
     fun loadForUser(userId: String, weekStart: String, fallbackWeekStart: String? = null) {
         if (currentUserId == userId) {
             loadWeeklyJournal(weekStart, fallbackWeekStart)
             loadWeeklySpend(weekStart, fallbackWeekStart)
+            loadProgressUiPreferences()
             return
         }
         currentUserId = userId
@@ -105,6 +131,44 @@ class ProgressViewModel(
             loadWeeklySpend(weekStart, fallbackWeekStart)
             val tags = userPrefsRepository.getPlanFeedbackTags(userId).first()
             _planFeedbackTags.value = tags
+            fetchProgressUiPreferences()
+        }
+    }
+
+    private suspend fun fetchProgressUiPreferences() {
+        if (currentUserId.isBlank()) {
+            _savedProgressMode.value = "Today"
+            _savedAdvancedWeekAnalyticsExpanded.value = false
+            return
+        }
+        _savedProgressMode.value = userPrefsRepository.getProgressMode(currentUserId).first()
+        _savedAdvancedWeekAnalyticsExpanded.value =
+            userPrefsRepository.getProgressAdvancedAnalyticsExpanded(currentUserId).first()
+    }
+
+    fun loadProgressUiPreferences() {
+        if (currentUserId.isBlank()) return
+        viewModelScope.launch {
+            fetchProgressUiPreferences()
+        }
+    }
+
+    fun setProgressModePreference(mode: String) {
+        if (currentUserId.isBlank()) return
+        val normalized = if (mode.equals("Week", ignoreCase = true)) "Week" else "Today"
+        _savedProgressMode.value = normalized
+        viewModelScope.launch {
+            userPrefsRepository.saveProgressMode(currentUserId, normalized)
+            Log.i("ProgressUX", "Saved focus mode: $normalized user=$currentUserId")
+        }
+    }
+
+    fun setAdvancedWeekAnalyticsExpandedPreference(expanded: Boolean) {
+        if (currentUserId.isBlank()) return
+        _savedAdvancedWeekAnalyticsExpanded.value = expanded
+        viewModelScope.launch {
+            userPrefsRepository.saveProgressAdvancedAnalyticsExpanded(currentUserId, expanded)
+            Log.i("ProgressUX", "Saved advanced analytics expanded=$expanded user=$currentUserId")
         }
     }
 
@@ -170,7 +234,8 @@ class ProgressViewModel(
         }
     }
 
-    fun toggleMeal(date: LocalDate, recipeId: String, mealLabel: String) {
+    fun toggleMeal(date: LocalDate, recipeId: String, mealLabel: String): Boolean {
+        if (!isDateLoggable(date)) return false
         val key = date.format(dateFmt)
         val current = _dailyLogs.value[key]
         val mealKey = buildMealKey(mealLabel, recipeId)
@@ -190,9 +255,40 @@ class ProgressViewModel(
         newMap[key] = updated
         _dailyLogs.value = newMap
         persistLogs(newMap)
+        return true
     }
 
-    fun setWeight(date: LocalDate, weight: Float?, note: String? = null) {
+    fun markMealAsEaten(date: LocalDate, recipeId: String, mealLabel: String? = null): Boolean {
+        if (!isDateLoggable(date)) return false
+        val key = date.format(dateFmt)
+        val current = _dailyLogs.value[key]
+        val currentIds = current?.completedMealIds ?: emptyList()
+        val normalizedRecipeId = extractRecipeId(recipeId)
+        val normalizedMealLabel = mealLabel?.trim().orEmpty()
+        val mealKey = if (normalizedMealLabel.isNotBlank()) {
+            buildMealKey(normalizedMealLabel, normalizedRecipeId)
+        } else {
+            normalizedRecipeId
+        }
+        val alreadyLogged = if (normalizedMealLabel.isNotBlank()) {
+            currentIds.contains(mealKey) || currentIds.contains(normalizedRecipeId)
+        } else {
+            currentIds.any { extractRecipeId(it) == normalizedRecipeId }
+        }
+        if (alreadyLogged) return true
+        val updated = (current ?: DailyLog(date = key)).copy(
+            completedMealIds = currentIds + mealKey,
+            timestamp = System.currentTimeMillis()
+        )
+        val newMap = _dailyLogs.value.toMutableMap()
+        newMap[key] = updated
+        _dailyLogs.value = newMap
+        persistLogs(newMap)
+        return true
+    }
+
+    fun setWeight(date: LocalDate, weight: Float?, note: String? = null): Boolean {
+        if (!isDateLoggable(date)) return false
         val key = date.format(dateFmt)
         val current = _dailyLogs.value[key]
         val updated = (current ?: DailyLog(date = key)).copy(
@@ -204,6 +300,7 @@ class ProgressViewModel(
         newMap[key] = updated
         _dailyLogs.value = newMap
         persistLogs(newMap)
+        return true
     }
 
     fun saveReflection(
@@ -213,7 +310,8 @@ class ProgressViewModel(
         moodLevel: Int?,
         symptomTags: List<String>,
         symptomsNote: String?
-    ) {
+    ): Boolean {
+        if (!isDateLoggable(date)) return false
         val key = date.format(dateFmt)
         val current = _dailyLogs.value[key]
         val updated = (current ?: DailyLog(date = key)).copy(
@@ -228,6 +326,7 @@ class ProgressViewModel(
         newMap[key] = updated
         _dailyLogs.value = newMap
         persistLogs(newMap)
+        return true
     }
 
     fun saveWeeklyJournal(weekStart: String, text: String) {
@@ -251,6 +350,8 @@ class ProgressViewModel(
         _weeklySpend.value = null
         _feedbackQueue.value = emptyList()
         _planFeedbackTags.value = emptyList()
+        _savedProgressMode.value = "Today"
+        _savedAdvancedWeekAnalyticsExpanded.value = false
     }
 
     fun togglePlanFeedbackTag(tag: String) {

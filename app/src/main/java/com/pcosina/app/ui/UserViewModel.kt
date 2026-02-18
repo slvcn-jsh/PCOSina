@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.pcosina.app.data.model.PantryEntry
+import com.pcosina.app.data.model.NotificationLogEntry
+import com.pcosina.app.data.model.NotificationPreferences
 import com.pcosina.app.data.model.UserProfile
 import com.pcosina.app.data.repository.UserPreferencesRepository
 import com.pcosina.app.domain.CalorieTargetBreakdown
@@ -29,10 +31,16 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
     val pantryEntries: StateFlow<List<PantryEntry>> = _pantryEntries.asStateFlow()
     private val _remindersEnabled = MutableStateFlow(false)
     val remindersEnabled: StateFlow<Boolean> = _remindersEnabled.asStateFlow()
+    private val _notificationPreferences = MutableStateFlow(NotificationPreferences())
+    val notificationPreferences: StateFlow<NotificationPreferences> = _notificationPreferences.asStateFlow()
+    private val _notificationLogs = MutableStateFlow<List<NotificationLogEntry>>(emptyList())
+    val notificationLogs: StateFlow<List<NotificationLogEntry>> = _notificationLogs.asStateFlow()
 
     private var profileJob: Job? = null
     private var pantryJob: Job? = null
     private var remindersJob: Job? = null
+    private var notificationPrefsJob: Job? = null
+    private var notificationLogsJob: Job? = null
     private var currentUserId: String = ""
     private var pendingProfile: UserProfile? = null
 
@@ -55,6 +63,8 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
         profileJob?.cancel()
         pantryJob?.cancel()
         remindersJob?.cancel()
+        notificationPrefsJob?.cancel()
+        notificationLogsJob?.cancel()
         profileJob = viewModelScope.launch {
             repository.getUserProfile(userId).collectLatest { profile ->
                 val pending = pendingProfile
@@ -81,6 +91,17 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
                 _remindersEnabled.value = enabled
             }
         }
+        notificationPrefsJob = viewModelScope.launch {
+            repository.getNotificationPreferences(userId).collectLatest { prefs ->
+                _notificationPreferences.value = prefs
+                _remindersEnabled.value = prefs.masterEnabled
+            }
+        }
+        notificationLogsJob = viewModelScope.launch {
+            repository.getNotificationLogs(userId).collectLatest { logs ->
+                _notificationLogs.value = logs
+            }
+        }
         flushPendingProfile()
     }
 
@@ -97,10 +118,14 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
         profileJob?.cancel()
         pantryJob?.cancel()
         remindersJob?.cancel()
+        notificationPrefsJob?.cancel()
+        notificationLogsJob?.cancel()
         _userProfile.value = UserProfile()
         _isProfileLoading.value = false
         _pantryEntries.value = emptyList()
         _remindersEnabled.value = false
+        _notificationPreferences.value = NotificationPreferences()
+        _notificationLogs.value = emptyList()
         pendingProfile = null
     }
 
@@ -201,11 +226,23 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
     }
 
     fun setRemindersEnabled(enabled: Boolean) {
-        _remindersEnabled.value = enabled
-        if (currentUserId.isBlank()) return
-        viewModelScope.launch {
-            repository.setRemindersEnabled(currentUserId, enabled)
+        updateNotificationPreferences { prefs ->
+            prefs.copy(masterEnabled = enabled)
         }
+    }
+
+    fun updateNotificationPreferences(
+        transform: (NotificationPreferences) -> NotificationPreferences
+    ): NotificationPreferences {
+        val updated = transform(_notificationPreferences.value)
+        _notificationPreferences.value = updated
+        _remindersEnabled.value = updated.masterEnabled
+        if (currentUserId.isNotBlank()) {
+            viewModelScope.launch {
+                repository.saveNotificationPreferences(currentUserId, updated)
+            }
+        }
+        return updated
     }
 
     fun updateGoal(goal: String) {
@@ -241,6 +278,9 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
                 goal = profile.goal
             )
         }
+
+    val activeUserId: String
+        get() = currentUserId
 
     class Factory(private val repository: UserPreferencesRepository) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {

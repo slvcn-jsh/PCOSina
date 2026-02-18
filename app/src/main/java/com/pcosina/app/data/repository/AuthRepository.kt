@@ -126,6 +126,15 @@ class AuthRepository(private val context: Context) {
         }
     }
 
+    suspend fun sendPasswordReset(email: String): Result<Unit> {
+        return try {
+            firebaseAuth.sendPasswordResetEmail(email).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun logout() {
         try {
             firebaseAuth.signOut()

@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import android.os.Bundle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -25,13 +26,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
+import android.util.Log
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
@@ -53,10 +56,13 @@ import com.pcosina.app.ui.theme.UiSpacingTokens
 import com.pcosina.app.ui.util.buildMealReasons
 import com.pcosina.app.ui.util.GuidedJourneyInput
 import com.pcosina.app.ui.util.primaryGoalLabel
+import com.pcosina.app.ui.util.MealPlanNextActionDebugLog
+import com.pcosina.app.ui.util.rememberIsOnline
 import com.pcosina.app.ui.util.resolveGuidedJourneyStep
 import com.pcosina.app.ui.util.supportsLowGiGuidance
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.pcosina.app.data.api.RecipeSummaryDto
+import com.pcosina.app.data.model.GroceryItemSource
 import kotlinx.coroutines.launch
 import java.util.Locale
 import java.time.DayOfWeek
@@ -84,6 +90,48 @@ private data class MealPlanBannerState(
     val action: MealPlanBannerAction = MealPlanBannerAction.None
 )
 
+private data class MealPlanNextAction(
+    val label: String,
+    val reason: String,
+    val enabled: Boolean,
+    val onClick: () -> Unit
+)
+
+interface MealPlanNextActionAnalytics {
+    fun trackTap(actionType: String, networkState: String, userId: String)
+}
+
+private class FirebaseMealPlanNextActionAnalytics(
+    private val analytics: FirebaseAnalytics
+) : MealPlanNextActionAnalytics {
+    override fun trackTap(actionType: String, networkState: String, userId: String) {
+        analytics.logEvent(
+            "mealplan_next_best_action_tap",
+            Bundle().apply {
+                putString("action_type", actionType)
+                putString("network_state", networkState)
+            }
+        )
+        MealPlanNextActionDebugLog.record(
+            actionType = actionType,
+            networkState = networkState,
+            userId = userId
+        )
+        Log.i(
+            "MealPlanUX",
+            "Next best action tapped action=$actionType network=$networkState user=$userId"
+        )
+    }
+}
+
+@Composable
+private fun rememberMealPlanNextActionAnalytics(): MealPlanNextActionAnalytics {
+    val context = LocalContext.current
+    return remember(context) {
+        FirebaseMealPlanNextActionAnalytics(FirebaseAnalytics.getInstance(context))
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MealPlanScreen(
@@ -94,6 +142,11 @@ fun MealPlanScreen(
     onRecipeClick: (String, String?) -> Unit,
     onViewProgress: () -> Unit = {},
     onNavigateToRoute: (String) -> Unit = {},
+    nextActionAnalytics: MealPlanNextActionAnalytics? = null,
+    onlineStateOverride: Boolean? = null,
+    swapOptionsLoader: (suspend (mealLabel: String, limit: Int) -> Result<List<RecipeSummaryDto>>)? = null,
+    swapGrocerySourceLoader: (suspend (recipeId: String) -> Result<List<GroceryItemSource>>)? = null,
+    swapApplyOverride: (suspend (dayIndex: Int, mealIndex: Int, recipeId: String, title: String) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val uiState by mealPlanViewModel.uiState.collectAsState()
@@ -111,10 +164,9 @@ fun MealPlanScreen(
     var selectedDayIndex by rememberSaveable { mutableStateOf(0) }
     val context = LocalContext.current
     val analytics = FirebaseAnalytics.getInstance(context)
-    val isOnline = remember { mutableStateOf(isNetworkAvailable(context)) }
-    LaunchedEffect(Unit) {
-        isOnline.value = isNetworkAvailable(context)
-    }
+    val resolvedNextActionAnalytics = nextActionAnalytics ?: rememberMealPlanNextActionAnalytics()
+    val observedOnline by rememberIsOnline(context)
+    val isOnline = onlineStateOverride ?: observedOnline
     val colorScheme = MaterialTheme.colorScheme
     val screenWidthDp = LocalConfiguration.current.screenWidthDp
     val weekChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 108.dp, medium = 164.dp)
@@ -128,7 +180,6 @@ fun MealPlanScreen(
     val dayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
     var selectedDayAnchor by rememberSaveable { mutableStateOf<String?>(null) }
 
-    val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showConfidenceInfo by rememberSaveable { mutableStateOf(false) }
     var showLowGiInfo by rememberSaveable { mutableStateOf(false) }
@@ -169,8 +220,8 @@ fun MealPlanScreen(
     )
 
     fun triggerPlanGeneration() {
-        isOnline.value = isNetworkAvailable(context)
-        if (!isOnline.value) {
+        if (!isOnline) {
+            Log.w("MealPlanUX", "Plan generation blocked: offline user=${userViewModel.activeUserId}")
             generateActionState = FeedbackActionState.Error
             feedbackBanner = MealPlanBannerState(
                 data = FeedbackBannerData(
@@ -189,6 +240,10 @@ fun MealPlanScreen(
             }
             return
         }
+        Log.i(
+            "MealPlanUX",
+            "Plan generation started for user=${userViewModel.activeUserId} goal='${userProfile.goal}'"
+        )
         analytics.logEvent("generate_plan", null)
         feedbackBanner = MealPlanBannerState(
             data = FeedbackBannerData(
@@ -200,8 +255,8 @@ fun MealPlanScreen(
     }
 
     fun triggerGrocerySync() {
-        isOnline.value = isNetworkAvailable(context)
-        if (!isOnline.value) {
+        if (!isOnline) {
+            Log.w("MealPlanUX", "Grocery sync blocked: offline user=${userViewModel.activeUserId}")
             syncState = FeedbackActionState.Error
             lastSyncStatus = "Failed (offline)"
             feedbackBanner = MealPlanBannerState(
@@ -231,6 +286,7 @@ fun MealPlanScreen(
         )
         mealPlanViewModel.extractGrocerySourcesForPlan { sources ->
             if (sources.isEmpty()) {
+                Log.w("MealPlanUX", "Grocery sync failed: no extracted sources user=${userViewModel.activeUserId}")
                 syncState = FeedbackActionState.Error
                 lastSyncStatus = "Failed (no items)"
                 feedbackBanner = MealPlanBannerState(
@@ -250,6 +306,10 @@ fun MealPlanScreen(
                 return@extractGrocerySourcesForPlan
             }
             groceryViewModel.setPlanSources(sources)
+            Log.i(
+                "MealPlanUX",
+                "Grocery sync success: ${sources.values.sumOf { it.size }} items mapped user=${userViewModel.activeUserId}"
+            )
             syncState = FeedbackActionState.Success
             lastSyncStatus = "Synced successfully"
             feedbackBanner = MealPlanBannerState(
@@ -273,6 +333,37 @@ fun MealPlanScreen(
         else -> null
     }
 
+    fun postMealPlanFeedback(
+        tone: FeedbackBannerTone,
+        message: String,
+        autoClearMs: Long = 2200L
+    ) {
+        feedbackBanner = MealPlanBannerState(
+            data = FeedbackBannerData(
+                tone = tone,
+                message = message
+            )
+        )
+        Log.i("MealPlanUX", message)
+        if (tone != FeedbackBannerTone.Loading && autoClearMs > 0L) {
+            scope.launch {
+                kotlinx.coroutines.delay(autoClearMs)
+                if (feedbackBanner?.data?.message == message) {
+                    feedbackBanner = null
+                }
+            }
+        }
+    }
+
+    fun logNextBestActionTap(actionType: String) {
+        val networkState = if (isOnline) "online" else "offline"
+        resolvedNextActionAnalytics.trackTap(
+            actionType = actionType,
+            networkState = networkState,
+            userId = userViewModel.activeUserId
+        )
+    }
+
     LaunchedEffect(syncState) {
         if (syncState == FeedbackActionState.Success || syncState == FeedbackActionState.Error) {
             kotlinx.coroutines.delay(1800)
@@ -293,6 +384,7 @@ fun MealPlanScreen(
             }
             is MealPlanUiState.Success -> {
                 if (generateActionState == FeedbackActionState.Loading) {
+                    Log.i("MealPlanUX", "Plan generation success user=${userViewModel.activeUserId}")
                     generateActionState = FeedbackActionState.Success
                     feedbackBanner = MealPlanBannerState(
                         data = FeedbackBannerData(
@@ -312,6 +404,7 @@ fun MealPlanScreen(
                 }
             }
             is MealPlanUiState.Error -> {
+                Log.e("MealPlanUX", "Plan generation failed user=${userViewModel.activeUserId}")
                 pendingPlanReadyNotification = false
                 if (generateActionState == FeedbackActionState.Loading) {
                     generateActionState = FeedbackActionState.Error
@@ -351,8 +444,15 @@ fun MealPlanScreen(
             selectedDayAnchor = null
         }
     }
+    LaunchedEffect(selectedDayIndex, currentPlan?.weekLabel) {
+        val weekLabel = currentPlan?.weekLabel ?: return@LaunchedEffect
+        val selectedDay = dayLabels.getOrNull(selectedDayIndex) ?: return@LaunchedEffect
+        Log.i(
+            "MealPlanUX",
+            "Day navigation selected user=${userViewModel.activeUserId} week=$weekLabel dayIndex=$selectedDayIndex day=$selectedDay"
+        )
+    }
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = modifier
     ) { padding ->
         when (val state = uiState) {
@@ -366,6 +466,13 @@ fun MealPlanScreen(
                             step = guidedStep,
                             onContinue = { step -> onNavigateToRoute(step.route) },
                             modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = "Step 3 of 4: Generate Plan",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colorScheme.primary,
+                            modifier = Modifier.fillMaxWidth().testTag("mealplan_step3_label")
                         )
                         feedbackBanner?.let { banner ->
                             Spacer(Modifier.height(12.dp))
@@ -398,7 +505,7 @@ fun MealPlanScreen(
                             }
                         }
                         Spacer(Modifier.height(12.dp))
-                        if (!isOnline.value) {
+                        if (!isOnline) {
                             Text(
                                 text = "Offline. Connect to the internet to generate your first plan.",
                                 color = colorScheme.onSurfaceVariant,
@@ -413,12 +520,14 @@ fun MealPlanScreen(
                             successLabel = "Plan Ready",
                             errorLabel = "Retry Generation",
                             onClick = { triggerPlanGeneration() },
-                            enabled = isOnline.value,
+                            enabled = isOnline,
                             modifier = Modifier.fillMaxWidth().height(52.dp)
                         )
-                        TextButton(onClick = { isOnline.value = isNetworkAvailable(context) }) {
-                            Text(if (isOnline.value) "You’re online" else "Check connection")
-                        }
+                        Text(
+                            text = if (isOnline) "Status: Online" else "Status: Offline",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
                         if (planHistory.isNotEmpty()) {
                             Spacer(Modifier.height(16.dp))
                             Text(
@@ -473,6 +582,13 @@ fun MealPlanScreen(
                             onContinue = { step -> onNavigateToRoute(step.route) },
                             modifier = Modifier.fillMaxWidth()
                         )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = "Step 3 of 4: Generate Plan",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colorScheme.primary,
+                            modifier = Modifier.fillMaxWidth().testTag("mealplan_step3_label")
+                        )
                         feedbackBanner?.let { banner ->
                             Spacer(Modifier.height(12.dp))
                             AppFeedbackBanner(
@@ -504,7 +620,7 @@ fun MealPlanScreen(
                                 )
                             }
                         }
-                        if (!isOnline.value) {
+                        if (!isOnline) {
                             Text(
                                 text = "You are offline. Saved plans will still be available.",
                                 color = colorScheme.onSurfaceVariant,
@@ -519,12 +635,14 @@ fun MealPlanScreen(
                             successLabel = "Recovered",
                             errorLabel = "Retry failed",
                             onClick = { triggerPlanGeneration() },
-                            enabled = isOnline.value,
+                            enabled = isOnline,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        TextButton(onClick = { isOnline.value = isNetworkAvailable(context) }) {
-                            Text(if (isOnline.value) "You’re online" else "Check connection")
-                        }
+                        Text(
+                            text = if (isOnline) "Status: Online" else "Status: Offline",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -540,6 +658,47 @@ fun MealPlanScreen(
                 val recipeCounts = remember(plan) {
                     plan.days.flatMap { it.meals }.groupingBy { it.recipeId }.eachCount()
                 }
+                val nextBestAction = remember(planExpired, hasGrocery, hasTracked, isOnline, userProfile.goal) {
+                    val goalLabel = primaryGoalLabel(userProfile.goal)
+                    when {
+                        planExpired -> MealPlanNextAction(
+                            label = if (isOnline) "Generate Next Week" else "Generate Next Week (Internet required)",
+                            reason = "Why this helps $goalLabel: keeping a current week keeps daily choices aligned.",
+                            enabled = isOnline,
+                            onClick = {
+                                logNextBestActionTap("generate_next_week")
+                                triggerPlanGeneration()
+                            }
+                        )
+                        !hasGrocery -> MealPlanNextAction(
+                            label = if (isOnline) "Sync Grocery List" else "Sync Grocery List (Internet required)",
+                            reason = "Why this helps $goalLabel: synced groceries remove friction between plan and shopping.",
+                            enabled = isOnline,
+                            onClick = {
+                                logNextBestActionTap("sync_grocery_list")
+                                triggerGrocerySync()
+                            }
+                        )
+                        !hasTracked -> MealPlanNextAction(
+                            label = "Log Meals in Progress",
+                            reason = "Why this helps $goalLabel: meal check-offs improve adherence and insight quality.",
+                            enabled = true,
+                            onClick = {
+                                logNextBestActionTap("log_meals_in_progress")
+                                onViewProgress()
+                            }
+                        )
+                        else -> MealPlanNextAction(
+                            label = "Review Progress Insights",
+                            reason = "Why this helps $goalLabel: reviewing trends helps adjust your next week faster.",
+                            enabled = true,
+                            onClick = {
+                                logNextBestActionTap("review_progress_insights")
+                                onViewProgress()
+                            }
+                        )
+                    }
+                }
                 LaunchedEffect(plan.weekLabel) {
                     swapTarget = null
                     swapOptions = emptyList()
@@ -550,10 +709,23 @@ fun MealPlanScreen(
                 }
 
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding().padding(padding),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(colorScheme.background)
+                        .statusBarsPadding()
+                        .padding(padding)
+                        .testTag("mealplan_content_list"),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = UiSpacingTokens.SectionGap),
                     verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap),
                 ) {
+                item {
+                    Text(
+                        text = "Step 3 of 4: Generate Plan",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth().testTag("mealplan_step3_label")
+                    )
+                }
                 item {
                     GuidedJourneyCard(
                         step = guidedStep,
@@ -571,21 +743,64 @@ fun MealPlanScreen(
                 }
                 item {
                     val queuedCount = feedbackQueue.count { it.status != "Sent" }
+                    val remindersEnabled = notificationPrefs.masterEnabled && notificationPrefs.mealRemindersEnabled
                     val nextReminder = "Next reminders: B ${formatClock(notificationPrefs.breakfastHour, notificationPrefs.breakfastMinute)} • " +
                         "L ${formatClock(notificationPrefs.lunchHour, notificationPrefs.lunchMinute)} • " +
                         "D ${formatClock(notificationPrefs.dinnerHour, notificationPrefs.dinnerMinute)}"
-                    StatusCenterCard(
-                        queuedActionsLabel = "Queued actions: $queuedCount",
-                        syncLabel = "Last sync: $lastSyncStatus",
-                        planRangeLabel = "Plan range: ${plan.weekLabel}",
-                        nextReminderLabel = nextReminder
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("mealplan_top_section_capture"),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("mealplan_next_best_action_card"),
+                            shape = MaterialTheme.shapes.large,
+                            colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "Next best action",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                                )
+                                Text(
+                                    text = nextBestAction.reason,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.testTag("mealplan_next_best_action_reason")
+                                )
+                                Button(
+                                    onClick = nextBestAction.onClick,
+                                    enabled = nextBestAction.enabled,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp)
+                                        .testTag("mealplan_next_best_action_cta"),
+                                    shape = MaterialTheme.shapes.medium
+                                ) {
+                                    Text(nextBestAction.label)
+                                }
+                            }
+                        }
+                        StatusCenterCard(
+                            queuedActionsLabel = if (queuedCount > 0) "Queued actions: $queuedCount" else null,
+                            syncLabel = null,
+                            planRangeLabel = "Plan range: ${plan.weekLabel}",
+                            nextReminderLabel = if (remindersEnabled) nextReminder else null
+                        )
+                    }
                 }
                 item {
-                    if (!isOnline.value) {
+                    if (!isOnline) {
                         Card(
                             shape = MaterialTheme.shapes.large,
-                                colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
+                            colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
                                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                             ) {
                                 Text(
@@ -622,6 +837,12 @@ fun MealPlanScreen(
                                 )
                             }
                         }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "Use the day chips below to review each meal. Primary next action is pinned above.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
                         if (planExpired) {
                             Spacer(Modifier.height(10.dp))
                             Card(
@@ -912,12 +1133,12 @@ fun MealPlanScreen(
                                 }
                                 LoadingActionButton(
                                     state = syncState,
-                                    idleLabel = if (isOnline.value) "Sync" else "Sync (Internet required)",
+                                    idleLabel = if (isOnline) "Sync" else "Sync (Internet required)",
                                     loadingLabel = "Syncing…",
                                     successLabel = "Synced",
                                     errorLabel = "Retry Sync",
                                     onClick = { triggerGrocerySync() },
-                                    enabled = isOnline.value
+                                    enabled = isOnline
                                 )
                             }
                         }
@@ -926,24 +1147,74 @@ fun MealPlanScreen(
                     // 2. Day selector chips + navigation hint
                     item {
                         val dayCount = dayLabels.size
+                        val todayLabel = LocalDate.now().format(DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH))
+                        val todayIndex = dayLabels.indexOfFirst { it.equals(todayLabel, ignoreCase = true) }
+                        val weekendStartIndex = dayLabels.indexOfFirst { it.equals("Sat", ignoreCase = true) }
+                        val selectedDayLabel = dayLabels.getOrNull(selectedDayIndex) ?: "Mon"
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             IconButton(
-                                onClick = { if (selectedDayIndex > 0) selectedDayIndex-- },
+                                onClick = {
+                                    if (selectedDayIndex > 0) {
+                                        selectedDayIndex--
+                                        Log.i("MealPlanUX", "Day navigation previous tapped index=$selectedDayIndex")
+                                    }
+                                },
                                 enabled = selectedDayIndex > 0
                             ) {
                                 Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous day")
                             }
-                            Text(
-                                text = "Swipe → for more days",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = colorScheme.onSurfaceVariant
-                            )
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    text = "Day ${selectedDayIndex + 1} of $dayCount • $selectedDayLabel selected",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = colorScheme.primary,
+                                    modifier = Modifier.testTag("mealplan_day_position_label")
+                                )
+                                Text(
+                                    text = "Swipe left/right or use arrows to view all days (Sat-Sun included).",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (todayIndex >= 0 && selectedDayIndex != todayIndex) {
+                                        TextButton(onClick = {
+                                            selectedDayIndex = todayIndex
+                                            Log.i("MealPlanUX", "Jump to Today tapped index=$todayIndex")
+                                        }) {
+                                            Text("Jump to Today ($todayLabel)")
+                                        }
+                                    }
+                                    if (weekendStartIndex >= 0 && selectedDayIndex < weekendStartIndex) {
+                                        TextButton(onClick = {
+                                            selectedDayIndex = weekendStartIndex
+                                            Log.i(
+                                                "MealPlanUX",
+                                                "Jump to weekend tapped index=$weekendStartIndex"
+                                            )
+                                        }) {
+                                            Text("Jump to Weekend (Sat)")
+                                        }
+                                    }
+                                }
+                            }
                             IconButton(
-                                onClick = { if (selectedDayIndex < dayCount - 1) selectedDayIndex++ },
+                                onClick = {
+                                    if (selectedDayIndex < dayCount - 1) {
+                                        selectedDayIndex++
+                                        Log.i("MealPlanUX", "Day navigation next tapped index=$selectedDayIndex")
+                                    }
+                                },
                                 enabled = selectedDayIndex < dayCount - 1
                             ) {
                                 Icon(Icons.Filled.ChevronRight, contentDescription = "Next day")
@@ -956,13 +1227,15 @@ fun MealPlanScreen(
                                 .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            val todayLabel = LocalDate.now().format(DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH))
                             dayLabels.forEachIndexed { index, label ->
                                 val selected = index == selectedDayIndex
                                 val isToday = label.equals(todayLabel, true)
                                 TokenizedFilterChip(
                                     selected = selected,
-                                    onClick = { selectedDayIndex = index },
+                                    onClick = {
+                                        selectedDayIndex = index
+                                        Log.i("MealPlanUX", "Day chip selected index=$index day=$label")
+                                    },
                                     text = if (isToday) "$label • Today" else label,
                                     labelMaxWidth = dayChipLabelWidth,
                                     colors = FilterChipDefaults.filterChipColors(
@@ -1072,12 +1345,13 @@ fun MealPlanScreen(
                                     }
                                 }
                                 IconButton(
+                                    modifier = Modifier.testTag("mealplan_swap_meal_button_$mealIndex"),
                                     onClick = {
-                                        isOnline.value = isNetworkAvailable(context)
-                                        if (!isOnline.value) {
-                                            scope.launch {
-                                                snackbarHostState.showSnackbar("Swap requires internet for recipe options.")
-                                            }
+                                        if (!isOnline) {
+                                            postMealPlanFeedback(
+                                                tone = FeedbackBannerTone.Error,
+                                                message = "Internet required for swap options. Connect and try again."
+                                            )
                                             return@IconButton
                                         }
                                         val target = SwapTarget(
@@ -1093,15 +1367,24 @@ fun MealPlanScreen(
                                         swapError = null
                                         swapLoading = true
                                         scope.launch {
-                                            val result = mealPlanViewModel.getSwapOptions(plannedMeal.mealLabel, 40)
+                                            val result = (swapOptionsLoader ?: mealPlanViewModel::getSwapOptions)
+                                                .invoke(plannedMeal.mealLabel, 40)
                                             result.onSuccess { list ->
                                                 val filtered = list.filter { it.id != plannedMeal.recipeId }
                                                 swapOptions = filtered
                                                 if (filtered.isEmpty()) {
                                                     swapError = "No swaps available for ${plannedMeal.mealLabel}."
+                                                    postMealPlanFeedback(
+                                                        tone = FeedbackBannerTone.Error,
+                                                        message = swapError.orEmpty()
+                                                    )
                                                 }
                                             }.onFailure { e ->
                                                 swapError = e.message ?: "Unable to load swap options."
+                                                postMealPlanFeedback(
+                                                    tone = FeedbackBannerTone.Error,
+                                                    message = swapError.orEmpty()
+                                                )
                                             }
                                             swapLoading = false
                                         }
@@ -1132,9 +1415,9 @@ fun MealPlanScreen(
         AlertDialog(
             onDismissRequest = { showConfidenceInfo = false },
             confirmButton = {
-                TextButton(onClick = { showConfidenceInfo = false }) { Text("Got it") }
+                MealPlanDialogGotItButton(onClick = { showConfidenceInfo = false })
             },
-            title = { Text("Confidence score") },
+            title = { Text("Confidence score", modifier = Modifier.semantics { heading() }) },
             text = {
                 Text(
                     "Heuristic score based on how tightly the plan matches calorie targets, " +
@@ -1149,9 +1432,9 @@ fun MealPlanScreen(
         AlertDialog(
             onDismissRequest = { showLowGiInfo = false },
             confirmButton = {
-                TextButton(onClick = { showLowGiInfo = false }) { Text("Got it") }
+                MealPlanDialogGotItButton(onClick = { showLowGiInfo = false })
             },
-            title = { Text("Low‑GI guidance") },
+            title = { Text("Low‑GI guidance", modifier = Modifier.semantics { heading() }) },
             text = {
                 Text(
                     "We favor higher‑fiber, balanced meals to support steadier energy. " +
@@ -1250,6 +1533,11 @@ fun MealPlanScreen(
                                         onClick = {
                                             if (swapApplying) return@TextButton
                                             swapApplying = true
+                                            postMealPlanFeedback(
+                                                tone = FeedbackBannerTone.Loading,
+                                                message = "Applying meal swap…",
+                                                autoClearMs = 0L
+                                            )
                                             scope.launch {
                                                 try {
                                                     val mealId = mealPlanViewModel.buildMealInstanceId(
@@ -1258,30 +1546,51 @@ fun MealPlanScreen(
                                                         target.mealIndex,
                                                         target.mealLabel
                                                     )
-                                                    val itemsResult = mealPlanViewModel.getGrocerySourcesForRecipe(option.id)
-                                                    mealPlanViewModel.swapMeal(
+                                                    val itemsResult = (swapGrocerySourceLoader
+                                                        ?: mealPlanViewModel::getGrocerySourcesForRecipe).invoke(option.id)
+                                                    swapApplyOverride?.invoke(
                                                         target.dayIndex,
                                                         target.mealIndex,
                                                         option.id,
                                                         option.title
+                                                    ) ?: mealPlanViewModel.swapMeal(
+                                                        dayIndex = target.dayIndex,
+                                                        mealIndex = target.mealIndex,
+                                                        newRecipeId = option.id,
+                                                        newTitle = option.title
                                                     )
                                                     val items = itemsResult.getOrNull()
                                                     if (items != null) {
                                                         if (groceryViewModel.hasSourcesForMeal(mealId)) {
                                                             groceryViewModel.replaceMealItems(mealId, items)
                                                             if (items.isEmpty()) {
-                                                                snackbarHostState.showSnackbar("Meal swapped. Grocery items cleared for this meal.")
+                                                                postMealPlanFeedback(
+                                                                    tone = FeedbackBannerTone.Success,
+                                                                    message = "Swapped ${target.mealLabel}: ${target.mealTitle} -> ${option.title}. Grocery items cleared for this meal."
+                                                                )
                                                             } else {
-                                                                snackbarHostState.showSnackbar("Meal swapped and grocery list updated.")
+                                                                postMealPlanFeedback(
+                                                                    tone = FeedbackBannerTone.Success,
+                                                                    message = "Swapped ${target.mealLabel}: ${target.mealTitle} -> ${option.title}. Grocery updated with ${items.size} ingredient changes."
+                                                                )
                                                             }
                                                         } else {
-                                                            snackbarHostState.showSnackbar("Meal swapped. Sync groceries to update list.")
+                                                            postMealPlanFeedback(
+                                                                tone = FeedbackBannerTone.Success,
+                                                                message = "Swapped ${target.mealLabel}: ${target.mealTitle} -> ${option.title}. Sync groceries to update the list."
+                                                            )
                                                         }
                                                     } else {
-                                                        snackbarHostState.showSnackbar("Meal swapped. Grocery update skipped (ingredients unavailable).")
+                                                        postMealPlanFeedback(
+                                                            tone = FeedbackBannerTone.Success,
+                                                            message = "Swapped ${target.mealLabel}: ${target.mealTitle} -> ${option.title}. Grocery unchanged because ingredient data was unavailable."
+                                                        )
                                                     }
                                                 } catch (e: Exception) {
-                                                    snackbarHostState.showSnackbar("Swap failed. Please try again.")
+                                                    postMealPlanFeedback(
+                                                        tone = FeedbackBannerTone.Error,
+                                                        message = "Swap failed. Please try again."
+                                                    )
                                                 } finally {
                                                     swapApplying = false
                                                     swapTarget = null
@@ -1302,11 +1611,14 @@ fun MealPlanScreen(
     }
 }
 
-private fun isNetworkAvailable(context: Context): Boolean {
-    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    val network = cm.activeNetwork ?: return false
-    val caps = cm.getNetworkCapabilities(network) ?: return false
-    return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+@Composable
+private fun MealPlanDialogGotItButton(onClick: () -> Unit) {
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier.semantics { traversalIndex = 1f }
+    ) {
+        Text("Got it")
+    }
 }
 
 private fun formatClock(hour: Int, minute: Int): String {

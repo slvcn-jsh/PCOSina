@@ -1,16 +1,17 @@
 package com.pcosina.app.ui.screens
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -22,7 +23,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -30,6 +34,9 @@ import androidx.compose.ui.unit.sp
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.domain.UnitConverter
+import com.pcosina.app.ui.theme.UiChipTokens
+import com.pcosina.app.ui.theme.UiMotionTokens
+import com.pcosina.app.ui.theme.UiSpacingTokens
 import kotlin.math.roundToInt
 import java.util.Locale
 
@@ -285,17 +292,46 @@ fun UserProfileScreen(
                 targetState = currentStep,
                 transitionSpec = {
                     if (targetState > initialState) {
-                        slideInHorizontally { it } + fadeIn() togetherWith slideOutHorizontally { -it } + fadeOut()
+                        slideInHorizontally(animationSpec = tween(UiMotionTokens.ProfileStepSlideMs)) { it } +
+                            fadeIn(animationSpec = tween(UiMotionTokens.ProfileStepFadeMs)) togetherWith
+                            slideOutHorizontally(animationSpec = tween(UiMotionTokens.ProfileStepSlideMs)) { -it } +
+                            fadeOut(animationSpec = tween(UiMotionTokens.ProfileStepFadeMs))
                     } else {
-                        slideInHorizontally { -it } + fadeIn() togetherWith slideOutHorizontally { it } + fadeOut()
+                        slideInHorizontally(animationSpec = tween(UiMotionTokens.ProfileStepSlideMs)) { -it } +
+                            fadeIn(animationSpec = tween(UiMotionTokens.ProfileStepFadeMs)) togetherWith
+                            slideOutHorizontally(animationSpec = tween(UiMotionTokens.ProfileStepSlideMs)) { it } +
+                            fadeOut(animationSpec = tween(UiMotionTokens.ProfileStepFadeMs))
                     }
                 },
                 label = "stepAnimation"
                 ) { step ->
                     Column(
                         modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                        verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap)
                     ) {
+                        if (step == 1 && !isEditMode) {
+                            Card(
+                                shape = MaterialTheme.shapes.large,
+                                colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                modifier = Modifier.fillMaxWidth().testTag("profile_first_win_card")
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = "First win in ~60–90 seconds",
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                                    )
+                                    Text(
+                                        text = "Finish this profile -> Select goals -> Generate your first weekly plan.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
                         when (step) {
                             1 -> StepOneIdentity(
                                 name = displayName,
@@ -339,9 +375,9 @@ fun UserProfileScreen(
                         if (!canProceed) {
                             Text(
                                 text = when (currentStep) {
-                                    1 -> if (isProfileLoading) "Loading profile. Please wait..." else "Please complete all required fields with valid values."
+                                    1 -> if (isProfileLoading) "Loading profile. Please wait..." else "Fix highlighted fields to continue."
                                     2 -> "Please select your insulin resistance level."
-                                    3 -> "Please enter a valid cooking time. Budget is optional."
+                                    3 -> "Set max cooking time (10–240). Budget is optional."
                                     else -> ""
                                 },
                                 style = MaterialTheme.typography.bodySmall,
@@ -357,7 +393,7 @@ fun UserProfileScreen(
 @Composable
 fun OnboardingProgress(currentStep: Int, color: Color) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = UiSpacingTokens.CardContentGap),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         repeat(3) { i ->
@@ -382,7 +418,7 @@ fun BottomActionRow(
     onNext: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(24.dp),
+        modifier = Modifier.fillMaxWidth().padding(UiSpacingTokens.CardContentPadding),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -398,7 +434,10 @@ fun BottomActionRow(
             onClick = onNext,
             shape = MaterialTheme.shapes.large,
             colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
-            modifier = Modifier.height(52.dp).width(140.dp),
+            modifier = Modifier
+                .height(52.dp)
+                .width(140.dp)
+                .testTag(if (currentStep < 3) "profile_next_step_cta" else "profile_complete_cta"),
             enabled = isNextEnabled
         ) {
             Text(if (currentStep < 3) "Next" else "Complete", fontWeight = FontWeight.Bold)
@@ -437,6 +476,8 @@ fun StepOneIdentity(
     val weightKg = weightValue?.let {
         if (weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.lbToKg(it) else it
     }
+    val ageInvalidFormat = age.isNotBlank() && ageValue == null
+    val weightInvalidFormat = weight.isNotBlank() && weightValue == null
     val heightCmValue = if (heightUnit == UnitConverter.HEIGHT_FT_IN) {
         val ft = heightFt.toIntOrNull()
         val inch = heightIn.toIntOrNull()
@@ -444,19 +485,34 @@ fun StepOneIdentity(
     } else {
         heightCm.toIntOrNull()
     }
+    val heightCmInvalidFormat = heightUnit == UnitConverter.HEIGHT_CM &&
+        heightCm.isNotBlank() &&
+        heightCmValue == null
+    val heightFtInvalidFormat = heightUnit == UnitConverter.HEIGHT_FT_IN &&
+        heightFt.isNotBlank() &&
+        heightFt.toIntOrNull() == null
+    val heightInInvalidFormat = heightUnit == UnitConverter.HEIGHT_FT_IN &&
+        heightIn.isNotBlank() &&
+        heightIn.toIntOrNull() == null
+    val heightInOutOfRange = heightUnit == UnitConverter.HEIGHT_FT_IN &&
+        (heightIn.toIntOrNull()?.let { it !in 0..11 } == true)
     val ageOutOfRange = ageValue != null && (ageValue < 13 || ageValue > 60)
     val weightOutOfRange = weightKg != null && (weightKg < 35 || weightKg > 180)
     val heightOutOfRange = heightCmValue != null && (heightCmValue < 120 || heightCmValue > 200)
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap)) {
         SectionTitle("Personal Details")
+        Text(
+            text = "Required to personalize your meal targets.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         if (showName) {
             OutlinedTextField(
                 value = name,
                 onValueChange = onName,
                 label = { Text("Display name") },
-                supportingText = { Text("Shown on your dashboard and plan.") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("profile_step1_name_input"),
                 shape = MaterialTheme.shapes.medium,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
@@ -467,20 +523,36 @@ fun StepOneIdentity(
                 value = age,
                 onValueChange = onAge,
                 label = { Text("Age (years)") },
-                supportingText = { Text("Used to estimate calorie needs (13–60).") },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag("profile_step1_age_input"),
                 shape = MaterialTheme.shapes.medium,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = ageInvalidFormat || ageOutOfRange,
+                supportingText = {
+                    val helper = when {
+                        ageInvalidFormat -> "Enter a whole number."
+                        ageOutOfRange -> "Age must be 13–60."
+                        else -> "Required: 13–60."
+                    }
+                    Text(helper)
+                },
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
             )
             OutlinedTextField(
                 value = weight,
                 onValueChange = onWeight,
                 label = { Text(if (weightUnit == UnitConverter.WEIGHT_LB) "Weight (lb)" else "Weight (kg)") },
-                supportingText = { Text("Used for nutrition targets.") },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag("profile_step1_weight_input"),
                 shape = MaterialTheme.shapes.medium,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = weightInvalidFormat || weightOutOfRange,
+                supportingText = {
+                    val helper = when {
+                        weightInvalidFormat -> "Enter a whole number."
+                        weightOutOfRange -> "Allowed range: 35–180 kg equivalent."
+                        else -> "Required: 35–180 kg equivalent."
+                    }
+                    Text(helper)
+                },
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
             )
         }
@@ -496,6 +568,13 @@ fun StepOneIdentity(
                 label = { Text("lb") }
             )
         }
+        Text(
+            text = "Valid ranges: age 13–60 • weight 35–180 kg • height 120–200 cm.",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
         if (ageOutOfRange || weightOutOfRange) {
             Text(
                 text = "Tip: keep age 13–60 and weight 35–180 for accurate targets.",
@@ -509,18 +588,37 @@ fun StepOneIdentity(
                     value = heightFt,
                     onValueChange = onHeightFt,
                     label = { Text("Height (ft)") },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).testTag("profile_step1_height_ft_input"),
                     shape = MaterialTheme.shapes.medium,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = heightFtInvalidFormat || heightOutOfRange,
+                    supportingText = {
+                        val helper = when {
+                            heightFtInvalidFormat -> "Enter feet as a whole number."
+                            heightOutOfRange -> "Total height must stay 120–200 cm."
+                            else -> "Example: 5"
+                        }
+                        Text(helper)
+                    },
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
                 )
                 OutlinedTextField(
                     value = heightIn,
                     onValueChange = onHeightIn,
                     label = { Text("Height (in)") },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).testTag("profile_step1_height_in_input"),
                     shape = MaterialTheme.shapes.medium,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = heightInInvalidFormat || heightInOutOfRange || heightOutOfRange,
+                    supportingText = {
+                        val helper = when {
+                            heightInInvalidFormat -> "Enter inches as a whole number."
+                            heightInOutOfRange -> "Inches must be 0–11."
+                            heightOutOfRange -> "Total height must stay 120–200 cm."
+                            else -> "Range: 0–11"
+                        }
+                        Text(helper)
+                    },
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
                 )
             }
@@ -529,10 +627,18 @@ fun StepOneIdentity(
                 value = heightCm,
                 onValueChange = onHeightCm,
                 label = { Text("Height (cm)") },
-                supportingText = { Text("Used to estimate calorie needs (120–200).") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("profile_step1_height_cm_input"),
                 shape = MaterialTheme.shapes.medium,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = heightCmInvalidFormat || heightOutOfRange,
+                supportingText = {
+                    val helper = when {
+                        heightCmInvalidFormat -> "Enter height in centimeters."
+                        heightOutOfRange -> "Height must be 120–200 cm."
+                        else -> "Required: 120–200 cm."
+                    }
+                    Text(helper)
+                },
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
             )
         }
@@ -550,7 +656,7 @@ fun StepOneIdentity(
         }
         if (heightOutOfRange) {
             Text(
-                text = "Tip: keep height 120–200 cm for accurate targets.",
+                text = "Tip: keep height between 120 and 200 cm.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error
             )
@@ -571,7 +677,7 @@ fun StepOneIdentity(
         }
         Text(
             text = activityHint,
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -583,20 +689,20 @@ fun StepTwoMedical(insulin: String, onInsulin: (String) -> Unit, s1: Boolean, on
     val options = listOf("None", "Mild", "Moderate", "Severe")
     var expanded by remember { mutableStateOf(false) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap)) {
         SectionTitle("Medical Profile")
+        Text(
+            text = "Select what applies today. You can update this anytime.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
             OutlinedTextField(value = insulin, onValueChange = {}, readOnly = true, label = { Text("Insulin Resistance") }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }, shape = MaterialTheme.shapes.medium, colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = color))
             ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 options.forEach { opt -> DropdownMenuItem(text = { Text(opt) }, onClick = { onInsulin(opt); expanded = false }) }
             }
         }
-        Text("Select active symptoms (optional):", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            text = "Helps tailor recommendations. Leave blank if unsure.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text("Symptoms (optional)", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         CheckboxRow("Irregular periods", s1, color, onS1)
         CheckboxRow("Weight gain", s2, color, onS2)
         CheckboxRow("Acne", s3, color, onS3)
@@ -604,7 +710,7 @@ fun StepTwoMedical(insulin: String, onInsulin: (String) -> Unit, s1: Boolean, on
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun StepThreeDiet(
     r1: Boolean,
@@ -648,11 +754,14 @@ fun StepThreeDiet(
         .map { it.trim().lowercase(Locale.getDefault()) }
         .filter { it.isNotBlank() }
         .toMutableList()
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    val priorityChipMaxWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 104.dp, medium = 136.dp)
+    val allergyChipMaxWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 92.dp, medium = 124.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap)) {
         SectionTitle("Preferences & Budget")
         Text(
-            text = "Select only what applies to you.",
-            style = MaterialTheme.typography.bodySmall,
+            text = "Optional preferences to make plans easier to follow.",
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         CheckboxRow("Lactose Intolerant", r1, color, onR1)
@@ -665,7 +774,7 @@ fun StepThreeDiet(
             value = budget,
             onValueChange = onBudget,
             label = { Text("Weekly Budget (optional)") },
-            supportingText = { Text("Leave blank if not using a budget. Used for cost estimates only.") },
+            supportingText = { Text("Optional. Used for weekly cost estimate.") },
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -677,7 +786,7 @@ fun StepThreeDiet(
             value = maxCookingTime,
             onValueChange = onMaxCookingTime,
             label = { Text("Max Cooking Time (minutes)") },
-            supportingText = { Text("Used to filter recipes by prep time (10–240).") },
+            supportingText = { Text("Required: 10–240") },
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -718,19 +827,29 @@ fun StepThreeDiet(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            text = "Controls what the planner prioritizes when trade-offs exist.",
-            style = MaterialTheme.typography.bodySmall,
+            text = "Pick what to favor when trade-offs happen.",
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        priorityOptions.chunked(2).forEach { rowItems ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                rowItems.forEach { opt ->
-                    FilterChip(
-                        selected = planningPriority == opt,
-                        onClick = { onPlanningPriority(opt) },
-                        label = { Text(opt) }
-                    )
-                }
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            priorityOptions.forEach { opt ->
+                FilterChip(
+                    selected = planningPriority == opt,
+                    onClick = { onPlanningPriority(opt) },
+                    modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight),
+                    label = {
+                        Text(
+                            text = opt,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = priorityChipMaxWidth)
+                        )
+                    }
+                )
             }
         }
 
@@ -739,8 +858,12 @@ fun StepThreeDiet(
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(commonAllergens) { (label, token) ->
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            commonAllergens.forEach { (label, token) ->
                 val selected = allergyTokens.contains(token)
                 FilterChip(
                     selected = selected,
@@ -752,7 +875,15 @@ fun StepThreeDiet(
                         }
                         onAllergiesText(updated.distinct().joinToString(", "))
                     },
-                    label = { Text(label) }
+                    modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight),
+                    label = {
+                        Text(
+                            text = label,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = allergyChipMaxWidth)
+                        )
+                    }
                 )
             }
         }
@@ -760,7 +891,7 @@ fun StepThreeDiet(
             value = pantryText,
             onValueChange = onPantryText,
             label = { Text("Pantry items (optional)") },
-            supportingText = { Text("Example: eggs, oats, tuna") },
+            supportingText = { Text("Example: eggs, oats, tuna.") },
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
@@ -771,7 +902,7 @@ fun StepThreeDiet(
             value = allergiesText,
             onValueChange = onAllergiesText,
             label = { Text("Allergies (comma-separated)") },
-            supportingText = { Text("Example: peanuts, dairy, shellfish") },
+            supportingText = { Text("Example: peanuts, dairy, shellfish.") },
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),

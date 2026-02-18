@@ -2,6 +2,7 @@ package com.pcosina.app.ui.navigation
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Bundle
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -34,6 +35,7 @@ import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.BottomNavBar
 import com.pcosina.app.ui.components.DefaultBottomNavItems
+import com.pcosina.app.ui.navigation.Routes.MealLabelArg
 import com.pcosina.app.ui.navigation.Routes.RecipeIdArg
 import com.pcosina.app.ui.screens.DashboardScreen
 import com.pcosina.app.ui.screens.GoalSelectionScreen
@@ -41,18 +43,22 @@ import com.pcosina.app.ui.screens.GroceryListScreen
 import com.pcosina.app.ui.screens.IpoVisualizationScreen
 import com.pcosina.app.ui.screens.LoginScreen
 import com.pcosina.app.ui.screens.MealPlanScreen
-import com.pcosina.app.ui.screens.OnboardingScreen
+import com.pcosina.app.ui.screens.MoreToolsScreen
 import com.pcosina.app.ui.screens.ProgressScreen
 import com.pcosina.app.ui.screens.RecipeDetailsScreen
 import com.pcosina.app.ui.screens.SettingsScreen
 import com.pcosina.app.ui.screens.SignUpScreen
 import com.pcosina.app.ui.screens.SplashScreen
 import com.pcosina.app.ui.screens.UserProfileScreen
+import com.pcosina.app.ui.util.hasGoalSelection
+import com.pcosina.app.ui.util.unknownGoalTokens
 import com.pcosina.app.data.repository.FeedbackRepository
 import com.pcosina.app.BuildConfig
 import com.google.firebase.analytics.FirebaseAnalytics
 import android.widget.Toast
-import com.pcosina.app.notifications.NotificationHelper
+import android.util.Log
+import com.pcosina.app.notifications.NotificationScheduler
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
@@ -122,14 +128,39 @@ fun AppNavHost(
     val activePlanId by mealPlanViewModel.activePlanId.collectAsState()
     val activeWeekStart by mealPlanViewModel.activeWeekStart.collectAsState()
     val planHistory by mealPlanViewModel.planHistory.collectAsState()
-    val remindersEnabled by userViewModel.remindersEnabled.collectAsState()
+    val notificationPrefs by userViewModel.notificationPreferences.collectAsState()
 
     val splashReady = remember { mutableStateOf(false) }
     val hasNavigated = remember { mutableStateOf(false) }
+    val profileCloudSyncInProgress = remember { mutableStateOf(false) }
+    val unknownRouteWarnings = remember { mutableSetOf<String>() }
+    val unknownGoalWarnings = remember { mutableSetOf<String>() }
+
+    fun navigateInternal(route: String, options: (NavOptionsBuilder.() -> Unit)? = null) {
+        val base = Routes.baseRoute(route).orEmpty()
+        if (!Routes.isKnownRoute(route)) {
+            if (BuildConfig.DEBUG && base.isNotBlank() && unknownRouteWarnings.add(base)) {
+                Log.w("PCOSINA", "Blocked non-app route: '$route'. Use Routes constants/helpers.")
+            }
+            return
+        }
+        navController.navigateKnown(route) {
+            options?.invoke(this)
+        }
+    }
 
     // Sync session to user data loading
     LaunchedEffect(Unit) {
         authRepository.syncSessionFromFirebase()
+        userPrefsRepository.migrateAllProfileCompletionAliases()
+        val legacyCount = userPrefsRepository.countLegacyProfileCompletionAliases()
+        analytics.logEvent(
+            "legacy_completion_alias_count",
+            Bundle().apply { putLong("count", legacyCount.toLong()) }
+        )
+        if (BuildConfig.DEBUG && legacyCount > 0) {
+            Log.w("PCOSINA", "Legacy onboarding completion keys still present: $legacyCount")
+        }
     }
 
     // Sync session to user data loading
@@ -140,24 +171,53 @@ fun AppNavHost(
             mealPlanViewModel.reset()
             groceryViewModel.reset()
             progressViewModel.reset()
-            NotificationHelper.cancelDailyReminder(context)
+            NotificationScheduler.cancelAllForSession(context)
+            profileCloudSyncInProgress.value = false
             splashReady.value = false
             hasNavigated.value = false
         } else {
             session.currentUserEmail?.let { email ->
                 userPrefsRepository.migrateFromEmailIfNeeded(userId, email)
             }
+            userPrefsRepository.migrateProfileCompletionKeyIfNeeded(userId)
             userViewModel.loadProfileForUser(userId)
+            profileCloudSyncInProgress.value = true
+            try {
+                userPrefsRepository.syncProfileWithCloud(userId)
+            } finally {
+                profileCloudSyncInProgress.value = false
+            }
             mealPlanViewModel.loadSavedPlan(userId)
             groceryViewModel.loadGroceryForUser(userId)
         }
     }
 
-    LaunchedEffect(session.currentUserUid, remindersEnabled) {
-        if (session.currentUserUid.isNullOrBlank() || !remindersEnabled) {
-            NotificationHelper.cancelDailyReminder(context)
-        } else {
-            NotificationHelper.scheduleDailyReminder(context)
+    LaunchedEffect(session.currentUserUid, notificationPrefs) {
+        val uid = session.currentUserUid
+        if (uid.isNullOrBlank()) {
+            NotificationScheduler.cancelAllForSession(context)
+            return@LaunchedEffect
+        }
+        NotificationScheduler.rescheduleAll(
+            context = context,
+            userId = uid,
+            prefs = notificationPrefs
+        )
+    }
+
+    LaunchedEffect(session.currentUserUid, userProfile.goal) {
+        if (session.currentUserUid.isNullOrBlank()) return@LaunchedEffect
+        val unknown = unknownGoalTokens(userProfile.goal)
+        if (unknown.isEmpty()) return@LaunchedEffect
+        val key = unknown.sorted().joinToString(",")
+        if (unknownGoalWarnings.add(key)) {
+            analytics.logEvent(
+                "unknown_goal_tokens",
+                Bundle().apply { putLong("count", unknown.size.toLong()) }
+            )
+            if (BuildConfig.DEBUG) {
+                Log.w("PCOSINA", "Unknown goal tokens encountered: $key")
+            }
         }
     }
 
@@ -177,7 +237,7 @@ fun AppNavHost(
 
     // Auth Guard
     LaunchedEffect(session.isLoggedIn) {
-        val currentRoute = navController.currentBackStackEntry?.destination?.route
+        val currentRoute = Routes.baseRoute(navController.currentBackStackEntry?.destination?.route)
         if (!session.isLoggedIn && 
             currentRoute != Routes.Login && 
             currentRoute != Routes.SignUp && 
@@ -185,7 +245,7 @@ fun AppNavHost(
             userViewModel.reset()
             mealPlanViewModel.reset()
             groceryViewModel.reset()
-            navController.navigate(Routes.Login) {
+            navigateInternal(Routes.Login) {
                 popUpTo(navController.graph.id) { inclusive = true }
             }
         }
@@ -210,6 +270,11 @@ fun AppNavHost(
     }
 
     val inferredProfileCompleted = userProfile.isProfileCompleted || isLegacyProfileComplete(userProfile)
+    val profileBoundToSession = session.currentUserUid?.let { uid ->
+        userViewModel.activeUserId == uid
+    } ?: true
+    val profileReadyForRouting = !session.isLoggedIn ||
+        (profileBoundToSession && !isProfileLoading && !profileCloudSyncInProgress.value)
     val hasPlan = planHistory.isNotEmpty() || mealPlanViewModel.uiState.value is com.pcosina.app.ui.MealPlanUiState.Success
     val enabledRoutes = remember(hasPlan) {
         val base = mutableSetOf(
@@ -227,7 +292,7 @@ fun AppNavHost(
         base
     }
 
-    // Migrate legacy profiles to completed to avoid forcing onboarding
+    // Migrate legacy profiles to completed to avoid forcing setup loops
     LaunchedEffect(session.currentUserUid, inferredProfileCompleted) {
         val userId = session.currentUserUid
         if (!userId.isNullOrBlank() && inferredProfileCompleted && !userProfile.isProfileCompleted) {
@@ -238,19 +303,68 @@ fun AppNavHost(
     // Splash gate: only navigate once splash delay finished and profile load complete
     LaunchedEffect(
         splashReady.value,
-        isProfileLoading,
+        profileReadyForRouting,
         session.isLoggedIn,
         inferredProfileCompleted
     ) {
-        if (!splashReady.value || isProfileLoading || hasNavigated.value) return@LaunchedEffect
+        if (!splashReady.value || !profileReadyForRouting || hasNavigated.value) return@LaunchedEffect
         val target = when {
             !session.isLoggedIn -> Routes.Login
-            !inferredProfileCompleted -> Routes.Onboarding
+            !inferredProfileCompleted -> Routes.UserProfile
             else -> Routes.Dashboard
         }
         hasNavigated.value = true
-        navController.navigate(target) {
+        navigateInternal(target) {
             popUpTo(Routes.Splash) { inclusive = true }
+        }
+    }
+
+    // Guided guardrails: always route users to the next required step.
+    LaunchedEffect(
+        session.isLoggedIn,
+        profileReadyForRouting,
+        inferredProfileCompleted,
+        userProfile.goal,
+        hasPlan,
+        currentRoute?.destination?.route
+    ) {
+        if (!session.isLoggedIn || !profileReadyForRouting) return@LaunchedEffect
+        val route = currentRoute?.destination?.route ?: return@LaunchedEffect
+        val baseRoute = Routes.baseRoute(route)
+        if (Routes.isAuthRoute(route)) return@LaunchedEffect
+        if (!Routes.isKnownRoute(route)) {
+            val base = Routes.baseRoute(route).orEmpty()
+            if (BuildConfig.DEBUG && base.isNotBlank() && unknownRouteWarnings.add(base)) {
+                Log.w("PCOSINA", "Unclassified route '$base'. Add it to Routes routeAccessByBase.")
+            }
+            return@LaunchedEffect
+        }
+
+        when {
+            !inferredProfileCompleted && !Routes.isProfileRoute(route) && !Routes.isGoalRoute(route) -> {
+                navigateInternal(Routes.UserProfile) {
+                    launchSingleTop = true
+                }
+            }
+            inferredProfileCompleted &&
+                hasGoalSelection(userProfile.goal) &&
+                (baseRoute == Routes.UserProfile || baseRoute == Routes.GoalSelection) -> {
+                navController.clearSetupFlowBackStack()
+                navigateInternal(Routes.Dashboard) {
+                    tabNavigationOptions()
+                }
+            }
+            !hasGoalSelection(userProfile.goal) && !Routes.isProfileRoute(route) && !Routes.isGoalRoute(route) -> {
+                navigateInternal(Routes.GoalSelection) {
+                    launchSingleTop = true
+                }
+            }
+            !hasPlan && Routes.requiresPlan(route) -> {
+                Toast.makeText(context, "Generate your plan first to unlock this step.", Toast.LENGTH_SHORT).show()
+                navigateInternal(Routes.MealPlan) {
+                    tabNavigationOptions()
+                }
+            }
         }
     }
 
@@ -272,11 +386,11 @@ fun AppNavHost(
             LoginScreen(
                 authViewModel = authViewModel,
                 onLoginSuccess = {
-                    navController.navigate(Routes.Splash) {
+                    navigateInternal(Routes.Splash) {
                         popUpTo(Routes.Login) { inclusive = true }
                     }
                 },
-                onNavigateToSignUp = { navController.navigate(Routes.SignUp) },
+                onNavigateToSignUp = { navigateInternal(Routes.SignUp) },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -285,26 +399,19 @@ fun AppNavHost(
             SignUpScreen(
                 authViewModel = authViewModel,
                 onSignUpSuccess = {
-                    navController.navigate(Routes.Login) {
+                    navigateInternal(Routes.Login) {
                         popUpTo(Routes.SignUp) { inclusive = true }
                     }
                 },
-                onNavigateToLogin = { navController.navigate(Routes.Login) },
+                onNavigateToLogin = { navigateInternal(Routes.Login) },
                 modifier = Modifier.fillMaxSize()
-            )
-        }
-
-        composable(Routes.Onboarding) {
-            OnboardingScreen(
-                onNext = { navController.navigate(Routes.UserProfile) },
-                modifier = Modifier.fillMaxSize(),
             )
         }
 
         composable(Routes.UserProfile) {
             UserProfileScreen(
                 userViewModel = userViewModel,
-                onNext = { navController.navigate(Routes.GoalSelection) },
+                onNext = { navigateInternal(Routes.GoalSelection) },
                 isEditMode = false,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -324,8 +431,9 @@ fun AppNavHost(
                 userViewModel = userViewModel,
                 onFinish = {
                     userViewModel.setProfileCompleted(true)
-                    navController.navigate(Routes.Dashboard) {
-                        popUpTo(Routes.Onboarding) { inclusive = true }
+                    navController.clearSetupFlowBackStack()
+                    navigateInternal(Routes.Dashboard) {
+                        tabNavigationOptions()
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -341,24 +449,22 @@ fun AppNavHost(
                     mealPlanViewModel = mealPlanViewModel,
                     groceryViewModel = groceryViewModel,
                     progressViewModel = progressViewModel,
-                    onRecipeClick = { id -> navController.navigate(Routes.recipeDetailsRoute(id)) },
-                    onViewPlan = { navController.navigate(Routes.MealPlan) { tabNavigationOptions() } },
-                    onViewProgress = { navController.navigate(Routes.Progress) { tabNavigationOptions() } },
-                    onViewIpo = { navController.navigate(Routes.Ipo) { tabNavigationOptions() } },
-                    onNavigateToSettings = { navController.navigate(Routes.Settings) },
+                    onRecipeClick = { id, mealLabel -> navigateInternal(Routes.recipeDetailsRoute(id, mealLabel)) },
+                    onViewPlan = { navigateInternal(Routes.MealPlan) { tabNavigationOptions() } },
+                    onOpenMoreTools = { navigateInternal(Routes.MoreTools) },
+                    onNavigateToSettings = { navigateInternal(Routes.Settings) },
                     onNavigateToRoute = { route ->
                         when (route) {
-                            Routes.UserProfile -> navController.navigate(Routes.UserProfileEdit)
-                            Routes.GoalSelection -> navController.navigate(Routes.GoalSelection)
+                            Routes.UserProfile -> navigateInternal(Routes.UserProfile)
+                            Routes.GoalSelection -> navigateInternal(Routes.GoalSelection)
                             Routes.MealPlan,
                             Routes.GroceryList,
                             Routes.Progress,
                             Routes.Ipo,
-                            Routes.Dashboard -> navController.navigate(route) { tabNavigationOptions() }
-                            else -> navController.navigate(route)
+                            Routes.Dashboard -> navigateInternal(route) { tabNavigationOptions() }
+                            else -> navigateInternal(route)
                         }
                     },
-                    onFeedback = onFeedback,
                     modifier = Modifier.padding(contentPadding),
                 )
             }
@@ -370,16 +476,16 @@ fun AppNavHost(
                     mealPlanViewModel = mealPlanViewModel,
                     groceryViewModel = groceryViewModel,
                     progressViewModel = progressViewModel,
-                    onRecipeClick = { id -> navController.navigate(Routes.recipeDetailsRoute(id)) },
-                    onViewProgress = { navController.navigate(Routes.Progress) { tabNavigationOptions() } },
+                    onRecipeClick = { id, mealLabel -> navigateInternal(Routes.recipeDetailsRoute(id, mealLabel)) },
+                    onViewProgress = { navigateInternal(Routes.Progress) { tabNavigationOptions() } },
                     onNavigateToRoute = { route ->
                         when (route) {
-                            Routes.UserProfile -> navController.navigate(Routes.UserProfileEdit)
-                            Routes.GoalSelection -> navController.navigate(Routes.GoalSelection)
+                            Routes.UserProfile -> navigateInternal(Routes.UserProfile)
+                            Routes.GoalSelection -> navigateInternal(Routes.GoalSelection)
                             Routes.MealPlan,
                             Routes.GroceryList,
-                            Routes.Progress -> navController.navigate(route) { tabNavigationOptions() }
-                            else -> navController.navigate(route)
+                            Routes.Progress -> navigateInternal(route) { tabNavigationOptions() }
+                            else -> navigateInternal(route)
                         }
                     },
                     modifier = Modifier.padding(contentPadding),
@@ -395,12 +501,12 @@ fun AppNavHost(
                     progressViewModel = progressViewModel,
                     onNavigateToRoute = { route ->
                         when (route) {
-                            Routes.UserProfile -> navController.navigate(Routes.UserProfileEdit)
-                            Routes.GoalSelection -> navController.navigate(Routes.GoalSelection)
+                            Routes.UserProfile -> navigateInternal(Routes.UserProfile)
+                            Routes.GoalSelection -> navigateInternal(Routes.GoalSelection)
                             Routes.MealPlan,
                             Routes.GroceryList,
-                            Routes.Progress -> navController.navigate(route) { tabNavigationOptions() }
-                            else -> navController.navigate(route)
+                            Routes.Progress -> navigateInternal(route) { tabNavigationOptions() }
+                            else -> navigateInternal(route)
                         }
                     },
                     modifier = Modifier.padding(contentPadding)
@@ -416,18 +522,18 @@ fun AppNavHost(
                     groceryViewModel = groceryViewModel,
                     userId = session.currentUserUid ?: "",
                     onBackToDashboard = {
-                        navController.navigate(Routes.Dashboard) {
+                        navigateInternal(Routes.Dashboard) {
                             tabNavigationOptions()
                         }
                     },
                     onNavigateToRoute = { route ->
                         when (route) {
-                            Routes.UserProfile -> navController.navigate(Routes.UserProfileEdit)
-                            Routes.GoalSelection -> navController.navigate(Routes.GoalSelection)
+                            Routes.UserProfile -> navigateInternal(Routes.UserProfile)
+                            Routes.GoalSelection -> navigateInternal(Routes.GoalSelection)
                             Routes.MealPlan,
                             Routes.GroceryList,
-                            Routes.Progress -> navController.navigate(route) { tabNavigationOptions() }
-                            else -> navController.navigate(route)
+                            Routes.Progress -> navigateInternal(route) { tabNavigationOptions() }
+                            else -> navigateInternal(route)
                         }
                     },
                     modifier = Modifier.padding(contentPadding),
@@ -438,7 +544,7 @@ fun AppNavHost(
             TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
                 IpoVisualizationScreen(
                     onBackToDashboard = {
-                        navController.navigate(Routes.Dashboard) {
+                        navigateInternal(Routes.Dashboard) {
                             tabNavigationOptions()
                         }
                     },
@@ -455,7 +561,20 @@ fun AppNavHost(
                 groceryViewModel = groceryViewModel,
                 progressViewModel = progressViewModel,
                 userId = session.currentUserUid ?: "",
-                onNavigateToProfileEdit = { navController.navigate(Routes.UserProfileEdit) },
+                onNavigateToProfileEdit = { navigateInternal(Routes.UserProfileEdit) },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        composable(Routes.MoreTools) {
+            MoreToolsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenMethodology = {
+                    navigateInternal(Routes.Ipo) {
+                        tabNavigationOptions()
+                    }
+                },
+                onFeedback = onFeedback,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -464,17 +583,35 @@ fun AppNavHost(
             route = Routes.RecipeDetailsRoutePattern,
             arguments = listOf(
                 navArgument(RecipeIdArg) { type = NavType.StringType },
+                navArgument(MealLabelArg) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
             ),
         ) { backStackEntry ->
             val recipeId = backStackEntry.arguments?.getString(RecipeIdArg).orEmpty()
+            val mealLabelHint = backStackEntry.arguments?.getString(MealLabelArg)
             RecipeDetailsScreen(
                 recipeId = recipeId,
+                plannedMealLabelHint = mealLabelHint,
                 mealPlanViewModel = mealPlanViewModel,
                 groceryViewModel = groceryViewModel,
+                progressViewModel = progressViewModel,
                 onBack = { navController.popBackStack() },
                 onAddToGrocery = {
-                    navController.navigate(Routes.GroceryList) {
+                    navigateInternal(Routes.GroceryList) {
                         tabNavigationOptions()
+                    }
+                },
+                onNavigateToRoute = { route ->
+                    when (route) {
+                        Routes.Dashboard,
+                        Routes.MealPlan,
+                        Routes.GroceryList,
+                        Routes.Progress,
+                        Routes.Ipo -> navigateInternal(route) { tabNavigationOptions() }
+                        else -> navigateInternal(route)
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -500,14 +637,18 @@ private fun TabScaffold(
                 currentDestination = currentDestination,
                 onNavigateToRoute = { route ->
                     if (route == currentDestination?.route) return@BottomNavBar
-                    navController.navigate(route) {
+                    if (!Routes.isKnownRoute(route)) {
+                        Log.w("PCOSINA", "Blocked non-app tab route: '$route'")
+                        return@BottomNavBar
+                    }
+                    navController.navigateKnown(route) {
                         tabNavigationOptions()
                     }
                 },
                 enabledRoutes = enabledRoutes,
                 onDisabledRouteClick = {
                     Toast.makeText(context, "Generate a plan to unlock this tab.", Toast.LENGTH_SHORT).show()
-                    navController.navigate(Routes.MealPlan) { tabNavigationOptions() }
+                    navController.navigateKnown(Routes.MealPlan) { tabNavigationOptions() }
                 }
             )
         },
@@ -520,4 +661,17 @@ private fun NavOptionsBuilder.tabNavigationOptions() {
     popUpTo(Routes.Dashboard) { saveState = true }
     launchSingleTop = true
     restoreState = true
+}
+
+private fun NavHostController.clearSetupFlowBackStack() {
+    popBackStack(Routes.GoalSelection, inclusive = true)
+    popBackStack(Routes.UserProfile, inclusive = true)
+}
+
+private fun NavHostController.navigateKnown(
+    route: String,
+    options: NavOptionsBuilder.() -> Unit = {}
+) {
+    if (!Routes.isKnownRoute(route)) return
+    navigate(route, options)
 }

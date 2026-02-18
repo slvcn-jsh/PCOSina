@@ -34,6 +34,8 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
 
     private val _loginState = MutableStateFlow<LoginState>(LoginState.Idle)
     val loginState: StateFlow<LoginState> = _loginState.asStateFlow()
+    private val _loginMessage = MutableStateFlow<String?>(null)
+    val loginMessage: StateFlow<String?> = _loginMessage.asStateFlow()
 
     private val _signUpState = MutableStateFlow<SignUpState>(SignUpState.Idle)
     val signUpState: StateFlow<SignUpState> = _signUpState.asStateFlow()
@@ -59,6 +61,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
 
     fun onLogin(emailValue: String, passwordValue: String) {
         val trimmedEmail = emailValue.trim()
+        _loginMessage.value = null
         val emailError = validateEmail(trimmedEmail)
         if (emailError != null) {
             _loginState.value = LoginState.Error(emailError)
@@ -125,6 +128,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
 
     fun resendVerification(emailValue: String, passwordValue: String) {
         val trimmedEmail = emailValue.trim()
+        _loginMessage.value = null
         val emailError = validateEmail(trimmedEmail)
         if (emailError != null) {
             _loginState.value = LoginState.Error(emailError)
@@ -146,6 +150,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
     }
 
     fun onGoogleLogin(idToken: String?) {
+        _loginMessage.value = null
         if (idToken.isNullOrBlank()) {
             _loginState.value = LoginState.Error("Google sign-in failed: missing ID token.")
             return
@@ -162,7 +167,29 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
     }
 
     fun onGoogleLoginFailure(message: String) {
+        _loginMessage.value = null
         _loginState.value = LoginState.Error(message.ifBlank { "Google sign-in failed. Try again." })
+    }
+
+    fun sendPasswordReset(emailValue: String) {
+        val trimmedEmail = emailValue.trim()
+        _loginMessage.value = null
+        val emailError = validateEmail(trimmedEmail)
+        if (emailError != null) {
+            _loginState.value = LoginState.Error(emailError)
+            return
+        }
+        viewModelScope.launch {
+            _loginState.value = LoginState.Loading
+            val result = repository.sendPasswordReset(trimmedEmail)
+            if (result.isSuccess) {
+                _loginState.value = LoginState.Idle
+                _loginMessage.value = "Password reset email sent. Check your inbox."
+            } else {
+                _loginState.value =
+                    LoginState.Error(result.exceptionOrNull()?.message ?: "Could not send password reset email.")
+            }
+        }
     }
 
     fun onLogout() {
@@ -177,6 +204,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
         _error.value = null
         _loginState.value = LoginState.Idle
         _signUpState.value = SignUpState.Idle
+        _loginMessage.value = null
     }
 
     private fun clearForm() {

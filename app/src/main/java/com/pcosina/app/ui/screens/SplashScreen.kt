@@ -33,8 +33,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.util.Log
+import com.pcosina.app.BuildConfig
 import com.pcosina.app.R
+import com.pcosina.app.ui.theme.UiMotionTokens
+import com.pcosina.app.ui.util.sampleFrameTiming
 import kotlinx.coroutines.delay
+import java.util.Locale
 
 @Composable
 fun SplashScreen(
@@ -43,7 +48,20 @@ fun SplashScreen(
 ) {
     // Auto‑navigate after 2.5 seconds
     LaunchedEffect(Unit) {
-        delay(2500)
+        if (BuildConfig.DEBUG) {
+            val stats = sampleFrameTiming(
+                windowMs = UiMotionTokens.SplashFrameProbeWindowMs,
+                jankThresholdMs = UiMotionTokens.FrameJankThresholdMs
+            )
+            Log.i(
+                "SplashMotion",
+                "frames=${stats.frames} avg=${"%.1f".format(Locale.ENGLISH, stats.avgFrameMs)}ms " +
+                    "p95=${"%.1f".format(Locale.ENGLISH, stats.p95FrameMs)}ms " +
+                    "max=${"%.1f".format(Locale.ENGLISH, stats.worstFrameMs)}ms " +
+                    "jank=${stats.jankFrames}/${stats.frames}"
+            )
+        }
+        delay(UiMotionTokens.SplashAutoAdvanceMs.toLong())
         onContinue()
     }
 
@@ -53,7 +71,7 @@ fun SplashScreen(
         initialValue = 0.6f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1200),
+            animation = tween(durationMillis = UiMotionTokens.SplashPulseMs),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "splashPulseValue",

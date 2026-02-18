@@ -1,33 +1,85 @@
 package com.pcosina.app.ui.navigation
 
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+
 /**
  * Navigation routes for the app.
  */
 object Routes {
+    private enum class RouteAccess {
+        Auth,
+        ProfileSetup,
+        GoalSetup,
+        GuidedCore,
+        PlanRequired
+    }
+
+    private val routeAccessByBase = linkedMapOf<String, RouteAccess>()
+
+    private fun defineRoute(base: String, access: RouteAccess): String {
+        require(base.isNotBlank()) { "Route base cannot be blank." }
+        check(routeAccessByBase.put(base, access) == null) { "Duplicate route base: $base" }
+        return base
+    }
+
     // Auth
-    const val Splash = "splash"
-    const val Login = "login"
-    const val SignUp = "signup"
-    
-    // Onboarding flow
-    const val Onboarding = "onboarding"
-    const val UserProfile = "user_profile"
-    const val UserProfileEdit = "user_profile_edit"
-    const val GoalSelection = "goal_selection"
+    val Splash = defineRoute("splash", RouteAccess.Auth)
+    val Login = defineRoute("login", RouteAccess.Auth)
+    val SignUp = defineRoute("signup", RouteAccess.Auth)
+
+    // Setup flow
+    val UserProfile = defineRoute("user_profile", RouteAccess.ProfileSetup)
+    val UserProfileEdit = defineRoute("user_profile_edit", RouteAccess.ProfileSetup)
+    val GoalSelection = defineRoute("goal_selection", RouteAccess.GoalSetup)
     
     // Main App
-    const val Dashboard = "dashboard"
-    const val Settings = "settings"
+    val Dashboard = defineRoute("dashboard", RouteAccess.GuidedCore)
+    val Settings = defineRoute("settings", RouteAccess.GuidedCore)
+    val MoreTools = defineRoute("more_tools", RouteAccess.PlanRequired)
 
     // Bottom tabs
-    const val MealPlan = "meal_plan"
-    const val GroceryList = "grocery_list"
-    const val Progress = "progress"
-    const val Ipo = "ipo"
+    val MealPlan = defineRoute("meal_plan", RouteAccess.GuidedCore)
+    val GroceryList = defineRoute("grocery_list", RouteAccess.PlanRequired)
+    val Progress = defineRoute("progress", RouteAccess.PlanRequired)
+    val Ipo = defineRoute("ipo", RouteAccess.PlanRequired)
 
     // Details
-    const val RecipeDetails = "recipe_details"
+    val RecipeDetails = defineRoute("recipe_details", RouteAccess.PlanRequired)
     const val RecipeIdArg = "recipeId"
-    const val RecipeDetailsRoutePattern = "$RecipeDetails/{$RecipeIdArg}"
-    fun recipeDetailsRoute(recipeId: String): String = "$RecipeDetails/$recipeId"
+    const val MealLabelArg = "mealLabel"
+    val RecipeDetailsRoutePattern: String
+        get() = "$RecipeDetails/{$RecipeIdArg}?$MealLabelArg={$MealLabelArg}"
+    fun recipeDetailsRoute(recipeId: String, mealLabel: String? = null): String {
+        val encodedMealLabel = mealLabel?.takeIf { it.isNotBlank() }?.let {
+            URLEncoder.encode(it, StandardCharsets.UTF_8.toString())
+        }
+        return if (encodedMealLabel == null) {
+            "$RecipeDetails/$recipeId"
+        } else {
+            "$RecipeDetails/$recipeId?$MealLabelArg=$encodedMealLabel"
+        }
+    }
+
+    fun baseRoute(route: String?): String? = route?.substringBefore("/")
+
+    fun isAuthRoute(route: String?): Boolean =
+        routeAccessByBase[baseRoute(route)] == RouteAccess.Auth
+
+    fun isProfileRoute(route: String?): Boolean =
+        routeAccessByBase[baseRoute(route)] == RouteAccess.ProfileSetup
+
+    fun isGoalRoute(route: String?): Boolean =
+        routeAccessByBase[baseRoute(route)] == RouteAccess.GoalSetup
+
+    fun isKnownRoute(route: String?): Boolean =
+        routeAccessByBase.containsKey(baseRoute(route))
+
+    fun knownBaseRoutes(): Set<String> = routeAccessByBase.keys.toSet()
+
+    fun requiresPlan(route: String?): Boolean {
+        val base = baseRoute(route) ?: return false
+        val access = routeAccessByBase[base] ?: return true // safe default
+        return access == RouteAccess.PlanRequired
+    }
 }

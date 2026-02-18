@@ -1,0 +1,50 @@
+package com.pcosina.app
+
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class RecipeDetailsSlotLoggingPolicyTest {
+
+    @Test
+    fun recipeDetails_disablesMarkAsEatenOnlyWhenAllSlotsForRecipeAreLogged() {
+        val recipePath = resolve(
+            "app", "src", "main", "java", "com", "pcosina", "app",
+            "ui", "screens", "RecipeDetailsScreen.kt"
+        )
+        val source = read(recipePath)
+
+        assertTrue(
+            "Recipe details should compute remaining slots for the current recipe.",
+            source.contains("val remainingRecipeSlots = remember(remainingTodaySlots, recipeId)")
+        )
+        assertTrue(
+            "Recipe details should support meal-label hints for slot-accurate logging.",
+            source.contains("val hintedRemainingSlot = remember(remainingTodaySlots, recipeId, mealLabelHint)")
+        )
+        assertTrue(
+            "Recipe details should normalize meal labels before matching slots.",
+            source.contains("normalizeMealLabel(")
+        )
+        assertTrue(
+            "Recipe details should still fall back to recipe-level remaining slot matching.",
+            source.contains("val slotToLog = hintedRemainingSlot ?: remainingRecipeSlots.firstOrNull")
+        )
+        assertTrue(
+            "Recipe details should disable logging from slot completion data, not next-meal ordering.",
+            source.contains("remainingTodaySlots.none { slot ->")
+        )
+    }
+
+    private fun resolve(vararg parts: String): Path {
+        val first = Paths.get(parts.first(), *parts.drop(1).toTypedArray())
+        if (Files.exists(first)) return first
+        val second = Paths.get("..", parts.first(), *parts.drop(1).toTypedArray())
+        if (Files.exists(second)) return second
+        error("Could not locate file: ${parts.joinToString("/")}")
+    }
+
+    private fun read(path: Path): String = String(Files.readAllBytes(path))
+}

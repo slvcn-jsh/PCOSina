@@ -1,9 +1,71 @@
+import com.google.firebase.appdistribution.gradle.firebaseAppDistribution
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.gms.google-services")
+    id("com.google.firebase.appdistribution")
     id("com.google.firebase.crashlytics")
+}
+
+val googleServicesConfig = file("google-services.json")
+val canLoadGoogleServicesConfig = runCatching {
+    googleServicesConfig.inputStream().use { stream -> stream.read() }
+    true
+}.getOrElse { false }
+val allowMissingGoogleServices = providers.gradleProperty("allowMissingGoogleServices")
+    .orNull
+    ?.toBooleanStrictOrNull()
+    ?: false
+// Optional tuning for uncommon task naming patterns in CI/build tooling.
+val releaseTaskIncludePattern = providers.gradleProperty("releaseTaskIncludePattern").orNull
+val releaseTaskExcludePattern = providers.gradleProperty("releaseTaskExcludePattern").orNull
+val releaseTaskPatterns = listOf(
+    Regex(
+        pattern = """(^|:)[A-Za-z0-9]*Release[A-Za-z0-9]*$""",
+        option = RegexOption.IGNORE_CASE
+    ),
+    Regex(
+        pattern = """(^|:)release$""",
+        option = RegexOption.IGNORE_CASE
+    )
+)
+val releaseTasksRequested = gradle.startParameter.taskNames.any { taskName ->
+    val releaseLike = releaseTaskPatterns.any { pattern -> pattern.containsMatchIn(taskName) }
+    val customInclude = runCatching {
+        releaseTaskIncludePattern?.takeIf { it.isNotBlank() }?.let { regex ->
+            Regex(regex, RegexOption.IGNORE_CASE).containsMatchIn(taskName)
+        } ?: false
+    }.getOrElse { false }
+    val customExclude = runCatching {
+        releaseTaskExcludePattern?.takeIf { it.isNotBlank() }?.let { regex ->
+            Regex(regex, RegexOption.IGNORE_CASE).containsMatchIn(taskName)
+        } ?: false
+    }.getOrElse { false }
+    val normalized = taskName.substringAfterLast(':')
+    val nonPackaging = normalized.contains("test", ignoreCase = true) ||
+        normalized.contains("lint", ignoreCase = true) ||
+        normalized.contains("check", ignoreCase = true) ||
+        normalized.contains("verify", ignoreCase = true) ||
+        normalized.contains("report", ignoreCase = true) ||
+        normalized.contains("analysis", ignoreCase = true)
+    (releaseLike || customInclude) && !nonPackaging && !customExclude
+}
+
+if (canLoadGoogleServicesConfig) {
+    apply(plugin = "com.google.gms.google-services")
+} else {
+    if (releaseTasksRequested && !allowMissingGoogleServices) {
+        throw GradleException(
+            "google-services.json is missing or unreadable. " +
+                "Release tasks require a readable Firebase config. " +
+                "If this is a non-packaging false positive, rerun with -PallowMissingGoogleServices=true. " +
+                "For custom task names, tune matching with -PreleaseTaskIncludePattern and -PreleaseTaskExcludePattern."
+        )
+    }
+    logger.warn(
+        "google-services.json is missing or unreadable; skipping com.google.gms.google-services plugin."
+    )
 }
 
 
@@ -28,8 +90,8 @@ android {
         applicationId = "com.pcosina.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 37
-        versionName = "1.10.1"
+        versionCode = 39
+        versionName = "1.10.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -60,9 +122,32 @@ android {
             }
             buildConfigField("String", "BASE_URL", "\"$releaseBaseUrl\"")
             signingConfig = signingConfigs.getByName("release")
+            firebaseAppDistribution {
+                artifactType = "APK"
+                releaseNotesFile = "${rootProject.projectDir}/release-notes.txt"
+                val envAppId = System.getenv("FIREBASE_APP_ID")
+                if (!envAppId.isNullOrBlank()) {
+                    appId = envAppId
+                }
+                val envCreds = System.getenv("FIREBASE_APPDIST_CREDENTIALS_FILE")
+                    ?: System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+                if (!envCreds.isNullOrBlank()) {
+                    serviceCredentialsFile = envCreds
+                }
+                val defaultGroups = providers.gradleProperty("firebaseAppDistributionDefaultGroups").orNull
+                val configuredGroups = System.getenv("FIREBASE_APPDIST_GROUPS") ?: defaultGroups
+                if (!configuredGroups.isNullOrBlank()) {
+                    groups = configuredGroups
+                }
+                val defaultTesters = providers.gradleProperty("firebaseAppDistributionDefaultTesters").orNull
+                val configuredTesters = System.getenv("FIREBASE_APPDIST_TESTERS") ?: defaultTesters
+                if (!configuredTesters.isNullOrBlank()) {
+                    testers = configuredTesters
+                }
+            }
         }
         debug {
-            val debugBaseUrl = "http://192.168.1.48:8000/"
+            val debugBaseUrl = "http://192.168.1.44:8000/"
             val pattern = Regex("^https?://.+/$")
             if (!pattern.matches(debugBaseUrl)) {
                 throw GradleException("Invalid BASE_URL for debug: $debugBaseUrl")
@@ -109,12 +194,14 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics.ktx)
     implementation(libs.firebase.auth.ktx)
+    implementation(libs.firebase.firestore.ktx)
     implementation(libs.firebase.crashlytics.ktx)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.play.services.tasks)
     implementation(libs.play.services.auth)
     implementation(libs.sentry.android)
     implementation(libs.androidx.security.crypto)
+    implementation(libs.androidx.work.runtime.ktx)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

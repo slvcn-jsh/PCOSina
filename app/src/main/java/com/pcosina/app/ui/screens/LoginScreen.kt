@@ -3,15 +3,21 @@ package com.pcosina.app.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,11 +40,14 @@ fun LoginScreen(
     authViewModel: AuthViewModel,
     onLoginSuccess: () -> Unit,
     onNavigateToSignUp: () -> Unit,
+    onDebugFirstWinContinue: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
     val loginState by authViewModel.loginState.collectAsState()
+    val loginMessage by authViewModel.loginMessage.collectAsState()
     val analytics = FirebaseAnalytics.getInstance(LocalContext.current)
     val colorScheme = MaterialTheme.colorScheme
     val context = LocalContext.current
@@ -117,10 +126,46 @@ fun LoginScreen(
         )
         
         Text(
-            text = "Login to access your optimized plans",
+            text = "Login to start your guided setup and generate your first plan.",
             style = MaterialTheme.typography.bodyMedium,
             color = colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 32.dp)
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        Card(
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 20.dp)
+                .testTag("login_first_win_card")
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "First win in ~60–90 seconds",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                    color = colorScheme.onSurface
+                )
+                Text(
+                    text = "Login -> Complete Profile -> Select Goal -> Generate your first plan.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Text(
+            text = "Step 1 of 4: Login",
+            style = MaterialTheme.typography.labelMedium,
+            color = colorScheme.primary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp)
+                .testTag("login_step1_label")
         )
 
         OutlinedTextField(
@@ -141,8 +186,20 @@ fun LoginScreen(
             value = password,
             onValueChange = { password = it },
             label = { Text("Password") },
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if (passwordVisible) {
+                VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            trailingIcon = {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                        imageVector = if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                        contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                    )
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium,
             colors = OutlinedTextFieldDefaults.colors(
@@ -150,6 +207,29 @@ fun LoginScreen(
                 focusedLabelColor = colorScheme.primary
             )
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            TextButton(
+                onClick = {
+                    analytics.logEvent("forgot_password_tap", null)
+                    authViewModel.sendPasswordReset(email)
+                },
+                enabled = loginState !is LoginState.Loading
+            ) {
+                Text("Forgot password?")
+            }
+        }
+
+        loginMessage?.let { message ->
+            Text(
+                text = message,
+                color = colorScheme.primary,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         if (loginState is LoginState.Error) {
             Text(
@@ -171,7 +251,10 @@ fun LoginScreen(
                 analytics.logEvent("login_attempt", null)
                 authViewModel.onLogin(email, password)
             },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .testTag("login_primary_cta"),
             shape = MaterialTheme.shapes.medium,
             colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
             enabled = loginState !is LoginState.Loading
@@ -199,6 +282,15 @@ fun LoginScreen(
             modifier = Modifier.padding(top = 16.dp)
         ) {
             Text("Don't have an account? Sign Up", color = colorScheme.secondary)
+        }
+
+        if (BuildConfig.DEBUG && onDebugFirstWinContinue != null) {
+            TextButton(
+                onClick = onDebugFirstWinContinue,
+                modifier = Modifier.testTag("login_debug_continue_first_win")
+            ) {
+                Text("Debug: Continue First-Win Flow", color = colorScheme.primary)
+            }
         }
     }
 }

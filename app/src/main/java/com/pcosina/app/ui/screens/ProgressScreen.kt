@@ -27,16 +27,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
-import android.content.Context
 import android.content.Intent
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
-import android.widget.Toast
+import android.util.Log
 import androidx.core.content.FileProvider
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
@@ -59,6 +60,7 @@ import com.pcosina.app.ui.theme.UiMotionTokens
 import com.pcosina.app.ui.theme.UiSpacingTokens
 import com.pcosina.app.ui.util.buildMealReasons
 import com.pcosina.app.ui.util.buildTodayLogSnapshot
+import com.pcosina.app.ui.util.ActionFeedbackCopy
 import com.pcosina.app.ui.util.GuidedJourneyInput
 import com.pcosina.app.ui.util.LockedFlowCopy
 import com.pcosina.app.ui.util.TodayMealDescriptor
@@ -66,6 +68,7 @@ import com.pcosina.app.ui.util.formatFiberProgressShort
 import com.pcosina.app.ui.util.formatKcalProgressShort
 import com.pcosina.app.ui.util.formatProteinProgressShort
 import com.pcosina.app.ui.util.mealImpactNextSuggestion
+import com.pcosina.app.ui.util.rememberIsOnline
 import com.pcosina.app.ui.util.resolveGuidedJourneyStep
 import com.pcosina.app.domain.HealthMetrics
 import com.pcosina.app.domain.UnitConverter
@@ -93,6 +96,8 @@ fun ProgressScreen(
     userId: String,
     onBackToDashboard: () -> Unit,
     onNavigateToRoute: (String) -> Unit = {},
+    onlineStateOverride: Boolean? = null,
+    feedbackSectionExpandedByDefault: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -114,6 +119,8 @@ fun ProgressScreen(
     val weeklySpend by progressViewModel.weeklySpend.collectAsState()
     val feedbackQueue by progressViewModel.feedbackQueue.collectAsState()
     val planFeedbackTags by progressViewModel.planFeedbackTags.collectAsState()
+    val savedProgressMode by progressViewModel.savedProgressMode.collectAsState()
+    val savedAdvancedWeekAnalyticsExpanded by progressViewModel.savedAdvancedWeekAnalyticsExpanded.collectAsState()
     val profile by userViewModel.userProfile.collectAsState()
     val groceryItems by groceryViewModel.groceryItems.collectAsState()
     var showConfidenceInfo by rememberSaveable { mutableStateOf(false) }
@@ -129,13 +136,16 @@ fun ProgressScreen(
     var impactDetailsExpanded by rememberSaveable { mutableStateOf(false) }
     var showImpactSheet by rememberSaveable { mutableStateOf(false) }
     var dailyReflectionExpanded by rememberSaveable { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
+    var advancedWeekAnalyticsExpanded by rememberSaveable { mutableStateOf(false) }
+    var progressMode by rememberSaveable { mutableStateOf(ProgressMode.Today) }
     val coroutineScope = rememberCoroutineScope()
     var progressFeedbackBanner by remember { mutableStateOf<FeedbackBannerData?>(null) }
     var reflectionSaveState by remember { mutableStateOf(FeedbackActionState.Idle) }
     var weeklyReflectionSaveState by remember { mutableStateOf(FeedbackActionState.Idle) }
     var weightSaveState by remember { mutableStateOf(FeedbackActionState.Idle) }
     var feedbackSendState by remember { mutableStateOf(FeedbackActionState.Idle) }
+    val showTodayMode = progressMode == ProgressMode.Today
+    val showWeekMode = progressMode == ProgressMode.Week
     val hasPlan = planHistory.isNotEmpty() || planState is MealPlanUiState.Success
     val hasReviewedWeek = activePlanId != null && activePlanId == lastReviewedWeek
     val hasGrocery = groceryItems.isNotEmpty()
@@ -172,6 +182,13 @@ fun ProgressScreen(
     val weekDays = (0..6).map { weekStart.plusDays(it.toLong()) }
     val dayLabelFmt = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
     val todayLabel = LocalDate.now().format(dayLabelFmt)
+
+    LaunchedEffect(savedProgressMode) {
+        progressMode = ProgressMode.fromSavedValue(savedProgressMode)
+    }
+    LaunchedEffect(savedAdvancedWeekAnalyticsExpanded) {
+        advancedWeekAnalyticsExpanded = savedAdvancedWeekAnalyticsExpanded
+    }
 
     LaunchedEffect(userId, weekStartKey, fallbackWeekStartKey) {
         if (userId.isNotBlank()) {
@@ -283,8 +300,8 @@ fun ProgressScreen(
     }
 
     var feedbackText by rememberSaveable { mutableStateOf("") }
-    val isOnline = remember { mutableStateOf(isNetworkAvailable(context)) }
-    LaunchedEffect(Unit) { isOnline.value = isNetworkAvailable(context) }
+    val observedOnline by rememberIsOnline(context)
+    val isOnline = onlineStateOverride ?: observedOnline
     val showWeightEntryAtTop = goalType == com.pcosina.app.domain.GoalType.WEIGHT_LOSS
     val weightUnitLabel = if (profile.weightUnit == UnitConverter.WEIGHT_LB) "lb" else "kg"
     val displayWeight: (Float) -> String = { kg ->
@@ -424,11 +441,31 @@ fun ProgressScreen(
         }
     }
 
+    fun postProgressFeedback(
+        tone: FeedbackBannerTone,
+        message: String,
+        autoClearMs: Long = 2200L
+    ) {
+        progressFeedbackBanner = FeedbackBannerData(
+            tone = tone,
+            message = message
+        )
+        Log.i("ProgressUX", message)
+        if (tone != FeedbackBannerTone.Loading && autoClearMs > 0L) {
+            coroutineScope.launch {
+                delay(autoClearMs)
+                if (progressFeedbackBanner?.message == message) {
+                    progressFeedbackBanner = null
+                }
+            }
+        }
+    }
+
     fun saveWeightWithFeedback() {
         if (!isSelectedDateLoggable) {
             showLoggingPolicyInfo = true
             weightSaveState = FeedbackActionState.Error
-            progressFeedbackBanner = FeedbackBannerData(
+            postProgressFeedback(
                 tone = FeedbackBannerTone.Error,
                 message = "Weight save blocked for this date."
             )
@@ -436,7 +473,7 @@ fun ProgressScreen(
             return
         }
         weightSaveState = FeedbackActionState.Loading
-        progressFeedbackBanner = FeedbackBannerData(
+        postProgressFeedback(
             tone = FeedbackBannerTone.Loading,
             message = "Saving weight entry…"
         )
@@ -448,23 +485,16 @@ fun ProgressScreen(
         if (!saved) {
             showLoggingPolicyInfo = true
             weightSaveState = FeedbackActionState.Error
-            progressFeedbackBanner = FeedbackBannerData(
+            postProgressFeedback(
                 tone = FeedbackBannerTone.Error,
                 message = "Couldn’t save weight. Try again for a loggable day."
             )
         } else {
             weightSaveState = FeedbackActionState.Success
-            progressFeedbackBanner = FeedbackBannerData(
+            postProgressFeedback(
                 tone = FeedbackBannerTone.Success,
                 message = "Weight saved for today."
             )
-            coroutineScope.launch {
-                snackbarHostState.currentSnackbarData?.dismiss()
-                snackbarHostState.showSnackbar(
-                    message = "Weight saved for today.",
-                    duration = SnackbarDuration.Short
-                )
-            }
         }
         scheduleReset({ weightSaveState = it })
     }
@@ -473,7 +503,7 @@ fun ProgressScreen(
         if (!isSelectedDateLoggable) {
             showLoggingPolicyInfo = true
             reflectionSaveState = FeedbackActionState.Error
-            progressFeedbackBanner = FeedbackBannerData(
+            postProgressFeedback(
                 tone = FeedbackBannerTone.Error,
                 message = "Reflection save blocked for this date."
             )
@@ -481,7 +511,7 @@ fun ProgressScreen(
             return
         }
         reflectionSaveState = FeedbackActionState.Loading
-        progressFeedbackBanner = FeedbackBannerData(
+        postProgressFeedback(
             tone = FeedbackBannerTone.Loading,
             message = "Saving reflection…"
         )
@@ -496,65 +526,134 @@ fun ProgressScreen(
         if (!saved) {
             showLoggingPolicyInfo = true
             reflectionSaveState = FeedbackActionState.Error
-            progressFeedbackBanner = FeedbackBannerData(
+            postProgressFeedback(
                 tone = FeedbackBannerTone.Error,
                 message = "Couldn’t save reflection. Try again for a loggable day."
             )
         } else {
             reflectionSaveState = FeedbackActionState.Success
-            progressFeedbackBanner = FeedbackBannerData(
+            postProgressFeedback(
                 tone = FeedbackBannerTone.Success,
                 message = "Reflection saved for today."
             )
-            coroutineScope.launch {
-                snackbarHostState.currentSnackbarData?.dismiss()
-                snackbarHostState.showSnackbar(
-                    message = "Reflection saved for today.",
-                    duration = SnackbarDuration.Short
-                )
-            }
         }
         scheduleReset({ reflectionSaveState = it })
     }
 
     fun saveWeeklyJournalWithFeedback() {
         weeklyReflectionSaveState = FeedbackActionState.Loading
-        progressFeedbackBanner = FeedbackBannerData(
+        postProgressFeedback(
             tone = FeedbackBannerTone.Loading,
             message = "Saving weekly reflection…"
         )
         progressViewModel.saveWeeklyJournal(weekStartKey, journalText)
         weeklyReflectionSaveState = FeedbackActionState.Success
-        progressFeedbackBanner = FeedbackBannerData(
+        postProgressFeedback(
             tone = FeedbackBannerTone.Success,
             message = "Weekly reflection saved."
         )
-        coroutineScope.launch {
-            snackbarHostState.currentSnackbarData?.dismiss()
-            snackbarHostState.showSnackbar(
-                message = "Weekly reflection saved.",
-                duration = SnackbarDuration.Short
-            )
-        }
         scheduleReset({ weeklyReflectionSaveState = it })
     }
 
     fun submitFeedbackWithBanner() {
         if (feedbackText.isBlank()) return
         feedbackSendState = FeedbackActionState.Loading
-        progressFeedbackBanner = FeedbackBannerData(
+        postProgressFeedback(
             tone = FeedbackBannerTone.Loading,
-            message = if (isOnline.value) "Sending feedback…" else "Queueing feedback for offline sync…"
+            message = if (isOnline) "Sending feedback…" else "Saving feedback locally…"
         )
         progressViewModel.queueFeedback(feedbackText)
-        progressViewModel.trySendQueuedFeedback(isOnline.value)
+        progressViewModel.trySendQueuedFeedback(isOnline)
         feedbackText = ""
         feedbackSendState = FeedbackActionState.Success
-        progressFeedbackBanner = FeedbackBannerData(
+        postProgressFeedback(
             tone = FeedbackBannerTone.Success,
-            message = if (isOnline.value) "Feedback sent." else "Feedback queued for retry."
+            message = if (isOnline) "Feedback sent." else ActionFeedbackCopy.OfflineSync
         )
         scheduleReset({ feedbackSendState = it })
+    }
+
+    val primaryCtaLabel = when {
+        !hasPlan -> "Generate My First Plan"
+        showTodayMode && todaySnapshot.plannedCount == 0 -> "Generate Today's Plan"
+        showTodayMode && isSelectedDateLoggable && todaySnapshot.plannedCount > 0 -> "Log Today's Meals"
+        showTodayMode && todaySnapshot.nextMeal != null -> "Open Next Meal"
+        showTodayMode -> "Open Daily Reflection"
+        sundayComplete -> "Generate Next Week Plan"
+        else -> "Review Week Insights"
+    }
+
+    val onPrimaryCta: () -> Unit = {
+        when {
+            !hasPlan -> {
+                postProgressFeedback(
+                    tone = FeedbackBannerTone.Loading,
+                    message = "Opening plan generator…"
+                )
+                onNavigateToRoute(Routes.MealPlan)
+            }
+            showTodayMode && todaySnapshot.nextMeal != null -> {
+                todaySnapshot.nextMeal?.let { nextMeal ->
+                    postProgressFeedback(
+                        tone = FeedbackBannerTone.Success,
+                        message = "Opening next meal."
+                    )
+                    onNavigateToRoute(Routes.recipeDetailsRoute(nextMeal.recipeId, nextMeal.mealLabel))
+                }
+            }
+            showTodayMode && todaySnapshot.plannedCount == 0 -> {
+                postProgressFeedback(
+                    tone = FeedbackBannerTone.Loading,
+                    message = "Opening plan generator for today…"
+                )
+                onNavigateToRoute(Routes.MealPlan)
+            }
+            showTodayMode && isSelectedDateLoggable && todaySnapshot.plannedCount > 0 -> {
+                if (todayIndexInWeek >= 0) {
+                    selectedDayIndex = todayIndexInWeek
+                }
+                postProgressFeedback(
+                    tone = FeedbackBannerTone.Success,
+                    message = "Daily meal check-off is ready. Log meals after you eat."
+                )
+            }
+            showTodayMode -> {
+                if (todayIndexInWeek >= 0) selectedDayIndex = todayIndexInWeek
+                dailyReflectionExpanded = true
+                postProgressFeedback(
+                    tone = FeedbackBannerTone.Success,
+                    message = "Daily reflection opened. Add a quick note to close today's loop."
+                )
+            }
+            sundayComplete -> {
+                postProgressFeedback(
+                    tone = FeedbackBannerTone.Loading,
+                    message = "Opening plan generator for next week…"
+                )
+                onNavigateToRoute(Routes.MealPlan)
+            }
+            else -> {
+                weekHistoryExpanded = true
+                postProgressFeedback(
+                    tone = FeedbackBannerTone.Success,
+                    message = "Week mode active. Review trends and summary cards below."
+                )
+            }
+        }
+    }
+
+    LaunchedEffect(progressMode, hasPlan, todaySnapshot.plannedCount) {
+        Log.i(
+            "ProgressUX",
+            "Mode=${progressMode.label} hasPlan=$hasPlan todayPlanned=${todaySnapshot.plannedCount}"
+        )
+    }
+    LaunchedEffect(advancedWeekAnalyticsExpanded, showWeekMode) {
+        if (!showWeekMode) return@LaunchedEffect
+        Log.i(
+            "ProgressUX",
+            "Advanced week analytics expanded=$advancedWeekAnalyticsExpanded"
+        )
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -592,6 +691,104 @@ fun ProgressScreen(
             )
         }
 
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("progress_top_section_capture"),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("progress_step4_card")
+                        .semantics {
+                            isTraversalGroup = true
+                            traversalIndex = 0.8f
+                        },
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Step 4 of 4: Track Progress",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                            color = colorScheme.primary
+                        )
+                        Text(
+                            text = "First-win path: Login -> Profile -> Goal -> Generate Plan -> Track today.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics {
+                            isTraversalGroup = true
+                            traversalIndex = 1f
+                        }
+                        .testTag("progress_focus_mode_card"),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "Focus Mode",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                        Text(
+                            text = if (showTodayMode) {
+                                "Today mode: meal check-off is the first action."
+                            } else {
+                                "Week mode: adherence, spending, and week-level trends."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        Row(
+                            modifier = Modifier.semantics {
+                                isTraversalGroup = true
+                                traversalIndex = 1.1f
+                            },
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            ProgressMode.values().forEach { mode ->
+                                FilterChip(
+                                    selected = progressMode == mode,
+                                    onClick = {
+                                        progressMode = mode
+                                        progressViewModel.setProgressModePreference(mode.label)
+                                    },
+                                    modifier = Modifier
+                                        .heightIn(min = 48.dp)
+                                        .testTag("progress_mode_${mode.label.lowercase(Locale.ENGLISH)}"),
+                                    label = { Text(mode.label) }
+                                )
+                            }
+                        }
+                        Button(
+                            onClick = onPrimaryCta,
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
+                        ) {
+                            Text(primaryCtaLabel)
+                        }
+                    }
+                }
+            }
+        }
+
         progressFeedbackBanner?.let { banner ->
             item {
                 AppFeedbackBanner(
@@ -604,64 +801,63 @@ fun ProgressScreen(
         item {
             val queuedCount = feedbackQueue.count { it.status != "Sent" }
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        isTraversalGroup = true
+                        traversalIndex = 2f
+                    },
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 AssistChip(
                     onClick = {
-                        coroutineScope.launch {
-                            snackbarHostState.currentSnackbarData?.dismiss()
-                            snackbarHostState.showSnackbar(
-                                message = if (isOnline.value) {
-                                    "Online: changes sync immediately."
-                                } else {
-                                    "Offline: actions are queued and retry when online."
-                                },
-                                duration = SnackbarDuration.Short
-                            )
-                        }
+                        postProgressFeedback(
+                            tone = FeedbackBannerTone.Success,
+                            message = if (isOnline) {
+                                ActionFeedbackCopy.OnlineSync
+                            } else {
+                                ActionFeedbackCopy.OfflineSync
+                            }
+                        )
                     },
-                    modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight),
+                    modifier = Modifier.heightIn(min = 48.dp),
                     label = {
-                        Text(if (isOnline.value) "Online" else "Offline", maxLines = 1)
+                        Text(if (isOnline) "Online" else "Offline", maxLines = 1)
                     },
                     leadingIcon = {
                         Icon(
-                            imageVector = if (isOnline.value) Icons.Filled.CheckCircle else Icons.Filled.Info,
+                            imageVector = if (isOnline) Icons.Filled.CheckCircle else Icons.Filled.Info,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )
                     },
                     colors = AssistChipDefaults.assistChipColors(
-                        containerColor = if (isOnline.value) {
+                        containerColor = if (isOnline) {
                             colorScheme.primaryContainer.copy(alpha = 0.35f)
                         } else {
                             colorScheme.surfaceVariant
                         },
                         labelColor = colorScheme.onSurface,
-                        leadingIconContentColor = if (isOnline.value) colorScheme.primary else colorScheme.onSurfaceVariant
+                        leadingIconContentColor = if (isOnline) colorScheme.primary else colorScheme.onSurfaceVariant
                     )
                 )
                 if (queuedCount > 0) {
                     AssistChip(
                         onClick = {
-                            if (isOnline.value) {
+                            if (isOnline) {
                                 progressViewModel.trySendQueuedFeedback(isOnline = true)
                             }
-                            coroutineScope.launch {
-                                snackbarHostState.currentSnackbarData?.dismiss()
-                                snackbarHostState.showSnackbar(
-                                    message = if (isOnline.value) {
-                                        "Retrying queued feedback now."
-                                    } else {
-                                        "Queue is saved locally until you reconnect."
-                                    },
-                                    duration = SnackbarDuration.Short
-                                )
-                            }
+                            postProgressFeedback(
+                                tone = FeedbackBannerTone.Success,
+                                message = if (isOnline) {
+                                    ActionFeedbackCopy.QueueRetrying
+                                } else {
+                                    ActionFeedbackCopy.QueueSaved
+                                }
+                            )
                         },
-                        modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight),
+                        modifier = Modifier.heightIn(min = 48.dp),
                         label = { Text("Queue $queuedCount", maxLines = 1) },
                         leadingIcon = {
                             Icon(
@@ -680,11 +876,15 @@ fun ProgressScreen(
             }
         }
 
-        if (hasPlan) {
+        if (hasPlan && showTodayMode) {
             item {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .semantics {
+                            isTraversalGroup = true
+                            traversalIndex = 3f
+                        }
                         .testTag("progress_today_hub_card"),
                     shape = MaterialTheme.shapes.extraLarge,
                     colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
@@ -730,17 +930,14 @@ fun ProgressScreen(
                                     else -> {
                                         if (todayIndexInWeek >= 0) selectedDayIndex = todayIndexInWeek
                                         dailyReflectionExpanded = true
-                                        coroutineScope.launch {
-                                            snackbarHostState.currentSnackbarData?.dismiss()
-                                            snackbarHostState.showSnackbar(
-                                                message = "Today is complete. Add a short reflection.",
-                                                duration = SnackbarDuration.Short
-                                            )
-                                        }
+                                        postProgressFeedback(
+                                            tone = FeedbackBannerTone.Success,
+                                            message = "Today is complete. Add a short reflection."
+                                        )
                                     }
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().height(44.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
                             shape = MaterialTheme.shapes.medium,
                             colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
                         ) {
@@ -777,7 +974,7 @@ fun ProgressScreen(
                         )
                         AssistChip(
                             onClick = { showLockedInfo = true },
-                            modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight),
+                            modifier = Modifier.heightIn(min = 48.dp),
                             label = { Text(LockedFlowCopy.LearnMoreLabel) },
                             leadingIcon = {
                                 Icon(
@@ -787,7 +984,10 @@ fun ProgressScreen(
                                 )
                             }
                         )
-                        OutlinedButton(onClick = { onNavigateToRoute(Routes.MealPlan) }) {
+                        OutlinedButton(
+                            onClick = { onNavigateToRoute(Routes.MealPlan) },
+                            modifier = Modifier.heightIn(min = 48.dp)
+                        ) {
                             Text("Go to Plan")
                         }
                     }
@@ -795,80 +995,96 @@ fun ProgressScreen(
             }
         }
 
-        if (sortedHistory.isNotEmpty()) {
+        if (showWeekMode && sortedHistory.isNotEmpty()) {
             item {
                 val currentLabel = currentPlanInstance?.response?.weekLabel ?: weekLabel
-                ExpandableSection(
-                    title = "Week History",
-                    subtitle = if (weekHistoryExpanded) {
-                        "Selected: $currentLabel"
-                    } else {
-                        "Selected: $currentLabel • Tap to switch weeks"
-                    },
-                    defaultExpanded = !collapseWeekHistoryOnCompact,
-                    expanded = weekHistoryExpanded,
-                    onExpandedChange = { weekHistoryExpanded = it }
+                Box(
+                    modifier = Modifier.semantics {
+                        isTraversalGroup = true
+                        traversalIndex = 4f
+                    }
                 ) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ExpandableSection(
+                        title = "Week History",
+                        subtitle = if (weekHistoryExpanded) {
+                            "Selected: $currentLabel"
+                        } else {
+                            "Selected: $currentLabel • Tap to switch weeks"
+                        },
+                        defaultExpanded = !collapseWeekHistoryOnCompact,
+                        expanded = weekHistoryExpanded,
+                        onExpandedChange = { weekHistoryExpanded = it }
                     ) {
-                        Text(
-                            text = "Switch weeks to compare trends.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                        )
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(sortedHistory) { instance ->
-                                TokenizedFilterChip(
-                                    selected = instance.id == activePlanId,
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Text(
+                                text = "Switch weeks to compare trends.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                            if (sortedHistory.size > 3) {
+                                Text(
+                                    text = "Swipe left or right to view more weeks.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            }
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(sortedHistory) { instance ->
+                                    TokenizedFilterChip(
+                                        selected = instance.id == activePlanId,
+                                        onClick = {
+                                            mealPlanViewModel.selectPlan(instance.id)
+                                            if (collapseWeekHistoryOnCompact) {
+                                                weekHistoryExpanded = false
+                                            }
+                                        },
+                                        text = instance.response.weekLabel,
+                                        labelMaxWidth = weekChipLabelWidth,
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = colorScheme.primary,
+                                            selectedLabelColor = colorScheme.onPrimary
+                                        )
+                                    )
+                                }
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedButton(
                                     onClick = {
-                                        mealPlanViewModel.selectPlan(instance.id)
-                                        if (collapseWeekHistoryOnCompact) {
+                                        previousPlan?.let { mealPlanViewModel.selectPlan(it.id) }
+                                        if (collapseWeekHistoryOnCompact && previousPlan != null) {
                                             weekHistoryExpanded = false
                                         }
                                     },
-                                    text = instance.response.weekLabel,
-                                    labelMaxWidth = weekChipLabelWidth,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = colorScheme.primary,
-                                        selectedLabelColor = colorScheme.onPrimary
-                                    )
-                                )
-                            }
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            OutlinedButton(
-                                onClick = {
-                                    previousPlan?.let { mealPlanViewModel.selectPlan(it.id) }
-                                    if (collapseWeekHistoryOnCompact && previousPlan != null) {
-                                        weekHistoryExpanded = false
-                                    }
-                                },
-                                enabled = previousPlan != null
-                            ) {
-                                Icon(Icons.Filled.ChevronLeft, contentDescription = null)
-                                Spacer(Modifier.width(6.dp))
-                                Text("Prev")
-                            }
-                            OutlinedButton(
-                                onClick = {
-                                    val next = sortedHistory.getOrNull(activeIndex + 1)
-                                    next?.let { mealPlanViewModel.selectPlan(it.id) }
-                                    if (collapseWeekHistoryOnCompact && next != null) {
-                                        weekHistoryExpanded = false
-                                    }
-                                },
-                                enabled = activeIndex >= 0 && activeIndex < sortedHistory.lastIndex
-                            ) {
-                                Text("Next")
-                                Spacer(Modifier.width(6.dp))
-                                Icon(Icons.Filled.ChevronRight, contentDescription = null)
+                                    enabled = previousPlan != null,
+                                    modifier = Modifier.heightIn(min = 48.dp)
+                                ) {
+                                    Icon(Icons.Filled.ChevronLeft, contentDescription = null)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Prev")
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        val next = sortedHistory.getOrNull(activeIndex + 1)
+                                        next?.let { mealPlanViewModel.selectPlan(it.id) }
+                                        if (collapseWeekHistoryOnCompact && next != null) {
+                                            weekHistoryExpanded = false
+                                        }
+                                    },
+                                    enabled = activeIndex >= 0 && activeIndex < sortedHistory.lastIndex,
+                                    modifier = Modifier.heightIn(min = 48.dp)
+                                ) {
+                                    Text("Next")
+                                    Spacer(Modifier.width(6.dp))
+                                    Icon(Icons.Filled.ChevronRight, contentDescription = null)
+                                }
                             }
                         }
                     }
@@ -876,7 +1092,7 @@ fun ProgressScreen(
             }
         }
 
-        if (showStaleBanner) {
+        if (showWeekMode && showStaleBanner) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -896,14 +1112,16 @@ fun ProgressScreen(
             }
         }
 
-        item {
-            ProgressSectionHeader(
-                title = "Week",
-                subtitle = "Review adherence, nutrition trends, and plan quality."
-            )
+        if (showWeekMode) {
+            item {
+                ProgressSectionHeader(
+                    title = "Week",
+                    subtitle = "Review adherence, nutrition trends, and plan quality."
+                )
+            }
         }
 
-        if (sundayComplete) {
+        if (showWeekMode && sundayComplete) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -929,7 +1147,7 @@ fun ProgressScreen(
                         )
                         Button(
                             onClick = { onNavigateToRoute(Routes.MealPlan) },
-                            modifier = Modifier.fillMaxWidth().height(44.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
                             shape = MaterialTheme.shapes.medium,
                             colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
                         ) {
@@ -940,31 +1158,38 @@ fun ProgressScreen(
             }
         }
 
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                StatCard(
-                    title = "Plan Adherence",
-                    value = "${(adherence * 100).toInt()}%",
-                    subtitle = weekLabel,
-                    modifier = Modifier.weight(1f),
-                )
-                StatCard(
-                    title = "Weight Delta",
-                    value = weightDelta?.let { "${displayWeight(it)} $weightUnitLabel" } ?: "—",
-                    subtitle = "This Week",
-                    modifier = Modifier.weight(1f),
-                )
+        if (showWeekMode) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    StatCard(
+                        title = "Plan Adherence",
+                        value = "${(adherence * 100).toInt()}%",
+                        subtitle = weekLabel,
+                        modifier = Modifier.weight(1f),
+                    )
+                    StatCard(
+                        title = "Weight Delta",
+                        value = weightDelta?.let { "${displayWeight(it)} $weightUnitLabel" } ?: "—",
+                        subtitle = "This Week",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
-        }
 
         item {
             val currentStats = currentPlanInstance?.let { computeWeekStats(it.response) }
             val prevStats = previousPlan?.let { computeWeekStats(it.response) }
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        isTraversalGroup = true
+                        traversalIndex = 5f
+                    }
+                    .testTag("progress_week_insights_card"),
                 shape = MaterialTheme.shapes.extraLarge,
                 colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -1047,7 +1272,13 @@ fun ProgressScreen(
 
         item {
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        isTraversalGroup = true
+                        traversalIndex = 6f
+                    }
+                    .testTag("progress_week_spending_card"),
                 shape = MaterialTheme.shapes.extraLarge,
                 colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -1097,10 +1328,21 @@ fun ProgressScreen(
                         onClick = {
                             val spendValue = parseCurrencyInput(weeklySpendInput)
                             if (spendValue == null && weeklySpendInput.isNotBlank()) {
-                                Toast.makeText(context, "Enter a valid amount.", Toast.LENGTH_SHORT).show()
+                                postProgressFeedback(
+                                    tone = FeedbackBannerTone.Error,
+                                    message = "Enter a valid amount before saving actual spending."
+                                )
                                 return@Button
                             }
                             progressViewModel.saveWeeklySpend(weekStartKey, spendValue)
+                            postProgressFeedback(
+                                tone = FeedbackBannerTone.Success,
+                                message = if (spendValue == null) {
+                                    "Actual spending cleared for this week."
+                                } else {
+                                    "Actual spending saved for this week."
+                                }
+                            )
                         },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape = MaterialTheme.shapes.medium,
@@ -1157,7 +1399,7 @@ fun ProgressScreen(
                                 )
                                 IconButton(
                                     onClick = { showConfidenceInfo = true },
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(48.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.Info,
@@ -1252,7 +1494,13 @@ fun ProgressScreen(
 
         item {
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        isTraversalGroup = true
+                        traversalIndex = 8f
+                    }
+                    .testTag("progress_plan_feedback_card"),
                 shape = MaterialTheme.shapes.extraLarge,
                 colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -1282,7 +1530,35 @@ fun ProgressScreen(
             }
         }
 
-        if (showWeightEntryAtTop) {
+        if (showWeekMode) {
+            item {
+                ExpandableSection(
+                    title = "Advanced Week Analytics",
+                    subtitle = if (advancedWeekAnalyticsExpanded) {
+                        "Goal focus, completion, and macros are visible below."
+                    } else {
+                        "Collapsed by default. Expand for deeper analysis."
+                    },
+                    defaultExpanded = false,
+                    expanded = advancedWeekAnalyticsExpanded,
+                    onExpandedChange = {
+                        advancedWeekAnalyticsExpanded = it
+                        progressViewModel.setAdvancedWeekAnalyticsExpandedPreference(it)
+                    }
+                ) {
+                    Text(
+                        text = "Open this section when you want deeper analytics beyond core insights.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            }
+        }
+
+        }
+
+        if (showWeightEntryAtTop && showTodayMode) {
             item {
                 ProgressSectionHeader(
                     title = "Today",
@@ -1291,7 +1567,7 @@ fun ProgressScreen(
             }
         }
 
-        if (showWeightEntryAtTop) {
+        if (showWeightEntryAtTop && showTodayMode) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -1445,9 +1721,16 @@ fun ProgressScreen(
             }
         }
 
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
+        if (showWeekMode && advancedWeekAnalyticsExpanded) {
+            item {
+                Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        isTraversalGroup = true
+                        traversalIndex = 6.7f
+                    }
+                    .testTag("progress_week_goal_focus_card"),
                 shape = MaterialTheme.shapes.extraLarge,
                 colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
             ) {
@@ -1477,7 +1760,7 @@ fun ProgressScreen(
                                 Text("Guidance: choose low‑GI carbs and balanced meals.", color = colorScheme.onSurfaceVariant)
                                 IconButton(
                                     onClick = { showLowGiInfo = true },
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(48.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.Info,
@@ -1505,9 +1788,11 @@ fun ProgressScreen(
                 }
             }
         }
+        }
 
-        item {
-            Card(
+        if (showWeekMode && advancedWeekAnalyticsExpanded) {
+            item {
+                Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.extraLarge,
                 colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
@@ -1570,10 +1855,15 @@ fun ProgressScreen(
                 }
             }
         }
-
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
+            item {
+                Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        isTraversalGroup = true
+                        traversalIndex = 7f
+                    }
+                    .testTag("progress_week_macro_card"),
                 shape = MaterialTheme.shapes.extraLarge,
                 colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
             ) {
@@ -1600,7 +1890,7 @@ fun ProgressScreen(
                         }
                     }
                     Text(text = macroLabel, style = MaterialTheme.typography.labelSmall, color = colorScheme.onSurfaceVariant)
-                    if (!isOnline.value) {
+                    if (!isOnline) {
                         Text(
                             text = "Macro details require internet to fetch recipe nutrition.",
                             style = MaterialTheme.typography.bodySmall,
@@ -1638,8 +1928,9 @@ fun ProgressScreen(
                 }
             }
         }
+        }
 
-        if (!showWeightEntryAtTop) {
+        if (!showWeightEntryAtTop && showTodayMode) {
             item {
                 ProgressSectionHeader(
                     title = "Today",
@@ -1648,8 +1939,9 @@ fun ProgressScreen(
             }
         }
 
-        item {
-            Card(
+        if (showTodayMode) {
+            item {
+                Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.extraLarge,
                 colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
@@ -1698,6 +1990,13 @@ fun ProgressScreen(
                             )
                         }
                     }
+                    if (screenWidthDp <= 380) {
+                        Text(
+                            text = "Swipe the day chips to switch dates.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                    }
                     if (plannedMealsForDay.isEmpty()) {
                         Text(
                             text = "No planned meals yet. Generate a plan first.",
@@ -1734,7 +2033,7 @@ fun ProgressScreen(
                                         )
                                         if (!updated) {
                                             showLoggingPolicyInfo = true
-                                            progressFeedbackBanner = FeedbackBannerData(
+                                            postProgressFeedback(
                                                 tone = FeedbackBannerTone.Error,
                                                 message = "Couldn’t update meal log for this date."
                                             )
@@ -1789,32 +2088,18 @@ fun ProgressScreen(
                                             )
                                             impactDetailsExpanded = false
                                             showImpactSheet = true
-                                            progressFeedbackBanner = FeedbackBannerData(
+                                            postProgressFeedback(
                                                 tone = FeedbackBannerTone.Success,
                                                 message = "Meal logged. Impact updated."
                                             )
-                                            coroutineScope.launch {
-                                                snackbarHostState.currentSnackbarData?.dismiss()
-                                                snackbarHostState.showSnackbar(
-                                                    message = "Meal logged. Impact updated.",
-                                                    duration = SnackbarDuration.Short
-                                                )
-                                            }
                                         } else {
                                             mealImpactSummary = null
                                             impactDetailsExpanded = false
                                             showImpactSheet = false
-                                            progressFeedbackBanner = FeedbackBannerData(
+                                            postProgressFeedback(
                                                 tone = FeedbackBannerTone.Success,
                                                 message = "Meal unchecked for today."
                                             )
-                                            coroutineScope.launch {
-                                                snackbarHostState.currentSnackbarData?.dismiss()
-                                                snackbarHostState.showSnackbar(
-                                                    message = "Meal unchecked.",
-                                                    duration = SnackbarDuration.Short
-                                                )
-                                            }
                                         }
                                     }
                                 )
@@ -1891,7 +2176,7 @@ fun ProgressScreen(
                                         summary.nextMealRoute?.let { route ->
                                             OutlinedButton(
                                                 onClick = { onNavigateToRoute(route) },
-                                                modifier = Modifier.fillMaxWidth().height(40.dp),
+                                                modifier = Modifier.fillMaxWidth().height(48.dp),
                                                 shape = MaterialTheme.shapes.small
                                             ) {
                                                 Text("Open Next Meal")
@@ -1905,8 +2190,9 @@ fun ProgressScreen(
                 }
             }
         }
+        }
 
-        if (isSelectedDateLoggable && plannedMealsForDay.isNotEmpty() && selectedCompletedCount >= plannedMealsForDay.size) {
+        if (showTodayMode && isSelectedDateLoggable && plannedMealsForDay.isNotEmpty() && selectedCompletedCount >= plannedMealsForDay.size) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -1942,15 +2228,18 @@ fun ProgressScreen(
             }
         }
 
-        item {
-            ProgressSectionHeader(
-                title = "Reflection",
-                subtitle = "Capture patterns and notes to improve next week."
-            )
+        if (showTodayMode) {
+            item {
+                ProgressSectionHeader(
+                    title = "Reflection",
+                    subtitle = "Capture patterns and notes to improve next week."
+                )
+            }
         }
 
-        item {
-            ExpandableSection(
+        if (showTodayMode) {
+            item {
+                ExpandableSection(
                 title = "Daily Reflection",
                 subtitle = "Quick check-in for patterns",
                 defaultExpanded = false,
@@ -1991,13 +2280,20 @@ fun ProgressScreen(
                             )
                         }
                     }
+                    if (screenWidthDp <= 380) {
+                        Text(
+                            text = "Swipe the day chips to pick a reflection date.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                    }
                     Text("Energy", style = MaterialTheme.typography.labelLarge)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         (1..5).forEach { value ->
                             FilterChip(
                                 selected = energyLevel == value,
                                 onClick = { energyLevel = value },
-                                modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight),
+                                modifier = Modifier.heightIn(min = 48.dp),
                                 label = { Text(value.toString()) }
                             )
                         }
@@ -2008,7 +2304,7 @@ fun ProgressScreen(
                             FilterChip(
                                 selected = cravingsLevel == value,
                                 onClick = { cravingsLevel = value },
-                                modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight),
+                                modifier = Modifier.heightIn(min = 48.dp),
                                 label = { Text(value.toString()) }
                             )
                         }
@@ -2019,7 +2315,7 @@ fun ProgressScreen(
                             FilterChip(
                                 selected = moodLevel == value,
                                 onClick = { moodLevel = value },
-                                modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight),
+                                modifier = Modifier.heightIn(min = 48.dp),
                                 label = { Text(value.toString()) }
                             )
                         }
@@ -2062,8 +2358,9 @@ fun ProgressScreen(
             }
         }
 
-        item {
-            ExpandableSection(
+        if (showWeekMode) {
+            item {
+                ExpandableSection(
                 title = "Weekly Journal",
                 subtitle = "Optional weekly reflection",
                 defaultExpanded = false
@@ -2092,7 +2389,10 @@ fun ProgressScreen(
                         onClick = {
                             val file = progressViewModel.exportReflections()
                             if (file == null) {
-                                Toast.makeText(context, "No reflections to export.", Toast.LENGTH_SHORT).show()
+                                postProgressFeedback(
+                                    tone = FeedbackBannerTone.Error,
+                                    message = "No reflections to export yet."
+                                )
                             } else {
                                 val uri = FileProvider.getUriForFile(
                                     context,
@@ -2105,6 +2405,10 @@ fun ProgressScreen(
                                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 }
                                 context.startActivity(Intent.createChooser(intent, "Export reflections"))
+                                postProgressFeedback(
+                                    tone = FeedbackBannerTone.Success,
+                                    message = "Export ready. Choose where to share your reflection file."
+                                )
                             }
                         },
                         modifier = Modifier.fillMaxWidth().height(48.dp)
@@ -2114,8 +2418,9 @@ fun ProgressScreen(
                 }
             }
         }
+        }
 
-        if (!showWeightEntryAtTop) {
+        if (!showWeightEntryAtTop && showTodayMode) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -2175,7 +2480,7 @@ fun ProgressScreen(
             ExpandableSection(
                 title = "Send Feedback",
                 subtitle = "Queued if offline",
-                defaultExpanded = false
+                defaultExpanded = feedbackSectionExpandedByDefault
             ) {
                 Column(
                     modifier = Modifier.padding(top = 8.dp),
@@ -2210,7 +2515,26 @@ fun ProgressScreen(
                                     color = colorScheme.onSurfaceVariant
                                 )
                                 if (feedbackQueue.any { it.status == "Failed" }) {
-                                    TextButton(onClick = { progressViewModel.retryAllFeedback(isOnline.value) }) {
+                                    TextButton(
+                                        onClick = {
+                                            if (!isOnline) {
+                                                postProgressFeedback(
+                                                    tone = FeedbackBannerTone.Success,
+                                                    message = ActionFeedbackCopy.QueueSaved
+                                                )
+                                            } else {
+                                                postProgressFeedback(
+                                                    tone = FeedbackBannerTone.Loading,
+                                                    message = "Retrying all failed feedback…"
+                                                )
+                                                progressViewModel.retryAllFeedback(isOnline = true)
+                                                postProgressFeedback(
+                                                    tone = FeedbackBannerTone.Success,
+                                                    message = ActionFeedbackCopy.QueueRetrying
+                                                )
+                                            }
+                                        }
+                                    ) {
                                         Text("Retry all")
                                     }
                                 }
@@ -2232,7 +2556,26 @@ fun ProgressScreen(
                                         }
                                     )
                                     if (entry.status == "Failed") {
-                                        TextButton(onClick = { progressViewModel.retryFeedback(entry.id, isOnline.value) }) {
+                                        TextButton(
+                                            onClick = {
+                                                if (!isOnline) {
+                                                    postProgressFeedback(
+                                                        tone = FeedbackBannerTone.Success,
+                                                        message = ActionFeedbackCopy.QueueSaved
+                                                    )
+                                                } else {
+                                                    postProgressFeedback(
+                                                        tone = FeedbackBannerTone.Loading,
+                                                        message = "Retrying queued feedback…"
+                                                    )
+                                                    progressViewModel.retryFeedback(entry.id, isOnline = true)
+                                                    postProgressFeedback(
+                                                        tone = FeedbackBannerTone.Success,
+                                                        message = ActionFeedbackCopy.QueueRetrying
+                                                    )
+                                                }
+                                            }
+                                        ) {
                                             Text("Retry")
                                         }
                                     }
@@ -2253,12 +2596,6 @@ fun ProgressScreen(
 
             item { Spacer(Modifier.height(24.dp)) }
         }
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-        )
     }
 
     val impactSheetSummary = mealImpactSummary
@@ -2305,7 +2642,7 @@ fun ProgressScreen(
                             showImpactSheet = false
                             onNavigateToRoute(route)
                         },
-                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape = MaterialTheme.shapes.medium
                     ) {
                         Text("Open Next Meal")
@@ -2328,9 +2665,9 @@ fun ProgressScreen(
         AlertDialog(
             onDismissRequest = { showConfidenceInfo = false },
             confirmButton = {
-                TextButton(onClick = { showConfidenceInfo = false }) { Text("Got it") }
+                DialogGotItButton(onClick = { showConfidenceInfo = false })
             },
-            title = { Text("Confidence score") },
+            title = { Text("Confidence score", modifier = Modifier.semantics { heading() }) },
             text = {
                 Text(
                     "Heuristic score based on how tightly the plan matches calorie targets, " +
@@ -2345,9 +2682,9 @@ fun ProgressScreen(
         AlertDialog(
             onDismissRequest = { showMacroInfo = false },
             confirmButton = {
-                TextButton(onClick = { showMacroInfo = false }) { Text("Got it") }
+                DialogGotItButton(onClick = { showMacroInfo = false })
             },
-            title = { Text("Macro summary") },
+            title = { Text("Macro summary", modifier = Modifier.semantics { heading() }) },
             text = {
                 Text(
                     "This compares planned averages with what you actually checked off. " +
@@ -2361,9 +2698,9 @@ fun ProgressScreen(
         AlertDialog(
             onDismissRequest = { showSpendInfo = false },
             confirmButton = {
-                TextButton(onClick = { showSpendInfo = false }) { Text("Got it") }
+                DialogGotItButton(onClick = { showSpendInfo = false })
             },
-            title = { Text("Weekly spending") },
+            title = { Text("Weekly spending", modifier = Modifier.semantics { heading() }) },
             text = {
                 Text(
                     "Projected cost is an estimate from the plan. " +
@@ -2377,9 +2714,9 @@ fun ProgressScreen(
         AlertDialog(
             onDismissRequest = { showLowGiInfo = false },
             confirmButton = {
-                TextButton(onClick = { showLowGiInfo = false }) { Text("Got it") }
+                DialogGotItButton(onClick = { showLowGiInfo = false })
             },
-            title = { Text("Low‑GI guidance") },
+            title = { Text("Low‑GI guidance", modifier = Modifier.semantics { heading() }) },
             text = {
                 Text(
                     "We favor higher‑fiber, balanced meals to support steadier energy. " +
@@ -2393,9 +2730,9 @@ fun ProgressScreen(
         AlertDialog(
             onDismissRequest = { showLockedInfo = false },
             confirmButton = {
-                TextButton(onClick = { showLockedInfo = false }) { Text("Got it") }
+                DialogGotItButton(onClick = { showLockedInfo = false })
             },
-            title = { Text(progressLockedCopy.dialogTitle) },
+            title = { Text(progressLockedCopy.dialogTitle, modifier = Modifier.semantics { heading() }) },
             text = {
                 Text(progressLockedCopy.dialogBody)
             }
@@ -2410,6 +2747,8 @@ fun ProgressScreen(
     }
 }
 
+}
+
 @Composable
 private fun ProgressSectionHeader(
     title: String,
@@ -2419,7 +2758,8 @@ private fun ProgressSectionHeader(
         Text(
             text = title,
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.onBackground
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.semantics { heading() }
         )
         Text(
             text = subtitle,
@@ -2443,6 +2783,27 @@ private data class MealImpactSummary(
     val nextMealRoute: String?
 )
 
+private enum class ProgressMode(val label: String) {
+    Today("Today"),
+    Week("Week");
+
+    companion object {
+        fun fromSavedValue(value: String): ProgressMode {
+            return values().firstOrNull { it.label.equals(value, ignoreCase = true) } ?: Today
+        }
+    }
+}
+
+@Composable
+private fun DialogGotItButton(onClick: () -> Unit) {
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier.semantics { traversalIndex = 1f }
+    ) {
+        Text("Got it")
+    }
+}
+
 @Composable
 internal fun ProgressLoggingPolicyLearnMoreChip(
     onClick: () -> Unit,
@@ -2451,7 +2812,7 @@ internal fun ProgressLoggingPolicyLearnMoreChip(
     AssistChip(
         onClick = onClick,
         modifier = modifier
-            .heightIn(min = UiChipTokens.MinTouchHeight)
+            .heightIn(min = 48.dp)
             .testTag("progress_logging_policy_learn_more"),
         label = { Text(LockedFlowCopy.LearnMoreLabel) },
         leadingIcon = {
@@ -2480,7 +2841,7 @@ internal fun ProgressJumpToTodayAction(
                 onClick = onJump,
                 modifier = modifier
                     .fillMaxWidth()
-                    .height(40.dp)
+                    .height(48.dp)
                     .testTag("progress_jump_to_today"),
                 shape = MaterialTheme.shapes.small
             ) {
@@ -2507,9 +2868,9 @@ internal fun ProgressLoggingPolicyDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Got it") }
+            DialogGotItButton(onClick = onDismiss)
         },
-        title = { Text("Logging policy") },
+        title = { Text("Logging policy", modifier = Modifier.semantics { heading() }) },
         text = {
             Text(
                 "${ProgressViewModel.LoggingPolicySummary}\n\n$lockReason"
@@ -2556,13 +2917,6 @@ private fun weekLabelFor(start: LocalDate): String {
 private fun isInWeek(dateKey: String, weekStart: LocalDate): Boolean {
     val d = LocalDate.parse(dateKey, DateTimeFormatter.ISO_LOCAL_DATE)
     return !d.isBefore(weekStart) && !d.isAfter(weekStart.plusDays(6))
-}
-
-private fun isNetworkAvailable(context: Context): Boolean {
-    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    val network = cm.activeNetwork ?: return false
-    val caps = cm.getNetworkCapabilities(network) ?: return false
-    return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
 }
 
 private data class WeekStats(

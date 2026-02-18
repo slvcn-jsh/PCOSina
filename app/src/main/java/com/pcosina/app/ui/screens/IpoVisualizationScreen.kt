@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pcosina.app.ui.components.GradientHeader
+import com.pcosina.app.ui.theme.UiSpacingTokens
 
 @Composable
 fun IpoVisualizationScreen(
@@ -25,8 +26,8 @@ fun IpoVisualizationScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = UiSpacingTokens.SectionGap),
+        verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap),
     ) {
         item {
             Box {
@@ -106,7 +107,7 @@ fun IpoVisualizationScreen(
             }
         }
         
-        item { Spacer(Modifier.height(24.dp)) }
+        item { Spacer(Modifier.height(UiSpacingTokens.CardContentPadding)) }
     }
 }
 
@@ -124,7 +125,10 @@ private fun IpoCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            modifier = Modifier.padding(UiSpacingTokens.CardContentPadding),
+            verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionHeaderGap)
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = step,
@@ -143,7 +147,7 @@ private fun IpoCard(
             items.forEach { item ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(modifier = Modifier.size(6.dp).background(color, CircleShape))
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(UiSpacingTokens.CardContentGap))
                     Text(text = item, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }

@@ -13,6 +13,10 @@ val canLoadGoogleServicesConfig = runCatching {
     googleServicesConfig.inputStream().use { stream -> stream.read() }
     true
 }.getOrElse { false }
+val defaultDebugBaseUrl = "http://10.0.2.2:8000/"
+val debugBaseUrlFromEnv = System.getenv("DEBUG_BASE_URL")
+val debugBaseUrlFromProperty = providers.gradleProperty("debugBaseUrl").orNull
+val resolvedDebugBaseUrl = (debugBaseUrlFromEnv ?: debugBaseUrlFromProperty ?: defaultDebugBaseUrl).trim()
 val allowMissingGoogleServices = providers.gradleProperty("allowMissingGoogleServices")
     .orNull
     ?.toBooleanStrictOrNull()
@@ -147,7 +151,7 @@ android {
             }
         }
         debug {
-            val debugBaseUrl = "http://192.168.1.44:8000/"
+            val debugBaseUrl = resolvedDebugBaseUrl
             val pattern = Regex("^https?://.+/$")
             if (!pattern.matches(debugBaseUrl)) {
                 throw GradleException("Invalid BASE_URL for debug: $debugBaseUrl")

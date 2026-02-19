@@ -30,6 +30,31 @@ class NotificationLifecycleReschedulePolicyTest {
         )
     }
 
+    @Test
+    fun broadcastReschedule_wiresManifestActions_andCallsScheduler() {
+        val manifestPath = resolve(
+            "app", "src", "main", "AndroidManifest.xml"
+        )
+        val receiverPath = resolve(
+            "app", "src", "main", "java", "com", "pcosina", "app",
+            "notifications", "NotificationRescheduleReceiver.kt"
+        )
+        val manifest = read(manifestPath)
+        val receiver = read(receiverPath)
+        assertTrue(
+            "Manifest should register NotificationRescheduleReceiver for boot/time/system-change actions.",
+            manifest.contains("NotificationRescheduleReceiver") &&
+                manifest.contains("android.intent.action.BOOT_COMPLETED") &&
+                manifest.contains("android.intent.action.MY_PACKAGE_REPLACED") &&
+                manifest.contains("android.intent.action.TIME_SET") &&
+                manifest.contains("android.intent.action.TIMEZONE_CHANGED")
+        )
+        assertTrue(
+            "Receiver should route system-change broadcasts back into NotificationScheduler.rescheduleAll.",
+            receiver.contains("NotificationScheduler.rescheduleAll(")
+        )
+    }
+
     private fun resolve(vararg parts: String): Path {
         val first = Paths.get(parts.first(), *parts.drop(1).toTypedArray())
         if (Files.exists(first)) return first

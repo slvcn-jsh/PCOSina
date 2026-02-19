@@ -4,8 +4,8 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.Data
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.google.firebase.auth.FirebaseAuth
@@ -51,7 +51,6 @@ object NotificationScheduler {
             enqueueMealReminder(
                 context = context,
                 userId = userId,
-                uniqueWorkName = "${NotificationEvents.WorkMealBreakfast}_$userId",
                 eventType = NotificationEvents.MealBreakfast,
                 hour = prefs.breakfastHour,
                 minute = prefs.breakfastMinute
@@ -59,7 +58,6 @@ object NotificationScheduler {
             enqueueMealReminder(
                 context = context,
                 userId = userId,
-                uniqueWorkName = "${NotificationEvents.WorkMealLunch}_$userId",
                 eventType = NotificationEvents.MealLunch,
                 hour = prefs.lunchHour,
                 minute = prefs.lunchMinute
@@ -67,7 +65,6 @@ object NotificationScheduler {
             enqueueMealReminder(
                 context = context,
                 userId = userId,
-                uniqueWorkName = "${NotificationEvents.WorkMealDinner}_$userId",
                 eventType = NotificationEvents.MealDinner,
                 hour = prefs.dinnerHour,
                 minute = prefs.dinnerMinute
@@ -224,28 +221,33 @@ object NotificationScheduler {
     private fun enqueueMealReminder(
         context: Context,
         userId: String,
-        uniqueWorkName: String,
         eventType: String,
         hour: Int,
         minute: Int
     ) {
-        val delay = computeDelayToLocalTime(hour = hour, minute = minute)
-        val request = PeriodicWorkRequestBuilder<MealReminderWorker>(1, TimeUnit.DAYS)
+        val uniqueWorkName = mealWorkNameForEvent(userId, eventType) ?: run {
+            Log.w(LogTag, "Skipped schedule for unknown meal eventType=$eventType")
+            return
+        }
+        val safeHour = hour.coerceIn(0, 23)
+        val safeMinute = minute.coerceIn(0, 59)
+        val delay = computeDelayToLocalTime(hour = safeHour, minute = safeMinute)
+        val request = OneTimeWorkRequestBuilder<MealReminderWorker>()
             .setInitialDelay(delay, TimeUnit.MILLISECONDS)
             .setInputData(
                 Data.Builder()
                     .putString(InputUserId, userId)
                     .putString(InputEventType, eventType)
-                    .putInt(InputHour, hour)
-                    .putInt(InputMinute, minute)
+                    .putInt(InputHour, safeHour)
+                    .putInt(InputMinute, safeMinute)
                     .build()
             )
             .addTag(NotificationEvents.TagRoot)
             .addTag(NotificationEvents.TagMeals)
             .build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+        WorkManager.getInstance(context).enqueueUniqueWork(
             uniqueWorkName,
-            ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
+            ExistingWorkPolicy.REPLACE,
             request
         )
     }
@@ -260,7 +262,7 @@ object NotificationScheduler {
             hour = prefs.weeklyResetHour,
             minute = prefs.weeklyResetMinute
         )
-        val request = PeriodicWorkRequestBuilder<WeeklyResetWorker>(7, TimeUnit.DAYS)
+        val request = OneTimeWorkRequestBuilder<WeeklyResetWorker>()
             .setInitialDelay(nextWeeklyDelay, TimeUnit.MILLISECONDS)
             .setInputData(
                 Data.Builder()
@@ -271,16 +273,16 @@ object NotificationScheduler {
             .addTag(NotificationEvents.TagRoot)
             .addTag(NotificationEvents.TagWeekly)
             .build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+        WorkManager.getInstance(context).enqueueUniqueWork(
             "${NotificationEvents.WorkWeeklyReset}_$userId",
-            ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
+            ExistingWorkPolicy.REPLACE,
             request
         )
     }
 
     private fun enqueueEngagementCheck(context: Context, userId: String) {
         val delay = computeDelayToLocalTime(hour = 18, minute = 0)
-        val request = PeriodicWorkRequestBuilder<EngagementNudgeWorker>(1, TimeUnit.DAYS)
+        val request = OneTimeWorkRequestBuilder<EngagementNudgeWorker>()
             .setInitialDelay(delay, TimeUnit.MILLISECONDS)
             .setInputData(
                 Data.Builder()
@@ -290,9 +292,9 @@ object NotificationScheduler {
             .addTag(NotificationEvents.TagRoot)
             .addTag(NotificationEvents.TagEngagement)
             .build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+        WorkManager.getInstance(context).enqueueUniqueWork(
             "${NotificationEvents.WorkEngagement}_$userId",
-            ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
+            ExistingWorkPolicy.REPLACE,
             request
         )
     }
@@ -370,6 +372,23 @@ object NotificationScheduler {
             .with(TemporalAdjusters.nextOrSame(targetDay))
             .atTime(safeHour, safeMinute)
             .let { if (it.isAfter(now)) it else it.plusWeeks(1) }
+    }
+
+    private fun mealWorkNameForEvent(userId: String, eventType: String): String? = when (eventType) {
+        NotificationEvents.MealBreakfast -> "${NotificationEvents.WorkMealBreakfast}_$userId"
+        NotificationEvents.MealLunch -> "${NotificationEvents.WorkMealLunch}_$userId"
+        NotificationEvents.MealDinner -> "${NotificationEvents.WorkMealDinner}_$userId"
+        else -> null
+    }
+
+    private fun mealTimeForEvent(
+        prefs: NotificationPreferences,
+        eventType: String
+    ): Pair<Int, Int>? = when (eventType) {
+        NotificationEvents.MealBreakfast -> prefs.breakfastHour to prefs.breakfastMinute
+        NotificationEvents.MealLunch -> prefs.lunchHour to prefs.lunchMinute
+        NotificationEvents.MealDinner -> prefs.dinnerHour to prefs.dinnerMinute
+        else -> null
     }
 
     private fun isUserSessionValid(userId: String): Boolean {
@@ -484,29 +503,36 @@ object NotificationScheduler {
             val repository = UserPreferencesRepository(applicationContext)
             val prefs = repository.getNotificationPreferences(userId).first()
             if (!prefs.masterEnabled || !prefs.mealRemindersEnabled) return Result.success()
-
-            if (isNowWithinQuietHours(prefs)) return Result.success()
-
             val eventType = inputData.getString(InputEventType).orEmpty()
             if (eventType.isBlank()) return Result.success()
-            val lastFired = repository.getNotificationLastFired(userId, eventType)
-            val nowMs = System.currentTimeMillis()
-            if ((nowMs - lastFired) < TimeUnit.HOURS.toMillis(18)) {
-                return Result.success()
+            val mealTime = mealTimeForEvent(prefs, eventType) ?: return Result.success()
+
+            if (!isNowWithinQuietHours(prefs)) {
+                val lastFired = repository.getNotificationLastFired(userId, eventType)
+                val nowMs = System.currentTimeMillis()
+                if ((nowMs - lastFired) >= TimeUnit.HOURS.toMillis(18)) {
+                    val profile = repository.getUserProfile(userId).first()
+                    val goalTrack = NotificationGoalPolicy.fromGoal(profile.goal)
+                    val body = NotificationGoalPolicy.mealReminderBody(goalTrack)
+                    dispatchAndTrackNotification(
+                        context = applicationContext,
+                        repository = repository,
+                        userId = userId,
+                        prefs = prefs,
+                        eventType = eventType,
+                        title = "Meal check-in time",
+                        body = body,
+                        channelId = NotificationHelper.ReminderChannelId
+                    )
+                }
             }
 
-            val profile = repository.getUserProfile(userId).first()
-            val goalTrack = NotificationGoalPolicy.fromGoal(profile.goal)
-            val body = NotificationGoalPolicy.mealReminderBody(goalTrack)
-            dispatchAndTrackNotification(
+            enqueueMealReminder(
                 context = applicationContext,
-                repository = repository,
                 userId = userId,
-                prefs = prefs,
                 eventType = eventType,
-                title = "Meal check-in time",
-                body = body,
-                channelId = NotificationHelper.ReminderChannelId
+                hour = mealTime.first,
+                minute = mealTime.second
             )
             return Result.success()
         }
@@ -527,6 +553,7 @@ object NotificationScheduler {
             val lastFired = repository.getNotificationLastFired(userId, eventType)
             val nowMs = System.currentTimeMillis()
             if ((nowMs - lastFired) < TimeUnit.DAYS.toMillis(7)) {
+                enqueueWeeklyReset(applicationContext, userId, prefs)
                 return Result.success()
             }
 
@@ -542,6 +569,7 @@ object NotificationScheduler {
                 body = body,
                 channelId = NotificationHelper.ReminderChannelId
             )
+            enqueueWeeklyReset(applicationContext, userId, prefs)
             return Result.success()
         }
     }
@@ -556,59 +584,59 @@ object NotificationScheduler {
             val repository = UserPreferencesRepository(applicationContext)
             val prefs = repository.getNotificationPreferences(userId).first()
             if (!prefs.masterEnabled) return Result.success()
+            if (!prefs.streakNudgesEnabled && !prefs.inactivityNudgesEnabled) return Result.success()
 
-            if (isNowWithinQuietHours(prefs)) return Result.success()
+            if (!isNowWithinQuietHours(prefs)) {
+                val today = LocalDate.now()
+                val lastLogDate = repository.getMostRecentDailyLogDate(userId)
+                    ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                val daysInactive = if (lastLogDate == null) 999 else Duration.between(
+                    lastLogDate.atStartOfDay(),
+                    today.atStartOfDay()
+                ).toDays().toInt()
+                val profile = repository.getUserProfile(userId).first()
+                val goalTrack = NotificationGoalPolicy.fromGoal(profile.goal)
 
-            val today = LocalDate.now()
-            val lastLogDate = repository.getMostRecentDailyLogDate(userId)
-                ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-            val daysInactive = if (lastLogDate == null) 999 else Duration.between(
-                lastLogDate.atStartOfDay(),
-                today.atStartOfDay()
-            ).toDays().toInt()
-            val profile = repository.getUserProfile(userId).first()
-            val goalTrack = NotificationGoalPolicy.fromGoal(profile.goal)
-
-            if (prefs.inactivityNudgesEnabled && daysInactive >= 3) {
-                val eventType = NotificationEvents.InactivityNudge
-                val lastFired = repository.getNotificationLastFired(userId, eventType)
-                val nowMs = System.currentTimeMillis()
-                if ((nowMs - lastFired) >= TimeUnit.DAYS.toMillis(3)) {
-                    val title = "Quick check-in"
-                    val body = NotificationGoalPolicy.inactivityBody(goalTrack)
-                    dispatchAndTrackNotification(
-                        context = applicationContext,
-                        repository = repository,
-                        userId = userId,
-                        prefs = prefs,
-                        eventType = eventType,
-                        title = title,
-                        body = body,
-                        channelId = NotificationHelper.ReminderChannelId
-                    )
-                }
-                return Result.success()
-            }
-
-            if (prefs.streakNudgesEnabled) {
-                val eventType = NotificationEvents.StreakNudge
-                val lastFired = repository.getNotificationLastFired(userId, eventType)
-                val nowMs = System.currentTimeMillis()
-                if ((nowMs - lastFired) >= NotificationGoalPolicy.streakMinIntervalMs(goalTrack)) {
-                    val title = "Keep your routine going"
-                    val body = NotificationGoalPolicy.streakBody(goalTrack)
-                    dispatchAndTrackNotification(
-                        context = applicationContext,
-                        repository = repository,
-                        userId = userId,
-                        prefs = prefs,
-                        eventType = eventType,
-                        title = title,
-                        body = body,
-                        channelId = NotificationHelper.ReminderChannelId
-                    )
+                if (prefs.inactivityNudgesEnabled && daysInactive >= 3) {
+                    val eventType = NotificationEvents.InactivityNudge
+                    val lastFired = repository.getNotificationLastFired(userId, eventType)
+                    val nowMs = System.currentTimeMillis()
+                    if ((nowMs - lastFired) >= TimeUnit.DAYS.toMillis(3)) {
+                        val title = "Quick check-in"
+                        val body = NotificationGoalPolicy.inactivityBody(goalTrack)
+                        dispatchAndTrackNotification(
+                            context = applicationContext,
+                            repository = repository,
+                            userId = userId,
+                            prefs = prefs,
+                            eventType = eventType,
+                            title = title,
+                            body = body,
+                            channelId = NotificationHelper.ReminderChannelId
+                        )
+                    }
+                } else if (prefs.streakNudgesEnabled) {
+                    val eventType = NotificationEvents.StreakNudge
+                    val lastFired = repository.getNotificationLastFired(userId, eventType)
+                    val nowMs = System.currentTimeMillis()
+                    if ((nowMs - lastFired) >= NotificationGoalPolicy.streakMinIntervalMs(goalTrack)) {
+                        val title = "Keep your routine going"
+                        val body = NotificationGoalPolicy.streakBody(goalTrack)
+                        dispatchAndTrackNotification(
+                            context = applicationContext,
+                            repository = repository,
+                            userId = userId,
+                            prefs = prefs,
+                            eventType = eventType,
+                            title = title,
+                            body = body,
+                            channelId = NotificationHelper.ReminderChannelId
+                        )
+                    }
                 }
             }
+
+            enqueueEngagementCheck(applicationContext, userId)
             return Result.success()
         }
     }

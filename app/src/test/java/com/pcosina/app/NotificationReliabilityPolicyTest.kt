@@ -3,6 +3,7 @@ package com.pcosina.app
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -101,6 +102,51 @@ class NotificationReliabilityPolicyTest {
             Regex(
                 """if\s*\(!NotificationHelper\.canPostNotifications\(context\)\)\s*\{[\s\S]*?return[\s\S]*?cancelAll\(context,\s*userId\)"""
             ).containsMatchIn(source)
+        )
+    }
+
+    @Test
+    fun reminderWorkers_useOneTimeSelfRescheduling_notUnconstrainedPeriodic() {
+        val schedulerPath = resolve(
+            "app", "src", "main", "java", "com", "pcosina", "app",
+            "notifications", "NotificationScheduler.kt"
+        )
+        val source = read(schedulerPath)
+        assertTrue(
+            "Meal reminders should be scheduled as one-time work aligned to next configured clock time.",
+            source.contains("OneTimeWorkRequestBuilder<MealReminderWorker>()")
+        )
+        assertTrue(
+            "Weekly reset should be scheduled as one-time work aligned to next configured day/time.",
+            source.contains("OneTimeWorkRequestBuilder<WeeklyResetWorker>()")
+        )
+        assertFalse(
+            "Meal reminders must not use unconstrained periodic scheduling.",
+            source.contains("PeriodicWorkRequestBuilder<MealReminderWorker>(1, TimeUnit.DAYS)")
+        )
+        assertFalse(
+            "Weekly reset must not use unconstrained periodic scheduling.",
+            source.contains("PeriodicWorkRequestBuilder<WeeklyResetWorker>(7, TimeUnit.DAYS)")
+        )
+        assertTrue(
+            "Engagement check should be scheduled as one-time work aligned to the configured clock time.",
+            source.contains("OneTimeWorkRequestBuilder<EngagementNudgeWorker>()")
+        )
+        assertFalse(
+            "Engagement check must not use unconstrained periodic scheduling.",
+            source.contains("PeriodicWorkRequestBuilder<EngagementNudgeWorker>(1, TimeUnit.DAYS)")
+        )
+        assertTrue(
+            "Meal worker should re-enqueue the next exact reminder slot after execution.",
+            source.contains("enqueueMealReminder(")
+        )
+        assertTrue(
+            "Weekly worker should re-enqueue the next exact reminder slot after execution.",
+            source.contains("enqueueWeeklyReset(applicationContext, userId, prefs)")
+        )
+        assertTrue(
+            "Engagement worker should re-enqueue the next exact reminder slot after execution.",
+            source.contains("enqueueEngagementCheck(applicationContext, userId)")
         )
     }
 

@@ -7,6 +7,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import policy_store
+from policy_config import load_policy
 
 
 def test_policy_versioning_activation_and_rollback(monkeypatch):
@@ -58,3 +59,54 @@ def test_policy_versioning_activation_and_rollback(monkeypatch):
 
     audit_rows = policy_store.list_policy_audit(limit=20)
     assert len(audit_rows) >= 3
+
+
+def test_ensure_default_policy_bootstraps_production_canary(monkeypatch):
+    tmp_root = ROOT / "tests" / ".tmp_policy_store"
+    tmp_root.mkdir(parents=True, exist_ok=True)
+    test_db = tmp_root / f"policy_store_canary_{uuid.uuid4().hex}.db"
+    monkeypatch.setattr(policy_store, "DATABASE_URL", "")
+    monkeypatch.setattr(policy_store, "DB_NAME", str(test_db))
+
+    policy_store.init_policy_store()
+    active = policy_store.ensure_default_policy(actor="test")
+
+    resolved = load_policy(active["policy"]).to_runtime_dict(environment="production")
+    assert resolved["stage1"]["ML_shadow_enabled"] is True
+    assert resolved["stage1"]["ML_canary_enabled"] is True
+    assert resolved["sre"]["canary_cohort_percent"] == 5.0
+
+
+def test_ensure_default_policy_upgrades_existing_policy_for_production_canary(monkeypatch):
+    tmp_root = ROOT / "tests" / ".tmp_policy_store"
+    tmp_root.mkdir(parents=True, exist_ok=True)
+    test_db = tmp_root / f"policy_store_upgrade_{uuid.uuid4().hex}.db"
+    monkeypatch.setattr(policy_store, "DATABASE_URL", "")
+    monkeypatch.setattr(policy_store, "DB_NAME", str(test_db))
+
+    policy_store.init_policy_store()
+    created = policy_store.create_policy_version(
+        policy_input={
+            "schema_version": "2.0.0",
+            "policy_name": "manual-bootstrap",
+            "environment_profile": "production",
+            "stage1": {
+                "ML_shadow_enabled": True,
+                "ML_canary_enabled": False,
+            },
+            "sre": {
+                "canary_cohort_percent": 0.0,
+            },
+        },
+        actor="test",
+        activate=True,
+    )
+
+    upgraded = policy_store.ensure_default_policy(actor="test")
+
+    assert upgraded["id"] != created["id"]
+    assert upgraded["rollback_of"] == created["id"]
+    resolved = load_policy(upgraded["policy"]).to_runtime_dict(environment="production")
+    assert resolved["stage1"]["ML_shadow_enabled"] is True
+    assert resolved["stage1"]["ML_canary_enabled"] is True
+    assert resolved["sre"]["canary_cohort_percent"] == 5.0

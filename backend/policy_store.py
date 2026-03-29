@@ -6,6 +6,7 @@ import os
 import sqlite3
 import time
 import uuid
+from copy import deepcopy
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional
 
@@ -22,6 +23,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 DB_NAME = os.getenv("PCOSINA_DB_NAME", "pcosina.db").strip() or "pcosina.db"
 SCHEMA_MIGRATION_SCOPE = "policy"
 SCHEMA_BOOTSTRAP_LOCK_KEY = 2026032902
+PRODUCTION_CANARY_BOOTSTRAP_PERCENT = 5.0
 
 
 def _is_production_env() -> bool:
@@ -120,6 +122,52 @@ def _record_applied_migration(conn, migration_id: str, description: str, scope: 
 def _policy_hash(policy: Dict[str, Any]) -> str:
     canonical = json.dumps(policy, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> None:
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            _deep_merge(base[key], value)
+        else:
+            base[key] = value
+
+
+def _production_canary_bootstrap_overlay() -> Dict[str, Any]:
+    return {
+        "environment_overrides": {
+            "production": {
+                "stage1": {
+                    "ML_shadow_enabled": True,
+                    "ML_canary_enabled": True,
+                },
+                "sre": {
+                    "canary_cohort_percent": float(PRODUCTION_CANARY_BOOTSTRAP_PERCENT),
+                },
+            }
+        }
+    }
+
+
+def _requires_production_canary_bootstrap(policy_payload: Dict[str, Any]) -> bool:
+    validated = load_policy(policy_payload)
+    resolved = validated.to_runtime_dict(environment="production")
+    stage1 = resolved.get("stage1") if isinstance(resolved.get("stage1"), dict) else {}
+    sre = resolved.get("sre") if isinstance(resolved.get("sre"), dict) else {}
+    try:
+        canary_percent = float(sre.get("canary_cohort_percent"))
+    except Exception:
+        canary_percent = 0.0
+    return not (
+        bool(stage1.get("ML_shadow_enabled"))
+        and bool(stage1.get("ML_canary_enabled"))
+        and canary_percent == float(PRODUCTION_CANARY_BOOTSTRAP_PERCENT)
+    )
+
+
+def _apply_production_canary_bootstrap(policy_payload: Dict[str, Any]) -> Dict[str, Any]:
+    upgraded = deepcopy(load_policy(policy_payload).to_runtime_dict())
+    _deep_merge(upgraded, _production_canary_bootstrap_overlay())
+    return load_policy(upgraded).to_runtime_dict()
 
 
 def _create_policy_versions_table_sql() -> str:
@@ -296,8 +344,25 @@ def _next_version_number(conn) -> int:
 def ensure_default_policy(actor: str = "system") -> Dict[str, Any]:
     active = get_active_policy()
     if active:
+        active_payload = active.get("policy") if isinstance(active.get("policy"), dict) else {}
+        if _requires_production_canary_bootstrap(active_payload):
+            upgraded_payload = _apply_production_canary_bootstrap(active_payload)
+            upgraded_hash = _policy_hash(upgraded_payload)
+            if upgraded_hash != str(active.get("policy_hash") or ""):
+                return create_policy_version(
+                    upgraded_payload,
+                    actor=actor,
+                    notes="bootstrap-production-canary-defaults",
+                    activate=True,
+                    rollback_of=str(active.get("id") or "") or None,
+                )
         return active
-    created = create_policy_version(default_policy(), actor=actor, notes="bootstrap-default-policy", activate=True)
+    created = create_policy_version(
+        _apply_production_canary_bootstrap(default_policy().to_runtime_dict()),
+        actor=actor,
+        notes="bootstrap-default-policy",
+        activate=True,
+    )
     return created
 
 

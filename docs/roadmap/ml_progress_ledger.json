@@ -1,0 +1,184 @@
+{
+  "updatedAt": "2026-03-29",
+  "owner": "pcosina-ml-team",
+  "items": [
+    {
+      "roadmapItem": "Phase 1 ML audit",
+      "status": "done",
+      "evidence": [
+        "docs/roadmap/ml_completion_matrix.md"
+      ],
+      "verification": [
+        "Repository scan",
+        "Unit test run"
+      ],
+      "risk": "Matrix can go stale without CI enforcement",
+      "nextStep": "Add staleness check in CI"
+    },
+    {
+      "roadmapItem": "Phase 2 event taxonomy and instrumentation contracts",
+      "status": "done",
+      "evidence": [
+        "shared-contracts/event_schemas/ml_event_taxonomy.v1.json",
+        "backend/ml_events.py",
+        "backend/tests/test_ml_events.py",
+        "app/src/main/java/com/pcosina/app/data/api/PcosinaApiService.kt",
+        "app/src/main/java/com/pcosina/app/data/repository/MealPlanRepository.kt",
+        "app/src/main/java/com/pcosina/app/ui/MealPlanViewModel.kt",
+        "app/src/main/java/com/pcosina/app/ui/screens/GroceryListScreen.kt",
+        "app/src/main/java/com/pcosina/app/ui/screens/ProgressScreen.kt",
+        "app/src/main/java/com/pcosina/app/ui/screens/MealPlanScreen.kt",
+        "app/src/main/java/com/pcosina/app/ui/screens/RecipeDetailsScreen.kt",
+        "scripts/check_mobile_ml_event_coverage.py",
+        ".github/workflows/go-live-gates.yml"
+      ],
+      "verification": [
+        "Schema validation tests",
+        "Endpoint acceptance test",
+        "Backend tests: python -m pytest backend/tests/test_ml_events.py -q",
+        "python scripts/check_mobile_ml_event_coverage.py"
+      ],
+      "risk": "Client event delivery still depends on authenticated session and network availability",
+      "nextStep": "Add event delivery-rate monitoring dashboard"
+    },
+    {
+      "roadmapItem": "Phase 3 dataset and labels",
+      "status": "done",
+      "evidence": [
+        "ml/offline_training/build_training_dataset_v1.py",
+        "ml/offline_training/generate_training_telemetry_v1.py",
+        "backend/database.py",
+        "ml/offline_training/artifacts/dataset_v1/dataset_manifest.json",
+        "ml/offline_training/artifacts/reason_feedback_v1/reason_feedback_summary.json",
+        "backend/tests/test_ml_dataset_builder.py",
+        ".github/workflows/ci.yml"
+      ],
+      "verification": [
+        "backend/tests/test_ml_dataset_builder.py",
+        "backend/tests/test_reason_feedback_dataset_builder.py",
+        "backend/tests/test_ml_readiness_script.py",
+        "Readiness gate with real dataset rows, diversity thresholds, and freshness thresholds"
+      ],
+      "risk": "Behavior-event coverage from app flows is still incomplete",
+      "nextStep": "Monitor freshness thresholds and refresh evidence monthly"
+    },
+    {
+      "roadmapItem": "Phase 4 LightGBM training",
+      "status": "done",
+      "evidence": [
+        "ml/offline_training/train_lightgbm_v1.py",
+        "ml/offline_training/artifacts/model_v1/lightgbm_v1_model.txt",
+        "ml/offline_training/artifacts/model_v1/training_metrics.json",
+        "ml/offline_training/README.md",
+        "scripts/prepare_ml_rollout_env.py"
+      ],
+      "verification": [
+        "python ml/offline_training/train_lightgbm_v1.py --dataset-dir ml/offline_training/artifacts/dataset_v1 --output-dir ml/offline_training/artifacts/model_v1 --seed 2026",
+        "python scripts/check_ml_readiness.py --mode canary",
+        "python scripts/prepare_ml_rollout_env.py --phase shadow"
+      ],
+      "risk": "Retraining cadence and drift checks must keep pace with incoming telemetry changes",
+      "nextStep": "Keep ML influence limited to shadow/canary until live canary dashboard/alerts are wired"
+    },
+    {
+      "roadmapItem": "Phase 5 evaluation report",
+      "status": "done",
+      "evidence": [
+        "ml/offline_training/artifacts/model_v1/training_metrics.json",
+        "ml/offline_training/artifacts/model_v1/cohort_metrics.csv",
+        "ml/offline_training/artifacts/model_v1/request_confusion.csv",
+        "ml/offline_training/artifacts/model_v1/cohort_regression_request_confusion.csv",
+        "docs/ml/evaluation_report_lightgbm_v1.md",
+        "ml/offline_training/train_lightgbm_v1.py",
+        "scripts/check_ml_readiness.py"
+      ],
+      "verification": [
+        "python -m pytest backend/tests/test_lightgbm_training.py backend/tests/test_ml_readiness_script.py -q",
+        "python ml/offline_training/generate_training_telemetry_v1.py --reset-existing --sizes 150,300,500,700,900,1100 --trials-per-scenario 6 --seed 2026",
+        "python ml/offline_training/train_lightgbm_v1.py --dataset-dir ml/offline_training/artifacts/dataset_v1 --output-dir ml/offline_training/artifacts/model_v1 --seed 2026",
+        "python scripts/check_ml_readiness.py --mode canary"
+      ],
+      "risk": "Latest 2026-03-29 retrain passed canary with 74,112 rows / 360 requests / 60 users, but live drift still depends on guarded rollout evidence",
+      "nextStep": "Keep request-level regression exports in the retraining loop and review them before widening live canary traffic"
+    },
+    {
+      "roadmapItem": "Phase 6 shadow integration",
+      "status": "in_progress",
+      "evidence": [
+        "backend/services/ml_ranker.py",
+        "backend/services/meal_planner.py",
+        "backend/tests/test_ml_ranker.py",
+        "app/src/main/java/com/pcosina/app/data/repository/MealPlanRepository.kt",
+        "backend/tests/test_meal_planner.py",
+        "backend/tests/test_ci_ops_scripts.py",
+        ".github/workflows/ci.yml",
+        "benchmarks/reports/ml_rollout_prep.canary.local.json"
+      ],
+      "verification": [
+        "Backend tests: python -m pytest backend/tests/test_ml_ranker.py backend/tests/test_meal_planner.py backend/tests/test_ci_ops_scripts.py -q",
+        "python scripts/check_ml_readiness.py --mode shadow",
+        ":app:compileDebugKotlin successful with local JDK + sandbox-safe env overrides"
+      ],
+      "risk": "Shadow inference, readiness gates, and candidate pinning are covered locally/CI, but the first traffic-backed production ML telemetry snapshot is still pending",
+      "nextStep": "Archive the first live production shadow/canary telemetry snapshot and confirm the pinned candidate artifact is the one serving live requests"
+    },
+    {
+      "roadmapItem": "Phase 7 canary rollback guard",
+      "status": "done",
+      "evidence": [
+        "backend/policy_store.py",
+        "scripts/prepare_ml_rollout_env.py",
+        "scripts/monitor_canary_guardrails.py",
+        "scripts/build_canary_dashboard_panel.py",
+        "scripts/check_reason_tag_distribution.py",
+        "scripts/run_canary_drill.py",
+        "scripts/simulate_canary_breach_metrics.py",
+        "backend/canary_guard.py",
+        "backend/tests/test_canary_guard.py",
+        "backend/tests/test_canary_guard_alert.py",
+        "backend/tests/test_ml_rollout_prep_script.py",
+        "backend/tests/test_policy_store.py",
+        "backend/tests/test_ci_ops_scripts.py",
+        ".github/workflows/go-live-gates.yml",
+        ".github/workflows/canary-drill.yml",
+        "benchmarks/reports/canary_webhook_secrets_check.staging.local.json",
+        "benchmarks/reports/canary_drill_receipt.staging.live.json",
+        "benchmarks/reports/canary_drill_receipt_check.staging.live.json",
+        "benchmarks/reports/canary_webhook_secrets_check.production.local.json",
+        "benchmarks/reports/canary_drill_receipt.production.live.json",
+        "benchmarks/reports/canary_drill_receipt_check.production.live.json",
+        "benchmarks/reports/canary_guard_report.production.json"
+      ],
+      "verification": [
+        "python scripts/prepare_ml_rollout_env.py --phase canary --canary-percent 5",
+        "python scripts/monitor_canary_guardrails.py --metrics benchmarks/reports/go_live_metrics.json --output benchmarks/reports/canary_guard_report.production.json",
+        "python scripts/build_canary_dashboard_panel.py --guard-report benchmarks/reports/canary_guard_report.json --metrics benchmarks/reports/go_live_metrics.example.json --output benchmarks/reports/ops_dashboard_canary_panel.json",
+        "python scripts/check_reason_tag_distribution.py --summary ml/offline_training/artifacts/reason_feedback_v1/reason_feedback_summary.json --output benchmarks/reports/reason_tag_distribution_gate_report.json",
+        "python scripts/run_canary_drill.py --environment staging --metrics benchmarks/reports/go_live_metrics.json --require-webhooks --alert-on-ok --output benchmarks/reports/canary_drill_receipt.staging.live.json",
+        "python scripts/check_canary_drill_receipt.py --receipt benchmarks/reports/canary_drill_receipt.staging.live.json --environment staging --require-webhook-delivery --output benchmarks/reports/canary_drill_receipt_check.staging.live.json",
+        "python scripts/run_canary_drill.py --environment production --metrics benchmarks/reports/go_live_metrics.json --require-webhooks --alert-on-ok --output benchmarks/reports/canary_drill_receipt.production.live.json",
+        "python scripts/check_canary_drill_receipt.py --receipt benchmarks/reports/canary_drill_receipt.production.live.json --environment production --require-webhook-delivery --output benchmarks/reports/canary_drill_receipt_check.production.live.json",
+        "python -m pytest backend/tests/test_canary_guard.py backend/tests/test_canary_guard_alert.py backend/tests/test_ci_ops_scripts.py backend/tests/test_ml_rollout_prep_script.py -q"
+      ],
+      "risk": "Real-user widening still depends on post-launch drift review, but the rollback/drill stack and environment wiring are now proven end to end",
+      "nextStep": "Keep the 5% canary under observation and require a fresh guard/drift review before widening traffic"
+    },
+    {
+      "roadmapItem": "Phase 8 open-ended feedback pipeline",
+      "status": "in_progress",
+      "evidence": [
+        "backend/services/reason_normalizer.py",
+        "ml/offline_training/build_reason_feedback_dataset_v1.py",
+        "ml/offline_training/generate_reason_telemetry_v1.py",
+        "ml/event_taxonomy/v1.md",
+        "docs/architecture/ml_telemetry_pipeline.md"
+      ],
+      "verification": [
+        "python -m pytest backend/tests/test_reason_normalizer.py backend/tests/test_reason_feedback_dataset_builder.py backend/tests/test_reason_telemetry_generator.py -q",
+        "python ml/offline_training/build_reason_feedback_dataset_v1.py --db-path pcosina.db --output-dir ml/offline_training/artifacts/reason_feedback_v1"
+      ],
+      "risk": "Live free-text volume is still low; most reason-tag rows are seeded/staging traffic",
+      "nextStep": "Expand optional reason-text capture in app flows and monitor tag-distribution drift"
+    }
+  ]
+}

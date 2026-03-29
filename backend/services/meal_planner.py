@@ -1,5 +1,6 @@
 from typing import List, Optional, Dict, Any
 import json
+import hashlib
 import os
 import random
 import time
@@ -8,6 +9,7 @@ from ortools.sat.python import cp_model
 
 from domain.models import GeneratePlanRequest, PlannedMeal, DayPlan, UserProfile
 from price_catalog import estimate_recipe_cost
+from services.ml_ranker import get_stage1_ranker
 
 
 def _env_int(name: str, default: int) -> int:
@@ -72,6 +74,31 @@ def _env_bool(name: str, default: bool = False) -> bool:
     if raw is None:
         return default
     return str(raw).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _policy_get(policy: Optional[Dict[str, Any]], key: str, default: Any) -> Any:
+    if not isinstance(policy, dict):
+        return default
+    current: Any = policy
+    for part in key.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return default
+        current = current.get(part)
+    if current is None:
+        return default
+    return current
+
+
+def _policy_get_legacy_aware(
+    policy: Optional[Dict[str, Any]],
+    keys: List[str],
+    default: Any,
+) -> Any:
+    for key in keys:
+        value = _policy_get(policy, key, None)
+        if value is not None:
+            return value
+    return default
 
 
 # -------------------------
@@ -147,6 +174,8 @@ VEG_TOKENS = {
 }
 
 MEAL_LABELS = ["Breakfast", "Lunch", "Dinner"]
+SNACK_LABELS = ["Snack1", "Snack2", "Snack3"]
+ALL_SLOT_LABELS = MEAL_LABELS + SNACK_LABELS
 
 
 def _normalize_token(t: str) -> str:
@@ -198,7 +227,7 @@ def infer_allowed_meals(meal_type: str | None) -> List[str]:
         return MEAL_LABELS
     raw = meal_type.lower()
     if "universal" in raw:
-        return MEAL_LABELS
+        return ALL_SLOT_LABELS
     labels = []
     if "break" in raw:
         labels.append("Breakfast")
@@ -206,6 +235,8 @@ def infer_allowed_meals(meal_type: str | None) -> List[str]:
         labels.append("Lunch")
     if "dinner" in raw:
         labels.append("Dinner")
+    if "snack" in raw or "merienda" in raw:
+        labels.extend(SNACK_LABELS)
     return labels or MEAL_LABELS
 
 
@@ -255,7 +286,155 @@ def _base_score(recipe: Dict[str, Any]) -> float:
     p = recipe.get("proteinGrams") or 0
     cals = recipe.get("calories") or 0
     pantry_bonus = (recipe.get("_pantry_match") or 0) * 1.5
-    return (p * 2.0) - (recipe.get("_cost_est", 0) * 0.05) - abs(cals - 500) * 0.15 + pantry_bonus
+    stage1_boost = float(recipe.get("_stage1_score_boost") or 0.0)
+    return (p * 2.0) - (recipe.get("_cost_est", 0) * 0.05) - abs(cals - 500) * 0.15 + pantry_bonus + stage1_boost
+
+
+def _text_token_set(value: str) -> set[str]:
+    parts = []
+    for raw in str(value or "").replace("-", " ").replace("/", " ").split():
+        token = "".join(ch for ch in raw.lower() if ch.isalnum())
+        if token:
+            parts.append(token)
+    return set(parts)
+
+
+def _token_jaccard(a: set[str], b: set[str]) -> float:
+    if not a or not b:
+        return 0.0
+    inter = len(a & b)
+    union = len(a | b)
+    if union <= 0:
+        return 0.0
+    return float(inter) / float(union)
+
+
+def _apply_similarity_dedup(candidates: List[Dict[str, Any]], threshold: float) -> List[Dict[str, Any]]:
+    if not candidates:
+        return []
+    if threshold <= 0:
+        return candidates
+    normalized_threshold = min(1.0, max(0.0, threshold))
+    if normalized_threshold >= 0.999:
+        return candidates
+
+    kept: List[Dict[str, Any]] = []
+    kept_signatures: List[set[str]] = []
+    for recipe in candidates:
+        signature = _text_token_set(recipe.get("title", ""))
+        if not signature:
+            signature = {str(recipe.get("id", ""))}
+        is_near_duplicate = False
+        for prev in kept_signatures:
+            if _token_jaccard(signature, prev) >= normalized_threshold:
+                is_near_duplicate = True
+                break
+        if is_near_duplicate:
+            continue
+        kept.append(recipe)
+        kept_signatures.append(signature)
+    return kept
+
+
+def _shadow_ml_score(recipe: Dict[str, Any], profile: UserProfile) -> float:
+    # Deterministic bounded score [0,1] for shadow/canary ranking only.
+    calories = float(recipe.get("calories") or 0)
+    protein = float(recipe.get("proteinGrams") or 0)
+    fiber = float(recipe.get("fiberGrams") or 0)
+    minutes = float(recipe.get("minutes") or 0)
+    pantry_match = float(recipe.get("_pantry_match") or 0)
+    budget = float(profile.weeklyBudgetPhp or 0)
+
+    macro_component = min(1.0, (protein / 45.0) * 0.5 + (fiber / 15.0) * 0.5)
+    calorie_component = max(0.0, 1.0 - min(1.0, abs(calories - 500.0) / 500.0))
+    prep_component = max(0.0, 1.0 - min(1.0, minutes / 90.0))
+    pantry_component = min(1.0, pantry_match / 5.0)
+    budget_component = 1.0 if budget <= 0 else max(0.0, 1.0 - min(1.0, (recipe.get("_cost_est", 0) or 0) / max(1.0, budget / 21.0)))
+
+    blended = (
+        0.30 * macro_component
+        + 0.25 * calorie_component
+        + 0.15 * prep_component
+        + 0.20 * pantry_component
+        + 0.10 * budget_component
+    )
+    return max(0.0, min(1.0, blended))
+
+
+def _stage1_ml_feature_vector(recipe: Dict[str, Any], profile: UserProfile) -> Dict[str, float]:
+    return {
+        "restriction_count": float(len(profile.dietaryRestrictions or [])),
+        "allergy_count": float(len(profile.allergies or [])),
+        "budget_weekly_norm": float((profile.weeklyBudgetPhp or 0) / 7000.0),
+        "max_cooking_time_minutes": float(profile.maxCookingTimeMinutes or 0),
+        "recipe_calories": float(recipe.get("calories") or 0.0),
+        "recipe_protein": float(recipe.get("proteinGrams") or 0.0),
+        "recipe_carbs": float(recipe.get("carbsGrams") or 0.0),
+        "recipe_fats": float(recipe.get("fatsGrams") or 0.0),
+        "recipe_fiber": float(recipe.get("fiberGrams") or 0.0),
+        "recipe_minutes": float(recipe.get("minutes") or 0.0),
+        "recipe_cost_est": float(recipe.get("_cost_est") or 0.0),
+        "pantry_overlap_count": float(recipe.get("_pantry_match") or 0.0),
+        "is_breakfast_candidate": 1.0 if "Breakfast" in (recipe.get("_allowed_meals") or []) else 0.0,
+        "is_lunch_candidate": 1.0 if "Lunch" in (recipe.get("_allowed_meals") or []) else 0.0,
+        "is_dinner_candidate": 1.0 if "Dinner" in (recipe.get("_allowed_meals") or []) else 0.0,
+    }
+
+
+def _is_profile_in_canary(profile: UserProfile, policy: Optional[Dict[str, Any]]) -> bool:
+    canary_percent = float(_policy_get(policy, "sre.canary_cohort_percent", 0.0))
+    if canary_percent <= 0.0:
+        return False
+    if canary_percent >= 100.0:
+        return True
+    key = f"{profile.displayName}|{profile.age}|{profile.goal}|{profile.activityLevel}"
+    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
+    bucket = int(digest[:8], 16) % 100
+    return bucket < int(canary_percent)
+
+
+def _apply_stage1_scoring(
+    recipe: Dict[str, Any],
+    profile: UserProfile,
+    policy: Optional[Dict[str, Any]],
+    max_cook: Optional[int],
+) -> None:
+    penalty_weights = _policy_get(
+        policy,
+        "stage1.exclusion_penalty_weights",
+        {"allergy": 1000.0, "restriction": 500.0, "prep_time": 50.0},
+    )
+    prep_penalty_weight = float((penalty_weights or {}).get("prep_time", 50.0))
+    minutes = float(recipe.get("minutes") or 0)
+    prep_penalty = 0.0
+    if max_cook and max_cook > 0:
+        prep_penalty = max(0.0, (minutes - max_cook) / float(max_cook)) * prep_penalty_weight
+
+    ml_shadow_enabled = bool(_policy_get(policy, "stage1.ML_shadow_enabled", True))
+    ml_canary_enabled = bool(_policy_get(policy, "stage1.ML_canary_enabled", False))
+    ml_weight = float(_policy_get(policy, "stage1.ML_score_weight", 0.15))
+    ml_cap = float(_policy_get(policy, "stage1.ML_score_cap", 0.30))
+    ml_weight = max(0.0, min(ml_weight, ml_cap, 1.0))
+    ml_score = 0.0
+    ml_model_version = "shadow_v0"
+    if ml_shadow_enabled or ml_canary_enabled:
+        ranker = get_stage1_ranker()
+        ranker_state = ranker.state()
+        ml_model_version = ranker_state.model_version
+        candidate_features = _stage1_ml_feature_vector(recipe, profile)
+        model_score = ranker.score(candidate_features) if ranker_state.ready else None
+        if model_score is None:
+            ml_score = _shadow_ml_score(recipe, profile)
+            ml_model_version = "shadow_v0"
+        else:
+            ml_score = max(0.0, min(1.0, float(model_score)))
+
+    apply_ml_to_ranking = bool(ml_canary_enabled and _is_profile_in_canary(profile, policy))
+    effective_weight = ml_weight if apply_ml_to_ranking else 0.0
+    recipe["_ml_shadow_score"] = ml_score
+    recipe["_ml_model_version"] = ml_model_version
+    recipe["_ml_applied_to_ranking"] = apply_ml_to_ranking
+    recipe["_stage1_score_boost"] = (ml_score * effective_weight * 10.0) - prep_penalty
 
 
 def passes_restrictions(profile: UserProfile, tags: List[str], ing_tokens: List[str]) -> bool:
@@ -365,12 +544,31 @@ def priority_overrides(priority: str | None) -> Dict[str, int]:
     return {"budget_mult": 1, "macro_mult": 1, "variety_mult": 1}
 
 
-def shortlist_candidates(profile: UserProfile, recipes: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+def shortlist_candidates(
+    profile: UserProfile,
+    recipes: List[Dict[str, Any]],
+    policy: Optional[Dict[str, Any]] = None,
+) -> Dict[str, List[Dict[str, Any]]]:
     buckets = {"Breakfast": [], "Lunch": [], "Dinner": [], "Universal": []}
     restriction_count = len(profile.dietaryRestrictions or [])
     budget_weekly = resolve_budget_weekly(profile)
     max_cook = profile.maxCookingTimeMinutes if profile.maxCookingTimeMinutes and profile.maxCookingTimeMinutes > 0 else None
     pantry_tokens = set(normalize_pantry(profile.pantryItems or []))
+    stage1_max = int(
+        _policy_get_legacy_aware(
+            policy,
+            ["stage1.max_candidates_per_slot", "max_pool_size", "shortlist_limit_restricted", "shortlist_limit"],
+            120,
+        )
+    )
+    ranking_cutoff = float(
+        _policy_get_legacy_aware(policy, ["stage1.ranking_cutoff", "shortlist_keep_ratio"], 0.8)
+    )
+    similarity_threshold = float(_policy_get(policy, "stage1.similarity_threshold", 0.85))
+    restricted_shortlist_multiplier = float(_policy_get(policy, "stage1.restricted_shortlist_multiplier", 1.25))
+    budget_keep_min_count = int(_policy_get(policy, "stage1.budget_keep_min_count", 10))
+    budget_keep_min_ratio = float(_policy_get(policy, "stage1.budget_keep_min_ratio", 0.25))
+    pantry_match_threshold = int(_policy_get(policy, "stage1.pantry_match_threshold", 0))
     for r in recipes:
         tags = infer_tags(r)
         ing_tokens = normalize_ingredients(r.get("ingredients", []))
@@ -389,6 +587,9 @@ def shortlist_candidates(profile: UserProfile, recipes: List[Dict[str, Any]]) ->
             r["_pantry_match"] = len(set(ing_tokens) & pantry_tokens)
         else:
             r["_pantry_match"] = 0
+        _apply_stage1_scoring(r, profile, policy, max_cook)
+        if pantry_match_threshold > 0 and pantry_tokens and r["_pantry_match"] < pantry_match_threshold:
+            continue
         meal_type = (r.get("mealType") or "Universal").lower()
         if "break" in meal_type:
             buckets["Breakfast"].append(r)
@@ -401,17 +602,86 @@ def shortlist_candidates(profile: UserProfile, recipes: List[Dict[str, Any]]) ->
 
     for k in buckets:
         buckets[k].sort(key=_base_score, reverse=True)
-        limit_default = _env_int("PCOSINA_SHORTLIST_LIMIT", 80)
-        limit_restricted = _env_int("PCOSINA_SHORTLIST_LIMIT_RESTRICTED", 120)
-        limit = limit_default if restriction_count < 2 else limit_restricted
+        buckets[k] = _apply_similarity_dedup(buckets[k], similarity_threshold)
+        limit = stage1_max if restriction_count < 2 else int(stage1_max * max(1.0, restricted_shortlist_multiplier))
         buckets[k] = buckets[k][:limit]
         if budget_weekly:
             buckets[k].sort(key=lambda r: r.get("_cost_est", 0))
-            keep_min = _env_int("PCOSINA_SHORTLIST_KEEP_MIN", 20)
-            keep_ratio = _env_float("PCOSINA_SHORTLIST_KEEP_RATIO", 0.8)
-            keep = int(max(keep_min, len(buckets[k]) * keep_ratio))
+            keep_min = max(max(1, budget_keep_min_count), int(len(buckets[k]) * max(0.0, budget_keep_min_ratio)))
+            keep = int(max(keep_min, len(buckets[k]) * ranking_cutoff))
             buckets[k] = buckets[k][:keep]
+        for recipe in buckets[k]:
+            recipe["_stage1_bucket"] = k
     return buckets
+
+
+def _safe_div(num: float, den: float) -> float:
+    if den == 0:
+        return 0.0
+    return float(num) / float(den)
+
+
+def _build_stage1_feature_rows(
+    pool: List[Dict[str, Any]],
+    profile: UserProfile,
+    *,
+    target_calories: int,
+    target_protein: int,
+    target_carbs: int,
+    target_fats: int,
+    budget_weekly: Optional[float],
+    meals_per_day: int,
+) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    budget_norm = _safe_div(float(budget_weekly or 0.0), 7000.0)
+    restriction_count = len(profile.dietaryRestrictions or [])
+    allergy_count = len(profile.allergies or [])
+    max_cook = int(profile.maxCookingTimeMinutes or 0)
+    for recipe in pool:
+        calories = float(recipe.get("calories") or 0.0)
+        protein = float(recipe.get("proteinGrams") or 0.0)
+        carbs = float(recipe.get("carbsGrams") or 0.0)
+        fats = float(recipe.get("fatsGrams") or 0.0)
+        fiber = float(recipe.get("fiberGrams") or 0.0)
+        allowed = set(recipe.get("_allowed_meals") or [])
+        macro_distance = (
+            abs(protein - float(target_protein))
+            + abs(carbs - float(target_carbs))
+            + abs(fats - float(target_fats))
+        )
+        features = {
+            "restriction_count": float(restriction_count),
+            "allergy_count": float(allergy_count),
+            "budget_weekly_norm": budget_norm,
+            "max_cooking_time_minutes": float(max_cook),
+            "recipe_calories": calories,
+            "recipe_protein": protein,
+            "recipe_carbs": carbs,
+            "recipe_fats": fats,
+            "recipe_fiber": fiber,
+            "recipe_minutes": float(recipe.get("minutes") or 0.0),
+            "recipe_cost_est": float(recipe.get("_cost_est") or 0.0),
+            "pantry_overlap_count": float(recipe.get("_pantry_match") or 0.0),
+            "macro_distance_score": macro_distance,
+            "calorie_distance_score": abs(calories - float(target_calories)),
+            "is_breakfast_candidate": 1.0 if "Breakfast" in allowed else 0.0,
+            "is_lunch_candidate": 1.0 if "Lunch" in allowed else 0.0,
+            "is_dinner_candidate": 1.0 if "Dinner" in allowed else 0.0,
+            "profile_goal_weightloss": 1.0 if "weight loss" in str(profile.goal or "").lower() else 0.0,
+            "profile_goal_general_health": 1.0 if "general health" in str(profile.goal or "").lower() else 0.0,
+            "profile_activity_lightly_active": 1.0 if str(profile.activityLevel or "") == "Lightly Active" else 0.0,
+            "meals_per_day": float(meals_per_day),
+        }
+        rows.append(
+            {
+                "recipe_id": str(recipe.get("id") or ""),
+                "meal_bucket": str(recipe.get("_stage1_bucket") or "Universal"),
+                "model_score": float(recipe.get("_ml_shadow_score") or 0.0),
+                "heuristic_score": float(_base_score(recipe)),
+                "features": features,
+            }
+        )
+    return rows
 
 
 def _calorie_bin(calories: int) -> str:
@@ -424,7 +694,7 @@ def _calorie_bin(calories: int) -> str:
     return "ge650"
 
 
-def _cap_pool(pool: List[Dict[str, Any]], max_pool: int) -> List[Dict[str, Any]]:
+def _cap_pool(pool: List[Dict[str, Any]], max_pool: int, top_share: float = 0.6) -> List[Dict[str, Any]]:
     if len(pool) <= max_pool:
         return pool
     scored = []
@@ -432,7 +702,8 @@ def _cap_pool(pool: List[Dict[str, Any]], max_pool: int) -> List[Dict[str, Any]]
         rid = str(r.get("id", ""))
         scored.append((_base_score(r), rid, r))
     scored.sort(key=lambda item: (-item[0], item[1]))
-    top_k = max(1, int(max_pool * 0.6))
+    bounded_top_share = min(0.95, max(0.05, float(top_share)))
+    top_k = max(1, int(max_pool * bounded_top_share))
     selected = [r for _, _, r in scored[:top_k]]
     selected_ids = {str(r.get("id", "")) for r in selected}
     groups: Dict[str, List[tuple]] = {}
@@ -488,6 +759,7 @@ def _default_weight_set() -> Optional[Dict[str, int]]:
 def _build_explanation(
     selected: List[Dict[str, Any]],
     num_days: int,
+    meals_per_day: int,
     daily_targets: List[int],
     target: int,
     target_protein: int,
@@ -497,6 +769,7 @@ def _build_explanation(
     max_per_week: int,
     profile: UserProfile,
     budget_weekly: Optional[float],
+    candidate_pool_size: int = 0,
 ) -> Dict[str, Any]:
     if not selected or num_days <= 0:
         return {}
@@ -505,7 +778,7 @@ def _build_explanation(
     daily_carb = []
     daily_fat = []
     for d in range(num_days):
-        day_items = selected[d * 3:(d * 3 + 3)]
+        day_items = selected[d * meals_per_day:(d * meals_per_day + meals_per_day)]
         daily_cals.append(sum(int(r.get("calories", 0)) for r in day_items))
         daily_pro.append(sum(int(r.get("proteinGrams", 0)) for r in day_items))
         daily_carb.append(sum(int(r.get("carbsGrams", 0)) for r in day_items))
@@ -528,6 +801,8 @@ def _build_explanation(
         confidence -= min(15, int(overshoot * 50))
     confidence = max(0, min(100, confidence))
     return {
+        "fallbackUsed": False,
+        "authority": "cp-sat",
         "confidenceScore": confidence,
         "targetCalories": target,
         "avgCalories": avg_cal,
@@ -545,6 +820,8 @@ def _build_explanation(
         "budgetWeekly": budget_weekly,
         "estimatedWeeklyCost": est_cost,
         "restrictionCount": len(profile.dietaryRestrictions or []),
+        "candidatePoolSize": int(candidate_pool_size),
+        "selectedMeals": len(selected),
     }
 
 
@@ -556,15 +833,18 @@ def _greedy_fallback_plan(
     base_scores: List[float],
     max_per_week: int,
 ) -> tuple[List[DayPlan], List[Dict[str, Any]]]:
+    # Deprecated non-authoritative helper retained only for benchmark baselines.
+    # Production planning must never return this path as authoritative output.
     selected: List[Dict[str, Any]] = []
     res_plan: List[DayPlan] = []
     usage = [0] * len(pool)
     prev_idx = None
     day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    meals_per_day = max(1, len(slot_labels))
     for d in range(num_days):
         meals = []
         total = 0
-        for m in range(3):
+        for m in range(meals_per_day):
             label = slot_labels[m]
             allowed = list(meal_to_allowed.get(label, set(range(len(pool)))))
             allowed.sort(key=lambda i: base_scores[i], reverse=True)
@@ -598,9 +878,27 @@ def _greedy_fallback_plan(
 def solve_meal_plan(
     request: GeneratePlanRequest,
     recipes: List[Dict],
-    weight_set: Optional[Dict[str, int]] = None
+    weight_set: Optional[Dict[str, int]] = None,
+    policy: Optional[Dict[str, Any]] = None,
+    telemetry_out: Optional[Dict[str, Any]] = None,
 ):
     profile = request.profile
+    cold_start_defaults = _policy_get(
+        policy,
+        "stage1.cold_start_defaults",
+        {
+            "activityLevel": "Lightly Active",
+            "goal": "General Health",
+            "insulinResistanceLevel": "Mild",
+        },
+    )
+    activity_level = (profile.activityLevel or cold_start_defaults.get("activityLevel") or "Lightly Active")
+    goal_value = (profile.goal or cold_start_defaults.get("goal") or "General Health")
+    insulin_level = (
+        profile.insulinResistanceLevel
+        or cold_start_defaults.get("insulinResistanceLevel")
+        or "Mild"
+    )
     debug_solver = _env_bool("PCOSINA_DEBUG_SOLVER", False)
     debug_summary = {
         "pool": 0,
@@ -610,10 +908,25 @@ def solve_meal_plan(
     conflict = validate_profile(profile)
     if conflict:
         return None, conflict, None
-    if int(request.mealsPerDay or 3) != 3:
-        return None, "Only mealsPerDay=3 is supported in this version.", None
-    num_days = max(1, int(request.days or 7))
-    slot_labels = MEAL_LABELS
+    configured_meals_per_day = int(
+        _policy_get_legacy_aware(policy, ["planning.meals_per_day", "meals_per_day"], int(request.mealsPerDay or 3))
+    )
+    if int(request.mealsPerDay or configured_meals_per_day) != configured_meals_per_day:
+        return None, f"Only mealsPerDay={configured_meals_per_day} is supported by active policy.", None
+    configured_horizon = int(
+        _policy_get_legacy_aware(policy, ["planning.planning_horizon_days", "planning_horizon_days"], int(request.days or 7))
+    )
+    snack_rules = _policy_get(policy, "planning.snack_rules", {})
+    snack_enabled = bool((snack_rules or {}).get("enabled", False))
+    num_days = max(1, int(request.days or configured_horizon))
+    if num_days != configured_horizon:
+        return None, f"Only planning_horizon_days={configured_horizon} is supported by active policy.", None
+    base_meal_labels = ALL_SLOT_LABELS
+    slot_labels = base_meal_labels[:configured_meals_per_day]
+    if configured_meals_per_day > len(MEAL_LABELS) and not snack_enabled:
+        return None, "Snacks are disabled by active policy.", None
+    if len(slot_labels) != configured_meals_per_day:
+        return None, "Configured meals_per_day exceeds supported label mapping.", None
     slot_count = num_days * len(slot_labels)
     w, h, a = (
         profile.weightKg if profile.weightKg > 0 else 65,
@@ -621,33 +934,81 @@ def solve_meal_plan(
         profile.age if profile.age > 0 else 25
     )
     bmr = (10 * w) + (6.25 * h) - (5 * a) - 161
-    target = int(bmr * activity_multiplier(profile.activityLevel))
-    if "Weight Loss" in profile.goal:
+    target = int(bmr * activity_multiplier(activity_level))
+    if "Weight Loss" in goal_value:
         target -= 500
-    target = max(1200, target)
+    calorie_min = int(_policy_get_legacy_aware(policy, ["nutrition.calorie_min", "calorie_min"], 1200))
+    calorie_max = int(_policy_get_legacy_aware(policy, ["nutrition.calorie_max", "calorie_max"], 3200))
+    target = max(calorie_min, min(target, calorie_max))
     seed_salt = os.getenv("PCOSINA_SEED_SALT", "").strip()
     seed_key = f"{seed_salt}|{profile.displayName}_{profile.age}_{profile.heightCm}_{profile.weightKg}_{profile.activityLevel}_{profile.goal}_{profile.dietaryRestrictions}_{num_days}"
     rng = random.Random(seed_key)
     daily_targets = [target + rng.randint(-50, 50) for _ in range(num_days)]
-    daily_targets = [max(1200, t) for t in daily_targets]
+    daily_targets = [max(calorie_min, min(t, calorie_max)) for t in daily_targets]
     # Macro targets based on calories, adjusted by insulin resistance level
-    protein_ratio, carb_ratio, fat_ratio = macro_ratios(profile.insulinResistanceLevel)
+    protein_ratio, carb_ratio, fat_ratio = macro_ratios(insulin_level)
     target_protein = int((target * protein_ratio) / 4)
     target_carbs = int((target * carb_ratio) / 4)
     target_fats = int((target * fat_ratio) / 9)
-    tolerance_levels = _env_float_list("PCOSINA_TOLERANCE_LEVELS", [0.2, 0.3, 0.4])
+    protein_min = int(_policy_get_legacy_aware(policy, ["nutrition.protein_min", "protein_min"], 45))
+    protein_max = int(_policy_get_legacy_aware(policy, ["nutrition.protein_max", "protein_max"], 220))
+    carb_min = int(_policy_get_legacy_aware(policy, ["nutrition.carb_min", "carb_min"], 120))
+    carb_max = int(_policy_get_legacy_aware(policy, ["nutrition.carb_max", "carb_max"], 420))
+    fat_min = int(_policy_get_legacy_aware(policy, ["nutrition.fat_min", "fat_min"], 35))
+    fat_max = int(_policy_get_legacy_aware(policy, ["nutrition.fat_max", "fat_max"], 140))
+    target_protein = max(protein_min, min(target_protein, protein_max))
+    target_carbs = max(carb_min, min(target_carbs, carb_max))
+    target_fats = max(fat_min, min(target_fats, fat_max))
+
+    daily_tolerance = float(
+        _policy_get_legacy_aware(
+            policy,
+            ["nutrition.daily_tolerance_percent", "daily_tolerance_percent", "tolerance_levels.0"],
+            0.2,
+        )
+    )
+    weekly_tolerance = float(_policy_get(policy, "nutrition.weekly_tolerance_percent", 0.10))
+    tolerance_levels = [
+        daily_tolerance,
+        min(0.8, daily_tolerance + max(0.05, weekly_tolerance)),
+        min(0.8, daily_tolerance + max(0.10, weekly_tolerance * 2.0)),
+    ]
     # Stage 1 pruning + shortlist
-    buckets = shortlist_candidates(profile, recipes)
+    buckets = shortlist_candidates(profile, recipes, policy=policy)
     candidates = list({r["id"]: r for r in (buckets["Breakfast"] + buckets["Lunch"] + buckets["Dinner"] + buckets["Universal"])}.values())
-    if len(candidates) < 10:
+    minimum_candidates_required = int(
+        _policy_get(policy, "stage1.minimum_candidates_required", 10)
+    )
+    if len(candidates) < max(1, minimum_candidates_required):
         return None, "No safe recipes found.", None
 
     pool = candidates
-    max_pool_size = _env_int("PCOSINA_MAX_POOL_SIZE", 300)
+    if telemetry_out is not None:
+        telemetry_out.clear()
+        telemetry_out["candidate_count_pre"] = len(candidates)
+        telemetry_out["ranking_strategy"] = "stage1_heuristic_with_ml_shadow"
+        telemetry_out["ml_score_enabled"] = bool(_policy_get(policy, "stage1.ML_shadow_enabled", True))
+        telemetry_out["ml_model_version"] = "shadow_v0"
+    max_pool_size = int(
+        _policy_get_legacy_aware(
+            policy,
+            ["stage1.max_candidates_per_slot", "max_pool_size", "shortlist_limit_restricted"],
+            300,
+        )
+    ) * max(1, configured_meals_per_day)
+    cap_top_share = float(_policy_get(policy, "stage1.pool_cap_top_share", 0.6))
     if len(pool) > max_pool_size:
         if debug_solver:
             debug_summary["pool_pre_cap"] = len(pool)
-        pool = _cap_pool(pool, max_pool_size)
+        pool = _cap_pool(pool, max_pool_size, top_share=cap_top_share)
+    if telemetry_out is not None:
+        telemetry_out["candidate_count_post"] = len(pool)
+        if pool:
+            telemetry_out["ml_model_version"] = str(pool[0].get("_ml_model_version") or "shadow_v0")
+            applied = bool(pool[0].get("_ml_applied_to_ranking", False))
+            telemetry_out["ranking_strategy"] = (
+                "stage1_ml_canary_plus_heuristic" if applied else "stage1_heuristic_shadow_only"
+            )
     if debug_solver:
         debug_summary["pool"] = len(pool)
     # Enforce mealType where possible; Universal recipes are allowed everywhere.
@@ -658,255 +1019,412 @@ def solve_meal_plan(
             if label in (r.get("_allowed_meals") or MEAL_LABELS)
         )
         meal_to_allowed[label] = allowed
-    if any(len(v) == 0 for v in meal_to_allowed.values()):
-        meal_to_allowed = {label: set(range(len(pool))) for label in slot_labels}
     if debug_solver:
         debug_summary["allowed_sizes"] = {k: len(v) for k, v in meal_to_allowed.items()}
     base_scores = []
     for r in pool:
         base_scores.append(_base_score(r))
+    budget_weekly = resolve_budget_weekly(profile)
 
     # Render/free instances are CPU-limited; give the solver more time by default.
-    total_time_limit = _env_float_min("PCOSINA_TOTAL_SOLVER_SECONDS", 25.0)
+    total_time_limit = float(
+        _policy_get_legacy_aware(
+            policy,
+            ["solver.total_solver_seconds", "total_solver_seconds"],
+            _env_float_min("PCOSINA_TOTAL_SOLVER_SECONDS", 25.0),
+        )
+    )
+    timeout_ms = int(_policy_get(policy, "solver.timeout_ms", int(total_time_limit * 1000)))
+    total_time_limit = min(total_time_limit, max(0.5, timeout_ms / 1000.0))
     started_at = time.time()
+    retry_attempts = int(_policy_get(policy, "solver.retry_attempts", 2))
+    retry_attempts = max(0, min(retry_attempts, 20))
     max_per_week_list = adjust_max_per_week(
-        _env_int_list("PCOSINA_MAX_PER_WEEK", [2, 3, 4, 10]),
+        [
+            int(v)
+            for v in _policy_get_legacy_aware(
+                policy,
+                ["planning.recipe_repeat_limits", "max_per_week"],
+                _env_int_list("PCOSINA_MAX_PER_WEEK", [2, 3, 4, 10]),
+            )
+        ],
         profile.varietyPreference
     )
-    for tol in tolerance_levels:
-        protein_bounds = (int(target_protein * (1 - tol)), int(target_protein * (1 + tol)))
-        carbs_bounds = (int(target_carbs * (1 - tol)), int(target_carbs * (1 + tol)))
-        fats_bounds = (int(target_fats * (1 - tol)), int(target_fats * (1 + tol)))
-        for max_per_week in max_per_week_list:
-            if (time.time() - started_at) >= total_time_limit:
-                break
-            model = cp_model.CpModel()
-            x = {}
-            for s in range(slot_count):
-                for i in range(len(pool)):
-                    x[s, i] = model.NewBoolVar(f"x_{s}_{i}")
-            y = {}
-            for i in range(len(pool)):
-                y[i] = model.NewBoolVar(f"y_{i}")
-                for s in range(slot_count):
-                    model.Add(x[s, i] <= y[i])
-            for s in range(slot_count):
-                meal_label = slot_labels[s % 3]
-                allowed = meal_to_allowed.get(meal_label, set(range(len(pool))))
-                model.Add(sum(x[s, i] for i in allowed) == 1)
-                # Force non-allowed meal-type assignments to zero. Without this,
-                # disallowed binaries remain free and bloat CP-SAT search.
-                for i in range(len(pool)):
-                    if i not in allowed:
-                        model.Add(x[s, i] == 0)
-            # Greedy warm-start (hint)
-            prev_idx = None
-            for s in range(slot_count):
-                meal_label = slot_labels[s % 3]
-                allowed = list(meal_to_allowed.get(meal_label, set(range(len(pool)))))
-                allowed.sort(key=lambda i: base_scores[i], reverse=True)
-                pick = None
-                for idx in allowed:
-                    if idx != prev_idx:
-                        pick = idx
-                        break
-                if pick is not None:
-                    model.AddHint(x[s, pick], 1)
-                    prev_idx = pick
-            for s in range(slot_count - 1):
-                for i in range(len(pool)):
-                    model.Add(x[s, i] + x[s + 1, i] <= 1)
-            for i in range(len(pool)):
-                model.Add(sum(x[s, i] for s in range(slot_count)) <= max_per_week)
-            repeat_over_vars = []
-            for i in range(len(pool)):
-                used_count = sum(x[s, i] for s in range(slot_count))
-                repeat_over = model.NewIntVar(0, slot_count, f"repeat_over_{i}")
-                model.Add(used_count - 1 <= repeat_over)
-                model.Add(repeat_over >= 0)
-                repeat_over_vars.append(repeat_over)
-            # Protein group diversity (soft)
-            group_over_vars = []
-            group_limit = max(2, num_days)
-            groups = {}
-            for i in range(len(pool)):
-                g = pool[i].get("_protein_group", "other")
-                groups.setdefault(g, []).append(i)
-            for g, idxs in groups.items():
-                count = sum(x[s, i] for s in range(slot_count) for i in idxs)
-                over = model.NewIntVar(0, slot_count, f"group_over_{g}")
-                model.Add(count - group_limit <= over)
-                model.Add(over >= 0)
-                group_over_vars.append(over)
-            # Ingredient diversity (soft) based on vegetable tokens
-            veg_tokens = set()
-            for r in pool:
-                for t in r.get("_veg_tokens", []):
-                    veg_tokens.add(t)
-            veg_cov = {}
-            for t in veg_tokens:
-                veg_cov[t] = model.NewBoolVar(f"veg_{t}")
-            for t in veg_tokens:
-                # If any recipe containing token t is selected, veg_cov[t] can be 1
-                related_idxs = [i for i, r in enumerate(pool) if t in r.get("_veg_tokens", [])]
-                if related_idxs:
-                    model.AddMaxEquality(veg_cov[t], [x[s, i] for s in range(slot_count) for i in related_idxs])
-            min_diversity = min(5, len(veg_tokens)) if veg_tokens else 0
-            diversity_slack = None
-            if min_diversity > 0:
-                diversity_slack = model.NewIntVar(0, min_diversity, "diversity_slack")
-                model.Add(sum(veg_cov.values()) + diversity_slack >= min_diversity)
-            pantry_bonus_vars = []
-            pantry_match_total = None
-            pantry = set(normalize_pantry(profile.pantryItems or []))
-            if pantry:
-                for i in range(len(pool)):
-                    match_count = len(set(pool[i].get("_ing_tokens", [])) & pantry)
-                    if match_count > 0:
-                        pantry_bonus_vars.append(match_count * sum(x[s, i] for s in range(slot_count)))
-                if pantry_bonus_vars:
-                    pantry_match_total = sum(pantry_bonus_vars)
-            budget_weekly = resolve_budget_weekly(profile)
-            if budget_weekly:
-                total_cost = sum(x[s, i] * int(pool[i].get("_cost_est", 0)) for s in range(slot_count) for i in range(len(pool)))
-                budget_over = model.NewIntVar(0, 1000000, "budget_over")
-                model.Add(total_cost - int(budget_weekly) <= budget_over)
-                model.Add(budget_over >= 0)
-            else:
-                budget_over = None
-            err_vars = []
-            dev_pro_vars = []
-            dev_carb_vars = []
-            dev_fat_vars = []
-            meal_err_vars = []
-            for d in range(num_days):
-                day_slots = range(d * 3, d * 3 + 3)
-                day_cals = sum(x[s, i] * int(pool[i].get("calories", 0)) for s in day_slots for i in range(len(pool)))
-                err = model.NewIntVar(0, 1500, f"err_{d}")
-                model.Add(err >= day_cals - daily_targets[d])
-                model.Add(err >= daily_targets[d] - day_cals)
-                err_vars.append(err)
-                day_pro = sum(x[s, i] * int(pool[i].get("proteinGrams", 0)) for s in day_slots for i in range(len(pool)))
-                day_carb = sum(x[s, i] * int(pool[i].get("carbsGrams", 0)) for s in day_slots for i in range(len(pool)))
-                day_fat = sum(x[s, i] * int(pool[i].get("fatsGrams", 0)) for s in day_slots for i in range(len(pool)))
-                dev_pro = model.NewIntVar(0, 300, f"dev_pro_{d}")
-                dev_carb = model.NewIntVar(0, 300, f"dev_carb_{d}")
-                dev_fat = model.NewIntVar(0, 200, f"dev_fat_{d}")
-                dev_pro_vars.append(dev_pro)
-                dev_carb_vars.append(dev_carb)
-                dev_fat_vars.append(dev_fat)
-                model.Add(day_pro - protein_bounds[1] <= dev_pro)
-                model.Add(protein_bounds[0] - day_pro <= dev_pro)
-                model.Add(day_carb - carbs_bounds[1] <= dev_carb)
-                model.Add(carbs_bounds[0] - day_carb <= dev_carb)
-                model.Add(day_fat - fats_bounds[1] <= dev_fat)
-                model.Add(fats_bounds[0] - day_fat <= dev_fat)
-                # Meal-level calorie balance (soft)
-                target_meal = max(300, int(daily_targets[d] / 3))
-                for m in range(3):
-                    slot = d * 3 + m
-                    meal_cals = sum(x[slot, i] * int(pool[i].get("calories", 0)) for i in range(len(pool)))
-                    meal_err = model.NewIntVar(0, 1200, f"meal_err_{slot}")
-                    model.Add(meal_err >= meal_cals - target_meal)
-                    model.Add(meal_err >= target_meal - meal_cals)
-                    meal_err_vars.append(meal_err)
-            total_err = sum(err_vars)
-            total_dev_pro = sum(dev_pro_vars)
-            total_dev_carb = sum(dev_carb_vars)
-            total_dev_fat = sum(dev_fat_vars)
-            total_meal_err = sum(meal_err_vars) if meal_err_vars else 0
-            total_repeat_over = sum(repeat_over_vars)
-            total_group_over = sum(group_over_vars) if group_over_vars else 0
-            budget_penalty = budget_over if budget_over is not None else 0
-            pantry_reward = sum(pantry_bonus_vars) if pantry_bonus_vars else 0
-            diversity_reward = sum(veg_cov.values()) if veg_cov else 0
-            diversity_penalty = (5 * diversity_slack) if diversity_slack is not None else 0
-            pantry_min_slack = None
-            pantry_min_penalty = 0
-            if pantry and pantry_match_total is not None:
-                pantry_min = min(4, len(pantry))
-                pantry_min_slack = model.NewIntVar(0, pantry_min, "pantry_min_slack")
-                model.Add(pantry_match_total + pantry_min_slack >= pantry_min)
-                pantry_min_penalty = pantry_min_slack * 3
-            priority = priority_overrides(profile.planningPriority)
-            weights = variety_weights(profile.varietyPreference)
-            weights.update(_default_weight_set() or {})
-            if weight_set:
-                weights.update(weight_set)
-            if "repeat_weight" in priority:
-                weights["repeat_weight"] = priority["repeat_weight"]
-            if "group_weight" in priority:
-                weights["group_weight"] = priority["group_weight"]
-            if "diversity_weight" in priority:
-                weights["diversity_weight"] = priority["diversity_weight"]
-            repeat_w = int(weights.get("repeat_weight", 5)) * int(priority.get("variety_mult", 1))
-            group_w = int(weights.get("group_weight", 2)) * int(priority.get("variety_mult", 1))
-            diversity_w = int(weights.get("diversity_weight", 1)) * int(priority.get("variety_mult", 1))
-            pantry_w = int(weights.get("pantry_weight", 1))
-            macro_mult = int(priority.get("macro_mult", 1))
-            budget_mult = int(priority.get("budget_mult", 1))
-            model.Minimize(
-                (macro_mult * total_err) + (macro_mult * total_meal_err) +
-                (macro_mult * 2 * total_dev_pro) + (macro_mult * total_dev_carb) + (macro_mult * total_dev_fat) +
-                (budget_mult * budget_penalty) + (repeat_w * total_repeat_over) + (group_w * total_group_over) +
-                diversity_penalty - (pantry_w * pantry_reward) - (diversity_w * diversity_reward)
-                + pantry_min_penalty
+    relaxation_order = _policy_get(
+        policy,
+        "planning.infeasibility_relaxation_order",
+        ["daily_tolerance_percent", "recipe_repeat_limits"],
+    )
+    if not isinstance(relaxation_order, list):
+        relaxation_order = ["daily_tolerance_percent", "recipe_repeat_limits"]
+    outer_key = (str(relaxation_order[0]).strip().lower() if relaxation_order else "daily_tolerance_percent")
+    if "recipe_repeat_limits" in outer_key:
+        tol_sequence: List[float] = [float(v) for v in tolerance_levels for _ in (0,)]
+        repeat_sequence: List[int] = [int(v) for v in max_per_week_list for _ in (0,)]
+        solve_pairs = [(tol, max_repeat) for max_repeat in repeat_sequence for tol in tol_sequence]
+    else:
+        solve_pairs = [(tol, max_repeat) for tol in tolerance_levels for max_repeat in max_per_week_list]
+
+    for tol, max_per_week in solve_pairs:
+        protein_bounds = (
+            max(protein_min, int(target_protein * (1 - tol))),
+            min(protein_max, int(target_protein * (1 + tol))),
+        )
+        carbs_bounds = (
+            max(carb_min, int(target_carbs * (1 - tol))),
+            min(carb_max, int(target_carbs * (1 + tol))),
+        )
+        fats_bounds = (
+            max(fat_min, int(target_fats * (1 - tol))),
+            min(fat_max, int(target_fats * (1 + tol))),
+        )
+        if telemetry_out is not None and "stage1_candidates" not in telemetry_out:
+            telemetry_out["stage1_candidates"] = _build_stage1_feature_rows(
+                pool,
+                profile,
+                target_calories=target,
+                target_protein=target_protein,
+                target_carbs=target_carbs,
+                target_fats=target_fats,
+                budget_weekly=budget_weekly,
+                meals_per_day=configured_meals_per_day,
             )
-            solver = cp_model.CpSolver()
-            base_time = _env_float_min("PCOSINA_SOLVER_TIME_SECONDS", 6.0)
-            max_time = _env_float_min("PCOSINA_SOLVER_MAX_SECONDS", 12.0)
-            size_factor = max(0.0, (len(pool) - 60) / 40.0)
-            restriction_factor = min(4.0, len(profile.dietaryRestrictions or []) / 2.0)
-            adaptive_time = min(max_time, base_time + size_factor + restriction_factor)
-            solver.parameters.max_time_in_seconds = adaptive_time
-            cpu_count = os.cpu_count() or 1
-            solver.parameters.num_search_workers = _env_int("PCOSINA_SOLVER_WORKERS", min(4, cpu_count))
+        if (time.time() - started_at) >= total_time_limit:
+            break
+        model = cp_model.CpModel()
+        x = {}
+        for s in range(slot_count):
+            for i in range(len(pool)):
+                x[s, i] = model.NewBoolVar(f"x_{s}_{i}")
+        y = {}
+        for i in range(len(pool)):
+            y[i] = model.NewBoolVar(f"y_{i}")
+            for s in range(slot_count):
+                model.Add(x[s, i] <= y[i])
+        for s in range(slot_count):
+            meal_label = slot_labels[s % configured_meals_per_day]
+            allowed = meal_to_allowed.get(meal_label, set(range(len(pool))))
+            model.Add(sum(x[s, i] for i in allowed) == 1)
+            # Force non-allowed meal-type assignments to zero. Without this,
+            # disallowed binaries remain free and bloat CP-SAT search.
+            for i in range(len(pool)):
+                if i not in allowed:
+                    model.Add(x[s, i] == 0)
+        # Greedy warm-start (hint)
+        prev_idx = None
+        for s in range(slot_count):
+            meal_label = slot_labels[s % configured_meals_per_day]
+            allowed = list(meal_to_allowed.get(meal_label, set(range(len(pool)))))
+            allowed.sort(key=lambda i: base_scores[i], reverse=True)
+            pick = None
+            for idx in allowed:
+                if idx != prev_idx:
+                    pick = idx
+                    break
+            if pick is not None:
+                model.AddHint(x[s, pick], 1)
+                prev_idx = pick
+        for s in range(slot_count - 1):
+            for i in range(len(pool)):
+                model.Add(x[s, i] + x[s + 1, i] <= 1)
+        for i in range(len(pool)):
+            model.Add(sum(x[s, i] for s in range(slot_count)) <= max_per_week)
+
+        repeat_over_vars = []
+        for i in range(len(pool)):
+            used_count = sum(x[s, i] for s in range(slot_count))
+            repeat_over = model.NewIntVar(0, slot_count, f"repeat_over_{i}")
+            model.Add(used_count - 1 <= repeat_over)
+            model.Add(repeat_over >= 0)
+            repeat_over_vars.append(repeat_over)
+
+        # Protein group diversity (soft)
+        group_over_vars = []
+        group_floor = int(_policy_get(policy, "planning.group_limit_floor", 2))
+        group_limit = max(group_floor, num_days)
+        groups = {}
+        for i in range(len(pool)):
+            g = pool[i].get("_protein_group", "other")
+            groups.setdefault(g, []).append(i)
+        for g, idxs in groups.items():
+            count = sum(x[s, i] for s in range(slot_count) for i in idxs)
+            over = model.NewIntVar(0, slot_count, f"group_over_{g}")
+            model.Add(count - group_limit <= over)
+            model.Add(over >= 0)
+            group_over_vars.append(over)
+
+        # Ingredient diversity (soft) based on vegetable tokens
+        veg_tokens = set()
+        for r in pool:
+            for t in r.get("_veg_tokens", []):
+                veg_tokens.add(t)
+        veg_cov = {}
+        for t in veg_tokens:
+            veg_cov[t] = model.NewBoolVar(f"veg_{t}")
+        for t in veg_tokens:
+            related_idxs = [i for i, r in enumerate(pool) if t in r.get("_veg_tokens", [])]
+            if related_idxs:
+                model.AddMaxEquality(veg_cov[t], [x[s, i] for s in range(slot_count) for i in related_idxs])
+        diversity_min_target = int(_policy_get(policy, "planning.diversity_min_token_target", 5))
+        min_diversity = min(diversity_min_target, len(veg_tokens)) if veg_tokens else 0
+        diversity_slack = None
+        if min_diversity > 0:
+            diversity_slack = model.NewIntVar(0, min_diversity, "diversity_slack")
+            model.Add(sum(veg_cov.values()) + diversity_slack >= min_diversity)
+
+        pantry_bonus_vars = []
+        pantry_match_total = None
+        pantry = set(normalize_pantry(profile.pantryItems or []))
+        if pantry:
+            for i in range(len(pool)):
+                match_count = len(set(pool[i].get("_ing_tokens", [])) & pantry)
+                if match_count > 0:
+                    pantry_bonus_vars.append(match_count * sum(x[s, i] for s in range(slot_count)))
+            if pantry_bonus_vars:
+                pantry_match_total = sum(pantry_bonus_vars)
+
+        if budget_weekly:
+            total_cost = sum(x[s, i] * int(pool[i].get("_cost_est", 0)) for s in range(slot_count) for i in range(len(pool)))
+            budget_over = model.NewIntVar(0, 1000000, "budget_over")
+            model.Add(total_cost - int(budget_weekly) <= budget_over)
+            model.Add(budget_over >= 0)
+        else:
+            budget_over = None
+
+        err_vars = []
+        dev_pro_vars = []
+        dev_carb_vars = []
+        dev_fat_vars = []
+        fiber_slack_vars = []
+        sodium_over_vars = []
+        sugar_over_vars = []
+        meal_err_vars = []
+        fiber_min_target = int(_policy_get_legacy_aware(policy, ["nutrition.fiber_min", "fiber_min"], 20))
+        sodium_max_target = int(_policy_get_legacy_aware(policy, ["nutrition.sodium_max", "sodium_max"], 2300))
+        sugar_max_target = int(_policy_get_legacy_aware(policy, ["nutrition.sugar_max", "sugar_max"], 50))
+        meal_distribution = _policy_get(policy, "nutrition.meal_distribution_targets", None)
+        if not isinstance(meal_distribution, list) or len(meal_distribution) < configured_meals_per_day:
+            meal_distribution = [1.0 / configured_meals_per_day for _ in range(configured_meals_per_day)]
+        meal_min_target = int(_policy_get(policy, "planning.meal_min_calorie_target", 180))
+
+        for d in range(num_days):
+            day_slots = range(d * configured_meals_per_day, d * configured_meals_per_day + configured_meals_per_day)
+            day_cals = sum(x[s, i] * int(pool[i].get("calories", 0)) for s in day_slots for i in range(len(pool)))
+            err = model.NewIntVar(0, 1500, f"err_{d}")
+            model.Add(err >= day_cals - daily_targets[d])
+            model.Add(err >= daily_targets[d] - day_cals)
+            err_vars.append(err)
+            day_pro = sum(x[s, i] * int(pool[i].get("proteinGrams", 0)) for s in day_slots for i in range(len(pool)))
+            day_carb = sum(x[s, i] * int(pool[i].get("carbsGrams", 0)) for s in day_slots for i in range(len(pool)))
+            day_fat = sum(x[s, i] * int(pool[i].get("fatsGrams", 0)) for s in day_slots for i in range(len(pool)))
+            day_fiber = sum(x[s, i] * int(pool[i].get("fiberGrams", 0)) for s in day_slots for i in range(len(pool)))
+            day_sodium = sum(x[s, i] * int(pool[i].get("sodiumMg", 0) or 0) for s in day_slots for i in range(len(pool)))
+            day_sugar = sum(x[s, i] * int(pool[i].get("sugarGrams", 0) or 0) for s in day_slots for i in range(len(pool)))
+            dev_pro = model.NewIntVar(0, 300, f"dev_pro_{d}")
+            dev_carb = model.NewIntVar(0, 300, f"dev_carb_{d}")
+            dev_fat = model.NewIntVar(0, 200, f"dev_fat_{d}")
+            fiber_slack = model.NewIntVar(0, 300, f"fiber_slack_{d}")
+            sodium_over = model.NewIntVar(0, 10000, f"sodium_over_{d}")
+            sugar_over = model.NewIntVar(0, 1000, f"sugar_over_{d}")
+            dev_pro_vars.append(dev_pro)
+            dev_carb_vars.append(dev_carb)
+            dev_fat_vars.append(dev_fat)
+            fiber_slack_vars.append(fiber_slack)
+            sodium_over_vars.append(sodium_over)
+            sugar_over_vars.append(sugar_over)
+            model.Add(day_pro - protein_bounds[1] <= dev_pro)
+            model.Add(protein_bounds[0] - day_pro <= dev_pro)
+            model.Add(day_carb - carbs_bounds[1] <= dev_carb)
+            model.Add(carbs_bounds[0] - day_carb <= dev_carb)
+            model.Add(day_fat - fats_bounds[1] <= dev_fat)
+            model.Add(fats_bounds[0] - day_fat <= dev_fat)
+            model.Add(fiber_min_target - day_fiber <= fiber_slack)
+            model.Add(day_sodium - sodium_max_target <= sodium_over)
+            model.Add(day_sugar - sugar_max_target <= sugar_over)
+
+            for m in range(configured_meals_per_day):
+                slot = d * configured_meals_per_day + m
+                target_meal = max(meal_min_target, int(daily_targets[d] * float(meal_distribution[m])))
+                meal_cals = sum(x[slot, i] * int(pool[i].get("calories", 0)) for i in range(len(pool)))
+                meal_err = model.NewIntVar(0, 1200, f"meal_err_{slot}")
+                model.Add(meal_err >= meal_cals - target_meal)
+                model.Add(meal_err >= target_meal - meal_cals)
+                meal_err_vars.append(meal_err)
+
+        total_err = sum(err_vars)
+        total_dev_pro = sum(dev_pro_vars)
+        total_dev_carb = sum(dev_carb_vars)
+        total_dev_fat = sum(dev_fat_vars)
+        total_fiber_slack = sum(fiber_slack_vars) if fiber_slack_vars else 0
+        total_sodium_over = sum(sodium_over_vars) if sodium_over_vars else 0
+        total_sugar_over = sum(sugar_over_vars) if sugar_over_vars else 0
+        total_meal_err = sum(meal_err_vars) if meal_err_vars else 0
+        total_repeat_over = sum(repeat_over_vars)
+        total_group_over = sum(group_over_vars) if group_over_vars else 0
+        budget_penalty = budget_over if budget_over is not None else 0
+        pantry_reward = sum(pantry_bonus_vars) if pantry_bonus_vars else 0
+        diversity_reward = sum(veg_cov.values()) if veg_cov else 0
+        diversity_penalty = (5 * diversity_slack) if diversity_slack is not None else 0
+        pantry_min_slack = None
+        pantry_min_penalty = 0
+        if pantry and pantry_match_total is not None:
+            pantry_min = min(4, len(pantry))
+            pantry_min_slack = model.NewIntVar(0, pantry_min, "pantry_min_slack")
+            model.Add(pantry_match_total + pantry_min_slack >= pantry_min)
+            pantry_min_penalty = pantry_min_slack * 3
+        priority = priority_overrides(profile.planningPriority)
+        weights = variety_weights(profile.varietyPreference)
+        policy_weights = _policy_get(policy, "milp_weights", None)
+        if isinstance(policy_weights, dict):
+            weights.update(policy_weights)
+        weights.update(_default_weight_set() or {})
+        if weight_set:
+            weights.update(weight_set)
+        if "repeat_weight" in priority:
+            weights["repeat_weight"] = priority["repeat_weight"]
+        if "group_weight" in priority:
+            weights["group_weight"] = priority["group_weight"]
+        if "diversity_weight" in priority:
+            weights["diversity_weight"] = priority["diversity_weight"]
+        repeat_w = int(_policy_get(policy, "planning.substitution_penalty", weights.get("repeat_weight", 5))) * int(priority.get("variety_mult", 1))
+        group_w = int(_policy_get(policy, "planning.cuisine_diversity_weight", weights.get("group_weight", 2))) * int(priority.get("variety_mult", 1))
+        diversity_w = int(_policy_get(policy, "planning.cuisine_diversity_weight", weights.get("diversity_weight", 1))) * int(priority.get("variety_mult", 1))
+        pantry_w = int(_policy_get(policy, "planning.pantry_utilization_weight", weights.get("pantry_weight", 1)))
+        prep_time_w = int(_policy_get(policy, "planning.prep_time_weight", 1))
+        cost_w = int(_policy_get(policy, "planning.grocery_cost_weight", 1))
+        acceptance_w = int(_policy_get(policy, "planning.acceptance_score_weight", 1))
+        macro_mult = int(priority.get("macro_mult", 1))
+        budget_mult = int(priority.get("budget_mult", 1))
+        prep_time_penalty = sum(x[s, i] * int(pool[i].get("minutes", 0)) for s in range(slot_count) for i in range(len(pool)))
+        model.Minimize(
+            (macro_mult * total_err) + (macro_mult * total_meal_err) +
+            (macro_mult * 2 * total_dev_pro) + (macro_mult * total_dev_carb) + (macro_mult * total_dev_fat) +
+            (macro_mult * total_fiber_slack) + (macro_mult * total_sodium_over) + (macro_mult * total_sugar_over) +
+            (budget_mult * cost_w * budget_penalty) + (prep_time_w * prep_time_penalty) +
+            (repeat_w * total_repeat_over) + (group_w * total_group_over) + (acceptance_w * total_meal_err) +
+            diversity_penalty - (pantry_w * pantry_reward) - (diversity_w * diversity_reward)
+            + pantry_min_penalty
+        )
+
+        solver = cp_model.CpSolver()
+        base_time = float(
+            _policy_get_legacy_aware(
+                policy,
+                ["solver.solver_time_limit_seconds", "solver_time_seconds"],
+                _env_float_min("PCOSINA_SOLVER_TIME_SECONDS", 6.0),
+            )
+        )
+        max_time = float(
+            _policy_get_legacy_aware(
+                policy,
+                ["solver.solver_max_seconds", "solver_max_seconds"],
+                _env_float_min("PCOSINA_SOLVER_MAX_SECONDS", 12.0),
+            )
+        )
+        size_factor = max(0.0, (len(pool) - 60) / 40.0)
+        restriction_factor = min(4.0, len(profile.dietaryRestrictions or []) / 2.0)
+        adaptive_time = min(max_time, base_time + size_factor + restriction_factor)
+        solver.parameters.relative_gap_limit = float(
+            _policy_get_legacy_aware(policy, ["solver.optimality_gap_target", "optimality_gap_target"], 0.05)
+        )
+        cpu_count = os.cpu_count() or 1
+        workers_default = _env_int("PCOSINA_SOLVER_WORKERS", min(4, cpu_count))
+        solver.parameters.num_search_workers = int(
+            _policy_get_legacy_aware(policy, ["solver.solver_workers", "solver_workers"], workers_default)
+        )
+        memory_limit = int(_policy_get(policy, "solver.worker_memory_limit", 1024))
+        if hasattr(solver.parameters, "max_memory_in_mb"):
+            solver.parameters.max_memory_in_mb = memory_limit
+
+        status = cp_model.UNKNOWN
+        status_name = "UNKNOWN"
+        attempts_used = 0
+        for retry_idx in range(retry_attempts + 1):
+            attempts_used = retry_idx + 1
+            elapsed = time.time() - started_at
+            remaining = total_time_limit - elapsed
+            if remaining <= 0:
+                break
+            retry_scale = 1.0 + (0.15 * retry_idx)
+            attempt_time = min(adaptive_time * retry_scale, max_time, remaining)
+            solver.parameters.max_time_in_seconds = max(0.2, attempt_time)
             status = solver.Solve(model)
+            try:
+                status_name = solver.StatusName(status)
+            except Exception:
+                status_name = str(status)
+
             if debug_solver:
-                try:
-                    status_name = solver.StatusName(status)
-                except Exception:
-                    status_name = str(status)
-                debug_summary["attempts"].append({
-                    "tol": tol,
-                    "max_per_week": max_per_week,
-                    "status": status_name,
-                })
-            if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
-                res_plan = []
-                day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-                selected = []
-                for d in range(num_days):
-                    meals = []
-                    total = 0
-                    for m in range(3):
-                        idx = d * 3 + m
-                        for i in range(len(pool)):
-                            if solver.Value(x[idx, i]):
-                                r = pool[i]
-                                selected.append(r)
-                                meals.append(PlannedMeal(mealLabel=slot_labels[m], recipeId=r["id"], title=r["title"]))
-                                total += int(r.get("calories", 0))
-                                break
-                    res_plan.append(DayPlan(dayLabel=day_names[d] if d < 7 else f"Day {d + 1}", meals=meals, totalCalories=total))
-                explanation = _build_explanation(
-                    selected,
-                    num_days,
-                    daily_targets,
-                    target,
-                    target_protein,
-                    target_carbs,
-                    target_fats,
-                    tol,
-                    max_per_week,
-                    profile,
-                    budget_weekly,
+                diag_depth = int(
+                    _policy_get_legacy_aware(
+                        policy,
+                        ["solver.infeasibility_diagnostic_depth", "infeasibility_diagnostic_depth"],
+                        30,
+                    )
                 )
-                return res_plan, "Success", explanation
+                debug_summary["attempts"].append(
+                    {
+                        "tol": tol,
+                        "max_per_week": max_per_week,
+                        "retry": retry_idx,
+                        "attempt_time": round(float(attempt_time), 3),
+                        "status": status_name,
+                    }
+                )
+                if len(debug_summary["attempts"]) > max(1, diag_depth):
+                    debug_summary["attempts"] = debug_summary["attempts"][-diag_depth:]
+
+            if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                break
+
+        if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
+            res_plan = []
+            day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            selected = []
+            for d in range(num_days):
+                meals = []
+                total = 0
+                for m in range(configured_meals_per_day):
+                    idx = d * configured_meals_per_day + m
+                    for i in range(len(pool)):
+                        if solver.Value(x[idx, i]):
+                            r = pool[i]
+                            selected.append(r)
+                            meals.append(PlannedMeal(mealLabel=slot_labels[m], recipeId=r["id"], title=r["title"]))
+                            total += int(r.get("calories", 0))
+                            break
+                res_plan.append(DayPlan(dayLabel=day_names[d] if d < 7 else f"Day {d + 1}", meals=meals, totalCalories=total))
+            explanation = _build_explanation(
+                selected,
+                num_days,
+                configured_meals_per_day,
+                daily_targets,
+                target,
+                target_protein,
+                target_carbs,
+                target_fats,
+                tol,
+                max_per_week,
+                profile,
+                budget_weekly,
+                candidate_pool_size=len(pool),
+            )
+            explanation["solverStatus"] = status_name
+            explanation["retryAttemptsUsed"] = attempts_used
+            if telemetry_out is not None:
+                telemetry_out["selected_recipe_ids"] = [str(r.get("id") or "") for r in selected]
+                telemetry_out["status"] = "success"
+            return res_plan, "Success", explanation
         if (time.time() - started_at) >= total_time_limit:
             break
     if debug_solver:
         print("MILP_DEBUG", json.dumps(debug_summary))
         msg = json.dumps(debug_summary)[:1500]
+        if telemetry_out is not None:
+            telemetry_out["selected_recipe_ids"] = []
+            telemetry_out["status"] = "no-safe-plan"
         return None, f"Infeasible | debug={msg}", None
+    if telemetry_out is not None:
+        telemetry_out["selected_recipe_ids"] = []
+        telemetry_out["status"] = "no-safe-plan"
     return None, "Infeasible", None

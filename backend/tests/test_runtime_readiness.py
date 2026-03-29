@@ -1,0 +1,87 @@
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from fastapi.testclient import TestClient
+
+import main
+
+
+def test_runtime_readiness_reports_production_errors(monkeypatch):
+    monkeypatch.setattr(main, "IS_PRODUCTION", True)
+    monkeypatch.setattr(main, "ENVIRONMENT", "production")
+    monkeypatch.setattr(main, "ASYNC_MODE", "queued")
+    monkeypatch.setattr(main, "sentry_dsn", "")
+    monkeypatch.setenv("PCOSINA_ADMIN_SESSION_SECRET", "")
+    monkeypatch.setenv("FIREBASE_AUTH_DISABLED", "true")
+    monkeypatch.setenv("DATABASE_URL", "")
+    monkeypatch.setenv("PCOSINA_ALLOWED_HOSTS", "*")
+    monkeypatch.setenv("PCOSINA_REQUIRE_VERIFIED_OPERATOR_EMAIL", "false")
+    monkeypatch.setenv("PCOSINA_REQUIRE_OPERATOR_MFA", "false")
+    monkeypatch.setenv("PCOSINA_REQUIRE_RECENT_ADMIN_AUTH", "false")
+    monkeypatch.setenv("PCOSINA_ADMIN_SESSION_IDLE_TIMEOUT_SECONDS", "0")
+    monkeypatch.setenv("PCOSINA_ADMIN_MAX_ACTIVE_SESSIONS_PER_UID", "0")
+    monkeypatch.setenv("FIREBASE_SERVICE_ACCOUNT_JSON", "")
+    monkeypatch.setenv("FIREBASE_CREDENTIALS_PATH", "missing-service-account.json")
+    monkeypatch.setattr(main, "QUEUE_BROKER", type("MemoryBroker", (), {"backend": "memory", "health": lambda self: {"backend": "memory"}})())
+
+    report = main._runtime_readiness_report()
+
+    assert report["ok"] is False
+    assert any("PCOSINA_ADMIN_SESSION_SECRET" in item for item in report["errors"])
+    assert any("PCOSINA_REQUIRE_VERIFIED_OPERATOR_EMAIL" in item for item in report["errors"])
+    assert any("PCOSINA_REQUIRE_OPERATOR_MFA" in item for item in report["errors"])
+    assert any("PCOSINA_REQUIRE_RECENT_ADMIN_AUTH" in item for item in report["errors"])
+    assert any("PCOSINA_ADMIN_SESSION_IDLE_TIMEOUT_SECONDS" in item for item in report["errors"])
+    assert any("PCOSINA_ADMIN_MAX_ACTIVE_SESSIONS_PER_UID" in item for item in report["errors"])
+    assert any("FIREBASE_AUTH_DISABLED" in item for item in report["errors"])
+    assert any("Postgres DATABASE_URL" in item for item in report["errors"])
+    assert any("wildcard" in item for item in report["errors"])
+    assert any("memory is not allowed" in item for item in report["errors"])
+    assert any("SENTRY_DSN" in item for item in report["warnings"])
+
+
+def test_health_ready_returns_503_when_not_ready():
+    main.app.dependency_overrides = {}
+    original = main._runtime_readiness_report
+    original_validate = main._validate_runtime_readiness
+    original_rate_limit_allowed = main._rate_limit_allowed
+    try:
+        main._runtime_readiness_report = lambda **kwargs: {
+            "environment": "production",
+            "asyncMode": "queued",
+            "queueBackend": "memory",
+            "errors": ["misconfigured"],
+            "warnings": [],
+            "ok": False,
+        }
+        main._validate_runtime_readiness = lambda **kwargs: None
+        main._rate_limit_allowed = lambda ip, now=None: True
+        with TestClient(main.app) as client:
+            response = client.get("/health/ready")
+        assert response.status_code == 503
+        assert response.json()["errors"] == ["misconfigured"]
+    finally:
+        main._runtime_readiness_report = original
+        main._validate_runtime_readiness = original_validate
+        main._rate_limit_allowed = original_rate_limit_allowed
+
+
+def test_runtime_readiness_includes_schema_status_and_flags_pending(monkeypatch):
+    monkeypatch.setattr(main, "IS_PRODUCTION", False)
+    monkeypatch.setattr(main, "ENVIRONMENT", "development")
+    monkeypatch.setattr(main, "_schema_readiness_report", lambda: {
+        "ok": False,
+        "application": {"pending": ["20260319_app_999_test"]},
+        "policy": {"pending": []},
+        "pending": ["20260319_app_999_test"],
+    })
+
+    report = main._runtime_readiness_report(include_schema=True)
+
+    assert report["ok"] is False
+    assert report["schemaMigrations"]["pending"] == ["20260319_app_999_test"]
+    assert any("Pending schema migrations detected" in item for item in report["errors"])

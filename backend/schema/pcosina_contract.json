@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.2.0",
+  "schemaVersion": "1.4.0",
   "title": "PCOSINA API Contract",
   "description": "Shared request/response contract for PCOSINA backend and mobile client.",
   "type": "object",
@@ -24,7 +24,29 @@
         },
         "status": { "type": "string" },
         "message": { "type": "string" },
-        "explanation": { "$ref": "#/definitions/PlanExplanation" }
+        "explanation": { "$ref": "#/definitions/PlanExplanation" },
+        "requestId": { "type": ["string", "null"] },
+        "planId": { "type": ["string", "null"] },
+        "groceryOutput": { "type": ["object", "null"] },
+        "pantryUsageSummary": { "type": ["object", "null"] },
+        "nutritionSummary": { "type": ["object", "null"] },
+        "solverMetadata": { "type": ["object", "null"] },
+        "policyVersion": { "type": ["string", "null"] },
+        "diagnosticsSummary": { "type": ["object", "null"] },
+        "machineReasonCodes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "humanGuidance": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "suggestedRelaxations": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "diagnosticsReference": { "type": ["string", "null"] },
+        "timestamps": { "type": ["object", "null"] }
       },
       "required": ["weekLabel", "days", "status", "message"],
       "additionalProperties": false
@@ -35,6 +57,16 @@
         "message": { "type": "string", "minLength": 1 }
       },
       "required": ["message"],
+      "additionalProperties": false
+    },
+    "MLClientEventRequest": {
+      "type": "object",
+      "properties": {
+        "eventName": { "type": "string", "minLength": 1 },
+        "requestId": { "type": ["string", "null"] },
+        "payload": { "type": "object" }
+      },
+      "required": ["eventName"],
       "additionalProperties": false
     },
     "HealthResponse": {

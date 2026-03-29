@@ -1,4 +1,6 @@
 import re
+import os
+import time
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Tuple
 
@@ -124,6 +126,8 @@ def _category_averages() -> Dict[str, int]:
 
 
 _CATEGORY_AVG = _category_averages()
+_OVERRIDE_CACHE_TTL_SECONDS = int(os.getenv("PCOSINA_PRICE_RULE_CACHE_TTL_SECONDS", "30"))
+_override_cache: Dict[str, object] = {"loaded_at": 0.0, "rules": None}
 
 
 def infer_category(name: str) -> str:
@@ -274,10 +278,51 @@ def _clamp_factor(value: float, category: str) -> float:
 
 def _rule_for_name(name: str) -> Optional[PriceRule]:
     lower = (name or "").lower()
-    for rule in _RULES:
+    for rule in _active_rules():
         if any(keyword in lower for keyword in rule.keywords):
             return rule
     return None
+
+
+def invalidate_override_cache() -> None:
+    _override_cache["loaded_at"] = 0.0
+    _override_cache["rules"] = None
+
+
+def _load_override_rules() -> List[PriceRule]:
+    current = float(time.time())
+    cached_rules = _override_cache.get("rules")
+    loaded_at = float(_override_cache.get("loaded_at") or 0.0)
+    if isinstance(cached_rules, list) and (current - loaded_at) < _OVERRIDE_CACHE_TTL_SECONDS:
+        return cached_rules
+    rules: List[PriceRule] = []
+    try:
+        import database  # noqa: WPS433
+
+        for item in database.list_active_price_rules(limit=500):
+            keywords = [str(keyword).strip().lower() for keyword in (item.get("keywords") or []) if str(keyword).strip()]
+            if not keywords:
+                continue
+            rules.append(
+                PriceRule(
+                    keywords=keywords,
+                    price_php=max(1, int(item.get("pricePhp") or 0)),
+                    category=str(item.get("category") or "Others"),
+                    unit=(str(item.get("unit") or "").strip() or None),
+                )
+            )
+    except Exception:
+        rules = []
+    _override_cache["loaded_at"] = current
+    _override_cache["rules"] = rules
+    return rules
+
+
+def _active_rules() -> List[PriceRule]:
+    overrides = _load_override_rules()
+    if not overrides:
+        return _RULES
+    return overrides + _RULES
 
 
 def estimate_price_detail(name: str, quantity_text: str = "") -> Tuple[int, str]:

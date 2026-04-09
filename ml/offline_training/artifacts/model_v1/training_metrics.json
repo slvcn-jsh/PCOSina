@@ -1,0 +1,388 @@
+{
+  "model_name": "lightgbm_stage1_ranker_v1",
+  "seed": 2026,
+  "trained_at_ms": 1775706968751,
+  "git_commit": "d34d281ede2718e545340a7ec89074e314efe47f",
+  "feature_columns": [
+    "model_score",
+    "heuristic_score",
+    "allergy_count",
+    "budget_weekly_norm",
+    "calorie_distance_score",
+    "is_breakfast_candidate",
+    "is_dinner_candidate",
+    "is_lunch_candidate",
+    "macro_distance_score",
+    "max_cooking_time_minutes",
+    "meals_per_day",
+    "pantry_overlap_count",
+    "profile_activity_lightly_active",
+    "profile_goal_general_health",
+    "profile_goal_weightloss",
+    "reason_events_total",
+    "recipe_calories",
+    "recipe_carbs",
+    "recipe_cost_est",
+    "recipe_fats",
+    "recipe_fiber",
+    "recipe_minutes",
+    "recipe_protein",
+    "replace_reason_events_total",
+    "replace_reason_tag_hist_cost_too_high",
+    "replace_reason_tag_hist_forgot_or_missed",
+    "replace_reason_tag_hist_ingredient_unavailable",
+    "replace_reason_tag_hist_not_hungry",
+    "replace_reason_tag_hist_prep_time_too_long",
+    "replace_reason_tag_hist_repeat_fatigue",
+    "replace_reason_tag_hist_restriction_conflict",
+    "replace_reason_tag_hist_schedule_conflict",
+    "replace_reason_tag_hist_skipped_by_user",
+    "replace_reason_tag_hist_user_preference",
+    "restriction_count",
+    "skip_reason_events_total",
+    "skip_reason_tag_hist_cost_too_high",
+    "skip_reason_tag_hist_forgot_or_missed",
+    "skip_reason_tag_hist_ingredient_unavailable",
+    "skip_reason_tag_hist_not_hungry",
+    "skip_reason_tag_hist_prep_time_too_long",
+    "skip_reason_tag_hist_repeat_fatigue",
+    "skip_reason_tag_hist_restriction_conflict",
+    "skip_reason_tag_hist_schedule_conflict",
+    "skip_reason_tag_hist_skipped_by_user",
+    "skip_reason_tag_hist_user_preference"
+  ],
+  "feature_count": 46,
+  "dataset_manifest": {
+    "datasetVersion": "ml-dataset-v1-1775706936",
+    "seed": 2026,
+    "sourceDbPath": "pcosina.db",
+    "generatedAtMs": 1775706936522,
+    "quality": {
+      "rows": 74112,
+      "positives": 4671,
+      "negatives": 69441,
+      "positive_rate": 0.06302623056994819,
+      "unique_requests": 360,
+      "unique_users": 60
+    },
+    "splitRows": {
+      "train": 61178,
+      "val": 6697,
+      "test": 6237
+    },
+    "featureColumns": [
+      "allergy_count",
+      "budget_weekly_norm",
+      "calorie_distance_score",
+      "is_breakfast_candidate",
+      "is_dinner_candidate",
+      "is_lunch_candidate",
+      "macro_distance_score",
+      "max_cooking_time_minutes",
+      "meals_per_day",
+      "pantry_overlap_count",
+      "profile_activity_lightly_active",
+      "profile_goal_general_health",
+      "profile_goal_weightloss",
+      "reason_events_total",
+      "recipe_calories",
+      "recipe_carbs",
+      "recipe_cost_est",
+      "recipe_fats",
+      "recipe_fiber",
+      "recipe_minutes",
+      "recipe_protein",
+      "replace_reason_events_total",
+      "replace_reason_tag_hist_cost_too_high",
+      "replace_reason_tag_hist_forgot_or_missed",
+      "replace_reason_tag_hist_ingredient_unavailable",
+      "replace_reason_tag_hist_not_hungry",
+      "replace_reason_tag_hist_prep_time_too_long",
+      "replace_reason_tag_hist_repeat_fatigue",
+      "replace_reason_tag_hist_restriction_conflict",
+      "replace_reason_tag_hist_schedule_conflict",
+      "replace_reason_tag_hist_skipped_by_user",
+      "replace_reason_tag_hist_user_preference",
+      "restriction_count",
+      "skip_reason_events_total",
+      "skip_reason_tag_hist_cost_too_high",
+      "skip_reason_tag_hist_forgot_or_missed",
+      "skip_reason_tag_hist_ingredient_unavailable",
+      "skip_reason_tag_hist_not_hungry",
+      "skip_reason_tag_hist_prep_time_too_long",
+      "skip_reason_tag_hist_repeat_fatigue",
+      "skip_reason_tag_hist_restriction_conflict",
+      "skip_reason_tag_hist_schedule_conflict",
+      "skip_reason_tag_hist_skipped_by_user",
+      "skip_reason_tag_hist_user_preference"
+    ],
+    "leakagePrevention": {
+      "strategy": "hash(request_id) modulo 10 split",
+      "unit": "request_id",
+      "fallbackUsed": false
+    },
+    "sourceTelemetryWindow": {
+      "rowCount": 74112,
+      "minGeneratedAtMs": 1774770332714,
+      "maxGeneratedAtMs": 1774770948504
+    },
+    "reasonFeedbackWindow": {
+      "rowCount": 480,
+      "minEventTimeMs": 1773135514625,
+      "maxEventTimeMs": 1773135555643,
+      "uniqueUsers": 5
+    },
+    "files": {
+      "dataset_full": "dataset_full.csv",
+      "train": "train.csv",
+      "val": "val.csv",
+      "test": "test.csv"
+    }
+  },
+  "splits": {
+    "train_rows": 61178,
+    "val_rows": 6697,
+    "test_rows": 6237
+  },
+  "val_binary_metrics": {
+    "auc": 0.9267379066787926,
+    "logloss": 0.1373699145703749
+  },
+  "test_binary_metrics": {
+    "auc": 0.946574234859132,
+    "logloss": 0.11149488876750216
+  },
+  "val_ranking_metrics": {
+    "ndcg@5": 0.9846105371070145,
+    "ndcg@10": 0.9159671061800264,
+    "map@5": 0.3748899523899524,
+    "map@10": 0.6668825243825244
+  },
+  "test_ranking_metrics": {
+    "ndcg@5": 0.9948612090110058,
+    "ndcg@10": 0.9357948632554884,
+    "map@5": 0.3800068618250437,
+    "map@10": 0.6862549926023952
+  },
+  "baseline_column": "heuristic_score",
+  "val_baseline_ranking_metrics": {
+    "ndcg@5": 0.9733368348007679,
+    "ndcg@10": 0.8790373266843079,
+    "map@5": 0.3674453924453924,
+    "map@10": 0.6186365023865025
+  },
+  "test_baseline_ranking_metrics": {
+    "ndcg@5": 0.9731800430448492,
+    "ndcg@10": 0.8983604602349381,
+    "map@5": 0.36622619804437984,
+    "map@10": 0.6383294054830851
+  },
+  "artifact_files": {
+    "model": "lightgbm_v1_model.txt",
+    "feature_importance_csv": "feature_importance.csv",
+    "cohort_metrics_csv": "cohort_metrics.csv",
+    "request_confusion_csv": "request_confusion.csv",
+    "cohort_regression_request_confusion_csv": "cohort_regression_request_confusion.csv"
+  },
+  "cohort_definitions": {
+    "cold_start": {
+      "description": "Requests with zero recorded reason-feedback events in the dataset snapshot.",
+      "filters": {
+        "reason_events_total_max": 0
+      }
+    },
+    "sparse_pantry": {
+      "description": "Requests whose average pantry overlap per candidate is less than or equal to 1.0.",
+      "filters": {
+        "pantry_overlap_mean_lte": 1.0
+      }
+    },
+    "budget_constrained": {
+      "description": "Requests whose normalized weekly budget falls in the lowest third of the dataset snapshot.",
+      "filters": {
+        "budget_weekly_norm_lte": 0.1571428571428571,
+        "threshold_source": "global_request_quantile_0.33"
+      }
+    }
+  },
+  "val_cohort_metrics": {
+    "cold_start": {
+      "request_count": 34,
+      "row_count": 5779,
+      "positive_rows": 444,
+      "negative_rows": 5335,
+      "positive_rate": 0.07682990136701852,
+      "binary_metrics": {
+        "auc": 0.9320512171027635,
+        "logloss": 0.13802350993649193
+      },
+      "ranking_metrics": {
+        "ndcg@5": 0.9832526433223393,
+        "ndcg@10": 0.9105010927092754,
+        "map@5": 0.37521018197488787,
+        "map@10": 0.6622305676349793
+      },
+      "baseline_ranking_metrics": {
+        "ndcg@5": 0.9748431754453163,
+        "ndcg@10": 0.8767303070162097,
+        "map@5": 0.3695597294862001,
+        "map@10": 0.6183837839720193
+      },
+      "uplift_vs_baseline": {
+        "ndcg@5": 0.008409467877023014,
+        "ndcg@10": 0.033770785693065686,
+        "map@5": 0.005650452488687785,
+        "map@10": 0.04384678366296002
+      }
+    },
+    "sparse_pantry": {
+      "request_count": 11,
+      "row_count": 2169,
+      "positive_rows": 140,
+      "negative_rows": 2029,
+      "positive_rate": 0.06454587367450439,
+      "binary_metrics": {
+        "auc": 0.945078504541294,
+        "logloss": 0.10709512593555787
+      },
+      "ranking_metrics": {
+        "ndcg@5": 0.9867210591052086,
+        "ndcg@10": 0.9110657301787396,
+        "map@5": 0.38830896376350926,
+        "map@10": 0.6797681106772017
+      },
+      "baseline_ranking_metrics": {
+        "ndcg@5": 0.9845836270330175,
+        "ndcg@10": 0.8834963448388785,
+        "map@5": 0.384596842551388,
+        "map@10": 0.6415601570147025
+      },
+      "uplift_vs_baseline": {
+        "ndcg@5": 0.002137432072191081,
+        "ndcg@10": 0.027569385339861086,
+        "map@5": 0.0037121212121212777,
+        "map@10": 0.03820795366249918
+      }
+    },
+    "budget_constrained": {
+      "request_count": 10,
+      "row_count": 1917,
+      "positive_rows": 127,
+      "negative_rows": 1790,
+      "positive_rate": 0.06624934793948878,
+      "binary_metrics": {
+        "auc": 0.9698016099942814,
+        "logloss": 0.09613655334086042
+      },
+      "ranking_metrics": {
+        "ndcg@5": 0.9707863300314588,
+        "ndcg@10": 0.9269791746903036,
+        "map@5": 0.37653846153846154,
+        "map@10": 0.6950663225663225
+      },
+      "baseline_ranking_metrics": {
+        "ndcg@5": 0.9853931650157295,
+        "ndcg@10": 0.9218395830300817,
+        "map@5": 0.38576923076923075,
+        "map@10": 0.6861408776408776
+      },
+      "uplift_vs_baseline": {
+        "ndcg@5": -0.014606834984270733,
+        "ndcg@10": 0.005139591660221821,
+        "map@5": -0.009230769230769209,
+        "map@10": 0.008925444925444892
+      }
+    }
+  },
+  "test_cohort_metrics": {
+    "cold_start": {
+      "request_count": 30,
+      "row_count": 5404,
+      "positive_rows": 393,
+      "negative_rows": 5011,
+      "positive_rate": 0.0727239082161362,
+      "binary_metrics": {
+        "auc": 0.9491909148473867,
+        "logloss": 0.11425664641430305
+      },
+      "ranking_metrics": {
+        "ndcg@5": 0.9943473299121064,
+        "ndcg@10": 0.9388681562881628,
+        "map@5": 0.3803091353091353,
+        "map@10": 0.6915499929964216
+      },
+      "baseline_ranking_metrics": {
+        "ndcg@5": 0.9704980473493342,
+        "ndcg@10": 0.8949711373835219,
+        "map@5": 0.3651504051504052,
+        "map@10": 0.63470864232769
+      },
+      "uplift_vs_baseline": {
+        "ndcg@5": 0.02384928256277219,
+        "ndcg@10": 0.04389701890464093,
+        "map@5": 0.015158730158730094,
+        "map@10": 0.05684135066873164
+      }
+    },
+    "sparse_pantry": {
+      "request_count": 10,
+      "row_count": 1665,
+      "positive_rows": 129,
+      "negative_rows": 1536,
+      "positive_rate": 0.07747747747747748,
+      "binary_metrics": {
+        "auc": 0.9450828690245479,
+        "logloss": 0.12448504908248957
+      },
+      "ranking_metrics": {
+        "ndcg@5": 1.0,
+        "ndcg@10": 0.9320526416946897,
+        "map@5": 0.39105894105894107,
+        "map@10": 0.6958701133522562
+      },
+      "baseline_ranking_metrics": {
+        "ndcg@5": 0.9576658222802246,
+        "ndcg@10": 0.9053474352700928,
+        "map@5": 0.36415417915417914,
+        "map@10": 0.6588625329696758
+      },
+      "uplift_vs_baseline": {
+        "ndcg@5": 0.042334177719775434,
+        "ndcg@10": 0.02670520642459695,
+        "map@5": 0.02690476190476193,
+        "map@10": 0.03700758038258045
+      }
+    },
+    "budget_constrained": {
+      "request_count": 19,
+      "row_count": 4234,
+      "positive_rows": 246,
+      "negative_rows": 3988,
+      "positive_rate": 0.05810108644307983,
+      "binary_metrics": {
+        "auc": 0.9645149880535917,
+        "logloss": 0.08686578371152225
+      },
+      "ranking_metrics": {
+        "ndcg@5": 1.0,
+        "ndcg@10": 0.941802696949752,
+        "map@5": 0.38848870427817794,
+        "map@10": 0.7023604656969319
+      },
+      "baseline_ranking_metrics": {
+        "ndcg@5": 0.9611057773854068,
+        "ndcg@10": 0.9036013337216776,
+        "map@5": 0.36319470003680526,
+        "map@10": 0.6503033794387177
+      },
+      "uplift_vs_baseline": {
+        "ndcg@5": 0.03889422261459319,
+        "ndcg@10": 0.038201363228074436,
+        "map@5": 0.02529400424137268,
+        "map@10": 0.05205708625821415
+      }
+    }
+  },
+  "val_regressed_cohorts": [],
+  "test_regressed_cohorts": []
+}

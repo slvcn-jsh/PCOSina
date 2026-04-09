@@ -3,12 +3,15 @@ package com.pcosina.app.data.repository
 import com.pcosina.app.BuildConfig
 import com.pcosina.app.data.api.GeneratePlanRequest
 import com.pcosina.app.data.api.GeneratePlanResponse
+import com.pcosina.app.data.api.MlClientEventRequestDto
 import com.pcosina.app.data.api.PcosinaApiService
 import com.pcosina.app.data.api.RecipeDetailDto
 import com.pcosina.app.data.api.RecipeSummaryDto
 import com.pcosina.app.data.model.UserProfile
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.appcheck.FirebaseAppCheck
+import kotlinx.coroutines.delay
 import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -16,6 +19,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.HttpException
 import org.json.JSONObject
+import java.io.IOException
 import java.net.InetAddress
 import java.net.URI
 import java.net.UnknownHostException
@@ -24,6 +28,8 @@ import java.util.concurrent.TimeUnit
 class MealPlanRepository {
 
     private val apiService: PcosinaApiService
+    private val plannerPollIntervalMs = 1_500L
+    private val plannerPollTimeoutMs = 240_000L
     private val recipeCache = object : LinkedHashMap<String, RecipeDetailDto>(64, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, RecipeDetailDto>?): Boolean {
             return size > 200
@@ -37,6 +43,7 @@ class MealPlanRepository {
 
     init {
         val firebaseAuth = FirebaseAuth.getInstance()
+        val firebaseAppCheck = FirebaseAppCheck.getInstance()
         val normalizedBaseUrl = normalizeBaseUrl(BuildConfig.BASE_URL)
         val backendHost = runCatching { URI(normalizedBaseUrl).host.orEmpty() }.getOrDefault("")
         val dns = ResilientBackendDns(
@@ -72,6 +79,20 @@ class MealPlanRepository {
                     } catch (_: Exception) {
                         // If token fetch fails, proceed without auth header.
                     }
+                }
+                try {
+                    val appCheckResult = Tasks.await(firebaseAppCheck.getAppCheckToken(false), 5, TimeUnit.SECONDS)
+                    val appCheckToken = appCheckResult.token
+                    if (!appCheckToken.isNullOrBlank()) {
+                        requestBuilder.addHeader("X-Firebase-AppCheck", appCheckToken)
+                    } else if (!BuildConfig.DEBUG) {
+                        throw IOException("Firebase App Check token is unavailable for release request.")
+                    }
+                } catch (e: Exception) {
+                    if (!BuildConfig.DEBUG) {
+                        throw IOException("Firebase App Check token acquisition failed.", e)
+                    }
+                    android.util.Log.w("MealPlanRepository", "App Check token unavailable in debug: ${e.message}")
                 }
 
                 val request = requestBuilder.build()
@@ -141,10 +162,80 @@ class MealPlanRepository {
     suspend fun generatePlan(profile: UserProfile): Result<GeneratePlanResponse> {
         return try {
             validateGeneratePlanProfile(profile)
-            val response = apiService.generatePlan(GeneratePlanRequest(profile))
+            val request = GeneratePlanRequest(profile)
+            val response = try {
+                val queued = apiService.generatePlanAsync(request)
+                awaitQueuedPlan(queued.jobId)
+            } catch (e: Exception) {
+                if (shouldFallbackToSyncPlanner(e)) {
+                    apiService.generatePlan(request)
+                } else {
+                    throw e
+                }
+            }
             Result.success(response)
         } catch (e: Exception) {
             Result.failure(mapGeneratePlanException(e))
+        }
+    }
+
+    private suspend fun awaitQueuedPlan(jobId: String): GeneratePlanResponse {
+        val normalizedJobId = jobId.trim()
+        require(normalizedJobId.isNotBlank()) { "Planner queue did not return a job ID." }
+
+        val startedAt = System.currentTimeMillis()
+        var lastStatus = "queued"
+        while (System.currentTimeMillis() - startedAt < plannerPollTimeoutMs) {
+            val job = apiService.getPlanJob(normalizedJobId)
+            lastStatus = job.status.trim().lowercase()
+            when (lastStatus) {
+                "done", "success" -> {
+                    return job.result
+                        ?: throw IllegalStateException("Planner job completed without a result payload.")
+                }
+                "error", "dead-letter", "failed" -> {
+                    throw IllegalStateException(
+                        job.error?.takeIf { it.isNotBlank() }
+                            ?: "Planner job failed before a result was returned."
+                    )
+                }
+            }
+            delay(plannerPollIntervalMs)
+        }
+
+        throw IllegalStateException(
+            "Plan generation is taking longer than expected (last status: $lastStatus). Please try again."
+        )
+    }
+
+    private fun shouldFallbackToSyncPlanner(error: Exception): Boolean {
+        if (error !is HttpException) return false
+        return when (error.code()) {
+            404, 405, 501 -> true
+            else -> false
+        }
+    }
+
+    suspend fun emitMlEvent(
+        eventName: String,
+        requestId: String? = null,
+        payload: Map<String, Any> = emptyMap()
+    ): Result<Unit> {
+        return try {
+            val normalizedName = eventName.trim()
+            if (normalizedName.isBlank()) {
+                return Result.failure(IllegalArgumentException("eventName cannot be blank"))
+            }
+            apiService.postMlEvent(
+                MlClientEventRequestDto(
+                    eventName = normalizedName,
+                    requestId = requestId?.trim()?.takeIf { it.isNotBlank() },
+                    payload = payload
+                )
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -215,6 +306,13 @@ class MealPlanRepository {
             )
             401 -> IllegalStateException(
                 if (detail.isNotBlank()) detail else "Session expired. Please sign in again."
+            )
+            503 -> IllegalStateException(
+                if (detail.isNotBlank()) {
+                    detail
+                } else {
+                    "Planner service is temporarily busy. Please retry in a moment."
+                }
             )
             else -> IllegalStateException(
                 if (detail.isNotBlank()) "HTTP ${error.code()}: $detail"

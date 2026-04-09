@@ -2192,23 +2192,38 @@ def update_plan_job(
 def get_plan_job(job_id: str, owner_uid: str | None = None):
     conn = _connect()
     try:
+        normalized_owner_uid = str(owner_uid or "").strip() or None
         if _use_postgres() and dict_row is not None:
             cur = conn.cursor(row_factory=dict_row)
         else:
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
         if _use_postgres():
-            cur.execute(
-                "SELECT id, status, created_at, updated_at, request_json, result_json, error, idempotency_key, worker_id, owner_uid, attempt_count, next_attempt_at "
-                "FROM plan_jobs WHERE id = %s AND (%s IS NULL OR owner_uid = %s)",
-                (job_id, owner_uid, owner_uid),
-            )
+            if normalized_owner_uid is None:
+                cur.execute(
+                    "SELECT id, status, created_at, updated_at, request_json, result_json, error, idempotency_key, worker_id, owner_uid, attempt_count, next_attempt_at "
+                    "FROM plan_jobs WHERE id = %s AND owner_uid IS NULL",
+                    (job_id,),
+                )
+            else:
+                cur.execute(
+                    "SELECT id, status, created_at, updated_at, request_json, result_json, error, idempotency_key, worker_id, owner_uid, attempt_count, next_attempt_at "
+                    "FROM plan_jobs WHERE id = %s AND owner_uid = %s",
+                    (job_id, normalized_owner_uid),
+                )
         else:
-            cur.execute(
-                "SELECT id, status, created_at, updated_at, request_json, result_json, error, idempotency_key, worker_id, owner_uid, attempt_count, next_attempt_at "
-                "FROM plan_jobs WHERE id = ? AND (? IS NULL OR owner_uid = ?)",
-                (job_id, owner_uid, owner_uid),
-            )
+            if normalized_owner_uid is None:
+                cur.execute(
+                    "SELECT id, status, created_at, updated_at, request_json, result_json, error, idempotency_key, worker_id, owner_uid, attempt_count, next_attempt_at "
+                    "FROM plan_jobs WHERE id = ? AND owner_uid IS NULL",
+                    (job_id,),
+                )
+            else:
+                cur.execute(
+                    "SELECT id, status, created_at, updated_at, request_json, result_json, error, idempotency_key, worker_id, owner_uid, attempt_count, next_attempt_at "
+                    "FROM plan_jobs WHERE id = ? AND owner_uid = ?",
+                    (job_id, normalized_owner_uid),
+                )
         row = cur.fetchone()
         if not row:
             return None
@@ -2266,44 +2281,73 @@ def find_plan_job_by_idempotency(
     normalized_key = str(idempotency_key or "").strip()
     if not normalized_key:
         return None
+    normalized_owner_uid = str(owner_uid or "").strip() or None
     conn = _connect()
     try:
         if _use_postgres() and dict_row is not None:
             cur = conn.cursor(row_factory=dict_row)
-            cur.execute(
-                """
-                SELECT id
-                FROM plan_jobs
-                WHERE idempotency_key = %s
-                  AND request_json = %s
-                  AND ((%s IS NULL AND owner_uid IS NULL) OR owner_uid = %s)
-                ORDER BY created_at DESC
-                LIMIT 1
-                """,
-                (normalized_key, request_json, owner_uid, owner_uid),
-            )
+            if normalized_owner_uid is None:
+                cur.execute(
+                    """
+                    SELECT id
+                    FROM plan_jobs
+                    WHERE idempotency_key = %s
+                      AND request_json = %s
+                      AND owner_uid IS NULL
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                    """,
+                    (normalized_key, request_json),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT id
+                    FROM plan_jobs
+                    WHERE idempotency_key = %s
+                      AND request_json = %s
+                      AND owner_uid = %s
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                    """,
+                    (normalized_key, request_json, normalized_owner_uid),
+                )
         else:
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
-            cur.execute(
-                """
-                SELECT id
-                FROM plan_jobs
-                WHERE idempotency_key = ?
-                  AND request_json = ?
-                  AND ((? IS NULL AND owner_uid IS NULL) OR owner_uid = ?)
-                ORDER BY created_at DESC
-                LIMIT 1
-                """,
-                (normalized_key, request_json, owner_uid, owner_uid),
-            )
+            if normalized_owner_uid is None:
+                cur.execute(
+                    """
+                    SELECT id
+                    FROM plan_jobs
+                    WHERE idempotency_key = ?
+                      AND request_json = ?
+                      AND owner_uid IS NULL
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                    """,
+                    (normalized_key, request_json),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT id
+                    FROM plan_jobs
+                    WHERE idempotency_key = ?
+                      AND request_json = ?
+                      AND owner_uid = ?
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                    """,
+                    (normalized_key, request_json, normalized_owner_uid),
+                )
         row = cur.fetchone()
         if not row:
             return None
         job_id = row.get("id") if isinstance(row, dict) else row["id"]
     finally:
         conn.close()
-    return get_plan_job(str(job_id), owner_uid=owner_uid)
+    return get_plan_job(str(job_id), owner_uid=normalized_owner_uid)
 
 
 def list_plan_jobs(

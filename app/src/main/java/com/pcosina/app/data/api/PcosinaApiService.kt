@@ -30,7 +30,43 @@ data class GeneratePlanResponse(
     val days: List<DayPlanDto>,
     val status: String,
     val message: String,
-    val explanation: PlanExplanation? = null
+    val explanation: PlanExplanation? = null,
+    val requestId: String? = null,
+    val planId: String? = null,
+    val policyVersion: String? = null,
+    val machineReasonCodes: List<String> = emptyList(),
+    val humanGuidance: List<String> = emptyList(),
+    val suggestedRelaxations: List<String> = emptyList(),
+    val diagnosticsReference: String? = null,
+    val timestamps: PlannerTimestamps? = null
+)
+
+data class PlannerTimestamps(
+    val requestedAtMs: Long? = null,
+    val completedAtMs: Long? = null
+)
+
+data class GeneratePlanAsyncResponse(
+    val jobId: String,
+    val status: String,
+    val executionMode: String? = null,
+    val reused: Boolean? = null,
+    val queueBackend: String? = null,
+    val brokerSignalPublished: Boolean? = null
+)
+
+data class PlanJobDto(
+    val id: String,
+    val status: String,
+    val createdAt: Long? = null,
+    val updatedAt: Long? = null,
+    val error: String? = null,
+    val idempotencyKey: String? = null,
+    val workerId: String? = null,
+    val ownerUid: String? = null,
+    val attemptCount: Int? = null,
+    val nextAttemptAt: Long? = null,
+    val result: GeneratePlanResponse? = null
 )
 
 data class PlanExplanation(
@@ -64,12 +100,30 @@ data class RecipeSummaryDto(
     val minutes: Int? = null
 )
 
+data class MlClientEventRequestDto(
+    val eventName: String,
+    val requestId: String? = null,
+    val payload: Map<String, Any> = emptyMap()
+)
+
+data class MlClientEventResponseDto(
+    val status: String,
+    val eventName: String? = null,
+    val requestId: String? = null
+)
+
 interface PcosinaApiService {
     @GET("health")
     suspend fun health(): HealthResponse
 
     @POST("generate-plan")
     suspend fun generatePlan(@Body request: GeneratePlanRequest): GeneratePlanResponse
+
+    @POST("generate-plan-async")
+    suspend fun generatePlanAsync(@Body request: GeneratePlanRequest): GeneratePlanAsyncResponse
+
+    @GET("plan-jobs/{jobId}")
+    suspend fun getPlanJob(@Path("jobId") jobId: String): PlanJobDto
 
     @GET("recipe/{id}")
     suspend fun getRecipe(@Path("id") recipeId: String): RecipeDetailDto
@@ -79,4 +133,7 @@ interface PcosinaApiService {
         @Query("meal_type") mealType: String? = null,
         @Query("limit") limit: Int = 50
     ): List<RecipeSummaryDto>
+
+    @POST("ml/events")
+    suspend fun postMlEvent(@Body request: MlClientEventRequestDto): MlClientEventResponseDto
 }

@@ -53,6 +53,11 @@ class NotificationLifecycleReschedulePolicyTest {
             "Receiver should route system-change broadcasts back into NotificationScheduler.rescheduleAll.",
             receiver.contains("NotificationScheduler.rescheduleAll(")
         )
+        assertTrue(
+            "Receiver should fall back to persisted auth session state before treating boot/update as signed-out.",
+            receiver.contains("AuthRepository(appContext)") &&
+                receiver.contains("getPersistedCurrentUserUid()")
+        )
     }
 
     private fun resolve(vararg parts: String): Path {

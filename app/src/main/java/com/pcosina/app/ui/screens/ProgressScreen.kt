@@ -658,7 +658,11 @@ fun ProgressScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding(),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(colorScheme.background)
+                .statusBarsPadding()
+                .testTag("progress_content_list"),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap),
         ) {
@@ -2005,7 +2009,7 @@ fun ProgressScreen(
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                     } else {
-                        plannedMealsForDay.forEach { meal ->
+                        plannedMealsForDay.forEachIndexed { mealIndex, meal ->
                             val mealKey = ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)
                             val checked = selectedCompletedIds.contains(mealKey) || selectedCompletedIds.contains(meal.recipeId)
                             val reasons = remember(meal.recipeId, planExplanation, recipeCounts, profile.weeklyBudgetPhp) {
@@ -2040,6 +2044,28 @@ fun ProgressScreen(
                                             return@ProgressMealCheckbox
                                         }
                                         if (!checked) {
+                                            mealPlanViewModel.trackMlEvent(
+                                                eventName = "meal_accepted",
+                                                requestId = mealPlanViewModel.currentRequestId(),
+                                                payload = mapOf(
+                                                    "week_start" to weekStartKey,
+                                                    "day_index" to selectedDayIndex,
+                                                    "meal_index" to mealIndex,
+                                                    "slot_index" to ((selectedDayIndex * 3) + mealIndex),
+                                                    "meal_label" to meal.mealLabel,
+                                                    "recipe_id" to meal.recipeId
+                                                )
+                                            )
+                                            mealPlanViewModel.trackMlEvent(
+                                                eventName = "cook_completed",
+                                                requestId = mealPlanViewModel.currentRequestId(),
+                                                payload = mapOf(
+                                                    "week_start" to weekStartKey,
+                                                    "meal_label" to meal.mealLabel,
+                                                    "recipe_id" to meal.recipeId,
+                                                    "source" to "progress_toggle"
+                                                )
+                                            )
                                             val completedIdsAfterToggle = (selectedCompletedIds + mealKey).distinct()
                                             val nextSnapshot = buildTodayLogSnapshot(
                                                 todayMeals = selectedDayDescriptors,
@@ -2093,6 +2119,32 @@ fun ProgressScreen(
                                                 message = "Meal logged. Impact updated."
                                             )
                                         } else {
+                                            mealPlanViewModel.trackMlEvent(
+                                                eventName = "meal_skipped",
+                                                requestId = mealPlanViewModel.currentRequestId(),
+                                                payload = mapOf(
+                                                    "week_start" to weekStartKey,
+                                                    "day_index" to selectedDayIndex,
+                                                    "meal_index" to mealIndex,
+                                                    "slot_index" to ((selectedDayIndex * 3) + mealIndex),
+                                                    "meal_label" to meal.mealLabel,
+                                                    "recipe_id" to meal.recipeId
+                                                )
+                                            )
+                                            mealPlanViewModel.trackMlEvent(
+                                                eventName = "why_skipped_submitted",
+                                                requestId = mealPlanViewModel.currentRequestId(),
+                                                payload = mapOf(
+                                                    "plan_id" to weekStartKey,
+                                                    "week_start" to weekStartKey,
+                                                    "day_index" to selectedDayIndex,
+                                                    "meal_index" to mealIndex,
+                                                    "slot_index" to ((selectedDayIndex * 3) + mealIndex),
+                                                    "meal_label" to meal.mealLabel,
+                                                    "recipe_id" to meal.recipeId,
+                                                    "reason_tag" to "unchecked_by_user"
+                                                )
+                                            )
                                             mealImpactSummary = null
                                             impactDetailsExpanded = false
                                             showImpactSheet = false
@@ -2217,7 +2269,10 @@ fun ProgressScreen(
                         )
                         Button(
                             onClick = { dailyReflectionExpanded = true },
-                            modifier = Modifier.fillMaxWidth().height(42.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(42.dp)
+                                .testTag("progress_open_daily_reflection_cta"),
                             shape = MaterialTheme.shapes.medium,
                             colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
                         ) {
@@ -2533,7 +2588,8 @@ fun ProgressScreen(
                                                     message = ActionFeedbackCopy.QueueRetrying
                                                 )
                                             }
-                                        }
+                                        },
+                                        modifier = Modifier.testTag("progress_retry_all_feedback")
                                     ) {
                                         Text("Retry all")
                                     }
@@ -2574,7 +2630,8 @@ fun ProgressScreen(
                                                         message = ActionFeedbackCopy.QueueRetrying
                                                     )
                                                 }
-                                            }
+                                            },
+                                            modifier = Modifier.testTag("progress_retry_feedback_${entry.id}")
                                         ) {
                                             Text("Retry")
                                         }

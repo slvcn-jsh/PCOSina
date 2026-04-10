@@ -172,7 +172,9 @@ fun LoginScreen(
             value = email,
             onValueChange = { email = it },
             label = { Text("Email Address") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("login_email_input"),
             shape = MaterialTheme.shapes.medium,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = colorScheme.primary,
@@ -200,7 +202,9 @@ fun LoginScreen(
                     )
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("login_password_input"),
             shape = MaterialTheme.shapes.medium,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = colorScheme.primary,

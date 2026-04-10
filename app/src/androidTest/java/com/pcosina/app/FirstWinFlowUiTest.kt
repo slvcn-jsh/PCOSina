@@ -70,6 +70,7 @@ class FirstWinFlowUiTest {
         composeRule.setContent {
             MaterialTheme {
                 var screen by remember { mutableStateOf(FirstWinScreen.Login) }
+                var goalCompletionPending by remember { mutableStateOf(false) }
                 var nextActionType by remember { mutableStateOf<String?>(null) }
                 val groceryItems by fixture.groceryViewModel.groceryItems.collectAsState()
 
@@ -92,6 +93,14 @@ class FirstWinFlowUiTest {
                         screen = FirstWinScreen.Grocery
                     }
                 }
+                LaunchedEffect(goalCompletionPending) {
+                    if (goalCompletionPending) {
+                        val seeds = fixture.mealPlanViewModel.seedDemoWeeks(fixture.userViewModel.userProfile.value)
+                        fixture.progressViewModel.seedDemoWeeks(seeds)
+                        screen = FirstWinScreen.MealPlan
+                        goalCompletionPending = false
+                    }
+                }
 
                 when (screen) {
                     FirstWinScreen.Login -> LoginScreen(
@@ -108,9 +117,7 @@ class FirstWinFlowUiTest {
                     FirstWinScreen.Goal -> GoalSelectionScreen(
                         userViewModel = fixture.userViewModel,
                         onFinish = {
-                            val seeds = fixture.mealPlanViewModel.seedDemoWeeks(fixture.userViewModel.userProfile.value)
-                            fixture.progressViewModel.seedDemoWeeks(seeds)
-                            screen = FirstWinScreen.MealPlan
+                            goalCompletionPending = true
                         }
                     )
                     FirstWinScreen.MealPlan -> MealPlanScreen(
@@ -177,6 +184,9 @@ class FirstWinFlowUiTest {
         composeRule.onNodeWithTag("goal_option_weight_loss").performClick()
         composeRule.onNodeWithTag("goal_save_continue_cta").performClick()
 
+        composeRule.waitUntil(timeoutMillis = 20_000) {
+            composeRule.onAllNodesWithTag("mealplan_step3_label").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithTag("mealplan_content_list").assertIsDisplayed()
         composeRule.onNodeWithTag("mealplan_step3_label").assertIsDisplayed()
         composeRule.onNodeWithTag("mealplan_top_section_capture").performScrollTo().assertIsDisplayed()
@@ -277,11 +287,7 @@ class FirstWinFlowUiTest {
         userViewModel.loadProfileForUser(userId)
         setMealPlanCurrentUserIdForTest(mealPlanViewModel, userId)
         setGroceryCurrentUserIdForTest(groceryViewModel, userId)
-        setProgressCurrentUserIdForTest(progressViewModel, userId)
-        val weekStart = LocalDate.now()
-            .with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
-            .format(DateTimeFormatter.ISO_LOCAL_DATE)
-        progressViewModel.loadForUser(userId, weekStart)
+        bindProgressCurrentUserIdForTest(progressViewModel, userId)
 
         return FirstWinFixture(
             userId = userId,
@@ -309,15 +315,6 @@ class FirstWinFlowUiTest {
         val field = GroceryViewModel::class.java.getDeclaredField("currentUserId")
         field.isAccessible = true
         field.set(groceryViewModel, userId)
-    }
-
-    private fun setProgressCurrentUserIdForTest(
-        progressViewModel: ProgressViewModel,
-        userId: String
-    ) {
-        val field = ProgressViewModel::class.java.getDeclaredField("currentUserId")
-        field.isAccessible = true
-        field.set(progressViewModel, userId)
     }
 
     private fun currentDayPositionText(): String {

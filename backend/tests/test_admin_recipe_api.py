@@ -1,0 +1,131 @@
+import sys
+from pathlib import Path
+from uuid import uuid4
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from fastapi.testclient import TestClient
+
+import database
+import main
+
+
+def _temp_db_path() -> Path:
+    base = Path(__file__).resolve().parent / ".tmp_admin_recipe_api"
+    base.mkdir(parents=True, exist_ok=True)
+    return base / f"admin_recipe_api_{uuid4().hex}.db"
+
+
+def test_content_admin_recipe_crud_and_audit_log():
+    db_path = _temp_db_path()
+    database.DATABASE_URL = ""
+    database.DB_NAME = str(db_path)
+    database.init_db()
+
+    content_admin = {
+        "uid": "content-admin-1",
+        "actor": "content-admin@example.com",
+        "roles": ["content_admin"],
+    }
+    ops_admin = {
+        "uid": "ops-admin-1",
+        "actor": "ops-admin@example.com",
+        "roles": ["ops_admin"],
+    }
+    main.app.dependency_overrides[main.require_content_admin] = lambda: content_admin
+    main.app.dependency_overrides[main.require_ops_admin] = lambda: ops_admin
+
+    payload = {
+        "title": "Admin Tinola",
+        "mealType": "Dinner",
+        "calories": 420,
+        "proteinGrams": 30,
+        "carbsGrams": 18,
+        "fatsGrams": 14,
+        "fiberGrams": 5,
+        "tags": ["high_protein", "filipino"],
+        "minutes": 35,
+        "ingredients": [{"name": "Chicken", "quantity": "250g"}],
+        "steps": ["Simmer chicken", "Serve warm"],
+    }
+
+    try:
+        with TestClient(main.app) as client:
+            create_resp = client.post("/admin/recipes", json=payload)
+            assert create_resp.status_code == 200
+            created = create_resp.json()
+            recipe_id = created["id"]
+            assert created["title"] == "Admin Tinola"
+
+            list_resp = client.get("/admin/recipes", params={"q": "Tinola"})
+            assert list_resp.status_code == 200
+            assert any(item["id"] == recipe_id for item in list_resp.json()["items"])
+
+            get_resp = client.get(f"/admin/recipes/{recipe_id}")
+            assert get_resp.status_code == 200
+            assert get_resp.json()["mealType"] == "Dinner"
+
+            update_payload = dict(payload)
+            update_payload["title"] = "Admin Tinola Updated"
+            update_payload["minutes"] = 28
+            update_resp = client.put(f"/admin/recipes/{recipe_id}", json=update_payload)
+            assert update_resp.status_code == 200
+            assert update_resp.json()["title"] == "Admin Tinola Updated"
+            assert update_resp.json()["minutes"] == 28
+
+            audit_resp = client.get("/admin/audit/logs", params={"resource_type": "recipe"})
+            assert audit_resp.status_code == 200
+            actions = [item["action"] for item in audit_resp.json()["items"]]
+            assert "recipe.create" in actions
+            assert "recipe.update" in actions
+
+            delete_resp = client.delete(f"/admin/recipes/{recipe_id}")
+            assert delete_resp.status_code == 200
+
+            missing_resp = client.get(f"/admin/recipes/{recipe_id}")
+            assert missing_resp.status_code == 404
+    finally:
+        main.app.dependency_overrides = {}
+
+
+def test_build_admin_principal_supports_uid_allowlists(monkeypatch):
+    monkeypatch.setenv("PCOSINA_CONTENT_ADMIN_UIDS", "uid-content-1")
+    principal = main._build_admin_principal(
+        {"uid": "uid-content-1", "email": "operator@example.com"},
+        auth_type="bearer",
+    )
+    assert "content_admin" in principal["roles"]
+
+
+def test_build_admin_principal_rejects_unverified_email_allowlist(monkeypatch):
+    monkeypatch.setenv("PCOSINA_CONTENT_ADMIN_EMAILS", "operator@example.com")
+    monkeypatch.setenv("PCOSINA_REQUIRE_VERIFIED_OPERATOR_EMAIL", "true")
+    try:
+        main._build_admin_principal(
+            {
+                "uid": "uid-content-2",
+                "email": "operator@example.com",
+                "email_verified": False,
+            },
+            auth_type="bearer",
+        )
+        assert False, "expected verified-email enforcement to reject unverified operator email"
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 403
+
+
+def test_build_admin_principal_accepts_verified_email_allowlist(monkeypatch):
+    monkeypatch.setenv("PCOSINA_CONTENT_ADMIN_EMAILS", "operator@example.com")
+    monkeypatch.setenv("PCOSINA_REQUIRE_VERIFIED_OPERATOR_EMAIL", "true")
+    principal = main._build_admin_principal(
+        {
+            "uid": "uid-content-3",
+            "email": "operator@example.com",
+            "email_verified": True,
+        },
+        auth_type="bearer",
+    )
+    assert "content_admin" in principal["roles"]
+    assert principal["emailVerified"] is True

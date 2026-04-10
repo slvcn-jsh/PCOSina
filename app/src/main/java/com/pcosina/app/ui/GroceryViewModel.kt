@@ -34,6 +34,8 @@ class GroceryViewModel(private val repository: UserPreferencesRepository) : View
     private val gson = Gson()
     private var snapshots: MutableList<GrocerySnapshot> = mutableListOf()
 
+    private fun normalizedItemKey(name: String): String = name.trim().lowercase()
+
     fun loadGroceryForUser(userId: String) {
         if (currentUserId == userId) return
         currentUserId = userId
@@ -62,11 +64,16 @@ class GroceryViewModel(private val repository: UserPreferencesRepository) : View
                     } else emptyMap()
                     snapshots.add(GrocerySnapshot(planId = "legacy", items = items, sources = sources))
                 }
-                val activeId = savedActive ?: snapshots.lastOrNull()?.planId
-                _activePlanId.value = activeId
-                val activeSnapshot = snapshots.firstOrNull { it.planId == activeId }
+                val activeSnapshot = savedActive?.let { id ->
+                    snapshots.firstOrNull { it.planId == id }
+                } ?: snapshots.lastOrNull()
+                val resolvedActiveId = activeSnapshot?.planId
+                _activePlanId.value = resolvedActiveId
                 _groceryItems.value = activeSnapshot?.items ?: emptyList()
                 _mealSources.value = activeSnapshot?.sources ?: emptyMap()
+                if (savedActive != resolvedActiveId) {
+                    repository.saveActivePlanId(userId, resolvedActiveId)
+                }
             } catch (e: Exception) {
                 _groceryItems.value = emptyList()
                 _mealSources.value = emptyMap()
@@ -106,8 +113,10 @@ class GroceryViewModel(private val repository: UserPreferencesRepository) : View
         _groceryItems.update { current ->
             val newList = current.toMutableList()
             items.forEach { item ->
-                if (!newList.any { it.name == item.name }) {
-                    newList.add(item)
+                val normalizedKey = normalizedItemKey(item.name)
+                if (normalizedKey.isBlank()) return@forEach
+                if (!newList.any { normalizedItemKey(it.name) == normalizedKey }) {
+                    newList.add(item.copy(name = item.name.trim(), quantity = item.quantity.trim()))
                 }
             }
             newList
@@ -137,6 +146,11 @@ class GroceryViewModel(private val repository: UserPreferencesRepository) : View
 
     fun setActivePlan(planId: String?) {
         _activePlanId.value = planId
+        if (currentUserId.isNotBlank()) {
+            viewModelScope.launch {
+                repository.saveActivePlanId(currentUserId, planId)
+            }
+        }
         if (planId == null) {
             _groceryItems.value = emptyList()
             _mealSources.value = emptyMap()
@@ -145,9 +159,6 @@ class GroceryViewModel(private val repository: UserPreferencesRepository) : View
         val snapshot = snapshots.firstOrNull { it.planId == planId }
         _groceryItems.value = snapshot?.items ?: emptyList()
         _mealSources.value = snapshot?.sources ?: emptyMap()
-        viewModelScope.launch {
-            repository.saveActivePlanId(currentUserId, planId)
-        }
     }
 
     private fun upsertSnapshot(planId: String) {
@@ -181,8 +192,9 @@ class GroceryViewModel(private val repository: UserPreferencesRepository) : View
     }
 
     fun removeItem(itemName: String) {
+        val normalizedKey = normalizedItemKey(itemName)
         _groceryItems.update { current ->
-            current.filter { it.name != itemName }
+            current.filter { normalizedItemKey(it.name) != normalizedKey }
         }
         persist()
     }

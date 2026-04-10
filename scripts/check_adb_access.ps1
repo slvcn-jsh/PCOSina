@@ -5,6 +5,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+if (Test-Path (Join-Path $PSScriptRoot "android-env.ps1")) {
+    . (Join-Path $PSScriptRoot "android-env.ps1")
+}
+
 function Resolve-AdbPath {
     param([string]$InputPath)
 
@@ -79,9 +83,10 @@ if ($exitCode -ne 0 -or $text -match "Cannot mkdir\s+'([^']+\.android)'") {
         "Try (may require elevated shell): " +
             "New-Item -ItemType Directory -Force '$blockedPath'; " +
             "New-Item -ItemType File -Force '$blockedPath\\analytics.settings'. " +
+            "Or rerun after sourcing scripts\\android-env.ps1 so adb uses repo-local writable homes. " +
             "If access is denied, rerun this command in an elevated PowerShell session."
     } else {
-        "Ensure the executing account has a writable home profile or pre-create the required .android directory."
+        "Ensure the executing account has a writable home profile or rerun after sourcing scripts\\android-env.ps1."
     }
     throw (
         "adb preflight failed. adb output: $text`n" +

@@ -12,6 +12,7 @@ import com.pcosina.app.data.model.FeedbackEntry
 import com.pcosina.app.data.repository.FeedbackRepository
 import com.pcosina.app.data.repository.ReflectionStore
 import com.pcosina.app.data.repository.UserPreferencesRepository
+import com.pcosina.app.util.safeUserLogScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -159,7 +160,7 @@ class ProgressViewModel(
         _savedProgressMode.value = normalized
         viewModelScope.launch {
             userPrefsRepository.saveProgressMode(currentUserId, normalized)
-            Log.i("ProgressUX", "Saved focus mode: $normalized user=$currentUserId")
+            Log.i("ProgressUX", "Saved focus mode: $normalized ${safeUserLogScope(currentUserId)}")
         }
     }
 
@@ -168,7 +169,7 @@ class ProgressViewModel(
         _savedAdvancedWeekAnalyticsExpanded.value = expanded
         viewModelScope.launch {
             userPrefsRepository.saveProgressAdvancedAnalyticsExpanded(currentUserId, expanded)
-            Log.i("ProgressUX", "Saved advanced analytics expanded=$expanded user=$currentUserId")
+            Log.i("ProgressUX", "Saved advanced analytics expanded=$expanded ${safeUserLogScope(currentUserId)}")
         }
     }
 

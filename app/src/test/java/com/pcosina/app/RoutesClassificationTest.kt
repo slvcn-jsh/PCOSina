@@ -57,8 +57,6 @@ class RoutesClassificationTest {
     fun requiresPlan_blocksOnlyPlanDependentRoutes() {
         assertTrue(Routes.requiresPlan(Routes.GroceryList))
         assertTrue(Routes.requiresPlan(Routes.Progress))
-        assertTrue(Routes.requiresPlan(Routes.Ipo))
-        assertTrue(Routes.requiresPlan(Routes.MoreTools))
         assertTrue(Routes.requiresPlan(Routes.recipeDetailsRoute("id1")))
 
         assertFalse(Routes.requiresPlan(Routes.Dashboard))
@@ -66,6 +64,8 @@ class RoutesClassificationTest {
         assertFalse(Routes.requiresPlan(Routes.Settings))
         assertFalse(Routes.requiresPlan(Routes.UserProfile))
         assertFalse(Routes.requiresPlan(Routes.GoalSelection))
+        assertFalse(Routes.requiresPlan(Routes.Ipo))
+        assertFalse(Routes.requiresPlan(Routes.MoreTools))
     }
 
     @Test

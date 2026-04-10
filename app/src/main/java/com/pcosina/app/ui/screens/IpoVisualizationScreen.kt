@@ -33,7 +33,7 @@ fun IpoVisualizationScreen(
             Box {
                 GradientHeader(
                     title = "The PCOSINA Method",
-                    subtitle = "Scientific Optimization Pipeline",
+                    subtitle = "Local-First Planning Pipeline",
                     containerHeight = 180
                 )
                 IconButton(onClick = onBackToDashboard, modifier = Modifier.padding(8.dp)) {
@@ -45,12 +45,12 @@ fun IpoVisualizationScreen(
         item {
             IpoCard(
                 step = "01",
-                title = "SYSTEM INPUT",
-                description = "User biometric data and clinical markers are ingested.",
+                title = "PROFILE + PANTRY INPUTS",
+                description = "Planning starts from your saved profile, pantry, goals, budget, allergies, and exclusions.",
                 items = listOf(
-                    "Profile: Age, BMI, Activity Level",
-                    "Medical: Insulin Resistance, Symptoms",
-                    "Constraints: Budget & Restrictions"
+                    "Profile: age, weight, height, activity level, and goals",
+                    "Food rules: allergies, exclusions, and preference settings",
+                    "Local pantry and budget context kept on device first"
                 ),
                 color = colorScheme.primary
             )
@@ -65,12 +65,12 @@ fun IpoVisualizationScreen(
         item {
             IpoCard(
                 step = "02",
-                title = "MILP PROCESS",
-                description = "Mixed Integer Linear Programming finds the mathematical global optimum.",
+                title = "DETERMINISTIC FILTERING",
+                description = "Recipes are screened before optimization so infeasible options never reach the final planner.",
                 items = listOf(
-                    "Optimization: Calorie variance minimized",
-                    "Logic: Maximum recipe variety enforced",
-                    "Filtering: Case-insensitive ingredient scan"
+                    "Hard rules remove forbidden, unsafe, or infeasible meals first",
+                    "Pantry feasibility, nutrition limits, and repetition constraints stay enforceable",
+                    "This stage remains explainable and repeatable offline"
                 ),
                 color = colorScheme.secondary
             )
@@ -85,15 +85,58 @@ fun IpoVisualizationScreen(
         item {
             IpoCard(
                 step = "03",
-                title = "SYSTEM OUTPUT",
-                description = "Personalized and validated weekly health plan.",
+                title = "DETERMINISTIC OPTIMIZATION",
+                description = "A deterministic solver chooses the final week from the feasible meal candidates.",
                 items = listOf(
-                    "7-Day Optimized Meal Plan",
-                    "Consolidated Shopping List",
-                    "Real-time Macro Progress Metrics"
+                    "Balances calories, macros, budget, and variety targets",
+                    "ML can assist ranking candidates, but never overrides hard constraints",
+                    "Fallback behavior remains deterministic if ML is unavailable"
                 ),
                 color = colorScheme.primary
             )
+        }
+
+        item {
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text("↓", fontSize = 24.sp, color = colorScheme.primary)
+            }
+        }
+
+        item {
+            IpoCard(
+                step = "04",
+                title = "EXPLAINABLE OUTPUTS",
+                description = "You receive a weekly plan, grocery guidance, and nutrition details with clear fallback messaging.",
+                items = listOf(
+                    "Weekly meals, grocery deficits, and pantry-aware shopping guidance",
+                    "Recipe details and nutrition totals stay visible for review",
+                    "No-safe-plan cases return actionable adjustments instead of silent failure"
+                ),
+                color = colorScheme.secondary
+            )
+        }
+
+        item {
+            Card(
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(UiSpacingTokens.CardContentPadding),
+                    verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.CardContentGap)
+                ) {
+                    Text(
+                        text = "Wellness Decision Support",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = "PCOSina supports meal planning and nutrition decisions. It does not diagnose conditions or replace clinical care.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
 
         item {
@@ -106,7 +149,7 @@ fun IpoVisualizationScreen(
                 Text("Back to Home", fontWeight = FontWeight.Bold)
             }
         }
-        
+
         item { Spacer(Modifier.height(UiSpacingTokens.CardContentPadding)) }
     }
 }

@@ -76,6 +76,7 @@ import com.pcosina.app.ui.components.TokenizedFilterChip
 import com.pcosina.app.ui.theme.PcosinaSuccess
 import com.pcosina.app.ui.theme.UiChipTokens
 import com.pcosina.app.ui.theme.UiSpacingTokens
+import com.pcosina.app.util.safeUserLogScope
 import com.pcosina.app.domain.PriceCatalog
 import com.pcosina.app.ui.util.GuidedJourneyInput
 import com.pcosina.app.ui.util.ActionFeedbackCopy
@@ -137,6 +138,7 @@ fun GroceryListScreen(
                 "${item.name.trim().lowercase(Locale.getDefault())}|${item.quantity.trim().lowercase(Locale.getDefault())}"
             }
     }
+    val allItemNames = remember(allItems) { allItems.map { it.name }.toSet() }
     val screenWidthDp = LocalConfiguration.current.screenWidthDp
     val groceryChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 108.dp, medium = 168.dp)
     val pantryChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 132.dp, medium = 196.dp)
@@ -169,13 +171,12 @@ fun GroceryListScreen(
         pantryEntries.map { it.name.trim() }.filter { it.isNotBlank() }
     }
     val pantryTokens = remember(pantryItems) {
-        pantryItems.map { it.lowercase(Locale.getDefault()) }.toSet()
+        pantryItems.map(::normalizedPantryEntryKey).filter { it.isNotBlank() }.toSet()
     }
     val pantryMatches = remember(allItems, pantryTokens) {
         allItems.filter { item ->
-            val name = item.name.lowercase(Locale.getDefault())
-            pantryTokens.any { token ->
-                name.contains(token) || token.contains(name)
+            pantryTokens.any { pantryName ->
+                pantryEntryMatchesGroceryItem(pantryName, item.name)
             }
         }.map { it.name }.toSet()
     }
@@ -257,7 +258,7 @@ fun GroceryListScreen(
         selectedCategoryFilter = AllCategoriesFilterKey
         Log.i(
             "GroceryUX",
-            "Reset checklist/search for user=$activeUserId plan=${activePlanId ?: "none"}"
+            "Reset checklist/search for ${safeUserLogScope(activeUserId)} plan=${activePlanId ?: "none"}"
         )
     }
 
@@ -274,7 +275,7 @@ fun GroceryListScreen(
     LaunchedEffect(statusFilter, selectedCategoryFilter, searchQuery.text, activeUserId) {
         Log.i(
             "GroceryUX",
-            "Filters user=$activeUserId status=${statusFilter.label} category=$selectedCategoryFilter query='${searchQuery.text.trim()}' results=${filteredItems.size}"
+            "Filters ${safeUserLogScope(activeUserId)} status=${statusFilter.label} category=$selectedCategoryFilter query='${searchQuery.text.trim()}' results=${filteredItems.size}"
         )
     }
 
@@ -282,7 +283,7 @@ fun GroceryListScreen(
         if (emptySearchResults) {
             Log.i(
                 "GroceryUX",
-                "No grocery search matches for user=$activeUserId query='${searchQuery.text.trim()}'"
+                "No grocery search matches for ${safeUserLogScope(activeUserId)} query='${searchQuery.text.trim()}'"
             )
         }
     }
@@ -291,7 +292,7 @@ fun GroceryListScreen(
         if (allItems.isEmpty()) {
             Log.i(
                 "GroceryUX",
-                "Grocery list empty for user=$activeUserId hasPlan=$hasPlan"
+                "Grocery list empty for ${safeUserLogScope(activeUserId)} hasPlan=$hasPlan"
             )
         }
     }
@@ -326,7 +327,10 @@ fun GroceryListScreen(
     } else 0f
 
     LazyColumn(
-        modifier = modifier.fillMaxSize().statusBarsPadding(),
+        modifier = modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .testTag("grocery_content_list"),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = UiSpacingTokens.SectionGap),
         verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap),
     ) {
@@ -521,8 +525,16 @@ fun GroceryListScreen(
                                 expiryDate = pantryExpiry.text.trim().takeIf { it.isNotBlank() }
                             )
                             val updated = (pantryEntries + newEntry)
-                                .distinctBy { it.name.lowercase(Locale.getDefault()) }
+                                .distinctBy { normalizedPantryEntryKey(it.name) }
                             userViewModel.updatePantryEntries(updated)
+                            mealPlanViewModel.trackMlEvent(
+                                eventName = "pantry_item_added",
+                                payload = mapOf(
+                                    "item_name" to name,
+                                    "quantity" to (newEntry.quantity ?: ""),
+                                    "expiry_date" to (newEntry.expiryDate ?: "")
+                                )
+                            )
                             pantryInput = TextFieldValue("")
                             pantryQty = TextFieldValue("")
                             pantryExpiry = TextFieldValue("")
@@ -632,8 +644,28 @@ fun GroceryListScreen(
                                 InputChip(
                                     selected = true,
                                     onClick = {
-                                        val updated = pantryEntries.filterNot { it.name.equals(entry.name, true) }
+                                        val updated = pantryEntries.filterNot {
+                                            normalizedPantryEntryKey(it.name) == normalizedPantryEntryKey(entry.name)
+                                        }
                                         userViewModel.updatePantryEntries(updated)
+                                        mealPlanViewModel.trackMlEvent(
+                                            eventName = "pantry_item_removed",
+                                            payload = mapOf(
+                                                "item_name" to entry.name,
+                                                "quantity" to (entry.quantity ?: ""),
+                                                "expiry_date" to (entry.expiryDate ?: ""),
+                                                "expired" to isExpired
+                                            )
+                                        )
+                                        if (isExpired) {
+                                            mealPlanViewModel.trackMlEvent(
+                                                eventName = "pantry_item_expired",
+                                                payload = mapOf(
+                                                    "item_name" to entry.name,
+                                                    "expiry_date" to (entry.expiryDate ?: "")
+                                                )
+                                            )
+                                        }
                                         postGroceryFeedback(
                                             tone = FeedbackBannerTone.Success,
                                             message = "Pantry updated: removed ${entry.name}."
@@ -1158,8 +1190,11 @@ fun GroceryListScreen(
                         },
                         checkedNames = checkedNames,
                         onCheckedChange = { name, checked ->
+                            var nextPantryOptOut = pantryOptOut
+                            var nextCheckedNames = checkedNames
                             if (name in pantryMatches) {
-                                pantryOptOut = if (checked) pantryOptOut - name else pantryOptOut + name
+                                nextPantryOptOut = if (checked) pantryOptOut - name else pantryOptOut + name
+                                pantryOptOut = nextPantryOptOut
                                 postGroceryFeedback(
                                     tone = FeedbackBannerTone.Success,
                                     message = if (checked) {
@@ -1169,7 +1204,8 @@ fun GroceryListScreen(
                                     }
                                 )
                             } else {
-                                checkedNames = if (checked) checkedNames + name else checkedNames - name
+                                nextCheckedNames = if (checked) checkedNames + name else checkedNames - name
+                                checkedNames = nextCheckedNames
                                 postGroceryFeedback(
                                     tone = FeedbackBannerTone.Success,
                                     message = if (checked) {
@@ -1177,6 +1213,17 @@ fun GroceryListScreen(
                                     } else {
                                         "Moved $name back to buy list."
                                     }
+                                )
+                            }
+                            val nextEffectiveChecked = nextCheckedNames + pantryMatches.filter { it !in nextPantryOptOut }
+                            if (checked && allItemNames.isNotEmpty() && nextEffectiveChecked.containsAll(allItemNames)) {
+                                mealPlanViewModel.trackMlEvent(
+                                    eventName = "grocery_completed",
+                                    payload = mapOf(
+                                        "completed_items" to nextEffectiveChecked.size,
+                                        "total_items" to allItemNames.size,
+                                        "completion_ratio" to 1.0
+                                    )
                                 )
                             }
                         },
@@ -1412,6 +1459,33 @@ private fun inferCategory(item: GroceryItem): String {
         }
     }
     return PriceCatalog.inferCategory(item.name)
+}
+
+private fun normalizedPantryEntryKey(raw: String): String =
+    raw.trim()
+        .lowercase(Locale.ENGLISH)
+        .replace(Regex("[^a-z0-9]+"), " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+
+private fun normalizedPantryEntryTokens(raw: String): Set<String> =
+    normalizedPantryEntryKey(raw)
+        .split(" ")
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .toSet()
+
+private fun pantryEntryMatchesGroceryItem(pantryName: String, groceryName: String): Boolean {
+    val pantryKey = normalizedPantryEntryKey(pantryName)
+    val groceryKey = normalizedPantryEntryKey(groceryName)
+    if (pantryKey.isBlank() || groceryKey.isBlank()) return false
+    if (pantryKey == groceryKey) return true
+
+    val pantryTokens = normalizedPantryEntryTokens(pantryName)
+    val groceryTokens = normalizedPantryEntryTokens(groceryName)
+    if (pantryTokens.size <= 1 || groceryTokens.size <= 1) return false
+
+    return pantryTokens.containsAll(groceryTokens) || groceryTokens.containsAll(pantryTokens)
 }
 
 private fun formatWeekRange(weekStartId: String?, timestamp: Long?): String {

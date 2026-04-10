@@ -1,14 +1,25 @@
+databases:
+  - name: pcosina-postgres
+    databaseName: pcosina
+    user: pcosina
+    plan: basic-256mb
+
 services:
+  - type: redis
+    name: pcosina-redis
+    plan: starter
+    maxmemoryPolicy: allkeys-lru
+
   - type: web
     name: pcosina-backend
     runtime: python
     branch: dev
     pythonVersion: 3.12.8
-    plan: free
+    plan: starter
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn -k uvicorn.workers.UvicornWorker -w 2 -t 120 -b 0.0.0.0:$PORT main:app
-    healthCheckPath: /health
+    healthCheckPath: /health/ready
     envVars:
       - key: PCOSINA_ENV
         value: production
@@ -16,9 +27,64 @@ services:
         value: "false"
       - key: PCOSINA_ALLOWED_HOSTS
         value: pcosina-backend.onrender.com
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pcosina-postgres
+          property: connectionString
+      - key: PCOSINA_REDIS_URL
+        fromService:
+          type: redis
+          name: pcosina-redis
+          property: connectionString
+      - key: PCOSINA_QUEUE_BACKEND
+        value: redis
+      - key: PCOSINA_RATE_LIMIT_BACKEND
+        value: redis
+      - key: PCOSINA_ENFORCE_APP_CHECK
+        value: "true"
+      - key: PCOSINA_ASYNC_MODE
+        value: queued
       - key: PCOSINA_RATE_LIMIT_WINDOW_SECONDS
         value: "60"
       - key: PCOSINA_RATE_LIMIT_MAX
         value: "60"
       - key: PCOSINA_MAX_POOL_SIZE
         value: "300"
+      - key: PCOSINA_ADMIN_SESSION_SECRET
+        generateValue: true
+      - key: PCOSINA_WEBHOOK_RECEIVER_KEY
+        generateValue: true
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+
+  - type: worker
+    name: pcosina-worker
+    runtime: python
+    branch: dev
+    pythonVersion: 3.12.8
+    plan: starter
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python worker_plan_jobs.py
+    envVars:
+      - key: PCOSINA_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pcosina-postgres
+          property: connectionString
+      - key: PCOSINA_REDIS_URL
+        fromService:
+          type: redis
+          name: pcosina-redis
+          property: connectionString
+      - key: PCOSINA_QUEUE_BACKEND
+        value: redis
+      - key: PCOSINA_ENFORCE_APP_CHECK
+        value: "true"
+      - key: PCOSINA_WORKER_RUN_FOREVER
+        value: "true"
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false

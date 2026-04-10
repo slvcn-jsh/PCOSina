@@ -1,0 +1,19 @@
+component,exists,implemented_correctly,tested,reproducible,production_ready,notes
+event_taxonomy_schema,yes,yes,yes,yes,partial,Covers required behavior events and planner events
+event_validation_runtime,yes,yes,yes,yes,partial,Enforces common and event-specific required fields
+event_ingestion_api,yes,yes,yes,yes,partial,Android emits all required behavior events including meal accepted/skipped pantry add/remove/expired grocery completed cook completed manual override and reason submissions
+reason_normalization_pipeline,yes,yes,yes,yes,partial,Optional free text is normalized into controlled reason tags with hashed metadata and no raw-text persistence
+ml_events_persistence,yes,yes,yes,yes,partial,DB-backed with dedupe key
+stage1_candidate_feature_persistence,yes,yes,yes,yes,partial,Labels derived from authoritative solver selections plus multi-scenario telemetry seeding
+dataset_builder_v1,yes,yes,yes,yes,partial,Latest build uses 13630 rows with strict request-level split and no fallback
+reason_feedback_dataset_builder,yes,yes,yes,yes,partial,Builds normalized reason event and per-user reason feature artifacts for retraining inputs
+reason_telemetry_seeder,yes,yes,yes,yes,partial,Deterministic seeded reason-event generator for staging/offline validation
+label_generation_selected_by_solver,yes,yes,yes,yes,partial,Depends on successful planner telemetry ingestion
+lightgbm_training_pipeline,yes,yes,yes,yes,partial,End-to-end training run completed on diversified telemetry with 60 requests and 20 users
+artifact_contract_bundle,yes,yes,yes,yes,partial,Artifacts generated in ml/offline_training/artifacts/model_v1
+baseline_comparison_metrics,yes,yes,yes,yes,partial,Computed metrics show test ranking uplift vs heuristic baseline on ndcg@10 and map@10
+shadow_mode_inference_path,yes,yes,partial,yes,partial,Model load best-effort with safe fallback
+canary_gating_controls,yes,yes,yes,yes,partial,Rollback guard plus breach simulation tooling implemented; still needs live dashboards and alert routing
+model_card,yes,yes,n_a,yes,partial,Updated with latest trained metrics and dataset profile
+retraining_runbook,yes,yes,n_a,yes,partial,Operational flow validated after dependency install
+ml_readiness_gate_script,yes,yes,yes,yes,partial,Enforces min rows and min positive rate plus dependency gates; canary requires metrics artifact

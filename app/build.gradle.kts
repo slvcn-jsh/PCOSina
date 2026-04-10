@@ -9,14 +9,41 @@ plugins {
 }
 
 val googleServicesConfig = file("google-services.json")
-val canLoadGoogleServicesConfig = runCatching {
-    googleServicesConfig.inputStream().use { stream -> stream.read() }
-    true
-}.getOrElse { false }
+val canLoadGoogleServicesConfig = googleServicesConfig.exists() &&
+    googleServicesConfig.isFile &&
+    googleServicesConfig.canRead()
 val defaultDebugBaseUrl = "http://10.0.2.2:8000/"
 val debugBaseUrlFromEnv = System.getenv("DEBUG_BASE_URL")
 val debugBaseUrlFromProperty = providers.gradleProperty("debugBaseUrl").orNull
 val resolvedDebugBaseUrl = (debugBaseUrlFromEnv ?: debugBaseUrlFromProperty ?: defaultDebugBaseUrl).trim()
+val insecureReleaseSigningFromEnv = System.getenv("PCOSINA_ALLOW_INSECURE_RELEASE_SIGNING")
+val insecureReleaseSigningFromProperty = providers.gradleProperty("allowInsecureReleaseSigning").orNull
+val allowInsecureReleaseSigning = (
+    insecureReleaseSigningFromEnv
+        ?: insecureReleaseSigningFromProperty
+        ?: "false"
+    ).toBooleanStrictOrNull() ?: false
+val releaseStoreFilePath = (System.getenv("PCOSINA_RELEASE_STORE_FILE")
+    ?: providers.gradleProperty("releaseStoreFile").orNull
+    ?: "").trim()
+val releaseStorePassword = (System.getenv("PCOSINA_RELEASE_STORE_PASSWORD")
+    ?: providers.gradleProperty("releaseStorePassword").orNull
+    ?: "").trim()
+val releaseKeyAlias = (System.getenv("PCOSINA_RELEASE_KEY_ALIAS")
+    ?: providers.gradleProperty("releaseKeyAlias").orNull
+    ?: "").trim()
+val releaseKeyPassword = (System.getenv("PCOSINA_RELEASE_KEY_PASSWORD")
+    ?: providers.gradleProperty("releaseKeyPassword").orNull
+    ?: "").trim()
+val hasManagedReleaseSigning = releaseStoreFilePath.isNotBlank() &&
+    releaseStorePassword.isNotBlank() &&
+    releaseKeyAlias.isNotBlank() &&
+    releaseKeyPassword.isNotBlank()
+val releaseSentryDsn = (
+    System.getenv("PCOSINA_ANDROID_SENTRY_DSN")
+        ?: providers.gradleProperty("releaseSentryDsn").orNull
+        ?: ""
+    ).trim()
 val allowMissingGoogleServices = providers.gradleProperty("allowMissingGoogleServices")
     .orNull
     ?.toBooleanStrictOrNull()
@@ -72,6 +99,15 @@ if (canLoadGoogleServicesConfig) {
     )
 }
 
+if (releaseTasksRequested && !hasManagedReleaseSigning && !allowInsecureReleaseSigning) {
+    throw GradleException(
+        "Release signing credentials are not configured. " +
+            "Set PCOSINA_RELEASE_STORE_FILE / PCOSINA_RELEASE_STORE_PASSWORD / " +
+            "PCOSINA_RELEASE_KEY_ALIAS / PCOSINA_RELEASE_KEY_PASSWORD, " +
+            "or explicitly allow insecure local signing with PCOSINA_ALLOW_INSECURE_RELEASE_SIGNING=true."
+    )
+}
+
 
 android {
     namespace = "com.pcosina.app"
@@ -80,13 +116,19 @@ android {
 
     signingConfigs {
         create("release") {
-            // Test-only signing config using the default debug keystore.
-            // This makes the release APK installable for Firebase App Distribution.
-            val androidHome = System.getenv("ANDROID_USER_HOME") ?: "${System.getProperty("user.home")}/.android"
-            storeFile = file("$androidHome/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+            if (hasManagedReleaseSigning) {
+                storeFile = file(releaseStoreFilePath)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            } else if (allowInsecureReleaseSigning) {
+                // Explicitly opt-in fallback for local and CI packaging only.
+                val androidHome = System.getenv("ANDROID_USER_HOME") ?: "${System.getProperty("user.home")}/.android"
+                storeFile = file("$androidHome/debug.keystore")
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
         }
     }
 
@@ -108,8 +150,8 @@ android {
         }
         validateBaseUrl("release", releaseBaseUrl)
         buildConfigField("String", "BASE_URL", "\"$releaseBaseUrl\"")
-        buildConfigField("String", "SENTRY_DSN", "\"\"")
-        buildConfigField("String", "SCHEMA_VERSION", "\"1.2.0\"")
+        buildConfigField("String", "SENTRY_DSN", "\"$releaseSentryDsn\"")
+        buildConfigField("String", "SCHEMA_VERSION", "\"1.4.0\"")
     }
 
     buildTypes {
@@ -125,6 +167,7 @@ android {
                 throw GradleException("Invalid BASE_URL for release: $releaseBaseUrl")
             }
             buildConfigField("String", "BASE_URL", "\"$releaseBaseUrl\"")
+            buildConfigField("String", "SENTRY_DSN", "\"$releaseSentryDsn\"")
             signingConfig = signingConfigs.getByName("release")
             firebaseAppDistribution {
                 artifactType = "APK"
@@ -157,6 +200,7 @@ android {
                 throw GradleException("Invalid BASE_URL for debug: $debugBaseUrl")
             }
             buildConfigField("String", "BASE_URL", "\"$debugBaseUrl\"")
+            buildConfigField("String", "SENTRY_DSN", "\"\"")
         }
     }
 
@@ -200,6 +244,8 @@ dependencies {
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
     implementation(libs.firebase.crashlytics.ktx)
+    implementation(libs.firebase.appcheck.playintegrity)
+    implementation(libs.firebase.appcheck.debug)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.play.services.tasks)
     implementation(libs.play.services.auth)

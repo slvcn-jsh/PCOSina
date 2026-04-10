@@ -148,6 +148,11 @@ fun DashboardScreen(
     )
     val showAdvancedInsights = shouldShowAdvancedMetrics(guidedStep.stepIndex, hasTracked)
     val showSecondaryCards = shouldShowAdvancedTools(guidedStep.stepIndex)
+    val moreToolsSubtitle = if (showSecondaryCards) {
+        "Open research center and support options."
+    } else {
+        "See how PCOSINA works, what stays offline, and where to get help."
+    }
     val snapshotLockedCopy = remember { LockedFlowCopy.dashboardSnapshotLocked() }
     val advancedLockedCopy = remember { LockedFlowCopy.dashboardAdvancedLocked() }
     val dashboardChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 128.dp, medium = 192.dp)
@@ -868,35 +873,33 @@ fun DashboardScreen(
             }
         }
 
-        if (showSecondaryCards) {
-            item {
-                Card(
-                    onClick = onOpenMoreTools,
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
-                    modifier = Modifier
-                        .semantics {
-                            isTraversalGroup = true
-                            traversalIndex = 8f
-                        }
-                        .testTag("dashboard_more_tools_card")
-                ) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Info, contentDescription = null, tint = colorScheme.primary)
-                        Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = "More Tools",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                            )
-                            Text(
-                                text = "Open research center and support options.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colorScheme.onSurfaceVariant,
-                                maxLines = helperCopyMaxLines,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+        item {
+            Card(
+                onClick = onOpenMoreTools,
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
+                modifier = Modifier
+                    .semantics {
+                        isTraversalGroup = true
+                        traversalIndex = 8f
+                    }
+                    .testTag("dashboard_more_tools_card")
+            ) {
+                Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Info, contentDescription = null, tint = colorScheme.primary)
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "More Tools",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            text = moreToolsSubtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant,
+                            maxLines = helperCopyMaxLines,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }

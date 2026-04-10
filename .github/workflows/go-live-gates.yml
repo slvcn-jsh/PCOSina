@@ -1,0 +1,92 @@
+name: go-live-gates
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/check_go_live_gates.py"
+      - "scripts/check_schema_migrations.py"
+      - "scripts/check_operator_auth_policy.py"
+      - "scripts/check_queue_broker_throughput_report.py"
+      - "scripts/check_reason_tag_distribution.py"
+      - "scripts/build_canary_dashboard_panel.py"
+      - "scripts/run_canary_drill.py"
+      - "scripts/check_canary_webhook_secrets.py"
+      - "scripts/check_canary_drill_receipt.py"
+      - "scripts/run_rollout_readiness_batch.py"
+      - "scripts/monitor_canary_guardrails.py"
+      - "backend/database.py"
+      - "backend/policy_store.py"
+      - "backend/main.py"
+      - "load-tests/queue_broker_throughput.py"
+      - "benchmarks/reports/go_live_metrics*.json"
+      - "ml/offline_training/artifacts/reason_feedback_v1/reason_feedback_summary.json"
+      - "docs/sre/go_live_gates.md"
+      - "docs/sre/canary_webhook_routing.md"
+      - "docs/backend-config.md"
+
+jobs:
+  validate-gates:
+    runs-on: ubuntu-latest
+    env:
+      PCOSINA_ALERT_WEBHOOK_URL: ${{ secrets.PCOSINA_ALERT_WEBHOOK_URL }}
+      PCOSINA_DASHBOARD_WEBHOOK_URL: ${{ secrets.PCOSINA_DASHBOARD_WEBHOOK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate mobile ML event coverage
+        run: |
+          python scripts/check_mobile_ml_event_coverage.py
+      - name: Validate schema migration gate
+        run: |
+          python scripts/check_schema_migrations.py \
+            --database-name benchmarks/reports/schema_migration_gate.ci.sqlite3 \
+            --output benchmarks/reports/schema_migration_gate.ci.json
+      - name: Validate operator auth policy gate
+        run: |
+          python scripts/check_operator_auth_policy.py \
+            --environment staging \
+            --output benchmarks/reports/operator_auth_policy_check.ci.json
+      - name: Validate reason-tag distribution
+        run: |
+          if [ -f "ml/offline_training/artifacts/reason_feedback_v1/reason_feedback_summary.json" ]; then
+            python scripts/check_reason_tag_distribution.py --summary ml/offline_training/artifacts/reason_feedback_v1/reason_feedback_summary.json
+          else
+            echo "Missing reason feedback summary artifact for CI gate."
+            exit 1
+          fi
+      - name: Run gate check when metrics artifact exists
+        run: |
+          if [ -f "benchmarks/reports/go_live_metrics.json" ]; then
+            python scripts/check_go_live_gates.py --metrics benchmarks/reports/go_live_metrics.json
+            python scripts/monitor_canary_guardrails.py --metrics benchmarks/reports/go_live_metrics.json --output benchmarks/reports/canary_guard_report.json --alert-webhook-env PCOSINA_ALERT_WEBHOOK_URL
+            python scripts/build_canary_dashboard_panel.py --guard-report benchmarks/reports/canary_guard_report.json --metrics benchmarks/reports/go_live_metrics.json --output benchmarks/reports/ops_dashboard_canary_panel.json --webhook-env PCOSINA_DASHBOARD_WEBHOOK_URL
+          elif [ -f "benchmarks/reports/go_live_metrics.example.json" ]; then
+            python scripts/check_go_live_gates.py --metrics benchmarks/reports/go_live_metrics.example.json
+            python scripts/monitor_canary_guardrails.py --metrics benchmarks/reports/go_live_metrics.example.json --output benchmarks/reports/canary_guard_report.json --alert-webhook-env PCOSINA_ALERT_WEBHOOK_URL
+            python scripts/build_canary_dashboard_panel.py --guard-report benchmarks/reports/canary_guard_report.json --metrics benchmarks/reports/go_live_metrics.example.json --output benchmarks/reports/ops_dashboard_canary_panel.json --webhook-env PCOSINA_DASHBOARD_WEBHOOK_URL
+          else
+            echo "No metrics artifact present; skipping strict gate check."
+          fi
+      - name: Run queue broker throughput probe (memory backend)
+        run: |
+          python load-tests/queue_broker_throughput.py \
+            --backend memory \
+            --jobs 500 \
+            --workers 4 \
+            --output benchmarks/reports/queue_broker_throughput.ci.json
+      - name: Run unified rollout readiness batch (CI baseline)
+        run: |
+          python scripts/run_rollout_readiness_batch.py \
+            --environment staging \
+            --metrics benchmarks/reports/go_live_metrics.example.json \
+            --schema-db-name benchmarks/reports/rollout_schema_gate.ci.sqlite3
+      - name: Upload go-live evidence artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-live-evidence
+          path: |
+            benchmarks/reports/*.json
+            benchmarks/reports/*.txt

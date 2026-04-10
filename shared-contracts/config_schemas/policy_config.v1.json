@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pcosina.policy_config.v2",
+  "title": "PCOSINA System Policy Config",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "policy_name",
+    "environment_profile",
+    "nutrition",
+    "planning",
+    "stage1",
+    "solver",
+    "sync_offline",
+    "sre",
+    "security",
+    "milp_weights",
+    "hard_rule_mode",
+    "allow_unsafe_overrides"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "2.0.0" },
+    "policy_name": { "type": "string", "minLength": 1 },
+    "environment_profile": { "type": "string", "enum": ["development", "staging", "production"] },
+    "environment_overrides": { "type": "object", "additionalProperties": { "type": "object" } },
+    "nutrition": {
+      "type": "object",
+      "required": [
+        "calorie_min",
+        "calorie_max",
+        "carb_min",
+        "carb_max",
+        "protein_min",
+        "protein_max",
+        "fat_min",
+        "fat_max",
+        "fiber_min",
+        "sodium_max",
+        "sugar_max",
+        "meal_distribution_targets",
+        "daily_tolerance_percent",
+        "weekly_tolerance_percent"
+      ],
+      "properties": {
+        "calorie_min": { "type": "integer", "minimum": 800, "maximum": 4000 },
+        "calorie_max": { "type": "integer", "minimum": 1000, "maximum": 5000 },
+        "carb_min": { "type": "integer", "minimum": 0, "maximum": 700 },
+        "carb_max": { "type": "integer", "minimum": 50, "maximum": 900 },
+        "protein_min": { "type": "integer", "minimum": 0, "maximum": 400 },
+        "protein_max": { "type": "integer", "minimum": 20, "maximum": 500 },
+        "fat_min": { "type": "integer", "minimum": 0, "maximum": 250 },
+        "fat_max": { "type": "integer", "minimum": 20, "maximum": 350 },
+        "fiber_min": { "type": "integer", "minimum": 0, "maximum": 120 },
+        "sodium_max": { "type": "integer", "minimum": 500, "maximum": 7000 },
+        "sugar_max": { "type": "integer", "minimum": 0, "maximum": 250 },
+        "meal_distribution_targets": {
+          "type": "array",
+          "items": { "type": "number", "minimum": 0.01, "maximum": 1.0 },
+          "minItems": 1,
+          "maxItems": 6
+        },
+        "daily_tolerance_percent": { "type": "number", "minimum": 0.01, "maximum": 0.8 },
+        "weekly_tolerance_percent": { "type": "number", "minimum": 0.0, "maximum": 0.5 }
+      },
+      "additionalProperties": false
+    },
+    "planning": {
+      "type": "object",
+      "required": [
+        "planning_horizon_days",
+        "meals_per_day",
+        "snack_rules",
+        "recipe_repeat_limits",
+        "cuisine_diversity_weight",
+        "pantry_utilization_weight",
+        "grocery_cost_weight",
+        "prep_time_weight",
+        "acceptance_score_weight",
+        "substitution_penalty",
+        "meal_min_calorie_target",
+        "group_limit_floor",
+        "diversity_min_token_target",
+        "infeasibility_relaxation_order"
+      ],
+      "properties": {
+        "planning_horizon_days": { "type": "integer", "minimum": 1, "maximum": 31 },
+        "meals_per_day": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "snack_rules": { "type": "object" },
+        "recipe_repeat_limits": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1, "maximum": 50 },
+          "minItems": 1,
+          "maxItems": 10
+        },
+        "cuisine_diversity_weight": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "pantry_utilization_weight": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "grocery_cost_weight": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "prep_time_weight": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "acceptance_score_weight": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "substitution_penalty": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "meal_min_calorie_target": { "type": "integer", "minimum": 50, "maximum": 1200 },
+        "group_limit_floor": { "type": "integer", "minimum": 1, "maximum": 14 },
+        "diversity_min_token_target": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "infeasibility_relaxation_order": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "maxItems": 20
+        }
+      },
+      "additionalProperties": false
+    },
+    "stage1": {
+      "type": "object",
+      "required": [
+        "max_candidates_per_slot",
+        "ranking_cutoff",
+        "similarity_threshold",
+        "restricted_shortlist_multiplier",
+        "budget_keep_min_count",
+        "budget_keep_min_ratio",
+        "pantry_match_threshold",
+        "minimum_candidates_required",
+        "pool_cap_top_share",
+        "exclusion_penalty_weights",
+        "cold_start_defaults",
+        "ML_shadow_enabled",
+        "ML_canary_enabled",
+        "ML_score_weight",
+        "ML_score_cap"
+      ],
+      "properties": {
+        "max_candidates_per_slot": { "type": "integer", "minimum": 10, "maximum": 5000 },
+        "ranking_cutoff": { "type": "number", "minimum": 0.01, "maximum": 1.0 },
+        "similarity_threshold": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "restricted_shortlist_multiplier": { "type": "number", "minimum": 1.0, "maximum": 3.0 },
+        "budget_keep_min_count": { "type": "integer", "minimum": 1, "maximum": 500 },
+        "budget_keep_min_ratio": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "pantry_match_threshold": { "type": "integer", "minimum": 0, "maximum": 50 },
+        "minimum_candidates_required": { "type": "integer", "minimum": 1, "maximum": 200 },
+        "pool_cap_top_share": { "type": "number", "minimum": 0.05, "maximum": 0.95 },
+        "exclusion_penalty_weights": { "type": "object", "additionalProperties": { "type": "number" } },
+        "cold_start_defaults": { "type": "object" },
+        "ML_shadow_enabled": { "type": "boolean" },
+        "ML_canary_enabled": { "type": "boolean" },
+        "ML_score_weight": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "ML_score_cap": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+      },
+      "additionalProperties": false
+    },
+    "solver": {
+      "type": "object",
+      "required": [
+        "solver_time_limit_seconds",
+        "max_solution_count",
+        "optimality_gap_target",
+        "infeasibility_diagnostic_depth",
+        "worker_memory_limit",
+        "retry_attempts",
+        "timeout_ms",
+        "circuit_breaker_threshold",
+        "queue_priority_rules",
+        "solver_max_seconds",
+        "total_solver_seconds",
+        "solver_workers"
+      ],
+      "properties": {
+        "solver_time_limit_seconds": { "type": "number", "minimum": 1, "maximum": 300 },
+        "max_solution_count": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "optimality_gap_target": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "infeasibility_diagnostic_depth": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "worker_memory_limit": { "type": "integer", "minimum": 128, "maximum": 65536 },
+        "retry_attempts": { "type": "integer", "minimum": 0, "maximum": 20 },
+        "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 900000 },
+        "circuit_breaker_threshold": { "type": "integer", "minimum": 1, "maximum": 500 },
+        "queue_priority_rules": { "type": "object" },
+        "solver_max_seconds": { "type": "number", "minimum": 1, "maximum": 300 },
+        "total_solver_seconds": { "type": "number", "minimum": 3, "maximum": 600 },
+        "solver_workers": { "type": "integer", "minimum": 1, "maximum": 32 }
+      },
+      "additionalProperties": false
+    },
+    "sync_offline": {
+      "type": "object",
+      "required": [
+        "sync_batch_size",
+        "sync_retry_backoff",
+        "dead_letter_threshold",
+        "local_cache_ttl",
+        "local_cache_max_entries",
+        "conflict_resolution_policy",
+        "reinstall_recovery_timeout",
+        "offline_read_guarantees"
+      ],
+      "properties": {
+        "sync_batch_size": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "sync_retry_backoff": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1, "maximum": 3600000 },
+          "minItems": 1,
+          "maxItems": 20
+        },
+        "dead_letter_threshold": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "local_cache_ttl": { "type": "integer", "minimum": 1, "maximum": 86400 },
+        "local_cache_max_entries": { "type": "integer", "minimum": 1, "maximum": 50000 },
+        "conflict_resolution_policy": { "type": "string" },
+        "reinstall_recovery_timeout": { "type": "integer", "minimum": 1000, "maximum": 600000 },
+        "offline_read_guarantees": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "maxItems": 20
+        }
+      },
+      "additionalProperties": false
+    },
+    "sre": {
+      "type": "object",
+      "required": [
+        "latency_slo_p50_ms",
+        "latency_slo_p95_ms",
+        "latency_slo_p99_ms",
+        "crash_free_target",
+        "api_error_budget",
+        "canary_cohort_percent",
+        "rollback_trigger_thresholds",
+        "observability_sampling_rate"
+      ],
+      "properties": {
+        "latency_slo_p50_ms": { "type": "integer", "minimum": 1, "maximum": 120000 },
+        "latency_slo_p95_ms": { "type": "integer", "minimum": 1, "maximum": 120000 },
+        "latency_slo_p99_ms": { "type": "integer", "minimum": 1, "maximum": 180000 },
+        "crash_free_target": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "api_error_budget": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "canary_cohort_percent": { "type": "number", "minimum": 0.0, "maximum": 100.0 },
+        "rollback_trigger_thresholds": { "type": "object", "additionalProperties": { "type": "number" } },
+        "observability_sampling_rate": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+      },
+      "additionalProperties": false
+    },
+    "security": {
+      "type": "object",
+      "required": [
+        "token_ttl",
+        "key_rotation_days",
+        "audit_log_retention_days",
+        "backup_retention_days",
+        "encryption_required_fields"
+      ],
+      "properties": {
+        "token_ttl": { "type": "integer", "minimum": 60, "maximum": 604800 },
+        "key_rotation_days": { "type": "integer", "minimum": 1, "maximum": 3650 },
+        "audit_log_retention_days": { "type": "integer", "minimum": 1, "maximum": 3650 },
+        "backup_retention_days": { "type": "integer", "minimum": 1, "maximum": 3650 },
+        "encryption_required_fields": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "maxItems": 100
+        }
+      },
+      "additionalProperties": false
+    },
+    "milp_weights": {
+      "type": "object",
+      "required": ["repeat_weight", "group_weight", "diversity_weight", "pantry_weight"],
+      "properties": {
+        "repeat_weight": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "group_weight": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "diversity_weight": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "pantry_weight": { "type": "integer", "minimum": 0, "maximum": 100 }
+      },
+      "additionalProperties": false
+    },
+    "hard_rule_mode": { "type": "string", "const": "strict" },
+    "allow_unsafe_overrides": { "type": "boolean", "const": false }
+  },
+  "additionalProperties": false
+}

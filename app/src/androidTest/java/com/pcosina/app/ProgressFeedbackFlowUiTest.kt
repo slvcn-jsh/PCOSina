@@ -1,12 +1,16 @@
 package com.pcosina.app
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pcosina.app.data.repository.FeedbackRepository
@@ -20,8 +24,6 @@ import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.screens.ProgressScreen
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.time.temporal.TemporalAdjusters
-import java.time.temporal.WeekFields
 import java.util.Locale
 import org.junit.Rule
 import org.junit.Test
@@ -31,7 +33,7 @@ import org.junit.runner.RunWith
 class ProgressFeedbackFlowUiTest {
 
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val composeRule = createComposeRule()
 
     @Test
     fun saveReflection_showsButtonStateTransition_andFeedbackBannerMessage() {
@@ -46,14 +48,21 @@ class ProgressFeedbackFlowUiTest {
             reflectionStore = ReflectionStore(context),
             feedbackRepository = FeedbackRepository(BuildConfig.BASE_URL)
         )
-        val weekStart = LocalDate.now()
-            .with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
-            .format(DateTimeFormatter.ISO_LOCAL_DATE)
-
         userViewModel.loadProfileForUser(userId)
-        mealPlanViewModel.loadSavedPlan(userId)
-        groceryViewModel.loadGroceryForUser(userId)
-        progressViewModel.loadForUser(userId, weekStart)
+        bindMealPlanCurrentUserIdForTest(mealPlanViewModel, userId)
+        bindGroceryCurrentUserIdForTest(groceryViewModel, userId)
+        bindProgressCurrentUserIdForTest(progressViewModel, userId)
+        val seeds = mealPlanViewModel.seedDemoWeeks(userViewModel.userProfile.value)
+        progressViewModel.seedDemoWeeks(seeds)
+        progressViewModel.setProgressModePreference("Today")
+        val todayLabel = LocalDate.now().format(DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH))
+        val todayPlan = (mealPlanViewModel.uiState.value as? com.pcosina.app.ui.MealPlanUiState.Success)
+            ?.response
+            ?.days
+            ?.firstOrNull { it.dayLabel.equals(todayLabel, ignoreCase = true) }
+        todayPlan?.meals.orEmpty().forEach { meal ->
+            progressViewModel.markMealAsEaten(LocalDate.now(), meal.recipeId, meal.mealLabel)
+        }
 
         composeRule.setContent {
             MaterialTheme {
@@ -69,7 +78,12 @@ class ProgressFeedbackFlowUiTest {
             }
         }
 
-        composeRule.onNodeWithText("Open Daily Reflection").performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithTag("progress_content_list").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("progress_content_list")
+            .performScrollToNode(hasTestTag("progress_open_daily_reflection_cta"))
+        composeRule.onNodeWithTag("progress_open_daily_reflection_cta").performClick()
         composeRule.onNodeWithText("Save Reflection").assertIsDisplayed().performClick()
 
         composeRule.waitUntil(timeoutMillis = 5_000) {

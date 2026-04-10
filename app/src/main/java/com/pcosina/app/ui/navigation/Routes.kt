@@ -36,13 +36,13 @@ object Routes {
     // Main App
     val Dashboard = defineRoute("dashboard", RouteAccess.GuidedCore)
     val Settings = defineRoute("settings", RouteAccess.GuidedCore)
-    val MoreTools = defineRoute("more_tools", RouteAccess.PlanRequired)
+    val MoreTools = defineRoute("more_tools", RouteAccess.GuidedCore)
 
     // Bottom tabs
     val MealPlan = defineRoute("meal_plan", RouteAccess.GuidedCore)
     val GroceryList = defineRoute("grocery_list", RouteAccess.PlanRequired)
     val Progress = defineRoute("progress", RouteAccess.PlanRequired)
-    val Ipo = defineRoute("ipo", RouteAccess.PlanRequired)
+    val Ipo = defineRoute("ipo", RouteAccess.GuidedCore)
 
     // Details
     val RecipeDetails = defineRoute("recipe_details", RouteAccess.PlanRequired)

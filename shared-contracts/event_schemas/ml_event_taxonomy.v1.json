@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pcosina.ml_event_taxonomy.v1",
+  "title": "PCOSINA ML Event Taxonomy",
+  "type": "object",
+  "required": ["schemaVersion", "commonRequiredFields", "events"],
+  "properties": {
+    "schemaVersion": {"type": "string", "const": "1.1.0"},
+    "commonRequiredFields": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1
+    },
+    "events": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["description", "requiredFields"],
+        "properties": {
+          "description": {"type": "string"},
+          "requiredFields": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "optionalFields": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

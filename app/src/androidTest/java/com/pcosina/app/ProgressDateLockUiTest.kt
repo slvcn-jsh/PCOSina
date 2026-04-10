@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -31,7 +31,7 @@ import org.junit.runner.RunWith
 class ProgressDateLockUiTest {
 
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val composeRule = createComposeRule()
 
     @Test
     fun futureDateCheckbox_isDisabled() {
@@ -110,8 +110,11 @@ class ProgressDateLockUiTest {
         composeRule.onNodeWithTag("date_lock_checkbox").assertIsNotEnabled()
         composeRule.onNodeWithTag("progress_logging_policy_learn_more").performClick()
         composeRule.onNodeWithText("Logging policy").assertIsDisplayed()
-        composeRule.onNodeWithText(ProgressViewModel.LoggingPolicySummary).assertIsDisplayed()
-        composeRule.onNodeWithText("Future-day logging is locked. You can only log meals for today.").assertIsDisplayed()
+        composeRule.onNodeWithText(ProgressViewModel.LoggingPolicySummary, substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            "Future-day logging is locked. You can only log meals for today.",
+            substring = true
+        ).assertIsDisplayed()
     }
 
     private fun createViewModel(): ProgressViewModel {

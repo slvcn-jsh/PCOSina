@@ -27,6 +27,10 @@ class DebugBaseUrlPolicyTest {
             "Debug build BASE_URL should be sourced from resolved debug base URL instead of hardcoded LAN IP.",
             source.contains("val debugBaseUrl = resolvedDebugBaseUrl")
         )
+        assertTrue(
+            "Debug builds should force SENTRY_DSN empty so instrumentation can boot without production crash-report config.",
+            source.contains("buildConfigField(\"String\", \"SENTRY_DSN\", \"\\\"\\\"\")")
+        )
     }
 
     private fun resolve(vararg parts: String): Path {

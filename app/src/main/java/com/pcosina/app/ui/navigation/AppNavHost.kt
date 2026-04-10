@@ -287,7 +287,6 @@ fun AppNavHost(
         if (!hasPlan) {
             base.remove(Routes.GroceryList)
             base.remove(Routes.Progress)
-            base.remove(Routes.Ipo)
         }
         base
     }

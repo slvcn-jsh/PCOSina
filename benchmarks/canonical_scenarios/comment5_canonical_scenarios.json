@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "description": "Canonical scenarios for Comment #5 algorithm tradeoff benchmark",
+  "scenarios": [
+    {"name": "Base", "dietaryRestrictions": [], "allergies": []},
+    {"name": "Vegetarian", "dietaryRestrictions": ["Vegetarian"], "allergies": []},
+    {"name": "Pescatarian", "dietaryRestrictions": ["Pescatarian"], "allergies": []},
+    {"name": "NoPork", "dietaryRestrictions": ["No Pork"], "allergies": []},
+    {"name": "NoBeef", "dietaryRestrictions": ["No Beef"], "allergies": []},
+    {"name": "VegLactose", "dietaryRestrictions": ["Vegetarian", "Lactose Intolerant"], "allergies": []},
+    {"name": "BudgetNoPork", "dietaryRestrictions": ["No Pork"], "allergies": [], "weeklyBudgetPhp": 1000},
+    {"name": "PantryConstrained", "dietaryRestrictions": ["No Beef"], "allergies": [], "pantryItems": ["egg", "garlic", "onion", "tomato", "chicken", "rice", "tofu"]},
+    {"name": "AllergyPeanut", "dietaryRestrictions": [], "allergies": ["peanut"]},
+    {"name": "AllergyDairy", "dietaryRestrictions": [], "allergies": ["dairy"]}
+  ]
+}

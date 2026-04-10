@@ -26,16 +26,34 @@ backend/secrets/
 # Runtime / local artifacts
 **/__pycache__/
 *.pyc
+.pytest_cache/
 backend/pcosina.db
 backend/.env
 backend/output/
 backend/domain/__pycache__/
 backend/services/__pycache__/
+backend/pytest-cache-files-*/
+backend/tests/.tmp_*/
+backend/tests/.tmp_pytest/
+backend/tests/.tmp_pytest_cache/
+backend/tests/.tmp_pytest_run2/
 .gradle-user/
+.gradle-user-home/
+.gradle-user-merged/
 .android/
+.android-user/
+.android-user-home/
+.npm-cache/
+.release-build-check/
+.wt-rel/
 .kotlin-daemon/
 .kotlin/errors/
 hs_err_pid*.log
+analytics.settings
+pcosina.db
+tmp/pytest_registry/
+tmp/pytest_cache/
+tmp/
 
 # Secrets
 backend/backend/secrets/
@@ -56,3 +74,25 @@ backend/benchmark_*.json
 backend/weights_*.csv
 backend/best_weights.json
 backend/database_content.txt
+backend/comment*.csv
+backend/comment*.json
+backend/growth_*.csv
+backend/growth_*.json
+backend/sample_growth*.csv
+backend/sample_growth*.json
+backend/smoke_*.csv
+backend/smoke_*.json
+backend/strict_*.json
+backend/tests/.tmp*
+benchmarks/reports/
+crash_watch.txt
+
+# Local ML training datasets and auxiliary artifacts
+ml/offline_training/artifacts/dataset_v1/
+ml/offline_training/artifacts/reason_feedback_v1/
+ml/offline_training/wheelhouse/
+ml/offline_training/artifacts/model_v1/cohort_metrics.csv
+ml/offline_training/artifacts/model_v1/cohort_regression_request_confusion.csv
+ml/offline_training/artifacts/model_v1/feature_importance.csv
+ml/offline_training/artifacts/model_v1/request_confusion.csv
+ml/offline_training/artifacts/model_v1/training_config_snapshot.json

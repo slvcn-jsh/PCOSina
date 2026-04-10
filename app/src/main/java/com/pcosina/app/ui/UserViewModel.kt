@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class UserViewModel(private val repository: UserPreferencesRepository) : ViewModel() {
     private val _userProfile = MutableStateFlow(UserProfile())
@@ -198,25 +199,15 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
     }
 
     fun updatePantryItems(items: List<String>) {
-        _userProfile.update { it.copy(pantryItems = items) }
-        saveProfile()
-        val existing = _pantryEntries.value.associateBy { it.name.lowercase() }
+        val existing = _pantryEntries.value.associateBy { normalizePantryNameKey(it.name) }
         val entries = items.mapNotNull { raw ->
             val name = raw.trim()
-            if (name.isBlank()) null else (existing[name.lowercase()]?.copy(name = name) ?: PantryEntry(name = name))
-        }
-        _pantryEntries.value = entries
-        if (currentUserId.isBlank()) return
-        viewModelScope.launch {
-            repository.savePantryEntries(currentUserId, entries)
-        }
-    }
-
-    fun updatePantryEntries(entries: List<PantryEntry>) {
-        _pantryEntries.value = entries
+            val normalizedKey = normalizePantryNameKey(name)
+            if (normalizedKey.isBlank()) null
+            else (existing[normalizedKey]?.copy(name = name) ?: PantryEntry(name = name))
+        }.distinctBy { normalizePantryNameKey(it.name) }
         val names = entries.map { it.name.trim() }
-            .filter { it.isNotBlank() }
-            .distinctBy { it.lowercase() }
+        _pantryEntries.value = entries
         _userProfile.update { it.copy(pantryItems = names) }
         saveProfile()
         if (currentUserId.isBlank()) return
@@ -224,6 +215,37 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
             repository.savePantryEntries(currentUserId, entries)
         }
     }
+
+    fun updatePantryEntries(entries: List<PantryEntry>) {
+        val normalizedEntries = entries.mapNotNull { entry ->
+            val trimmedName = entry.name.trim()
+            val normalizedKey = normalizePantryNameKey(trimmedName)
+            if (normalizedKey.isBlank()) {
+                null
+            } else {
+                entry.copy(
+                    name = trimmedName,
+                    quantity = entry.quantity?.trim()?.takeIf { it.isNotBlank() },
+                    expiryDate = entry.expiryDate?.trim()?.takeIf { it.isNotBlank() }
+                )
+            }
+        }.distinctBy { normalizePantryNameKey(it.name) }
+        _pantryEntries.value = normalizedEntries
+        val names = normalizedEntries.map { it.name.trim() }
+        _userProfile.update { it.copy(pantryItems = names) }
+        saveProfile()
+        if (currentUserId.isBlank()) return
+        viewModelScope.launch {
+            repository.savePantryEntries(currentUserId, normalizedEntries)
+        }
+    }
+
+    private fun normalizePantryNameKey(raw: String): String =
+        raw.trim()
+            .lowercase(Locale.ENGLISH)
+            .replace(Regex("[^a-z0-9]+"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
 
     fun setRemindersEnabled(enabled: Boolean) {
         updateNotificationPreferences { prefs ->

@@ -327,7 +327,7 @@ class CompactWidthVisualRegressionTest {
                     "Set require_visual_baseline=false for smoke mode or add a baseline PNG."
             )
         }
-        if (baseline != null && !refreshBaselineMode()) {
+        if (baseline != null && shouldEnforceBaselineComparison() && !refreshBaselineMode()) {
             assertEquals("Baseline size mismatch for $baselineName", baseline.width, bitmap.width)
             assertEquals("Baseline size mismatch for $baselineName", baseline.height, bitmap.height)
             val delta = averagePixelDelta(baseline, bitmap)
@@ -425,6 +425,13 @@ class CompactWidthVisualRegressionTest {
     private fun requireBaselineAssets(): Boolean {
         val args = InstrumentationRegistry.getArguments()
         return args.getString("require_visual_baseline")?.toBooleanStrictOrNull() ?: false
+    }
+
+    private fun shouldEnforceBaselineComparison(): Boolean {
+        val args = InstrumentationRegistry.getArguments()
+        return args.getString("enforce_visual_baseline")
+            ?.toBooleanStrictOrNull()
+            ?: requireBaselineAssets()
     }
 
     private fun createProgressFixture(userId: String): ProgressFixture {

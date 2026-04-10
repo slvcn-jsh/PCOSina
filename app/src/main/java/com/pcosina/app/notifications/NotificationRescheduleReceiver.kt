@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
+import com.pcosina.app.data.repository.AuthRepository
 import com.pcosina.app.data.repository.UserPreferencesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +22,10 @@ class NotificationRescheduleReceiver : BroadcastReceiver() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 val appContext = context.applicationContext
-                val userId = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+                val authRepository = AuthRepository(appContext)
+                val userId = FirebaseAuth.getInstance().currentUser?.uid
+                    ?: authRepository.getPersistedCurrentUserUid()
+                    .orEmpty()
                 if (userId.isBlank()) {
                     NotificationScheduler.cancelAllForSession(appContext)
                     return@launch

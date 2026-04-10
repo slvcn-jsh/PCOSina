@@ -14,6 +14,7 @@ import com.pcosina.app.data.model.NotificationLogEntry
 import com.pcosina.app.data.model.NotificationPreferences
 import com.pcosina.app.data.model.PantryEntry
 import com.pcosina.app.data.model.UserProfile
+import com.pcosina.app.util.safeUserLogScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
@@ -41,8 +42,50 @@ class UserPreferencesRepository(private val context: Context) {
     private object Cloud {
         const val profileCollection = "profiles"
         const val updatedAtEpochMs = "updatedAtEpochMs"
+        const val artifactsUpdatedAtEpochMs = "artifactsUpdatedAtEpochMs"
         const val syncTimeoutMs = 3000L
         const val timestampSkewMs = 1000L
+
+        // Cloud payload keys for local-first artifacts.
+        const val pantryEntriesJson = "pantryEntriesJson"
+        const val lastPlanJson = "lastPlanJson"
+        const val lastPlanTimestamp = "lastPlanTimestamp"
+        const val planHistoryJson = "planHistoryJson"
+        const val activePlanId = "activePlanId"
+        const val groceryJson = "groceryJson"
+        const val grocerySourcesJson = "grocerySourcesJson"
+        const val grocerySnapshotsJson = "grocerySnapshotsJson"
+        const val dailyLogsJson = "dailyLogsJson"
+        const val feedbackQueueJson = "feedbackQueueJson"
+        const val planFeedbackTagsCsv = "planFeedbackTagsCsv"
+        const val lastReviewedWeek = "lastReviewedWeek"
+        const val progressMode = "progressMode"
+        const val progressAdvancedAnalyticsExpanded = "progressAdvancedAnalyticsExpanded"
+        const val remindersEnabled = "remindersEnabled"
+        const val notificationMaster = "notificationMaster"
+        const val notificationMeals = "notificationMeals"
+        const val notificationPlanReady = "notificationPlanReady"
+        const val notificationGrocerySync = "notificationGrocerySync"
+        const val notificationWeeklyReset = "notificationWeeklyReset"
+        const val notificationWeeklyResetDay = "notificationWeeklyResetDay"
+        const val notificationWeeklyResetHour = "notificationWeeklyResetHour"
+        const val notificationWeeklyResetMinute = "notificationWeeklyResetMinute"
+        const val notificationStreak = "notificationStreak"
+        const val notificationInactivity = "notificationInactivity"
+        const val notificationBreakfastHour = "notificationBreakfastHour"
+        const val notificationBreakfastMinute = "notificationBreakfastMinute"
+        const val notificationLunchHour = "notificationLunchHour"
+        const val notificationLunchMinute = "notificationLunchMinute"
+        const val notificationDinnerHour = "notificationDinnerHour"
+        const val notificationDinnerMinute = "notificationDinnerMinute"
+        const val notificationQuietEnabled = "notificationQuietEnabled"
+        const val notificationQuietStartHour = "notificationQuietStartHour"
+        const val notificationQuietStartMinute = "notificationQuietStartMinute"
+        const val notificationQuietEndHour = "notificationQuietEndHour"
+        const val notificationQuietEndMinute = "notificationQuietEndMinute"
+        const val notificationLogsJson = "notificationLogsJson"
+        const val notificationLastFiredJson = "notificationLastFiredJson"
+        const val weeklyJournalMap = "weeklyJournalMap"
     }
 
     private object Keys {
@@ -80,6 +123,7 @@ class UserPreferencesRepository(private val context: Context) {
         fun grocerySourcesJson(userId: String) = stringPreferencesKey("grocery_sources_json_$userId")
         fun grocerySnapshotsJson(userId: String) = stringPreferencesKey("grocery_snapshots_json_$userId")
         fun migrationLogged(userId: String) = booleanPreferencesKey("migration_logged_$userId")
+        fun cloudArtifactsUpdatedAt(userId: String) = longPreferencesKey("cloud_artifacts_updated_at_$userId")
         fun dailyLogsJson(userId: String) = stringPreferencesKey("daily_logs_json_$userId")
         fun feedbackQueueJson(userId: String) = stringPreferencesKey("feedback_queue_json_$userId")
         fun weeklyJournal(userId: String, weekStart: String) = stringPreferencesKey("weekly_journal_${userId}_$weekStart")
@@ -140,6 +184,24 @@ class UserPreferencesRepository(private val context: Context) {
         fun lastPlanJson(email: String) = stringPreferencesKey("last_plan_json_$email")
         fun lastPlanTimestamp(email: String) = longPreferencesKey("last_plan_timestamp_$email")
         fun groceryJson(email: String) = stringPreferencesKey("grocery_json_$email")
+    }
+
+    private object SecureArtifacts {
+        const val pantryEntries = "pantry_entries"
+        const val lastPlanJson = "last_plan_json"
+        const val planHistoryJson = "plan_history_json"
+        const val groceryJson = "grocery_json"
+        const val grocerySourcesJson = "grocery_sources_json"
+        const val grocerySnapshotsJson = "grocery_snapshots_json"
+        const val feedbackQueueJson = "feedback_queue_json"
+    }
+
+    private fun secureArtifactOrLegacy(userId: String, secureName: String, legacyValue: String?): String? {
+        return reflectionStore.getArtifactJson(userId, secureName) ?: legacyValue
+    }
+
+    private fun writeSecureArtifact(userId: String, secureName: String, value: String?) {
+        reflectionStore.saveArtifactJson(userId, secureName, value)
     }
 
     suspend fun migrateAllProfileCompletionAliases() {
@@ -220,7 +282,7 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.profileUpdatedAt(userId)] = System.currentTimeMillis()
 
             if (preferences[Keys.migrationLogged(userId)] != true) {
-                Log.i("PCOSINA", "Migrated legacy email data to UID for userId=$userId")
+                Log.i("PCOSINA", "Migrated legacy email data to UID for ${safeUserLogScope(userId)}")
                 preferences[Keys.migrationLogged(userId)] = true
             }
         }
@@ -293,6 +355,10 @@ class UserPreferencesRepository(private val context: Context) {
                     val now = if (localUpdatedAt > 0L) localUpdatedAt else System.currentTimeMillis()
                     syncProfileToCloud(userId, localProfile, now)
                 }
+                if (hasMeaningfulArtifactData(localPreferences, userId)) {
+                    val artifactsNow = localPreferences[Keys.cloudArtifactsUpdatedAt(userId)] ?: System.currentTimeMillis()
+                    syncArtifactsToCloud(userId, artifactsNow)
+                }
                 return
             }
 
@@ -323,8 +389,11 @@ class UserPreferencesRepository(private val context: Context) {
                     )
                 }
             }
+
+            // Keep non-profile artifacts (plans, pantry entries, groceries, logs) in sync too.
+            syncArtifactsWithCloud(userId)
         } catch (e: Exception) {
-            Log.w("PCOSINA", "Cloud profile sync skipped for userId=$userId: ${e.message}")
+            Log.w("PCOSINA", "Cloud profile sync skipped for ${safeUserLogScope(userId)}: ${e.message}")
         }
     }
 
@@ -392,7 +461,7 @@ class UserPreferencesRepository(private val context: Context) {
                     .await()
             }
         } catch (e: Exception) {
-            Log.w("PCOSINA", "Cloud profile upload skipped for userId=$userId: ${e.message}")
+            Log.w("PCOSINA", "Cloud profile upload skipped for ${safeUserLogScope(userId)}: ${e.message}")
         }
     }
 
@@ -466,9 +535,361 @@ class UserPreferencesRepository(private val context: Context) {
             profile.isProfileCompleted
     }
 
+    private fun weeklyJournalPrefix(userId: String) = "weekly_journal_${userId}_"
+
+    private fun readCloudString(data: Map<String, Any>, key: String): String =
+        (data[key] as? String).orEmpty()
+
+    private fun readCloudLong(data: Map<String, Any>, key: String, fallback: Long = 0L): Long =
+        (data[key] as? Number)?.toLong() ?: fallback
+
+    private fun readCloudInt(data: Map<String, Any>, key: String, fallback: Int = 0): Int =
+        (data[key] as? Number)?.toInt() ?: fallback
+
+    private fun readCloudBool(data: Map<String, Any>, key: String, fallback: Boolean = false): Boolean =
+        (data[key] as? Boolean) ?: fallback
+
+    private fun hasMeaningfulArtifactData(preferences: Preferences, userId: String): Boolean {
+        val hasWeeklyJournal = reflectionStore.getAllWeeklyJournals(userId).isNotEmpty() ||
+            preferences.asMap().keys.any { it.name.startsWith(weeklyJournalPrefix(userId)) }
+        val hasSyncableSettings = preferences.contains(Keys.progressMode(userId)) ||
+            preferences.contains(Keys.progressAdvancedAnalyticsExpanded(userId)) ||
+            preferences.contains(Keys.remindersEnabled(userId)) ||
+            preferences.contains(Keys.notificationMaster(userId)) ||
+            preferences.contains(Keys.notificationMeals(userId)) ||
+            preferences.contains(Keys.notificationPlanReady(userId)) ||
+            preferences.contains(Keys.notificationGrocerySync(userId)) ||
+            preferences.contains(Keys.notificationWeeklyReset(userId)) ||
+            preferences.contains(Keys.notificationWeeklyResetDay(userId)) ||
+            preferences.contains(Keys.notificationWeeklyResetHour(userId)) ||
+            preferences.contains(Keys.notificationWeeklyResetMinute(userId)) ||
+            preferences.contains(Keys.notificationStreak(userId)) ||
+            preferences.contains(Keys.notificationInactivity(userId)) ||
+            preferences.contains(Keys.notificationBreakfastHour(userId)) ||
+            preferences.contains(Keys.notificationBreakfastMinute(userId)) ||
+            preferences.contains(Keys.notificationLunchHour(userId)) ||
+            preferences.contains(Keys.notificationLunchMinute(userId)) ||
+            preferences.contains(Keys.notificationDinnerHour(userId)) ||
+            preferences.contains(Keys.notificationDinnerMinute(userId)) ||
+            preferences.contains(Keys.notificationQuietEnabled(userId)) ||
+            preferences.contains(Keys.notificationQuietStartHour(userId)) ||
+            preferences.contains(Keys.notificationQuietStartMinute(userId)) ||
+            preferences.contains(Keys.notificationQuietEndHour(userId)) ||
+            preferences.contains(Keys.notificationQuietEndMinute(userId)) ||
+            preferences.contains(Keys.notificationLogs(userId)) ||
+            preferences.contains(Keys.notificationLastFiredJson(userId))
+        return !secureArtifactOrLegacy(userId, SecureArtifacts.pantryEntries, preferences[Keys.pantryEntries(userId)]).isNullOrBlank() ||
+            !secureArtifactOrLegacy(userId, SecureArtifacts.lastPlanJson, preferences[Keys.lastPlanJson(userId)]).isNullOrBlank() ||
+            !secureArtifactOrLegacy(userId, SecureArtifacts.planHistoryJson, preferences[Keys.planHistoryJson(userId)]).isNullOrBlank() ||
+            !preferences[Keys.activePlanId(userId)].isNullOrBlank() ||
+            (preferences[Keys.lastPlanTimestamp(userId)] ?: 0L) > 0L ||
+            !secureArtifactOrLegacy(userId, SecureArtifacts.groceryJson, preferences[Keys.groceryJson(userId)]).isNullOrBlank() ||
+            !secureArtifactOrLegacy(userId, SecureArtifacts.grocerySourcesJson, preferences[Keys.grocerySourcesJson(userId)]).isNullOrBlank() ||
+            !secureArtifactOrLegacy(userId, SecureArtifacts.grocerySnapshotsJson, preferences[Keys.grocerySnapshotsJson(userId)]).isNullOrBlank() ||
+            !(reflectionStore.getDailyLogsJson(userId) ?: preferences[Keys.dailyLogsJson(userId)]).isNullOrBlank() ||
+            !secureArtifactOrLegacy(userId, SecureArtifacts.feedbackQueueJson, preferences[Keys.feedbackQueueJson(userId)]).isNullOrBlank() ||
+            !preferences[Keys.planFeedbackTags(userId)].isNullOrBlank() ||
+            !preferences[Keys.lastReviewedWeek(userId)].isNullOrBlank() ||
+            hasSyncableSettings ||
+            hasWeeklyJournal
+    }
+
+    private fun hasMeaningfulArtifactData(data: Map<String, Any>): Boolean {
+        val weekly = data[Cloud.weeklyJournalMap] as? Map<*, *>
+        val hasSyncableSettings = data.containsKey(Cloud.progressMode) ||
+            data.containsKey(Cloud.progressAdvancedAnalyticsExpanded) ||
+            data.containsKey(Cloud.remindersEnabled) ||
+            data.containsKey(Cloud.notificationMaster) ||
+            data.containsKey(Cloud.notificationMeals) ||
+            data.containsKey(Cloud.notificationPlanReady) ||
+            data.containsKey(Cloud.notificationGrocerySync) ||
+            data.containsKey(Cloud.notificationWeeklyReset) ||
+            data.containsKey(Cloud.notificationWeeklyResetDay) ||
+            data.containsKey(Cloud.notificationWeeklyResetHour) ||
+            data.containsKey(Cloud.notificationWeeklyResetMinute) ||
+            data.containsKey(Cloud.notificationStreak) ||
+            data.containsKey(Cloud.notificationInactivity) ||
+            data.containsKey(Cloud.notificationBreakfastHour) ||
+            data.containsKey(Cloud.notificationBreakfastMinute) ||
+            data.containsKey(Cloud.notificationLunchHour) ||
+            data.containsKey(Cloud.notificationLunchMinute) ||
+            data.containsKey(Cloud.notificationDinnerHour) ||
+            data.containsKey(Cloud.notificationDinnerMinute) ||
+            data.containsKey(Cloud.notificationQuietEnabled) ||
+            data.containsKey(Cloud.notificationQuietStartHour) ||
+            data.containsKey(Cloud.notificationQuietStartMinute) ||
+            data.containsKey(Cloud.notificationQuietEndHour) ||
+            data.containsKey(Cloud.notificationQuietEndMinute) ||
+            data.containsKey(Cloud.notificationLogsJson) ||
+            data.containsKey(Cloud.notificationLastFiredJson)
+        return readCloudString(data, Cloud.pantryEntriesJson).isNotBlank() ||
+            readCloudString(data, Cloud.lastPlanJson).isNotBlank() ||
+            readCloudString(data, Cloud.planHistoryJson).isNotBlank() ||
+            readCloudString(data, Cloud.activePlanId).isNotBlank() ||
+            readCloudLong(data, Cloud.lastPlanTimestamp) > 0L ||
+            readCloudString(data, Cloud.groceryJson).isNotBlank() ||
+            readCloudString(data, Cloud.grocerySourcesJson).isNotBlank() ||
+            readCloudString(data, Cloud.grocerySnapshotsJson).isNotBlank() ||
+            readCloudString(data, Cloud.dailyLogsJson).isNotBlank() ||
+            readCloudString(data, Cloud.feedbackQueueJson).isNotBlank() ||
+            readCloudString(data, Cloud.planFeedbackTagsCsv).isNotBlank() ||
+            readCloudString(data, Cloud.lastReviewedWeek).isNotBlank() ||
+            hasSyncableSettings ||
+            !weekly.isNullOrEmpty()
+    }
+
+    private fun buildArtifactPayload(preferences: Preferences, userId: String, updatedAtMs: Long): Map<String, Any> {
+        val weeklyMap = reflectionStore.getAllWeeklyJournals(userId).ifEmpty {
+            val weeklyPrefix = weeklyJournalPrefix(userId)
+            preferences.asMap().entries
+                .mapNotNull { (key, value) ->
+                    val name = key.name
+                    if (!name.startsWith(weeklyPrefix)) return@mapNotNull null
+                    val weekStart = name.removePrefix(weeklyPrefix)
+                    val text = value as? String ?: return@mapNotNull null
+                    weekStart to text
+                }
+                .toMap()
+        }
+
+        return mapOf(
+            Cloud.artifactsUpdatedAtEpochMs to updatedAtMs,
+            Cloud.pantryEntriesJson to (secureArtifactOrLegacy(userId, SecureArtifacts.pantryEntries, preferences[Keys.pantryEntries(userId)]) ?: ""),
+            Cloud.lastPlanJson to (secureArtifactOrLegacy(userId, SecureArtifacts.lastPlanJson, preferences[Keys.lastPlanJson(userId)]) ?: ""),
+            Cloud.lastPlanTimestamp to (preferences[Keys.lastPlanTimestamp(userId)] ?: 0L),
+            Cloud.planHistoryJson to (secureArtifactOrLegacy(userId, SecureArtifacts.planHistoryJson, preferences[Keys.planHistoryJson(userId)]) ?: ""),
+            Cloud.activePlanId to (preferences[Keys.activePlanId(userId)] ?: ""),
+            Cloud.groceryJson to (secureArtifactOrLegacy(userId, SecureArtifacts.groceryJson, preferences[Keys.groceryJson(userId)]) ?: ""),
+            Cloud.grocerySourcesJson to (secureArtifactOrLegacy(userId, SecureArtifacts.grocerySourcesJson, preferences[Keys.grocerySourcesJson(userId)]) ?: ""),
+            Cloud.grocerySnapshotsJson to (secureArtifactOrLegacy(userId, SecureArtifacts.grocerySnapshotsJson, preferences[Keys.grocerySnapshotsJson(userId)]) ?: ""),
+            Cloud.dailyLogsJson to ((reflectionStore.getDailyLogsJson(userId) ?: preferences[Keys.dailyLogsJson(userId)]) ?: ""),
+            Cloud.feedbackQueueJson to (secureArtifactOrLegacy(userId, SecureArtifacts.feedbackQueueJson, preferences[Keys.feedbackQueueJson(userId)]) ?: ""),
+            Cloud.planFeedbackTagsCsv to (preferences[Keys.planFeedbackTags(userId)] ?: ""),
+            Cloud.lastReviewedWeek to (preferences[Keys.lastReviewedWeek(userId)] ?: ""),
+            Cloud.progressMode to (preferences[Keys.progressMode(userId)] ?: "Today"),
+            Cloud.progressAdvancedAnalyticsExpanded to (preferences[Keys.progressAdvancedAnalyticsExpanded(userId)] ?: false),
+            Cloud.remindersEnabled to (preferences[Keys.remindersEnabled(userId)] ?: false),
+            Cloud.notificationMaster to (preferences[Keys.notificationMaster(userId)] ?: false),
+            Cloud.notificationMeals to (preferences[Keys.notificationMeals(userId)] ?: true),
+            Cloud.notificationPlanReady to (preferences[Keys.notificationPlanReady(userId)] ?: true),
+            Cloud.notificationGrocerySync to (preferences[Keys.notificationGrocerySync(userId)] ?: true),
+            Cloud.notificationWeeklyReset to (preferences[Keys.notificationWeeklyReset(userId)] ?: true),
+            Cloud.notificationWeeklyResetDay to (preferences[Keys.notificationWeeklyResetDay(userId)] ?: 1),
+            Cloud.notificationWeeklyResetHour to (preferences[Keys.notificationWeeklyResetHour(userId)] ?: 9),
+            Cloud.notificationWeeklyResetMinute to (preferences[Keys.notificationWeeklyResetMinute(userId)] ?: 0),
+            Cloud.notificationStreak to (preferences[Keys.notificationStreak(userId)] ?: false),
+            Cloud.notificationInactivity to (preferences[Keys.notificationInactivity(userId)] ?: true),
+            Cloud.notificationBreakfastHour to (preferences[Keys.notificationBreakfastHour(userId)] ?: 8),
+            Cloud.notificationBreakfastMinute to (preferences[Keys.notificationBreakfastMinute(userId)] ?: 0),
+            Cloud.notificationLunchHour to (preferences[Keys.notificationLunchHour(userId)] ?: 12),
+            Cloud.notificationLunchMinute to (preferences[Keys.notificationLunchMinute(userId)] ?: 30),
+            Cloud.notificationDinnerHour to (preferences[Keys.notificationDinnerHour(userId)] ?: 19),
+            Cloud.notificationDinnerMinute to (preferences[Keys.notificationDinnerMinute(userId)] ?: 0),
+            Cloud.notificationQuietEnabled to (preferences[Keys.notificationQuietEnabled(userId)] ?: false),
+            Cloud.notificationQuietStartHour to (preferences[Keys.notificationQuietStartHour(userId)] ?: 22),
+            Cloud.notificationQuietStartMinute to (preferences[Keys.notificationQuietStartMinute(userId)] ?: 0),
+            Cloud.notificationQuietEndHour to (preferences[Keys.notificationQuietEndHour(userId)] ?: 6),
+            Cloud.notificationQuietEndMinute to (preferences[Keys.notificationQuietEndMinute(userId)] ?: 30),
+            Cloud.notificationLogsJson to (preferences[Keys.notificationLogs(userId)] ?: ""),
+            Cloud.notificationLastFiredJson to (preferences[Keys.notificationLastFiredJson(userId)] ?: ""),
+            Cloud.weeklyJournalMap to weeklyMap
+        )
+    }
+
+    private suspend fun applyArtifactsLocalOnly(
+        userId: String,
+        data: Map<String, Any>,
+        updatedAtMs: Long
+    ) {
+        if (data.containsKey(Cloud.pantryEntriesJson)) {
+            writeSecureArtifact(userId, SecureArtifacts.pantryEntries, readCloudString(data, Cloud.pantryEntriesJson))
+        }
+        if (data.containsKey(Cloud.lastPlanJson)) {
+            writeSecureArtifact(userId, SecureArtifacts.lastPlanJson, readCloudString(data, Cloud.lastPlanJson))
+        }
+        if (data.containsKey(Cloud.planHistoryJson)) {
+            writeSecureArtifact(userId, SecureArtifacts.planHistoryJson, readCloudString(data, Cloud.planHistoryJson))
+        }
+        if (data.containsKey(Cloud.groceryJson)) {
+            writeSecureArtifact(userId, SecureArtifacts.groceryJson, readCloudString(data, Cloud.groceryJson))
+        }
+        if (data.containsKey(Cloud.grocerySourcesJson)) {
+            writeSecureArtifact(userId, SecureArtifacts.grocerySourcesJson, readCloudString(data, Cloud.grocerySourcesJson))
+        }
+        if (data.containsKey(Cloud.grocerySnapshotsJson)) {
+            writeSecureArtifact(userId, SecureArtifacts.grocerySnapshotsJson, readCloudString(data, Cloud.grocerySnapshotsJson))
+        }
+        if (data.containsKey(Cloud.dailyLogsJson)) {
+            reflectionStore.saveDailyLogsJson(userId, readCloudString(data, Cloud.dailyLogsJson))
+        }
+        if (data.containsKey(Cloud.feedbackQueueJson)) {
+            writeSecureArtifact(userId, SecureArtifacts.feedbackQueueJson, readCloudString(data, Cloud.feedbackQueueJson))
+        }
+        if (data.containsKey(Cloud.weeklyJournalMap)) {
+            val weeklyMap = (data[Cloud.weeklyJournalMap] as? Map<*, *>)?.mapNotNull { (k, v) ->
+                val weekStart = k?.toString()?.trim().orEmpty()
+                if (weekStart.isBlank()) null else weekStart to v?.toString().orEmpty()
+            }?.toMap().orEmpty()
+            reflectionStore.replaceWeeklyJournals(userId, weeklyMap)
+        }
+        context.dataStore.edit { preferences ->
+            fun setString(key: Preferences.Key<String>, cloudKey: String) {
+                if (data.containsKey(cloudKey)) {
+                    preferences[key] = readCloudString(data, cloudKey)
+                }
+            }
+            fun setLong(key: Preferences.Key<Long>, cloudKey: String, fallback: Long = 0L) {
+                if (data.containsKey(cloudKey)) {
+                    preferences[key] = readCloudLong(data, cloudKey, fallback)
+                }
+            }
+            fun setInt(key: Preferences.Key<Int>, cloudKey: String, fallback: Int = 0) {
+                if (data.containsKey(cloudKey)) {
+                    preferences[key] = readCloudInt(data, cloudKey, fallback)
+                }
+            }
+            fun setBool(key: Preferences.Key<Boolean>, cloudKey: String, fallback: Boolean = false) {
+                if (data.containsKey(cloudKey)) {
+                    preferences[key] = readCloudBool(data, cloudKey, fallback)
+                }
+            }
+
+            if (data.containsKey(Cloud.pantryEntriesJson)) preferences.remove(Keys.pantryEntries(userId))
+            if (data.containsKey(Cloud.lastPlanJson)) preferences.remove(Keys.lastPlanJson(userId))
+            setLong(Keys.lastPlanTimestamp(userId), Cloud.lastPlanTimestamp)
+            if (data.containsKey(Cloud.planHistoryJson)) preferences.remove(Keys.planHistoryJson(userId))
+
+            if (data.containsKey(Cloud.activePlanId)) {
+                val remoteActive = readCloudString(data, Cloud.activePlanId)
+                if (remoteActive.isBlank()) preferences.remove(Keys.activePlanId(userId))
+                else preferences[Keys.activePlanId(userId)] = remoteActive
+            }
+
+            if (data.containsKey(Cloud.groceryJson)) preferences.remove(Keys.groceryJson(userId))
+            if (data.containsKey(Cloud.grocerySourcesJson)) preferences.remove(Keys.grocerySourcesJson(userId))
+            if (data.containsKey(Cloud.grocerySnapshotsJson)) preferences.remove(Keys.grocerySnapshotsJson(userId))
+            if (data.containsKey(Cloud.dailyLogsJson)) preferences.remove(Keys.dailyLogsJson(userId))
+            if (data.containsKey(Cloud.feedbackQueueJson)) preferences.remove(Keys.feedbackQueueJson(userId))
+            setString(Keys.planFeedbackTags(userId), Cloud.planFeedbackTagsCsv)
+            setString(Keys.lastReviewedWeek(userId), Cloud.lastReviewedWeek)
+            setString(Keys.progressMode(userId), Cloud.progressMode)
+            setBool(Keys.progressAdvancedAnalyticsExpanded(userId), Cloud.progressAdvancedAnalyticsExpanded)
+            setBool(Keys.remindersEnabled(userId), Cloud.remindersEnabled)
+            setBool(Keys.notificationMaster(userId), Cloud.notificationMaster)
+            setBool(Keys.notificationMeals(userId), Cloud.notificationMeals, true)
+            setBool(Keys.notificationPlanReady(userId), Cloud.notificationPlanReady, true)
+            setBool(Keys.notificationGrocerySync(userId), Cloud.notificationGrocerySync, true)
+            setBool(Keys.notificationWeeklyReset(userId), Cloud.notificationWeeklyReset, true)
+            setInt(Keys.notificationWeeklyResetDay(userId), Cloud.notificationWeeklyResetDay, 1)
+            setInt(Keys.notificationWeeklyResetHour(userId), Cloud.notificationWeeklyResetHour, 9)
+            setInt(Keys.notificationWeeklyResetMinute(userId), Cloud.notificationWeeklyResetMinute, 0)
+            setBool(Keys.notificationStreak(userId), Cloud.notificationStreak)
+            setBool(Keys.notificationInactivity(userId), Cloud.notificationInactivity, true)
+            setInt(Keys.notificationBreakfastHour(userId), Cloud.notificationBreakfastHour, 8)
+            setInt(Keys.notificationBreakfastMinute(userId), Cloud.notificationBreakfastMinute, 0)
+            setInt(Keys.notificationLunchHour(userId), Cloud.notificationLunchHour, 12)
+            setInt(Keys.notificationLunchMinute(userId), Cloud.notificationLunchMinute, 30)
+            setInt(Keys.notificationDinnerHour(userId), Cloud.notificationDinnerHour, 19)
+            setInt(Keys.notificationDinnerMinute(userId), Cloud.notificationDinnerMinute, 0)
+            setBool(Keys.notificationQuietEnabled(userId), Cloud.notificationQuietEnabled)
+            setInt(Keys.notificationQuietStartHour(userId), Cloud.notificationQuietStartHour, 22)
+            setInt(Keys.notificationQuietStartMinute(userId), Cloud.notificationQuietStartMinute, 0)
+            setInt(Keys.notificationQuietEndHour(userId), Cloud.notificationQuietEndHour, 6)
+            setInt(Keys.notificationQuietEndMinute(userId), Cloud.notificationQuietEndMinute, 30)
+            setString(Keys.notificationLogs(userId), Cloud.notificationLogsJson)
+            setString(Keys.notificationLastFiredJson(userId), Cloud.notificationLastFiredJson)
+
+            if (data.containsKey(Cloud.weeklyJournalMap)) {
+                val prefix = weeklyJournalPrefix(userId)
+                preferences.asMap().keys
+                    .filter { it.name.startsWith(prefix) }
+                    .toList()
+                    .forEach { preferences.remove(it) }
+            }
+
+            preferences[Keys.cloudArtifactsUpdatedAt(userId)] = updatedAtMs
+        }
+    }
+
+    private suspend fun syncArtifactsToCloud(userId: String, updatedAtMs: Long = System.currentTimeMillis()) {
+        if (userId.isBlank()) return
+        try {
+            val localPreferences = context.dataStore.data.first()
+            val payload = buildArtifactPayload(localPreferences, userId, updatedAtMs)
+            withTimeoutOrNull(Cloud.syncTimeoutMs) {
+                firestore.collection(Cloud.profileCollection)
+                    .document(userId)
+                    .set(payload, SetOptions.merge())
+                    .await()
+            }
+        } catch (e: Exception) {
+            Log.w("PCOSINA", "Cloud artifact upload skipped for ${safeUserLogScope(userId)}: ${e.message}")
+        }
+    }
+
+    private suspend fun syncArtifactsWithCloud(userId: String) {
+        if (userId.isBlank()) return
+        try {
+            val localPreferences = context.dataStore.data.first()
+            val localUpdatedAt = localPreferences[Keys.cloudArtifactsUpdatedAt(userId)] ?: 0L
+            val localHasData = hasMeaningfulArtifactData(localPreferences, userId)
+
+            val snapshot = withTimeoutOrNull(Cloud.syncTimeoutMs) {
+                firestore.collection(Cloud.profileCollection).document(userId).get().await()
+            } ?: return
+
+            if (!snapshot.exists()) {
+                if (localHasData) {
+                    val now = if (localUpdatedAt > 0L) localUpdatedAt else System.currentTimeMillis()
+                    syncArtifactsToCloud(userId, now)
+                }
+                return
+            }
+
+            val data = snapshot.data ?: emptyMap()
+            val remoteUpdatedAt = (data[Cloud.artifactsUpdatedAtEpochMs] as? Number)?.toLong() ?: 0L
+            val remoteHasData = hasMeaningfulArtifactData(data)
+            val now = System.currentTimeMillis()
+
+            when {
+                remoteHasData && (!localHasData || remoteUpdatedAt > localUpdatedAt + Cloud.timestampSkewMs) -> {
+                    applyArtifactsLocalOnly(
+                        userId = userId,
+                        data = data,
+                        updatedAtMs = if (remoteUpdatedAt > 0L) remoteUpdatedAt else now
+                    )
+                }
+                localHasData && localUpdatedAt == 0L && remoteHasData -> {
+                    val bootstrapTimestamp = if (remoteUpdatedAt > 0L) remoteUpdatedAt else now
+                    context.dataStore.edit { preferences ->
+                        preferences[Keys.cloudArtifactsUpdatedAt(userId)] = bootstrapTimestamp
+                    }
+                }
+                localHasData && localUpdatedAt == 0L -> {
+                    syncArtifactsToCloud(userId, now)
+                }
+                localHasData && (!remoteHasData || localUpdatedAt > remoteUpdatedAt + Cloud.timestampSkewMs) -> {
+                    val effectiveUpdatedAt = if (localUpdatedAt > 0L) localUpdatedAt else now
+                    syncArtifactsToCloud(userId, effectiveUpdatedAt)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("PCOSINA", "Cloud artifact sync skipped for ${safeUserLogScope(userId)}: ${e.message}")
+        }
+    }
+
+    private suspend fun editArtifactsAndSync(userId: String, mutate: (MutablePreferences) -> Unit) {
+        val now = System.currentTimeMillis()
+        context.dataStore.edit { preferences ->
+            mutate(preferences)
+            preferences[Keys.cloudArtifactsUpdatedAt(userId)] = now
+        }
+        syncArtifactsToCloud(userId, now)
+    }
+
     fun getPantryEntries(userId: String): Flow<List<PantryEntry>> =
         context.dataStore.data.map { prefs ->
-            val json = prefs[Keys.pantryEntries(userId)]
+            val json = secureArtifactOrLegacy(userId, SecureArtifacts.pantryEntries, prefs[Keys.pantryEntries(userId)])
             if (!json.isNullOrBlank()) {
                 try { gson.fromJson<List<PantryEntry>>(json, pantryType) } catch (_: Exception) { emptyList() }
             } else {
@@ -479,8 +900,9 @@ class UserPreferencesRepository(private val context: Context) {
         }
 
     suspend fun savePantryEntries(userId: String, entries: List<PantryEntry>) {
-        context.dataStore.edit { prefs ->
-            prefs[Keys.pantryEntries(userId)] = gson.toJson(entries)
+        writeSecureArtifact(userId, SecureArtifacts.pantryEntries, gson.toJson(entries))
+        editArtifactsAndSync(userId) { prefs ->
+            prefs.remove(Keys.pantryEntries(userId))
         }
     }
 
@@ -492,68 +914,80 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
-    fun getSavedPlanJson(userId: String): Flow<String?> = context.dataStore.data.map { it[Keys.lastPlanJson(userId)] }
+    fun getSavedPlanJson(userId: String): Flow<String?> =
+        context.dataStore.data.map { secureArtifactOrLegacy(userId, SecureArtifacts.lastPlanJson, it[Keys.lastPlanJson(userId)]) }
     fun getSavedPlanTimestamp(userId: String): Flow<Long> = context.dataStore.data.map { it[Keys.lastPlanTimestamp(userId)] ?: 0L }
-    fun getPlanHistoryJson(userId: String): Flow<String?> = context.dataStore.data.map { it[Keys.planHistoryJson(userId)] }
+    fun getPlanHistoryJson(userId: String): Flow<String?> =
+        context.dataStore.data.map { secureArtifactOrLegacy(userId, SecureArtifacts.planHistoryJson, it[Keys.planHistoryJson(userId)]) }
     fun getActivePlanId(userId: String): Flow<String?> = context.dataStore.data.map { it[Keys.activePlanId(userId)] }
 
     suspend fun savePlanJson(userId: String, json: String, timestamp: Long) {
-        context.dataStore.edit { preferences ->
-            preferences[Keys.lastPlanJson(userId)] = json
+        writeSecureArtifact(userId, SecureArtifacts.lastPlanJson, json)
+        editArtifactsAndSync(userId) { preferences ->
+            preferences.remove(Keys.lastPlanJson(userId))
             preferences[Keys.lastPlanTimestamp(userId)] = timestamp
         }
     }
 
     suspend fun savePlanHistoryJson(userId: String, json: String) {
-        context.dataStore.edit { preferences ->
-            preferences[Keys.planHistoryJson(userId)] = json
+        writeSecureArtifact(userId, SecureArtifacts.planHistoryJson, json)
+        editArtifactsAndSync(userId) { preferences ->
+            preferences.remove(Keys.planHistoryJson(userId))
         }
     }
 
     suspend fun saveActivePlanId(userId: String, id: String?) {
-        context.dataStore.edit { preferences ->
+        editArtifactsAndSync(userId) { preferences ->
             if (id.isNullOrBlank()) preferences.remove(Keys.activePlanId(userId))
             else preferences[Keys.activePlanId(userId)] = id
         }
     }
 
     // Grocery Persistence Logic
-    fun getGroceryJson(userId: String): Flow<String?> = context.dataStore.data.map { it[Keys.groceryJson(userId)] }
+    fun getGroceryJson(userId: String): Flow<String?> =
+        context.dataStore.data.map { secureArtifactOrLegacy(userId, SecureArtifacts.groceryJson, it[Keys.groceryJson(userId)]) }
     suspend fun saveGroceryJson(userId: String, json: String) {
-        context.dataStore.edit { it[Keys.groceryJson(userId)] = json }
+        writeSecureArtifact(userId, SecureArtifacts.groceryJson, json)
+        editArtifactsAndSync(userId) { it.remove(Keys.groceryJson(userId)) }
     }
 
     fun getGrocerySourcesJson(userId: String): Flow<String?> =
-        context.dataStore.data.map { it[Keys.grocerySourcesJson(userId)] }
+        context.dataStore.data.map { secureArtifactOrLegacy(userId, SecureArtifacts.grocerySourcesJson, it[Keys.grocerySourcesJson(userId)]) }
 
     suspend fun saveGrocerySourcesJson(userId: String, json: String) {
-        context.dataStore.edit { it[Keys.grocerySourcesJson(userId)] = json }
+        writeSecureArtifact(userId, SecureArtifacts.grocerySourcesJson, json)
+        editArtifactsAndSync(userId) { it.remove(Keys.grocerySourcesJson(userId)) }
     }
 
     fun getGrocerySnapshotsJson(userId: String): Flow<String?> =
-        context.dataStore.data.map { it[Keys.grocerySnapshotsJson(userId)] }
+        context.dataStore.data.map { secureArtifactOrLegacy(userId, SecureArtifacts.grocerySnapshotsJson, it[Keys.grocerySnapshotsJson(userId)]) }
 
     suspend fun saveGrocerySnapshotsJson(userId: String, json: String) {
-        context.dataStore.edit { it[Keys.grocerySnapshotsJson(userId)] = json }
+        writeSecureArtifact(userId, SecureArtifacts.grocerySnapshotsJson, json)
+        editArtifactsAndSync(userId) { it.remove(Keys.grocerySnapshotsJson(userId)) }
     }
 
-    fun getDailyLogsJson(userId: String): Flow<String?> = context.dataStore.data.map { it[Keys.dailyLogsJson(userId)] }
+    fun getDailyLogsJson(userId: String): Flow<String?> =
+        context.dataStore.data.map { reflectionStore.getDailyLogsJson(userId) ?: it[Keys.dailyLogsJson(userId)] }
     suspend fun saveDailyLogsJson(userId: String, json: String) {
-        context.dataStore.edit { it[Keys.dailyLogsJson(userId)] = json }
+        reflectionStore.saveDailyLogsJson(userId, json)
+        editArtifactsAndSync(userId) { it.remove(Keys.dailyLogsJson(userId)) }
     }
 
     fun getWeeklyJournal(userId: String, weekStart: String): Flow<String?> =
-        context.dataStore.data.map { it[Keys.weeklyJournal(userId, weekStart)] }
+        context.dataStore.data.map { reflectionStore.getWeeklyJournal(userId, weekStart) ?: it[Keys.weeklyJournal(userId, weekStart)] }
 
     suspend fun saveWeeklyJournal(userId: String, weekStart: String, text: String) {
-        context.dataStore.edit { it[Keys.weeklyJournal(userId, weekStart)] = text }
+        reflectionStore.saveWeeklyJournal(userId, weekStart, text)
+        editArtifactsAndSync(userId) { it.remove(Keys.weeklyJournal(userId, weekStart)) }
     }
 
     fun getFeedbackQueueJson(userId: String): Flow<String?> =
-        context.dataStore.data.map { it[Keys.feedbackQueueJson(userId)] }
+        context.dataStore.data.map { secureArtifactOrLegacy(userId, SecureArtifacts.feedbackQueueJson, it[Keys.feedbackQueueJson(userId)]) }
 
     suspend fun saveFeedbackQueueJson(userId: String, json: String) {
-        context.dataStore.edit { it[Keys.feedbackQueueJson(userId)] = json }
+        writeSecureArtifact(userId, SecureArtifacts.feedbackQueueJson, json)
+        editArtifactsAndSync(userId) { it.remove(Keys.feedbackQueueJson(userId)) }
     }
 
     fun getPlanFeedbackTags(userId: String): Flow<List<String>> =
@@ -562,14 +996,14 @@ class UserPreferencesRepository(private val context: Context) {
         }
 
     suspend fun savePlanFeedbackTags(userId: String, tags: List<String>) {
-        context.dataStore.edit { it[Keys.planFeedbackTags(userId)] = tags.joinToString(",") }
+        editArtifactsAndSync(userId) { it[Keys.planFeedbackTags(userId)] = tags.joinToString(",") }
     }
 
     fun getLastReviewedWeek(userId: String): Flow<String?> =
         context.dataStore.data.map { it[Keys.lastReviewedWeek(userId)] }
 
     suspend fun saveLastReviewedWeek(userId: String, weekStart: String) {
-        context.dataStore.edit { it[Keys.lastReviewedWeek(userId)] = weekStart }
+        editArtifactsAndSync(userId) { it[Keys.lastReviewedWeek(userId)] = weekStart }
     }
 
     fun getProgressMode(userId: String): Flow<String> =
@@ -578,7 +1012,7 @@ class UserPreferencesRepository(private val context: Context) {
         }
 
     suspend fun saveProgressMode(userId: String, mode: String) {
-        context.dataStore.edit { prefs ->
+        editArtifactsAndSync(userId) { prefs ->
             prefs[Keys.progressMode(userId)] = mode
         }
     }
@@ -589,7 +1023,7 @@ class UserPreferencesRepository(private val context: Context) {
         }
 
     suspend fun saveProgressAdvancedAnalyticsExpanded(userId: String, expanded: Boolean) {
-        context.dataStore.edit { prefs ->
+        editArtifactsAndSync(userId) { prefs ->
             prefs[Keys.progressAdvancedAnalyticsExpanded(userId)] = expanded
         }
     }
@@ -600,7 +1034,7 @@ class UserPreferencesRepository(private val context: Context) {
         }
 
     suspend fun setRemindersEnabled(userId: String, enabled: Boolean) {
-        context.dataStore.edit {
+        editArtifactsAndSync(userId) {
             it[Keys.remindersEnabled(userId)] = enabled
             it[Keys.notificationMaster(userId)] = enabled
         }
@@ -636,7 +1070,7 @@ class UserPreferencesRepository(private val context: Context) {
         }
 
     suspend fun saveNotificationPreferences(userId: String, prefs: NotificationPreferences) {
-        context.dataStore.edit {
+        editArtifactsAndSync(userId) {
             it[Keys.notificationMaster(userId)] = prefs.masterEnabled
             it[Keys.remindersEnabled(userId)] = prefs.masterEnabled
             it[Keys.notificationMeals(userId)] = prefs.mealRemindersEnabled
@@ -677,7 +1111,7 @@ class UserPreferencesRepository(private val context: Context) {
         }
 
     suspend fun appendNotificationLog(userId: String, entry: NotificationLogEntry) {
-        context.dataStore.edit { prefs ->
+        editArtifactsAndSync(userId) { prefs ->
             val current = prefs[Keys.notificationLogs(userId)]
                 ?.let {
                     try {
@@ -704,7 +1138,7 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun setNotificationLastFired(userId: String, type: String, timestamp: Long) {
-        context.dataStore.edit { prefs ->
+        editArtifactsAndSync(userId) { prefs ->
             val raw = prefs[Keys.notificationLastFiredJson(userId)]
             val map = raw?.let {
                 try {
@@ -762,7 +1196,9 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun clearPlanHistory(userId: String) {
-        context.dataStore.edit { preferences ->
+        writeSecureArtifact(userId, SecureArtifacts.planHistoryJson, null)
+        writeSecureArtifact(userId, SecureArtifacts.lastPlanJson, null)
+        editArtifactsAndSync(userId) { preferences ->
             preferences.remove(Keys.planHistoryJson(userId))
             preferences.remove(Keys.activePlanId(userId))
             preferences.remove(Keys.lastPlanJson(userId))
@@ -772,7 +1208,11 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun clearGrocerySnapshots(userId: String) {
-        context.dataStore.edit { preferences ->
+        writeSecureArtifact(userId, SecureArtifacts.groceryJson, null)
+        writeSecureArtifact(userId, SecureArtifacts.grocerySourcesJson, null)
+        writeSecureArtifact(userId, SecureArtifacts.grocerySnapshotsJson, null)
+        editArtifactsAndSync(userId) { preferences ->
+            preferences.remove(Keys.activePlanId(userId))
             preferences.remove(Keys.grocerySnapshotsJson(userId))
             preferences.remove(Keys.groceryJson(userId))
             preferences.remove(Keys.grocerySourcesJson(userId))
@@ -780,7 +1220,7 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun clearLegacyReflections(userId: String) {
-        context.dataStore.edit { preferences ->
+        editArtifactsAndSync(userId) { preferences ->
             preferences.remove(Keys.dailyLogsJson(userId))
             val weeklyPrefix = "weekly_journal_${userId}_"
             preferences.asMap().keys

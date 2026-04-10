@@ -34,7 +34,20 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build Release APK (assembleRelease)
+        env:
+          PCOSINA_ALLOW_INSECURE_RELEASE_SIGNING: "true"
         run: ./gradlew assembleRelease
+
+      - name: Upload Android release build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-build-artifacts
+          path: |
+            app/build/outputs/apk/release/*
+            app/build/outputs/logs/*
+            app/build/outputs/sdk-dependencies/release/*
+          if-no-files-found: warn
 
   connected-instrumentation:
     name: Connected Instrumentation (API ${{ matrix.api-level }}, Pinned Emulator)
@@ -69,6 +82,17 @@ jobs:
           script: |
             adb shell settings put system font_scale 1.0
             ./gradlew :app:connectedDebugAndroidTest
+
+      - name: Upload connected instrumentation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: connected-instrumentation-artifacts-api-${{ matrix.api-level }}
+          path: |
+            app/build/reports/androidTests/connected/**/*
+            app/build/outputs/androidTest-results/connected/**/*
+            app/build/outputs/connected_android_test_additional_output/**/*
+          if-no-files-found: warn
 
   compact-visual-regression:
     name: Compact Visual Regression (API ${{ matrix.api-level }})
@@ -119,6 +143,17 @@ jobs:
               ./gradlew :app:connectedDebugAndroidTest \
                 -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest \
                 -Pandroid.testInstrumentationRunnerArguments.refresh_visual_baseline=true
+
+      - name: Upload compact visual regression artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compact-visual-regression-artifacts-api-${{ matrix.api-level }}
+          path: |
+            app/build/reports/androidTests/connected/**/*
+            app/build/outputs/androidTest-results/connected/**/*
+            app/build/outputs/connected_android_test_additional_output/**/*
+          if-no-files-found: warn
             else
               echo "Full compact baseline set not committed yet; strict verify skipped."
               ./gradlew :app:connectedDebugAndroidTest \
@@ -160,6 +195,17 @@ jobs:
             ./gradlew :app:connectedDebugAndroidTest \
               -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.MealPlanSwapBannerUiTest#statusCenter_showsReminderSummaryWhenNotificationsEnabled
 
+      - name: Upload UX critical flow artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ux-critical-flow-artifacts-api-34
+          path: |
+            app/build/reports/androidTests/connected/**/*
+            app/build/outputs/androidTest-results/connected/**/*
+            app/build/outputs/connected_android_test_additional_output/**/*
+          if-no-files-found: warn
+
   backend-smoke:
     name: Backend Dependency Smoke
     runs-on: ubuntu-latest
@@ -177,3 +223,78 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Run backend test suite
+        working-directory: backend
+        env:
+          PCOSINA_ENV: development
+        run: |
+          python -m coverage run -m pytest -q --junitxml=pytest-report.xml
+          python -m coverage xml -o coverage.xml
+          python -m coverage report --skip-covered
+
+      - name: Upload backend smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-smoke-evidence
+          path: |
+            backend/pytest-report.xml
+            backend/coverage.xml
+          if-no-files-found: warn
+
+  ml-readiness:
+    name: ML Readiness Gates
+    runs-on: ubuntu-latest
+    env:
+      ML_FRESHNESS_MAX_AGE_HOURS: "720"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend and ML dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install -r ml/offline_training/requirements.txt
+
+      - name: Run ML runtime and artifact tests
+        env:
+          PCOSINA_ENV: development
+        run: |
+          python -m pytest backend/tests/test_ml_ranker.py backend/tests/test_lightgbm_training.py backend/tests/test_ml_readiness_script.py backend/tests/test_meal_planner.py -q
+
+      - name: Run ML readiness gates
+        run: |
+          python scripts/check_ml_readiness.py \
+            --mode shadow \
+            --reason-feedback-summary ml/offline_training/artifacts/reason_feedback_v1/reason_feedback_summary.json \
+            --max-dataset-artifact-age-hours "$ML_FRESHNESS_MAX_AGE_HOURS" \
+            --max-dataset-source-age-hours "$ML_FRESHNESS_MAX_AGE_HOURS" \
+            --max-reason-feedback-artifact-age-hours "$ML_FRESHNESS_MAX_AGE_HOURS" \
+            --max-reason-feedback-source-age-hours "$ML_FRESHNESS_MAX_AGE_HOURS"
+          python scripts/check_ml_readiness.py \
+            --mode canary \
+            --reason-feedback-summary ml/offline_training/artifacts/reason_feedback_v1/reason_feedback_summary.json \
+            --max-dataset-artifact-age-hours "$ML_FRESHNESS_MAX_AGE_HOURS" \
+            --max-dataset-source-age-hours "$ML_FRESHNESS_MAX_AGE_HOURS" \
+            --max-reason-feedback-artifact-age-hours "$ML_FRESHNESS_MAX_AGE_HOURS" \
+            --max-reason-feedback-source-age-hours "$ML_FRESHNESS_MAX_AGE_HOURS"
+
+      - name: Upload ML readiness artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ml-readiness-evidence
+          path: |
+            ml/offline_training/artifacts/dataset_v1/dataset_manifest.json
+            ml/offline_training/artifacts/model_v1/training_metrics.json
+            ml/offline_training/artifacts/model_v1/cohort_metrics.csv
+            ml/offline_training/artifacts/model_v1/request_confusion.csv
+            ml/offline_training/artifacts/model_v1/cohort_regression_request_confusion.csv
+            ml/offline_training/artifacts/reason_feedback_v1/reason_feedback_summary.json
+          if-no-files-found: error

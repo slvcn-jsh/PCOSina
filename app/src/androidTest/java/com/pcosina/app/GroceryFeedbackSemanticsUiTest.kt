@@ -1,13 +1,19 @@
 package com.pcosina.app
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pcosina.app.data.model.DummyData
@@ -33,11 +39,11 @@ import org.junit.runner.RunWith
 class GroceryFeedbackSemanticsUiTest {
 
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val composeRule = createComposeRule()
 
     @Test
     fun goToPlan_offline_showsInternetRequiredBanner() {
-        val fixture = createFixture("grocery_offline_blocked")
+        val fixture = createFixture("grocery_offline_blocked", seedPlan = false)
 
         composeRule.setContent {
             MaterialTheme {
@@ -52,7 +58,7 @@ class GroceryFeedbackSemanticsUiTest {
             }
         }
 
-        composeRule.onNodeWithText("Go to Plan").performScrollTo().performClick()
+        composeRule.onNodeWithText("Go to Plan").performClick()
         composeRule.onNodeWithText("Internet required for this action. Connect to open plan generation.")
             .assertIsDisplayed()
     }
@@ -80,7 +86,17 @@ class GroceryFeedbackSemanticsUiTest {
             }
         }
 
-        composeRule.onNodeWithTag("grocery_expand_toggle_all").performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithTag("grocery_content_list").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("grocery_content_list")
+            .performScrollToNode(hasTestTag("grocery_expand_toggle_all"))
+        composeRule.onNodeWithTag("grocery_expand_toggle_all").performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithText("Collapsed all categories.").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("grocery_content_list")
+            .performScrollToNode(hasText("Collapsed all categories."))
         composeRule.onNodeWithText("Collapsed all categories.").assertIsDisplayed()
     }
 
@@ -107,8 +123,9 @@ class GroceryFeedbackSemanticsUiTest {
             }
         }
 
+        composeRule.onNodeWithTag("grocery_content_list")
+            .performScrollToNode(hasContentDescription("Collapse Produce category"))
         composeRule.onNodeWithContentDescription("Collapse Produce category")
-            .performScrollTo()
             .assertIsDisplayed()
     }
 
@@ -135,20 +152,36 @@ class GroceryFeedbackSemanticsUiTest {
             }
         }
 
+        composeRule.onNodeWithTag("grocery_content_list")
+            .performScrollToNode(hasText("Need to buy"))
         composeRule.onNodeWithText("Need to buy").performScrollTo().performClick()
+        composeRule.onNodeWithTag("grocery_content_list")
+            .performScrollToNode(hasText("Showing items you still need to buy."))
         composeRule.onNodeWithText("Showing items you still need to buy.").assertIsDisplayed()
 
+        composeRule.onNodeWithTag("grocery_content_list")
+            .performScrollToNode(hasText("Produce (1)"))
         composeRule.onNodeWithText("Produce (1)").performScrollTo().performClick()
+        composeRule.onNodeWithTag("grocery_content_list")
+            .performScrollToNode(hasText("Filtered to Produce (1 items)."))
         composeRule.onNodeWithText("Filtered to Produce (1 items).").assertIsDisplayed()
 
+        composeRule.onNodeWithTag("grocery_content_list")
+            .performScrollToNode(hasText("Bought / pantry"))
         composeRule.onNodeWithText("Bought / pantry").performScrollTo().performClick()
+        composeRule.onNodeWithTag("grocery_content_list")
+            .performScrollToNode(hasText("No items match this filter yet"))
         composeRule.onNodeWithText("No items match this filter yet").assertIsDisplayed()
 
+        composeRule.onNodeWithTag("grocery_content_list")
+            .performScrollToNode(hasText("Reset Filters"))
         composeRule.onNodeWithText("Reset Filters").performScrollTo().performClick()
+        composeRule.onNodeWithTag("grocery_content_list")
+            .performScrollToNode(hasText("Filters reset. Showing all items."))
         composeRule.onNodeWithText("Filters reset. Showing all items.").assertIsDisplayed()
     }
 
-    private fun createFixture(userId: String): Fixture {
+    private fun createFixture(userId: String, seedPlan: Boolean = true): Fixture {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val userPrefs = UserPreferencesRepository(context)
         val userViewModel = UserViewModel(userPrefs)
@@ -159,14 +192,14 @@ class GroceryFeedbackSemanticsUiTest {
             reflectionStore = ReflectionStore(context),
             feedbackRepository = FeedbackRepository(BuildConfig.BASE_URL)
         )
-        val weekStart = LocalDate.now()
-            .with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
-            .format(DateTimeFormatter.ISO_LOCAL_DATE)
-
         userViewModel.loadProfileForUser(userId)
-        mealPlanViewModel.loadSavedPlan(userId)
-        groceryViewModel.loadGroceryForUser(userId)
-        progressViewModel.loadForUser(userId, weekStart)
+        bindMealPlanCurrentUserIdForTest(mealPlanViewModel, userId)
+        bindGroceryCurrentUserIdForTest(groceryViewModel, userId)
+        bindProgressCurrentUserIdForTest(progressViewModel, userId)
+        if (seedPlan) {
+            val seeds = mealPlanViewModel.seedDemoWeeks(userViewModel.userProfile.value)
+            progressViewModel.seedDemoWeeks(seeds)
+        }
 
         return Fixture(
             userViewModel = userViewModel,

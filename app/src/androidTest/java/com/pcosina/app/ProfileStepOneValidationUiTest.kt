@@ -5,8 +5,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextClearance
@@ -22,7 +24,7 @@ import org.junit.runner.RunWith
 class ProfileStepOneValidationUiTest {
 
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val composeRule = createComposeRule()
 
     @Test
     fun stepOneInlineValidation_showsFormatAndRangeHints_forAgeWeightHeight() {
@@ -60,7 +62,7 @@ class ProfileStepOneValidationUiTest {
         composeRule.onNodeWithTag("profile_step1_age_input").performTextInput("abc")
         composeRule.onNodeWithTag("profile_step1_weight_input").performTextInput("abc")
         composeRule.onNodeWithTag("profile_step1_height_cm_input").performTextInput("abc")
-        composeRule.onNodeWithText("Enter a whole number.").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Enter a whole number.").assertCountEquals(2)
         composeRule.onNodeWithText("Enter height in centimeters.").assertIsDisplayed()
 
         composeRule.onNodeWithTag("profile_step1_age_input").performTextClearance()

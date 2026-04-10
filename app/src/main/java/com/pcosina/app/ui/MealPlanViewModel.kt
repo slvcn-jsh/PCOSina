@@ -1,5 +1,6 @@
 package com.pcosina.app.ui
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -47,6 +48,15 @@ sealed class RecipeDetailsUiState {
     data class Error(val message: String) : RecipeDetailsUiState()
 }
 
+sealed class MealPlanGenerationNotice {
+    data class NoSafePlan(
+        val message: String,
+        val guidance: List<String>,
+        val diagnosticsReference: String?,
+        val continuityPlanAvailable: Boolean
+    ) : MealPlanGenerationNotice()
+}
+
 data class PlanMetrics(
     val avgProtein: Int = 0,
     val avgCarbs: Int = 0,
@@ -64,6 +74,9 @@ class MealPlanViewModel(
 
     private val _recipeState = MutableStateFlow<RecipeDetailsUiState>(RecipeDetailsUiState.Idle)
     val recipeState: StateFlow<RecipeDetailsUiState> = _recipeState.asStateFlow()
+
+    private val _generationNotice = MutableStateFlow<MealPlanGenerationNotice?>(null)
+    val generationNotice: StateFlow<MealPlanGenerationNotice?> = _generationNotice.asStateFlow()
 
     private val _planMetrics = MutableStateFlow(PlanMetrics())
     val planMetrics: StateFlow<PlanMetrics> = _planMetrics.asStateFlow()
@@ -89,9 +102,19 @@ class MealPlanViewModel(
     private val gson = Gson()
     private val dayOrder = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
+    private data class ContinuityPlanSnapshot(
+        val response: GeneratePlanResponse,
+        val timestamp: Long,
+        val activePlanId: String?,
+        val weekStart: String?,
+        val weekEnd: String?,
+        val expired: Boolean
+    )
+
     fun loadSavedPlan(userId: String) {
         currentUserId = userId
         viewModelScope.launch {
+            _generationNotice.value = null
             _uiState.value = MealPlanUiState.Idle 
             var history = loadPlanHistory(userId)
             if (history.isEmpty()) {
@@ -140,6 +163,14 @@ class MealPlanViewModel(
             if (active != null && !expired) {
                 _uiState.value = MealPlanUiState.Success(active.response, active.generatedAt)
                 calculateMetrics(active.response)
+                emitMlEventSafe(
+                    eventName = "plan_viewed",
+                    requestId = active.response.requestId,
+                    payload = mapOf(
+                        "plan_id" to active.id,
+                        "source" to "local_cache"
+                    )
+                )
             } else {
                 _uiState.value = MealPlanUiState.Idle
             }
@@ -173,6 +204,7 @@ class MealPlanViewModel(
         currentUserId = ""
         _uiState.value = MealPlanUiState.Idle
         _recipeState.value = RecipeDetailsUiState.Idle
+        _generationNotice.value = null
         _planMetrics.value = PlanMetrics()
         _planHistory.value = emptyList()
         _activePlanId.value = null
@@ -183,6 +215,8 @@ class MealPlanViewModel(
 
     fun generateMealPlan(profile: UserProfile) {
         viewModelScope.launch {
+            val continuityPlan = continuityPlanSnapshot()
+            _generationNotice.value = null
             _uiState.value = MealPlanUiState.Loading
             repository.warmup()
             val effectiveProfile = resolveProfile(profile)
@@ -190,6 +224,35 @@ class MealPlanViewModel(
             val apiProfile = tunedProfile.copy(goal = goalTextForApi(tunedProfile.goal))
             val result = repository.generatePlan(apiProfile)
             result.onSuccess { response ->
+                if (response.status.equals("no-safe-plan", ignoreCase = true) || response.days.isEmpty()) {
+                    val reasonCodes = if (response.machineReasonCodes.isNotEmpty()) {
+                        response.machineReasonCodes
+                    } else {
+                        listOf("UNKNOWN_INFEASIBILITY")
+                    }
+                    emitMlEventSafe(
+                        eventName = "no_safe_plan_encountered",
+                        requestId = response.requestId,
+                        payload = mapOf(
+                            "reason_codes" to reasonCodes,
+                            "status" to "no-safe-plan"
+                        )
+                    )
+                    val guidance = (response.humanGuidance + response.suggestedRelaxations)
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+                        .distinct()
+                    val combined = guidance.firstOrNull()
+                        ?: response.message.trim().takeIf { it.isNotBlank() }
+                        ?: "No safe plan could be generated. Adjust non-safety preferences and retry."
+                    presentNoSafePlan(
+                        message = combined,
+                        guidance = guidance,
+                        diagnosticsReference = response.diagnosticsReference,
+                        continuityPlan = continuityPlan
+                    )
+                    return@onSuccess
+                }
                 val now = System.currentTimeMillis()
                 val start = weekStartDate(now)
                 val end = start.plusDays(6)
@@ -202,6 +265,7 @@ class MealPlanViewModel(
                     generatedAt = now,
                     response = withLabel
                 )
+                _generationNotice.value = null
                 _uiState.value = MealPlanUiState.Success(withLabel, now)
                 calculateMetrics(withLabel)
                 if (currentUserId.isNotBlank()) {
@@ -213,6 +277,22 @@ class MealPlanViewModel(
                     _activeWeekEnd.value = instance.weekEnd
                     _planExpired.value = false
                 }
+                val planTelemetryId = withLabel.planId ?: id
+                val slotCount = withLabel.days.sumOf { it.meals.size }
+                emitMlEventSafe(
+                    eventName = "plan_generated",
+                    requestId = withLabel.requestId,
+                    payload = mapOf(
+                        "status" to "success",
+                        "plan_id" to planTelemetryId,
+                        "slot_count" to slotCount
+                    )
+                )
+                emitMlEventSafe(
+                    eventName = "plan_viewed",
+                    requestId = withLabel.requestId,
+                    payload = mapOf("plan_id" to planTelemetryId, "source" to "fresh_generation")
+                )
             }.onFailure { error ->
                 val raw = error.message ?: "Failed to connect to MILP engine"
                 val message = if (raw.contains("Profile invalid", ignoreCase = true)) {
@@ -227,6 +307,7 @@ class MealPlanViewModel(
                 } else {
                     raw
                 }
+                _generationNotice.value = null
                 _uiState.value = MealPlanUiState.Error(message)
             }
         }
@@ -266,7 +347,21 @@ class MealPlanViewModel(
     }
 
     fun showError(message: String) {
+        _generationNotice.value = null
         _uiState.value = MealPlanUiState.Error(message)
+    }
+
+    fun showNoSafePlan(
+        message: String,
+        guidance: List<String> = emptyList(),
+        diagnosticsReference: String? = null
+    ) {
+        presentNoSafePlan(
+            message = message,
+            guidance = guidance,
+            diagnosticsReference = diagnosticsReference,
+            continuityPlan = continuityPlanSnapshot()
+        )
     }
 
     fun loadRecipeDetails(recipeId: String) {
@@ -275,6 +370,11 @@ class MealPlanViewModel(
             val result = repository.getRecipeDetails(recipeId)
             result.onSuccess { dto ->
                 _recipeState.value = RecipeDetailsUiState.Success(dto)
+                emitMlEventSafe(
+                    eventName = "recipe_opened",
+                    requestId = (_uiState.value as? MealPlanUiState.Success)?.response?.requestId,
+                    payload = mapOf("recipe_id" to dto.id)
+                )
             }.onFailure { e ->
                 _recipeState.value = RecipeDetailsUiState.Error(e.message ?: "Failed to load recipe")
             }
@@ -316,6 +416,17 @@ class MealPlanViewModel(
                 userPrefsRepository.savePlanJson(currentUserId, gson.toJson(updated), currentState.timestamp)
                 updateActivePlanResponse(updated)
             }
+            val planIdForEvent = _activePlanId.value ?: response.planId ?: response.weekLabel
+            emitMlEventSafe(
+                eventName = "meal_replaced",
+                requestId = response.requestId,
+                payload = mapOf(
+                    "plan_id" to planIdForEvent,
+                    "slot_index" to ((dayIndex * 3) + mealIndex),
+                    "old_recipe_id" to oldMeal.recipeId,
+                    "new_recipe_id" to newRecipeId
+                )
+            )
         }
     }
 
@@ -360,9 +471,20 @@ class MealPlanViewModel(
                         DummyData.GroceryItem(ing.name, ing.quantity, 0, detail.mealType ?: "Required")
                     }
                 }
-                val consolidated = allPlannedItems.groupBy { it.name }.map { (name, group) ->
-                    DummyData.GroceryItem(name, group.joinToString(", ") { it.quantity }, 0, "Consolidated")
-                }
+                val consolidated = allPlannedItems
+                    .groupBy { normalizeGroceryItemName(it.name) }
+                    .mapNotNull { (normalizedName, group) ->
+                        if (normalizedName.isBlank()) return@mapNotNull null
+                        val displayName = group.firstNotNullOfOrNull { item ->
+                            item.name.trim().takeIf { it.isNotBlank() }
+                        } ?: return@mapNotNull null
+                        DummyData.GroceryItem(
+                            displayName,
+                            group.joinToString(", ") { it.quantity.trim() },
+                            0,
+                            "Consolidated"
+                        )
+                    }
                 onComplete(consolidated)
             }
         }
@@ -380,6 +502,11 @@ class MealPlanViewModel(
         _planExpired.value = isExpired(plan)
         _uiState.value = MealPlanUiState.Success(plan.response, plan.generatedAt)
         calculateMetrics(plan.response)
+        emitMlEventSafe(
+            eventName = "plan_viewed",
+            requestId = plan.response.requestId,
+            payload = mapOf("plan_id" to plan.id, "source" to "history_select")
+        )
         if (currentUserId.isNotBlank()) {
             viewModelScope.launch {
                 userPrefsRepository.saveActivePlanId(currentUserId, plan.id)
@@ -659,6 +786,168 @@ class MealPlanViewModel(
             raw.startsWith("sun") || raw.startsWith("sunday") || raw.startsWith("lin") || raw.startsWith("linggo") -> "Sun"
             else -> null
         }
+    }
+
+    private fun emitMlEventSafe(
+        eventName: String,
+        requestId: String? = null,
+        payload: Map<String, Any> = emptyMap()
+    ) {
+        if (currentUserId.isBlank()) return
+        viewModelScope.launch {
+            repository.emitMlEvent(eventName = eventName, requestId = requestId, payload = payload)
+                .onFailure { error ->
+                    Log.w("MealPlanViewModel", "ML event emit failed for $eventName: ${error.message}")
+                }
+        }
+    }
+
+    private fun currentPlanTelemetryId(): String? {
+        val response = (_uiState.value as? MealPlanUiState.Success)?.response
+        return _activePlanId.value
+            ?: response?.planId?.takeIf { it.isNotBlank() }
+            ?: response?.weekLabel?.takeIf { it.isNotBlank() }
+    }
+
+    private fun isMissingMlField(value: Any?): Boolean {
+        return when (value) {
+            null -> true
+            is String -> value.isBlank()
+            else -> false
+        }
+    }
+
+    private fun normalizeMlItemToken(raw: Any?): String? {
+        val text = raw?.toString()?.trim()?.lowercase(Locale.ENGLISH).orEmpty()
+        if (text.isBlank()) return null
+        return text
+            .replace(Regex("[^a-z0-9]+"), "_")
+            .trim('_')
+            .takeIf { it.isNotBlank() }
+    }
+
+    private fun normalizeGroceryItemName(raw: String): String =
+        raw.trim().lowercase(Locale.ENGLISH)
+
+    private fun normalizeTrackedMlPayload(
+        eventName: String,
+        payload: Map<String, Any>
+    ): Map<String, Any>? {
+        val normalizedName = eventName.trim()
+        if (normalizedName.isBlank()) return null
+        val normalized = payload.toMutableMap()
+        val planId = currentPlanTelemetryId()
+        when (normalizedName) {
+            "meal_accepted", "meal_skipped" -> {
+                planId?.let { normalized.putIfAbsent("plan_id", it) }
+                if (isMissingMlField(normalized["slot_index"])) {
+                    val fallbackSlotIndex = (payload["slot_index"] as? Number)?.toInt()
+                        ?: (payload["meal_index"] as? Number)?.toInt()
+                        ?: -1
+                    normalized["slot_index"] = fallbackSlotIndex
+                }
+            }
+            "cook_completed", "grocery_completed" -> {
+                planId?.let { normalized.putIfAbsent("plan_id", it) }
+            }
+            "pantry_item_added", "pantry_item_removed", "pantry_item_expired" -> {
+                val itemToken = normalizeMlItemToken(
+                    payload["item_token"] ?: payload["item_name"] ?: payload["itemName"]
+                )
+                if (itemToken != null) {
+                    normalized["item_token"] = itemToken
+                }
+            }
+            "manual_override_attempted" -> {
+                normalized.putIfAbsent("override_type", "meal_swap")
+            }
+        }
+        val requiredFields = when (normalizedName) {
+            "meal_accepted", "meal_skipped" -> listOf("plan_id", "slot_index", "recipe_id")
+            "cook_completed" -> listOf("plan_id", "recipe_id")
+            "grocery_completed" -> listOf("plan_id")
+            "pantry_item_added", "pantry_item_removed", "pantry_item_expired" -> listOf("item_token")
+            "manual_override_attempted" -> listOf("override_type")
+            else -> emptyList()
+        }
+        val missing = requiredFields.filter { key -> isMissingMlField(normalized[key]) }
+        if (missing.isNotEmpty()) {
+            Log.w(
+                "MealPlanViewModel",
+                "Skipping ML event $normalizedName due to missing required fields: ${missing.joinToString(",")}"
+            )
+            return null
+        }
+        return normalized
+    }
+
+    fun currentRequestId(): String? {
+        return (_uiState.value as? MealPlanUiState.Success)?.response?.requestId
+    }
+
+    fun trackMlEvent(
+        eventName: String,
+        payload: Map<String, Any> = emptyMap(),
+        requestId: String? = currentRequestId()
+    ) {
+        val normalizedPayload = normalizeTrackedMlPayload(eventName, payload) ?: return
+        emitMlEventSafe(eventName = eventName, requestId = requestId, payload = normalizedPayload)
+    }
+
+    private fun continuityPlanSnapshot(): ContinuityPlanSnapshot? {
+        val currentSuccess = _uiState.value as? MealPlanUiState.Success
+        if (currentSuccess != null) {
+            return ContinuityPlanSnapshot(
+                response = currentSuccess.response,
+                timestamp = currentSuccess.timestamp,
+                activePlanId = _activePlanId.value,
+                weekStart = _activeWeekStart.value,
+                weekEnd = _activeWeekEnd.value,
+                expired = _planExpired.value
+            )
+        }
+        val fallback = _planHistory.value.firstOrNull { it.id == _activePlanId.value }
+            ?: _planHistory.value.maxByOrNull { it.generatedAt }
+            ?: return null
+        return ContinuityPlanSnapshot(
+            response = fallback.response,
+            timestamp = fallback.generatedAt,
+            activePlanId = fallback.id,
+            weekStart = fallback.weekStart,
+            weekEnd = fallback.weekEnd,
+            expired = isExpired(fallback)
+        )
+    }
+
+    private fun presentNoSafePlan(
+        message: String,
+        guidance: List<String>,
+        diagnosticsReference: String?,
+        continuityPlan: ContinuityPlanSnapshot?
+    ) {
+        val normalizedMessage = message.ifBlank {
+            "No safe plan could be generated. Adjust non-safety preferences and retry."
+        }
+        _generationNotice.value = MealPlanGenerationNotice.NoSafePlan(
+            message = normalizedMessage,
+            guidance = guidance
+                .map { it.trim() }
+                .filter { it.isNotBlank() && !it.equals(normalizedMessage, ignoreCase = true) }
+                .distinct(),
+            diagnosticsReference = diagnosticsReference?.trim()?.takeIf { it.isNotBlank() },
+            continuityPlanAvailable = continuityPlan != null
+        )
+        if (continuityPlan == null) {
+            _planMetrics.value = PlanMetrics()
+            _uiState.value = MealPlanUiState.Error(normalizedMessage)
+            return
+        }
+        _activePlanId.value = continuityPlan.activePlanId
+        _activeWeekStart.value = continuityPlan.weekStart
+        _activeWeekEnd.value = continuityPlan.weekEnd
+        _planExpired.value = continuityPlan.expired
+        _uiState.value = MealPlanUiState.Success(continuityPlan.response, continuityPlan.timestamp)
+        calculateMetrics(continuityPlan.response)
     }
 
     class Factory(

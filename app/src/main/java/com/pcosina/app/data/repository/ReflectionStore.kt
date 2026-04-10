@@ -30,6 +30,7 @@ class ReflectionStore(private val context: Context) {
     private fun dailyLogsKey(userId: String) = "daily_logs_$userId"
     private fun weeklyKey(userId: String, weekStart: String) = "weekly_journal_${userId}_$weekStart"
     private fun weeklySpendKey(userId: String, weekStart: String) = "weekly_spend_${userId}_$weekStart"
+    private fun artifactKey(userId: String, name: String) = "artifact_${name}_$userId"
 
     fun getDailyLogsJson(userId: String): String? = prefs.getString(dailyLogsKey(userId), null)
 
@@ -55,16 +56,44 @@ class ReflectionStore(private val context: Context) {
         editor.apply()
     }
 
+    fun getArtifactJson(userId: String, name: String): String? =
+        prefs.getString(artifactKey(userId, name), null)
+
+    fun saveArtifactJson(userId: String, name: String, json: String?) {
+        val editor = prefs.edit()
+        if (json.isNullOrEmpty()) editor.remove(artifactKey(userId, name))
+        else editor.putString(artifactKey(userId, name), json)
+        editor.apply()
+    }
+
     fun getAllWeeklyJournals(userId: String): Map<String, String> {
         return prefs.all
             .filterKeys { it.startsWith("weekly_journal_${userId}_") }
             .mapValues { it.value?.toString().orEmpty() }
     }
 
+    fun replaceWeeklyJournals(userId: String, journals: Map<String, String>) {
+        val editor = prefs.edit()
+        prefs.all.keys
+            .filter { it.startsWith("weekly_journal_${userId}_") }
+            .forEach { editor.remove(it) }
+        journals.forEach { (weekStart, text) ->
+            if (weekStart.isNotBlank()) {
+                editor.putString(weeklyKey(userId, weekStart), text)
+            }
+        }
+        editor.apply()
+    }
+
     fun clearForUser(userId: String) {
         val editor = prefs.edit()
         prefs.all.keys.forEach { key ->
-            if (key == dailyLogsKey(userId) || key.startsWith("weekly_journal_${userId}_") || key.startsWith("weekly_spend_${userId}_")) {
+            if (
+                key == dailyLogsKey(userId) ||
+                key.startsWith("weekly_journal_${userId}_") ||
+                key.startsWith("weekly_spend_${userId}_") ||
+                key.startsWith("artifact_") && key.endsWith("_$userId")
+            ) {
                 editor.remove(key)
             }
         }

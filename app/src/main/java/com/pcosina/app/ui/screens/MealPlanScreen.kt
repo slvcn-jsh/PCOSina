@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.util.Log
 import com.pcosina.app.ui.GroceryViewModel
+import com.pcosina.app.ui.MealPlanGenerationNotice
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
@@ -51,6 +52,7 @@ import com.pcosina.app.ui.components.StatusCenterCard
 import com.pcosina.app.ui.components.SyncStatusChip
 import com.pcosina.app.ui.components.TokenizedFilterChip
 import com.pcosina.app.notifications.NotificationScheduler
+import com.pcosina.app.util.safeUserLogScope
 import com.pcosina.app.ui.theme.UiChipTokens
 import com.pcosina.app.ui.theme.UiSpacingTokens
 import com.pcosina.app.ui.util.buildMealReasons
@@ -119,7 +121,7 @@ private class FirebaseMealPlanNextActionAnalytics(
         )
         Log.i(
             "MealPlanUX",
-            "Next best action tapped action=$actionType network=$networkState user=$userId"
+            "Next best action tapped action=$actionType network=$networkState ${safeUserLogScope(userId)}"
         )
     }
 }
@@ -150,6 +152,7 @@ fun MealPlanScreen(
     modifier: Modifier = Modifier,
 ) {
     val uiState by mealPlanViewModel.uiState.collectAsState()
+    val generationNotice by mealPlanViewModel.generationNotice.collectAsState()
     val planHistory by mealPlanViewModel.planHistory.collectAsState()
     val activePlanId by mealPlanViewModel.activePlanId.collectAsState()
     val planExpired by mealPlanViewModel.planExpired.collectAsState()
@@ -198,6 +201,7 @@ fun MealPlanScreen(
     var swapError by remember { mutableStateOf<String?>(null) }
     val swapSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val sortedHistory = remember(planHistory) { planHistory.sortedBy { it.weekStart } }
+    val noSafePlanNotice = generationNotice as? MealPlanGenerationNotice.NoSafePlan
     val activeIndex = remember(activePlanId, sortedHistory) {
         sortedHistory.indexOfFirst { it.id == activePlanId }.takeIf { it >= 0 }
             ?: (sortedHistory.size - 1)
@@ -221,7 +225,7 @@ fun MealPlanScreen(
 
     fun triggerPlanGeneration() {
         if (!isOnline) {
-            Log.w("MealPlanUX", "Plan generation blocked: offline user=${userViewModel.activeUserId}")
+            Log.w("MealPlanUX", "Plan generation blocked: offline ${safeUserLogScope(userViewModel.activeUserId)}")
             generateActionState = FeedbackActionState.Error
             feedbackBanner = MealPlanBannerState(
                 data = FeedbackBannerData(
@@ -231,7 +235,9 @@ fun MealPlanScreen(
                 ),
                 action = MealPlanBannerAction.RetryGenerate
             )
-            mealPlanViewModel.showError("Offline. Connect to the internet to generate a new plan.")
+            if (!hasPlan) {
+                mealPlanViewModel.showError("Offline. Connect to the internet to generate a new plan.")
+            }
             scope.launch {
                 kotlinx.coroutines.delay(1200)
                 if (generateActionState == FeedbackActionState.Error) {
@@ -242,7 +248,7 @@ fun MealPlanScreen(
         }
         Log.i(
             "MealPlanUX",
-            "Plan generation started for user=${userViewModel.activeUserId} goal='${userProfile.goal}'"
+            "Plan generation started for ${safeUserLogScope(userViewModel.activeUserId)} goal='${userProfile.goal}'"
         )
         analytics.logEvent("generate_plan", null)
         feedbackBanner = MealPlanBannerState(
@@ -256,7 +262,7 @@ fun MealPlanScreen(
 
     fun triggerGrocerySync() {
         if (!isOnline) {
-            Log.w("MealPlanUX", "Grocery sync blocked: offline user=${userViewModel.activeUserId}")
+            Log.w("MealPlanUX", "Grocery sync blocked: offline ${safeUserLogScope(userViewModel.activeUserId)}")
             syncState = FeedbackActionState.Error
             lastSyncStatus = "Failed (offline)"
             feedbackBanner = MealPlanBannerState(
@@ -286,7 +292,7 @@ fun MealPlanScreen(
         )
         mealPlanViewModel.extractGrocerySourcesForPlan { sources ->
             if (sources.isEmpty()) {
-                Log.w("MealPlanUX", "Grocery sync failed: no extracted sources user=${userViewModel.activeUserId}")
+                Log.w("MealPlanUX", "Grocery sync failed: no extracted sources ${safeUserLogScope(userViewModel.activeUserId)}")
                 syncState = FeedbackActionState.Error
                 lastSyncStatus = "Failed (no items)"
                 feedbackBanner = MealPlanBannerState(
@@ -308,7 +314,7 @@ fun MealPlanScreen(
             groceryViewModel.setPlanSources(sources)
             Log.i(
                 "MealPlanUX",
-                "Grocery sync success: ${sources.values.sumOf { it.size }} items mapped user=${userViewModel.activeUserId}"
+                "Grocery sync success: ${sources.values.sumOf { it.size }} items mapped ${safeUserLogScope(userViewModel.activeUserId)}"
             )
             syncState = FeedbackActionState.Success
             lastSyncStatus = "Synced successfully"
@@ -370,7 +376,7 @@ fun MealPlanScreen(
             syncState = FeedbackActionState.Idle
         }
     }
-    LaunchedEffect(uiState) {
+    LaunchedEffect(uiState, generationNotice) {
         when (uiState) {
             is MealPlanUiState.Loading -> {
                 generateActionState = FeedbackActionState.Loading
@@ -383,28 +389,46 @@ fun MealPlanScreen(
                 )
             }
             is MealPlanUiState.Success -> {
-                if (generateActionState == FeedbackActionState.Loading) {
-                    Log.i("MealPlanUX", "Plan generation success user=${userViewModel.activeUserId}")
-                    generateActionState = FeedbackActionState.Success
-                    feedbackBanner = MealPlanBannerState(
-                        data = FeedbackBannerData(
-                            tone = FeedbackBannerTone.Success,
-                            message = "Plan ready. Review your week and continue."
-                        )
-                    )
-                    kotlinx.coroutines.delay(1600)
-                    generateActionState = FeedbackActionState.Idle
-                }
-                if (pendingPlanReadyNotification) {
-                    val userId = userViewModel.activeUserId
-                    if (userId.isNotBlank()) {
-                        NotificationScheduler.notifyPlanReady(context, userId)
-                    }
+                if (noSafePlanNotice != null) {
                     pendingPlanReadyNotification = false
+                    if (generateActionState == FeedbackActionState.Loading) {
+                        Log.w("MealPlanUX", "No-safe-plan preserved current plan ${safeUserLogScope(userViewModel.activeUserId)}")
+                        generateActionState = FeedbackActionState.Error
+                        feedbackBanner = MealPlanBannerState(
+                            data = FeedbackBannerData(
+                                tone = FeedbackBannerTone.Error,
+                                message = "No safe new plan was generated. Review the guidance below or retry.",
+                                actionLabel = "Retry"
+                            ),
+                            action = MealPlanBannerAction.RetryGenerate
+                        )
+                        kotlinx.coroutines.delay(1800)
+                        generateActionState = FeedbackActionState.Idle
+                    }
+                } else {
+                    if (generateActionState == FeedbackActionState.Loading) {
+                        Log.i("MealPlanUX", "Plan generation success ${safeUserLogScope(userViewModel.activeUserId)}")
+                        generateActionState = FeedbackActionState.Success
+                        feedbackBanner = MealPlanBannerState(
+                            data = FeedbackBannerData(
+                                tone = FeedbackBannerTone.Success,
+                                message = "Plan ready. Review your week and continue."
+                            )
+                        )
+                        kotlinx.coroutines.delay(1600)
+                        generateActionState = FeedbackActionState.Idle
+                    }
+                    if (pendingPlanReadyNotification) {
+                        val userId = userViewModel.activeUserId
+                        if (userId.isNotBlank()) {
+                            NotificationScheduler.notifyPlanReady(context, userId)
+                        }
+                        pendingPlanReadyNotification = false
+                    }
                 }
             }
             is MealPlanUiState.Error -> {
-                Log.e("MealPlanUX", "Plan generation failed user=${userViewModel.activeUserId}")
+                Log.e("MealPlanUX", "Plan generation failed ${safeUserLogScope(userViewModel.activeUserId)}")
                 pendingPlanReadyNotification = false
                 if (generateActionState == FeedbackActionState.Loading) {
                     generateActionState = FeedbackActionState.Error
@@ -449,7 +473,7 @@ fun MealPlanScreen(
         val selectedDay = dayLabels.getOrNull(selectedDayIndex) ?: return@LaunchedEffect
         Log.i(
             "MealPlanUX",
-            "Day navigation selected user=${userViewModel.activeUserId} week=$weekLabel dayIndex=$selectedDayIndex day=$selectedDay"
+            "Day navigation selected ${safeUserLogScope(userViewModel.activeUserId)} week=$weekLabel dayIndex=$selectedDayIndex day=$selectedDay"
         )
     }
     Scaffold(
@@ -609,7 +633,11 @@ fun MealPlanScreen(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "We couldn’t generate your plan",
+                                    text = if (noSafePlanNotice != null) {
+                                        "No safe plan is available yet"
+                                    } else {
+                                        "We couldn’t generate your plan"
+                                    },
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.error
                                 )
@@ -618,6 +646,29 @@ fun MealPlanScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = colorScheme.onSurfaceVariant
                                 )
+                                if (noSafePlanNotice?.guidance?.isNotEmpty() == true) {
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        text = "Try adjusting:",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                        color = colorScheme.onSurface
+                                    )
+                                    noSafePlanNotice.guidance.take(3).forEach { item ->
+                                        Text(
+                                            text = "• $item",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                noSafePlanNotice?.diagnosticsReference?.let { reference ->
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        text = "Reference: $reference",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                         if (!isOnline) {
@@ -739,6 +790,62 @@ fun MealPlanScreen(
                             onAction = onFeedbackAction,
                             modifier = Modifier.fillMaxWidth()
                         )
+                    }
+                }
+                item {
+                    if (noSafePlanNotice != null) {
+                        Card(
+                            shape = MaterialTheme.shapes.large,
+                            colors = CardDefaults.cardColors(containerColor = colorScheme.errorContainer),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("mealplan_no_safe_plan_card")
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "No safe new plan yet",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = colorScheme.onErrorContainer
+                                )
+                                Text(
+                                    text = noSafePlanNotice.message,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onErrorContainer
+                                )
+                                if (noSafePlanNotice.guidance.isNotEmpty()) {
+                                    Text(
+                                        text = "Try adjusting:",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                        color = colorScheme.onErrorContainer
+                                    )
+                                    noSafePlanNotice.guidance.take(3).forEach { item ->
+                                        Text(
+                                            text = "• $item",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = colorScheme.onErrorContainer
+                                        )
+                                    }
+                                }
+                                noSafePlanNotice.diagnosticsReference?.let { reference ->
+                                    Text(
+                                        text = "Reference: $reference",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = colorScheme.onErrorContainer
+                                    )
+                                }
+                                if (noSafePlanNotice.continuityPlanAvailable) {
+                                    Text(
+                                        text = "Your saved week is still available below.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
                 item {
@@ -874,7 +981,11 @@ fun MealPlanScreen(
                             successLabel = "Week ready",
                             errorLabel = "Try again",
                             onClick = { triggerPlanGeneration() },
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            enabled = isOnline,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("mealplan_generate_new_week_button"),
                             colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
                         )
                         if (planHistory.isNotEmpty()) {
@@ -1347,6 +1458,18 @@ fun MealPlanScreen(
                                 IconButton(
                                     modifier = Modifier.testTag("mealplan_swap_meal_button_$mealIndex"),
                                     onClick = {
+                                        mealPlanViewModel.trackMlEvent(
+                                            eventName = "manual_override_attempted",
+                                            requestId = currentPlan?.requestId,
+                                            payload = mapOf(
+                                                "week_label" to currentPlan?.weekLabel.orEmpty(),
+                                                "day_index" to selectedDayIndex,
+                                                "meal_index" to mealIndex,
+                                                "meal_label" to plannedMeal.mealLabel,
+                                                "recipe_id" to plannedMeal.recipeId,
+                                                "blocked_by_offline" to (!isOnline)
+                                            )
+                                        )
                                         if (!isOnline) {
                                             postMealPlanFeedback(
                                                 tone = FeedbackBannerTone.Error,
@@ -1558,6 +1681,21 @@ fun MealPlanScreen(
                                                         mealIndex = target.mealIndex,
                                                         newRecipeId = option.id,
                                                         newTitle = option.title
+                                                    )
+                                                    mealPlanViewModel.trackMlEvent(
+                                                        eventName = "why_replaced_submitted",
+                                                        requestId = currentPlan.requestId,
+                                                        payload = mapOf(
+                                                            "plan_id" to (activePlanId ?: currentPlan.weekLabel),
+                                                            "week_label" to currentPlan.weekLabel,
+                                                            "day_index" to target.dayIndex,
+                                                            "meal_index" to target.mealIndex,
+                                                            "slot_index" to ((target.dayIndex * 3) + target.mealIndex),
+                                                            "meal_label" to target.mealLabel,
+                                                            "old_recipe_id" to target.recipeId,
+                                                            "new_recipe_id" to option.id,
+                                                            "reason_tag" to "manual_swap"
+                                                        )
                                                     )
                                                     val items = itemsResult.getOrNull()
                                                     if (items != null) {

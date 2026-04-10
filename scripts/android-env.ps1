@@ -1,14 +1,65 @@
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 
-$env:JAVA_HOME = "C:\\Program Files\\Android\\Android Studio\\jbr"
-$env:Path = "$env:JAVA_HOME\\bin;$env:Path"
-$env:GRADLE_USER_HOME = "$root\\.gradle-user"
-$env:ANDROID_USER_HOME = "$root\\.android"
-$env:KOTLIN_DAEMON_RUN_FILES_PATH = "$root\\.kotlin-daemon"
+function Add-OptionFlag {
+    param(
+        [string]$CurrentValue,
+        [string]$Flag
+    )
 
-New-Item -ItemType Directory -Force $env:GRADLE_USER_HOME,$env:ANDROID_USER_HOME,$env:KOTLIN_DAEMON_RUN_FILES_PATH | Out-Null
+    if ([string]::IsNullOrWhiteSpace($CurrentValue)) {
+        return $Flag
+    }
+    if ($CurrentValue.Contains($Flag)) {
+        return $CurrentValue
+    }
+    return "$Flag $CurrentValue".Trim()
+}
+
+$defaultJavaHome = "C:\\Program Files\\Android\\Android Studio\\jbr"
+if ([string]::IsNullOrWhiteSpace($env:JAVA_HOME)) {
+    if (Test-Path $defaultJavaHome) {
+        $env:JAVA_HOME = $defaultJavaHome
+    } else {
+        throw "JAVA_HOME is not set and Android Studio JBR was not found at $defaultJavaHome"
+    }
+} elseif (-not (Test-Path $env:JAVA_HOME)) {
+    throw "JAVA_HOME points to a missing path: $env:JAVA_HOME"
+}
+
+$javaBin = Join-Path $env:JAVA_HOME "bin"
+if (-not $env:Path.Contains($javaBin)) {
+    $env:Path = "$javaBin;$env:Path"
+}
+
+$env:GRADLE_USER_HOME = Join-Path $root ".gradle-user"
+$env:KOTLIN_DAEMON_RUN_FILES_PATH = Join-Path $root ".kotlin-daemon"
+$toolHome = Join-Path $root ".android-user-home"
+$legacyAndroidDotDir = Join-Path $toolHome ".android"
+
+$env:ANDROID_USER_HOME = $legacyAndroidDotDir
+$env:HOME = $toolHome
+$env:USERPROFILE = $toolHome
+$env:JAVA_TOOL_OPTIONS = Add-OptionFlag -CurrentValue $env:JAVA_TOOL_OPTIONS -Flag "-Duser.home=$toolHome"
+$env:GRADLE_OPTS = Add-OptionFlag -CurrentValue $env:GRADLE_OPTS -Flag "-Duser.home=$toolHome"
+
+if (Test-Path Env:ANDROID_PREFS_ROOT) {
+    Remove-Item Env:ANDROID_PREFS_ROOT
+}
+if (Test-Path Env:ANDROID_SDK_HOME) {
+    Remove-Item Env:ANDROID_SDK_HOME
+}
+
+New-Item -ItemType Directory -Force @(
+    $env:GRADLE_USER_HOME,
+    $env:KOTLIN_DAEMON_RUN_FILES_PATH,
+    $toolHome,
+    $legacyAndroidDotDir
+) | Out-Null
+New-Item -ItemType File -Force (Join-Path $legacyAndroidDotDir "analytics.settings") | Out-Null
 
 Write-Host "JAVA_HOME=$env:JAVA_HOME"
 Write-Host "GRADLE_USER_HOME=$env:GRADLE_USER_HOME"
 Write-Host "ANDROID_USER_HOME=$env:ANDROID_USER_HOME"
+Write-Host "HOME=$env:HOME"
+Write-Host "USERPROFILE=$env:USERPROFILE"
 Write-Host "KOTLIN_DAEMON_RUN_FILES_PATH=$env:KOTLIN_DAEMON_RUN_FILES_PATH"

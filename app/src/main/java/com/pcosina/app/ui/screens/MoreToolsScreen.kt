@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -50,7 +51,7 @@ fun MoreToolsScreen(
             Box {
                 GradientHeader(
                     title = "More Tools",
-                    subtitle = "Research, methodology, and support",
+                    subtitle = "Methodology, trust, and support",
                     containerHeight = 170
                 )
                 IconButton(onClick = onBack, modifier = Modifier.padding(8.dp)) {
@@ -86,7 +87,43 @@ fun MoreToolsScreen(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     Text(
-                        text = "Understand how the optimizer builds your weekly plan.",
+                        text = "See how your profile, pantry, hard constraints, and weekly optimization work together.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        item {
+            Card(
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(UiSpacingTokens.CardContentPadding),
+                    verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.CardContentGap)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(colorScheme.tertiary, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Filled.Verified, contentDescription = null, tint = colorScheme.onTertiary)
+                    }
+                    Text(
+                        text = "Offline-First Trust",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = "Your device stays the primary source of truth. Planning, grocery guidance, and saved preferences remain usable even when connectivity is limited.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Hard rules such as allergies, exclusions, pantry feasibility, budget, and nutrition limits stay authoritative.",
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.onSurfaceVariant
                     )
@@ -118,7 +155,7 @@ fun MoreToolsScreen(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     Text(
-                        text = "Share issues or ideas. Quick feedback remains in Progress.",
+                        text = "Share issues, missing recipes, or grocery concerns. Quick feedback remains available in Progress.",
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.onSurfaceVariant
                     )

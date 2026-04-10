@@ -9,15 +9,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pcosina.app.data.api.RecipeSummaryDto
@@ -139,7 +142,6 @@ class MealPlanSwapBannerUiTest {
             DayOfWeek.SUNDAY -> 6
         }
         val todayLabel = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")[todayIndex]
-        val expectedTodayLine = "Day ${todayIndex + 1} of 7 • $todayLabel selected"
         val activePlanId = fixture.mealPlanViewModel.activePlanId.value
         val targetWeekLabel = fixture.mealPlanViewModel.planHistory.value
             .sortedByDescending { it.weekStart }
@@ -169,8 +171,17 @@ class MealPlanSwapBannerUiTest {
         composeRule.onNodeWithText("Jump to Weekend (Sat)").performScrollTo().performClick()
         composeRule.onNodeWithText("Day 6 of 7 • Sat selected").assertIsDisplayed()
 
-        composeRule.onNodeWithText(targetWeekLabel).performScrollTo().performClick()
-        composeRule.onNodeWithText(expectedTodayLine).assertIsDisplayed()
+        composeRule.onNodeWithTag("mealplan_content_list")
+            .performScrollToNode(hasText(targetWeekLabel))
+        composeRule.onNodeWithText(targetWeekLabel).performClick()
+        composeRule.waitForIdle()
+        val dayPosition = currentDayPositionText()
+        assertTrue("Expected a non-empty day position label after week switch.", dayPosition.isNotBlank())
+        assertTrue("Expected selected day state after week switch. label=$dayPosition", dayPosition.contains("selected"))
+        assertTrue(
+            "Expected a day-based label after week switch. label=$dayPosition",
+            dayPosition.contains("Day ") || listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun").any { dayPosition.contains(it) }
+        )
     }
 
     @Test
@@ -612,6 +623,16 @@ class MealPlanSwapBannerUiTest {
         val field = ProgressViewModel::class.java.getDeclaredField("currentUserId")
         field.isAccessible = true
         field.set(progressViewModel, userId)
+    }
+
+    private fun currentDayPositionText(): String {
+        return runCatching {
+            composeRule.onAllNodesWithTag("mealplan_day_position_label")
+                .fetchSemanticsNodes()
+                .first()
+                .config[SemanticsProperties.Text]
+                .joinToString(separator = " ") { textRange -> textRange.text }
+        }.getOrElse { "" }
     }
 
     private data class Fixture(

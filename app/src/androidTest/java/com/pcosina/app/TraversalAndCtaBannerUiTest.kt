@@ -5,11 +5,14 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pcosina.app.data.repository.AuthRepository
@@ -38,7 +41,7 @@ import org.junit.runner.RunWith
 class TraversalAndCtaBannerUiTest {
 
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val composeRule = createComposeRule()
 
     @Test
     fun dashboardPrimaryCard_hasTraversalOrder_andPrimaryCtaShowsBanner() {
@@ -137,6 +140,8 @@ class TraversalAndCtaBannerUiTest {
         val fixture = createFixture("progress_week_seed_${System.currentTimeMillis()}")
         val seeds = fixture.mealPlanViewModel.seedDemoWeeks(fixture.userViewModel.userProfile.value)
         fixture.progressViewModel.seedDemoWeeks(seeds)
+        fixture.progressViewModel.setProgressModePreference("Week")
+        fixture.progressViewModel.setAdvancedWeekAnalyticsExpandedPreference(true)
 
         composeRule.setContent {
             MaterialTheme {
@@ -153,24 +158,28 @@ class TraversalAndCtaBannerUiTest {
             }
         }
 
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithTag("progress_content_list").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithTag("progress_mode_week").performClick()
+        composeRule.onNodeWithTag("progress_content_list")
+            .performScrollToNode(hasTestTag("progress_week_insights_card"))
         composeRule.onNodeWithTag("progress_week_insights_card")
-            .performScrollTo()
             .assertIsDisplayed()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 5f))
+        composeRule.onNodeWithTag("progress_content_list")
+            .performScrollToNode(hasTestTag("progress_week_spending_card"))
         composeRule.onNodeWithTag("progress_week_spending_card")
-            .performScrollTo()
             .assertIsDisplayed()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 6f))
-        composeRule.onNodeWithText("Advanced Week Analytics")
-            .performScrollTo()
-            .performClick()
+        composeRule.onNodeWithTag("progress_content_list")
+            .performScrollToNode(hasTestTag("progress_week_macro_card"))
         composeRule.onNodeWithTag("progress_week_macro_card")
-            .performScrollTo()
             .assertIsDisplayed()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 7f))
+        composeRule.onNodeWithTag("progress_content_list")
+            .performScrollToNode(hasTestTag("progress_plan_feedback_card"))
         composeRule.onNodeWithTag("progress_plan_feedback_card")
-            .performScrollTo()
             .assertIsDisplayed()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 8f))
     }
@@ -187,14 +196,10 @@ class TraversalAndCtaBannerUiTest {
             feedbackRepository = FeedbackRepository(BuildConfig.BASE_URL)
         )
         val authViewModel = AuthViewModel(AuthRepository(context))
-        val weekStart = LocalDate.now()
-            .with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
-            .format(DateTimeFormatter.ISO_LOCAL_DATE)
-
         userViewModel.loadProfileForUser(userId)
-        mealPlanViewModel.loadSavedPlan(userId)
-        groceryViewModel.loadGroceryForUser(userId)
-        progressViewModel.loadForUser(userId, weekStart)
+        bindMealPlanCurrentUserIdForTest(mealPlanViewModel, userId)
+        bindGroceryCurrentUserIdForTest(groceryViewModel, userId)
+        bindProgressCurrentUserIdForTest(progressViewModel, userId)
 
         return Fixture(
             userId = userId,

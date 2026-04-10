@@ -11,6 +11,7 @@ import androidx.work.WorkerParameters
 import com.google.firebase.auth.FirebaseAuth
 import com.pcosina.app.data.model.NotificationPreferences
 import com.pcosina.app.data.repository.UserPreferencesRepository
+import com.pcosina.app.util.safeUserLogScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -462,7 +463,7 @@ object NotificationScheduler {
             channelId = channelId
         )
         if (delivered) {
-            Log.i(LogTag, "notification delivered type=$eventType user=$userId")
+            Log.i(LogTag, "notification delivered type=$eventType ${safeUserLogScope(userId)}")
             repository.markNotificationDelivered(
                 userId = userId,
                 type = eventType,

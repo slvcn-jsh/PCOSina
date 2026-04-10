@@ -1,0 +1,81 @@
+name: canary-drill
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: "Drill target environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+      simulate_breach:
+        description: "Generate breach metrics before running guard"
+        required: true
+        default: false
+        type: boolean
+      auto_rollback:
+        description: "Enable auto rollback when breach is detected"
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  run-drill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set staging webhook secrets
+        if: ${{ inputs.target_environment == 'staging' }}
+        run: |
+          echo "PCOSINA_ALERT_WEBHOOK_URL_STAGING=${{ secrets.PCOSINA_ALERT_WEBHOOK_URL_STAGING }}" >> $GITHUB_ENV
+          echo "PCOSINA_DASHBOARD_WEBHOOK_URL_STAGING=${{ secrets.PCOSINA_DASHBOARD_WEBHOOK_URL_STAGING }}" >> $GITHUB_ENV
+
+      - name: Set production webhook secrets
+        if: ${{ inputs.target_environment == 'production' }}
+        run: |
+          echo "PCOSINA_ALERT_WEBHOOK_URL_PRODUCTION=${{ secrets.PCOSINA_ALERT_WEBHOOK_URL_PRODUCTION }}" >> $GITHUB_ENV
+          echo "PCOSINA_DASHBOARD_WEBHOOK_URL_PRODUCTION=${{ secrets.PCOSINA_DASHBOARD_WEBHOOK_URL_PRODUCTION }}" >> $GITHUB_ENV
+
+      - name: Validate webhook secrets for target environment
+        run: |
+          python scripts/check_canary_webhook_secrets.py \
+            --environment "${{ inputs.target_environment }}" \
+            --output "benchmarks/reports/canary_webhook_secrets_check.${{ inputs.target_environment }}.json"
+
+      - name: Run canary drill
+        run: |
+          RECEIPT="benchmarks/reports/canary_drill_receipt.${{ inputs.target_environment }}.json"
+          echo "CANARY_RECEIPT_PATH=$RECEIPT" >> $GITHUB_ENV
+          CMD=(python scripts/run_canary_drill.py --environment "${{ inputs.target_environment }}" --require-webhooks --alert-on-ok --output "$RECEIPT")
+          if [ "${{ inputs.simulate_breach }}" = "true" ]; then
+            CMD+=(--simulate-breach --expect-breach)
+          fi
+          if [ "${{ inputs.auto_rollback }}" = "true" ]; then
+            CMD+=(--auto-rollback)
+          fi
+          "${CMD[@]}"
+
+      - name: Validate canary drill receipt contract
+        run: |
+          python scripts/check_canary_drill_receipt.py \
+            --receipt "$CANARY_RECEIPT_PATH" \
+            --environment "${{ inputs.target_environment }}" \
+            --require-webhook-delivery \
+            --output "benchmarks/reports/canary_drill_receipt_check.${{ inputs.target_environment }}.json"
+
+      - name: Upload drill receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-drill-receipts-${{ inputs.target_environment }}
+          path: |
+            ${{ env.CANARY_RECEIPT_PATH }}
+            benchmarks/reports/canary_drill_receipt_check.${{ inputs.target_environment }}.json
+            benchmarks/reports/canary_webhook_secrets_check.${{ inputs.target_environment }}.json
+          if-no-files-found: error

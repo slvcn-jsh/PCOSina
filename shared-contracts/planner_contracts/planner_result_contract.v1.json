@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pcosina.planner_result.v1",
+  "title": "PCOSINA Planner Result Contract",
+  "type": "object",
+  "required": [
+    "requestId",
+    "status",
+    "weekLabel",
+    "days",
+    "message",
+    "policyVersion",
+    "timestamps"
+  ],
+  "properties": {
+    "requestId": {"type": "string"},
+    "planId": {"type": ["string", "null"]},
+    "status": {"type": "string", "enum": ["success", "no-safe-plan"]},
+    "weekLabel": {"type": "string"},
+    "days": {"type": "array"},
+    "message": {"type": "string"},
+    "groceryOutput": {"type": ["object", "null"]},
+    "pantryUsageSummary": {"type": ["object", "null"]},
+    "nutritionSummary": {"type": ["object", "null"]},
+    "solverMetadata": {"type": ["object", "null"]},
+    "policyVersion": {"type": "string"},
+    "diagnosticsSummary": {"type": ["object", "null"]},
+    "machineReasonCodes": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "humanGuidance": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "suggestedRelaxations": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "diagnosticsReference": {"type": ["string", "null"]},
+    "timestamps": {
+      "type": "object",
+      "required": ["requestedAtMs", "completedAtMs"],
+      "properties": {
+        "requestedAtMs": {"type": "integer", "minimum": 0},
+        "completedAtMs": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

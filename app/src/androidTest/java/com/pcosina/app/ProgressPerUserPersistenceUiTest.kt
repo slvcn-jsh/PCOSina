@@ -1,15 +1,18 @@
 package com.pcosina.app
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pcosina.app.data.repository.FeedbackRepository
@@ -34,7 +37,7 @@ import org.junit.runner.RunWith
 class ProgressPerUserPersistenceUiTest {
 
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val composeRule = createComposeRule()
 
     @Test
     fun progressModeAndAdvancedAnalytics_persistPerUserAcrossSwitch() {
@@ -55,12 +58,14 @@ class ProgressPerUserPersistenceUiTest {
         val userB = "progress_persist_user_b_${System.currentTimeMillis()}"
 
         fun loadUser(userId: String) {
+            progressViewModel.reset()
             userViewModel.loadProfileForUser(userId)
-            mealPlanViewModel.loadSavedPlan(userId)
-            groceryViewModel.loadGroceryForUser(userId)
-            progressViewModel.loadForUser(userId, weekStart)
+            bindMealPlanCurrentUserIdForTest(mealPlanViewModel, userId)
+            bindGroceryCurrentUserIdForTest(groceryViewModel, userId)
+            bindProgressCurrentUserIdForTest(progressViewModel, userId)
             val seeds = mealPlanViewModel.seedDemoWeeks(userViewModel.userProfile.value)
             progressViewModel.seedDemoWeeks(seeds)
+            progressViewModel.loadProgressUiPreferences()
         }
 
         fun render(userId: String) {
@@ -81,23 +86,33 @@ class ProgressPerUserPersistenceUiTest {
         }
 
         loadUser(userA)
+        progressViewModel.setProgressModePreference("Week")
+        progressViewModel.setAdvancedWeekAnalyticsExpandedPreference(true)
         render(userA)
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithTag("progress_content_list").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithTag("progress_mode_week").performClick()
-        composeRule.onNodeWithText("Advanced Week Analytics").performScrollTo().performClick()
-        composeRule.onNodeWithTag("progress_week_macro_card").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("progress_content_list")
+            .performScrollToNode(hasTestTag("progress_week_macro_card"))
+        composeRule.onNodeWithTag("progress_week_macro_card").assertIsDisplayed()
 
         loadUser(userB)
         render(userB)
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithTag("progress_mode_today").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithTag("progress_mode_today").assertIsSelected()
-        composeRule.onNodeWithTag("progress_mode_week").performClick()
         composeRule.onAllNodesWithTag("progress_week_macro_card").assertCountEquals(0)
 
         loadUser(userA)
         render(userA)
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithTag("progress_week_macro_card").fetchSemanticsNodes().isNotEmpty()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithTag("progress_content_list").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithTag("progress_mode_week").assertIsSelected()
-        composeRule.onNodeWithTag("progress_week_macro_card").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("progress_content_list")
+            .performScrollToNode(hasTestTag("progress_week_macro_card"))
+        composeRule.onNodeWithTag("progress_week_macro_card").assertIsDisplayed()
     }
 }

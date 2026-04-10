@@ -1,15 +1,19 @@
 package com.pcosina.app
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.google.gson.Gson
 import com.pcosina.app.data.model.FeedbackEntry
 import com.pcosina.app.data.repository.FeedbackRepository
 import com.pcosina.app.data.repository.MealPlanRepository
@@ -26,7 +30,6 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
 import java.util.Locale
-import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,7 +38,7 @@ import org.junit.runner.RunWith
 class ProgressRetryBannerUiTest {
 
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val composeRule = createComposeRule()
 
     @Test
     fun retryAll_offline_showsQueueSavedBanner() {
@@ -64,7 +67,12 @@ class ProgressRetryBannerUiTest {
             }
         }
 
-        composeRule.onNodeWithText("Retry all").performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithTag("progress_content_list").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("progress_content_list")
+            .performScrollToNode(hasTestTag("progress_retry_all_feedback"))
+        composeRule.onNodeWithTag("progress_retry_all_feedback").performClick()
         composeRule.onNodeWithText(ActionFeedbackCopy.QueueSaved).assertIsDisplayed()
     }
 
@@ -94,16 +102,18 @@ class ProgressRetryBannerUiTest {
             }
         }
 
-        composeRule.onAllNodesWithText("Retry")[0].performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithTag("progress_content_list").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("progress_content_list")
+            .performScrollToNode(hasTestTag("progress_retry_feedback_failed_single"))
+        composeRule.onNodeWithTag("progress_retry_feedback_failed_single").performClick()
         composeRule.onNodeWithText(ActionFeedbackCopy.QueueRetrying).assertIsDisplayed()
     }
 
     private fun createFixture(userId: String, initialQueue: List<FeedbackEntry>): Fixture {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val userPrefs = UserPreferencesRepository(context)
-        runBlocking {
-            userPrefs.saveFeedbackQueueJson(userId, Gson().toJson(initialQueue))
-        }
         val userViewModel = UserViewModel(userPrefs)
         val mealPlanViewModel = MealPlanViewModel(MealPlanRepository(), userPrefs)
         val groceryViewModel = GroceryViewModel(userPrefs)
@@ -117,9 +127,12 @@ class ProgressRetryBannerUiTest {
             .format(DateTimeFormatter.ISO_LOCAL_DATE)
 
         userViewModel.loadProfileForUser(userId)
-        mealPlanViewModel.loadSavedPlan(userId)
-        groceryViewModel.loadGroceryForUser(userId)
-        progressViewModel.loadForUser(userId, weekStart)
+        bindMealPlanCurrentUserIdForTest(mealPlanViewModel, userId)
+        bindGroceryCurrentUserIdForTest(groceryViewModel, userId)
+        bindProgressCurrentUserIdForTest(progressViewModel, userId)
+        seedProgressFeedbackQueueForTest(progressViewModel, initialQueue)
+        val seeds = mealPlanViewModel.seedDemoWeeks(userViewModel.userProfile.value)
+        progressViewModel.seedDemoWeeks(seeds)
 
         return Fixture(
             userId = userId,

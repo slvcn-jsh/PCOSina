@@ -22,6 +22,22 @@
           }
         },
         {
+          "client_id": "950408114415-6k06olnt22jo8bros98lr2sgucpv1pth.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pcosina.app",
+            "certificate_hash": "300e263bf72a0a356c2a00a23eeaeae71bc49523"
+          }
+        },
+        {
+          "client_id": "950408114415-c6u48jou533egonhi3kqf9hnet0g0ufc.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pcosina.app",
+            "certificate_hash": "033e8e93b283abcfc122c483c20fe69e6af47ccf"
+          }
+        },
+        {
           "client_id": "950408114415-lg04bn93jue346bu5nd7b3jhveqbb8e4.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

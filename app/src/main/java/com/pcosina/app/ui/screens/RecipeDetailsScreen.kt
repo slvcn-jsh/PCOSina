@@ -410,7 +410,25 @@ fun RecipeDetailsScreen(
                         message = "No change: logging is locked for this date."
                     )
                     Unit
-                    } else {
+                } else {
+                    mealPlanViewModel.trackMlEvent(
+                        eventName = "meal_accepted",
+                        requestId = plan?.requestId,
+                        payload = mapOf(
+                            "meal_label" to (plannedTodayMeal?.mealLabel ?: (r.mealType ?: "Unknown")),
+                            "recipe_id" to recipeId,
+                            "source" to "recipe_details"
+                        )
+                    )
+                    mealPlanViewModel.trackMlEvent(
+                        eventName = "cook_completed",
+                        requestId = plan?.requestId,
+                        payload = mapOf(
+                            "meal_label" to (plannedTodayMeal?.mealLabel ?: (r.mealType ?: "Unknown")),
+                            "recipe_id" to recipeId,
+                            "source" to "recipe_details"
+                        )
+                    )
                     val nextDoneCount = if (alreadyLoggedToday) loggedTodayCount else loggedTodayCount + 1
                     val mealsPlanned = todayPlannedMeals.size
                     val ratio = if (mealsPlanned > 0) {

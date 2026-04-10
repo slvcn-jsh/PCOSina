@@ -48,6 +48,13 @@ class AuthRepository(private val context: Context) {
             )
         }
 
+    suspend fun getPersistedCurrentUserUid(): String? {
+        val prefs = context.authDataStore.data.first()
+        val isLoggedIn = prefs[Keys.IS_LOGGED_IN] ?: false
+        val uid = prefs[Keys.CURRENT_USER_UID]?.trim().orEmpty()
+        return uid.takeIf { isLoggedIn && it.isNotBlank() }
+    }
+
     suspend fun syncSessionFromFirebase() {
         val currentUser = firebaseAuth.currentUser
         context.authDataStore.edit { prefs ->

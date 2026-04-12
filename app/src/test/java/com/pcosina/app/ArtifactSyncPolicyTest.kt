@@ -77,6 +77,36 @@ class ArtifactSyncPolicyTest {
         )
     }
 
+    @Test
+    fun clearedDomainsReuseLegacyArtifactTimestampAsTombstone() {
+        val source = read(
+            resolve(
+                "app", "src", "main", "java", "com", "pcosina", "app",
+                "data", "repository", "UserPreferencesRepository.kt"
+            )
+        )
+        assertTrue(
+            "Domain sync should fall back to the legacy cloudArtifactsUpdatedAt timestamp even when local data is empty, so cleared domains are not restored from stale cloud copies during upgrade.",
+            source.contains("return preferences[localUpdatedAtKey(userId)]\n            ?: (preferences[Keys.cloudArtifactsUpdatedAt(userId)] ?: 0L)")
+        )
+    }
+
+    @Test
+    fun clearMealHistoryDeletesLegacyCloudReflectionFields() {
+        val source = read(
+            resolve(
+                "app", "src", "main", "java", "com", "pcosina", "app",
+                "data", "repository", "UserPreferencesRepository.kt"
+            )
+        )
+        assertTrue(
+            "Clearing meal history should actively delete legacy dailyLogsJson and weeklyJournalMap fields from the cloud profile document.",
+            source.contains("Cloud.dailyLogsJson to FieldValue.delete()") &&
+                source.contains("Cloud.weeklyJournalMap to FieldValue.delete()") &&
+                source.contains("Cloud reflection cleanup skipped")
+        )
+    }
+
     private fun resolve(vararg parts: String): Path {
         val first = Paths.get(parts.first(), *parts.drop(1).toTypedArray())
         if (Files.exists(first)) return first

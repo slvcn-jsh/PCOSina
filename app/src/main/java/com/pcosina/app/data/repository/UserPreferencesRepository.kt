@@ -676,9 +676,8 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     private fun ArtifactDomain.localUpdatedAt(preferences: Preferences, userId: String): Long {
-        val hasData = localHasData(preferences, userId)
         return preferences[localUpdatedAtKey(userId)]
-            ?: if (hasData) (preferences[Keys.cloudArtifactsUpdatedAt(userId)] ?: 0L) else 0L
+            ?: (preferences[Keys.cloudArtifactsUpdatedAt(userId)] ?: 0L)
     }
 
     private fun ArtifactDomain.remoteUpdatedAt(data: Map<String, Any>): Long {
@@ -1366,6 +1365,22 @@ class UserPreferencesRepository(private val context: Context) {
                 .filter { it.name.startsWith(weeklyPrefix) }
                 .toList()
                 .forEach { preferences.remove(it) }
+        }
+        try {
+            withTimeoutOrNull(Cloud.syncTimeoutMs) {
+                firestore.collection(Cloud.profileCollection)
+                    .document(userId)
+                    .set(
+                        mapOf(
+                            Cloud.dailyLogsJson to FieldValue.delete(),
+                            Cloud.weeklyJournalMap to FieldValue.delete()
+                        ),
+                        SetOptions.merge()
+                    )
+                    .await()
+            }
+        } catch (e: Exception) {
+            Log.w("PCOSINA", "Cloud reflection cleanup skipped for ${safeUserLogScope(userId)}: ${e.message}")
         }
     }
 }

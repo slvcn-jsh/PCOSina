@@ -37,6 +37,7 @@ object Routes {
     val Dashboard = defineRoute("dashboard", RouteAccess.GuidedCore)
     val Settings = defineRoute("settings", RouteAccess.GuidedCore)
     val MoreTools = defineRoute("more_tools", RouteAccess.GuidedCore)
+    val AdminMethodology = defineRoute("admin_methodology", RouteAccess.GuidedCore)
 
     // Bottom tabs
     val MealPlan = defineRoute("meal_plan", RouteAccess.GuidedCore)

@@ -79,6 +79,7 @@ fun SettingsScreen(
     progressViewModel: ProgressViewModel,
     userId: String,
     onNavigateToProfileEdit: () -> Unit,
+    onOpenAdminMethodology: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val profile by userViewModel.userProfile.collectAsState()
@@ -438,6 +439,14 @@ fun SettingsScreen(
                 ) {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(schemaUrl))
                     context.startActivity(intent)
+                }
+                SettingsActionItem(
+                    icon = Icons.Default.Info,
+                    label = "View planning methodology",
+                    description = "Open the admin-only technical pipeline view",
+                    color = colorScheme.primary
+                ) {
+                    onOpenAdminMethodology()
                 }
                 if (BuildConfig.DEBUG) {
                     SettingsActionItem(

@@ -115,6 +115,7 @@ class UserPreferencesRepository(private val context: Context) {
         fun pantry(userId: String) = stringPreferencesKey("pantry_$userId")
         fun pantryEntries(userId: String) = stringPreferencesKey("pantry_entries_$userId")
         fun budget(userId: String) = intPreferencesKey("budget_$userId")
+        fun householdSize(userId: String) = intPreferencesKey("household_size_$userId")
         fun maxCookingTime(userId: String) = intPreferencesKey("max_cooking_time_$userId")
         fun variety(userId: String) = stringPreferencesKey("variety_pref_$userId")
         fun planningPriority(userId: String) = stringPreferencesKey("planning_priority_$userId")
@@ -191,6 +192,7 @@ class UserPreferencesRepository(private val context: Context) {
         fun pantry(email: String) = stringPreferencesKey("pantry_$email")
         fun pantryEntries(email: String) = stringPreferencesKey("pantry_entries_$email")
         fun budget(email: String) = intPreferencesKey("budget_$email")
+        fun householdSize(email: String) = intPreferencesKey("household_size_$email")
         fun maxCookingTime(email: String) = intPreferencesKey("max_cooking_time_$email")
         fun variety(email: String) = stringPreferencesKey("variety_pref_$email")
         fun planningPriority(email: String) = stringPreferencesKey("planning_priority_$email")
@@ -292,6 +294,7 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.allergies(userId)] = preferences[LegacyKeys.allergies(email)] ?: ""
             preferences[Keys.pantry(userId)] = preferences[LegacyKeys.pantry(email)] ?: ""
             preferences[Keys.budget(userId)] = preferences[LegacyKeys.budget(email)] ?: 0
+            preferences[Keys.householdSize(userId)] = preferences[LegacyKeys.householdSize(email)] ?: 1
             preferences[Keys.maxCookingTime(userId)] = preferences[LegacyKeys.maxCookingTime(email)] ?: 45
             preferences[Keys.variety(userId)] = preferences[LegacyKeys.variety(email)] ?: "Balanced"
             preferences[Keys.planningPriority(userId)] = preferences[LegacyKeys.planningPriority(email)] ?: "Balanced"
@@ -355,6 +358,7 @@ class UserPreferencesRepository(private val context: Context) {
                 allergies = preferences[Keys.allergies(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
                 pantryItems = preferences[Keys.pantry(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
                 weeklyBudgetPhp = preferences[Keys.budget(userId)] ?: 0,
+                householdSize = (preferences[Keys.householdSize(userId)] ?: 1).coerceIn(1, 6),
                 maxCookingTimeMinutes = preferences[Keys.maxCookingTime(userId)] ?: 45,
                 varietyPreference = preferences[Keys.variety(userId)] ?: "Balanced",
                 planningPriority = preferences[Keys.planningPriority(userId)] ?: "Balanced",
@@ -444,6 +448,7 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.allergies(userId)] = profile.allergies.joinToString(",")
             preferences[Keys.pantry(userId)] = profile.pantryItems.joinToString(",")
             preferences[Keys.budget(userId)] = profile.weeklyBudgetPhp
+            preferences[Keys.householdSize(userId)] = profile.householdSize.coerceIn(1, 6)
             preferences[Keys.maxCookingTime(userId)] = profile.maxCookingTimeMinutes
             preferences[Keys.variety(userId)] = profile.varietyPreference
             preferences[Keys.planningPriority(userId)] = profile.planningPriority
@@ -471,6 +476,7 @@ class UserPreferencesRepository(private val context: Context) {
                 "dietaryRestrictions" to profile.dietaryRestrictions,
                 "allergies" to profile.allergies,
                 "weeklyBudgetPhp" to profile.weeklyBudgetPhp,
+                "householdSize" to profile.householdSize.coerceIn(1, 6),
                 "maxCookingTimeMinutes" to profile.maxCookingTimeMinutes,
                 "varietyPreference" to profile.varietyPreference,
                 "planningPriority" to profile.planningPriority,
@@ -506,6 +512,7 @@ class UserPreferencesRepository(private val context: Context) {
             allergies = preferences[Keys.allergies(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
             pantryItems = preferences[Keys.pantry(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
             weeklyBudgetPhp = preferences[Keys.budget(userId)] ?: 0,
+            householdSize = (preferences[Keys.householdSize(userId)] ?: 1).coerceIn(1, 6),
             maxCookingTimeMinutes = preferences[Keys.maxCookingTime(userId)] ?: 45,
             varietyPreference = preferences[Keys.variety(userId)] ?: "Balanced",
             planningPriority = preferences[Keys.planningPriority(userId)] ?: "Balanced",
@@ -539,6 +546,7 @@ class UserPreferencesRepository(private val context: Context) {
             dietaryRestrictions = readStringList("dietaryRestrictions"),
             allergies = readStringList("allergies"),
             weeklyBudgetPhp = readInt("weeklyBudgetPhp", 0),
+            householdSize = readInt("householdSize", 1).coerceIn(1, 6),
             maxCookingTimeMinutes = readInt("maxCookingTimeMinutes", 45),
             varietyPreference = readString("varietyPreference", "Balanced"),
             planningPriority = readString("planningPriority", "Balanced"),
@@ -553,6 +561,7 @@ class UserPreferencesRepository(private val context: Context) {
             profile.heightCm > 0 ||
             profile.weightKg > 0 ||
             profile.goal.isNotBlank() ||
+            profile.householdSize > 1 ||
             profile.symptoms.isNotEmpty() ||
             profile.comorbidities.isNotEmpty() ||
             profile.dietaryRestrictions.isNotEmpty() ||

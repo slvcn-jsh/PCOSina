@@ -61,6 +61,140 @@ def test_infer_allowed_meals():
     assert set(meal_planner.infer_allowed_meals("Merienda")) == set(meal_planner.SNACK_LABELS)
 
 
+def test_build_swap_candidates_blocks_current_recipe_and_repetition_overflow():
+    profile = UserProfile(
+        varietyPreference="High",
+        pantryItems=["egg", "oats", "banana"],
+        maxCookingTimeMinutes=45,
+    )
+    recipes = [
+        {
+            "id": "b_current",
+            "title": "Current Breakfast",
+            "mealType": "Breakfast",
+            "calories": 430,
+            "proteinGrams": 24,
+            "carbsGrams": 36,
+            "fatsGrams": 12,
+            "fiberGrams": 6,
+            "minutes": 10,
+            "ingredients": [{"name": "egg", "quantity": "2 pcs"}],
+            "tags": [],
+        },
+        {
+            "id": "b_repeat",
+            "title": "Already Repeated Oats",
+            "mealType": "Breakfast",
+            "calories": 410,
+            "proteinGrams": 20,
+            "carbsGrams": 41,
+            "fatsGrams": 10,
+            "fiberGrams": 8,
+            "minutes": 12,
+            "ingredients": [{"name": "oats", "quantity": "1 cup"}],
+            "tags": [],
+        },
+        {
+            "id": "b_safe",
+            "title": "Safe Breakfast Swap",
+            "mealType": "Breakfast",
+            "calories": 440,
+            "proteinGrams": 22,
+            "carbsGrams": 39,
+            "fatsGrams": 13,
+            "fiberGrams": 7,
+            "minutes": 15,
+            "ingredients": [{"name": "banana", "quantity": "1 pc"}],
+            "tags": [],
+        },
+    ]
+
+    swaps = meal_planner.build_swap_candidates(
+        profile,
+        recipes,
+        meal_label="Breakfast",
+        current_recipe_id="b_current",
+        active_recipe_ids=["b_current", "b_repeat", "b_repeat"],
+        limit=10,
+    )
+
+    assert [recipe["id"] for recipe in swaps] == ["b_safe"]
+
+
+def test_build_swap_candidates_respects_budget_and_restrictions():
+    profile = UserProfile(
+        weeklyBudgetPhp=80,
+        dietaryRestrictions=["No Pork"],
+        pantryItems=["egg", "rice"],
+        maxCookingTimeMinutes=45,
+    )
+    recipes = [
+        {
+            "id": "l_current",
+            "title": "Current Lunch",
+            "mealType": "Lunch",
+            "calories": 520,
+            "proteinGrams": 25,
+            "carbsGrams": 46,
+            "fatsGrams": 16,
+            "fiberGrams": 7,
+            "minutes": 20,
+            "ingredients": [{"name": "egg", "quantity": "2 pcs"}],
+            "tags": [],
+        },
+        {
+            "id": "l_pork",
+            "title": "Pork Lunch",
+            "mealType": "Lunch",
+            "calories": 540,
+            "proteinGrams": 28,
+            "carbsGrams": 44,
+            "fatsGrams": 20,
+            "fiberGrams": 6,
+            "minutes": 25,
+            "ingredients": [{"name": "pork", "quantity": "200 g"}],
+            "tags": [],
+        },
+        {
+            "id": "l_expensive",
+            "title": "Expensive Lunch",
+            "mealType": "Lunch",
+            "calories": 560,
+            "proteinGrams": 30,
+            "carbsGrams": 42,
+            "fatsGrams": 18,
+            "fiberGrams": 6,
+            "minutes": 25,
+            "ingredients": [{"name": "shrimp", "quantity": "2 kg"}],
+            "tags": [],
+        },
+        {
+            "id": "l_safe",
+            "title": "Budget Safe Lunch",
+            "mealType": "Lunch",
+            "calories": 510,
+            "proteinGrams": 24,
+            "carbsGrams": 47,
+            "fatsGrams": 14,
+            "fiberGrams": 7,
+            "minutes": 18,
+            "ingredients": [{"name": "rice", "quantity": "1 cup"}],
+            "tags": [],
+        },
+    ]
+
+    swaps = meal_planner.build_swap_candidates(
+        profile,
+        recipes,
+        meal_label="Lunch",
+        current_recipe_id="l_current",
+        active_recipe_ids=["l_current"],
+        limit=10,
+    )
+
+    assert [recipe["id"] for recipe in swaps] == ["l_safe"]
+
+
 def test_solve_meal_plan_emits_telemetry_snapshot():
     profile = UserProfile(
         displayName="Telemetry",

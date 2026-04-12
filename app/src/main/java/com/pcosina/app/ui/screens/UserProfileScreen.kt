@@ -85,6 +85,7 @@ fun UserProfileScreen(
     var budget by rememberSaveable {
         mutableStateOf(if (profile.weeklyBudgetPhp > 0) profile.weeklyBudgetPhp.toString() else "")
     }
+    var householdSize by rememberSaveable { mutableStateOf(profile.householdSize.coerceIn(1, 6)) }
     var pantryText by rememberSaveable { mutableStateOf(profile.pantryItems.joinToString(", ")) }
     var allergiesText by rememberSaveable { mutableStateOf(profile.allergies.joinToString(", ")) }
     var maxCookingTime by rememberSaveable { mutableStateOf(profile.maxCookingTimeMinutes.toString()) }
@@ -129,6 +130,9 @@ fun UserProfileScreen(
         }
         if (budget.isBlank() && profile.weeklyBudgetPhp > 0) {
             budget = profile.weeklyBudgetPhp.toString()
+        }
+        if (householdSize == 1 && profile.householdSize > 1) {
+            householdSize = profile.householdSize.coerceIn(1, 6)
         }
         if (varietyPref.isBlank()) {
             varietyPref = profile.varietyPreference
@@ -236,6 +240,7 @@ fun UserProfileScreen(
             userViewModel.updateDietaryRestrictions(restrictions)
             val budgetSafe = budgetValue?.coerceIn(1, 20000)
             if (budgetSafe != null) userViewModel.updateBudget(budgetSafe) else userViewModel.updateBudget(0)
+            userViewModel.updateHouseholdSize(householdSize)
             val maxCookSafe = maxCookingValue?.coerceIn(10, 240) ?: 45
             userViewModel.updateCookingPreferences(maxCookSafe, varietyPref.ifBlank { "Balanced" })
             userViewModel.updatePlanningPriority(planningPriority.ifBlank { "Balanced" })
@@ -256,7 +261,7 @@ fun UserProfileScreen(
             Column(modifier = Modifier.background(colorScheme.background)) {
                 GradientHeader(
                     title = if (isEditMode) "Update Health Data" else "Profile Setup",
-                    subtitle = "Step $currentStep of 3",
+                    subtitle = if (isEditMode) "Update your saved profile" else "Step 2 of 6 • Profile",
                     containerHeight = 140
                 )
                 OnboardingProgress(currentStep, colorScheme.primary)
@@ -363,6 +368,7 @@ fun UserProfileScreen(
                                 noPork, {noPork=it},
                                 noBeef, {noBeef=it},
                                 budget, { budget = sanitizeBudgetInput(it) },
+                                householdSize, { householdSize = it.coerceIn(1, 6) },
                                 maxCookingTime, { maxCookingTime = it },
                                 varietyPref, { varietyPref = it },
                                 planningPriority, { planningPriority = it },
@@ -725,6 +731,8 @@ fun StepThreeDiet(
     onR5: (Boolean) -> Unit,
     budget: String,
     onBudget: (String) -> Unit,
+    householdSize: Int,
+    onHouseholdSize: (Int) -> Unit,
     maxCookingTime: String,
     onMaxCookingTime: (String) -> Unit,
     varietyPreference: String,
@@ -781,6 +789,43 @@ fun StepThreeDiet(
             prefix = { Text("₱ ") },
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
         )
+
+        Text(
+            text = "People to cook for",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "We use this to scale ingredients and shopping totals.",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            (1..6).forEach { size ->
+                val label = when (size) {
+                    1 -> "1 person"
+                    2 -> "2 people"
+                    3 -> "3 people"
+                    else -> "Family of $size"
+                }
+                FilterChip(
+                    selected = householdSize == size,
+                    onClick = { onHouseholdSize(size) },
+                    modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight),
+                    label = {
+                        Text(
+                            text = label,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                )
+            }
+        }
 
         OutlinedTextField(
             value = maxCookingTime,

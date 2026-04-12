@@ -32,8 +32,8 @@ fun IpoVisualizationScreen(
         item {
             Box {
                 GradientHeader(
-                    title = "The PCOSINA Method",
-                    subtitle = "Local-First Planning Pipeline",
+                    title = "System Methodology",
+                    subtitle = "Admin-only planning pipeline",
                     containerHeight = 180
                 )
                 IconButton(onClick = onBackToDashboard, modifier = Modifier.padding(8.dp)) {
@@ -135,6 +135,11 @@ fun IpoVisualizationScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Text(
+                        text = "This view is for internal review. Regular users should only see plan outputs, guidance, and progress.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
@@ -146,7 +151,7 @@ fun IpoVisualizationScreen(
                 shape = MaterialTheme.shapes.large,
                 colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
             ) {
-                Text("Back to Home", fontWeight = FontWeight.Bold)
+                Text("Back", fontWeight = FontWeight.Bold)
             }
         }
 

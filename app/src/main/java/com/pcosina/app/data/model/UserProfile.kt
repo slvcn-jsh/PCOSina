@@ -20,6 +20,7 @@ data class UserProfile(
     val dietaryRestrictions: List<String> = emptyList(),
     val allergies: List<String> = emptyList(),
     val weeklyBudgetPhp: Int = 0,
+    val householdSize: Int = 1,
     val maxCookingTimeMinutes: Int = 45,
     val varietyPreference: String = "Balanced",
     val planningPriority: String = "Balanced",

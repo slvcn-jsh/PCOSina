@@ -21,7 +21,7 @@ import firebase_admin
 from firebase_admin import credentials, auth, app_check
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
-from services.meal_planner import solve_meal_plan
+from services.meal_planner import build_swap_candidates, solve_meal_plan
 from services.plan_response_builder import (
     build_no_safe_plan_response as shared_build_no_safe_plan_response,
     freshen_cached_plan_response as shared_freshen_cached_plan_response,
@@ -57,6 +57,7 @@ from domain.models import (
     RecipeSummary,
     GeneratePlanRequest,
     GeneratePlanResponse,
+    SwapOptionsRequest,
     FeedbackRequest,
     MlClientEventRequest,
 )
@@ -4442,6 +4443,37 @@ def recipe_summaries(
         return [RecipeSummary(**r) for r in rows]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Recipe summaries failed: {e}")
+
+
+@app.post("/recipes/swap-options", response_model=list[RecipeSummary])
+def recipe_swap_options(
+    payload: SwapOptionsRequest,
+    _: Any = Depends(require_firebase_auth),
+    __: Any = Depends(require_app_check),
+):
+    try:
+        policy_payload, _ = _load_runtime_policy()
+        candidates = build_swap_candidates(
+            payload.profile,
+            database.get_all_recipes(),
+            meal_label=payload.mealLabel,
+            current_recipe_id=payload.currentRecipeId,
+            active_recipe_ids=payload.activeRecipeIds,
+            limit=payload.limit,
+            policy=policy_payload,
+        )
+        return [
+            RecipeSummary(
+                id=str(recipe.get("id") or ""),
+                title=str(recipe.get("title") or "").strip(),
+                mealType=str(recipe.get("mealType") or "Universal"),
+                minutes=int(recipe.get("minutes") or 0),
+            )
+            for recipe in candidates
+            if str(recipe.get("id") or "").strip() and str(recipe.get("title") or "").strip()
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Swap options failed: {e}")
 
 @app.get("/health")
 def health(): return {"status": "alive"}

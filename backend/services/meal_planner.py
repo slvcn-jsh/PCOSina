@@ -615,6 +615,95 @@ def shortlist_candidates(
     return buckets
 
 
+def build_swap_candidates(
+    profile: UserProfile,
+    recipes: List[Dict[str, Any]],
+    *,
+    meal_label: str,
+    current_recipe_id: Optional[str] = None,
+    active_recipe_ids: Optional[List[str]] = None,
+    limit: int = 20,
+    policy: Optional[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    normalized_meal_label = str(meal_label or "").strip().title()
+    if normalized_meal_label not in MEAL_LABELS:
+        return []
+
+    shortlisted = shortlist_candidates(profile, recipes, policy=policy)
+    pool = shortlisted.get(normalized_meal_label, []) + shortlisted.get("Universal", [])
+    if not pool:
+        return []
+
+    current_counts: Dict[str, int] = {}
+    for recipe_id in active_recipe_ids or []:
+        normalized_id = str(recipe_id or "").strip()
+        if not normalized_id:
+            continue
+        current_counts[normalized_id] = current_counts.get(normalized_id, 0) + 1
+
+    repeat_limit_candidates = adjust_max_per_week(
+        [
+            int(v)
+            for v in _policy_get_legacy_aware(
+                policy,
+                ["planning.recipe_repeat_limits", "max_per_week"],
+                _env_int_list("PCOSINA_MAX_PER_WEEK", [2, 3, 4, 10]),
+            )
+        ],
+        profile.varietyPreference,
+    )
+    baseline_repeat_limit = min(repeat_limit_candidates) if repeat_limit_candidates else 2
+    observed_repeat_limit = max(current_counts.values(), default=baseline_repeat_limit)
+    max_repeat_limit = min(max(repeat_limit_candidates or [baseline_repeat_limit]), observed_repeat_limit)
+
+    budget_weekly = resolve_budget_weekly(profile)
+    current_total_cost = 0.0
+    if budget_weekly:
+        current_total_cost = sum(
+            float(estimate_cost(recipe))
+            for recipe in recipes
+            for _ in range(current_counts.get(str(recipe.get("id") or ""), 0))
+        )
+
+    filtered: List[Dict[str, Any]] = []
+    for recipe in pool:
+        recipe_id = str(recipe.get("id") or "").strip()
+        if not recipe_id or recipe_id == str(current_recipe_id or "").strip():
+            continue
+
+        next_repeat_count = current_counts.get(recipe_id, 0) + 1
+        if next_repeat_count > max_repeat_limit:
+            continue
+
+        if budget_weekly:
+            current_recipe_cost = 0.0
+            if current_recipe_id:
+                current_recipe_cost = float(
+                    next(
+                        (estimate_cost(item) for item in recipes if str(item.get("id") or "") == str(current_recipe_id)),
+                        0.0,
+                    )
+                )
+            candidate_total_cost = current_total_cost - current_recipe_cost + float(recipe.get("_cost_est") or estimate_cost(recipe))
+            if candidate_total_cost > float(budget_weekly):
+                continue
+
+        filtered.append(recipe)
+
+    filtered.sort(key=_base_score, reverse=True)
+    deduped: List[Dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for recipe in filtered:
+        recipe_id = str(recipe.get("id") or "").strip()
+        if not recipe_id or recipe_id in seen_ids:
+            continue
+        seen_ids.add(recipe_id)
+        deduped.append(recipe)
+        if len(deduped) >= max(1, int(limit or 20)):
+            break
+    return deduped
+
+
 def _safe_div(num: float, den: float) -> float:
     if den == 0:
         return 0.0

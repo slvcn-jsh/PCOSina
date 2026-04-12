@@ -385,6 +385,22 @@ class MealPlanViewModel(
         return repository.getRecipeDetails(recipeId)
     }
 
+    suspend fun getSwapOptions(
+        profile: UserProfile,
+        mealLabel: String,
+        currentRecipeId: String,
+        activeRecipeIds: List<String>,
+        limit: Int = 30
+    ): Result<List<RecipeSummaryDto>> {
+        return repository.getSwapOptions(
+            profile = profile,
+            mealLabel = mealLabel,
+            currentRecipeId = currentRecipeId,
+            activeRecipeIds = activeRecipeIds,
+            limit = limit
+        )
+    }
+
     suspend fun getSwapOptions(mealLabel: String, limit: Int = 30): Result<List<RecipeSummaryDto>> {
         return repository.getRecipeSummaries(mealLabel, limit)
     }

@@ -38,6 +38,7 @@ import com.pcosina.app.ui.components.DefaultBottomNavItems
 import com.pcosina.app.ui.navigation.Routes.MealLabelArg
 import com.pcosina.app.ui.navigation.Routes.RecipeIdArg
 import com.pcosina.app.ui.screens.DashboardScreen
+import com.pcosina.app.ui.screens.CommunityScreen
 import com.pcosina.app.ui.screens.GoalSelectionScreen
 import com.pcosina.app.ui.screens.GroceryListScreen
 import com.pcosina.app.ui.screens.IpoVisualizationScreen
@@ -123,6 +124,7 @@ fun AppNavHost(
 
     val session by authViewModel.session.collectAsState()
     val userProfile by userViewModel.userProfile.collectAsState()
+    val adminMode by userViewModel.adminMode.collectAsState()
     val isProfileLoading by userViewModel.isProfileLoading.collectAsState()
     val currentRoute by navController.currentBackStackEntryAsState()
     val activePlanId by mealPlanViewModel.activePlanId.collectAsState()
@@ -541,8 +543,9 @@ fun AppNavHost(
         }
         composable(Routes.Ipo) {
             TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
-                IpoVisualizationScreen(
-                    onBackToDashboard = {
+                CommunityScreen(
+                    onFeedback = onFeedback,
+                    onBack = {
                         navigateInternal(Routes.Dashboard) {
                             tabNavigationOptions()
                         }
@@ -561,6 +564,7 @@ fun AppNavHost(
                 progressViewModel = progressViewModel,
                 userId = session.currentUserUid ?: "",
                 onNavigateToProfileEdit = { navigateInternal(Routes.UserProfileEdit) },
+                onOpenAdminMethodology = { navigateInternal(Routes.AdminMethodology) },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -574,6 +578,13 @@ fun AppNavHost(
                     }
                 },
                 onFeedback = onFeedback,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        composable(Routes.AdminMethodology) {
+            IpoVisualizationScreen(
+                onBackToDashboard = { navController.popBackStack() },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -597,6 +608,9 @@ fun AppNavHost(
                 mealPlanViewModel = mealPlanViewModel,
                 groceryViewModel = groceryViewModel,
                 progressViewModel = progressViewModel,
+                goal = userProfile.goal,
+                adminMode = adminMode,
+                householdSize = userProfile.householdSize,
                 onBack = { navController.popBackStack() },
                 onAddToGrocery = {
                     navigateInternal(Routes.GroceryList) {

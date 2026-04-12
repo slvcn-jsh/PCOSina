@@ -124,8 +124,8 @@ class MealPlanSwapBannerUiTest {
         }
         composeRule.onAllNodesWithText("Swap")[0].performClick()
         composeRule.onNodeWithTag("mealplan_content_list")
-            .performScrollToNode(hasText("Sync groceries to update the list.", substring = true))
-        composeRule.onNodeWithText("Sync groceries to update the list.", substring = true)
+            .performScrollToNode(hasText("Your grocery list was updated too.", substring = true))
+        composeRule.onNodeWithText("Your grocery list was updated too.", substring = true)
             .assertIsDisplayed()
     }
 

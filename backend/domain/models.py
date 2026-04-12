@@ -19,6 +19,7 @@ class UserProfile(BaseModel):
     dietaryRestrictions: List[str] = []
     allergies: List[str] = []
     weeklyBudgetPhp: Optional[int] = Field(default=None, alias="weeklyBudgetPhp")
+    householdSize: int = Field(default=1, ge=1, le=6)
     budgetWeekly: Optional[float] = None
     budgetMonthly: Optional[float] = None
     maxCookingTimeMinutes: int = 45
@@ -216,6 +217,14 @@ class GeneratePlanRequest(BaseModel):
     profile: UserProfile
     days: int = 7
     mealsPerDay: int = 3
+
+
+class SwapOptionsRequest(BaseModel):
+    profile: UserProfile
+    mealLabel: str
+    currentRecipeId: Optional[str] = None
+    activeRecipeIds: List[str] = []
+    limit: int = 20
 
 
 class PlannedMeal(BaseModel):

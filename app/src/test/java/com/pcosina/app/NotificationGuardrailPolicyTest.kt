@@ -116,8 +116,14 @@ class NotificationGuardrailPolicyTest {
         )
         val source = read(mealPlanPath)
 
-        assertTrue("MealPlan should define triggerPlanGeneration()", source.contains("fun triggerPlanGeneration()"))
-        assertTrue("MealPlan should define triggerGrocerySync()", source.contains("fun triggerGrocerySync()"))
+        assertTrue(
+            "MealPlan should define triggerPlanGeneration().",
+            Regex("""fun\s+triggerPlanGeneration\s*\(\s*\)""").containsMatchIn(source)
+        )
+        assertTrue(
+            "MealPlan should define triggerGrocerySync().",
+            Regex("""fun\s+triggerGrocerySync\s*\([^)]*\)""").containsMatchIn(source)
+        )
         assertTrue("MealPlan should render AppFeedbackBanner for action feedback.", source.contains("AppFeedbackBanner("))
 
         val generateCalls = Regex("""generateMealPlan\s*\(userProfile\)""")

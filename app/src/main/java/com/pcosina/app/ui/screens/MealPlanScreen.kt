@@ -57,6 +57,9 @@ import com.pcosina.app.ui.theme.UiChipTokens
 import com.pcosina.app.ui.theme.UiSpacingTokens
 import com.pcosina.app.ui.util.buildMealReasons
 import com.pcosina.app.ui.util.GuidedJourneyInput
+import com.pcosina.app.ui.util.goalMealReasonCopy
+import com.pcosina.app.ui.util.goalPlanFocusCopy
+import com.pcosina.app.domain.householdSizeLabel
 import com.pcosina.app.ui.util.primaryGoalLabel
 import com.pcosina.app.ui.util.MealPlanNextActionDebugLog
 import com.pcosina.app.ui.util.rememberIsOnline
@@ -160,8 +163,10 @@ fun MealPlanScreen(
     val lastReviewedWeek by mealPlanViewModel.lastReviewedWeek.collectAsState()
     val currentPlan = (uiState as? MealPlanUiState.Success)?.response
     val userProfile by userViewModel.userProfile.collectAsState()
+    val adminMode by userViewModel.adminMode.collectAsState()
     val notificationPrefs by userViewModel.notificationPreferences.collectAsState()
     val groceryItems by groceryViewModel.groceryItems.collectAsState()
+    val mealSources by groceryViewModel.mealSources.collectAsState()
     val logs by progressViewModel.dailyLogs.collectAsState()
     val feedbackQueue by progressViewModel.feedbackQueue.collectAsState()
     var selectedDayIndex by rememberSaveable { mutableStateOf(0) }
@@ -182,6 +187,9 @@ fun MealPlanScreen(
     }
     val dayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
     var selectedDayAnchor by rememberSaveable { mutableStateOf<String?>(null) }
+    val householdLabel = remember(userProfile.householdSize) {
+        householdSizeLabel(userProfile.householdSize)
+    }
 
     val scope = rememberCoroutineScope()
     var showConfidenceInfo by rememberSaveable { mutableStateOf(false) }
@@ -190,7 +198,6 @@ fun MealPlanScreen(
     // Track if we are currently extracting ingredients
     var syncState by remember { mutableStateOf(FeedbackActionState.Idle) }
     var generateActionState by remember { mutableStateOf(FeedbackActionState.Idle) }
-    var lastSyncStatus by remember { mutableStateOf("No sync yet") }
     var pendingPlanReadyNotification by rememberSaveable { mutableStateOf(false) }
     var feedbackBanner by remember { mutableStateOf<MealPlanBannerState?>(null) }
     var swapTarget by remember { mutableStateOf<SwapTarget?>(null) }
@@ -212,13 +219,27 @@ fun MealPlanScreen(
     val hasReviewedWeek = activePlanId != null && activePlanId == lastReviewedWeek
     val hasGrocery = groceryItems.isNotEmpty()
     val hasTracked = logs.isNotEmpty()
+    val expectedMealSourceIds = remember(currentPlan, activePlanId) {
+        val plan = currentPlan ?: return@remember emptyList()
+        val planKey = activePlanId ?: plan.planId ?: plan.weekLabel
+        plan.days.flatMapIndexed { dayIndex, day ->
+            day.meals.mapIndexed { mealIndex, meal ->
+                mealPlanViewModel.buildMealInstanceId(planKey, dayIndex, mealIndex, meal.mealLabel)
+            }
+        }
+    }
+    val groceryReady = remember(expectedMealSourceIds, mealSources, groceryItems) {
+        expectedMealSourceIds.isNotEmpty() &&
+            groceryItems.isNotEmpty() &&
+            expectedMealSourceIds.all { mealSources.containsKey(it) }
+    }
     val guidedStep = resolveGuidedJourneyStep(
         GuidedJourneyInput(
             profileComplete = userProfile.isProfileCompleted,
             goal = userProfile.goal,
             hasPlan = hasPlan,
             hasReviewedWeek = hasReviewedWeek,
-            hasGrocery = hasGrocery,
+            hasGrocery = groceryReady || hasGrocery,
             hasTracked = hasTracked
         )
     )
@@ -260,54 +281,59 @@ fun MealPlanScreen(
         mealPlanViewModel.generateMealPlan(userProfile)
     }
 
-    fun triggerGrocerySync() {
+    fun triggerGrocerySync(manual: Boolean = true) {
         if (!isOnline) {
-            Log.w("MealPlanUX", "Grocery sync blocked: offline ${safeUserLogScope(userViewModel.activeUserId)}")
-            syncState = FeedbackActionState.Error
-            lastSyncStatus = "Failed (offline)"
-            feedbackBanner = MealPlanBannerState(
-                data = FeedbackBannerData(
-                    tone = FeedbackBannerTone.Error,
-                    message = "Sync failed—tap retry when you're online.",
-                    actionLabel = "Retry"
-                ),
-                action = MealPlanBannerAction.RetrySync
-            )
-            scope.launch {
-                val userId = userViewModel.activeUserId
-                if (userId.isNotBlank()) {
-                    NotificationScheduler.notifyGrocerySyncResult(context, userId, success = false)
-                }
-            }
-            return
-        }
-        analytics.logEvent("sync_groceries", null)
-        syncState = FeedbackActionState.Loading
-        lastSyncStatus = "Syncing…"
-        feedbackBanner = MealPlanBannerState(
-            data = FeedbackBannerData(
-                tone = FeedbackBannerTone.Loading,
-                message = "Syncing groceries…"
-            )
-        )
-        mealPlanViewModel.extractGrocerySourcesForPlan { sources ->
-            if (sources.isEmpty()) {
-                Log.w("MealPlanUX", "Grocery sync failed: no extracted sources ${safeUserLogScope(userViewModel.activeUserId)}")
+            if (manual) {
+                Log.w("MealPlanUX", "Grocery sync blocked: offline ${safeUserLogScope(userViewModel.activeUserId)}")
                 syncState = FeedbackActionState.Error
-                lastSyncStatus = "Failed (no items)"
                 feedbackBanner = MealPlanBannerState(
                     data = FeedbackBannerData(
                         tone = FeedbackBannerTone.Error,
-                        message = "Failed—tap retry after regenerating your plan.",
+                        message = "Grocery updates need internet right now. Try again when you're back online.",
                         actionLabel = "Retry"
                     ),
                     action = MealPlanBannerAction.RetrySync
                 )
                 scope.launch {
                     val userId = userViewModel.activeUserId
-                    if (userId.isNotBlank()) {
+                    if (manual && userId.isNotBlank()) {
                         NotificationScheduler.notifyGrocerySyncResult(context, userId, success = false)
                     }
+                }
+            }
+            return
+        }
+        analytics.logEvent("sync_groceries", null)
+        syncState = FeedbackActionState.Loading
+        if (manual) {
+            feedbackBanner = MealPlanBannerState(
+                data = FeedbackBannerData(
+                    tone = FeedbackBannerTone.Loading,
+                    message = "Updating your grocery list…"
+                )
+            )
+        }
+        mealPlanViewModel.extractGrocerySourcesForPlan { sources ->
+            if (sources.isEmpty()) {
+                if (manual) {
+                    Log.w("MealPlanUX", "Grocery sync failed: no extracted sources ${safeUserLogScope(userViewModel.activeUserId)}")
+                    syncState = FeedbackActionState.Error
+                    feedbackBanner = MealPlanBannerState(
+                        data = FeedbackBannerData(
+                            tone = FeedbackBannerTone.Error,
+                            message = "We couldn't refresh your grocery list yet. Try again after reloading your plan.",
+                            actionLabel = "Retry"
+                        ),
+                        action = MealPlanBannerAction.RetrySync
+                    )
+                    scope.launch {
+                        val userId = userViewModel.activeUserId
+                        if (manual && userId.isNotBlank()) {
+                            NotificationScheduler.notifyGrocerySyncResult(context, userId, success = false)
+                        }
+                    }
+                } else {
+                    syncState = FeedbackActionState.Idle
                 }
                 return@extractGrocerySourcesForPlan
             }
@@ -317,17 +343,20 @@ fun MealPlanScreen(
                 "Grocery sync success: ${sources.values.sumOf { it.size }} items mapped ${safeUserLogScope(userViewModel.activeUserId)}"
             )
             syncState = FeedbackActionState.Success
-            lastSyncStatus = "Synced successfully"
-            feedbackBanner = MealPlanBannerState(
-                data = FeedbackBannerData(
-                    tone = FeedbackBannerTone.Success,
-                    message = "Synced to Grocery List."
+            if (manual) {
+                feedbackBanner = MealPlanBannerState(
+                    data = FeedbackBannerData(
+                        tone = FeedbackBannerTone.Success,
+                        message = "Your grocery list is up to date."
+                    )
                 )
-            )
-            scope.launch {
-                val userId = userViewModel.activeUserId
-                if (userId.isNotBlank()) {
-                    NotificationScheduler.notifyGrocerySyncResult(context, userId, success = true)
+            }
+            if (manual) {
+                scope.launch {
+                    val userId = userViewModel.activeUserId
+                    if (userId.isNotBlank()) {
+                        NotificationScheduler.notifyGrocerySyncResult(context, userId, success = true)
+                    }
                 }
             }
         }
@@ -375,6 +404,12 @@ fun MealPlanScreen(
             kotlinx.coroutines.delay(1800)
             syncState = FeedbackActionState.Idle
         }
+    }
+    LaunchedEffect(expectedMealSourceIds, isOnline, currentPlan?.requestId, mealSources.size) {
+        if (!isOnline || syncState == FeedbackActionState.Loading) return@LaunchedEffect
+        if (expectedMealSourceIds.isEmpty()) return@LaunchedEffect
+        if (expectedMealSourceIds.all { mealSources.containsKey(it) }) return@LaunchedEffect
+        triggerGrocerySync(manual = false)
     }
     LaunchedEffect(uiState, generationNotice) {
         when (uiState) {
@@ -493,7 +528,7 @@ fun MealPlanScreen(
                         )
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            text = "Step 3 of 4: Generate Plan",
+                            text = "Step 4 of 6: Build Your Week",
                             style = MaterialTheme.typography.labelMedium,
                             color = colorScheme.primary,
                             modifier = Modifier.fillMaxWidth().testTag("mealplan_step3_label")
@@ -608,7 +643,7 @@ fun MealPlanScreen(
                         )
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            text = "Step 3 of 4: Generate Plan",
+                            text = "Step 4 of 6: Build Your Week",
                             style = MaterialTheme.typography.labelMedium,
                             color = colorScheme.primary,
                             modifier = Modifier.fillMaxWidth().testTag("mealplan_step3_label")
@@ -709,7 +744,7 @@ fun MealPlanScreen(
                 val recipeCounts = remember(plan) {
                     plan.days.flatMap { it.meals }.groupingBy { it.recipeId }.eachCount()
                 }
-                val nextBestAction = remember(planExpired, hasGrocery, hasTracked, isOnline, userProfile.goal) {
+                val nextBestAction = remember(planExpired, groceryReady, hasTracked, userProfile.goal) {
                     val goalLabel = primaryGoalLabel(userProfile.goal)
                     when {
                         planExpired -> MealPlanNextAction(
@@ -721,13 +756,13 @@ fun MealPlanScreen(
                                 triggerPlanGeneration()
                             }
                         )
-                        !hasGrocery -> MealPlanNextAction(
-                            label = if (isOnline) "Sync Grocery List" else "Sync Grocery List (Internet required)",
-                            reason = "Why this helps $goalLabel: synced groceries remove friction between plan and shopping.",
-                            enabled = isOnline,
+                        !groceryReady -> MealPlanNextAction(
+                            label = "Open Grocery List",
+                            reason = "Why this helps $goalLabel: your grocery list updates automatically from the meals in this week.",
+                            enabled = true,
                             onClick = {
-                                logNextBestActionTap("sync_grocery_list")
-                                triggerGrocerySync()
+                                logNextBestActionTap("open_grocery_list")
+                                onNavigateToRoute(com.pcosina.app.ui.navigation.Routes.GroceryList)
                             }
                         )
                         !hasTracked -> MealPlanNextAction(
@@ -771,7 +806,7 @@ fun MealPlanScreen(
                 ) {
                 item {
                     Text(
-                        text = "Step 3 of 4: Generate Plan",
+                        text = "Step 4 of 6: Build Your Week",
                         style = MaterialTheme.typography.labelMedium,
                         color = colorScheme.primary,
                         modifier = Modifier.fillMaxWidth().testTag("mealplan_step3_label")
@@ -1098,6 +1133,8 @@ fun MealPlanScreen(
                         }
 
                         if (explanation != null) {
+                            val projectedHouseholdCost = explanation.estimatedWeeklyCost
+                                ?.times(userProfile.householdSize.coerceIn(1, 6))
                             Spacer(Modifier.height(12.dp))
                             Card(
                                 shape = MaterialTheme.shapes.extraLarge,
@@ -1109,109 +1146,142 @@ fun MealPlanScreen(
                                     verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     Text(
-                                        text = "Optimization Notes",
+                                        text = if (adminMode) "Planning details" else "Week highlights",
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                                     )
                                     Text(
-                                        text = "These are solver signals used to balance nutrition, variety, and pantry use.",
+                                        text = if (adminMode) {
+                                            "These are solver signals used to balance nutrition, variety, and pantry use."
+                                        } else {
+                                            goalPlanFocusCopy(userProfile.goal)
+                                        },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = colorScheme.onSurfaceVariant
                                     )
-                                    explanation.confidenceScore?.let { score ->
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                        ) {
+                                    if (adminMode) {
+                                        explanation.confidenceScore?.let { score ->
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Confidence score: $score%",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = colorScheme.onSurfaceVariant
+                                                )
+                                                IconButton(
+                                                    onClick = { showConfidenceInfo = true },
+                                                    modifier = Modifier.size(20.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Info,
+                                                        contentDescription = "Confidence info",
+                                                        tint = colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        val items = mutableListOf<String>()
+                                        val avgDev = explanation.avgCaloriesDeviation
+                                        if (explanation.targetCalories != null) {
+                                            items.add("Target calories: ${explanation.targetCalories} kcal/day")
+                                        }
+                                        if (explanation.avgCalories != null) {
+                                            val devText = if (avgDev != null) " (±$avgDev)" else ""
+                                            items.add("Avg calories: ${explanation.avgCalories} kcal/day$devText")
+                                        }
+                                        val targetMacros = listOf(
+                                            explanation.targetProtein?.let { "P ${it}g" },
+                                            explanation.targetCarbs?.let { "C ${it}g" },
+                                            explanation.targetFats?.let { "F ${it}g" }
+                                        ).filterNotNull()
+                                        if (targetMacros.isNotEmpty()) {
+                                            items.add("Macro targets: ${targetMacros.joinToString(" • ")}")
+                                        }
+                                        val avgMacros = listOf(
+                                            explanation.avgProtein?.let { "P ${it}g" },
+                                            explanation.avgCarbs?.let { "C ${it}g" },
+                                            explanation.avgFats?.let { "F ${it}g" }
+                                        ).filterNotNull()
+                                        if (avgMacros.isNotEmpty()) {
+                                            items.add("Avg macros: ${avgMacros.joinToString(" • ")}")
+                                        }
+                                        val constraintItems = mutableListOf<String>()
+                                        explanation.toleranceUsed?.let {
+                                            val pct = String.format(Locale.ENGLISH, "%.0f", it * 100)
+                                            constraintItems.add("Tolerance used: $pct%")
+                                        }
+                                        explanation.maxPerWeek?.let {
+                                            constraintItems.add("Max repeats per recipe: $it")
+                                        }
+                                        if (explanation.budgetWeekly != null || explanation.estimatedWeeklyCost != null) {
+                                            val budget = explanation.budgetWeekly?.let {
+                                                "₱" + String.format(Locale.ENGLISH, "%.0f", it)
+                                            }
+                                            val est = explanation.estimatedWeeklyCost?.let { "₱$it" }
+                                            val text = when {
+                                                budget != null && est != null -> "Budget weekly: $budget (est $est)"
+                                                budget != null -> "Budget weekly: $budget"
+                                                est != null -> "Estimated weekly cost: $est"
+                                                else -> null
+                                            }
+                                            if (text != null) constraintItems.add(text)
+                                        }
+                                        explanation.restrictionCount?.let {
+                                            constraintItems.add("Restriction count: $it")
+                                        }
+                                        explanation.pantryMatches?.let {
+                                            items.add("Pantry matches used: $it")
+                                        }
+                                        explanation.uniqueVegTokens?.let {
+                                            items.add("Veg variety tokens: $it")
+                                        }
+
+                                        items.forEach { line ->
                                             Text(
-                                                text = "Confidence score: $score%",
+                                                text = "• $line",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = colorScheme.onSurfaceVariant
                                             )
-                                            IconButton(
-                                                onClick = { showConfidenceInfo = true },
-                                                modifier = Modifier.size(20.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Filled.Info,
-                                                    contentDescription = "Confidence info",
-                                                    tint = colorScheme.onSurfaceVariant,
-                                                    modifier = Modifier.size(16.dp)
+                                        }
+                                        if (constraintItems.isNotEmpty()) {
+                                            Spacer(Modifier.height(6.dp))
+                                            Text(
+                                                text = "Constraint Summary",
+                                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                                color = colorScheme.onSurface
+                                            )
+                                            constraintItems.forEach { line ->
+                                                Text(
+                                                    text = "• $line",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = colorScheme.onSurfaceVariant
                                                 )
                                             }
                                         }
-                                    }
-
-                                    val items = mutableListOf<String>()
-                                    val avgDev = explanation.avgCaloriesDeviation
-                                    if (explanation.targetCalories != null) {
-                                        items.add("Target calories: ${explanation.targetCalories} kcal/day")
-                                    }
-                                    if (explanation.avgCalories != null) {
-                                        val devText = if (avgDev != null) " (±$avgDev)" else ""
-                                        items.add("Avg calories: ${explanation.avgCalories} kcal/day$devText")
-                                    }
-                                    val targetMacros = listOf(
-                                        explanation.targetProtein?.let { "P ${it}g" },
-                                        explanation.targetCarbs?.let { "C ${it}g" },
-                                        explanation.targetFats?.let { "F ${it}g" }
-                                    ).filterNotNull()
-                                    if (targetMacros.isNotEmpty()) {
-                                        items.add("Macro targets: ${targetMacros.joinToString(" • ")}")
-                                    }
-                                    val avgMacros = listOf(
-                                        explanation.avgProtein?.let { "P ${it}g" },
-                                        explanation.avgCarbs?.let { "C ${it}g" },
-                                        explanation.avgFats?.let { "F ${it}g" }
-                                    ).filterNotNull()
-                                    if (avgMacros.isNotEmpty()) {
-                                        items.add("Avg macros: ${avgMacros.joinToString(" • ")}")
-                                    }
-                                    val constraintItems = mutableListOf<String>()
-                                    explanation.toleranceUsed?.let {
-                                        val pct = String.format(Locale.ENGLISH, "%.0f", it * 100)
-                                        constraintItems.add("Tolerance used: $pct%")
-                                    }
-                                    explanation.maxPerWeek?.let {
-                                        constraintItems.add("Max repeats per recipe: $it")
-                                    }
-                                    if (explanation.budgetWeekly != null || explanation.estimatedWeeklyCost != null) {
-                                        val budget = explanation.budgetWeekly?.let {
-                                            "₱" + String.format(Locale.ENGLISH, "%.0f", it)
+                                    } else {
+                                        val highlights = mutableListOf<String>()
+                                        explanation.avgCalories?.let {
+                                            highlights.add("Around $it kcal per person, per day.")
                                         }
-                                        val est = explanation.estimatedWeeklyCost?.let { "₱$it" }
-                                        val text = when {
-                                            budget != null && est != null -> "Budget weekly: $budget (est $est)"
-                                            budget != null -> "Budget weekly: $budget"
-                                            est != null -> "Estimated weekly cost: $est"
-                                            else -> null
+                                        explanation.avgProtein?.let {
+                                            highlights.add("Protein stays near ${it}g per person each day.")
                                         }
-                                        if (text != null) constraintItems.add(text)
-                                    }
-                                    explanation.restrictionCount?.let {
-                                        constraintItems.add("Restriction count: $it")
-                                    }
-                                    explanation.pantryMatches?.let {
-                                        items.add("Pantry matches used: $it")
-                                    }
-                                    explanation.uniqueVegTokens?.let {
-                                        items.add("Veg variety tokens: $it")
-                                    }
-
-                                    items.forEach { line ->
-                                        Text(
-                                            text = "• $line",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                    if (constraintItems.isNotEmpty()) {
-                                        Spacer(Modifier.height(6.dp))
-                                        Text(
-                                            text = "Constraint Summary",
-                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                                            color = colorScheme.onSurface
-                                        )
-                                        constraintItems.forEach { line ->
+                                        projectedHouseholdCost?.let {
+                                            highlights.add("Projected groceries: ₱$it for $householdLabel.")
+                                        }
+                                        explanation.pantryMatches?.takeIf { it > 0 }?.let {
+                                            highlights.add("Uses $it pantry matches already saved in your profile.")
+                                        }
+                                        explanation.uniqueVegTokens?.takeIf { it > 0 }?.let {
+                                            highlights.add("Includes $it produce picks to keep the week less repetitive.")
+                                        }
+                                        if (highlights.isEmpty()) {
+                                            highlights.add("Your plan follows the preferences saved in your profile.")
+                                        }
+                                        highlights.forEach { line ->
                                             Text(
                                                 text = "• $line",
                                                 style = MaterialTheme.typography.bodySmall,
@@ -1237,20 +1307,25 @@ fun MealPlanScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text("Ready to shop?", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                                    Text("Consolidate all 21 meals", style = MaterialTheme.typography.bodySmall, color = colorScheme.onSurfaceVariant)
+                                    Text("Grocery list", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                                    Text(
+                                        text = if (groceryReady) {
+                                            "Updated automatically from your current plan."
+                                        } else {
+                                            "We’re organizing ingredients from this week’s meals now."
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colorScheme.onSurfaceVariant
+                                    )
                                     Spacer(Modifier.height(6.dp))
                                     SyncStatusChip(state = syncState)
                                 }
-                                LoadingActionButton(
-                                    state = syncState,
-                                    idleLabel = if (isOnline) "Sync" else "Sync (Internet required)",
-                                    loadingLabel = "Syncing…",
-                                    successLabel = "Synced",
-                                    errorLabel = "Retry Sync",
-                                    onClick = { triggerGrocerySync() },
-                                    enabled = isOnline
-                                )
+                                OutlinedButton(
+                                    onClick = { onNavigateToRoute(com.pcosina.app.ui.navigation.Routes.GroceryList) },
+                                    modifier = Modifier.height(44.dp)
+                                ) {
+                                    Text("Open")
+                                }
                             }
                         }
                     }
@@ -1445,9 +1520,13 @@ fun MealPlanScreen(
                                             budgetPhp = userProfile.weeklyBudgetPhp
                                         )
                                     }
-                                    if (reasons.isNotEmpty()) {
+                                    val displayedReasons = remember(userProfile.goal, adminMode, reasons) {
+                                        if (adminMode) reasons else goalMealReasonCopy(userProfile.goal, reasons)
+                                    }
+                                    if (displayedReasons.isNotEmpty()) {
                                         Text(
-                                            text = "Why: " + reasons.joinToString(" • "),
+                                            text = (if (adminMode) "Why: " else "Picked because: ") +
+                                                displayedReasons.joinToString(" • "),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = colorScheme.onSurfaceVariant,
                                             maxLines = 2,
@@ -1490,8 +1569,16 @@ fun MealPlanScreen(
                                         swapError = null
                                         swapLoading = true
                                         scope.launch {
-                                            val result = (swapOptionsLoader ?: mealPlanViewModel::getSwapOptions)
-                                                .invoke(plannedMeal.mealLabel, 40)
+                                            val result = swapOptionsLoader?.invoke(plannedMeal.mealLabel, 40)
+                                                ?: mealPlanViewModel.getSwapOptions(
+                                                    profile = userProfile,
+                                                    mealLabel = plannedMeal.mealLabel,
+                                                    currentRecipeId = plannedMeal.recipeId,
+                                                    activeRecipeIds = plan.days
+                                                        .flatMap { day -> day.meals }
+                                                        .map { meal -> meal.recipeId },
+                                                    limit = 40
+                                                )
                                             result.onSuccess { list ->
                                                 val filtered = list.filter { it.id != plannedMeal.recipeId }
                                                 swapOptions = filtered
@@ -1560,8 +1647,8 @@ fun MealPlanScreen(
             title = { Text("Low‑GI guidance", modifier = Modifier.semantics { heading() }) },
             text = {
                 Text(
-                    "We favor higher‑fiber, balanced meals to support steadier energy. " +
-                    "This is guidance only and not medical treatment."
+                    "We lean toward higher-fiber, balanced meals to help the day feel steadier. " +
+                    "Use it as general support, not as medical advice."
                 )
             }
         )
@@ -1699,29 +1786,22 @@ fun MealPlanScreen(
                                                     )
                                                     val items = itemsResult.getOrNull()
                                                     if (items != null) {
-                                                        if (groceryViewModel.hasSourcesForMeal(mealId)) {
-                                                            groceryViewModel.replaceMealItems(mealId, items)
-                                                            if (items.isEmpty()) {
-                                                                postMealPlanFeedback(
-                                                                    tone = FeedbackBannerTone.Success,
-                                                                    message = "Swapped ${target.mealLabel}: ${target.mealTitle} -> ${option.title}. Grocery items cleared for this meal."
-                                                                )
-                                                            } else {
-                                                                postMealPlanFeedback(
-                                                                    tone = FeedbackBannerTone.Success,
-                                                                    message = "Swapped ${target.mealLabel}: ${target.mealTitle} -> ${option.title}. Grocery updated with ${items.size} ingredient changes."
-                                                                )
-                                                            }
+                                                        groceryViewModel.replaceMealItems(mealId, items)
+                                                        if (items.isEmpty()) {
+                                                            postMealPlanFeedback(
+                                                                tone = FeedbackBannerTone.Success,
+                                                                message = "Swapped ${target.mealLabel}: ${target.mealTitle} -> ${option.title}. Grocery items were cleared for this meal."
+                                                            )
                                                         } else {
                                                             postMealPlanFeedback(
                                                                 tone = FeedbackBannerTone.Success,
-                                                                message = "Swapped ${target.mealLabel}: ${target.mealTitle} -> ${option.title}. Sync groceries to update the list."
+                                                                message = "Swapped ${target.mealLabel}: ${target.mealTitle} -> ${option.title}. Your grocery list was updated too."
                                                             )
                                                         }
                                                     } else {
                                                         postMealPlanFeedback(
                                                             tone = FeedbackBannerTone.Success,
-                                                            message = "Swapped ${target.mealLabel}: ${target.mealTitle} -> ${option.title}. Grocery unchanged because ingredient data was unavailable."
+                                                            message = "Swapped ${target.mealLabel}: ${target.mealTitle} -> ${option.title}. Grocery details will update when ingredient data is available."
                                                         )
                                                     }
                                                 } catch (e: Exception) {

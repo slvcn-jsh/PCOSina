@@ -59,7 +59,6 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontWeight
-import com.pcosina.app.data.model.DummyData.GroceryItem
 import com.pcosina.app.data.model.PantryEntry
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanUiState
@@ -77,10 +76,13 @@ import com.pcosina.app.ui.theme.PcosinaSuccess
 import com.pcosina.app.ui.theme.UiChipTokens
 import com.pcosina.app.ui.theme.UiSpacingTokens
 import com.pcosina.app.util.safeUserLogScope
-import com.pcosina.app.domain.PriceCatalog
+import com.pcosina.app.domain.GroceryListEntry
+import com.pcosina.app.domain.buildGroceryListEntries
+import com.pcosina.app.domain.householdSizeLabel
 import com.pcosina.app.ui.util.GuidedJourneyInput
 import com.pcosina.app.ui.util.ActionFeedbackCopy
 import com.pcosina.app.ui.util.LockedFlowCopy
+import com.pcosina.app.ui.util.goalShoppingTips
 import com.pcosina.app.ui.util.rememberIsOnline
 import com.pcosina.app.ui.util.resolveGuidedJourneyStep
 import com.pcosina.app.ui.navigation.Routes
@@ -138,11 +140,15 @@ fun GroceryListScreen(
                 "${item.name.trim().lowercase(Locale.getDefault())}|${item.quantity.trim().lowercase(Locale.getDefault())}"
             }
     }
-    val allItemNames = remember(allItems) { allItems.map { it.name }.toSet() }
+    val householdSize = userProfile.householdSize.coerceIn(1, 6)
+    val householdLabel = remember(householdSize) { householdSizeLabel(householdSize) }
+    val groupedEntries = remember(allItems, householdSize) {
+        buildGroceryListEntries(allItems, householdSize)
+    }
+    val allItemNames = remember(groupedEntries) { groupedEntries.map { it.name }.toSet() }
     val screenWidthDp = LocalConfiguration.current.screenWidthDp
     val groceryChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 108.dp, medium = 168.dp)
     val pantryChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 132.dp, medium = 196.dp)
-    val totalItems = allItems.size
     val weeklyBudget = userProfile.weeklyBudgetPhp.takeIf { it > 0 }
     var checkedNames by remember { mutableStateOf(setOf<String>()) }
     var pantryOptOut by remember { mutableStateOf(setOf<String>()) }
@@ -173,8 +179,8 @@ fun GroceryListScreen(
     val pantryTokens = remember(pantryItems) {
         pantryItems.map(::normalizedPantryEntryKey).filter { it.isNotBlank() }.toSet()
     }
-    val pantryMatches = remember(allItems, pantryTokens) {
-        allItems.filter { item ->
+    val pantryMatches = remember(groupedEntries, pantryTokens) {
+        groupedEntries.filter { item ->
             pantryTokens.any { pantryName ->
                 pantryEntryMatchesGroceryItem(pantryName, item.name)
             }
@@ -193,7 +199,7 @@ fun GroceryListScreen(
     var groceryFeedbackBanner by remember { mutableStateOf<FeedbackBannerData?>(null) }
     val observedOnline by rememberIsOnline(context)
     val isOnline = onlineStateOverride ?: observedOnline
-    val searchFilteredItems = if (searchQuery.text.isBlank()) allItems else allItems.filter {
+    val searchFilteredItems = if (searchQuery.text.isBlank()) groupedEntries else groupedEntries.filter {
         it.name.contains(searchQuery.text, ignoreCase = true)
     }
     val filteredItems = when (statusFilter) {
@@ -206,9 +212,9 @@ fun GroceryListScreen(
         }
     }
     val emptySearchResults = searchQuery.text.isNotBlank() && searchFilteredItems.isEmpty()
-    val emptyFilterResults = allItems.isNotEmpty() && filteredItems.isEmpty() && !emptySearchResults
+    val emptyFilterResults = groupedEntries.isNotEmpty() && filteredItems.isEmpty() && !emptySearchResults
 
-    val groups: Map<String, List<GroceryItem>> = filteredItems.groupBy { inferCategory(it) }
+    val groups: Map<String, List<GroceryListEntry>> = filteredItems.groupBy { it.category }
     val categoryOrder = listOf(
         "Produce",
         "Meat/Seafood",
@@ -288,8 +294,8 @@ fun GroceryListScreen(
         }
     }
 
-    LaunchedEffect(allItems.size, hasPlan, activeUserId) {
-        if (allItems.isEmpty()) {
+    LaunchedEffect(groupedEntries.size, hasPlan, activeUserId) {
+        if (groupedEntries.isEmpty()) {
             Log.i(
                 "GroceryUX",
                 "Grocery list empty for ${safeUserLogScope(activeUserId)} hasPlan=$hasPlan"
@@ -315,10 +321,10 @@ fun GroceryListScreen(
         }
     }
 
-    fun effectivePrice(item: GroceryItem): Int {
-        return if (item.price > 0) item.price else PriceCatalog.estimatePrice(item.name)
+    fun effectivePrice(item: GroceryListEntry): Int {
+        return item.estimatedCostPhp.coerceAtLeast(0)
     }
-    val totalCost = allItems
+    val totalCost = groupedEntries
         .filter { it.name !in effectiveCheckedNames }
         .sumOf { effectivePrice(it) }
     val savings = displayBudget?.toInt()?.minus(totalCost) ?: 0
@@ -437,8 +443,8 @@ fun GroceryListScreen(
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
                         )
                         Text(
-                            text = if (allItems.isEmpty()) {
-                                "Open Meal Plan and tap Sync to pull this week's ingredients."
+                            text = if (groupedEntries.isEmpty()) {
+                                "Your grocery list is filled from your current plan automatically. If you just generated a plan, give it a moment to finish updating."
                             } else {
                                 "Filter to Need to buy, check items as you shop, then open Progress to log meals."
                             },
@@ -453,7 +459,7 @@ fun GroceryListScreen(
                                 onClick = {
                                     postGroceryFeedback(
                                         tone = FeedbackBannerTone.Loading,
-                                        message = "Opening meal plan for grocery sync…"
+                                        message = "Opening your meal plan…"
                                     )
                                     onNavigateToRoute(Routes.MealPlan)
                                 },
@@ -461,7 +467,7 @@ fun GroceryListScreen(
                                     .heightIn(min = 48.dp)
                                     .testTag("grocery_open_mealplan_cta")
                             ) {
-                                Text(if (allItems.isEmpty()) "Open Meal Plan to Sync" else "Open Meal Plan")
+                                Text("Open Meal Plan")
                             }
                             OutlinedButton(
                                 onClick = {
@@ -742,14 +748,14 @@ fun GroceryListScreen(
 
         item {
             Text(
-                text = "Showing ${filteredItems.size} of ${allItems.size} items • ${statusFilter.label}" +
+                text = "Showing ${filteredItems.size} of ${groupedEntries.size} items • ${statusFilter.label}" +
                     if (selectedCategoryFilter == AllCategoriesFilterKey) "" else " • $selectedCategoryFilter",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
-        if (allItems.isNotEmpty()) {
+        if (groupedEntries.isNotEmpty()) {
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(GroceryItemStatusFilter.values().toList()) { option ->
@@ -776,7 +782,7 @@ fun GroceryListScreen(
             }
         }
 
-        if (allItems.isEmpty()) {
+        if (groupedEntries.isEmpty()) {
             item {
                 Card(
                     shape = MaterialTheme.shapes.large,
@@ -796,7 +802,7 @@ fun GroceryListScreen(
                         )
                         Text(
                             text = if (hasPlan) {
-                                "Sync from Meal Plan to build your list for this week."
+                                "Your list updates from your meal plan automatically. Open your plan if you want to review meals or refresh after a change."
                             } else {
                                 "Generate your first weekly plan to unlock your grocery list."
                             },
@@ -813,7 +819,7 @@ fun GroceryListScreen(
                                 } else {
                                     postGroceryFeedback(
                                         tone = FeedbackBannerTone.Loading,
-                                        message = "Opening meal plan for grocery sync…"
+                                        message = "Opening your meal plan…"
                                     )
                                     onNavigateToRoute(Routes.MealPlan)
                                 }
@@ -822,27 +828,50 @@ fun GroceryListScreen(
                                 .fillMaxWidth()
                                 .heightIn(min = 48.dp)
                         ) {
-                            Text(if (hasPlan) "Open Meal Plan to Sync" else "Generate Plan First")
+                            Text(if (hasPlan) "Open Meal Plan" else "Generate Plan First")
                         }
                     }
                 }
             }
         } else {
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                Card(
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 ) {
-                    SummaryTile(
-                        title = "Total ingredients",
-                        value = "${effectiveCheckedNames.size}/$totalItems",
-                        modifier = Modifier.weight(1f),
-                    )
-                    SummaryTile(
-                        title = "Estimated Cost",
-                        value = "₱$totalCost",
-                        modifier = Modifier.weight(1f),
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            text = "Shopping overview",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "Cooking for $householdLabel. Totals use a local market guide and may change week to week.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            SummaryTile(
+                                title = "Need to buy",
+                                value = "${groupedEntries.count { it.name !in effectiveCheckedNames }} items",
+                                modifier = Modifier.weight(1f),
+                            )
+                            SummaryTile(
+                                title = "Estimated total",
+                                value = "₱$totalCost",
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
                 }
             }
 
@@ -910,14 +939,14 @@ fun GroceryListScreen(
                                 )
                             }
                             Text(
-                                text = if (totalCost <= displayBudget) "Within Budget! 🎉" else "Over Budget! ⚠️",
+                                text = if (totalCost <= displayBudget) "Within budget" else "Over budget",
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
                                 text = if (budgetMode == "Weekly") {
-                                    "Estimated ₱$totalCost of ₱${displayBudget.toInt()} weekly budget. ${if (savings >= 0) "Saving ₱$savings!" else "₱${-savings} over budget!"}"
+                                    "Estimated ₱$totalCost for $householdLabel against a ₱${displayBudget.toInt()} weekly budget. ${if (savings >= 0) "About ₱$savings left." else "About ₱${-savings} over."}"
                                 } else {
-                                    "Estimated ₱$totalCost of ₱${displayBudget.toInt()} monthly budget. Weekly equivalent ₱${derivedWeekly?.toInt() ?: 0}."
+                                    "Estimated ₱$totalCost for $householdLabel against a ₱${displayBudget.toInt()} monthly budget. Weekly guide: ₱${derivedWeekly?.toInt() ?: 0}."
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -938,9 +967,9 @@ fun GroceryListScreen(
                         }
                         OutlinedButton(
                             onClick = {
-                                val listText = allItems.joinToString("\n") {
+                                val listText = groupedEntries.joinToString("\n") {
                                     val pantryTag = if (it.name in pantryMatches) " [PANTRY]" else ""
-                                    "- ${it.name} (${it.quantity})" + pantryTag + (if (it.name in effectiveCheckedNames) " [CHECKED]" else "")
+                                    "- ${it.name} (${it.quantityDisplay})" + pantryTag + (if (it.name in effectiveCheckedNames) " [CHECKED]" else "")
                                 }
                                 postGroceryFeedback(
                                     tone = FeedbackBannerTone.Loading,
@@ -949,7 +978,7 @@ fun GroceryListScreen(
                                 runCatching {
                                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, "My PCOSINA Grocery List:\n\n$listText")
+                                        putExtra(Intent.EXTRA_TEXT, "My PCOSINA Grocery List for $householdLabel:\n\n$listText")
                                     }
                                     context.startActivity(Intent.createChooser(shareIntent, "Share Grocery List"))
                                 }.onSuccess {
@@ -973,7 +1002,7 @@ fun GroceryListScreen(
                                 contentDescription = null,
                                 modifier = Modifier.padding(end = 6.dp),
                             )
-                            Text("Share/Copy List")
+                            Text("Share List")
                         }
                     }
                 }
@@ -1247,24 +1276,16 @@ fun GroceryListScreen(
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Text(
-                            text = "Shopping Tips",
+                            text = "Shopping tips",
                             style = MaterialTheme.typography.titleMedium,
                         )
-                        Text(
-                            text = "• Buy fresh produce at local palengke for better prices",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = "• Check pantry items before shopping",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = "• Buy proteins in bulk and freeze portions",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        goalShoppingTips(userProfile.goal, householdSize).forEach { tip ->
+                            Text(
+                                text = "• $tip",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
@@ -1322,14 +1343,14 @@ private fun SummaryTile(
 private fun CategoryCard(
     icon: String,
     title: String,
-    items: List<GroceryItem>,
+    items: List<GroceryListEntry>,
     expanded: Boolean,
     onToggle: () -> Unit,
     checkedNames: Set<String>,
     onCheckedChange: (String, Boolean) -> Unit,
     pantryMatches: Set<String>,
     pantryOptOut: Set<String>,
-    priceResolver: (GroceryItem) -> Int,
+    priceResolver: (GroceryListEntry) -> Int,
 ) {
     Card(
         shape = MaterialTheme.shapes.large,
@@ -1350,6 +1371,11 @@ private fun CategoryCard(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = "• ${items.size} items",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.weight(1f))
                 IconButton(
@@ -1409,7 +1435,7 @@ private fun CategoryCard(
                                         )
                                     }
                                     Text(
-                                        text = item.quantity,
+                                        text = item.quantityDisplay,
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
@@ -1433,32 +1459,6 @@ private fun CategoryCard(
 
 private fun defaultCategoryExpanded(category: String): Boolean {
     return !category.equals("Others", ignoreCase = true)
-}
-
-private fun inferCategory(item: GroceryItem): String {
-    val raw = item.category.trim()
-    if (raw.isNotBlank()) {
-        // "Needed" is a placeholder for uncategorized items; infer from name instead.
-        if (!raw.equals("Needed", ignoreCase = true)) {
-            val mapped = when (raw) {
-                "Produce / Vegetables",
-                "Fruits" -> "Produce"
-                "Proteins (Meat/Seafood)" -> "Meat/Seafood"
-                "Eggs & Dairy" -> "Eggs & Dairy"
-                "Dry Goods / Grains" -> "Dry Goods"
-                "Spices & Condiments" -> "Spices & Condiments"
-                "Canned/Packaged",
-                "Beverages",
-                "Produce",
-                "Meat/Seafood",
-                "Dry Goods",
-                "Others" -> raw
-                else -> raw // preserve custom categories
-            }
-            return mapped
-        }
-    }
-    return PriceCatalog.inferCategory(item.name)
 }
 
 private fun normalizedPantryEntryKey(raw: String): String =

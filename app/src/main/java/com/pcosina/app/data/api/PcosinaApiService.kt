@@ -25,6 +25,14 @@ data class GeneratePlanRequest(
     val mealsPerDay: Int = 3
 )
 
+data class SwapOptionsRequestDto(
+    val profile: UserProfile,
+    val mealLabel: String,
+    val currentRecipeId: String? = null,
+    val activeRecipeIds: List<String> = emptyList(),
+    val limit: Int = 20
+)
+
 data class GeneratePlanResponse(
     val weekLabel: String,
     val days: List<DayPlanDto>,
@@ -133,6 +141,9 @@ interface PcosinaApiService {
         @Query("meal_type") mealType: String? = null,
         @Query("limit") limit: Int = 50
     ): List<RecipeSummaryDto>
+
+    @POST("recipes/swap-options")
+    suspend fun getSwapOptions(@Body request: SwapOptionsRequestDto): List<RecipeSummaryDto>
 
     @POST("ml/events")
     suspend fun postMlEvent(@Body request: MlClientEventRequestDto): MlClientEventResponseDto

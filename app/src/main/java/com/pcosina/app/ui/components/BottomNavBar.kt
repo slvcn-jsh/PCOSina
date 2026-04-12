@@ -31,7 +31,7 @@ val DefaultBottomNavItems: List<BottomNavItem> = listOf(
     BottomNavItem(route = Routes.MealPlan, label = "Plan", icon = Icons.Filled.RestaurantMenu),
     BottomNavItem(route = Routes.GroceryList, label = "Grocery", icon = Icons.AutoMirrored.Filled.ListAlt),
     BottomNavItem(route = Routes.Progress, label = "Progress", icon = Icons.Filled.Insights),
-    BottomNavItem(route = Routes.Ipo, label = "Method", icon = Icons.Filled.PieChart),
+    BottomNavItem(route = Routes.Ipo, label = "Community", icon = Icons.Filled.PieChart),
 )
 
 @Composable

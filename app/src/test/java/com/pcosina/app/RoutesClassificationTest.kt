@@ -18,6 +18,7 @@ class RoutesClassificationTest {
             Routes.GoalSelection,
             Routes.Dashboard,
             Routes.Settings,
+            Routes.AdminMethodology,
             Routes.MealPlan,
             Routes.GroceryList,
             Routes.Progress,
@@ -39,6 +40,7 @@ class RoutesClassificationTest {
             Routes.GoalSelection,
             Routes.Dashboard,
             Routes.Settings,
+            Routes.AdminMethodology,
             Routes.MealPlan,
             Routes.GroceryList,
             Routes.Progress,
@@ -62,6 +64,7 @@ class RoutesClassificationTest {
         assertFalse(Routes.requiresPlan(Routes.Dashboard))
         assertFalse(Routes.requiresPlan(Routes.MealPlan))
         assertFalse(Routes.requiresPlan(Routes.Settings))
+        assertFalse(Routes.requiresPlan(Routes.AdminMethodology))
         assertFalse(Routes.requiresPlan(Routes.UserProfile))
         assertFalse(Routes.requiresPlan(Routes.GoalSelection))
         assertFalse(Routes.requiresPlan(Routes.Ipo))

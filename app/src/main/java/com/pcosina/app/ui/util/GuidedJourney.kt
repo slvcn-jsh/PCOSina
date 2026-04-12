@@ -28,8 +28,8 @@ fun resolveGuidedJourneyStep(input: GuidedJourneyInput): GuidedJourneyStep {
         )
         !input.hasPlan -> GuidedJourneyStep(
             stepIndex = 3,
-            title = "Generate Plan",
-            rationale = "This matters because it gives you your first week in under a minute.",
+            title = "Build Your Week",
+            rationale = "This matters because it turns your preferences into a usable weekly plan.",
             route = Routes.MealPlan,
             requiresInternet = true
         )
@@ -41,8 +41,8 @@ fun resolveGuidedJourneyStep(input: GuidedJourneyInput): GuidedJourneyStep {
         )
         !input.hasGrocery -> GuidedJourneyStep(
             stepIndex = 5,
-            title = "Add to Grocery",
-            rationale = "This matters because your plan becomes a ready shopping list.",
+            title = "Review Grocery List",
+            rationale = "This matters because your ingredients are prepared automatically from this week's meals.",
             route = Routes.GroceryList
         )
         !input.hasTracked -> GuidedJourneyStep(

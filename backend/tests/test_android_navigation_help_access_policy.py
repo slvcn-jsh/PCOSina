@@ -15,6 +15,7 @@ def _read(path: Path) -> str:
 def test_help_and_methodology_routes_are_not_plan_gated() -> None:
     routes_source = _read(ROUTES)
     assert "val MoreTools = defineRoute(\"more_tools\", RouteAccess.GuidedCore)" in routes_source
+    assert "val AdminMethodology = defineRoute(\"admin_methodology\", RouteAccess.GuidedCore)" in routes_source
     assert "val Ipo = defineRoute(\"ipo\", RouteAccess.GuidedCore)" in routes_source
 
 
@@ -25,15 +26,15 @@ def test_bottom_nav_keeps_methodology_tab_available_before_first_plan() -> None:
     assert "base.remove(Routes.Ipo)" not in nav_source
 
 
-def test_dashboard_keeps_more_tools_entry_visible_with_early_help_copy() -> None:
+def test_dashboard_keeps_community_entry_visible_with_early_help_copy() -> None:
     dashboard_source = _read(DASHBOARD_SCREEN)
     assert "val moreToolsSubtitle = if (showSecondaryCards)" in dashboard_source
-    assert "See how PCOSINA works, what stays offline, and where to get help." in dashboard_source
+    assert "Start with simple guides, meal tips, and community support." in dashboard_source
     assert "dashboard_more_tools_card" in dashboard_source
     assert "onClick = onOpenMoreTools" in dashboard_source
 
 
-def test_bottom_navigation_uses_product_facing_method_label() -> None:
+def test_bottom_navigation_uses_product_facing_community_label() -> None:
     nav_source = _read(BOTTOM_NAV_BAR)
-    assert "BottomNavItem(route = Routes.Ipo, label = \"Method\"" in nav_source
+    assert "BottomNavItem(route = Routes.Ipo, label = \"Community\"" in nav_source
     assert "label = \"IPO\"" not in nav_source

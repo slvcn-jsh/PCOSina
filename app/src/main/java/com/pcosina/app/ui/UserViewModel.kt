@@ -198,6 +198,11 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
         saveProfile()
     }
 
+    fun updateHouseholdSize(size: Int) {
+        _userProfile.update { it.copy(householdSize = size.coerceIn(1, 6)) }
+        saveProfile()
+    }
+
     fun updatePantryItems(items: List<String>) {
         val existing = _pantryEntries.value.associateBy { normalizePantryNameKey(it.name) }
         val entries = items.mapNotNull { raw ->

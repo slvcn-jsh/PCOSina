@@ -54,6 +54,8 @@ import com.pcosina.app.ui.components.FeedbackActionState
 import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
 import com.pcosina.app.ui.components.LoadingActionButton
+import com.pcosina.app.ui.components.MealCheckInDialog
+import com.pcosina.app.ui.components.MealCheckInDraft
 import com.pcosina.app.ui.components.TokenizedFilterChip
 import com.pcosina.app.ui.theme.UiChipTokens
 import com.pcosina.app.ui.theme.UiMotionTokens
@@ -67,9 +69,14 @@ import com.pcosina.app.ui.util.TodayMealDescriptor
 import com.pcosina.app.ui.util.formatFiberProgressShort
 import com.pcosina.app.ui.util.formatKcalProgressShort
 import com.pcosina.app.ui.util.formatProteinProgressShort
+import com.pcosina.app.ui.util.goalMealCheckInInsight
+import com.pcosina.app.ui.util.goalMealReasonCopy
+import com.pcosina.app.ui.util.goalPlanFocusCopy
+import com.pcosina.app.ui.util.goalReflectionSupportCopy
 import com.pcosina.app.ui.util.mealImpactNextSuggestion
 import com.pcosina.app.ui.util.rememberIsOnline
 import com.pcosina.app.ui.util.resolveGuidedJourneyStep
+import com.pcosina.app.domain.householdSizeLabel
 import com.pcosina.app.domain.HealthMetrics
 import com.pcosina.app.domain.UnitConverter
 import com.pcosina.app.ui.navigation.Routes
@@ -122,6 +129,7 @@ fun ProgressScreen(
     val savedProgressMode by progressViewModel.savedProgressMode.collectAsState()
     val savedAdvancedWeekAnalyticsExpanded by progressViewModel.savedAdvancedWeekAnalyticsExpanded.collectAsState()
     val profile by userViewModel.userProfile.collectAsState()
+    val adminMode by userViewModel.adminMode.collectAsState()
     val groceryItems by groceryViewModel.groceryItems.collectAsState()
     var showConfidenceInfo by rememberSaveable { mutableStateOf(false) }
     var showMacroInfo by rememberSaveable { mutableStateOf(false) }
@@ -138,6 +146,7 @@ fun ProgressScreen(
     var dailyReflectionExpanded by rememberSaveable { mutableStateOf(false) }
     var advancedWeekAnalyticsExpanded by rememberSaveable { mutableStateOf(false) }
     var progressMode by rememberSaveable { mutableStateOf(ProgressMode.Today) }
+    var mealCheckInPrompt by remember { mutableStateOf<ProgressMealCheckInPrompt?>(null) }
     val coroutineScope = rememberCoroutineScope()
     var progressFeedbackBanner by remember { mutableStateOf<FeedbackBannerData?>(null) }
     var reflectionSaveState by remember { mutableStateOf(FeedbackActionState.Idle) }
@@ -163,6 +172,9 @@ fun ProgressScreen(
     )
 
     val planTimestamp = (planState as? MealPlanUiState.Success)?.timestamp
+    val householdLabel = remember(profile.householdSize) {
+        householdSizeLabel(profile.householdSize)
+    }
     val weekStart = remember(activeWeekStart, planTimestamp) {
         activeWeekStart?.let { runCatching { LocalDate.parse(it, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull() }
             ?: weekStartDate(planTimestamp)
@@ -213,7 +225,9 @@ fun ProgressScreen(
     val selectedPlanDay = planByLabel[selectedDayLabel]
     val plannedMealsForDay = selectedPlanDay?.meals.orEmpty()
     val selectedDateKey = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+    val selectedLog = logs[selectedDateKey]
     val selectedCompletedIds = logs[selectedDateKey]?.completedMealIds.orEmpty()
+    val selectedMealCheckIns = selectedLog?.mealCheckIns.orEmpty().sortedByDescending { it.timestamp }
     val selectedDayDescriptors = remember(plannedMealsForDay) {
         plannedMealsForDay.map { meal ->
             TodayMealDescriptor(
@@ -234,7 +248,7 @@ fun ProgressScreen(
     val completedMealsCount = logs.filterKeys { isInWeek(it, weekStart) }
         .values.sumOf { it.completedMealIds.size }
     val adherence = if (plannedMealsCount > 0) completedMealsCount.toFloat() / plannedMealsCount else 0f
-    val lastLogDate = logs.keys.mapNotNull { runCatching { LocalDate.parse(it, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull() }
+    val lastLogDate = logs.keys.mapNotNull(::parseProgressDateOrNull)
         .maxOrNull()
     val daysSinceLog = lastLogDate?.let { ChronoUnit.DAYS.between(it, LocalDate.now()) } ?: Long.MAX_VALUE
     val showStaleBanner = daysSinceLog >= 3
@@ -249,7 +263,8 @@ fun ProgressScreen(
     val weightEnd = weightEntries.lastOrNull()
     val allWeights = logs.toSortedMap()
         .mapNotNull { (dateKey, log) ->
-            log.weightKg?.let { LocalDate.parse(dateKey, DateTimeFormatter.ISO_LOCAL_DATE) to it }
+            val parsedDate = parseProgressDateOrNull(dateKey) ?: return@mapNotNull null
+            log.weightKg?.let { parsedDate to it }
         }
     val startingWeight = allWeights.firstOrNull()?.second
     val latestWeight = allWeights.lastOrNull()?.second
@@ -384,6 +399,7 @@ fun ProgressScreen(
     val sundayCompletedCount = sundaySnapshot.completedCount
     val sundayComplete = sundaySnapshot.plannedCount > 0 && sundaySnapshot.completedCount >= sundaySnapshot.plannedCount
     val projectedWeeklyCost = planExplanation?.estimatedWeeklyCost
+        ?.times(profile.householdSize.coerceIn(1, 6))
     val budgetTarget = planExplanation?.budgetWeekly?.toInt()
         ?: profile.weeklyBudgetPhp.takeIf { it > 0 }
     fun parseCurrencyInput(raw: String): Int? {
@@ -719,12 +735,12 @@ fun ProgressScreen(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "Step 4 of 4: Track Progress",
+                            text = "Step 6 of 6: Check In",
                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                             color = colorScheme.primary
                         )
                         Text(
-                            text = "First-win path: Login -> Profile -> Goal -> Generate Plan -> Track today.",
+                            text = "First-win path: Sign in -> Profile -> Goal -> Build week -> Grocery -> Check in.",
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant
                         )
@@ -1311,7 +1327,7 @@ fun ProgressScreen(
                     val projectedText = projectedWeeklyCost?.let { "₱$it" } ?: "—"
                     val budgetText = budgetTarget?.let { "₱$it" } ?: "Not set"
                     Text(
-                        text = "Projected from plan: $projectedText",
+                        text = "Projected from plan for $householdLabel: $projectedText",
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.onSurfaceVariant
                     )
@@ -1374,116 +1390,151 @@ fun ProgressScreen(
         }
 
         if (planExplanation != null) {
+            val projectedHouseholdCost = planExplanation.estimatedWeeklyCost
+                ?.times(profile.householdSize.coerceIn(1, 6))
             item {
                 ExpandableSection(
-                    title = "Plan Explanation",
-                    subtitle = "How this week was optimized",
+                    title = if (adminMode) "Plan Explanation" else "Week highlights",
+                    subtitle = if (adminMode) "How this week was optimized" else "A simple read on what this week is trying to support",
                     defaultExpanded = false
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            text = "Signals used by the optimizer to balance nutrition, variety, and pantry use.",
+                            text = if (adminMode) {
+                                "Signals used by the optimizer to balance nutrition, variety, and pantry use."
+                            } else {
+                                goalPlanFocusCopy(profile.goal)
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant
                         )
-                        Text(
-                            text = "Projected values are estimates. Log actual spending below.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant
-                        )
-                        planExplanation.confidenceScore?.let { score ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "Confidence score: $score%",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = colorScheme.onSurfaceVariant
-                                )
-                                IconButton(
-                                    onClick = { showConfidenceInfo = true },
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Info,
-                                        contentDescription = "Confidence info",
-                                        tint = colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        }
-                        val items = mutableListOf<String>()
-                        val avgDev = planExplanation.avgCaloriesDeviation
-                        planExplanation.targetCalories?.let {
-                            items.add("Target calories: ${it} kcal/day")
-                        }
-                        planExplanation.avgCalories?.let {
-                            val devText = if (avgDev != null) " (±$avgDev)" else ""
-                            items.add("Avg calories: ${it} kcal/day$devText")
-                        }
-                        val targetMacros = listOf(
-                            planExplanation.targetProtein?.let { "P ${it}g" },
-                            planExplanation.targetCarbs?.let { "C ${it}g" },
-                            planExplanation.targetFats?.let { "F ${it}g" }
-                        ).filterNotNull()
-                        if (targetMacros.isNotEmpty()) {
-                            items.add("Macro targets: ${targetMacros.joinToString(" • ")}")
-                        }
-                        val avgMacros = listOf(
-                            planExplanation.avgProtein?.let { "P ${it}g" },
-                            planExplanation.avgCarbs?.let { "C ${it}g" },
-                            planExplanation.avgFats?.let { "F ${it}g" }
-                        ).filterNotNull()
-                        if (avgMacros.isNotEmpty()) {
-                            items.add("Avg macros: ${avgMacros.joinToString(" • ")}")
-                        }
-                        val constraintItems = mutableListOf<String>()
-                        planExplanation.toleranceUsed?.let {
-                            val pct = String.format(Locale.ENGLISH, "%.0f", it * 100)
-                            constraintItems.add("Tolerance used: $pct%")
-                        }
-                        planExplanation.maxPerWeek?.let {
-                            constraintItems.add("Max repeats per recipe: $it")
-                        }
-                        if (planExplanation.budgetWeekly != null || planExplanation.estimatedWeeklyCost != null) {
-                            val budget = planExplanation.budgetWeekly?.let {
-                                "₱" + String.format(Locale.ENGLISH, "%.0f", it)
-                            }
-                            val est = planExplanation.estimatedWeeklyCost?.let { "₱$it" }
-                            val text = when {
-                                budget != null && est != null -> "Budget weekly: $budget (est $est)"
-                                budget != null -> "Budget weekly: $budget"
-                                est != null -> "Estimated weekly cost: $est"
-                                else -> null
-                            }
-                            if (text != null) constraintItems.add(text)
-                        }
-                        planExplanation.restrictionCount?.let {
-                            constraintItems.add("Restriction count: $it")
-                        }
-                        planExplanation.pantryMatches?.let {
-                            items.add("Pantry matches used: $it")
-                        }
-                        planExplanation.uniqueVegTokens?.let {
-                            items.add("Veg variety tokens: $it")
-                        }
-                        items.forEach { line ->
+                        if (adminMode) {
                             Text(
-                                text = "• $line",
+                                text = "Projected values are estimates. Log actual spending below.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = colorScheme.onSurfaceVariant
                             )
-                        }
-                        if (constraintItems.isNotEmpty()) {
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                text = "Constraint Summary",
-                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                                color = colorScheme.onSurface
-                            )
-                            constraintItems.forEach { line ->
+                            planExplanation.confidenceScore?.let { score ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "Confidence score: $score%",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colorScheme.onSurfaceVariant
+                                    )
+                                    IconButton(
+                                        onClick = { showConfidenceInfo = true },
+                                        modifier = Modifier.size(48.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Info,
+                                            contentDescription = "Confidence info",
+                                            tint = colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            val items = mutableListOf<String>()
+                            val avgDev = planExplanation.avgCaloriesDeviation
+                            planExplanation.targetCalories?.let {
+                                items.add("Target calories: ${it} kcal/day")
+                            }
+                            planExplanation.avgCalories?.let {
+                                val devText = if (avgDev != null) " (±$avgDev)" else ""
+                                items.add("Avg calories: ${it} kcal/day$devText")
+                            }
+                            val targetMacros = listOf(
+                                planExplanation.targetProtein?.let { "P ${it}g" },
+                                planExplanation.targetCarbs?.let { "C ${it}g" },
+                                planExplanation.targetFats?.let { "F ${it}g" }
+                            ).filterNotNull()
+                            if (targetMacros.isNotEmpty()) {
+                                items.add("Macro targets: ${targetMacros.joinToString(" • ")}")
+                            }
+                            val avgMacros = listOf(
+                                planExplanation.avgProtein?.let { "P ${it}g" },
+                                planExplanation.avgCarbs?.let { "C ${it}g" },
+                                planExplanation.avgFats?.let { "F ${it}g" }
+                            ).filterNotNull()
+                            if (avgMacros.isNotEmpty()) {
+                                items.add("Avg macros: ${avgMacros.joinToString(" • ")}")
+                            }
+                            val constraintItems = mutableListOf<String>()
+                            planExplanation.toleranceUsed?.let {
+                                val pct = String.format(Locale.ENGLISH, "%.0f", it * 100)
+                                constraintItems.add("Tolerance used: $pct%")
+                            }
+                            planExplanation.maxPerWeek?.let {
+                                constraintItems.add("Max repeats per recipe: $it")
+                            }
+                            if (planExplanation.budgetWeekly != null || planExplanation.estimatedWeeklyCost != null) {
+                                val budget = planExplanation.budgetWeekly?.let {
+                                    "₱" + String.format(Locale.ENGLISH, "%.0f", it)
+                                }
+                                val est = planExplanation.estimatedWeeklyCost?.let { "₱$it" }
+                                val text = when {
+                                    budget != null && est != null -> "Budget weekly: $budget (est $est)"
+                                    budget != null -> "Budget weekly: $budget"
+                                    est != null -> "Estimated weekly cost: $est"
+                                    else -> null
+                                }
+                                if (text != null) constraintItems.add(text)
+                            }
+                            planExplanation.restrictionCount?.let {
+                                constraintItems.add("Restriction count: $it")
+                            }
+                            planExplanation.pantryMatches?.let {
+                                items.add("Pantry matches used: $it")
+                            }
+                            planExplanation.uniqueVegTokens?.let {
+                                items.add("Veg variety tokens: $it")
+                            }
+                            items.forEach { line ->
+                                Text(
+                                    text = "• $line",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (constraintItems.isNotEmpty()) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    text = "Constraint Summary",
+                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                    color = colorScheme.onSurface
+                                )
+                                constraintItems.forEach { line ->
+                                    Text(
+                                        text = "• $line",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        } else {
+                            val highlights = mutableListOf<String>()
+                            planExplanation.avgCalories?.let {
+                                highlights.add("Around $it kcal per person, per day.")
+                            }
+                            planExplanation.avgProtein?.let {
+                                highlights.add("Protein stays near ${it}g per person each day.")
+                            }
+                            projectedHouseholdCost?.let {
+                                highlights.add("Projected groceries: ₱$it for $householdLabel.")
+                            }
+                            planExplanation.pantryMatches?.takeIf { it > 0 }?.let {
+                                highlights.add("Uses $it pantry matches from the ingredients you already saved.")
+                            }
+                            planExplanation.uniqueVegTokens?.takeIf { it > 0 }?.let {
+                                highlights.add("Includes $it produce picks to keep the week more varied.")
+                            }
+                            if (highlights.isEmpty()) {
+                                highlights.add("This week follows the preferences saved in your profile.")
+                            }
+                            highlights.forEach { line ->
                                 Text(
                                     text = "• $line",
                                     style = MaterialTheme.typography.bodySmall,
@@ -1641,7 +1692,8 @@ fun ProgressScreen(
                             .filterKeys { isInWeek(it, weekStart) }
                             .mapNotNull { (dateKey, log) ->
                                 log.weightKg?.let { w ->
-                                    val label = LocalDate.parse(dateKey, DateTimeFormatter.ISO_LOCAL_DATE).format(dayLabelFmt)
+                                    val label = parseProgressDateOrNull(dateKey)?.format(dayLabelFmt)
+                                        ?: return@mapNotNull null
                                     "$label ${displayWeight(w)} $weightUnitLabel"
                                 }
                             }
@@ -2020,6 +2072,9 @@ fun ProgressScreen(
                                     budgetPhp = profile.weeklyBudgetPhp
                                 )
                             }
+                            val displayedReasons = remember(profile.goal, adminMode, reasons) {
+                                if (adminMode) reasons else goalMealReasonCopy(profile.goal, reasons)
+                            }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 ProgressMealCheckbox(
                                     checked = checked,
@@ -2114,6 +2169,11 @@ fun ProgressScreen(
                                             )
                                             impactDetailsExpanded = false
                                             showImpactSheet = true
+                                            mealCheckInPrompt = ProgressMealCheckInPrompt(
+                                                recipeId = meal.recipeId,
+                                                mealLabel = meal.mealLabel,
+                                                mealTitle = meal.title
+                                            )
                                             postProgressFeedback(
                                                 tone = FeedbackBannerTone.Success,
                                                 message = "Meal logged. Impact updated."
@@ -2157,9 +2217,10 @@ fun ProgressScreen(
                                 )
                                 Column {
                                     Text(meal.title)
-                                    if (reasons.isNotEmpty()) {
+                                    if (displayedReasons.isNotEmpty()) {
                                         Text(
-                                            text = "Why: " + reasons.joinToString(" • "),
+                                            text = (if (adminMode) "Why: " else "Picked because: ") +
+                                                displayedReasons.joinToString(" • "),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = colorScheme.onSurfaceVariant,
                                             maxLines = 2,
@@ -2244,6 +2305,79 @@ fun ProgressScreen(
         }
         }
 
+        if (showTodayMode && selectedMealCheckIns.isNotEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "After-meal check-ins",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                        Text(
+                            text = goalReflectionSupportCopy(profile.goal),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        selectedMealCheckIns.forEach { checkIn ->
+                            val matchedMeal = plannedMealsForDay.firstOrNull { planned ->
+                                ProgressViewModel.buildMealKey(planned.mealLabel, planned.recipeId) == checkIn.mealKey
+                            }
+                            Card(
+                                shape = MaterialTheme.shapes.large,
+                                colors = CardDefaults.cardColors(
+                                    containerColor = colorScheme.surfaceVariant.copy(alpha = 0.65f)
+                                ),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "${checkIn.mealLabel} • ${matchedMeal?.title ?: "Meal"}",
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                                    )
+                                    val summary = buildList {
+                                        checkIn.energyLevel?.let { add("Energy $it/5") }
+                                        checkIn.fullnessLevel?.let { add("Fullness $it/5") }
+                                        checkIn.cravingsLevel?.let { add("Cravings $it/5") }
+                                        checkIn.satisfactionLevel?.let { add("Satisfaction $it/5") }
+                                    }
+                                    if (summary.isNotEmpty()) {
+                                        Text(
+                                            text = summary.joinToString(" • "),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Text(
+                                        text = goalMealCheckInInsight(profile.goal, checkIn),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colorScheme.primary
+                                    )
+                                    checkIn.note?.takeIf { it.isNotBlank() }?.let { note ->
+                                        Text(
+                                            text = note,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         if (showTodayMode && isSelectedDateLoggable && plannedMealsForDay.isNotEmpty() && selectedCompletedCount >= plannedMealsForDay.size) {
             item {
                 Card(
@@ -2306,7 +2440,7 @@ fun ProgressScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text(
-                        text = "Quick check-in to observe patterns. Decision-support only; not medical treatment.",
+                        text = goalReflectionSupportCopy(profile.goal) + " This supports your own tracking and does not replace medical care.",
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.onSurfaceVariant
                     )
@@ -2776,9 +2910,43 @@ fun ProgressScreen(
             title = { Text("Low‑GI guidance", modifier = Modifier.semantics { heading() }) },
             text = {
                 Text(
-                    "We favor higher‑fiber, balanced meals to support steadier energy. " +
-                    "This is guidance only and not medical treatment."
+                    "We lean toward higher-fiber, balanced meals to help the day feel steadier. " +
+                    "Use it as general support, not as medical advice."
                 )
+            }
+        )
+    }
+
+    mealCheckInPrompt?.let { prompt ->
+        val existing = logs[selectedDateKey]?.mealCheckIns.orEmpty().firstOrNull { checkIn ->
+            checkIn.mealKey == ProgressViewModel.buildMealKey(prompt.mealLabel, prompt.recipeId) ||
+                (checkIn.recipeId == prompt.recipeId &&
+                    checkIn.mealLabel.equals(prompt.mealLabel, ignoreCase = true))
+        }
+        MealCheckInDialog(
+            goal = profile.goal,
+            mealTitle = prompt.mealTitle,
+            mealLabel = prompt.mealLabel,
+            initial = existing,
+            onDismiss = { mealCheckInPrompt = null },
+            onSave = { draft: MealCheckInDraft ->
+                val saved = progressViewModel.saveMealCheckIn(
+                    date = selectedDate,
+                    recipeId = prompt.recipeId,
+                    mealLabel = prompt.mealLabel,
+                    energyLevel = draft.energyLevel,
+                    fullnessLevel = draft.fullnessLevel,
+                    cravingsLevel = draft.cravingsLevel,
+                    satisfactionLevel = draft.satisfactionLevel,
+                    note = draft.note
+                )
+                postProgressFeedback(
+                    tone = if (saved) FeedbackBannerTone.Success else FeedbackBannerTone.Error,
+                    message = if (saved) "Meal check-in saved." else "Couldn’t save that meal check-in."
+                )
+                if (saved) {
+                    mealCheckInPrompt = null
+                }
             }
         )
     }
@@ -2838,6 +3006,12 @@ private data class MealImpactSummary(
     val fiberTarget: Int,
     val nextSuggestion: String,
     val nextMealRoute: String?
+)
+
+private data class ProgressMealCheckInPrompt(
+    val recipeId: String,
+    val mealLabel: String,
+    val mealTitle: String
 )
 
 private enum class ProgressMode(val label: String) {
@@ -2971,9 +3145,13 @@ private fun weekLabelFor(start: LocalDate): String {
     return "${start.format(fmt)} - ${end.format(fmt)}"
 }
 
-private fun isInWeek(dateKey: String, weekStart: LocalDate): Boolean {
-    val d = LocalDate.parse(dateKey, DateTimeFormatter.ISO_LOCAL_DATE)
-    return !d.isBefore(weekStart) && !d.isAfter(weekStart.plusDays(6))
+internal fun parseProgressDateOrNull(dateKey: String): LocalDate? {
+    return runCatching { LocalDate.parse(dateKey, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
+}
+
+internal fun isInWeek(dateKey: String, weekStart: LocalDate): Boolean {
+    val parsedDate = parseProgressDateOrNull(dateKey) ?: return false
+    return !parsedDate.isBefore(weekStart) && !parsedDate.isAfter(weekStart.plusDays(6))
 }
 
 private data class WeekStats(

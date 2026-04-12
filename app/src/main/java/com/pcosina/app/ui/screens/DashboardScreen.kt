@@ -77,6 +77,7 @@ import com.pcosina.app.ui.util.TodayMealDescriptor
 import com.pcosina.app.ui.util.buildTodayLogSnapshot
 import com.pcosina.app.ui.util.remainingTodayMealSlots
 import com.pcosina.app.ui.util.primaryGoalLabel
+import com.pcosina.app.domain.householdSizeLabel
 import com.pcosina.app.ui.util.primaryGoalShortLabel
 import com.pcosina.app.ui.util.rememberIsOnline
 import com.pcosina.app.ui.util.resolveGuidedJourneyStep
@@ -149,9 +150,9 @@ fun DashboardScreen(
     val showAdvancedInsights = shouldShowAdvancedMetrics(guidedStep.stepIndex, hasTracked)
     val showSecondaryCards = shouldShowAdvancedTools(guidedStep.stepIndex)
     val moreToolsSubtitle = if (showSecondaryCards) {
-        "Open research center and support options."
+        "Open guides, tips, and support for your week."
     } else {
-        "See how PCOSINA works, what stays offline, and where to get help."
+        "Start with simple guides, meal tips, and community support."
     }
     val snapshotLockedCopy = remember { LockedFlowCopy.dashboardSnapshotLocked() }
     val advancedLockedCopy = remember { LockedFlowCopy.dashboardAdvancedLocked() }
@@ -554,9 +555,17 @@ fun DashboardScreen(
                             overflow = TextOverflow.Ellipsis
                         )
                         val avgKcal = planExplanation?.avgCalories ?: 0
-                        val estCost = planExplanation?.estimatedWeeklyCost
+                        val householdLabel = householdSizeLabel(profile.householdSize)
+                        val estCost = planExplanation?.estimatedWeeklyCost?.times(profile.householdSize.coerceIn(1, 6))
                         Text(
                             text = "Planned meals: ${if (hasPlan) 21 else 0} • Avg kcal/day: ${if (avgKcal > 0) avgKcal else "—"}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant,
+                            maxLines = helperCopyMaxLines,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "Shopping guide set for $householdLabel",
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant,
                             maxLines = helperCopyMaxLines,
@@ -890,7 +899,7 @@ fun DashboardScreen(
                     Spacer(Modifier.width(8.dp))
                     Column {
                         Text(
-                            text = "More Tools",
+                            text = "Community",
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(

@@ -1,63 +1,133 @@
 package com.pcosina.app.domain
 
 import java.util.Locale
+import kotlin.math.roundToInt
 
 data class PriceRule(
     val keywords: List<String>,
     val pricePhp: Int,
-    val category: String
+    val category: String,
+    val unit: String
 )
 
 object PriceCatalog {
     private val rules = listOf(
-        PriceRule(listOf("egg", "itlog"), 110, "Eggs & Dairy"),
-        PriceRule(listOf("milk", "gatas"), 90, "Eggs & Dairy"),
-        PriceRule(listOf("cheese", "keso"), 120, "Eggs & Dairy"),
-        PriceRule(listOf("yogurt"), 80, "Eggs & Dairy"),
-        PriceRule(listOf("gata", "coconut milk"), 70, "Eggs & Dairy"),
-        PriceRule(listOf("rice", "bigas"), 60, "Dry Goods"),
-        PriceRule(listOf("oat"), 120, "Dry Goods"),
-        PriceRule(listOf("bread", "tinapay"), 80, "Dry Goods"),
-        PriceRule(listOf("pasta", "noodles", "bihon", "miki", "pancit"), 50, "Dry Goods"),
-        PriceRule(listOf("flour"), 60, "Dry Goods"),
-        PriceRule(listOf("chicken", "manok"), 180, "Meat/Seafood"),
-        PriceRule(listOf("beef"), 320, "Meat/Seafood"),
-        PriceRule(listOf("pork", "liempo", "baboy"), 260, "Meat/Seafood"),
-        PriceRule(listOf("fish", "tilapia", "bangus", "salmon", "galunggong"), 220, "Meat/Seafood"),
-        PriceRule(listOf("tuna", "sardines"), 55, "Canned/Packaged"),
-        PriceRule(listOf("shrimp", "hipon"), 300, "Meat/Seafood"),
-        PriceRule(listOf("tomato", "kamatis"), 30, "Produce"),
-        PriceRule(listOf("onion", "sibuyas"), 20, "Produce"),
-        PriceRule(listOf("garlic", "bawang"), 15, "Produce"),
-        PriceRule(listOf("carrot"), 25, "Produce"),
-        PriceRule(listOf("cabbage", "repolyo"), 35, "Produce"),
-        PriceRule(listOf("pechay", "spinach", "kale", "malunggay", "kangkong"), 25, "Produce"),
-        PriceRule(listOf("okra", "ampalaya", "talong", "sayote", "kalabasa"), 30, "Produce"),
-        PriceRule(listOf("sili", "chili"), 15, "Produce"),
-        PriceRule(listOf("banana"), 25, "Produce"),
-        PriceRule(listOf("apple"), 35, "Produce"),
-        PriceRule(listOf("orange"), 30, "Produce"),
-        PriceRule(listOf("ginger", "luya"), 15, "Produce"),
-        PriceRule(listOf("oil", "olive", "coconut"), 120, "Spices & Condiments"),
-        PriceRule(listOf("soy", "toyo", "sauce", "vinegar", "suka", "patis"), 30, "Spices & Condiments"),
-        PriceRule(listOf("salt", "asin", "pepper", "paminta", "spice"), 20, "Spices & Condiments"),
-        PriceRule(listOf("coffee", "tea"), 80, "Beverages"),
-        PriceRule(listOf("juice", "soda"), 40, "Beverages"),
-        PriceRule(listOf("water"), 25, "Beverages"),
-        PriceRule(listOf("canned", "packaged", "instant"), 50, "Canned/Packaged")
+        PriceRule(listOf("egg", "itlog"), 7, "Eggs & Dairy", "piece"),
+        PriceRule(listOf("milk", "gatas"), 90, "Eggs & Dairy", "l"),
+        PriceRule(listOf("cheese", "keso"), 300, "Eggs & Dairy", "kg"),
+        PriceRule(listOf("yogurt"), 60, "Eggs & Dairy", "piece"),
+        PriceRule(listOf("gata", "coconut milk"), 70, "Eggs & Dairy", "l"),
+        PriceRule(listOf("rice", "bigas"), 60, "Dry Goods", "kg"),
+        PriceRule(listOf("oat"), 140, "Dry Goods", "kg"),
+        PriceRule(listOf("bread", "tinapay"), 80, "Dry Goods", "piece"),
+        PriceRule(listOf("pasta", "noodles", "bihon", "miki", "pancit"), 90, "Dry Goods", "kg"),
+        PriceRule(listOf("flour"), 60, "Dry Goods", "kg"),
+        PriceRule(listOf("chicken", "manok"), 180, "Meat/Seafood", "kg"),
+        PriceRule(listOf("beef"), 320, "Meat/Seafood", "kg"),
+        PriceRule(listOf("pork", "liempo", "baboy"), 260, "Meat/Seafood", "kg"),
+        PriceRule(listOf("fish", "tilapia", "bangus", "salmon", "galunggong"), 220, "Meat/Seafood", "kg"),
+        PriceRule(listOf("tuna", "sardines"), 35, "Canned/Packaged", "piece"),
+        PriceRule(listOf("shrimp", "hipon"), 300, "Meat/Seafood", "kg"),
+        PriceRule(listOf("tomato", "kamatis"), 60, "Produce", "kg"),
+        PriceRule(listOf("onion", "sibuyas"), 80, "Produce", "kg"),
+        PriceRule(listOf("garlic", "bawang"), 120, "Produce", "kg"),
+        PriceRule(listOf("carrot"), 70, "Produce", "kg"),
+        PriceRule(listOf("cabbage", "repolyo"), 55, "Produce", "kg"),
+        PriceRule(listOf("pechay", "spinach", "kale", "malunggay", "kangkong"), 60, "Produce", "kg"),
+        PriceRule(listOf("okra", "ampalaya", "talong", "sayote", "kalabasa"), 70, "Produce", "kg"),
+        PriceRule(listOf("sili", "chili"), 140, "Produce", "kg"),
+        PriceRule(listOf("banana"), 60, "Produce", "kg"),
+        PriceRule(listOf("apple"), 120, "Produce", "kg"),
+        PriceRule(listOf("orange"), 80, "Produce", "kg"),
+        PriceRule(listOf("ginger", "luya"), 140, "Produce", "kg"),
+        PriceRule(listOf("oil", "olive", "coconut"), 120, "Spices & Condiments", "l"),
+        PriceRule(listOf("soy", "toyo", "sauce", "vinegar", "suka", "patis"), 40, "Spices & Condiments", "piece"),
+        PriceRule(listOf("salt", "asin", "pepper", "paminta", "spice"), 20, "Spices & Condiments", "piece"),
+        PriceRule(listOf("coffee", "tea"), 90, "Beverages", "piece"),
+        PriceRule(listOf("juice", "soda"), 40, "Beverages", "piece"),
+        PriceRule(listOf("water"), 20, "Beverages", "piece"),
+        PriceRule(listOf("canned", "packaged", "instant"), 45, "Canned/Packaged", "piece")
     )
 
     private val categoryAverages: Map<String, Int> = run {
         val grouped = rules.groupBy { it.category }
-        grouped.mapValues { (_, list) -> list.map { it.pricePhp }.average().toInt() }
+        grouped.mapValues { (_, list) -> list.map { it.pricePhp }.average().roundToInt() }
     }
 
-    fun estimatePrice(name: String): Int {
-        val lower = name.lowercase(Locale.getDefault())
-        val match = rules.firstOrNull { rule -> rule.keywords.any { lower.contains(it) } }
-        if (match != null) return match.pricePhp
-        val category = inferCategory(name)
-        return categoryAverages[category] ?: 60
+    private val unitAliases = mapOf(
+        "kilo" to "kg",
+        "kilogram" to "kg",
+        "grams" to "g",
+        "gram" to "g",
+        "lbs" to "lb",
+        "pound" to "lb",
+        "pounds" to "lb",
+        "liter" to "l",
+        "litre" to "l",
+        "cups" to "cup",
+        "tablespoon" to "tbsp",
+        "tablespoons" to "tbsp",
+        "teaspoon" to "tsp",
+        "teaspoons" to "tsp",
+        "pieces" to "piece",
+        "pc" to "piece",
+        "pcs" to "piece",
+        "cloves" to "clove",
+        "bunches" to "bunch",
+        "stalks" to "stalk",
+        "cans" to "piece",
+        "pack" to "piece",
+        "packs" to "piece",
+    )
+
+    private val categoryDefaultUnit = mapOf(
+        "Produce" to "kg",
+        "Meat/Seafood" to "kg",
+        "Eggs & Dairy" to "piece",
+        "Dry Goods" to "kg",
+        "Spices & Condiments" to "piece",
+        "Canned/Packaged" to "piece",
+        "Beverages" to "piece",
+        "Others" to "piece"
+    )
+
+    private val categoryMultiplier = mapOf(
+        "Produce" to 0.75,
+        "Meat/Seafood" to 0.85,
+        "Eggs & Dairy" to 0.85,
+        "Dry Goods" to 0.8,
+        "Spices & Condiments" to 0.7,
+        "Canned/Packaged" to 0.8,
+        "Beverages" to 0.8,
+        "Others" to 0.75
+    )
+
+    private val pieceWeightKg = mapOf(
+        "Produce" to 0.12,
+        "Meat/Seafood" to 0.15,
+        "Eggs & Dairy" to 0.06,
+        "Dry Goods" to 0.10,
+        "Spices & Condiments" to 0.05,
+        "Canned/Packaged" to 0.18,
+        "Beverages" to 0.25,
+        "Others" to 0.10
+    )
+
+    private val quantityPattern = Regex(
+        """(?i)(\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(kg|kilo|kilogram|g|gram|grams|lb|lbs|pound|pounds|oz|ml|l|liter|litre|cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|piece|pieces|pc|pcs|clove|cloves|bunch|bunches|stalk|stalks|can|cans|pack|packs)"""
+    )
+
+    fun estimatePrice(name: String): Int = estimatePriceDetail(name).first
+
+    fun estimatePriceDetail(name: String, quantityText: String = ""): Pair<Int, String> {
+        val rule = ruleForName(name)
+        val category = rule?.category ?: inferCategory(name)
+        val basePrice = rule?.pricePhp ?: (categoryAverages[category] ?: 60)
+        val targetUnit = rule?.unit ?: (categoryDefaultUnit[category] ?: "piece")
+        val (qtyValue, qtyUnit) = extractQuantity("$quantityText $name".trim())
+        val factor = clampFactor(quantityFactor(qtyValue, qtyUnit, targetUnit, category), category)
+        val scaledPrice = (basePrice * factor * (categoryMultiplier[category] ?: 0.75)).coerceAtLeast(5.0)
+        return scaledPrice.roundToInt() to category
     }
 
     fun inferCategory(name: String): String {
@@ -87,5 +157,93 @@ object PriceCatalog {
                 "Beverages"
             else -> "Others"
         }
+    }
+
+    private fun parseNumber(text: String): Double? {
+        val cleaned = text.trim()
+        if (cleaned.isEmpty()) return null
+        if (" " in cleaned) {
+            val parts = cleaned.split(" ")
+            if (parts.size == 2 && "/" in parts[1]) {
+                return (parseNumber(parts[0]) ?: 0.0) + (parseNumber(parts[1]) ?: 0.0)
+            }
+        }
+        if ("/" in cleaned) {
+            val parts = cleaned.split("/")
+            if (parts.size == 2) {
+                val numerator = parts[0].toDoubleOrNull() ?: return null
+                val denominator = parts[1].toDoubleOrNull() ?: return null
+                if (denominator == 0.0) return null
+                return numerator / denominator
+            }
+        }
+        return cleaned.toDoubleOrNull()
+    }
+
+    private fun extractQuantity(text: String): Pair<Double?, String?> {
+        val match = quantityPattern.find(text)
+        val qty = parseNumber(match?.groupValues?.getOrNull(1).orEmpty())
+        val unit = match?.groupValues?.getOrNull(2)
+            ?.trim()
+            ?.lowercase(Locale.ENGLISH)
+            ?.let { unitAliases[it] ?: it }
+        return qty to unit
+    }
+
+    private fun unitToKg(value: Double, unit: String): Double? = when (unit) {
+        "kg" -> value
+        "g" -> value / 1000.0
+        "lb" -> value / 2.2046
+        "oz" -> value / 35.274
+        "cup" -> value * 0.25
+        "tbsp" -> value * 0.015
+        "tsp" -> value * 0.005
+        else -> null
+    }
+
+    private fun unitToLiters(value: Double, unit: String): Double? = when (unit) {
+        "l" -> value
+        "ml" -> value / 1000.0
+        "cup" -> value * 0.24
+        "tbsp" -> value * 0.015
+        "tsp" -> value * 0.005
+        else -> null
+    }
+
+    private fun quantityFactor(value: Double?, unit: String?, targetUnit: String, category: String): Double {
+        if (value == null || unit == null) return 1.0
+        return when (targetUnit) {
+            "kg" -> {
+                val kg = unitToKg(value, unit)
+                    ?: if (unit == "piece" || unit == "clove" || unit == "bunch" || unit == "stalk") {
+                        value * (pieceWeightKg[category] ?: 0.1)
+                    } else {
+                        null
+                    }
+                kg ?: 1.0
+            }
+            "l" -> unitToLiters(value, unit) ?: 1.0
+            "piece" -> {
+                when (unit) {
+                    "piece", "clove", "bunch", "stalk" -> value
+                    else -> {
+                        val kg = unitToKg(value, unit) ?: return 1.0
+                        val pieceWeight = pieceWeightKg[category] ?: 0.1
+                        (kg / pieceWeight).coerceAtLeast(0.1)
+                    }
+                }
+            }
+            else -> 1.0
+        }
+    }
+
+    private fun clampFactor(value: Double, category: String): Double {
+        val maxFactor = if (category in setOf("Meat/Seafood", "Dry Goods")) 2.5 else 2.0
+        return value.coerceIn(0.1, maxFactor)
+    }
+
+    private fun ruleForName(name: String): PriceRule? {
+        val lower = name.lowercase(Locale.getDefault())
+        return rules.firstOrNull { rule -> rule.keywords.any { lower.contains(it) } }
     }
 }

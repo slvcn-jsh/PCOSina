@@ -40,6 +40,8 @@ import com.pcosina.app.ui.RecipeDetailsUiState
 import com.pcosina.app.ui.components.AppFeedbackBanner
 import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
+import com.pcosina.app.ui.components.MealCheckInDialog
+import com.pcosina.app.ui.components.MealCheckInDraft
 import com.pcosina.app.ui.navigation.Routes
 import com.pcosina.app.ui.util.formatFiberProgressShort
 import com.pcosina.app.ui.util.formatKcalProgressShort
@@ -48,10 +50,14 @@ import com.pcosina.app.ui.theme.UiSpacingTokens
 import com.pcosina.app.ui.theme.UiMotionTokens
 import com.pcosina.app.ui.util.TodayMealDescriptor
 import com.pcosina.app.ui.util.buildTodayLogSnapshot
+import com.pcosina.app.ui.util.goalMealReasonCopy
 import com.pcosina.app.ui.util.remainingTodayMealSlots
 import com.pcosina.app.ui.util.mealImpactNextSuggestion
 import com.pcosina.app.ui.util.normalizeMealLabel
 import com.pcosina.app.ui.util.sampleFrameTiming
+import com.pcosina.app.domain.householdSizeLabel
+import com.pcosina.app.domain.scaleNutritionPerMeal
+import com.pcosina.app.domain.scaleQuantityText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -65,6 +71,9 @@ fun RecipeDetailsScreen(
     mealPlanViewModel: MealPlanViewModel,
     groceryViewModel: GroceryViewModel,
     progressViewModel: ProgressViewModel,
+    goal: String = "",
+    adminMode: Boolean = false,
+    householdSize: Int = 1,
     onBack: () -> Unit,
     onAddToGrocery: () -> Unit,
     onNavigateToRoute: (String) -> Unit = {},
@@ -233,6 +242,8 @@ fun RecipeDetailsScreen(
         }
         is RecipeDetailsUiState.Success -> {
             val r = (state as RecipeDetailsUiState.Success).recipe
+            val safeHouseholdSize = householdSize.coerceIn(1, 6)
+            val householdLabel = remember(safeHouseholdSize) { householdSizeLabel(safeHouseholdSize) }
             val plan = (planState as? MealPlanUiState.Success)?.response
             val today = LocalDate.now()
             val todayKey = today.format(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -321,9 +332,13 @@ fun RecipeDetailsScreen(
                     budgetPhp = 0
                 )
             }
+            val displayedReasons = remember(goal, adminMode, reasons) {
+                if (adminMode) reasons else goalMealReasonCopy(goal, reasons)
+            }
             var showLoadedContent by remember(r.id) { mutableStateOf(false) }
             var impactSummary by remember(r.id, todayKey) { mutableStateOf<RecipeImpactSummary?>(null) }
             var impactDetailsExpanded by remember(r.id, todayKey) { mutableStateOf(false) }
+            var mealCheckInPrompt by remember(r.id, todayKey) { mutableStateOf<RecipeMealCheckInPrompt?>(null) }
             LaunchedEffect(r.id) {
                 showLoadedContent = false
                 delay(UiMotionTokens.RecipeInitialRevealDelayMs.toLong())
@@ -366,7 +381,12 @@ fun RecipeDetailsScreen(
             }
             val addToGroceryAction: () -> Unit = {
                 val items = r.ingredients.map {
-                    DummyData.GroceryItem(it.name, it.quantity, 0, "Needed")
+                    DummyData.GroceryItem(
+                        it.name,
+                        scaleQuantityText(it.quantity, safeHouseholdSize),
+                        0,
+                        "Needed"
+                    )
                 }
                 groceryViewModel.addItems(items)
                 postRecipeFeedback(
@@ -477,6 +497,11 @@ fun RecipeDetailsScreen(
                         nextCtaLabel = if (nextMeal != null) "Open Next Meal" else "Open Progress"
                     )
                     impactDetailsExpanded = false
+                    mealCheckInPrompt = RecipeMealCheckInPrompt(
+                        recipeId = recipeId,
+                        mealLabel = plannedTodayMeal?.mealLabel ?: (r.mealType ?: "Meal"),
+                        mealTitle = r.title
+                    )
                     val loggedLabel = plannedTodayMeal?.mealLabel ?: r.mealType ?: "meal"
                     postRecipeFeedback(
                         tone = FeedbackBannerTone.Success,
@@ -625,15 +650,22 @@ fun RecipeDetailsScreen(
                                         Text(text = r.title, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
                                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                             Text(text = "⏱ ${r.minutes ?: 20} min", style = MaterialTheme.typography.bodyMedium, color = colorScheme.onSurfaceVariant)
-                                            Text(text = "👤 1 serving", style = MaterialTheme.typography.bodyMedium, color = colorScheme.onSurfaceVariant)
+                                            Text(text = "👥 $householdLabel", style = MaterialTheme.typography.bodyMedium, color = colorScheme.onSurfaceVariant)
                                         }
-                                        if (reasons.isNotEmpty()) {
+                                        if (safeHouseholdSize > 1) {
                                             Text(
-                                                text = "Why selected",
+                                                text = "Ingredients are scaled for $householdLabel. Nutrition stays shown per person.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        if (displayedReasons.isNotEmpty()) {
+                                            Text(
+                                                text = if (adminMode) "Why selected" else "Why it fits this week",
                                                 style = MaterialTheme.typography.labelLarge,
                                                 color = colorScheme.onSurfaceVariant
                                             )
-                                            reasons.forEach { line ->
+                                            displayedReasons.forEach { line ->
                                                 Text(
                                                     text = "• $line",
                                                     style = MaterialTheme.typography.bodySmall,
@@ -657,7 +689,14 @@ fun RecipeDetailsScreen(
                                         modifier = Modifier.fillMaxWidth().padding(20.dp),
                                         verticalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
-                                        Text(text = "Nutritional Facts", style = MaterialTheme.typography.titleMedium, color = colorScheme.onSurface)
+                                        Text(text = "Nutrition per person", style = MaterialTheme.typography.titleMedium, color = colorScheme.onSurface)
+                                        if (safeHouseholdSize > 1) {
+                                            Text(
+                                                text = "Whole recipe for $householdLabel: ${scaleNutritionPerMeal(r.calories, safeHouseholdSize) ?: 0} kcal • ${scaleNutritionPerMeal(r.proteinGrams, safeHouseholdSize) ?: 0}g protein",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                             NutrientTile("Calories", "${r.calories ?: 0}", colorScheme.onSurface)
                                             NutrientTile("Protein", "${r.proteinGrams ?: 0}g", colorScheme.primary)
@@ -681,7 +720,7 @@ fun RecipeDetailsScreen(
                                     ) {
                                         Column(modifier = Modifier.padding(16.dp)) {
                                             r.ingredients.forEach { ing ->
-                                                IngredientRow(ing.name, ing.quantity)
+                                                IngredientRow(ing.name, scaleQuantityText(ing.quantity, safeHouseholdSize))
                                             }
                                         }
                                     }
@@ -708,6 +747,40 @@ fun RecipeDetailsScreen(
                     }
                 }
             }
+
+            mealCheckInPrompt?.let { prompt ->
+                val existing = logs[todayKey]?.mealCheckIns.orEmpty().firstOrNull { checkIn ->
+                    checkIn.mealKey == ProgressViewModel.buildMealKey(prompt.mealLabel, prompt.recipeId) ||
+                        (checkIn.recipeId == prompt.recipeId &&
+                            checkIn.mealLabel.equals(prompt.mealLabel, ignoreCase = true))
+                }
+                MealCheckInDialog(
+                    goal = goal,
+                    mealTitle = prompt.mealTitle,
+                    mealLabel = prompt.mealLabel,
+                    initial = existing,
+                    onDismiss = { mealCheckInPrompt = null },
+                    onSave = { draft: MealCheckInDraft ->
+                        val saved = progressViewModel.saveMealCheckIn(
+                            date = today,
+                            recipeId = prompt.recipeId,
+                            mealLabel = prompt.mealLabel,
+                            energyLevel = draft.energyLevel,
+                            fullnessLevel = draft.fullnessLevel,
+                            cravingsLevel = draft.cravingsLevel,
+                            satisfactionLevel = draft.satisfactionLevel,
+                            note = draft.note
+                        )
+                        postRecipeFeedback(
+                            tone = if (saved) FeedbackBannerTone.Success else FeedbackBannerTone.Error,
+                            message = if (saved) "Meal check-in saved." else "Couldn’t save this meal check-in right now."
+                        )
+                        if (saved) {
+                            mealCheckInPrompt = null
+                        }
+                    }
+                )
+            }
         }
         else -> {
             // Idle state - can show placeholder or empty screen
@@ -715,6 +788,12 @@ fun RecipeDetailsScreen(
         }
     }
 }
+
+private data class RecipeMealCheckInPrompt(
+    val recipeId: String,
+    val mealLabel: String,
+    val mealTitle: String
+)
 
 @Composable
 internal fun RecipeImpactSummarySection(

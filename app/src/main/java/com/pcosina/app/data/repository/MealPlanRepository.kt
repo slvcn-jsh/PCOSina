@@ -7,6 +7,7 @@ import com.pcosina.app.data.api.MlClientEventRequestDto
 import com.pcosina.app.data.api.PcosinaApiService
 import com.pcosina.app.data.api.RecipeDetailDto
 import com.pcosina.app.data.api.RecipeSummaryDto
+import com.pcosina.app.data.api.SwapOptionsRequestDto
 import com.pcosina.app.data.model.UserProfile
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
@@ -216,6 +217,14 @@ class MealPlanRepository {
         }
     }
 
+    private fun shouldFallbackToSummarySwapOptions(error: Exception): Boolean {
+        if (error !is HttpException) return false
+        return when (error.code()) {
+            404, 405, 501 -> true
+            else -> false
+        }
+    }
+
     suspend fun emitMlEvent(
         eventName: String,
         requestId: String? = null,
@@ -263,6 +272,40 @@ class MealPlanRepository {
             val response = apiService.getRecipeSummaries(mealType = mealType, limit = limit)
             synchronized(summaryCache) {
                 summaryCache[key] = response
+            }
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getSwapOptions(
+        profile: UserProfile,
+        mealLabel: String,
+        currentRecipeId: String?,
+        activeRecipeIds: List<String>,
+        limit: Int = 30
+    ): Result<List<RecipeSummaryDto>> {
+        return try {
+            val normalizedMealLabel = mealLabel.trim()
+            val normalizedCurrentRecipeId = currentRecipeId?.trim()?.takeIf { it.isNotBlank() }
+            val normalizedActiveRecipeIds = activeRecipeIds.mapNotNull { it.trim().takeIf(String::isNotBlank) }
+            val response = try {
+                apiService.getSwapOptions(
+                    SwapOptionsRequestDto(
+                        profile = profile,
+                        mealLabel = normalizedMealLabel,
+                        currentRecipeId = normalizedCurrentRecipeId,
+                        activeRecipeIds = normalizedActiveRecipeIds,
+                        limit = limit
+                    )
+                )
+            } catch (e: Exception) {
+                if (shouldFallbackToSummarySwapOptions(e)) {
+                    apiService.getRecipeSummaries(mealType = normalizedMealLabel, limit = limit)
+                } else {
+                    throw e
+                }
             }
             Result.success(response)
         } catch (e: Exception) {

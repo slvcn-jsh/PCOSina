@@ -70,7 +70,7 @@ fun GoalSelectionScreen(
     val whyCopy = remember(selectedGoals) {
         when {
             selectedGoals.isEmpty() ->
-                "Choose at least one goal so PCOSINA can optimize calories, macros, and meal swaps for you."
+                "Choose at least one focus so PCOSINA can shape your meals around what matters most to you."
             selectedGoals.contains(GoalOption.WeightLoss) ->
                 "Your plan will prioritize satiety and calorie balance so weekly targets are easier to sustain."
             selectedGoals.contains(GoalOption.SymptomManagement) ->
@@ -92,7 +92,7 @@ fun GoalSelectionScreen(
             containerHeight = 180,
         )
         Text(
-            text = "Step 2 of 4: Select Goal",
+            text = "Step 3 of 6: Choose Your Focus",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.fillMaxWidth().testTag("goal_step2_label")

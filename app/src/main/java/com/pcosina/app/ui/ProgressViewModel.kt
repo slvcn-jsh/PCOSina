@@ -9,6 +9,7 @@ import com.google.gson.reflect.TypeToken
 import com.pcosina.app.data.model.DailyLog
 import com.pcosina.app.data.model.DemoWeekSeed
 import com.pcosina.app.data.model.FeedbackEntry
+import com.pcosina.app.data.model.MealCheckIn
 import com.pcosina.app.data.repository.FeedbackRepository
 import com.pcosina.app.data.repository.ReflectionStore
 import com.pcosina.app.data.repository.UserPreferencesRepository
@@ -235,6 +236,19 @@ class ProgressViewModel(
         }
     }
 
+    private fun matchesMealCheckIn(
+        entry: MealCheckIn,
+        recipeId: String,
+        mealLabel: String? = null
+    ): Boolean {
+        val normalizedRecipeId = extractRecipeId(recipeId)
+        val normalizedMealLabel = mealLabel?.trim().orEmpty()
+        if (extractRecipeId(entry.mealKey) != normalizedRecipeId && entry.recipeId != normalizedRecipeId) {
+            return false
+        }
+        return normalizedMealLabel.isBlank() || entry.mealLabel.equals(normalizedMealLabel, ignoreCase = true)
+    }
+
     fun toggleMeal(date: LocalDate, recipeId: String, mealLabel: String): Boolean {
         if (!isDateLoggable(date)) return false
         val key = date.format(dateFmt)
@@ -248,8 +262,16 @@ class ProgressViewModel(
         } else {
             currentIds + mealKey
         }
+        val updatedCheckIns = if (hasKey || hasLegacy) {
+            current?.mealCheckIns.orEmpty().filterNot { entry ->
+                matchesMealCheckIn(entry, recipeId = recipeId, mealLabel = mealLabel)
+            }
+        } else {
+            current?.mealCheckIns.orEmpty()
+        }
         val updated = (current ?: DailyLog(date = key)).copy(
             completedMealIds = updatedIds,
+            mealCheckIns = updatedCheckIns,
             timestamp = System.currentTimeMillis()
         )
         val newMap = _dailyLogs.value.toMutableMap()
@@ -321,6 +343,47 @@ class ProgressViewModel(
             moodLevel = moodLevel,
             symptomTags = symptomTags,
             symptomsNote = symptomsNote?.takeIf { it.isNotBlank() },
+            timestamp = System.currentTimeMillis()
+        )
+        val newMap = _dailyLogs.value.toMutableMap()
+        newMap[key] = updated
+        _dailyLogs.value = newMap
+        persistLogs(newMap)
+        return true
+    }
+
+    fun saveMealCheckIn(
+        date: LocalDate,
+        recipeId: String,
+        mealLabel: String,
+        energyLevel: Int?,
+        fullnessLevel: Int?,
+        cravingsLevel: Int?,
+        satisfactionLevel: Int?,
+        note: String?
+    ): Boolean {
+        if (!isDateLoggable(date)) return false
+        val key = date.format(dateFmt)
+        val current = _dailyLogs.value[key]
+        val normalizedRecipeId = extractRecipeId(recipeId)
+        val normalizedMealLabel = mealLabel.trim().ifBlank { "Meal" }
+        val mealKey = buildMealKey(normalizedMealLabel, normalizedRecipeId)
+        val updatedCheckIn = MealCheckIn(
+            mealKey = mealKey,
+            recipeId = normalizedRecipeId,
+            mealLabel = normalizedMealLabel,
+            energyLevel = energyLevel,
+            fullnessLevel = fullnessLevel,
+            cravingsLevel = cravingsLevel,
+            satisfactionLevel = satisfactionLevel,
+            note = note?.takeIf { it.isNotBlank() },
+            timestamp = System.currentTimeMillis()
+        )
+        val updated = (current ?: DailyLog(date = key)).copy(
+            mealCheckIns = current?.mealCheckIns.orEmpty()
+                .filterNot { entry ->
+                    matchesMealCheckIn(entry, recipeId = normalizedRecipeId, mealLabel = normalizedMealLabel)
+                } + updatedCheckIn,
             timestamp = System.currentTimeMillis()
         )
         val newMap = _dailyLogs.value.toMutableMap()

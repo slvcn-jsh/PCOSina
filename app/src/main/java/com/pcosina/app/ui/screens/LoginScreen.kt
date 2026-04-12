@@ -72,7 +72,7 @@ fun LoginScreen(
                 GoogleSignInStatusCodes.SIGN_IN_CANCELLED -> "Google sign-in cancelled."
                 GoogleSignInStatusCodes.NETWORK_ERROR -> "Network issue during Google sign-in. Please try again."
                 GoogleSignInStatusCodes.DEVELOPER_ERROR ->
-                    "Google sign-in configuration error (DEVELOPER_ERROR). Contact support."
+                    "Google sign-in is not available on this build yet. Use email sign-in for now."
                 GoogleSignInStatusCodes.SIGN_IN_FAILED -> "Google sign-in failed. Please try again."
                 else -> "Google sign-in failed (code ${e.statusCode})."
             }
@@ -126,7 +126,7 @@ fun LoginScreen(
         )
         
         Text(
-            text = "Login to start your guided setup and generate your first plan.",
+            text = "Sign in to open your saved plan, grocery list, and progress.",
             style = MaterialTheme.typography.bodyMedium,
             color = colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 12.dp)
@@ -151,7 +151,7 @@ fun LoginScreen(
                     color = colorScheme.onSurface
                 )
                 Text(
-                    text = "Login -> Complete Profile -> Select Goal -> Generate your first plan.",
+                    text = "Sign in -> Complete your profile -> Choose your goal -> Build your first week.",
                     style = MaterialTheme.typography.bodySmall,
                     color = colorScheme.onSurfaceVariant
                 )
@@ -159,7 +159,7 @@ fun LoginScreen(
         }
 
         Text(
-            text = "Step 1 of 4: Login",
+            text = "Step 1 of 6: Sign in",
             style = MaterialTheme.typography.labelMedium,
             color = colorScheme.primary,
             modifier = Modifier
@@ -257,7 +257,7 @@ fun LoginScreen(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
+                .height(52.dp)
                 .testTag("login_primary_cta"),
             shape = MaterialTheme.shapes.medium,
             colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
@@ -274,7 +274,7 @@ fun LoginScreen(
 
         OutlinedButton(
             onClick = { googleLauncher.launch(googleSignInClient.signInIntent) },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = MaterialTheme.shapes.medium,
             enabled = loginState !is LoginState.Loading
         ) {

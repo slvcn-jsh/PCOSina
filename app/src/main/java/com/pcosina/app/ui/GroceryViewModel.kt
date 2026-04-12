@@ -181,10 +181,11 @@ class GroceryViewModel(private val repository: UserPreferencesRepository) : View
         _groceryItems.value = grouped.map { (key, quantities) ->
             val name = key.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
             val category = PriceCatalog.inferCategory(name)
-            val price = PriceCatalog.estimatePrice(name)
+            val aggregatedQuantity = quantities.joinToString(", ")
+            val price = PriceCatalog.estimatePriceDetail(name, aggregatedQuantity).first
             DummyData.GroceryItem(
                 name = name,
-                quantity = quantities.joinToString(", "),
+                quantity = aggregatedQuantity,
                 price = price,
                 category = category
             )

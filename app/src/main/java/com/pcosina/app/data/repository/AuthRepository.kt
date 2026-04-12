@@ -12,16 +12,105 @@ import com.pcosina.app.data.model.Session
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.FirebaseNetworkException
+import com.google.firebase.FirebaseTooManyRequestsException
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.io.IOException
+import java.net.UnknownHostException
 
 val Context.authDataStore: DataStore<Preferences> by preferencesDataStore(name = "auth_prefs")
+
+internal enum class AuthMessageAction {
+    Login,
+    SignUp,
+    GoogleSignIn,
+    PasswordReset,
+    ResendVerification
+}
+
+internal enum class AuthFailureKind {
+    InvalidCredentials,
+    InvalidUser,
+    UserCollision,
+    WeakPassword,
+    TooManyRequests,
+    Network,
+    Unknown
+}
+
+internal fun mapAuthFailureKindToMessage(action: AuthMessageAction, failureKind: AuthFailureKind): String {
+    return when (action) {
+        AuthMessageAction.Login -> when (failureKind) {
+            AuthFailureKind.InvalidUser,
+            AuthFailureKind.InvalidCredentials -> "Incorrect email or password. Try again."
+            AuthFailureKind.TooManyRequests -> "Too many attempts right now. Please wait a bit and try again."
+            AuthFailureKind.Network -> "Can't reach the internet right now. Check your connection and try again."
+            AuthFailureKind.UserCollision,
+            AuthFailureKind.WeakPassword,
+            AuthFailureKind.Unknown -> "Couldn't sign you in right now. Please try again."
+        }
+        AuthMessageAction.SignUp -> when (failureKind) {
+            AuthFailureKind.UserCollision -> "This email is already in use. Try logging in instead."
+            AuthFailureKind.WeakPassword -> "Use a stronger password with at least 8 characters, a number, and a symbol."
+            AuthFailureKind.InvalidCredentials -> "Enter a valid email address."
+            AuthFailureKind.TooManyRequests -> "Too many attempts right now. Please wait a bit and try again."
+            AuthFailureKind.Network -> "Can't reach the internet right now. Check your connection and try again."
+            AuthFailureKind.InvalidUser,
+            AuthFailureKind.Unknown -> "Couldn't create your account right now. Please try again."
+        }
+        AuthMessageAction.GoogleSignIn -> when (failureKind) {
+            AuthFailureKind.InvalidCredentials -> "Google sign-in couldn't be verified. Please try again."
+            AuthFailureKind.InvalidUser -> "This Google account isn't available for sign-in."
+            AuthFailureKind.TooManyRequests -> "Too many attempts right now. Please wait a bit and try again."
+            AuthFailureKind.Network -> "Can't reach the internet right now. Check your connection and try again."
+            AuthFailureKind.UserCollision,
+            AuthFailureKind.WeakPassword,
+            AuthFailureKind.Unknown -> "Google sign-in didn't complete. Please try again."
+        }
+        AuthMessageAction.PasswordReset -> when (failureKind) {
+            AuthFailureKind.InvalidUser -> "We couldn't find an account with that email."
+            AuthFailureKind.InvalidCredentials -> "Enter a valid email address."
+            AuthFailureKind.TooManyRequests -> "Too many attempts right now. Please wait a bit and try again."
+            AuthFailureKind.Network -> "Can't reach the internet right now. Check your connection and try again."
+            AuthFailureKind.UserCollision,
+            AuthFailureKind.WeakPassword,
+            AuthFailureKind.Unknown -> "Couldn't send the reset email right now. Please try again."
+        }
+        AuthMessageAction.ResendVerification -> when (failureKind) {
+            AuthFailureKind.InvalidUser,
+            AuthFailureKind.InvalidCredentials -> "Check your email and password, then try again."
+            AuthFailureKind.TooManyRequests -> "Too many attempts right now. Please wait a bit and try again."
+            AuthFailureKind.Network -> "Can't reach the internet right now. Check your connection and try again."
+            AuthFailureKind.UserCollision,
+            AuthFailureKind.WeakPassword,
+            AuthFailureKind.Unknown -> "Couldn't send another verification email right now. Please try again."
+        }
+    }
+}
+
+internal fun mapAuthExceptionToMessage(action: AuthMessageAction, error: Exception): String {
+    if (error is IllegalStateException && error.message?.isNotBlank() == true) {
+        return error.message.orEmpty()
+    }
+    val failureKind = when (error) {
+        is FirebaseAuthInvalidUserException -> AuthFailureKind.InvalidUser
+        is FirebaseAuthInvalidCredentialsException -> AuthFailureKind.InvalidCredentials
+        is FirebaseAuthUserCollisionException -> AuthFailureKind.UserCollision
+        is FirebaseAuthWeakPasswordException -> AuthFailureKind.WeakPassword
+        is FirebaseTooManyRequestsException -> AuthFailureKind.TooManyRequests
+        is FirebaseNetworkException,
+        is UnknownHostException -> AuthFailureKind.Network
+        else -> AuthFailureKind.Unknown
+    }
+    return mapAuthFailureKindToMessage(action, failureKind)
+}
 
 class AuthRepository(private val context: Context) {
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
@@ -78,7 +167,7 @@ class AuthRepository(private val context: Context) {
             syncSessionFromFirebase()
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(IllegalStateException(mapAuthExceptionToMessage(AuthMessageAction.SignUp, e), e))
         }
     }
 
@@ -95,7 +184,7 @@ class AuthRepository(private val context: Context) {
             syncSessionFromFirebase()
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(IllegalStateException(mapAuthExceptionToMessage(AuthMessageAction.Login, e), e))
         }
     }
 
@@ -106,18 +195,7 @@ class AuthRepository(private val context: Context) {
             syncSessionFromFirebase()
             Result.success(Unit)
         } catch (e: Exception) {
-            val mapped = when (e) {
-                is FirebaseAuthInvalidCredentialsException ->
-                    IllegalStateException(
-                        "Google credential rejected. Check Firebase SHA fingerprints and OAuth client setup."
-                    )
-                is FirebaseAuthInvalidUserException ->
-                    IllegalStateException("Google account is not available for sign-in.")
-                is FirebaseNetworkException ->
-                    IllegalStateException("Network error during Google sign-in. Please try again.")
-                else -> e
-            }
-            Result.failure(mapped)
+            Result.failure(IllegalStateException(mapAuthExceptionToMessage(AuthMessageAction.GoogleSignIn, e), e))
         }
     }
 
@@ -129,7 +207,7 @@ class AuthRepository(private val context: Context) {
             syncSessionFromFirebase()
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(IllegalStateException(mapAuthExceptionToMessage(AuthMessageAction.ResendVerification, e), e))
         }
     }
 
@@ -138,7 +216,7 @@ class AuthRepository(private val context: Context) {
             firebaseAuth.sendPasswordResetEmail(email).await()
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(IllegalStateException(mapAuthExceptionToMessage(AuthMessageAction.PasswordReset, e), e))
         }
     }
 

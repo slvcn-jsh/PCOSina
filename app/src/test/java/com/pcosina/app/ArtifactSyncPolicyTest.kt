@@ -3,32 +3,28 @@ package com.pcosina.app
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ArtifactSyncPolicyTest {
 
     @Test
-    fun syncableSettingsCountAsArtifacts() {
+    fun clearMealHistoryDoesNotPurgeSecureArtifacts() {
         val source = read(
             resolve(
                 "app", "src", "main", "java", "com", "pcosina", "app",
-                "data", "repository", "UserPreferencesRepository.kt"
+                "data", "repository", "ReflectionStore.kt"
             )
         )
-        assertTrue(
-            "Artifact detection should include progress and notification settings that are uploaded in buildArtifactPayload().",
-            source.contains("preferences.contains(Keys.progressMode(userId))") &&
-                source.contains("preferences.contains(Keys.remindersEnabled(userId))") &&
-                source.contains("preferences.contains(Keys.notificationMaster(userId))") &&
-                source.contains("data.containsKey(Cloud.progressMode)") &&
-                source.contains("data.containsKey(Cloud.remindersEnabled)") &&
-                source.contains("data.containsKey(Cloud.notificationMaster)")
+        assertFalse(
+            "ReflectionStore.clearForUser() must not remove artifact_* entries when the user only clears meal history.",
+            source.contains("key.startsWith(\"artifact_\") && key.endsWith(\"_${'$'}userId\")")
         )
     }
 
     @Test
-    fun firstUpgradeConflictSeedsTimestampInsteadOfOverwritingLocalArtifacts() {
+    fun artifactSyncUsesDomainTimestampsInsteadOfOneGlobalStamp() {
         val source = read(
             resolve(
                 "app", "src", "main", "java", "com", "pcosina", "app",
@@ -36,10 +32,48 @@ class ArtifactSyncPolicyTest {
             )
         )
         assertTrue(
-            "First-upgrade conflicts should seed cloudArtifactsUpdatedAt before any upload/download instead of overwriting local artifacts.",
-            source.contains("localHasData && localUpdatedAt == 0L && remoteHasData") &&
-                source.contains("val bootstrapTimestamp = if (remoteUpdatedAt > 0L) remoteUpdatedAt else now") &&
-                source.contains("preferences[Keys.cloudArtifactsUpdatedAt(userId)] = bootstrapTimestamp")
+            "Artifact sync should maintain separate timestamps for pantry, plan, grocery, feedback, progress UI, and notification preferences.",
+            source.contains("Cloud.pantryUpdatedAtEpochMs") &&
+                source.contains("Cloud.planUpdatedAtEpochMs") &&
+                source.contains("Cloud.groceryUpdatedAtEpochMs") &&
+                source.contains("Cloud.feedbackUpdatedAtEpochMs") &&
+                source.contains("Cloud.progressUiUpdatedAtEpochMs") &&
+                source.contains("Cloud.notificationPreferencesUpdatedAtEpochMs") &&
+                source.contains("preferences[domain.localUpdatedAtKey(userId)] = now")
+        )
+    }
+
+    @Test
+    fun cloudHistoryPayloadDeletesOversizedLegacyFields() {
+        val source = read(
+            resolve(
+                "app", "src", "main", "java", "com", "pcosina", "app",
+                "data", "repository", "UserPreferencesRepository.kt"
+            )
+        )
+        assertTrue(
+            "Profile artifact sync should delete large legacy history fields instead of keeping them in profiles/{uid}.",
+            source.contains("Cloud.planHistoryJson to FieldValue.delete()") &&
+                source.contains("Cloud.dailyLogsJson to FieldValue.delete()") &&
+                source.contains("Cloud.notificationLogsJson to FieldValue.delete()") &&
+                source.contains("Cloud.weeklyJournalMap to FieldValue.delete()")
+        )
+    }
+
+    @Test
+    fun localOnlyHistoriesStopUsingCloudArtifactSync() {
+        val source = read(
+            resolve(
+                "app", "src", "main", "java", "com", "pcosina", "app",
+                "data", "repository", "UserPreferencesRepository.kt"
+            )
+        )
+        assertTrue(
+            "Daily logs, weekly journals, plan history, and notification logs should stay local-only until they have dedicated remote storage.",
+            source.contains("context.dataStore.edit { preferences ->\n            preferences.remove(Keys.planHistoryJson(userId))") &&
+                source.contains("context.dataStore.edit { it.remove(Keys.dailyLogsJson(userId)) }") &&
+                source.contains("context.dataStore.edit { it.remove(Keys.weeklyJournal(userId, weekStart)) }") &&
+                source.contains("context.dataStore.edit { prefs ->\n            val current = prefs[Keys.notificationLogs(userId)]")
         )
     }
 
@@ -51,5 +85,5 @@ class ArtifactSyncPolicyTest {
         error("Could not locate file: ${parts.joinToString("/")}")
     }
 
-    private fun read(path: Path): String = String(Files.readAllBytes(path))
+    private fun read(path: Path): String = String(Files.readAllBytes(path)).replace("\r\n", "\n")
 }

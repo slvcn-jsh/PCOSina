@@ -91,8 +91,7 @@ class ReflectionStore(private val context: Context) {
             if (
                 key == dailyLogsKey(userId) ||
                 key.startsWith("weekly_journal_${userId}_") ||
-                key.startsWith("weekly_spend_${userId}_") ||
-                key.startsWith("artifact_") && key.endsWith("_$userId")
+                key.startsWith("weekly_spend_${userId}_")
             ) {
                 editor.remove(key)
             }

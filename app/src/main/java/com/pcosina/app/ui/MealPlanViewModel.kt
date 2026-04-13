@@ -304,16 +304,6 @@ class MealPlanViewModel(
                     _planExpired.value = false
                 }
                 val planTelemetryId = withLabel.planId ?: id
-                val slotCount = withLabel.days.sumOf { it.meals.size }
-                emitMlEventSafe(
-                    eventName = "plan_generated",
-                    requestId = withLabel.requestId,
-                    payload = mapOf(
-                        "status" to "success",
-                        "plan_id" to planTelemetryId,
-                        "slot_count" to slotCount
-                    )
-                )
                 emitMlEventSafe(
                     eventName = "plan_viewed",
                     requestId = withLabel.requestId,

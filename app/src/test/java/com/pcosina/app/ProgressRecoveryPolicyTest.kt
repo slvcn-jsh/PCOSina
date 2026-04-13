@@ -22,6 +22,11 @@ class ProgressRecoveryPolicyTest {
             "ProgressScreen should not keep screen-local form state in rememberSaveable after the crash investigation.",
             progress.contains("rememberSaveable")
         )
+        assertTrue(
+            "ProgressScreen side effects should be guarded so a single bad payload does not crash the route.",
+            progress.contains("Failed to hydrate progress inputs safely.") &&
+                progress.contains("Failed to compute progress macro summary safely.")
+        )
     }
 
     @Test

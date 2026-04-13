@@ -283,29 +283,50 @@ fun ProgressScreen(
     var symptomTags by remember { mutableStateOf<List<String>>(emptyList()) }
     var symptomNote by remember { mutableStateOf("") }
     LaunchedEffect(logs, selectedDate, profile.weightUnit) {
-        val key = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
-        val log = logs[key]
-        weightInput = log?.weightKg?.let { kg ->
-            if (profile.weightUnit == UnitConverter.WEIGHT_LB) {
-                String.format(Locale.ENGLISH, "%.1f", UnitConverter.kgToLb(kg))
-            } else {
-                String.format(Locale.ENGLISH, "%.1f", kg)
-            }
-        } ?: ""
-        weightNote = log?.weightNote ?: ""
-        energyLevel = log?.energyLevel
-        cravingsLevel = log?.cravingsLevel
-        moodLevel = log?.moodLevel
-        symptomTags = log?.symptomTags ?: emptyList()
-        symptomNote = log?.symptomsNote ?: ""
+        runCatching {
+            val key = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+            val log = logs[key]
+            weightInput = log?.weightKg?.let { kg ->
+                if (profile.weightUnit == UnitConverter.WEIGHT_LB) {
+                    String.format(Locale.ENGLISH, "%.1f", UnitConverter.kgToLb(kg))
+                } else {
+                    String.format(Locale.ENGLISH, "%.1f", kg)
+                }
+            } ?: ""
+            weightNote = log?.weightNote ?: ""
+            energyLevel = log?.energyLevel
+            cravingsLevel = log?.cravingsLevel
+            moodLevel = log?.moodLevel
+            symptomTags = log?.symptomTags ?: emptyList()
+            symptomNote = log?.symptomsNote ?: ""
+        }.onFailure { error ->
+            Log.e("ProgressScreen", "Failed to hydrate progress inputs safely.", error)
+            weightInput = ""
+            weightNote = ""
+            energyLevel = null
+            cravingsLevel = null
+            moodLevel = null
+            symptomTags = emptyList()
+            symptomNote = ""
+        }
     }
     LaunchedEffect(weeklySpend, weekStartKey) {
-        weeklySpendInput = weeklySpend?.toString() ?: ""
+        runCatching {
+            weeklySpendInput = weeklySpend?.toString() ?: ""
+        }.onFailure { error ->
+            Log.e("ProgressScreen", "Failed to hydrate weekly spend safely.", error)
+            weeklySpendInput = ""
+        }
     }
 
     var journalText by remember { mutableStateOf("") }
     LaunchedEffect(weeklyJournal) {
-        journalText = weeklyJournal
+        runCatching {
+            journalText = weeklyJournal
+        }.onFailure { error ->
+            Log.e("ProgressScreen", "Failed to hydrate weekly journal safely.", error)
+            journalText = ""
+        }
     }
 
     var feedbackText by remember { mutableStateOf("") }
@@ -410,31 +431,40 @@ fun ProgressScreen(
     var completedMacroAvailable by remember { mutableStateOf(false) }
 
     LaunchedEffect(logs, planState) {
-        val completedMealKeys = logs.filterKeys { isInWeek(it, weekStart) }
-            .values.flatMap { it.completedMealIds }
-        val completedCountsByRecipe = completedMealKeys
-            .groupingBy { ProgressViewModel.extractRecipeId(it) }
-            .eachCount()
-        val plannedCountsByRecipe = planDays.flatMap { it.meals }
-            .map { it.recipeId }
-            .groupingBy { it }
-            .eachCount()
-        val useCompleted = completedCountsByRecipe.isNotEmpty()
-        val countsByRecipe = if (useCompleted) completedCountsByRecipe else plannedCountsByRecipe
-        completedMacroAvailable = useCompleted
-        macroLabel = if (completedMacroAvailable) "Completed average (per day)" else "Planned average (per day)"
-        val details = countsByRecipe.keys.mapNotNull { id ->
-            mealPlanViewModel.getRecipeDetails(id).getOrNull()
-        }
-        val dayDivisor = if (planDays.isNotEmpty()) planDays.size else 7
-        if (details.isNotEmpty()) {
-            avgProtein = details.sumOf { (it.proteinGrams ?: 0) * (countsByRecipe[it.id] ?: 1) } / dayDivisor
-            avgCarbs = details.sumOf { (it.carbsGrams ?: 0) * (countsByRecipe[it.id] ?: 1) } / dayDivisor
-            avgFats = details.sumOf { (it.fatsGrams ?: 0) * (countsByRecipe[it.id] ?: 1) } / dayDivisor
-        } else {
+        runCatching {
+            val completedMealKeys = logs.filterKeys { isInWeek(it, weekStart) }
+                .values.flatMap { it.completedMealIds }
+            val completedCountsByRecipe = completedMealKeys
+                .groupingBy { ProgressViewModel.extractRecipeId(it) }
+                .eachCount()
+            val plannedCountsByRecipe = planDays.flatMap { it.meals }
+                .map { it.recipeId }
+                .groupingBy { it }
+                .eachCount()
+            val useCompleted = completedCountsByRecipe.isNotEmpty()
+            val countsByRecipe = if (useCompleted) completedCountsByRecipe else plannedCountsByRecipe
+            completedMacroAvailable = useCompleted
+            macroLabel = if (completedMacroAvailable) "Completed average (per day)" else "Planned average (per day)"
+            val details = countsByRecipe.keys.mapNotNull { id ->
+                mealPlanViewModel.getRecipeDetails(id).getOrNull()
+            }
+            val dayDivisor = if (planDays.isNotEmpty()) planDays.size else 7
+            if (details.isNotEmpty()) {
+                avgProtein = details.sumOf { (it.proteinGrams ?: 0) * (countsByRecipe[it.id] ?: 1) } / dayDivisor
+                avgCarbs = details.sumOf { (it.carbsGrams ?: 0) * (countsByRecipe[it.id] ?: 1) } / dayDivisor
+                avgFats = details.sumOf { (it.fatsGrams ?: 0) * (countsByRecipe[it.id] ?: 1) } / dayDivisor
+            } else {
+                avgProtein = 0
+                avgCarbs = 0
+                avgFats = 0
+            }
+        }.onFailure { error ->
+            Log.e("ProgressScreen", "Failed to compute progress macro summary safely.", error)
+            macroLabel = "Planned average (per day)"
             avgProtein = 0
             avgCarbs = 0
             avgFats = 0
+            completedMacroAvailable = false
         }
     }
     LaunchedEffect(selectedDate) {

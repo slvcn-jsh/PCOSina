@@ -10,7 +10,7 @@ if str(ROOT) not in sys.path:
 
 from domain.models import UserProfile
 from services import meal_planner
-from services.ml_ranker import Stage1MLRanker
+from services.ml_ranker import RankerState, Stage1MLRanker
 
 
 MODEL_ARTIFACT = ROOT.parent / "ml" / "offline_training" / "artifacts" / "model_v1" / "lightgbm_v1_model.txt"
@@ -256,6 +256,73 @@ def test_shortlist_candidates_scales_cost_estimates_for_households():
     assert shortlisted[0]["_cost_est"] == meal_planner.estimate_cost(recipe, household_size=4)
 
 
+def test_shortlist_candidates_batches_ml_shadow_scoring(monkeypatch):
+    class FakeRanker:
+        def __init__(self):
+            self.score_many_calls = 0
+
+        def state(self):
+            return RankerState(
+                ready=True,
+                model_version="fake_v1",
+                feature_columns=["recipe_calories"],
+                error=None,
+            )
+
+        def score_many(self, features_list):
+            self.score_many_calls += 1
+            return [0.42 for _ in features_list]
+
+    fake_ranker = FakeRanker()
+    monkeypatch.setattr(meal_planner, "get_stage1_ranker", lambda: fake_ranker)
+
+    profile = UserProfile(
+        displayName="BatchTest",
+        age=28,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        pantryItems=["egg"],
+        maxCookingTimeMinutes=45,
+    )
+    recipes = [
+        {
+            "id": "b1",
+            "title": "Breakfast One",
+            "mealType": "Breakfast",
+            "calories": 400,
+            "proteinGrams": 20,
+            "carbsGrams": 40,
+            "fatsGrams": 10,
+            "fiberGrams": 4,
+            "minutes": 10,
+            "ingredients": [{"name": "egg", "quantity": "2 pcs"}],
+            "tags": [],
+        },
+        {
+            "id": "l1",
+            "title": "Lunch One",
+            "mealType": "Lunch",
+            "calories": 520,
+            "proteinGrams": 28,
+            "carbsGrams": 48,
+            "fatsGrams": 16,
+            "fiberGrams": 7,
+            "minutes": 20,
+            "ingredients": [{"name": "rice", "quantity": "1 cup"}],
+            "tags": [],
+        },
+    ]
+
+    stage1_diag = {}
+    buckets = meal_planner.shortlist_candidates(profile, recipes, policy={"stage1": {"ML_shadow_enabled": True}}, stage1_diag=stage1_diag)
+
+    assert fake_ranker.score_many_calls == 1
+    assert stage1_diag["ml_candidate_count"] == 2
+    assert stage1_diag["ranker_ready"] is True
+    assert buckets["Breakfast"][0]["_ml_model_version"] == "fake_v1"
+    assert buckets["Breakfast"][0]["_ml_shadow_score"] == pytest.approx(0.42)
+
+
 def test_build_swap_candidates_allows_repeats_up_to_policy_limit():
     profile = UserProfile(
         varietyPreference="High",
@@ -421,8 +488,10 @@ def test_solve_meal_plan_emits_telemetry_snapshot():
     assert telemetry.get("ranking_strategy") == "stage1_heuristic_shadow_only"
     assert isinstance(telemetry.get("phase_timings_ms"), dict)
     assert telemetry["phase_timings_ms"].get("stage1_shortlist", -1) >= 0
+    assert telemetry["phase_timings_ms"].get("stage1_ml_score", -1) >= 0
     assert telemetry["phase_timings_ms"].get("planner_total", -1) >= 0
     assert telemetry.get("solver_budget", {}).get("totalTimeLimitSeconds") == 3.0
+    assert isinstance(telemetry.get("stage1_diag"), dict)
     assert isinstance(telemetry.get("solve_pair_diagnostics"), list)
     assert explanation.get("phaseTimingsMs", {}).get("planner_total", -1) >= 0
     assert explanation.get("solverBudget", {}).get("totalTimeLimitSeconds") == 3.0

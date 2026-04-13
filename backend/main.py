@@ -3878,6 +3878,7 @@ def _emit_planner_timing_log(
         "candidateCountPost": int(telemetry_payload.get("candidate_count_post") or 0),
         "rankingStrategy": str(telemetry_payload.get("ranking_strategy") or "unknown"),
         "phaseTimingsMs": telemetry_payload.get("phase_timings_ms") or {},
+        "stage1Diag": telemetry_payload.get("stage1_diag") or {},
         "solverBudget": telemetry_payload.get("solver_budget") or {},
         "budgetExceededStage": telemetry_payload.get("budget_exceeded_stage"),
         "solvePairDiagnostics": telemetry_payload.get("solve_pair_diagnostics") or [],

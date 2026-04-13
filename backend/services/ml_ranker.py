@@ -87,12 +87,36 @@ class Stage1MLRanker:
             return None
         vector = [float(features.get(col, 0.0)) for col in self._feature_columns]
         try:
-            pred = self._model.predict([vector])
+            try:
+                pred = self._model.predict([vector], num_threads=1)
+            except TypeError:
+                pred = self._model.predict([vector])
             if pred is None or len(pred) == 0:
                 return None
             return float(pred[0])
         except Exception:
             return None
+
+    def score_many(self, features_list: List[Dict[str, float]]) -> List[Optional[float]]:
+        self._load_once()
+        if self._model is None or not self._feature_columns:
+            return [None for _ in features_list]
+        if not features_list:
+            return []
+        matrix = [
+            [float(features.get(col, 0.0)) for col in self._feature_columns]
+            for features in features_list
+        ]
+        try:
+            try:
+                preds = self._model.predict(matrix, num_threads=1)
+            except TypeError:
+                preds = self._model.predict(matrix)
+            if preds is None:
+                return [None for _ in features_list]
+            return [float(pred) for pred in preds]
+        except Exception:
+            return [None for _ in features_list]
 
 
 _RANKER = Stage1MLRanker()

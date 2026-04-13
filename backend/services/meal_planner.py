@@ -460,6 +460,23 @@ def _apply_stage1_scoring(
     recipe["_stage1_score_boost"] = (ml_score * effective_weight * 10.0) - prep_penalty
 
 
+def _finalize_stage1_scoring(
+    recipe: Dict[str, Any],
+    *,
+    ml_score: float,
+    ml_model_version: str,
+    apply_ml_to_ranking: bool,
+    ml_weight: float,
+    prep_penalty: float,
+) -> None:
+    bounded_ml_score = max(0.0, min(1.0, float(ml_score or 0.0)))
+    effective_weight = float(ml_weight or 0.0) if apply_ml_to_ranking else 0.0
+    recipe["_ml_shadow_score"] = bounded_ml_score
+    recipe["_ml_model_version"] = str(ml_model_version or "shadow_v0")
+    recipe["_ml_applied_to_ranking"] = bool(apply_ml_to_ranking)
+    recipe["_stage1_score_boost"] = (bounded_ml_score * effective_weight * 10.0) - float(prep_penalty or 0.0)
+
+
 def passes_restrictions(profile: UserProfile, tags: List[str], ing_tokens: List[str]) -> bool:
     restrictions = set(profile.dietaryRestrictions or [])
     tagset = set(tags)
@@ -571,6 +588,7 @@ def shortlist_candidates(
     profile: UserProfile,
     recipes: List[Dict[str, Any]],
     policy: Optional[Dict[str, Any]] = None,
+    stage1_diag: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
     buckets = {"Breakfast": [], "Lunch": [], "Dinner": [], "Universal": []}
     restriction_count = len(profile.dietaryRestrictions or [])
@@ -593,6 +611,18 @@ def shortlist_candidates(
     budget_keep_min_ratio = float(_policy_get(policy, "stage1.budget_keep_min_ratio", 0.25))
     pantry_match_threshold = int(_policy_get(policy, "stage1.pantry_match_threshold", 0))
     household_size = household_size_multiplier(profile)
+    ml_shadow_enabled = bool(_policy_get(policy, "stage1.ML_shadow_enabled", True))
+    ml_canary_enabled = bool(_policy_get(policy, "stage1.ML_canary_enabled", False))
+    ml_weight = float(_policy_get(policy, "stage1.ML_score_weight", 0.15))
+    ml_cap = float(_policy_get(policy, "stage1.ML_score_cap", 0.30))
+    ml_weight = max(0.0, min(ml_weight, ml_cap, 1.0))
+    apply_ml_to_ranking = bool(ml_canary_enabled and _is_profile_in_canary(profile, policy))
+    ranker = get_stage1_ranker() if (ml_shadow_enabled or ml_canary_enabled) else None
+    ranker_state = ranker.state() if ranker is not None else None
+    ml_model_version = str(ranker_state.model_version) if ranker_state is not None else "shadow_v0"
+    ml_scored_recipes: List[Dict[str, Any]] = []
+    ml_feature_vectors: List[Dict[str, float]] = []
+    phase_started_at = time.time()
     for r in recipes:
         tags = infer_tags(r)
         ing_tokens = normalize_ingredients(r.get("ingredients", []))
@@ -601,6 +631,15 @@ def shortlist_candidates(
         minutes = int(r.get("minutes") or 0)
         if max_cook is not None and minutes > max_cook:
             continue
+        penalty_weights = _policy_get(
+            policy,
+            "stage1.exclusion_penalty_weights",
+            {"allergy": 1000.0, "restriction": 500.0, "prep_time": 50.0},
+        )
+        prep_penalty_weight = float((penalty_weights or {}).get("prep_time", 50.0))
+        prep_penalty = 0.0
+        if max_cook and max_cook > 0:
+            prep_penalty = max(0.0, (float(minutes) - max_cook) / float(max_cook)) * prep_penalty_weight
         r["_tags"] = tags
         r["_ing_tokens"] = ing_tokens
         r["_cost_est"] = estimate_cost(r, household_size=household_size)
@@ -611,7 +650,14 @@ def shortlist_candidates(
             r["_pantry_match"] = len(set(ing_tokens) & pantry_tokens)
         else:
             r["_pantry_match"] = 0
-        _apply_stage1_scoring(r, profile, policy, max_cook)
+        r["_stage1_prep_penalty"] = prep_penalty
+        r["_ml_shadow_score"] = 0.0
+        r["_ml_model_version"] = ml_model_version
+        r["_ml_applied_to_ranking"] = apply_ml_to_ranking
+        r["_stage1_score_boost"] = -prep_penalty
+        if ml_shadow_enabled or ml_canary_enabled:
+            ml_scored_recipes.append(r)
+            ml_feature_vectors.append(_stage1_ml_feature_vector(r, profile))
         if pantry_match_threshold > 0 and pantry_tokens and r["_pantry_match"] < pantry_match_threshold:
             continue
         meal_type = (r.get("mealType") or "Universal").lower()
@@ -623,7 +669,33 @@ def shortlist_candidates(
             buckets["Dinner"].append(r)
         else:
             buckets["Universal"].append(r)
+    if stage1_diag is not None:
+        stage1_diag["preprocess_ms"] = max(0, int((time.time() - phase_started_at) * 1000))
 
+    if ml_scored_recipes:
+        ml_started_at = time.time()
+        if ranker_state is not None and ranker_state.ready and ranker is not None:
+            ml_scores = ranker.score_many(ml_feature_vectors)
+        else:
+            ml_scores = [None for _ in ml_feature_vectors]
+        for recipe, candidate_features, model_score in zip(ml_scored_recipes, ml_feature_vectors, ml_scores):
+            resolved_model_score = model_score
+            resolved_model_version = ml_model_version
+            if resolved_model_score is None:
+                resolved_model_score = _shadow_ml_score(recipe, profile)
+                resolved_model_version = "shadow_v0"
+            _finalize_stage1_scoring(
+                recipe,
+                ml_score=float(resolved_model_score or 0.0),
+                ml_model_version=resolved_model_version,
+                apply_ml_to_ranking=apply_ml_to_ranking,
+                ml_weight=ml_weight,
+                prep_penalty=float(recipe.get("_stage1_prep_penalty") or 0.0),
+            )
+        if stage1_diag is not None:
+            stage1_diag["ml_score_ms"] = max(0, int((time.time() - ml_started_at) * 1000))
+
+    finalize_started_at = time.time()
     for k in buckets:
         buckets[k].sort(key=_base_score, reverse=True)
         buckets[k] = _apply_similarity_dedup(buckets[k], similarity_threshold)
@@ -636,6 +708,10 @@ def shortlist_candidates(
             buckets[k] = buckets[k][:keep]
         for recipe in buckets[k]:
             recipe["_stage1_bucket"] = k
+    if stage1_diag is not None:
+        stage1_diag["bucket_finalize_ms"] = max(0, int((time.time() - finalize_started_at) * 1000))
+        stage1_diag["ml_candidate_count"] = len(ml_scored_recipes)
+        stage1_diag["ranker_ready"] = bool(ranker_state.ready) if ranker_state is not None else False
     return buckets
 
 
@@ -1159,8 +1235,13 @@ def solve_meal_plan(
     ]
     # Stage 1 pruning + shortlist
     shortlist_started_at = time.time()
-    buckets = shortlist_candidates(profile, recipes, policy=policy)
+    stage1_diag: Dict[str, Any] = {}
+    buckets = shortlist_candidates(profile, recipes, policy=policy, stage1_diag=stage1_diag)
     _record_phase_timing(phase_timings_ms, "stage1_shortlist", shortlist_started_at)
+    if stage1_diag:
+        phase_timings_ms["stage1_preprocess"] = int(stage1_diag.get("preprocess_ms") or 0)
+        phase_timings_ms["stage1_ml_score"] = int(stage1_diag.get("ml_score_ms") or 0)
+        phase_timings_ms["stage1_bucket_finalize"] = int(stage1_diag.get("bucket_finalize_ms") or 0)
     if time.time() >= deadline_at:
         if telemetry_out is not None:
             telemetry_out["budget_exceeded_stage"] = "stage1_shortlist"
@@ -1168,6 +1249,7 @@ def solve_meal_plan(
             telemetry_out["status"] = "no-safe-plan"
             _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
             telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
+            telemetry_out["stage1_diag"] = dict(stage1_diag)
             telemetry_out["solve_pair_diagnostics"] = []
         return None, "Timed out while searching for a safe plan.", None
     candidates = list({r["id"]: r for r in (buckets["Breakfast"] + buckets["Lunch"] + buckets["Dinner"] + buckets["Universal"])}.values())
@@ -1183,6 +1265,7 @@ def solve_meal_plan(
         telemetry_out["ranking_strategy"] = "stage1_heuristic_with_ml_shadow"
         telemetry_out["ml_score_enabled"] = bool(_policy_get(policy, "stage1.ML_shadow_enabled", True))
         telemetry_out["ml_model_version"] = "shadow_v0"
+        telemetry_out["stage1_diag"] = dict(stage1_diag)
     max_pool_size = int(
         _policy_get_legacy_aware(
             policy,
@@ -1234,6 +1317,7 @@ def solve_meal_plan(
             telemetry_out["status"] = "no-safe-plan"
             _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
             telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
+            telemetry_out["stage1_diag"] = dict(stage1_diag)
             telemetry_out["solve_pair_diagnostics"] = []
         return None, "Timed out while searching for a safe plan.", None
     budget_weekly = resolve_budget_weekly(profile)
@@ -1283,6 +1367,7 @@ def solve_meal_plan(
             telemetry_out["status"] = "no-safe-plan"
             _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
             telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
+            telemetry_out["stage1_diag"] = dict(stage1_diag)
             telemetry_out["solve_pair_diagnostics"] = []
         return None, "Timed out while searching for a safe plan.", None
 
@@ -1685,6 +1770,7 @@ def solve_meal_plan(
                 telemetry_out["status"] = "success"
                 telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
                 telemetry_out["solver_budget"] = dict(solver_budget)
+                telemetry_out["stage1_diag"] = dict(stage1_diag)
                 telemetry_out["solve_pair_diagnostics"] = solve_pair_diagnostics[-6:]
             return res_plan, "Success", explanation
         if (time.time() - planner_started_at) >= total_time_limit:
@@ -1698,6 +1784,7 @@ def solve_meal_plan(
             _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
             telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
             telemetry_out["solver_budget"] = dict(solver_budget)
+            telemetry_out["stage1_diag"] = dict(stage1_diag)
             telemetry_out["solve_pair_diagnostics"] = solve_pair_diagnostics[-6:]
         return None, f"Infeasible | debug={msg}", None
     _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
@@ -1706,6 +1793,7 @@ def solve_meal_plan(
         telemetry_out["status"] = "no-safe-plan"
         telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
         telemetry_out["solver_budget"] = dict(solver_budget)
+        telemetry_out["stage1_diag"] = dict(stage1_diag)
         telemetry_out["solve_pair_diagnostics"] = solve_pair_diagnostics[-6:]
     if budget_exceeded_stage:
         return None, "Timed out while searching for a safe plan.", None

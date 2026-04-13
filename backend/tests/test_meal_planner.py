@@ -48,6 +48,22 @@ def test_build_plan_day_labels_stays_english_and_deterministic():
     assert set(labels).issubset({"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"})
 
 
+def test_budget_aware_pool_limit_shrinks_for_tight_solver_budgets():
+    assert meal_planner._budget_aware_pool_limit(
+        max_pool_size=192,
+        slot_count=21,
+        total_time_limit=14.0,
+        minimum_candidates_required=10,
+    ) == 120
+
+    assert meal_planner._budget_aware_pool_limit(
+        max_pool_size=192,
+        slot_count=21,
+        total_time_limit=25.0,
+        minimum_candidates_required=10,
+    ) == 192
+
+
 def test_allergy_filter_blocks_recipe():
     profile = UserProfile(allergies=["peanut"])
     recipes = [
@@ -403,6 +419,13 @@ def test_solve_meal_plan_emits_telemetry_snapshot():
     assert isinstance(telemetry.get("stage1_candidates"), list)
     assert isinstance(telemetry.get("selected_recipe_ids"), list)
     assert telemetry.get("ranking_strategy") == "stage1_heuristic_shadow_only"
+    assert isinstance(telemetry.get("phase_timings_ms"), dict)
+    assert telemetry["phase_timings_ms"].get("stage1_shortlist", -1) >= 0
+    assert telemetry["phase_timings_ms"].get("planner_total", -1) >= 0
+    assert telemetry.get("solver_budget", {}).get("totalTimeLimitSeconds") == 3.0
+    assert isinstance(telemetry.get("solve_pair_diagnostics"), list)
+    assert explanation.get("phaseTimingsMs", {}).get("planner_total", -1) >= 0
+    assert explanation.get("solverBudget", {}).get("totalTimeLimitSeconds") == 3.0
 
 
 def test_solve_meal_plan_canary_applies_ml_ranking_strategy():

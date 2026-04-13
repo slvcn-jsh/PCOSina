@@ -994,6 +994,46 @@ def _greedy_fallback_plan(
     return res_plan, selected
 
 
+class _PlannerBudgetExceeded(RuntimeError):
+    def __init__(self, stage: str) -> None:
+        super().__init__(stage)
+        self.stage = str(stage or "unknown")
+
+
+def _record_phase_timing(phase_timings_ms: Dict[str, int], phase: str, started_at: float) -> None:
+    phase_timings_ms[str(phase)] = max(0, int((time.time() - started_at) * 1000))
+
+
+def _check_planner_budget(
+    deadline_at: float,
+    stage: str,
+    *,
+    telemetry_out: Optional[Dict[str, Any]] = None,
+) -> None:
+    if time.time() < deadline_at:
+        return
+    if telemetry_out is not None:
+        telemetry_out["budget_exceeded_stage"] = str(stage or "unknown")
+    raise _PlannerBudgetExceeded(stage)
+
+
+def _budget_aware_pool_limit(
+    *,
+    max_pool_size: int,
+    slot_count: int,
+    total_time_limit: float,
+    minimum_candidates_required: int,
+) -> int:
+    normalized_max_pool = max(1, int(max_pool_size or 1))
+    normalized_slots = max(1, int(slot_count or 1))
+    minimum_candidates = max(1, int(minimum_candidates_required or 1))
+    minimum_assignments = normalized_slots * minimum_candidates
+    # Tight solver budgets cannot afford unbounded slot x recipe assignment growth.
+    assignment_budget = max(minimum_assignments, int(max(1.0, float(total_time_limit or 0.0)) * 180.0))
+    budget_limited_pool = max(minimum_candidates, assignment_budget // normalized_slots)
+    return min(normalized_max_pool, budget_limited_pool)
+
+
 def solve_meal_plan(
     request: GeneratePlanRequest,
     recipes: List[Dict],
@@ -1002,6 +1042,7 @@ def solve_meal_plan(
     telemetry_out: Optional[Dict[str, Any]] = None,
 ):
     profile = request.profile
+    planner_started_at = time.time()
     cold_start_defaults = _policy_get(
         policy,
         "stage1.cold_start_defaults",
@@ -1047,6 +1088,30 @@ def solve_meal_plan(
     if len(slot_labels) != configured_meals_per_day:
         return None, "Configured meals_per_day exceeds supported label mapping.", None
     slot_count = num_days * len(slot_labels)
+    total_time_limit = float(
+        _policy_get_legacy_aware(
+            policy,
+            ["solver.total_solver_seconds", "total_solver_seconds"],
+            _env_float_min("PCOSINA_TOTAL_SOLVER_SECONDS", 25.0),
+        )
+    )
+    timeout_ms = int(_policy_get(policy, "solver.timeout_ms", int(total_time_limit * 1000)))
+    total_time_limit = min(total_time_limit, max(0.5, timeout_ms / 1000.0))
+    deadline_at = planner_started_at + total_time_limit
+    retry_attempts = int(_policy_get(policy, "solver.retry_attempts", 2))
+    retry_attempts = max(0, min(retry_attempts, 20))
+    phase_timings_ms: Dict[str, int] = {}
+    solve_pair_diagnostics: List[Dict[str, Any]] = []
+    solver_budget = {
+        "totalTimeLimitSeconds": round(float(total_time_limit), 3),
+        "timeoutMs": int(timeout_ms),
+        "retryAttempts": int(retry_attempts),
+        "slotCount": int(slot_count),
+    }
+    if telemetry_out is not None:
+        telemetry_out.clear()
+        telemetry_out["solver_budget"] = dict(solver_budget)
+
     w, h, a = (
         profile.weightKg if profile.weightKg > 0 else 65,
         profile.heightCm if profile.heightCm > 0 else 160,
@@ -1093,7 +1158,18 @@ def solve_meal_plan(
         min(0.8, daily_tolerance + max(0.10, weekly_tolerance * 2.0)),
     ]
     # Stage 1 pruning + shortlist
+    shortlist_started_at = time.time()
     buckets = shortlist_candidates(profile, recipes, policy=policy)
+    _record_phase_timing(phase_timings_ms, "stage1_shortlist", shortlist_started_at)
+    if time.time() >= deadline_at:
+        if telemetry_out is not None:
+            telemetry_out["budget_exceeded_stage"] = "stage1_shortlist"
+            telemetry_out["selected_recipe_ids"] = []
+            telemetry_out["status"] = "no-safe-plan"
+            _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
+            telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
+            telemetry_out["solve_pair_diagnostics"] = []
+        return None, "Timed out while searching for a safe plan.", None
     candidates = list({r["id"]: r for r in (buckets["Breakfast"] + buckets["Lunch"] + buckets["Dinner"] + buckets["Universal"])}.values())
     minimum_candidates_required = int(
         _policy_get(policy, "stage1.minimum_candidates_required", 10)
@@ -1103,7 +1179,6 @@ def solve_meal_plan(
 
     pool = candidates
     if telemetry_out is not None:
-        telemetry_out.clear()
         telemetry_out["candidate_count_pre"] = len(candidates)
         telemetry_out["ranking_strategy"] = "stage1_heuristic_with_ml_shadow"
         telemetry_out["ml_score_enabled"] = bool(_policy_get(policy, "stage1.ML_shadow_enabled", True))
@@ -1116,6 +1191,13 @@ def solve_meal_plan(
         )
     ) * max(1, configured_meals_per_day)
     cap_top_share = float(_policy_get(policy, "stage1.pool_cap_top_share", 0.6))
+    max_pool_size = _budget_aware_pool_limit(
+        max_pool_size=max_pool_size,
+        slot_count=slot_count,
+        total_time_limit=total_time_limit,
+        minimum_candidates_required=minimum_candidates_required,
+    )
+    solver_budget["effectivePoolCap"] = int(max_pool_size)
     if len(pool) > max_pool_size:
         if debug_solver:
             debug_summary["pool_pre_cap"] = len(pool)
@@ -1131,6 +1213,7 @@ def solve_meal_plan(
     if debug_solver:
         debug_summary["pool"] = len(pool)
     # Enforce mealType where possible; Universal recipes are allowed everywhere.
+    pool_prepare_started_at = time.time()
     meal_to_allowed = {}
     for label in slot_labels:
         allowed = set(
@@ -1143,21 +1226,17 @@ def solve_meal_plan(
     base_scores = []
     for r in pool:
         base_scores.append(_base_score(r))
+    _record_phase_timing(phase_timings_ms, "stage1_pool_prepare", pool_prepare_started_at)
+    if time.time() >= deadline_at:
+        if telemetry_out is not None:
+            telemetry_out["budget_exceeded_stage"] = "stage1_pool_prepare"
+            telemetry_out["selected_recipe_ids"] = []
+            telemetry_out["status"] = "no-safe-plan"
+            _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
+            telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
+            telemetry_out["solve_pair_diagnostics"] = []
+        return None, "Timed out while searching for a safe plan.", None
     budget_weekly = resolve_budget_weekly(profile)
-
-    # Render/free instances are CPU-limited; give the solver more time by default.
-    total_time_limit = float(
-        _policy_get_legacy_aware(
-            policy,
-            ["solver.total_solver_seconds", "total_solver_seconds"],
-            _env_float_min("PCOSINA_TOTAL_SOLVER_SECONDS", 25.0),
-        )
-    )
-    timeout_ms = int(_policy_get(policy, "solver.timeout_ms", int(total_time_limit * 1000)))
-    total_time_limit = min(total_time_limit, max(0.5, timeout_ms / 1000.0))
-    started_at = time.time()
-    retry_attempts = int(_policy_get(policy, "solver.retry_attempts", 2))
-    retry_attempts = max(0, min(retry_attempts, 20))
     max_per_week_list = adjust_max_per_week(
         [
             int(v)
@@ -1184,7 +1263,35 @@ def solve_meal_plan(
     else:
         solve_pairs = [(tol, max_repeat) for tol in tolerance_levels for max_repeat in max_per_week_list]
 
+    feature_rows_started_at = time.time()
+    if telemetry_out is not None:
+        telemetry_out["stage1_candidates"] = _build_stage1_feature_rows(
+            pool,
+            profile,
+            target_calories=target,
+            target_protein=target_protein,
+            target_carbs=target_carbs,
+            target_fats=target_fats,
+            budget_weekly=budget_weekly,
+            meals_per_day=configured_meals_per_day,
+        )
+    _record_phase_timing(phase_timings_ms, "stage1_feature_rows", feature_rows_started_at)
+    if time.time() >= deadline_at:
+        if telemetry_out is not None:
+            telemetry_out["budget_exceeded_stage"] = "stage1_feature_rows"
+            telemetry_out["selected_recipe_ids"] = []
+            telemetry_out["status"] = "no-safe-plan"
+            _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
+            telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
+            telemetry_out["solve_pair_diagnostics"] = []
+        return None, "Timed out while searching for a safe plan.", None
+
+    budget_exceeded_stage: Optional[str] = None
     for tol, max_per_week in solve_pairs:
+        pair_diag: Dict[str, Any] = {
+            "tol": round(float(tol), 4),
+            "maxPerWeek": int(max_per_week),
+        }
         protein_bounds = (
             max(protein_min, int(target_protein * (1 - tol))),
             min(protein_max, int(target_protein * (1 + tol))),
@@ -1197,57 +1304,70 @@ def solve_meal_plan(
             max(fat_min, int(target_fats * (1 - tol))),
             min(fat_max, int(target_fats * (1 + tol))),
         )
-        if telemetry_out is not None and "stage1_candidates" not in telemetry_out:
-            telemetry_out["stage1_candidates"] = _build_stage1_feature_rows(
-                pool,
-                profile,
-                target_calories=target,
-                target_protein=target_protein,
-                target_carbs=target_carbs,
-                target_fats=target_fats,
-                budget_weekly=budget_weekly,
-                meals_per_day=configured_meals_per_day,
-            )
-        if (time.time() - started_at) >= total_time_limit:
+        if time.time() >= deadline_at:
             break
-        model = cp_model.CpModel()
-        x = {}
-        for s in range(slot_count):
-            for i in range(len(pool)):
-                x[s, i] = model.NewBoolVar(f"x_{s}_{i}")
-        y = {}
-        for i in range(len(pool)):
-            y[i] = model.NewBoolVar(f"y_{i}")
+        model_build_started_at = time.time()
+        try:
+            model = cp_model.CpModel()
+            x = {}
             for s in range(slot_count):
-                model.Add(x[s, i] <= y[i])
-        for s in range(slot_count):
-            meal_label = slot_labels[s % configured_meals_per_day]
-            allowed = meal_to_allowed.get(meal_label, set(range(len(pool))))
-            model.Add(sum(x[s, i] for i in allowed) == 1)
-            # Force non-allowed meal-type assignments to zero. Without this,
-            # disallowed binaries remain free and bloat CP-SAT search.
+                _check_planner_budget(deadline_at, "solver_model_x_vars", telemetry_out=telemetry_out)
+                for i in range(len(pool)):
+                    x[s, i] = model.NewBoolVar(f"x_{s}_{i}")
+                    if (i & 31) == 0:
+                        _check_planner_budget(deadline_at, "solver_model_x_vars", telemetry_out=telemetry_out)
+            y = {}
             for i in range(len(pool)):
-                if i not in allowed:
-                    model.Add(x[s, i] == 0)
-        # Greedy warm-start (hint)
-        prev_idx = None
-        for s in range(slot_count):
-            meal_label = slot_labels[s % configured_meals_per_day]
-            allowed = list(meal_to_allowed.get(meal_label, set(range(len(pool)))))
-            allowed.sort(key=lambda i: base_scores[i], reverse=True)
-            pick = None
-            for idx in allowed:
-                if idx != prev_idx:
-                    pick = idx
-                    break
-            if pick is not None:
-                model.AddHint(x[s, pick], 1)
-                prev_idx = pick
-        for s in range(slot_count - 1):
+                if (i & 15) == 0:
+                    _check_planner_budget(deadline_at, "solver_model_y_vars", telemetry_out=telemetry_out)
+                y[i] = model.NewBoolVar(f"y_{i}")
+                for s in range(slot_count):
+                    model.Add(x[s, i] <= y[i])
+            for s in range(slot_count):
+                _check_planner_budget(deadline_at, "solver_model_allowed", telemetry_out=telemetry_out)
+                meal_label = slot_labels[s % configured_meals_per_day]
+                allowed = meal_to_allowed.get(meal_label, set(range(len(pool))))
+                model.Add(sum(x[s, i] for i in allowed) == 1)
+                # Force non-allowed meal-type assignments to zero. Without this,
+                # disallowed binaries remain free and bloat CP-SAT search.
+                for i in range(len(pool)):
+                    if i not in allowed:
+                        model.Add(x[s, i] == 0)
+                        if (i & 31) == 0:
+                            _check_planner_budget(deadline_at, "solver_model_allowed", telemetry_out=telemetry_out)
+            # Greedy warm-start (hint)
+            prev_idx = None
+            for s in range(slot_count):
+                _check_planner_budget(deadline_at, "solver_model_hints", telemetry_out=telemetry_out)
+                meal_label = slot_labels[s % configured_meals_per_day]
+                allowed = list(meal_to_allowed.get(meal_label, set(range(len(pool)))))
+                allowed.sort(key=lambda i: base_scores[i], reverse=True)
+                pick = None
+                for idx in allowed:
+                    if idx != prev_idx:
+                        pick = idx
+                        break
+                if pick is not None:
+                    model.AddHint(x[s, pick], 1)
+                    prev_idx = pick
+            for s in range(slot_count - 1):
+                _check_planner_budget(deadline_at, "solver_model_adjacent", telemetry_out=telemetry_out)
+                for i in range(len(pool)):
+                    model.Add(x[s, i] + x[s + 1, i] <= 1)
+                    if (i & 31) == 0:
+                        _check_planner_budget(deadline_at, "solver_model_adjacent", telemetry_out=telemetry_out)
             for i in range(len(pool)):
-                model.Add(x[s, i] + x[s + 1, i] <= 1)
-        for i in range(len(pool)):
-            model.Add(sum(x[s, i] for s in range(slot_count)) <= max_per_week)
+                if (i & 15) == 0:
+                    _check_planner_budget(deadline_at, "solver_model_repeat", telemetry_out=telemetry_out)
+                model.Add(sum(x[s, i] for s in range(slot_count)) <= max_per_week)
+        except _PlannerBudgetExceeded as exc:
+            budget_exceeded_stage = exc.stage
+            pair_diag["buildMs"] = max(0, int((time.time() - model_build_started_at) * 1000))
+            pair_diag["status"] = "budget_exceeded"
+            pair_diag["budgetExceededStage"] = exc.stage
+            solve_pair_diagnostics.append(pair_diag)
+            break
+        pair_diag["buildMs"] = max(0, int((time.time() - model_build_started_at) * 1000))
 
         repeat_over_vars = []
         for i in range(len(pool)):
@@ -1424,6 +1544,15 @@ def solve_meal_plan(
             diversity_penalty - (pantry_w * pantry_reward) - (diversity_w * diversity_reward)
             + pantry_min_penalty
         )
+        pair_diag["buildMs"] = max(0, int((time.time() - model_build_started_at) * 1000))
+        if time.time() >= deadline_at:
+            budget_exceeded_stage = "solver_model_finalize"
+            if telemetry_out is not None:
+                telemetry_out["budget_exceeded_stage"] = budget_exceeded_stage
+            pair_diag["status"] = "budget_exceeded"
+            pair_diag["budgetExceededStage"] = budget_exceeded_stage
+            solve_pair_diagnostics.append(pair_diag)
+            break
 
         solver = cp_model.CpSolver()
         base_time = float(
@@ -1458,20 +1587,32 @@ def solve_meal_plan(
         status = cp_model.UNKNOWN
         status_name = "UNKNOWN"
         attempts_used = 0
+        solve_started_at = time.time()
+        pair_attempts: List[Dict[str, Any]] = []
         for retry_idx in range(retry_attempts + 1):
             attempts_used = retry_idx + 1
-            elapsed = time.time() - started_at
+            elapsed = time.time() - planner_started_at
             remaining = total_time_limit - elapsed
             if remaining <= 0:
                 break
             retry_scale = 1.0 + (0.15 * retry_idx)
             attempt_time = min(adaptive_time * retry_scale, max_time, remaining)
             solver.parameters.max_time_in_seconds = max(0.2, attempt_time)
+            attempt_started_at = time.time()
             status = solver.Solve(model)
+            solve_elapsed_ms = max(0, int((time.time() - attempt_started_at) * 1000))
             try:
                 status_name = solver.StatusName(status)
             except Exception:
                 status_name = str(status)
+            pair_attempts.append(
+                {
+                    "retry": retry_idx,
+                    "attemptTimeSeconds": round(float(attempt_time), 3),
+                    "solveMs": solve_elapsed_ms,
+                    "status": status_name,
+                }
+            )
 
             if debug_solver:
                 diag_depth = int(
@@ -1495,6 +1636,11 @@ def solve_meal_plan(
 
             if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
                 break
+        pair_diag["solveMs"] = max(0, int((time.time() - solve_started_at) * 1000))
+        pair_diag["attemptsUsed"] = attempts_used
+        pair_diag["status"] = status_name
+        pair_diag["attempts"] = pair_attempts
+        solve_pair_diagnostics.append(pair_diag)
 
         if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
             res_plan = []
@@ -1530,11 +1676,18 @@ def solve_meal_plan(
             )
             explanation["solverStatus"] = status_name
             explanation["retryAttemptsUsed"] = attempts_used
+            _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
+            explanation["phaseTimingsMs"] = dict(phase_timings_ms)
+            explanation["solverBudget"] = dict(solver_budget)
+            explanation["solvePairDiagnostics"] = solve_pair_diagnostics[-6:]
             if telemetry_out is not None:
                 telemetry_out["selected_recipe_ids"] = [str(r.get("id") or "") for r in selected]
                 telemetry_out["status"] = "success"
+                telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
+                telemetry_out["solver_budget"] = dict(solver_budget)
+                telemetry_out["solve_pair_diagnostics"] = solve_pair_diagnostics[-6:]
             return res_plan, "Success", explanation
-        if (time.time() - started_at) >= total_time_limit:
+        if (time.time() - planner_started_at) >= total_time_limit:
             break
     if debug_solver:
         print("MILP_DEBUG", json.dumps(debug_summary))
@@ -1542,8 +1695,18 @@ def solve_meal_plan(
         if telemetry_out is not None:
             telemetry_out["selected_recipe_ids"] = []
             telemetry_out["status"] = "no-safe-plan"
+            _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
+            telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
+            telemetry_out["solver_budget"] = dict(solver_budget)
+            telemetry_out["solve_pair_diagnostics"] = solve_pair_diagnostics[-6:]
         return None, f"Infeasible | debug={msg}", None
+    _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
     if telemetry_out is not None:
         telemetry_out["selected_recipe_ids"] = []
         telemetry_out["status"] = "no-safe-plan"
+        telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
+        telemetry_out["solver_budget"] = dict(solver_budget)
+        telemetry_out["solve_pair_diagnostics"] = solve_pair_diagnostics[-6:]
+    if budget_exceeded_stage:
+        return None, "Timed out while searching for a safe plan.", None
     return None, "Infeasible", None

@@ -34,9 +34,15 @@ class PlannerPollingPolicyTest {
             api.contains("@Header(\"Idempotency-Key\") idempotencyKey: String? = null")
         )
         assertTrue(
-            "MealPlanRepository should derive and send a deterministic idempotency key.",
-            repo.contains("val idempotencyKey = buildGeneratePlanIdempotencyKey(request)")
+            "MealPlanRepository should create a per-attempt token for fresh generations.",
+            repo.contains("data class GeneratePlanAttempt(")
+                && repo.contains("token = UUID.randomUUID().toString()")
+                && repo.contains("buildGeneratePlanIdempotencyKey(request, attempt.token)")
                 && repo.contains("apiService.generatePlanAsync(request, idempotencyKey = idempotencyKey)")
+        )
+        assertTrue(
+            "MealPlanViewModel should preserve the same attempt only while a request is still pending.",
+            viewModelContainsPendingRequestState()
         )
         assertTrue(
             "Queued-plan polling timeout should allow long-running planner jobs.",
@@ -50,6 +56,18 @@ class PlannerPollingPolicyTest {
             "Loading copy should no longer promise ~30s for long-running planner jobs.",
             screen.contains("This can take a few minutes on the current server setup. Please keep the app open.")
         )
+    }
+
+    private fun viewModelContainsPendingRequestState(): Boolean {
+        val viewModel = read(
+            resolve(
+                "app", "src", "main", "java", "com", "pcosina", "app",
+                "ui", "MealPlanViewModel.kt"
+            )
+        )
+        return viewModel.contains("private var pendingGenerateRequest: PendingGenerateRequest? = null") &&
+            viewModel.contains("val activeAttempt = pendingGenerateRequest?.attempt ?: repository.createGeneratePlanAttempt().also") &&
+            viewModel.contains("shouldKeepPendingGenerateRequest")
     }
 
     private fun resolve(vararg parts: String): Path {

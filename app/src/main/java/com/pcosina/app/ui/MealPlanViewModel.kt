@@ -61,6 +61,10 @@ data class PlanMetrics(
     val avgFats: Int = 0
 )
 
+private data class PendingGenerateRequest(
+    val attempt: MealPlanRepository.GeneratePlanAttempt
+)
+
 class MealPlanViewModel(
     private val repository: MealPlanRepository,
     private val userPrefsRepository: UserPreferencesRepository
@@ -98,6 +102,7 @@ class MealPlanViewModel(
     private var currentUserId: String = ""
     private val gson = Gson()
     private val dayOrder = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+    private var pendingGenerateRequest: PendingGenerateRequest? = null
 
     private data class ContinuityPlanSnapshot(
         val response: GeneratePlanResponse,
@@ -221,6 +226,7 @@ class MealPlanViewModel(
         _activeWeekStart.value = null
         _activeWeekEnd.value = null
         _planExpired.value = false
+        pendingGenerateRequest = null
     }
 
     fun generateMealPlan(profile: UserProfile) {
@@ -232,9 +238,13 @@ class MealPlanViewModel(
             val effectiveProfile = resolveProfile(profile)
             val tunedProfile = applyFeedbackTuning(effectiveProfile)
             val apiProfile = tunedProfile.copy(goal = goalTextForApi(tunedProfile.goal))
-            val result = repository.generatePlan(apiProfile)
+            val activeAttempt = pendingGenerateRequest?.attempt ?: repository.createGeneratePlanAttempt().also {
+                pendingGenerateRequest = PendingGenerateRequest(it)
+            }
+            val result = repository.generatePlan(apiProfile, activeAttempt)
             result.onSuccess { response ->
                 if (response.status.equals("no-safe-plan", ignoreCase = true) || response.days.isEmpty()) {
+                    pendingGenerateRequest = null
                     val reasonCodes = if (response.machineReasonCodes.isNotEmpty()) {
                         response.machineReasonCodes
                     } else {
@@ -263,6 +273,7 @@ class MealPlanViewModel(
                     )
                     return@onSuccess
                 }
+                pendingGenerateRequest = null
                 val completedAtMs = response.timestamps?.completedAtMs
                     ?.takeIf { it > 0 }
                     ?: System.currentTimeMillis()
@@ -310,6 +321,9 @@ class MealPlanViewModel(
                 )
             }.onFailure { error ->
                 val raw = error.message ?: "Failed to connect to MILP engine"
+                if (!shouldKeepPendingGenerateRequest(raw)) {
+                    pendingGenerateRequest = null
+                }
                 val message = if (raw.contains("Profile invalid", ignoreCase = true)) {
                     "Profile incomplete. Please open Profile or Settings and save your age, height, and weight."
                 } else if (
@@ -326,6 +340,12 @@ class MealPlanViewModel(
                 _uiState.value = MealPlanUiState.Error(message)
             }
         }
+    }
+
+    private fun shouldKeepPendingGenerateRequest(message: String): Boolean {
+        val normalized = message.trim().lowercase(Locale.US)
+        return normalized.contains("plan generation is still running") ||
+            normalized.contains("keep waiting for the same request")
     }
 
     private suspend fun applyFeedbackTuning(profile: UserProfile): UserProfile {

@@ -29,8 +29,14 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
+import java.util.UUID
 
 class MealPlanRepository {
+
+    data class GeneratePlanAttempt(
+        val startDate: String,
+        val token: String
+    )
 
     private val apiService: PcosinaApiService
     private val gson = Gson()
@@ -167,14 +173,26 @@ class MealPlanRepository {
         }
     }
 
-    suspend fun generatePlan(profile: UserProfile): Result<GeneratePlanResponse> {
+    fun createGeneratePlanAttempt(
+        startDate: String = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+    ): GeneratePlanAttempt {
+        return GeneratePlanAttempt(
+            startDate = startDate,
+            token = UUID.randomUUID().toString()
+        )
+    }
+
+    suspend fun generatePlan(
+        profile: UserProfile,
+        attempt: GeneratePlanAttempt = createGeneratePlanAttempt()
+    ): Result<GeneratePlanResponse> {
         return try {
             validateGeneratePlanProfile(profile)
             val request = GeneratePlanRequest(
                 profile = profile,
-                startDate = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+                startDate = attempt.startDate
             )
-            val idempotencyKey = buildGeneratePlanIdempotencyKey(request)
+            val idempotencyKey = buildGeneratePlanIdempotencyKey(request, attempt.token)
             val response = try {
                 val queued = apiService.generatePlanAsync(request, idempotencyKey = idempotencyKey)
                 awaitQueuedPlan(queued.jobId)
@@ -235,8 +253,16 @@ class MealPlanRepository {
         )
     }
 
-    private fun buildGeneratePlanIdempotencyKey(request: GeneratePlanRequest): String {
-        val canonical = gson.toJson(request)
+    private fun buildGeneratePlanIdempotencyKey(
+        request: GeneratePlanRequest,
+        attemptToken: String
+    ): String {
+        val canonical = gson.toJson(
+            mapOf(
+                "request" to request,
+                "attemptToken" to attemptToken
+            )
+        )
         val digest = MessageDigest.getInstance("SHA-256")
             .digest(canonical.toByteArray(Charsets.UTF_8))
             .joinToString("") { byte -> "%02x".format(byte) }

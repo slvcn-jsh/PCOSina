@@ -27,7 +27,8 @@ class PlanAnchoringPolicyTest {
         assertTrue("GeneratePlanRequest should expose startDate for anchored 7-day plans.", api.contains("val startDate: String? = null"))
         assertTrue(
             "MealPlanRepository should send today's ISO date as the plan start anchor.",
-            repo.contains("startDate = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)")
+            repo.contains("startDate: String = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)") &&
+                repo.contains("startDate = attempt.startDate")
         )
     }
 

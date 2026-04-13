@@ -37,6 +37,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 DB_NAME = os.getenv("PCOSINA_DB_NAME", "pcosina.db").strip() or "pcosina.db"
 SCHEMA_MIGRATION_SCOPE = "policy"
 SCHEMA_BOOTSTRAP_LOCK_KEY = 2026032902
+POLICY_WRITE_LOCK_KEY = 2026041301
 
 def _is_production_env() -> bool:
     return os.getenv("PCOSINA_ENV", "development").strip().lower() in ("prod", "production")
@@ -67,6 +68,19 @@ def _schema_bootstrap_lock(conn):
         yield
     finally:
         cur.execute("SELECT pg_advisory_unlock(%s)", (SCHEMA_BOOTSTRAP_LOCK_KEY,))
+
+
+@contextmanager
+def _policy_write_lock(conn):
+    if not _use_postgres():
+        yield
+        return
+    cur = conn.cursor()
+    cur.execute("SELECT pg_advisory_lock(%s)", (POLICY_WRITE_LOCK_KEY,))
+    try:
+        yield
+    finally:
+        cur.execute("SELECT pg_advisory_unlock(%s)", (POLICY_WRITE_LOCK_KEY,))
 
 
 def _create_schema_migrations_table_sql() -> str:
@@ -440,61 +454,67 @@ def create_policy_version(
     p_hash = _policy_hash(policy_payload)
     conn = _connect()
     try:
-        cur = conn.cursor()
-        version_number = _next_version_number(conn)
-        policy_id = uuid.uuid4().hex
-        now = int(time.time() * 1000)
-        if _use_postgres():
-            cur.execute(
-                """
-                INSERT INTO policy_versions (
-                    id, version_number, schema_version, policy_json, policy_hash,
-                    created_by, created_at, notes, rollback_of, is_active, activated_at
+        with _policy_write_lock(conn):
+            if activate and (notes in {"bootstrap-default-policy", "bootstrap-production-canary-defaults"} or actor == "system-bootstrap"):
+                active = get_active_policy()
+                if active and str(active.get("policy_hash") or "") == p_hash:
+                    return active
+
+            cur = conn.cursor()
+            version_number = _next_version_number(conn)
+            policy_id = uuid.uuid4().hex
+            now = int(time.time() * 1000)
+            if _use_postgres():
+                cur.execute(
+                    """
+                    INSERT INTO policy_versions (
+                        id, version_number, schema_version, policy_json, policy_hash,
+                        created_by, created_at, notes, rollback_of, is_active, activated_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        policy_id,
+                        version_number,
+                        POLICY_SCHEMA_VERSION,
+                        policy_json,
+                        p_hash,
+                        actor,
+                        now,
+                        notes,
+                        rollback_of,
+                        1 if activate else 0,
+                        now if activate else None,
+                    ),
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    policy_id,
-                    version_number,
-                    POLICY_SCHEMA_VERSION,
-                    policy_json,
-                    p_hash,
-                    actor,
-                    now,
-                    notes,
-                    rollback_of,
-                    1 if activate else 0,
-                    now if activate else None,
-                ),
-            )
-            if activate:
-                cur.execute("UPDATE policy_versions SET is_active = 0 WHERE id <> %s", (policy_id,))
-        else:
-            cur.execute(
-                """
-                INSERT INTO policy_versions (
-                    id, version_number, schema_version, policy_json, policy_hash,
-                    created_by, created_at, notes, rollback_of, is_active, activated_at
+                if activate:
+                    cur.execute("UPDATE policy_versions SET is_active = 0 WHERE id <> %s", (policy_id,))
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO policy_versions (
+                        id, version_number, schema_version, policy_json, policy_hash,
+                        created_by, created_at, notes, rollback_of, is_active, activated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        policy_id,
+                        version_number,
+                        POLICY_SCHEMA_VERSION,
+                        policy_json,
+                        p_hash,
+                        actor,
+                        now,
+                        notes,
+                        rollback_of,
+                        1 if activate else 0,
+                        now if activate else None,
+                    ),
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    policy_id,
-                    version_number,
-                    POLICY_SCHEMA_VERSION,
-                    policy_json,
-                    p_hash,
-                    actor,
-                    now,
-                    notes,
-                    rollback_of,
-                    1 if activate else 0,
-                    now if activate else None,
-                ),
-            )
-            if activate:
-                cur.execute("UPDATE policy_versions SET is_active = 0 WHERE id <> ?", (policy_id,))
-        conn.commit()
+                if activate:
+                    cur.execute("UPDATE policy_versions SET is_active = 0 WHERE id <> ?", (policy_id,))
+            conn.commit()
     finally:
         conn.close()
 

@@ -167,3 +167,23 @@ def test_ensure_default_policy_does_not_override_custom_latency_tuning(monkeypat
     assert active["id"] == created["id"]
     assert resolved_after["stage1"]["max_candidates_per_slot"] == resolved_before["stage1"]["max_candidates_per_slot"]
     assert resolved_after["solver"]["total_solver_seconds"] == resolved_before["solver"]["total_solver_seconds"]
+
+
+def test_bootstrap_policy_create_reuses_matching_active_policy(monkeypatch):
+    tmp_root = ROOT / "tests" / ".tmp_policy_store"
+    tmp_root.mkdir(parents=True, exist_ok=True)
+    test_db = tmp_root / f"policy_store_bootstrap_reuse_{uuid.uuid4().hex}.db"
+    monkeypatch.setattr(policy_store, "DATABASE_URL", "")
+    monkeypatch.setattr(policy_store, "DB_NAME", str(test_db))
+
+    policy_store.init_policy_store()
+    active = policy_store.ensure_default_policy(actor="system-bootstrap")
+
+    reused = policy_store.create_policy_version(
+        policy_input=active["policy"],
+        actor="system-bootstrap",
+        notes="bootstrap-production-canary-defaults",
+        activate=True,
+    )
+
+    assert reused["id"] == active["id"]

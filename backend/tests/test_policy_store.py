@@ -75,6 +75,12 @@ def test_ensure_default_policy_bootstraps_production_canary(monkeypatch):
     assert resolved["stage1"]["ML_shadow_enabled"] is True
     assert resolved["stage1"]["ML_canary_enabled"] is True
     assert resolved["sre"]["canary_cohort_percent"] == 5.0
+    assert resolved["stage1"]["max_candidates_per_slot"] == policy_store.PRODUCTION_STAGE1_MAX_CANDIDATES
+    assert resolved["solver"]["solver_time_limit_seconds"] == policy_store.PRODUCTION_SOLVER_TIME_LIMIT_SECONDS
+    assert resolved["solver"]["solver_max_seconds"] == policy_store.PRODUCTION_SOLVER_MAX_SECONDS
+    assert resolved["solver"]["total_solver_seconds"] == policy_store.PRODUCTION_TOTAL_SOLVER_SECONDS
+    assert resolved["solver"]["retry_attempts"] == policy_store.PRODUCTION_SOLVER_RETRY_ATTEMPTS
+    assert resolved["solver"]["solver_workers"] == policy_store.PRODUCTION_SOLVER_WORKERS
 
 
 def test_ensure_default_policy_upgrades_existing_policy_for_production_canary(monkeypatch):
@@ -110,3 +116,54 @@ def test_ensure_default_policy_upgrades_existing_policy_for_production_canary(mo
     assert resolved["stage1"]["ML_shadow_enabled"] is True
     assert resolved["stage1"]["ML_canary_enabled"] is True
     assert resolved["sre"]["canary_cohort_percent"] == 5.0
+    assert resolved["stage1"]["max_candidates_per_slot"] == policy_store.PRODUCTION_STAGE1_MAX_CANDIDATES
+    assert resolved["solver"]["solver_time_limit_seconds"] == policy_store.PRODUCTION_SOLVER_TIME_LIMIT_SECONDS
+    assert resolved["solver"]["retry_attempts"] == policy_store.PRODUCTION_SOLVER_RETRY_ATTEMPTS
+
+
+def test_ensure_default_policy_does_not_override_custom_latency_tuning(monkeypatch):
+    tmp_root = ROOT / "tests" / ".tmp_policy_store"
+    tmp_root.mkdir(parents=True, exist_ok=True)
+    test_db = tmp_root / f"policy_store_custom_latency_{uuid.uuid4().hex}.db"
+    monkeypatch.setattr(policy_store, "DATABASE_URL", "")
+    monkeypatch.setattr(policy_store, "DB_NAME", str(test_db))
+
+    policy_store.init_policy_store()
+    created = policy_store.create_policy_version(
+        policy_input={
+            "schema_version": "2.0.0",
+            "policy_name": "ops-custom",
+            "environment_profile": "production",
+            "environment_overrides": {
+                "production": {
+                    "stage1": {
+                        "ML_shadow_enabled": True,
+                        "ML_canary_enabled": True,
+                        "max_candidates_per_slot": 80,
+                        "restricted_shortlist_multiplier": 1.2,
+                        "pool_cap_top_share": 0.5,
+                    },
+                    "solver": {
+                        "solver_time_limit_seconds": 5.0,
+                        "solver_max_seconds": 9.0,
+                        "total_solver_seconds": 18.0,
+                        "retry_attempts": 1,
+                        "solver_workers": 2,
+                    },
+                    "sre": {
+                        "canary_cohort_percent": 5.0,
+                    },
+                }
+            },
+        },
+        actor="test",
+        activate=True,
+    )
+
+    resolved_before = load_policy(created["policy"]).to_runtime_dict(environment="production")
+    active = policy_store.ensure_default_policy(actor="test")
+    resolved_after = load_policy(active["policy"]).to_runtime_dict(environment="production")
+
+    assert active["id"] == created["id"]
+    assert resolved_after["stage1"]["max_candidates_per_slot"] == resolved_before["stage1"]["max_candidates_per_slot"]
+    assert resolved_after["solver"]["total_solver_seconds"] == resolved_before["solver"]["total_solver_seconds"]

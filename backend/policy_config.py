@@ -7,6 +7,39 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 POLICY_SCHEMA_VERSION = "2.0.0"
 SUPPORTED_POLICY_SCHEMA_VERSIONS = {"1.0.0", "2.0.0"}
+PRODUCTION_CANARY_BOOTSTRAP_PERCENT = 5.0
+PRODUCTION_STAGE1_MAX_CANDIDATES = 64
+PRODUCTION_STAGE1_RESTRICTED_MULTIPLIER = 1.15
+PRODUCTION_STAGE1_POOL_CAP_TOP_SHARE = 0.45
+PRODUCTION_SOLVER_TIME_LIMIT_SECONDS = 4.0
+PRODUCTION_SOLVER_MAX_SECONDS = 7.0
+PRODUCTION_TOTAL_SOLVER_SECONDS = 14.0
+PRODUCTION_SOLVER_RETRY_ATTEMPTS = 1
+PRODUCTION_SOLVER_WORKERS = 2
+
+
+def _default_environment_overrides() -> Dict[str, Dict[str, Any]]:
+    return {
+        "production": {
+            "stage1": {
+                "ML_shadow_enabled": True,
+                "ML_canary_enabled": True,
+                "max_candidates_per_slot": PRODUCTION_STAGE1_MAX_CANDIDATES,
+                "restricted_shortlist_multiplier": PRODUCTION_STAGE1_RESTRICTED_MULTIPLIER,
+                "pool_cap_top_share": PRODUCTION_STAGE1_POOL_CAP_TOP_SHARE,
+            },
+            "solver": {
+                "solver_time_limit_seconds": PRODUCTION_SOLVER_TIME_LIMIT_SECONDS,
+                "solver_max_seconds": PRODUCTION_SOLVER_MAX_SECONDS,
+                "total_solver_seconds": PRODUCTION_TOTAL_SOLVER_SECONDS,
+                "retry_attempts": PRODUCTION_SOLVER_RETRY_ATTEMPTS,
+                "solver_workers": PRODUCTION_SOLVER_WORKERS,
+            },
+            "sre": {
+                "canary_cohort_percent": PRODUCTION_CANARY_BOOTSTRAP_PERCENT,
+            },
+        }
+    }
 
 
 class NutritionPolicy(BaseModel):
@@ -202,7 +235,7 @@ class PlannerPolicyConfig(BaseModel):
     schema_version: str = POLICY_SCHEMA_VERSION
     policy_name: str = Field(default="default")
     environment_profile: str = Field(default="production")
-    environment_overrides: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    environment_overrides: Dict[str, Dict[str, Any]] = Field(default_factory=_default_environment_overrides)
 
     nutrition: NutritionPolicy = Field(default_factory=NutritionPolicy)
     planning: PlanningPolicy = Field(default_factory=PlanningPolicy)

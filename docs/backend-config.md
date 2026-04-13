@@ -14,6 +14,23 @@ Canonical schema files:
 - `shared-contracts/config_schemas/policy_config.v2.json` (primary)
 - `shared-contracts/config_schemas/policy_config.v1.json` (compat alias during migration)
 
+### Production Bootstrap Defaults
+
+The default production bootstrap now applies a conservative latency profile for small hosted instances.
+It keeps MILP/CP-SAT authoritative, but reduces search pressure before and during solve:
+
+- `stage1.max_candidates_per_slot = 64`
+- `stage1.restricted_shortlist_multiplier = 1.15`
+- `stage1.pool_cap_top_share = 0.45`
+- `solver.solver_time_limit_seconds = 4`
+- `solver.solver_max_seconds = 7`
+- `solver.total_solver_seconds = 14`
+- `solver.retry_attempts = 1`
+- `solver.solver_workers = 2`
+
+These values are bootstrap defaults for production-like environments, not a replacement for explicit operator tuning.
+Customized active policies should keep their explicit values.
+
 Top-level policy namespaces:
 - `nutrition`
 - `planning`

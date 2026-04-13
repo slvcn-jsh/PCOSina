@@ -17,6 +17,9 @@ def test_default_policy_is_strict_and_valid():
     assert policy.nutrition.calorie_max > policy.nutrition.calorie_min
     assert policy.planning.planning_horizon_days == 7
     assert policy.stage1.max_candidates_per_slot >= 10
+    production = policy.to_runtime_dict(environment="production")
+    assert production["stage1"]["max_candidates_per_slot"] <= policy.stage1.max_candidates_per_slot
+    assert production["solver"]["total_solver_seconds"] <= policy.solver.total_solver_seconds
 
 
 def test_policy_rejects_unsafe_override_flag():

@@ -201,36 +201,46 @@ class ProgressViewModel(
         }
         currentUserId = userId
         viewModelScope.launch {
-            var json = reflectionStore.getDailyLogsJson(userId)
-            if (json.isNullOrBlank()) {
-                val legacy = userPrefsRepository.getDailyLogsJson(userId).first()
-                if (!legacy.isNullOrBlank()) {
-                    reflectionStore.saveDailyLogsJson(userId, legacy)
-                    json = legacy
+            runCatching {
+                var json = reflectionStore.getDailyLogsJson(userId)
+                if (json.isNullOrBlank()) {
+                    val legacy = userPrefsRepository.getDailyLogsJson(userId).first()
+                    if (!legacy.isNullOrBlank()) {
+                        reflectionStore.saveDailyLogsJson(userId, legacy)
+                        json = legacy
+                    }
                 }
+                val list = parseDailyLogsSafely(json, gson)
+                _dailyLogs.value = list
+                    .sortedBy { it.timestamp }
+                    .associateBy { it.date }
+
+                val fq = userPrefsRepository.getFeedbackQueueJson(userId).first()
+                val entries = parseFeedbackEntriesSafely(fq, gson)
+                val normalized = entries.map { entry ->
+                    if (entry.status == "Sending") {
+                        entry.copy(status = "Queued", lastError = null)
+                    } else {
+                        entry
+                    }
+                }.filter { it.status != "Sent" }
+                _feedbackQueue.value = normalized
+
+                loadWeeklyJournal(weekStart, fallbackWeekStart)
+                loadWeeklySpend(weekStart, fallbackWeekStart)
+                val tags = userPrefsRepository.getPlanFeedbackTags(userId).first()
+                _planFeedbackTags.value = tags
+                fetchProgressUiPreferences()
+            }.onFailure { error ->
+                Log.e("ProgressViewModel", "Failed to load progress state safely.", error)
+                _dailyLogs.value = emptyMap()
+                _weeklyJournal.value = ""
+                _weeklySpend.value = null
+                _feedbackQueue.value = emptyList()
+                _planFeedbackTags.value = emptyList()
+                _savedProgressMode.value = "Today"
+                _savedAdvancedWeekAnalyticsExpanded.value = false
             }
-            val list = parseDailyLogsSafely(json, gson)
-            _dailyLogs.value = list
-                .sortedBy { it.timestamp }
-                .associateBy { it.date }
-
-            val fq = userPrefsRepository.getFeedbackQueueJson(userId).first()
-            val entries = parseFeedbackEntriesSafely(fq, gson)
-            // Drop already-sent entries to avoid stale queue items piling up
-            val normalized = entries.map { entry ->
-                if (entry.status == "Sending") {
-                    entry.copy(status = "Queued", lastError = null)
-                } else {
-                    entry
-                }
-            }.filter { it.status != "Sent" }
-            _feedbackQueue.value = normalized
-
-            loadWeeklyJournal(weekStart, fallbackWeekStart)
-            loadWeeklySpend(weekStart, fallbackWeekStart)
-            val tags = userPrefsRepository.getPlanFeedbackTags(userId).first()
-            _planFeedbackTags.value = tags
-            fetchProgressUiPreferences()
         }
     }
 
@@ -240,9 +250,15 @@ class ProgressViewModel(
             _savedAdvancedWeekAnalyticsExpanded.value = false
             return
         }
-        _savedProgressMode.value = userPrefsRepository.getProgressMode(currentUserId).first()
-        _savedAdvancedWeekAnalyticsExpanded.value =
-            userPrefsRepository.getProgressAdvancedAnalyticsExpanded(currentUserId).first()
+        runCatching {
+            _savedProgressMode.value = userPrefsRepository.getProgressMode(currentUserId).first()
+            _savedAdvancedWeekAnalyticsExpanded.value =
+                userPrefsRepository.getProgressAdvancedAnalyticsExpanded(currentUserId).first()
+        }.onFailure { error ->
+            Log.e("ProgressViewModel", "Failed to load saved progress UI preferences.", error)
+            _savedProgressMode.value = "Today"
+            _savedAdvancedWeekAnalyticsExpanded.value = false
+        }
     }
 
     fun loadProgressUiPreferences() {
@@ -274,54 +290,63 @@ class ProgressViewModel(
     fun loadWeeklyJournal(weekStart: String, fallbackWeekStart: String? = null) {
         if (currentUserId.isBlank()) return
         viewModelScope.launch {
-            val primary = reflectionStore.getWeeklyJournal(currentUserId, weekStart)
-            if (!primary.isNullOrBlank()) {
-                _weeklyJournal.value = primary
-                return@launch
-            }
-            val legacyPrimary = userPrefsRepository.getWeeklyJournal(currentUserId, weekStart).first()
-            if (!legacyPrimary.isNullOrBlank()) {
-                reflectionStore.saveWeeklyJournal(currentUserId, weekStart, legacyPrimary)
-                _weeklyJournal.value = legacyPrimary
-                return@launch
-            }
-            if (!fallbackWeekStart.isNullOrBlank() && fallbackWeekStart != weekStart) {
-                val fallback = reflectionStore.getWeeklyJournal(currentUserId, fallbackWeekStart)
-                if (!fallback.isNullOrBlank()) {
-                    _weeklyJournal.value = fallback
-                    // Migrate legacy week key forward for future loads
-                    reflectionStore.saveWeeklyJournal(currentUserId, weekStart, fallback)
+            runCatching {
+                val primary = reflectionStore.getWeeklyJournal(currentUserId, weekStart)
+                if (!primary.isNullOrBlank()) {
+                    _weeklyJournal.value = primary
                     return@launch
                 }
-                val legacyFallback = userPrefsRepository.getWeeklyJournal(currentUserId, fallbackWeekStart).first()
-                if (!legacyFallback.isNullOrBlank()) {
-                    reflectionStore.saveWeeklyJournal(currentUserId, fallbackWeekStart, legacyFallback)
-                    reflectionStore.saveWeeklyJournal(currentUserId, weekStart, legacyFallback)
-                    _weeklyJournal.value = legacyFallback
+                val legacyPrimary = userPrefsRepository.getWeeklyJournal(currentUserId, weekStart).first()
+                if (!legacyPrimary.isNullOrBlank()) {
+                    reflectionStore.saveWeeklyJournal(currentUserId, weekStart, legacyPrimary)
+                    _weeklyJournal.value = legacyPrimary
                     return@launch
                 }
+                if (!fallbackWeekStart.isNullOrBlank() && fallbackWeekStart != weekStart) {
+                    val fallback = reflectionStore.getWeeklyJournal(currentUserId, fallbackWeekStart)
+                    if (!fallback.isNullOrBlank()) {
+                        _weeklyJournal.value = fallback
+                        reflectionStore.saveWeeklyJournal(currentUserId, weekStart, fallback)
+                        return@launch
+                    }
+                    val legacyFallback = userPrefsRepository.getWeeklyJournal(currentUserId, fallbackWeekStart).first()
+                    if (!legacyFallback.isNullOrBlank()) {
+                        reflectionStore.saveWeeklyJournal(currentUserId, fallbackWeekStart, legacyFallback)
+                        reflectionStore.saveWeeklyJournal(currentUserId, weekStart, legacyFallback)
+                        _weeklyJournal.value = legacyFallback
+                        return@launch
+                    }
+                }
+                _weeklyJournal.value = ""
+            }.onFailure { error ->
+                Log.e("ProgressViewModel", "Failed to load weekly journal safely.", error)
+                _weeklyJournal.value = ""
             }
-            _weeklyJournal.value = ""
         }
     }
 
     fun loadWeeklySpend(weekStart: String, fallbackWeekStart: String? = null) {
         if (currentUserId.isBlank()) return
         viewModelScope.launch {
-            val primary = reflectionStore.getWeeklySpend(currentUserId, weekStart)
-            if (primary != null) {
-                _weeklySpend.value = primary
-                return@launch
-            }
-            if (!fallbackWeekStart.isNullOrBlank() && fallbackWeekStart != weekStart) {
-                val fallback = reflectionStore.getWeeklySpend(currentUserId, fallbackWeekStart)
-                if (fallback != null) {
-                    reflectionStore.saveWeeklySpend(currentUserId, weekStart, fallback)
-                    _weeklySpend.value = fallback
+            runCatching {
+                val primary = reflectionStore.getWeeklySpend(currentUserId, weekStart)
+                if (primary != null) {
+                    _weeklySpend.value = primary
                     return@launch
                 }
+                if (!fallbackWeekStart.isNullOrBlank() && fallbackWeekStart != weekStart) {
+                    val fallback = reflectionStore.getWeeklySpend(currentUserId, fallbackWeekStart)
+                    if (fallback != null) {
+                        reflectionStore.saveWeeklySpend(currentUserId, weekStart, fallback)
+                        _weeklySpend.value = fallback
+                        return@launch
+                    }
+                }
+                _weeklySpend.value = null
+            }.onFailure { error ->
+                Log.e("ProgressViewModel", "Failed to load weekly spend safely.", error)
+                _weeklySpend.value = null
             }
-            _weeklySpend.value = null
         }
     }
 

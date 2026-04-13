@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -128,21 +127,21 @@ fun ProgressScreen(
     val profile by userViewModel.userProfile.collectAsState()
     val adminMode by userViewModel.adminMode.collectAsState()
     val groceryItems by groceryViewModel.groceryItems.collectAsState()
-    var showConfidenceInfo by rememberSaveable { mutableStateOf(false) }
-    var showMacroInfo by rememberSaveable { mutableStateOf(false) }
-    var showSpendInfo by rememberSaveable { mutableStateOf(false) }
-    var showLowGiInfo by rememberSaveable { mutableStateOf(false) }
-    var showLockedInfo by rememberSaveable { mutableStateOf(false) }
-    var showLoggingPolicyInfo by rememberSaveable { mutableStateOf(false) }
-    var weekHistoryExpanded by rememberSaveable(collapseWeekHistoryOnCompact) {
+    var showConfidenceInfo by remember { mutableStateOf(false) }
+    var showMacroInfo by remember { mutableStateOf(false) }
+    var showSpendInfo by remember { mutableStateOf(false) }
+    var showLowGiInfo by remember { mutableStateOf(false) }
+    var showLockedInfo by remember { mutableStateOf(false) }
+    var showLoggingPolicyInfo by remember { mutableStateOf(false) }
+    var weekHistoryExpanded by remember(collapseWeekHistoryOnCompact) {
         mutableStateOf(!collapseWeekHistoryOnCompact)
     }
     var mealImpactSummary by remember { mutableStateOf<MealImpactSummary?>(null) }
     var impactDetailsExpanded by remember { mutableStateOf(false) }
     var showImpactSheet by remember { mutableStateOf(false) }
-    var dailyReflectionExpanded by rememberSaveable { mutableStateOf(false) }
-    var advancedWeekAnalyticsExpanded by rememberSaveable { mutableStateOf(false) }
-    var progressMode by rememberSaveable { mutableStateOf(ProgressMode.Today) }
+    var dailyReflectionExpanded by remember { mutableStateOf(false) }
+    var advancedWeekAnalyticsExpanded by remember { mutableStateOf(false) }
+    var progressMode by remember { mutableStateOf(ProgressMode.Today) }
     var mealCheckInPrompt by remember { mutableStateOf<ProgressMealCheckInPrompt?>(null) }
     val coroutineScope = rememberCoroutineScope()
     var progressFeedbackBanner by remember { mutableStateOf<FeedbackBannerData?>(null) }
@@ -182,7 +181,7 @@ fun ProgressScreen(
         weekStartDate(planTimestamp).format(DateTimeFormatter.ISO_LOCAL_DATE)
     }
 
-    var selectedDayIndex by rememberSaveable(weekStartKey) {
+    var selectedDayIndex by remember(weekStartKey) {
         mutableStateOf(initialSelectedDayIndex(weekStart))
     }
     val selectedDate = weekStart.plusDays(selectedDayIndex.toLong())
@@ -275,14 +274,14 @@ fun ProgressScreen(
         if (total <= 0f) 0f else ((startingWeight - latestWeight) / total).coerceIn(0f, 1f)
     } else null
 
-    var weightInput by rememberSaveable { mutableStateOf("") }
-    var weightNote by rememberSaveable { mutableStateOf("") }
-    var weeklySpendInput by rememberSaveable { mutableStateOf("") }
-    var energyLevel by rememberSaveable { mutableStateOf<Int?>(null) }
-    var cravingsLevel by rememberSaveable { mutableStateOf<Int?>(null) }
-    var moodLevel by rememberSaveable { mutableStateOf<Int?>(null) }
-    var symptomTags by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
-    var symptomNote by rememberSaveable { mutableStateOf("") }
+    var weightInput by remember { mutableStateOf("") }
+    var weightNote by remember { mutableStateOf("") }
+    var weeklySpendInput by remember { mutableStateOf("") }
+    var energyLevel by remember { mutableStateOf<Int?>(null) }
+    var cravingsLevel by remember { mutableStateOf<Int?>(null) }
+    var moodLevel by remember { mutableStateOf<Int?>(null) }
+    var symptomTags by remember { mutableStateOf<List<String>>(emptyList()) }
+    var symptomNote by remember { mutableStateOf("") }
     LaunchedEffect(logs, selectedDate, profile.weightUnit) {
         val key = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
         val log = logs[key]
@@ -304,12 +303,12 @@ fun ProgressScreen(
         weeklySpendInput = weeklySpend?.toString() ?: ""
     }
 
-    var journalText by rememberSaveable { mutableStateOf("") }
+    var journalText by remember { mutableStateOf("") }
     LaunchedEffect(weeklyJournal) {
         journalText = weeklyJournal
     }
 
-    var feedbackText by rememberSaveable { mutableStateOf("") }
+    var feedbackText by remember { mutableStateOf("") }
     val observedOnline by rememberIsOnline(context)
     val isOnline = onlineStateOverride ?: observedOnline
     val showWeightEntryAtTop = goalType == com.pcosina.app.domain.GoalType.WEIGHT_LOSS

@@ -10,7 +10,21 @@ from copy import deepcopy
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional
 
-from policy_config import POLICY_SCHEMA_VERSION, PlannerPolicyConfig, default_policy, load_policy
+from policy_config import (
+    POLICY_SCHEMA_VERSION,
+    PRODUCTION_CANARY_BOOTSTRAP_PERCENT,
+    PRODUCTION_SOLVER_MAX_SECONDS,
+    PRODUCTION_SOLVER_RETRY_ATTEMPTS,
+    PRODUCTION_SOLVER_TIME_LIMIT_SECONDS,
+    PRODUCTION_SOLVER_WORKERS,
+    PRODUCTION_STAGE1_MAX_CANDIDATES,
+    PRODUCTION_STAGE1_POOL_CAP_TOP_SHARE,
+    PRODUCTION_STAGE1_RESTRICTED_MULTIPLIER,
+    PRODUCTION_TOTAL_SOLVER_SECONDS,
+    PlannerPolicyConfig,
+    default_policy,
+    load_policy,
+)
 
 try:
     import psycopg
@@ -23,8 +37,6 @@ DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 DB_NAME = os.getenv("PCOSINA_DB_NAME", "pcosina.db").strip() or "pcosina.db"
 SCHEMA_MIGRATION_SCOPE = "policy"
 SCHEMA_BOOTSTRAP_LOCK_KEY = 2026032902
-PRODUCTION_CANARY_BOOTSTRAP_PERCENT = 5.0
-
 
 def _is_production_env() -> bool:
     return os.getenv("PCOSINA_ENV", "development").strip().lower() in ("prod", "production")
@@ -139,6 +151,16 @@ def _production_canary_bootstrap_overlay() -> Dict[str, Any]:
                 "stage1": {
                     "ML_shadow_enabled": True,
                     "ML_canary_enabled": True,
+                    "max_candidates_per_slot": int(PRODUCTION_STAGE1_MAX_CANDIDATES),
+                    "restricted_shortlist_multiplier": float(PRODUCTION_STAGE1_RESTRICTED_MULTIPLIER),
+                    "pool_cap_top_share": float(PRODUCTION_STAGE1_POOL_CAP_TOP_SHARE),
+                },
+                "solver": {
+                    "solver_time_limit_seconds": float(PRODUCTION_SOLVER_TIME_LIMIT_SECONDS),
+                    "solver_max_seconds": float(PRODUCTION_SOLVER_MAX_SECONDS),
+                    "total_solver_seconds": float(PRODUCTION_TOTAL_SOLVER_SECONDS),
+                    "retry_attempts": int(PRODUCTION_SOLVER_RETRY_ATTEMPTS),
+                    "solver_workers": int(PRODUCTION_SOLVER_WORKERS),
                 },
                 "sre": {
                     "canary_cohort_percent": float(PRODUCTION_CANARY_BOOTSTRAP_PERCENT),
@@ -151,18 +173,54 @@ def _production_canary_bootstrap_overlay() -> Dict[str, Any]:
 def _requires_production_canary_bootstrap(policy_payload: Dict[str, Any]) -> bool:
     validated = load_policy(policy_payload)
     resolved = validated.to_runtime_dict(environment="production")
+    raw_policy_name = str((policy_payload or {}).get("policy_name") or "").strip().lower()
     stage1 = resolved.get("stage1") if isinstance(resolved.get("stage1"), dict) else {}
     sre = resolved.get("sre") if isinstance(resolved.get("sre"), dict) else {}
+    solver = resolved.get("solver") if isinstance(resolved.get("solver"), dict) else {}
     try:
         canary_percent = float(sre.get("canary_cohort_percent"))
     except Exception:
         canary_percent = 0.0
-    return not (
+    canary_bootstrap_missing = not (
         bool(stage1.get("ML_shadow_enabled"))
         and bool(stage1.get("ML_canary_enabled"))
         and canary_percent == float(PRODUCTION_CANARY_BOOTSTRAP_PERCENT)
     )
-
+    if canary_bootstrap_missing:
+        return True
+    # Only auto-upgrade latency defaults when the active policy still resolves to the old
+    # bootstrap/runtime defaults. Customized policies should keep their explicit tuning.
+    should_bootstrap_latency = raw_policy_name == "default"
+    if not should_bootstrap_latency:
+        try:
+            should_bootstrap_latency = (
+                int(stage1.get("max_candidates_per_slot")) == 120
+                and float(stage1.get("restricted_shortlist_multiplier")) == 1.25
+                and float(stage1.get("pool_cap_top_share")) == 0.60
+                and float(solver.get("solver_time_limit_seconds")) == 6.0
+                and float(solver.get("solver_max_seconds")) == 12.0
+                and float(solver.get("total_solver_seconds")) == 25.0
+                and int(solver.get("retry_attempts")) == 2
+                and int(solver.get("solver_workers")) == 4
+            )
+        except Exception:
+            should_bootstrap_latency = False
+    if not should_bootstrap_latency:
+        return False
+    try:
+        return not (
+            int(stage1.get("max_candidates_per_slot")) == int(PRODUCTION_STAGE1_MAX_CANDIDATES)
+            and float(stage1.get("restricted_shortlist_multiplier")) == float(PRODUCTION_STAGE1_RESTRICTED_MULTIPLIER)
+            and float(stage1.get("pool_cap_top_share")) == float(PRODUCTION_STAGE1_POOL_CAP_TOP_SHARE)
+            and float(solver.get("solver_time_limit_seconds")) == float(PRODUCTION_SOLVER_TIME_LIMIT_SECONDS)
+            and float(solver.get("solver_max_seconds")) == float(PRODUCTION_SOLVER_MAX_SECONDS)
+            and float(solver.get("total_solver_seconds")) == float(PRODUCTION_TOTAL_SOLVER_SECONDS)
+            and int(solver.get("retry_attempts")) == int(PRODUCTION_SOLVER_RETRY_ATTEMPTS)
+            and int(solver.get("solver_workers")) == int(PRODUCTION_SOLVER_WORKERS)
+        )
+    except Exception:
+        return True
+ 
 
 def _apply_production_canary_bootstrap(policy_payload: Dict[str, Any]) -> Dict[str, Any]:
     upgraded = deepcopy(load_policy(policy_payload).to_runtime_dict())

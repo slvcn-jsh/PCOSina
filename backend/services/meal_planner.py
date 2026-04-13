@@ -1,4 +1,5 @@
 from typing import List, Optional, Dict, Any
+from datetime import date, timedelta
 import json
 import hashlib
 import os
@@ -272,14 +273,36 @@ def infer_protein_group(ing_tokens: List[str]) -> str:
     return "other"
 
 
-def estimate_cost(recipe: Dict[str, Any]) -> int:
+def household_size_multiplier(profile: UserProfile) -> int:
+    raw = int(getattr(profile, "householdSize", 1) or 1)
+    return max(1, min(raw, 6))
+
+
+def build_plan_day_labels(num_days: int, start_date_text: Optional[str] = None) -> List[str]:
+    fallback = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    normalized_days = max(1, int(num_days or 0))
+    start_value = str(start_date_text or "").strip()
+    if not start_value:
+        return [fallback[d] if d < 7 else f"Day {d + 1}" for d in range(normalized_days)]
+    try:
+        start_date = date.fromisoformat(start_value)
+    except ValueError:
+        return [fallback[d] if d < 7 else f"Day {d + 1}" for d in range(normalized_days)]
+    return [
+        (start_date + timedelta(days=d)).strftime("%a")
+        if d < 7 else f"Day {d + 1}"
+        for d in range(normalized_days)
+    ]
+
+
+def estimate_cost(recipe: Dict[str, Any], household_size: int = 1) -> int:
     ings = recipe.get("ingredients", [])
     catalog_cost = estimate_recipe_cost(ings)
     if catalog_cost > 0:
-        return catalog_cost
+        return int(max(1, catalog_cost * max(1, household_size)))
     cal = recipe.get("calories") or 0
     rough = (len(ings) * 6) + (cal * 0.15)
-    return int(max(30, min(450, rough)))
+    return int(max(30, min(450, rough)) * max(1, household_size))
 
 
 def _base_score(recipe: Dict[str, Any]) -> float:
@@ -569,6 +592,7 @@ def shortlist_candidates(
     budget_keep_min_count = int(_policy_get(policy, "stage1.budget_keep_min_count", 10))
     budget_keep_min_ratio = float(_policy_get(policy, "stage1.budget_keep_min_ratio", 0.25))
     pantry_match_threshold = int(_policy_get(policy, "stage1.pantry_match_threshold", 0))
+    household_size = household_size_multiplier(profile)
     for r in recipes:
         tags = infer_tags(r)
         ing_tokens = normalize_ingredients(r.get("ingredients", []))
@@ -579,7 +603,7 @@ def shortlist_candidates(
             continue
         r["_tags"] = tags
         r["_ing_tokens"] = ing_tokens
-        r["_cost_est"] = estimate_cost(r)
+        r["_cost_est"] = estimate_cost(r, household_size=household_size)
         r["_protein_group"] = infer_protein_group(ing_tokens)
         r["_veg_tokens"] = infer_veg_tokens(ing_tokens)
         r["_allowed_meals"] = infer_allowed_meals(r.get("mealType"))
@@ -653,14 +677,14 @@ def build_swap_candidates(
         profile.varietyPreference,
     )
     baseline_repeat_limit = min(repeat_limit_candidates) if repeat_limit_candidates else 2
-    observed_repeat_limit = max(current_counts.values(), default=baseline_repeat_limit)
-    max_repeat_limit = min(max(repeat_limit_candidates or [baseline_repeat_limit]), observed_repeat_limit)
+    max_repeat_limit = max(repeat_limit_candidates or [baseline_repeat_limit])
 
     budget_weekly = resolve_budget_weekly(profile)
+    household_size = household_size_multiplier(profile)
     current_total_cost = 0.0
     if budget_weekly:
         current_total_cost = sum(
-            float(estimate_cost(recipe))
+            float(estimate_cost(recipe, household_size=household_size))
             for recipe in recipes
             for _ in range(current_counts.get(str(recipe.get("id") or ""), 0))
         )
@@ -680,11 +704,17 @@ def build_swap_candidates(
             if current_recipe_id:
                 current_recipe_cost = float(
                     next(
-                        (estimate_cost(item) for item in recipes if str(item.get("id") or "") == str(current_recipe_id)),
+                        (
+                            estimate_cost(item, household_size=household_size)
+                            for item in recipes
+                            if str(item.get("id") or "") == str(current_recipe_id)
+                        ),
                         0.0,
                     )
                 )
-            candidate_total_cost = current_total_cost - current_recipe_cost + float(recipe.get("_cost_est") or estimate_cost(recipe))
+            candidate_total_cost = current_total_cost - current_recipe_cost + float(
+                recipe.get("_cost_est") or estimate_cost(recipe, household_size=household_size)
+            )
             if candidate_total_cost > float(budget_weekly):
                 continue
 
@@ -928,7 +958,7 @@ def _greedy_fallback_plan(
     res_plan: List[DayPlan] = []
     usage = [0] * len(pool)
     prev_idx = None
-    day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    day_names = build_plan_day_labels(num_days)
     meals_per_day = max(1, len(slot_labels))
     for d in range(num_days):
         meals = []
@@ -960,7 +990,7 @@ def _greedy_fallback_plan(
             selected.append(r)
             meals.append(PlannedMeal(mealLabel=label, recipeId=r["id"], title=r["title"]))
             total += int(r.get("calories", 0))
-        res_plan.append(DayPlan(dayLabel=day_names[d] if d < 7 else f"Day {d + 1}", meals=meals, totalCalories=total))
+        res_plan.append(DayPlan(dayLabel=day_names[d], meals=meals, totalCalories=total))
     return res_plan, selected
 
 
@@ -1468,7 +1498,7 @@ def solve_meal_plan(
 
         if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
             res_plan = []
-            day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            day_names = build_plan_day_labels(num_days, getattr(request, "startDate", None))
             selected = []
             for d in range(num_days):
                 meals = []
@@ -1482,7 +1512,7 @@ def solve_meal_plan(
                             meals.append(PlannedMeal(mealLabel=slot_labels[m], recipeId=r["id"], title=r["title"]))
                             total += int(r.get("calories", 0))
                             break
-                res_plan.append(DayPlan(dayLabel=day_names[d] if d < 7 else f"Day {d + 1}", meals=meals, totalCalories=total))
+                res_plan.append(DayPlan(dayLabel=day_names[d], meals=meals, totalCalories=total))
             explanation = _build_explanation(
                 selected,
                 num_days,

@@ -217,6 +217,7 @@ class GeneratePlanRequest(BaseModel):
     profile: UserProfile
     days: int = 7
     mealsPerDay: int = 3
+    startDate: Optional[str] = None
 
 
 class SwapOptionsRequest(BaseModel):

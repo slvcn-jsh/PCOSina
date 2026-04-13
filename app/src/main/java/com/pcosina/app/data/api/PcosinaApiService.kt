@@ -22,7 +22,8 @@ data class DayPlanDto(
 data class GeneratePlanRequest(
     val profile: UserProfile,
     val days: Int = 7,
-    val mealsPerDay: Int = 3
+    val mealsPerDay: Int = 3,
+    val startDate: String? = null
 )
 
 data class SwapOptionsRequestDto(

@@ -35,6 +35,12 @@ def test_resolve_budget_weekly_prefers_weekly_php():
     assert meal_planner.resolve_budget_weekly(profile) == 3000.0
 
 
+def test_build_plan_day_labels_respects_start_date_anchor():
+    labels = meal_planner.build_plan_day_labels(7, "2026-04-10")
+
+    assert labels == ["Fri", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu"]
+
+
 def test_allergy_filter_blocks_recipe():
     profile = UserProfile(allergies=["peanut"])
     recipes = [
@@ -116,6 +122,11 @@ def test_build_swap_candidates_blocks_current_recipe_and_repetition_overflow():
         current_recipe_id="b_current",
         active_recipe_ids=["b_current", "b_repeat", "b_repeat"],
         limit=10,
+        policy={
+            "planning": {
+                "recipe_repeat_limits": [2],
+            }
+        },
     )
 
     assert [recipe["id"] for recipe in swaps] == ["b_safe"]
@@ -193,6 +204,101 @@ def test_build_swap_candidates_respects_budget_and_restrictions():
     )
 
     assert [recipe["id"] for recipe in swaps] == ["l_safe"]
+
+
+def test_shortlist_candidates_scales_cost_estimates_for_households():
+    profile = UserProfile(
+        householdSize=4,
+        pantryItems=["rice"],
+        maxCookingTimeMinutes=45,
+    )
+    recipe = {
+        "id": "l_family",
+        "title": "Family Lunch",
+        "mealType": "Lunch",
+        "calories": 520,
+        "proteinGrams": 24,
+        "carbsGrams": 52,
+        "fatsGrams": 14,
+        "fiberGrams": 6,
+        "minutes": 20,
+        "ingredients": [{"name": "rice", "quantity": "1 cup"}],
+        "tags": [],
+    }
+
+    buckets = meal_planner.shortlist_candidates(profile, [recipe])
+    shortlisted = buckets["Lunch"]
+
+    assert len(shortlisted) == 1
+    assert shortlisted[0]["_cost_est"] == meal_planner.estimate_cost(recipe, household_size=4)
+
+
+def test_build_swap_candidates_allows_repeats_up_to_policy_limit():
+    profile = UserProfile(
+        varietyPreference="High",
+        pantryItems=["egg", "oats", "banana"],
+        maxCookingTimeMinutes=45,
+    )
+    recipes = [
+        {
+            "id": "b_current",
+            "title": "Current Breakfast",
+            "mealType": "Breakfast",
+            "calories": 430,
+            "proteinGrams": 24,
+            "carbsGrams": 36,
+            "fatsGrams": 12,
+            "fiberGrams": 6,
+            "minutes": 10,
+            "ingredients": [{"name": "egg", "quantity": "2 pcs"}],
+            "tags": [],
+        },
+        {
+            "id": "b_repeat_once",
+            "title": "Seen Once Already",
+            "mealType": "Breakfast",
+            "calories": 410,
+            "proteinGrams": 20,
+            "carbsGrams": 41,
+            "fatsGrams": 10,
+            "fiberGrams": 8,
+            "minutes": 12,
+            "ingredients": [{"name": "oats", "quantity": "1 cup"}],
+            "tags": [],
+        },
+        {
+            "id": "b_fresh",
+            "title": "Fresh Breakfast Swap",
+            "mealType": "Breakfast",
+            "calories": 440,
+            "proteinGrams": 22,
+            "carbsGrams": 39,
+            "fatsGrams": 13,
+            "fiberGrams": 7,
+            "minutes": 15,
+            "ingredients": [{"name": "banana", "quantity": "1 pc"}],
+            "tags": [],
+        },
+    ]
+    policy = {
+        "planning": {
+            "recipe_repeat_limits": [2],
+        }
+    }
+
+    swaps = meal_planner.build_swap_candidates(
+        profile,
+        recipes,
+        meal_label="Breakfast",
+        current_recipe_id="b_current",
+        active_recipe_ids=["b_current", "b_repeat_once"],
+        limit=10,
+        policy=policy,
+    )
+
+    swap_ids = {recipe["id"] for recipe in swaps}
+    assert "b_repeat_once" in swap_ids
+    assert "b_fresh" in swap_ids
 
 
 def test_solve_meal_plan_emits_telemetry_snapshot():

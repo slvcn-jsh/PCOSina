@@ -70,11 +70,8 @@ import com.pcosina.app.data.api.RecipeSummaryDto
 import com.pcosina.app.data.model.GroceryItemSource
 import kotlinx.coroutines.launch
 import java.util.Locale
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.time.temporal.TemporalAdjusters
-import java.time.temporal.WeekFields
 
 private data class SwapTarget(
     val dayIndex: Int,
@@ -180,12 +177,18 @@ fun MealPlanScreen(
     val weekChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 108.dp, medium = 164.dp)
     val dayChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 102.dp, medium = 152.dp)
     val weekStartDate = remember(activeWeekStart) {
-        val base = activeWeekStart?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        activeWeekStart?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
             ?: LocalDate.now()
-        val firstDay = WeekFields.of(Locale.getDefault()).firstDayOfWeek
-        base.with(TemporalAdjusters.previousOrSame(firstDay))
     }
-    val dayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+    val dayLabels = remember(currentPlan?.days, weekStartDate) {
+        currentPlan?.days
+            ?.map { it.dayLabel.trim().takeIf(String::isNotBlank) ?: "Day" }
+            ?.takeIf { it.isNotEmpty() }
+            ?: (0..6).map { offset ->
+                weekStartDate.plusDays(offset.toLong())
+                    .format(DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH))
+            }
+    }
     var selectedDayAnchor by rememberSaveable { mutableStateOf<String?>(null) }
     val householdLabel = remember(userProfile.householdSize) {
         householdSizeLabel(userProfile.householdSize)
@@ -485,18 +488,13 @@ fun MealPlanScreen(
     LaunchedEffect(activePlanId) {
         activePlanId?.let { mealPlanViewModel.markWeekReviewed(it) }
     }
-    LaunchedEffect(activePlanId, currentPlan?.weekLabel) {
+    LaunchedEffect(activePlanId, currentPlan?.weekLabel, activeWeekStart, dayLabels) {
         val anchor = activePlanId ?: currentPlan?.weekLabel
         if (anchor != null && anchor != selectedDayAnchor) {
-            selectedDayIndex = when (LocalDate.now().dayOfWeek) {
-                DayOfWeek.MONDAY -> 0
-                DayOfWeek.TUESDAY -> 1
-                DayOfWeek.WEDNESDAY -> 2
-                DayOfWeek.THURSDAY -> 3
-                DayOfWeek.FRIDAY -> 4
-                DayOfWeek.SATURDAY -> 5
-                DayOfWeek.SUNDAY -> 6
-            }
+            val todayOffset = java.time.temporal.ChronoUnit.DAYS
+                .between(weekStartDate, LocalDate.now())
+                .toInt()
+            selectedDayIndex = todayOffset.coerceIn(0, (dayLabels.size - 1).coerceAtLeast(0))
             selectedDayAnchor = anchor
         } else if (anchor == null && selectedDayAnchor != null) {
             selectedDayIndex = 0
@@ -734,9 +732,8 @@ fun MealPlanScreen(
             }
             is MealPlanUiState.Success -> {
                 val plan = state.response
-                val planByLabel = plan.days.associateBy { it.dayLabel.lowercase(Locale.ENGLISH) }
                 val selectedLabel = dayLabels.getOrNull(selectedDayIndex) ?: "Mon"
-                val selectedDay = planByLabel[selectedLabel.lowercase(Locale.ENGLISH)]
+                val selectedDay = plan.days.getOrNull(selectedDayIndex)
                 val explanation = plan.explanation
                 val selectedMeals = selectedDay?.meals.orEmpty()
                 val selectedDayLabel = selectedDay?.dayLabel ?: selectedLabel
@@ -1134,7 +1131,6 @@ fun MealPlanScreen(
 
                         if (explanation != null) {
                             val projectedHouseholdCost = explanation.estimatedWeeklyCost
-                                ?.times(userProfile.householdSize.coerceIn(1, 6))
                             Spacer(Modifier.height(12.dp))
                             Card(
                                 shape = MaterialTheme.shapes.extraLarge,
@@ -1365,7 +1361,7 @@ fun MealPlanScreen(
                                     modifier = Modifier.testTag("mealplan_day_position_label")
                                 )
                                 Text(
-                                    text = "Swipe left/right or use arrows to view all days (Sat-Sun included).",
+                                    text = "Move through your 7-day plan with the arrows or day chips.",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = colorScheme.onSurfaceVariant
                                 )
@@ -1374,23 +1370,25 @@ fun MealPlanScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     if (todayIndex >= 0 && selectedDayIndex != todayIndex) {
-                                        TextButton(onClick = {
-                                            selectedDayIndex = todayIndex
-                                            Log.i("MealPlanUX", "Jump to Today tapped index=$todayIndex")
-                                        }) {
-                                            Text("Jump to Today ($todayLabel)")
-                                        }
+                                        AssistChip(
+                                            onClick = {
+                                                selectedDayIndex = todayIndex
+                                                Log.i("MealPlanUX", "Jump to Today tapped index=$todayIndex")
+                                            },
+                                            label = { Text("Today") }
+                                        )
                                     }
                                     if (weekendStartIndex >= 0 && selectedDayIndex < weekendStartIndex) {
-                                        TextButton(onClick = {
-                                            selectedDayIndex = weekendStartIndex
-                                            Log.i(
-                                                "MealPlanUX",
-                                                "Jump to weekend tapped index=$weekendStartIndex"
-                                            )
-                                        }) {
-                                            Text("Jump to Weekend (Sat)")
-                                        }
+                                        AssistChip(
+                                            onClick = {
+                                                selectedDayIndex = weekendStartIndex
+                                                Log.i(
+                                                    "MealPlanUX",
+                                                    "Jump to weekend tapped index=$weekendStartIndex"
+                                                )
+                                            },
+                                            label = { Text("Weekend") }
+                                        )
                                     }
                                 }
                             }
@@ -1799,6 +1797,7 @@ fun MealPlanScreen(
                                                             )
                                                         }
                                                     } else {
+                                                        groceryViewModel.replaceMealItems(mealId, emptyList())
                                                         postMealPlanFeedback(
                                                             tone = FeedbackBannerTone.Success,
                                                             message = "Swapped ${target.mealLabel}: ${target.mealTitle} -> ${option.title}. Grocery details will update when ingredient data is available."

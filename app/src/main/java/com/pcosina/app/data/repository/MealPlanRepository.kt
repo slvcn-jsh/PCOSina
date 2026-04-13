@@ -24,6 +24,8 @@ import java.io.IOException
 import java.net.InetAddress
 import java.net.URI
 import java.net.UnknownHostException
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
 class MealPlanRepository {
@@ -163,7 +165,10 @@ class MealPlanRepository {
     suspend fun generatePlan(profile: UserProfile): Result<GeneratePlanResponse> {
         return try {
             validateGeneratePlanProfile(profile)
-            val request = GeneratePlanRequest(profile)
+            val request = GeneratePlanRequest(
+                profile = profile,
+                startDate = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+            )
             val response = try {
                 val queued = apiService.generatePlanAsync(request)
                 awaitQueuedPlan(queued.jobId)

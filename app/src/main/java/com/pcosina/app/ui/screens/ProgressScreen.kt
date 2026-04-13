@@ -84,10 +84,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.temporal.TemporalAdjusters
-import java.time.temporal.WeekFields
 import java.time.temporal.ChronoUnit
-import java.time.DayOfWeek
 import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
@@ -140,9 +137,9 @@ fun ProgressScreen(
     var weekHistoryExpanded by rememberSaveable(collapseWeekHistoryOnCompact) {
         mutableStateOf(!collapseWeekHistoryOnCompact)
     }
-    var mealImpactSummary by rememberSaveable { mutableStateOf<MealImpactSummary?>(null) }
-    var impactDetailsExpanded by rememberSaveable { mutableStateOf(false) }
-    var showImpactSheet by rememberSaveable { mutableStateOf(false) }
+    var mealImpactSummary by remember { mutableStateOf<MealImpactSummary?>(null) }
+    var impactDetailsExpanded by remember { mutableStateOf(false) }
+    var showImpactSheet by remember { mutableStateOf(false) }
     var dailyReflectionExpanded by rememberSaveable { mutableStateOf(false) }
     var advancedWeekAnalyticsExpanded by rememberSaveable { mutableStateOf(false) }
     var progressMode by rememberSaveable { mutableStateOf(ProgressMode.Today) }
@@ -182,9 +179,7 @@ fun ProgressScreen(
     val weekLabel = remember(weekStart) { weekLabelFor(weekStart) }
     val weekStartKey = weekStart.format(DateTimeFormatter.ISO_LOCAL_DATE)
     val fallbackWeekStartKey = remember(planTimestamp) {
-        val primaryStart = WeekFields.of(Locale.getDefault()).firstDayOfWeek
-        val fallbackStart = if (primaryStart == DayOfWeek.SUNDAY) DayOfWeek.MONDAY else DayOfWeek.SUNDAY
-        weekStartDate(planTimestamp, fallbackStart).format(DateTimeFormatter.ISO_LOCAL_DATE)
+        weekStartDate(planTimestamp).format(DateTimeFormatter.ISO_LOCAL_DATE)
     }
 
     var selectedDayIndex by rememberSaveable(weekStartKey) {
@@ -399,7 +394,6 @@ fun ProgressScreen(
     val sundayCompletedCount = sundaySnapshot.completedCount
     val sundayComplete = sundaySnapshot.plannedCount > 0 && sundaySnapshot.completedCount >= sundaySnapshot.plannedCount
     val projectedWeeklyCost = planExplanation?.estimatedWeeklyCost
-        ?.times(profile.householdSize.coerceIn(1, 6))
     val budgetTarget = planExplanation?.budgetWeekly?.toInt()
         ?: profile.weeklyBudgetPhp.takeIf { it > 0 }
     fun parseCurrencyInput(raw: String): Int? {
@@ -1391,7 +1385,6 @@ fun ProgressScreen(
 
         if (planExplanation != null) {
             val projectedHouseholdCost = planExplanation.estimatedWeeklyCost
-                ?.times(profile.householdSize.coerceIn(1, 6))
             item {
                 ExpandableSection(
                     title = if (adminMode) "Plan Explanation" else "Week highlights",
@@ -3130,13 +3123,10 @@ private fun initialSelectedDayIndex(weekStart: LocalDate): Int {
     return todayOffset.coerceIn(0, 6)
 }
 
-private fun weekStartDate(
-    timestamp: Long?,
-    firstDay: DayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek
-): LocalDate {
+private fun weekStartDate(timestamp: Long?): LocalDate {
     val zone = ZoneId.systemDefault()
     val base = if (timestamp != null) Instant.ofEpochMilli(timestamp).atZone(zone).toLocalDate() else LocalDate.now()
-    return base.with(TemporalAdjusters.previousOrSame(firstDay))
+    return base
 }
 
 private fun weekLabelFor(start: LocalDate): String {

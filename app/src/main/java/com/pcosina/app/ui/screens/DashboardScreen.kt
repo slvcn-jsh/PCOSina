@@ -556,7 +556,7 @@ fun DashboardScreen(
                         )
                         val avgKcal = planExplanation?.avgCalories ?: 0
                         val householdLabel = householdSizeLabel(profile.householdSize)
-                        val estCost = planExplanation?.estimatedWeeklyCost?.times(profile.householdSize.coerceIn(1, 6))
+                        val estCost = planExplanation?.estimatedWeeklyCost
                         Text(
                             text = "Planned meals: ${if (hasPlan) 21 else 0} • Avg kcal/day: ${if (avgKcal > 0) avgKcal else "—"}",
                             style = MaterialTheme.typography.bodySmall,

@@ -27,11 +27,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.time.temporal.TemporalAdjusters
-import java.time.temporal.WeekFields
 import java.util.Locale
 
 sealed class MealPlanUiState {
@@ -123,15 +120,16 @@ class MealPlanViewModel(
                 if (!savedJson.isNullOrBlank()) {
                     try {
                         val response = gson.fromJson(savedJson, GeneratePlanResponse::class.java)
-                        val start = weekStartDate(savedTimestamp)
+                        val generatedAt = if (savedTimestamp > 0) savedTimestamp else System.currentTimeMillis()
+                        val start = weekStartDate(generatedAt)
                         val end = start.plusDays(6)
                         val id = start.format(DateTimeFormatter.ISO_LOCAL_DATE)
                         val instance = PlanInstance(
                             id = id,
                             weekStart = id,
                             weekEnd = end.format(DateTimeFormatter.ISO_LOCAL_DATE),
-                            generatedAt = if (savedTimestamp > 0) savedTimestamp else System.currentTimeMillis(),
-                            response = normalizeResponse(response.copy(weekLabel = weekLabelFor(start)))
+                            generatedAt = generatedAt,
+                            response = normalizeResponse(response.copy(weekLabel = weekLabelFor(start)), start)
                         )
                         history = listOf(instance)
                         savePlanHistory(history)
@@ -141,7 +139,10 @@ class MealPlanViewModel(
                     }
                 }
             }
-            val normalizedHistory = history.map { it.copy(response = normalizeResponse(it.response)) }
+            val normalizedHistory = history.map { plan ->
+                val start = parsePlanDate(plan.weekStart) ?: weekStartDate(plan.generatedAt)
+                plan.copy(response = normalizeResponse(plan.response, start))
+            }
             if (normalizedHistory != history) {
                 savePlanHistory(normalizedHistory)
             }
@@ -149,14 +150,15 @@ class MealPlanViewModel(
             val activeId = userPrefsRepository.getActivePlanId(userId).first()
             val reviewed = userPrefsRepository.getLastReviewedWeek(userId).first()
             _lastReviewedWeek.value = reviewed
-            val currentWeekId = weekStartDate(System.currentTimeMillis()).format(DateTimeFormatter.ISO_LOCAL_DATE)
+            val today = LocalDate.now()
+            val currentPlan = normalizedHistory.firstOrNull { containsDate(it, today) }
             val active = when {
-                normalizedHistory.any { it.id == currentWeekId } -> normalizedHistory.first { it.id == currentWeekId }
+                currentPlan != null -> currentPlan
                 !activeId.isNullOrBlank() -> normalizedHistory.firstOrNull { it.id == activeId }
                 else -> normalizedHistory.maxByOrNull { it.generatedAt }
             }
             val expired = active?.let { isExpired(it) } ?: false
-            _planExpired.value = expired && (normalizedHistory.none { it.id == currentWeekId })
+            _planExpired.value = expired && normalizedHistory.none { containsDate(it, today) }
             _activePlanId.value = active?.id
             _activeWeekStart.value = active?.weekStart
             _activeWeekEnd.value = active?.weekEnd
@@ -257,7 +259,7 @@ class MealPlanViewModel(
                 val start = weekStartDate(now)
                 val end = start.plusDays(6)
                 val id = start.format(DateTimeFormatter.ISO_LOCAL_DATE)
-                val withLabel = normalizeResponse(response.copy(weekLabel = weekLabelFor(start)))
+                val withLabel = normalizeResponse(response.copy(weekLabel = weekLabelFor(start)), start)
                 val instance = PlanInstance(
                     id = id,
                     weekStart = id,
@@ -589,7 +591,7 @@ class MealPlanViewModel(
         _activePlanId.value = active.id
         _activeWeekStart.value = active.weekStart
         _activeWeekEnd.value = active.weekEnd
-        _planExpired.value = isExpired(active) && (history.none { it.id == weekStartDate(System.currentTimeMillis()).format(DateTimeFormatter.ISO_LOCAL_DATE) })
+        _planExpired.value = isExpired(active) && history.none { containsDate(it, LocalDate.now()) }
         _uiState.value = MealPlanUiState.Success(active.response, active.generatedAt)
         calculateMetrics(active.response)
         viewModelScope.launch {
@@ -604,7 +606,8 @@ class MealPlanViewModel(
             Pair("Lunch", "Demo Chicken Tinola"),
             Pair("Dinner", "Demo Veggie Stir-fry")
         )
-        val days = dayOrder.mapIndexed { idx, label ->
+        val start = weekStartDate(System.currentTimeMillis())
+        val days = orderedDayLabels(start).mapIndexed { idx, label ->
             val plannedMeals = meals.mapIndexed { mIndex, (mealLabel, title) ->
                 com.pcosina.app.data.api.PlannedMealDto(
                     mealLabel = mealLabel,
@@ -629,7 +632,7 @@ class MealPlanViewModel(
             pantryMatches = profile.pantryItems.size.takeIf { it > 0 } ?: 0
         )
         return GeneratePlanResponse(
-            weekLabel = weekLabelFor(weekStartDate(System.currentTimeMillis())),
+            weekLabel = weekLabelFor(start),
             days = days,
             status = "demo",
             message = "Demo plan generated locally.",
@@ -672,7 +675,7 @@ class MealPlanViewModel(
         )
         return base.copy(
             weekLabel = weekLabelFor(start),
-            days = normalizeResponse(base.copy(days = adjustedDays)).days,
+            days = normalizeResponse(base.copy(days = adjustedDays), start).days,
             explanation = explanation
         )
     }
@@ -726,9 +729,9 @@ class MealPlanViewModel(
     }
 
     private fun weekStartDate(timestamp: Long): LocalDate {
-        val date = java.time.Instant.ofEpochMilli(timestamp).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-        val firstDay = WeekFields.of(Locale.getDefault()).firstDayOfWeek
-        return date.with(TemporalAdjusters.previousOrSame(firstDay))
+        return java.time.Instant.ofEpochMilli(timestamp)
+            .atZone(java.time.ZoneId.systemDefault())
+            .toLocalDate()
     }
 
     private fun weekLabelFor(start: LocalDate): String {
@@ -740,6 +743,29 @@ class MealPlanViewModel(
         } else {
             "${start.format(fmtYear)} – ${end.format(fmtYear)}"
         }
+    }
+
+    private fun orderedDayLabels(start: LocalDate): List<String> =
+        (0..6).map { offset ->
+            start.plusDays(offset.toLong()).format(DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH))
+        }
+
+    private fun rotatedDayOrder(startLabel: String): List<String> {
+        val canonical = canonicalDayLabel(startLabel) ?: return dayOrder
+        val startIndex = dayOrder.indexOf(canonical)
+        if (startIndex < 0) return dayOrder
+        return dayOrder.drop(startIndex) + dayOrder.take(startIndex)
+    }
+
+    private fun parsePlanDate(raw: String?): LocalDate? =
+        raw?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { LocalDate.parse(it, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull() }
+
+    private fun containsDate(plan: PlanInstance, date: LocalDate): Boolean {
+        val start = parsePlanDate(plan.weekStart) ?: return false
+        val end = parsePlanDate(plan.weekEnd) ?: start.plusDays(6)
+        return !date.isBefore(start) && !date.isAfter(end)
     }
 
     private suspend fun loadPlanHistory(userId: String): List<PlanInstance> {
@@ -770,7 +796,9 @@ class MealPlanViewModel(
 
     private fun updateActivePlanResponse(updated: GeneratePlanResponse) {
         val activeId = _activePlanId.value ?: return
-        val normalized = normalizeResponse(updated)
+        val activeStart = _activeWeekStart.value?.let(::parsePlanDate)
+            ?: _planHistory.value.firstOrNull { it.id == activeId }?.weekStart?.let(::parsePlanDate)
+        val normalized = normalizeResponse(updated, activeStart)
         val updatedHistory = _planHistory.value.map { plan ->
             if (plan.id == activeId) plan.copy(response = normalized) else plan
         }
@@ -778,12 +806,20 @@ class MealPlanViewModel(
         savePlanHistory(updatedHistory)
     }
 
-    private fun normalizeResponse(response: GeneratePlanResponse): GeneratePlanResponse {
+    private fun normalizeResponse(
+        response: GeneratePlanResponse,
+        startDate: LocalDate? = null
+    ): GeneratePlanResponse {
         val byCanonical = response.days.mapNotNull { day ->
             val canonical = canonicalDayLabel(day.dayLabel) ?: return@mapNotNull null
             canonical to day.copy(dayLabel = canonical)
         }.toMap()
-        val normalized = dayOrder.map { label ->
+        val orderedLabels = when {
+            startDate != null -> orderedDayLabels(startDate)
+            response.days.isNotEmpty() -> rotatedDayOrder(response.days.first().dayLabel)
+            else -> dayOrder
+        }
+        val normalized = orderedLabels.map { label ->
             byCanonical[label] ?: DayPlanDto(label, emptyList(), 0)
         }
         return response.copy(days = normalized)

@@ -383,7 +383,7 @@ fun RecipeDetailsScreen(
                 val items = r.ingredients.map {
                     DummyData.GroceryItem(
                         it.name,
-                        scaleQuantityText(it.quantity, safeHouseholdSize),
+                        it.quantity,
                         0,
                         "Needed"
                     )

@@ -289,7 +289,7 @@ def build_plan_day_labels(num_days: int, start_date_text: Optional[str] = None) 
     except ValueError:
         return [fallback[d] if d < 7 else f"Day {d + 1}" for d in range(normalized_days)]
     return [
-        (start_date + timedelta(days=d)).strftime("%a")
+        fallback[(start_date.weekday() + d) % 7]
         if d < 7 else f"Day {d + 1}"
         for d in range(normalized_days)
     ]

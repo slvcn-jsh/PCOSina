@@ -615,13 +615,13 @@ fun MealPlanScreen(
                         CircularProgressIndicator(color = colorScheme.primary)
                         Spacer(Modifier.height(16.dp))
                         Text(
-                            "MILP Engine is optimizing…",
+                            "Building your 7-day plan…",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = colorScheme.secondary
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "First run can take up to ~30s. Please keep the app open.",
+                            text = "This can take a few minutes on the current server setup. Please keep the app open.",
                             color = colorScheme.onSurfaceVariant,
                             fontSize = 12.sp
                         )

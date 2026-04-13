@@ -32,6 +32,25 @@ class PlanAnchoringPolicyTest {
     }
 
     @Test
+    fun mealPlanViewModel_anchorsFreshPlansFromRequestedTimestamp_andPrefersNewestOverlap() {
+        val viewModel = read(
+            resolve(
+                "app", "src", "main", "java", "com", "pcosina", "app",
+                "ui", "MealPlanViewModel.kt"
+            )
+        )
+
+        assertTrue(
+            "Fresh plans should anchor from backend-requested time to avoid midnight rollover drift.",
+            viewModel.contains("response.timestamps?.requestedAtMs")
+        )
+        assertTrue(
+            "Overlapping plans should prefer the newest generated plan instead of the first overlap.",
+            viewModel.contains("overlappingPlans.maxByOrNull { it.generatedAt }")
+        )
+    }
+
+    @Test
     fun progressScreen_keepsTransientImpactStateOutOfRememberSaveable() {
         val progress = read(
             resolve(

@@ -3,6 +3,7 @@ package com.pcosina.app.data.api
 import com.pcosina.app.data.model.UserProfile
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -129,7 +130,10 @@ interface PcosinaApiService {
     suspend fun generatePlan(@Body request: GeneratePlanRequest): GeneratePlanResponse
 
     @POST("generate-plan-async")
-    suspend fun generatePlanAsync(@Body request: GeneratePlanRequest): GeneratePlanAsyncResponse
+    suspend fun generatePlanAsync(
+        @Body request: GeneratePlanRequest,
+        @Header("Idempotency-Key") idempotencyKey: String? = null
+    ): GeneratePlanAsyncResponse
 
     @GET("plan-jobs/{jobId}")
     suspend fun getPlanJob(@Path("jobId") jobId: String): PlanJobDto

@@ -12,6 +12,7 @@ import com.pcosina.app.data.model.UserProfile
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.appcheck.FirebaseAppCheck
+import com.google.gson.Gson
 import kotlinx.coroutines.delay
 import okhttp3.Dns
 import okhttp3.OkHttpClient
@@ -26,13 +27,17 @@ import java.net.URI
 import java.net.UnknownHostException
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 class MealPlanRepository {
 
     private val apiService: PcosinaApiService
-    private val plannerPollIntervalMs = 1_500L
-    private val plannerPollTimeoutMs = 240_000L
+    private val gson = Gson()
+    private val plannerPollTimeoutMs = 600_000L
+    private val plannerInitialPollIntervalMs = 1_500L
+    private val plannerWarmPollIntervalMs = 3_000L
+    private val plannerSlowPollIntervalMs = 5_000L
     private val recipeCache = object : LinkedHashMap<String, RecipeDetailDto>(64, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, RecipeDetailDto>?): Boolean {
             return size > 200
@@ -169,8 +174,9 @@ class MealPlanRepository {
                 profile = profile,
                 startDate = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
             )
+            val idempotencyKey = buildGeneratePlanIdempotencyKey(request)
             val response = try {
-                val queued = apiService.generatePlanAsync(request)
+                val queued = apiService.generatePlanAsync(request, idempotencyKey = idempotencyKey)
                 awaitQueuedPlan(queued.jobId)
             } catch (e: Exception) {
                 if (shouldFallbackToSyncPlanner(e)) {
@@ -206,12 +212,35 @@ class MealPlanRepository {
                     )
                 }
             }
-            delay(plannerPollIntervalMs)
+            val elapsed = System.currentTimeMillis() - startedAt
+            val nextDelay = when {
+                elapsed < 30_000L -> plannerInitialPollIntervalMs
+                elapsed < 120_000L -> plannerWarmPollIntervalMs
+                else -> plannerSlowPollIntervalMs
+            }
+            delay(nextDelay)
+        }
+
+        val finalJob = runCatching { apiService.getPlanJob(normalizedJobId) }.getOrNull()
+        if (finalJob != null) {
+            lastStatus = finalJob.status.trim().lowercase()
+            if (lastStatus == "done" || lastStatus == "success") {
+                return finalJob.result
+                    ?: throw IllegalStateException("Planner job completed without a result payload.")
+            }
         }
 
         throw IllegalStateException(
-            "Plan generation is taking longer than expected (last status: $lastStatus). Please try again."
+            "Plan generation is still running (last status: $lastStatus). Tap Retry to keep waiting for the same request."
         )
+    }
+
+    private fun buildGeneratePlanIdempotencyKey(request: GeneratePlanRequest): String {
+        val canonical = gson.toJson(request)
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(canonical.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte) }
+        return "plan-$digest"
     }
 
     private fun shouldFallbackToSyncPlanner(error: Exception): Boolean {

@@ -41,6 +41,13 @@ def test_build_plan_day_labels_respects_start_date_anchor():
     assert labels == ["Fri", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu"]
 
 
+def test_build_plan_day_labels_stays_english_and_deterministic():
+    labels = meal_planner.build_plan_day_labels(4, "2026-04-12")
+
+    assert labels == ["Sun", "Mon", "Tue", "Wed"]
+    assert set(labels).issubset({"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"})
+
+
 def test_allergy_filter_blocks_recipe():
     profile = UserProfile(allergies=["peanut"])
     recipes = [

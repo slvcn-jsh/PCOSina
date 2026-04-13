@@ -62,9 +62,6 @@ import com.pcosina.app.notifications.NotificationScheduler
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.time.temporal.TemporalAdjusters
-import java.time.temporal.WeekFields
-import java.util.Locale
 
 /**
  * App navigation host.
@@ -231,9 +228,7 @@ fun AppNavHost(
         val userId = session.currentUserUid
         if (userId.isNullOrBlank()) return@LaunchedEffect
         val weekStart = activeWeekStart
-            ?: LocalDate.now()
-                .with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
-                .format(DateTimeFormatter.ISO_LOCAL_DATE)
+            ?: LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
         progressViewModel.loadForUser(userId, weekStart)
     }
 

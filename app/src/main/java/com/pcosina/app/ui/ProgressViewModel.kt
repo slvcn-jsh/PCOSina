@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import com.google.gson.JsonParser
 import com.pcosina.app.data.model.DailyLog
 import com.pcosina.app.data.model.DemoWeekSeed
 import com.pcosina.app.data.model.FeedbackEntry
@@ -23,6 +23,107 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
+internal fun parseDailyLogsSafely(raw: String?, gson: Gson = Gson()): List<DailyLog> {
+    if (raw.isNullOrBlank()) return emptyList()
+    val array = runCatching { JsonParser.parseString(raw).asJsonArray }.getOrNull() ?: return emptyList()
+    return array.mapNotNull { element ->
+        val parsed = runCatching { gson.fromJson(element, DailyLog::class.java) }.getOrNull() ?: return@mapNotNull null
+        sanitizeDailyLog(parsed)
+    }
+}
+
+internal fun parseFeedbackEntriesSafely(raw: String?, gson: Gson = Gson()): List<FeedbackEntry> {
+    if (raw.isNullOrBlank()) return emptyList()
+    val array = runCatching { JsonParser.parseString(raw).asJsonArray }.getOrNull() ?: return emptyList()
+    return array.mapNotNull { element ->
+        val parsed = runCatching { gson.fromJson(element, FeedbackEntry::class.java) }.getOrNull() ?: return@mapNotNull null
+        sanitizeFeedbackEntry(parsed)
+    }
+}
+
+private fun sanitizeDailyLog(log: DailyLog): DailyLog? {
+    val normalizedDate = safeIsoDate(log.date) ?: return null
+    val normalizedMealCheckIns = ((log.mealCheckIns as? List<*>) ?: emptyList<Any?>())
+        .mapNotNull { entry -> sanitizeMealCheckIn(entry as? MealCheckIn) }
+        .sortedByDescending { it.timestamp }
+    return log.copy(
+        date = normalizedDate,
+        completedMealIds = sanitizeStringList(log.completedMealIds).distinct(),
+        mealCheckIns = normalizedMealCheckIns,
+        weightNote = safeTrimmedText(log.weightNote),
+        energyLevel = clampFeedbackLevel(log.energyLevel),
+        cravingsLevel = clampFeedbackLevel(log.cravingsLevel),
+        moodLevel = clampFeedbackLevel(log.moodLevel),
+        symptomTags = sanitizeStringList(log.symptomTags).distinct(),
+        symptomsNote = safeTrimmedText(log.symptomsNote),
+        journalText = safeTrimmedText(log.journalText),
+        timestamp = log.timestamp.takeIf { it > 0 } ?: System.currentTimeMillis(),
+    )
+}
+
+private fun sanitizeMealCheckIn(entry: MealCheckIn?): MealCheckIn? {
+    if (entry == null) return null
+    val normalizedRecipeId = safeTrimmedText(entry.recipeId)
+        ?: safeTrimmedText(entry.mealKey)?.substringAfter("::", "")
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+        ?: return null
+    val normalizedMealLabel = safeTrimmedText(entry.mealLabel)
+        ?: safeTrimmedText(entry.mealKey)?.substringBefore("::", "")
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+        ?: "Meal"
+    val normalizedMealKey = safeTrimmedText(entry.mealKey)
+        ?: ProgressViewModel.buildMealKey(normalizedMealLabel, normalizedRecipeId)
+    return entry.copy(
+        mealKey = normalizedMealKey,
+        recipeId = normalizedRecipeId,
+        mealLabel = normalizedMealLabel,
+        energyLevel = clampFeedbackLevel(entry.energyLevel),
+        fullnessLevel = clampFeedbackLevel(entry.fullnessLevel),
+        cravingsLevel = clampFeedbackLevel(entry.cravingsLevel),
+        satisfactionLevel = clampFeedbackLevel(entry.satisfactionLevel),
+        note = safeTrimmedText(entry.note),
+        timestamp = entry.timestamp.takeIf { it > 0 } ?: System.currentTimeMillis(),
+    )
+}
+
+private fun sanitizeFeedbackEntry(entry: FeedbackEntry): FeedbackEntry? {
+    val id = safeTrimmedText(entry.id) ?: return null
+    val message = safeTrimmedText(entry.message) ?: return null
+    val normalizedStatus = when (safeTrimmedText(entry.status)?.lowercase()) {
+        "sending" -> "Sending"
+        "sent" -> "Sent"
+        "failed" -> "Failed"
+        else -> "Queued"
+    }
+    return entry.copy(
+        id = id,
+        message = message,
+        status = normalizedStatus,
+        attempts = entry.attempts.coerceAtLeast(0),
+        lastError = safeTrimmedText(entry.lastError),
+        lastTriedAt = entry.lastTriedAt?.takeIf { it > 0 },
+        createdAt = entry.createdAt.takeIf { it > 0 } ?: System.currentTimeMillis(),
+    )
+}
+
+private fun sanitizeStringList(values: Any?): List<String> =
+    ((values as? List<*>) ?: emptyList<Any?>())
+        .mapNotNull { safeTrimmedText(it) }
+
+private fun safeIsoDate(value: Any?): String? {
+    val raw = safeTrimmedText(value) ?: return null
+    return runCatching { LocalDate.parse(raw, DateTimeFormatter.ISO_LOCAL_DATE) }
+        .getOrNull()
+        ?.format(DateTimeFormatter.ISO_LOCAL_DATE)
+}
+
+private fun safeTrimmedText(value: Any?): String? =
+    (value as? String)?.trim()?.takeIf { it.isNotBlank() }
+
+private fun clampFeedbackLevel(value: Int?): Int? = value?.coerceIn(1, 5)
+
 class ProgressViewModel(
     private val userPrefsRepository: UserPreferencesRepository,
     private val reflectionStore: ReflectionStore,
@@ -30,8 +131,6 @@ class ProgressViewModel(
 ) : ViewModel() {
 
     private val gson = Gson()
-    private val logType = object : TypeToken<List<DailyLog>>() {}.type
-    private val feedbackType = object : TypeToken<List<FeedbackEntry>>() {}.type
     private val dateFmt = DateTimeFormatter.ISO_LOCAL_DATE
 
     private var currentUserId: String = ""
@@ -110,15 +209,13 @@ class ProgressViewModel(
                     json = legacy
                 }
             }
-            val list: List<DailyLog> = if (!json.isNullOrBlank()) {
-                try { gson.fromJson(json, logType) } catch (_: Exception) { emptyList() }
-            } else emptyList()
-            _dailyLogs.value = list.associateBy { it.date }
+            val list = parseDailyLogsSafely(json, gson)
+            _dailyLogs.value = list
+                .sortedBy { it.timestamp }
+                .associateBy { it.date }
 
             val fq = userPrefsRepository.getFeedbackQueueJson(userId).first()
-            val entries: List<FeedbackEntry> = if (!fq.isNullOrBlank()) {
-                try { gson.fromJson(fq, feedbackType) } catch (_: Exception) { emptyList() }
-            } else emptyList()
+            val entries = parseFeedbackEntriesSafely(fq, gson)
             // Drop already-sent entries to avoid stale queue items piling up
             val normalized = entries.map { entry ->
                 if (entry.status == "Sending") {

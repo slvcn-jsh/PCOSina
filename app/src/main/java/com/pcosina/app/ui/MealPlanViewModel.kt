@@ -151,7 +151,15 @@ class MealPlanViewModel(
             val reviewed = userPrefsRepository.getLastReviewedWeek(userId).first()
             _lastReviewedWeek.value = reviewed
             val today = LocalDate.now()
-            val currentPlan = normalizedHistory.firstOrNull { containsDate(it, today) }
+            val overlappingPlans = normalizedHistory.filter { containsDate(it, today) }
+            val currentPlan = when {
+                overlappingPlans.isEmpty() -> null
+                !activeId.isNullOrBlank() -> overlappingPlans
+                    .filter { it.id == activeId }
+                    .maxByOrNull { it.generatedAt }
+                    ?: overlappingPlans.maxByOrNull { it.generatedAt }
+                else -> overlappingPlans.maxByOrNull { it.generatedAt }
+            }
             val active = when {
                 currentPlan != null -> currentPlan
                 !activeId.isNullOrBlank() -> normalizedHistory.firstOrNull { it.id == activeId }
@@ -255,8 +263,13 @@ class MealPlanViewModel(
                     )
                     return@onSuccess
                 }
-                val now = System.currentTimeMillis()
-                val start = weekStartDate(now)
+                val completedAtMs = response.timestamps?.completedAtMs
+                    ?.takeIf { it > 0 }
+                    ?: System.currentTimeMillis()
+                val startAnchorMs = response.timestamps?.requestedAtMs
+                    ?.takeIf { it > 0 }
+                    ?: completedAtMs
+                val start = weekStartDate(startAnchorMs)
                 val end = start.plusDays(6)
                 val id = start.format(DateTimeFormatter.ISO_LOCAL_DATE)
                 val withLabel = normalizeResponse(response.copy(weekLabel = weekLabelFor(start)), start)
@@ -264,15 +277,15 @@ class MealPlanViewModel(
                     id = id,
                     weekStart = id,
                     weekEnd = end.format(DateTimeFormatter.ISO_LOCAL_DATE),
-                    generatedAt = now,
+                    generatedAt = completedAtMs,
                     response = withLabel
                 )
                 _generationNotice.value = null
-                _uiState.value = MealPlanUiState.Success(withLabel, now)
+                _uiState.value = MealPlanUiState.Success(withLabel, completedAtMs)
                 calculateMetrics(withLabel)
                 if (currentUserId.isNotBlank()) {
                     upsertPlanInstance(instance)
-                    userPrefsRepository.savePlanJson(currentUserId, gson.toJson(withLabel), now)
+                    userPrefsRepository.savePlanJson(currentUserId, gson.toJson(withLabel), completedAtMs)
                     userPrefsRepository.saveActivePlanId(currentUserId, id)
                     _activePlanId.value = id
                     _activeWeekStart.value = instance.weekStart

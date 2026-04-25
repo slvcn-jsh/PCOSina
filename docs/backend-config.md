@@ -51,6 +51,7 @@ Top-level policy namespaces:
 
 3. `stage1`
 - `max_candidates_per_slot`, `ranking_cutoff`, `similarity_threshold`, `pantry_match_threshold`, `exclusion_penalty_weights`, `cold_start_defaults`, `ML_shadow_enabled`, `ML_canary_enabled`, `ML_score_weight`, `ML_score_cap`
+- `ML_shadow_enabled` is a legacy compatibility key name; when true it now enables live stage-1 ML ranking instead of score-only shadow collection
 - Additional controls migrated from hardcoded logic: `restricted_shortlist_multiplier`, `budget_keep_min_count`, `budget_keep_min_ratio`, `minimum_candidates_required`, `pool_cap_top_share`
 
 4. `solver`

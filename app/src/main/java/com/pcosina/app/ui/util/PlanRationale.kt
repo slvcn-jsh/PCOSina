@@ -25,10 +25,13 @@ fun buildMealReasons(
         reasons.add("Pantry-aware")
     }
     if (budgetPhp > 0 || explanation?.budgetWeekly != null) {
-        reasons.add("Budget-aware")
+        reasons.add(if (explanation?.budgetHardCapApplied == true) "Budget-capped" else "Budget-aware")
     }
     if (explanation?.targetProtein != null || explanation?.targetCarbs != null || explanation?.targetFats != null) {
         reasons.add("Macro-aligned")
     }
-    return reasons
+    if (!explanation?.symptomStrategy.isNullOrEmpty()) {
+        reasons.add("Symptom-aware")
+    }
+    return reasons.distinct()
 }

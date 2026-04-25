@@ -1,5 +1,8 @@
 package com.pcosina.app.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -10,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
@@ -53,12 +57,20 @@ import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GuidedJourneyCard
 import com.pcosina.app.ui.components.GradientHeader
-import com.pcosina.app.ui.components.MacroCircularGauge
 import com.pcosina.app.ui.components.StatCard
 import com.pcosina.app.ui.components.ExpandableSection
 import com.pcosina.app.ui.components.AppFeedbackBanner
+import com.pcosina.app.ui.components.CompactWidgetGrid
+import com.pcosina.app.ui.components.CompactWidgetSpec
+import com.pcosina.app.ui.components.FeedbackActionState
 import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
+import com.pcosina.app.ui.components.FocusModePanel
+import com.pcosina.app.ui.components.FriendlyEmptyStateCard
+import com.pcosina.app.ui.components.LoadingActionButton
+import com.pcosina.app.ui.components.ScreenFocusOption
+import com.pcosina.app.ui.components.ScreenFocusStrip
+import com.pcosina.app.ui.components.StatusCenterCard
 import com.pcosina.app.domain.HealthMetrics
 import com.pcosina.app.domain.UnitConverter
 import com.pcosina.app.ui.theme.UiChipTokens
@@ -92,6 +104,13 @@ import java.time.temporal.WeekFields
 import com.pcosina.app.ui.navigation.Routes
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private enum class DashboardFocus {
+    Overview,
+    Today,
+    Insights,
+    Support,
+}
 
 @Composable
 fun DashboardScreen(
@@ -132,6 +151,9 @@ fun DashboardScreen(
     val learnMoreCopy = rememberSaveable { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
     var dashboardFeedbackBanner by remember { mutableStateOf<FeedbackBannerData?>(null) }
+    var dashboardActionNoteTitle by rememberSaveable { mutableStateOf<String?>(null) }
+    var dashboardActionNoteDetail by rememberSaveable { mutableStateOf<String?>(null) }
+    val dashboardHeroActionState = remember { mutableStateOf(FeedbackActionState.Idle) }
     val hasPlan = planHistory.isNotEmpty() || mealPlanState is MealPlanUiState.Success
     val activePlanId = mealPlanViewModel.activePlanId.collectAsState().value
     val hasReviewedWeek = activePlanId != null && activePlanId == lastReviewedWeek
@@ -149,14 +171,16 @@ fun DashboardScreen(
     )
     val showAdvancedInsights = shouldShowAdvancedMetrics(guidedStep.stepIndex, hasTracked)
     val showSecondaryCards = shouldShowAdvancedTools(guidedStep.stepIndex)
+    val showJourneyCard = !hasPlan || !hasGrocery || !hasTracked
     val moreToolsSubtitle = if (showSecondaryCards) {
-        "Open guides, tips, and support for your week."
+        "Open quick help, feedback, and extra support when you need it."
     } else {
-        "Start with simple guides, meal tips, and community support."
+        "Get simple help without leaving your week."
     }
     val snapshotLockedCopy = remember { LockedFlowCopy.dashboardSnapshotLocked() }
     val advancedLockedCopy = remember { LockedFlowCopy.dashboardAdvancedLocked() }
     val dashboardChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 128.dp, medium = 192.dp)
+    var dashboardFocusKey by rememberSaveable { mutableStateOf(DashboardFocus.Overview.name) }
     val helperCopyMaxLines = if (screenWidthDp <= 360) 1 else 2
     val today = LocalDate.now()
     val dayLabelFmt = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
@@ -213,16 +237,68 @@ fun DashboardScreen(
     }
     val showTodayOutcomeCard = hasPlan && todayMeals.isNotEmpty()
     val showPrimaryNextStepCard = !showTodayOutcomeCard
-    val primaryNextTitle = if (hasPlan) "Your Next Step" else "Start Your Plan"
+    LaunchedEffect(showTodayOutcomeCard) {
+        if (showTodayOutcomeCard && dashboardFocusKey == DashboardFocus.Overview.name) {
+            dashboardFocusKey = DashboardFocus.Today.name
+        } else if (!showTodayOutcomeCard && dashboardFocusKey == DashboardFocus.Today.name) {
+            dashboardFocusKey = DashboardFocus.Overview.name
+        }
+    }
+    val dashboardFocus = remember(dashboardFocusKey) {
+        DashboardFocus.valueOf(dashboardFocusKey)
+    }
+    val dashboardFocusOptions = remember(showTodayOutcomeCard, showAdvancedInsights, showSecondaryCards) {
+        buildList {
+            add(
+                ScreenFocusOption(
+                    key = DashboardFocus.Overview.name,
+                    label = "Home",
+                    summary = "See the main step and week summary."
+                )
+            )
+            if (showTodayOutcomeCard) {
+                add(
+                    ScreenFocusOption(
+                        key = DashboardFocus.Today.name,
+                        label = "Today",
+                        summary = "See only today’s meals and progress."
+                    )
+                )
+            }
+            add(
+                ScreenFocusOption(
+                    key = DashboardFocus.Insights.name,
+                    label = "Plan",
+                    summary = if (showAdvancedInsights) {
+                        "See your week summary and why it was picked."
+                    } else {
+                        "See your week summary first."
+                    }
+                )
+            )
+            add(
+                ScreenFocusOption(
+                    key = DashboardFocus.Support.name,
+                    label = "Help",
+                    summary = if (showSecondaryCards) {
+                        "Open tips and help."
+                    } else {
+                        "Keep help separate from today’s tasks."
+                    }
+                )
+            )
+        }
+    }
+    val primaryNextTitle = if (hasPlan) "What to do now" else "Start here"
     val primaryNextMessage = when {
-        !hasPlan -> "Generate your first plan to unlock Grocery and Progress."
-        nextUnloggedMeal != null -> "Open your next unlogged meal and keep today's streak moving."
-        else -> "Review your current weekly plan and keep your progress consistent."
+        !hasPlan -> "Make your first week to unlock shopping and progress."
+        nextUnloggedMeal != null -> "Open your next meal and check it off when you're done."
+        else -> "Open Progress to see how this week is going."
     }
     val primaryNextCta = when {
-        !hasPlan -> "Generate My Plan"
-        nextUnloggedMeal != null -> "Open Next Unlogged Meal"
-        else -> "Review Week Progress"
+        !hasPlan -> "Create My Plan"
+        nextUnloggedMeal != null -> "Open Next Meal"
+        else -> "Open Progress"
     }
     val weekStart = activeWeekStart?.let {
         runCatching { LocalDate.parse(it, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
@@ -240,6 +316,55 @@ fun DashboardScreen(
         sundayPlanMeals = sundayPlanMeals.map { it.mealLabel to it.recipeId },
         logs = logs
     )
+    val weekRangeFormatter = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)
+    val statusSummaryLabel = when {
+        planExpired -> "Your saved week has ended. Make a new one when you're ready."
+        !hasPlan -> "Make your first week to unlock Grocery and Progress."
+        hasGrocery && hasTracked -> "Your week, shopping list, and progress are all active."
+        hasGrocery -> "Your week and grocery list are ready."
+        hasTracked -> "Your week and progress log are active."
+        else -> "Your week is ready. Review today’s meals next."
+    }
+    val syncSummaryLabel = if (isOnline) {
+        "Online: saved changes can sync when needed."
+    } else {
+        "Offline-safe: using your saved local data."
+    }
+    val planRangeLabel = if (hasPlan) {
+        "Saved week: ${weekStart.format(weekRangeFormatter)} to ${weekStart.plusDays(6).format(weekRangeFormatter)}"
+    } else {
+        "No saved week yet"
+    }
+    val nextFocusLabel = when {
+        !hasPlan -> "Next: create your first week"
+        nextUnloggedMeal != null -> "Next: ${nextUnloggedMeal.mealLabel} check-in"
+        todayMeals.isNotEmpty() -> "Next: open this week’s progress"
+        else -> "Next: review your saved week"
+    }
+    val dashboardHeaderColors = remember(dashboardFocus, colorScheme) {
+        when (dashboardFocus) {
+            DashboardFocus.Overview -> listOf(
+                colorScheme.primary,
+                colorScheme.secondary,
+                colorScheme.tertiary
+            )
+            DashboardFocus.Today -> listOf(
+                colorScheme.secondary,
+                colorScheme.tertiary,
+                colorScheme.primary.copy(alpha = 0.92f)
+            )
+            DashboardFocus.Insights -> listOf(
+                colorScheme.tertiary,
+                colorScheme.primary.copy(alpha = 0.88f),
+                colorScheme.secondary.copy(alpha = 0.92f)
+            )
+            DashboardFocus.Support -> listOf(
+                colorScheme.primary.copy(alpha = 0.85f),
+                colorScheme.tertiary.copy(alpha = 0.95f),
+                colorScheme.secondary.copy(alpha = 0.82f)
+            )
+        }
+    }
     LaunchedEffect(Unit) {
         if (BuildConfig.DEBUG) {
             val stats = sampleFrameTiming(
@@ -273,6 +398,46 @@ fun DashboardScreen(
             }
         }
     }
+    fun noteDashboardAction(title: String, detail: String) {
+        dashboardActionNoteTitle = title
+        dashboardActionNoteDetail = detail
+    }
+    fun runDashboardHeroAction(
+        loadingMessage: String,
+        successMessage: String,
+        action: () -> Unit
+    ) {
+        if (dashboardHeroActionState.value == FeedbackActionState.Loading) return
+        coroutineScope.launch {
+            dashboardHeroActionState.value = FeedbackActionState.Loading
+            postDashboardFeedback(
+                tone = FeedbackBannerTone.Loading,
+                message = loadingMessage
+            )
+            delay(140)
+            dashboardHeroActionState.value = FeedbackActionState.Success
+            postDashboardFeedback(
+                tone = FeedbackBannerTone.Success,
+                message = successMessage
+            )
+            delay(110)
+            action()
+            delay(500)
+            dashboardHeroActionState.value = FeedbackActionState.Idle
+        }
+    }
+    LaunchedEffect(dashboardActionNoteTitle, dashboardActionNoteDetail) {
+        val currentTitle = dashboardActionNoteTitle ?: return@LaunchedEffect
+        val currentDetail = dashboardActionNoteDetail
+        delay(2800)
+        if (dashboardActionNoteTitle == currentTitle && dashboardActionNoteDetail == currentDetail) {
+            dashboardActionNoteTitle = null
+            dashboardActionNoteDetail = null
+        }
+    }
+    LaunchedEffect(dashboardFocusKey) {
+        dashboardHeroActionState.value = FeedbackActionState.Idle
+    }
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding(),
@@ -287,6 +452,14 @@ fun DashboardScreen(
                             onLongPress = {
                                 val enabled = !adminMode
                                 userViewModel.toggleAdminMode()
+                                noteDashboardAction(
+                                    title = if (enabled) "Admin tools on" else "Admin tools off",
+                                    detail = if (enabled) {
+                                        "Extra system tools are now available in Settings."
+                                    } else {
+                                        "The app is back to the regular user view."
+                                    }
+                                )
                                 postDashboardFeedback(
                                     tone = FeedbackBannerTone.Success,
                                     message = if (enabled) {
@@ -300,9 +473,10 @@ fun DashboardScreen(
                     }
                 ) {
                     GradientHeader(
-                        title = "Hello, ${profile.displayName.ifBlank { "Warrior" }}! 👋",
-                        subtitle = "Scientific Nutrition for PCOS",
-                        containerHeight = 200,
+                        title = "Today, ${profile.displayName.ifBlank { "there" }}",
+                        subtitle = "Your week, shopping list, and progress in one place.",
+                        containerHeight = 118,
+                        colors = dashboardHeaderColors,
                         trailing = {
                             IconButton(onClick = onNavigateToSettings) {
                                 Icon(
@@ -317,12 +491,6 @@ fun DashboardScreen(
             }
         }
 
-        item {
-            GuidedJourneyCard(
-                step = guidedStep,
-                onContinue = { step -> onNavigateToRoute(step.route) }
-            )
-        }
         dashboardFeedbackBanner?.let { banner ->
             item {
                 AppFeedbackBanner(
@@ -332,42 +500,220 @@ fun DashboardScreen(
             }
         }
         item {
-            AssistChip(
-                onClick = {
-                    postDashboardFeedback(
-                        tone = FeedbackBannerTone.Success,
-                        message = if (isOnline) ActionFeedbackCopy.OnlineSync else ActionFeedbackCopy.OfflineSync
-                    )
-                },
-                modifier = Modifier
-                    .heightIn(min = 48.dp)
-                    .semantics { traversalIndex = 1f },
-                label = { Text(if (isOnline) "Online" else "Offline", maxLines = 1) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = if (isOnline) Icons.Filled.Verified else Icons.Filled.Info,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                },
-                colors = AssistChipDefaults.assistChipColors(
-                    containerColor = if (isOnline) {
-                        colorScheme.primaryContainer.copy(alpha = 0.35f)
-                    } else {
-                        colorScheme.surfaceVariant
-                    },
-                    labelColor = colorScheme.onSurface,
-                    leadingIconContentColor = if (isOnline) colorScheme.primary else colorScheme.onSurfaceVariant
-                )
+            ScreenFocusStrip(
+                title = "Show",
+                options = dashboardFocusOptions,
+                selectedKey = dashboardFocusKey,
+                onSelect = { dashboardFocusKey = it },
+                labelMaxWidth = dashboardChipLabelWidth
             )
         }
+        if (dashboardFocus == DashboardFocus.Overview) {
+            item {
+                StatusCenterCard(
+                    queuedActionsLabel = statusSummaryLabel,
+                    syncLabel = syncSummaryLabel,
+                    planRangeLabel = planRangeLabel,
+                    nextReminderLabel = nextFocusLabel,
+                    modifier = Modifier.testTag("dashboard_status_center_card")
+                )
+            }
+        }
+        if (showJourneyCard) {
+            item {
+                GuidedJourneyCard(
+                    step = guidedStep,
+                    onContinue = { step -> onNavigateToRoute(step.route) }
+                )
+            }
+        }
 
-        if (showPrimaryNextStepCard) {
+        item {
+            FocusModePanel(
+                targetKey = dashboardFocusKey,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("dashboard_focus_panel")
+            ) { focusKey ->
+                when (DashboardFocus.valueOf(focusKey)) {
+                    DashboardFocus.Overview -> DashboardOverviewHero(
+                        hasPlan = hasPlan,
+                        isOnline = isOnline,
+                        primaryNextTitle = primaryNextTitle,
+                        primaryNextMessage = primaryNextMessage,
+                        primaryNextCta = primaryNextCta,
+                        primaryActionState = dashboardHeroActionState.value,
+                        onPrimaryAction = {
+                            when {
+                                !hasPlan && !isOnline -> {
+                                    postDashboardFeedback(
+                                        tone = FeedbackBannerTone.Error,
+                                        message = "${ActionFeedbackCopy.InternetRequired} Connect to generate your first plan."
+                                    )
+                                }
+                                !hasPlan -> {
+                                    postDashboardFeedback(
+                                        tone = FeedbackBannerTone.Loading,
+                                        message = "Opening plan generator…"
+                                    )
+                                    onViewPlan()
+                                }
+                                nextUnloggedMeal != null -> {
+                                    runDashboardHeroAction(
+                                        loadingMessage = "Opening next meal…",
+                                        successMessage = "Next meal opened."
+                                    ) {
+                                        onRecipeClick(
+                                            nextUnloggedMeal.recipeId,
+                                            nextUnloggedMeal.mealLabel
+                                        )
+                                    }
+                                }
+                                else -> {
+                                    runDashboardHeroAction(
+                                        loadingMessage = "Opening progress…",
+                                        successMessage = "Progress opened."
+                                    ) {
+                                        onNavigateToRoute(Routes.Progress)
+                                    }
+                                }
+                            }
+                        },
+                        todayCompletedCount = todayCompletedCount,
+                        todayMealsCount = todayMeals.size,
+                        groceryCount = groceryItems.size,
+                        hasTracked = hasTracked,
+                        goalLabel = primaryGoalLabel(profile.goal),
+                        householdLabel = householdSizeLabel(profile.householdSize),
+                        estimatedWeeklyCost = planExplanation?.estimatedWeeklyCost,
+                        dailyCalorieTarget = dailyCalorieTarget,
+                        helperCopyMaxLines = helperCopyMaxLines
+                    )
+
+                    DashboardFocus.Today -> Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        DashboardTodayOutcomeCard(
+                            progress = animatedTodayProgress,
+                            completedMealsLabel = "$todayCompletedCount/${todayMeals.size} meals logged today",
+                            nextLabel = nextUnloggedMeal?.let { "Next: ${it.mealLabel} • ${it.title}" }
+                                ?: "All today’s meals logged. Review your week progress.",
+                            deltaLabel = todayDeltaLabel,
+                            timeline = todayTimeline,
+                            ctaLabel = if (nextUnloggedMeal != null) "Open Next Unlogged Meal" else "Review Week Progress",
+                            primaryActionState = dashboardHeroActionState.value,
+                            primaryLoadingLabel = if (nextUnloggedMeal != null) "Opening next meal…" else "Opening progress…",
+                            primarySuccessLabel = if (nextUnloggedMeal != null) "Next meal opened" else "Progress opened",
+                            followUpLabel = when {
+                                hasPlan && sundayComplete -> "Sunday is done. Review this week before you make the next one."
+                                hasPlan && todayMeals.isNotEmpty() && todayProgress >= 1f ->
+                                    "All meals are logged. Add one short reflection to help next week fit better."
+                                else -> null
+                            },
+                            followUpActionLabel = when {
+                                hasPlan && sundayComplete -> "Review week"
+                                hasPlan && todayMeals.isNotEmpty() && todayProgress >= 1f -> "Add reflection"
+                                else -> null
+                            },
+                            onFollowUpAction = when {
+                                hasPlan && sundayComplete -> ({ onNavigateToRoute(Routes.Progress) })
+                                hasPlan && todayMeals.isNotEmpty() && todayProgress >= 1f ->
+                                    ({ onNavigateToRoute(Routes.Progress) })
+                                else -> null
+                            },
+                            onPrimaryAction = {
+                                val nextMeal = nextUnloggedMeal
+                                if (nextMeal != null) {
+                                    runDashboardHeroAction(
+                                        loadingMessage = "Opening next meal…",
+                                        successMessage = "Next meal opened."
+                                    ) {
+                                        onRecipeClick(nextMeal.recipeId, nextMeal.mealLabel)
+                                    }
+                                } else {
+                                    runDashboardHeroAction(
+                                        loadingMessage = "Opening progress…",
+                                        successMessage = "Progress opened."
+                                    ) {
+                                        onNavigateToRoute(Routes.Progress)
+                                    }
+                                }
+                            }
+                        )
+                    }
+
+                    DashboardFocus.Insights -> DashboardInsightsHero(
+                        hasPlan = hasPlan || shouldShowProgressSnapshot(guidedStep.stepIndex),
+                        goalLabel = primaryGoalLabel(profile.goal),
+                        goalShortLabel = primaryGoalShortLabel(profile.goal),
+                        householdLabel = householdSizeLabel(profile.householdSize),
+                        estimatedWeeklyCost = planExplanation?.estimatedWeeklyCost,
+                        averageCalories = planExplanation?.avgCalories ?: 0,
+                        dailyCalorieTarget = dailyCalorieTarget,
+                        adminMode = adminMode,
+                        showSecondaryCards = showSecondaryCards,
+                        onLearnMore = {
+                            noteDashboardAction(
+                                title = "Week snapshot opened",
+                                detail = "This explains the simple week numbers shown on this screen."
+                            )
+                            learnMoreCopy.value = if (hasPlan) {
+                                LockedFlowCopy.DashboardQuickSnapshotHintAfterPlan
+                            } else {
+                                snapshotLockedCopy.dialogBody
+                            }
+                        },
+                        onExplainTarget = {
+                            noteDashboardAction(
+                                title = "Goal math opened",
+                                detail = "You can now see how your daily target was worked out."
+                            )
+                            showTargetInfo.value = true
+                        },
+                        onExplainBmi = {
+                            noteDashboardAction(
+                                title = "BMI help opened",
+                                detail = "This explains the BMI formula used in the app."
+                            )
+                            showBmiInfo.value = true
+                        },
+                        schemaVersion = BuildConfig.SCHEMA_VERSION,
+                        lockedMessage = snapshotLockedCopy.cardText
+                    )
+
+                    DashboardFocus.Support -> DashboardSupportHero(
+                        subtitle = moreToolsSubtitle,
+                        actionState = dashboardHeroActionState.value,
+                        onOpenMoreTools = {
+                            runDashboardHeroAction(
+                                loadingMessage = "Opening help…",
+                                successMessage = "Help opened."
+                            ) {
+                                onOpenMoreTools()
+                            }
+                        }
+                    )
+                }
+            }
+        }
+        if (!dashboardActionNoteTitle.isNullOrBlank() && !dashboardActionNoteDetail.isNullOrBlank()) {
+            item {
+                AnimatedVisibility(visible = true) {
+                    DashboardActionNoteCard(
+                        title = dashboardActionNoteTitle.orEmpty(),
+                        detail = dashboardActionNoteDetail.orEmpty()
+                    )
+                }
+            }
+        }
+
+        if (false && showPrimaryNextStepCard && dashboardFocus == DashboardFocus.Overview) {
             item {
                 Card(
                     shape = MaterialTheme.shapes.extraLarge,
                     colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .semantics {
@@ -377,8 +723,8 @@ fun DashboardScreen(
                         .testTag("dashboard_primary_next_card")
                 ) {
                     Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
                             text = primaryNextTitle,
@@ -389,7 +735,7 @@ fun DashboardScreen(
                             text = primaryNextMessage,
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant,
-                            maxLines = helperCopyMaxLines,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
                         if (!hasPlan && !isOnline) {
@@ -438,7 +784,7 @@ fun DashboardScreen(
                             },
                             shape = MaterialTheme.shapes.medium,
                             colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
-                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                            modifier = Modifier.fillMaxWidth().height(44.dp)
                         ) {
                             Text(primaryNextCta)
                         }
@@ -447,7 +793,7 @@ fun DashboardScreen(
             }
         }
 
-        if (showTodayOutcomeCard) {
+        if (false && showTodayOutcomeCard && dashboardFocus == DashboardFocus.Today) {
             item {
                 DashboardTodayOutcomeCard(
                     progress = animatedTodayProgress,
@@ -457,6 +803,9 @@ fun DashboardScreen(
                     deltaLabel = todayDeltaLabel,
                     timeline = todayTimeline,
                     ctaLabel = if (nextUnloggedMeal != null) "Open Next Unlogged Meal" else "Review Week Progress",
+                    primaryActionState = dashboardHeroActionState.value,
+                    primaryLoadingLabel = if (nextUnloggedMeal != null) "Opening next meal…" else "Opening progress…",
+                    primarySuccessLabel = if (nextUnloggedMeal != null) "Next meal opened" else "Progress opened",
                     onPrimaryAction = {
                         val nextMeal = nextUnloggedMeal
                         if (nextMeal != null) {
@@ -477,15 +826,24 @@ fun DashboardScreen(
             }
         }
 
-        item {
-            DashboardWeekCloseoutCard(
-                visible = hasPlan && sundayComplete,
-                helperCopyMaxLines = helperCopyMaxLines,
-                onReviewWeek = { onNavigateToRoute(Routes.Progress) }
-            )
+        if (false && dashboardFocus == DashboardFocus.Today) {
+            item {
+                DashboardWeekCloseoutCard(
+                    visible = hasPlan && sundayComplete,
+                    helperCopyMaxLines = helperCopyMaxLines,
+                    onReviewWeek = { onNavigateToRoute(Routes.Progress) }
+                )
+            }
         }
 
-        if (hasPlan && todayMeals.isNotEmpty() && todayProgress >= 1f && !sundayComplete) {
+        if (
+            false &&
+            dashboardFocus == DashboardFocus.Today &&
+            hasPlan &&
+            todayMeals.isNotEmpty() &&
+            todayProgress >= 1f &&
+            !sundayComplete
+        ) {
             item {
                 Card(
                     shape = MaterialTheme.shapes.large,
@@ -526,12 +884,14 @@ fun DashboardScreen(
             }
         }
 
-        item {
+        if (false && (dashboardFocus == DashboardFocus.Overview || dashboardFocus == DashboardFocus.Insights)) {
+            item {
             if (hasPlan || shouldShowProgressSnapshot(guidedStep.stepIndex)) {
                 Card(
                     shape = MaterialTheme.shapes.extraLarge,
                     colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                    border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .semantics {
@@ -541,12 +901,22 @@ fun DashboardScreen(
                 ) {
                     Column(
                         modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(
-                            text = "Goal Progress Snapshot",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Goal Progress Snapshot",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            DashboardStatusPill(
+                                text = if (hasPlan) "Plan snapshot" else "Preview",
+                                emphasized = hasPlan
+                            )
+                        }
                         Text(
                             text = "This week supports: ${primaryGoalLabel(profile.goal)}",
                             style = MaterialTheme.typography.bodyMedium,
@@ -557,15 +927,36 @@ fun DashboardScreen(
                         val avgKcal = planExplanation?.avgCalories ?: 0
                         val householdLabel = householdSizeLabel(profile.householdSize)
                         val estCost = planExplanation?.estimatedWeeklyCost
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            item {
+                                DashboardStatusPill(
+                                    text = "${if (hasPlan) 21 else 0} planned meals",
+                                    emphasized = hasPlan
+                                )
+                            }
+                            item {
+                                DashboardStatusPill(
+                                    text = if (avgKcal > 0) "Avg $avgKcal kcal/day" else "Avg kcal pending",
+                                    emphasized = avgKcal > 0
+                                )
+                            }
+                            item {
+                                DashboardStatusPill(
+                                    text = householdLabel,
+                                    emphasized = false
+                                )
+                            }
+                            estCost?.let { cost ->
+                                item {
+                                    DashboardStatusPill(
+                                        text = "Est ₱$cost",
+                                        emphasized = true
+                                    )
+                                }
+                            }
+                        }
                         Text(
-                            text = "Planned meals: ${if (hasPlan) 21 else 0} • Avg kcal/day: ${if (avgKcal > 0) avgKcal else "—"}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant,
-                            maxLines = helperCopyMaxLines,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "Shopping guide set for $householdLabel",
+                            text = "Shopping totals are scaled for $householdLabel, and snapshot values update as your week changes.",
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant,
                             maxLines = helperCopyMaxLines,
@@ -587,6 +978,7 @@ fun DashboardScreen(
                     shape = MaterialTheme.shapes.extraLarge,
                     colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.55f)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .semantics {
@@ -598,6 +990,16 @@ fun DashboardScreen(
                         modifier = Modifier.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            DashboardStatusPill(
+                                text = "Goal snapshot",
+                                emphasized = false
+                            )
+                            DashboardStatusPill(
+                                text = "Unlock later",
+                                emphasized = false
+                            )
+                        }
                         Text(
                             text = snapshotLockedCopy.cardText,
                             style = MaterialTheme.typography.bodySmall,
@@ -630,8 +1032,10 @@ fun DashboardScreen(
                 }
             }
         }
+        }
 
-        item {
+        if (false && dashboardFocus == DashboardFocus.Insights) {
+            item {
             val compressSecondaryStats = shouldCompressSecondaryStats(guidedStep.stepIndex)
             if (compressSecondaryStats) {
                 val quickSnapshotHint = if (shouldUseFirstPlanUnlockCopy(guidedStep.stepIndex)) {
@@ -643,6 +1047,7 @@ fun DashboardScreen(
                     shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.55f)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .semantics {
@@ -654,6 +1059,16 @@ fun DashboardScreen(
                         modifier = Modifier.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            DashboardStatusPill(
+                                text = primaryGoalShortLabel(profile.goal),
+                                emphasized = true
+                            )
+                            DashboardStatusPill(
+                                text = "${dailyCalorieTarget} kcal/day",
+                                emphasized = false
+                            )
+                        }
                         Text(
                             text = "Quick Snapshot",
                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
@@ -788,8 +1203,10 @@ fun DashboardScreen(
                 )
             }
         }
+        }
 
-        item {
+        if (dashboardFocus == DashboardFocus.Insights) {
+            item {
             if (showAdvancedInsights) {
                 Box(
                     modifier = Modifier
@@ -805,16 +1222,34 @@ fun DashboardScreen(
                         subtitle = "Macro averages and solver signals",
                         defaultExpanded = false
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        CompactWidgetGrid(
+                            modifier = Modifier.padding(top = 8.dp),
+                            widgets = listOf(
+                                CompactWidgetSpec(
+                                    title = "Protein",
+                                    value = "${metrics.avgProtein}g",
+                                    hint = "Average per day. Target 85g.",
+                                    accentColor = colorScheme.primary
+                                ),
+                                CompactWidgetSpec(
+                                    title = "Carbs",
+                                    value = "${metrics.avgCarbs}g",
+                                    hint = "Average per day. Target 220g.",
+                                    accentColor = colorScheme.tertiary
+                                ),
+                                CompactWidgetSpec(
+                                    title = "Fiber",
+                                    value = "${metrics.avgFiber}g",
+                                    hint = "Average per day. Target 25g.",
+                                    accentColor = colorScheme.secondary
+                                )
+                            )
+                        )
+                        OutlinedButton(
+                            onClick = { showMarkersInfo.value = true },
+                            modifier = Modifier.heightIn(min = 44.dp),
+                            shape = MaterialTheme.shapes.large
                         ) {
-                            MacroCircularGauge(label = "Protein", currentValue = metrics.avgProtein, targetValue = 85, color = colorScheme.primary, modifier = Modifier.weight(1f))
-                            MacroCircularGauge(label = "Carbs", currentValue = metrics.avgCarbs, targetValue = 220, color = colorScheme.tertiary, modifier = Modifier.weight(1f))
-                            MacroCircularGauge(label = "Fiber", currentValue = metrics.avgFiber, targetValue = 25, color = colorScheme.secondary, modifier = Modifier.weight(1f))
-                        }
-                        TextButton(onClick = { showMarkersInfo.value = true }) {
                             Icon(Icons.Filled.Info, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("How these are computed")
@@ -828,7 +1263,15 @@ fun DashboardScreen(
                                 maxLines = helperCopyMaxLines,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            TextButton(onClick = onViewPlan) { Text("Generate new week") }
+                            FilledTonalButton(
+                                onClick = onViewPlan,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp),
+                                shape = MaterialTheme.shapes.large
+                            ) {
+                                Text("Generate new week")
+                            }
                         }
                     }
                 }
@@ -881,12 +1324,14 @@ fun DashboardScreen(
                 }
             }
         }
+        }
 
-        item {
+        if (false && dashboardFocus == DashboardFocus.Support) {
+            item {
             Card(
-                onClick = onOpenMoreTools,
                 shape = MaterialTheme.shapes.extraLarge,
                 colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
+                border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f)),
                 modifier = Modifier
                     .semantics {
                         isTraversalGroup = true
@@ -894,24 +1339,56 @@ fun DashboardScreen(
                     }
                     .testTag("dashboard_more_tools_card")
             ) {
-                Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Info, contentDescription = null, tint = colorScheme.primary)
-                    Spacer(Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            text = "Community",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            text = moreToolsSubtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant,
-                            maxLines = helperCopyMaxLines,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Filled.Info, contentDescription = null, tint = colorScheme.primary)
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "Support & Guides",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                DashboardStatusPill(
+                                    text = "Guides",
+                                    emphasized = true
+                                )
+                                DashboardStatusPill(
+                                    text = "Feedback",
+                                    emphasized = false
+                                )
+                            }
+                            Text(
+                                text = moreToolsSubtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant,
+                                maxLines = helperCopyMaxLines,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    FilledTonalButton(
+                        onClick = onOpenMoreTools,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
+                        shape = MaterialTheme.shapes.large
+                    ) {
+                        Text("Open support & guides")
                     }
                 }
             }
+        }
         }
 
         item { Spacer(Modifier.height(12.dp)) }
@@ -985,12 +1462,410 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun DashboardDialogGotItButton(onClick: () -> Unit) {
-    TextButton(
-        onClick = onClick,
-        modifier = Modifier.semantics { traversalIndex = 1f }
+private fun DashboardStatusPill(
+    text: String,
+    emphasized: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(999.dp),
+        color = if (emphasized) {
+            colorScheme.primary.copy(alpha = 0.10f)
+        } else {
+            colorScheme.surfaceVariant.copy(alpha = 0.65f)
+        },
+        contentColor = if (emphasized) {
+            colorScheme.primary
+        } else {
+            colorScheme.onSurfaceVariant
+        }
     ) {
-        Text("Got it")
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun DashboardOverviewHero(
+    hasPlan: Boolean,
+    isOnline: Boolean,
+    primaryNextTitle: String,
+    primaryNextMessage: String,
+    primaryNextCta: String,
+    primaryActionState: FeedbackActionState,
+    onPrimaryAction: () -> Unit,
+    todayCompletedCount: Int,
+    todayMealsCount: Int,
+    groceryCount: Int,
+    hasTracked: Boolean,
+    goalLabel: String,
+    householdLabel: String,
+    estimatedWeeklyCost: Int?,
+    dailyCalorieTarget: Int,
+    helperCopyMaxLines: Int,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    if (!hasPlan) {
+        FriendlyEmptyStateCard(
+            title = "Start your first week",
+            message = if (isOnline) {
+                "Create one weekly plan to unlock shopping, progress, and easier daily check-offs."
+            } else {
+                "${ActionFeedbackCopy.InternetRequired} Connect once to create your first week."
+            },
+            actionLabel = if (isOnline) primaryNextCta else null,
+            onAction = if (isOnline) onPrimaryAction else null,
+            accentColor = colorScheme.primary,
+            modifier = modifier
+        )
+        return
+    }
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics {
+                isTraversalGroup = true
+                traversalIndex = 2f
+            },
+        shape = RoundedCornerShape(30.dp),
+        color = colorScheme.surface,
+        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = primaryNextTitle,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = colorScheme.primary
+                )
+                Text(
+                    text = primaryNextMessage,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = helperCopyMaxLines,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "This week supports: $goalLabel",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colorScheme.onSurface
+                )
+            }
+            CompactWidgetGrid(
+                widgets = listOf(
+                    CompactWidgetSpec(
+                        title = "Plan",
+                        value = "Ready",
+                        hint = "Meals are ready for $householdLabel.",
+                        accentColor = colorScheme.primary,
+                        badge = "Live"
+                    ),
+                    CompactWidgetSpec(
+                        title = "Today",
+                        value = if (todayMealsCount > 0) "$todayCompletedCount/$todayMealsCount" else "No meals",
+                        hint = if (todayMealsCount > 0) "Meals checked off today." else "Nothing is assigned today yet.",
+                        accentColor = colorScheme.secondary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Shopping",
+                        value = if (groceryCount > 0) "$groceryCount items" else "Start list",
+                        hint = if (groceryCount > 0) "Your grocery list is ready." else "Your shopping list comes next.",
+                        accentColor = colorScheme.tertiary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Week cost",
+                        value = estimatedWeeklyCost?.let { "₱$it" } ?: "Target $dailyCalorieTarget",
+                        hint = estimatedWeeklyCost?.let { "Estimated for the whole week." } ?: "Daily calorie target.",
+                        accentColor = colorScheme.primary.copy(alpha = 0.9f),
+                        badge = if (hasTracked) "Tracked" else null
+                    )
+                )
+            )
+            LoadingActionButton(
+                state = primaryActionState,
+                idleLabel = primaryNextCta,
+                loadingLabel = if (primaryNextCta.contains("Meal", ignoreCase = true)) {
+                    "Opening next meal…"
+                } else {
+                    "Opening progress…"
+                },
+                successLabel = if (primaryNextCta.contains("Meal", ignoreCase = true)) {
+                    "Next meal opened"
+                } else {
+                    "Progress opened"
+                },
+                errorLabel = "Try again",
+                onClick = onPrimaryAction,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun DashboardInsightsHero(
+    hasPlan: Boolean,
+    goalLabel: String,
+    goalShortLabel: String,
+    householdLabel: String,
+    estimatedWeeklyCost: Int?,
+    averageCalories: Int,
+    dailyCalorieTarget: Int,
+    adminMode: Boolean,
+    showSecondaryCards: Boolean,
+    onLearnMore: () -> Unit,
+    onExplainTarget: () -> Unit,
+    onExplainBmi: () -> Unit,
+    schemaVersion: String,
+    lockedMessage: String,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    if (!hasPlan) {
+        FriendlyEmptyStateCard(
+            title = "Insights open after your first plan",
+            message = lockedMessage,
+            actionLabel = "Why it shows later",
+            onAction = onLearnMore,
+            accentColor = colorScheme.tertiary,
+            modifier = modifier
+        )
+        return
+    }
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics {
+                isTraversalGroup = true
+                traversalIndex = 5f
+            },
+        shape = RoundedCornerShape(30.dp),
+        color = colorScheme.surface,
+        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "Week snapshot",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = colorScheme.tertiary
+                )
+                Text(
+                    text = "Simple week numbers for $goalLabel.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            CompactWidgetGrid(
+                widgets = listOf(
+                    CompactWidgetSpec(
+                        title = "Focus",
+                        value = goalShortLabel,
+                        hint = "Your main goal right now.",
+                        accentColor = colorScheme.primary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Avg per day",
+                        value = if (averageCalories > 0) "$averageCalories kcal" else "$dailyCalorieTarget kcal",
+                        hint = if (averageCalories > 0) "Based on this saved week." else "Daily target while planning.",
+                        accentColor = colorScheme.secondary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Household",
+                        value = householdLabel,
+                        hint = "Shopping scales to this size.",
+                        accentColor = colorScheme.tertiary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Week cost",
+                        value = estimatedWeeklyCost?.let { "₱$it" } ?: "Pending",
+                        hint = "Estimated cost for the whole week.",
+                        accentColor = colorScheme.primary.copy(alpha = 0.9f),
+                        badge = if (adminMode) "v$schemaVersion" else null
+                    )
+                )
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilledTonalButton(
+                    onClick = onLearnMore,
+                    modifier = Modifier.weight(1f),
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Text("Read this")
+                }
+                if (showSecondaryCards) {
+                    OutlinedButton(
+                        onClick = onExplainTarget,
+                        modifier = Modifier.weight(1f),
+                        shape = MaterialTheme.shapes.large
+                    ) {
+                        Text("Goal math")
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = onExplainBmi,
+                        modifier = Modifier.weight(1f),
+                        shape = MaterialTheme.shapes.large
+                    ) {
+                        Text("BMI help")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardSupportHero(
+    subtitle: String,
+    actionState: FeedbackActionState,
+    onOpenMoreTools: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics {
+                isTraversalGroup = true
+                traversalIndex = 8f
+            }
+            .testTag("dashboard_more_tools_card"),
+        shape = RoundedCornerShape(30.dp),
+        color = colorScheme.surfaceVariant.copy(alpha = 0.55f),
+        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DashboardStatusPill(
+                    text = "Guides",
+                    emphasized = true
+                )
+                DashboardStatusPill(
+                    text = "Feedback",
+                    emphasized = false
+                )
+                DashboardStatusPill(
+                    text = "Help",
+                    emphasized = false
+                )
+            }
+            Text(
+                text = "Need help?",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = colorScheme.onSurfaceVariant,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+            LoadingActionButton(
+                state = actionState,
+                idleLabel = "Open help",
+                loadingLabel = "Opening help…",
+                successLabel = "Help opened",
+                errorLabel = "Try again",
+                onClick = onOpenMoreTools,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colorScheme.secondaryContainer,
+                    contentColor = colorScheme.onSecondaryContainer
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun DashboardDialogGotItButton(onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.semantics { traversalIndex = 1f },
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
+    ) {
+        Text(
+            "Got it",
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun DashboardActionNoteCard(
+    title: String,
+    detail: String,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = colorScheme.primaryContainer.copy(alpha = 0.32f),
+        border = BorderStroke(1.dp, colorScheme.primary.copy(alpha = 0.16f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = colorScheme.primary.copy(alpha = 0.12f),
+                contentColor = colorScheme.primary
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Verified,
+                    contentDescription = null,
+                    modifier = Modifier.padding(8.dp)
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    color = colorScheme.primary
+                )
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
     }
 }
 
@@ -1002,6 +1877,12 @@ fun DashboardTodayOutcomeCard(
     deltaLabel: String?,
     timeline: List<TodayTimelineStep>,
     ctaLabel: String,
+    primaryActionState: FeedbackActionState,
+    primaryLoadingLabel: String,
+    primarySuccessLabel: String,
+    followUpLabel: String? = null,
+    followUpActionLabel: String? = null,
+    onFollowUpAction: (() -> Unit)? = null,
     onPrimaryAction: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1010,8 +1891,10 @@ fun DashboardTodayOutcomeCard(
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f)),
         modifier = modifier
             .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(UiMotionTokens.ExpandableContentMs))
             .semantics {
                 isTraversalGroup = true
                 traversalIndex = 3f
@@ -1021,15 +1904,22 @@ fun DashboardTodayOutcomeCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(10.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            Surface(
+                shape = CircleShape,
+                color = colorScheme.primary.copy(alpha = 0.06f)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.padding(4.dp)
+                ) {
                 CircularProgressIndicator(
                     progress = { progress.coerceIn(0f, 1f) },
-                    modifier = Modifier.size(56.dp),
-                    strokeWidth = 6.dp,
+                    modifier = Modifier.size(46.dp),
+                    strokeWidth = 5.dp,
                     color = colorScheme.primary,
                     trackColor = colorScheme.surfaceVariant
                 )
@@ -1037,60 +1927,49 @@ fun DashboardTodayOutcomeCard(
                     text = "${(progress.coerceIn(0f, 1f) * 100).toInt()}%",
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
                 )
+                }
             }
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text(
-                    text = "Today Outcome",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
-                )
-                Text(
-                    text = completedMealsLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DashboardStatusPill(
+                        text = when {
+                            progress >= 1f -> "Day complete"
+                            progress > 0f -> "In progress"
+                            else -> "Start today"
+                        },
+                        emphasized = progress > 0f
+                    )
+                    DashboardStatusPill(
+                        text = completedMealsLabel,
+                        emphasized = progress >= 1f
+                    )
+                }
                 Text(
                     text = nextLabel,
                     style = MaterialTheme.typography.bodySmall,
                     color = colorScheme.onSurfaceVariant,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(timeline) { step ->
-                        val (containerColor, labelColor) = when (step.state) {
-                            TodayTimelineState.Done -> colorScheme.primary.copy(alpha = 0.16f) to colorScheme.primary
-                            TodayTimelineState.Now -> colorScheme.secondaryContainer.copy(alpha = 0.7f) to colorScheme.onSurface
-                            TodayTimelineState.Pending -> colorScheme.surfaceVariant to colorScheme.onSurfaceVariant
-                            TodayTimelineState.Locked -> colorScheme.surfaceVariant.copy(alpha = 0.6f) to colorScheme.onSurfaceVariant
-                        }
-                        AssistChip(
-                            onClick = {},
-                            enabled = false,
-                            label = {
-                                Text(
-                                    text = "${step.label} • ${step.state.label}",
-                                    maxLines = 1
-                                )
-                            },
-                            colors = AssistChipDefaults.assistChipColors(
-                                disabledContainerColor = containerColor,
-                                disabledLabelColor = labelColor
-                            ),
-                            modifier = Modifier.heightIn(min = 48.dp)
+                        DashboardStatusPill(
+                            text = "${step.label} • ${step.state.label}",
+                            emphasized = step.state == TodayTimelineState.Done || step.state == TodayTimelineState.Now
                         )
                     }
                 }
                 deltaLabel?.let { label ->
                     Surface(
                         color = colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                        shape = MaterialTheme.shapes.small
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(
                             text = label,
@@ -1102,19 +1981,49 @@ fun DashboardTodayOutcomeCard(
                         )
                     }
                 }
+                if (!followUpLabel.isNullOrBlank()) {
+                    Surface(
+                        color = colorScheme.primaryContainer.copy(alpha = 0.35f),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, colorScheme.primary.copy(alpha = 0.14f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = followUpLabel,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (!followUpActionLabel.isNullOrBlank() && onFollowUpAction != null) {
+                                TextButton(onClick = onFollowUpAction) {
+                                    Text(followUpActionLabel)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
-        Button(
+        LoadingActionButton(
+            state = primaryActionState,
+            idleLabel = ctaLabel,
+            loadingLabel = primaryLoadingLabel,
+            successLabel = primarySuccessLabel,
+            errorLabel = "Try again",
             onClick = onPrimaryAction,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp)
-                .height(48.dp),
-            shape = MaterialTheme.shapes.medium,
-            colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
-        ) {
-            Text(ctaLabel)
-        }
+                .padding(horizontal = 10.dp, vertical = 8.dp)
+                .height(44.dp)
+        )
     }
 }
 
@@ -1131,8 +2040,10 @@ fun DashboardWeekCloseoutCard(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = colorScheme.primaryContainer.copy(alpha = 0.35f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, colorScheme.primary.copy(alpha = 0.18f)),
         modifier = modifier
             .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(UiMotionTokens.ExpandableContentMs))
             .semantics {
                 isTraversalGroup = true
                 traversalIndex = 3.5f
@@ -1140,27 +2051,27 @@ fun DashboardWeekCloseoutCard(
             .testTag("dashboard_week_closeout_card")
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = "Week closeout ready",
+                text = "Week wrap-up ready",
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
             )
             Text(
-                text = "Sunday meals are complete. Review this week, then generate your next plan.",
+                text = "Sunday is done. Review this week, then make the next one.",
                 style = MaterialTheme.typography.bodySmall,
                 color = colorScheme.onSurfaceVariant,
-                maxLines = helperCopyMaxLines,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             Button(
                 onClick = onReviewWeek,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
+                modifier = Modifier.fillMaxWidth().height(44.dp),
                 shape = MaterialTheme.shapes.medium,
                 colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
             ) {
-                Text("Review week & generate next plan")
+                Text("Review week")
             }
         }
     }

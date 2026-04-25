@@ -8,18 +8,25 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -34,14 +41,17 @@ import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.util.buildMealReasons
+import com.pcosina.app.ui.util.householdPlanningSummary
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.RecipeDetailsUiState
 import com.pcosina.app.ui.components.AppFeedbackBanner
 import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
+import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.components.MealCheckInDialog
 import com.pcosina.app.ui.components.MealCheckInDraft
+import com.pcosina.app.ui.components.StatusCenterCard
 import com.pcosina.app.ui.navigation.Routes
 import com.pcosina.app.ui.util.formatFiberProgressShort
 import com.pcosina.app.ui.util.formatKcalProgressShort
@@ -51,6 +61,7 @@ import com.pcosina.app.ui.theme.UiMotionTokens
 import com.pcosina.app.ui.util.TodayMealDescriptor
 import com.pcosina.app.ui.util.buildTodayLogSnapshot
 import com.pcosina.app.ui.util.goalMealReasonCopy
+import com.pcosina.app.ui.util.rememberIsOnline
 import com.pcosina.app.ui.util.remainingTodayMealSlots
 import com.pcosina.app.ui.util.mealImpactNextSuggestion
 import com.pcosina.app.ui.util.normalizeMealLabel
@@ -85,6 +96,9 @@ fun RecipeDetailsScreen(
     val planMetrics by mealPlanViewModel.planMetrics.collectAsState()
     val logs by progressViewModel.dailyLogs.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    val observedOnline by rememberIsOnline(context)
+    val isOnline = observedOnline
 
     // Trigger the fetch when the screen opens or ID changes
     LaunchedEffect(recipeId) {
@@ -93,148 +107,197 @@ fun RecipeDetailsScreen(
 
     when (state) {
         is RecipeDetailsUiState.Loading -> {
-            Box(
+            LazyColumn(
                 modifier = modifier
                     .fillMaxSize()
                     .background(colorScheme.background)
-                    .statusBarsPadding()
-                    .padding(16.dp)
+                    .statusBarsPadding(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap)
             ) {
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier.align(Alignment.TopStart)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = colorScheme.onBackground
-                    )
-                }
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.CardContentGap)
-                ) {
-                    CircularProgressIndicator(color = colorScheme.primary)
-                    Text(
-                        text = "Loading recipe",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-                    )
-                    Text(
-                        text = "Getting ingredients and steps.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(74.dp),
-                        shape = MaterialTheme.shapes.large,
-                        colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly
-                            ) {
-                                repeat(4) { NutrientSkeletonTile() }
+                item {
+                    GradientHeader(
+                        title = "Opening recipe details",
+                        subtitle = "Ingredients, nutrition, and meal logging context are loading.",
+                        containerHeight = 180,
+                        trailing = {
+                            IconButton(onClick = onBack) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = Color.White
+                                )
                             }
                         }
-                    }
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp),
-                        shape = MaterialTheme.shapes.large,
-                        colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    )
+                }
+                item {
+                    StatusCenterCard(
+                        queuedActionsLabel = "Recipe details are still loading.",
+                        syncLabel = if (isOnline) {
+                            "Online: recipe and plan data can refresh when needed."
+                        } else {
+                            "Offline-safe: waiting on saved recipe data."
+                        },
+                        planRangeLabel = "Today's meal context will appear here",
+                        nextReminderLabel = "Next focus: wait for ingredients and steps",
+                        modifier = Modifier.testTag("recipe_loading_status_center_card")
+                    )
+                }
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.CardContentGap)
                     ) {
-                        Column(
+                        CircularProgressIndicator(color = colorScheme.primary)
+                        Text(
+                            text = "Loading recipe",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                        Text(
+                            text = "Getting ingredients, nutrition, and cooking steps ready.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                        Card(
                             modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.CardContentGap)
+                                .fillMaxWidth()
+                                .height(74.dp),
+                            shape = MaterialTheme.shapes.large,
+                            colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
-                            LoadingSkeletonBar(
+                            Column(
                                 modifier = Modifier
-                                    .fillMaxWidth(0.72f)
-                                    .height(8.dp)
-                            )
+                                    .fillMaxSize()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceEvenly
+                                ) {
+                                    repeat(4) { NutrientSkeletonTile() }
+                                }
+                            }
+                        }
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp),
+                            shape = MaterialTheme.shapes.large,
+                            colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.CardContentGap)
+                            ) {
+                                LoadingSkeletonBar(
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.72f)
+                                        .height(8.dp)
+                                )
+                            }
                         }
                     }
                 }
             }
         }
         is RecipeDetailsUiState.Error -> {
-            Box(
+            LazyColumn(
                 modifier = modifier
                     .fillMaxSize()
                     .background(colorScheme.background)
-                    .statusBarsPadding()
-                    .padding(16.dp)
+                    .statusBarsPadding(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap)
             ) {
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier.align(Alignment.TopStart)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = colorScheme.onBackground
+                item {
+                    GradientHeader(
+                        title = "Recipe unavailable",
+                        subtitle = "The saved recipe context could not be opened right now.",
+                        containerHeight = 180,
+                        trailing = {
+                            IconButton(onClick = onBack) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = Color.White
+                                )
+                            }
+                        }
                     )
                 }
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.Center),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionHeaderGap)
+                item {
+                    StatusCenterCard(
+                        queuedActionsLabel = "Recipe details could not be loaded.",
+                        syncLabel = if (isOnline) {
+                            "Online: retry can request the recipe again."
+                        } else {
+                            "Offline-safe: reconnect later if this recipe is not cached."
+                        },
+                        planRangeLabel = "Back navigation is still available",
+                        nextReminderLabel = "Next focus: retry or return to your plan",
+                        modifier = Modifier.testTag("recipe_error_status_center_card")
+                    )
+                }
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                     ) {
-                        Text(
-                            text = "Couldn’t load recipe",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-                        )
-                        Text(
-                            text = (state as RecipeDetailsUiState.Error).message,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.error,
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            text = "Check connection and try again.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant
-                        )
-                        Button(
-                            onClick = { mealPlanViewModel.loadRecipeDetails(recipeId) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium,
-                            colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
+                        Column(
+                            modifier = Modifier.padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionHeaderGap)
                         ) {
-                            Text("Retry")
-                        }
-                        OutlinedButton(
-                            onClick = onBack,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Back")
+                            Text(
+                                text = "Couldn’t load recipe",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                            )
+                            Text(
+                                text = (state as RecipeDetailsUiState.Error).message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.error,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = if (isOnline) {
+                                    "Retry now or return to the previous screen."
+                                } else {
+                                    "Reconnect later or return to the previous screen."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            Button(
+                                onClick = { mealPlanViewModel.loadRecipeDetails(recipeId) },
+                                enabled = isOnline,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp),
+                                shape = MaterialTheme.shapes.large,
+                                colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
+                            ) {
+                                Text(if (isOnline) "Retry loading recipe" else "Reconnect to retry")
+                            }
+                            OutlinedButton(
+                                onClick = onBack,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp),
+                                shape = MaterialTheme.shapes.large
+                            ) {
+                                Text("Go back")
+                            }
                         }
                     }
                 }
@@ -334,6 +397,41 @@ fun RecipeDetailsScreen(
             }
             val displayedReasons = remember(goal, adminMode, reasons) {
                 if (adminMode) reasons else goalMealReasonCopy(goal, reasons)
+            }
+            val recipeMinutesLabel = "${r.minutes ?: 20} min"
+            val mealTypeLabel = remember(r.mealType) {
+                r.mealType
+                    ?.lowercase(Locale.ENGLISH)
+                    ?.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ENGLISH) else it.toString() }
+                    ?: "Recipe"
+            }
+            val heroSubtitle = when {
+                isRecipeInTodayPlan -> "${plannedTodayMeal?.mealLabel ?: mealTypeLabel} • $recipeMinutesLabel • $householdLabel"
+                else -> "$mealTypeLabel • $recipeMinutesLabel • $householdLabel"
+            }
+            val recipeStatusSummary = when {
+                alreadyLoggedToday -> "${r.title} is already logged for today."
+                isRecipeInTodayPlan -> "Ready to log as ${plannedTodayMeal?.mealLabel ?: mealTypeLabel}."
+                plan == null -> "Recipe loaded. Create a weekly plan to unlock check-ins."
+                todayPlannedMeals.isEmpty() -> "Recipe loaded. No meals are scheduled for today yet."
+                else -> "Recipe loaded. Logging stays tied to the meals in today's plan."
+            }
+            val recipeSyncSummary = if (isOnline) {
+                "Online: grocery adds and progress updates can sync when needed."
+            } else {
+                "Offline-safe: using your saved recipe, plan, and log state."
+            }
+            val recipePlanRangeLabel = when {
+                todayPlannedMeals.isNotEmpty() -> "Today progress: $loggedTodayCount/${todayPlannedMeals.size} meals logged"
+                plan != null -> "No meals scheduled for today yet"
+                else -> "No active weekly plan yet"
+            }
+            val recipeNextFocusLabel = when {
+                alreadyLoggedToday && todaySnapshot.nextMeal != null ->
+                    "Next focus: ${todaySnapshot.nextMeal?.mealLabel} check-in"
+                alreadyLoggedToday -> "Next focus: open Progress to review today"
+                isRecipeInTodayPlan -> "Next focus: mark this meal after you eat"
+                else -> "Next focus: open today's plan before logging"
             }
             var showLoadedContent by remember(r.id) { mutableStateOf(false) }
             var impactSummary by remember(r.id, todayKey) { mutableStateOf<RecipeImpactSummary?>(null) }
@@ -549,23 +647,37 @@ fun RecipeDetailsScreen(
                                 colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
                                 enabled = !alreadyLoggedToday && isRecipeInTodayPlan
                             ) {
-                                Text(
-                                    text = when {
-                                        alreadyLoggedToday -> "Marked as Eaten Today"
-                                        !isRecipeInTodayPlan -> "Not In Today’s Plan"
-                                        else -> "Mark as Eaten (Today)"
-                                    },
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (alreadyLoggedToday) Icons.Filled.CheckCircle else Icons.Filled.Restaurant,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = when {
+                                            alreadyLoggedToday -> "Already logged for today"
+                                            !isRecipeInTodayPlan -> "Not in today’s plan"
+                                            else -> "Log this meal for today"
+                                        },
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                             if (!isRecipeInTodayPlan) {
-                                Text(
-                                    text = "You can only log meals that appear in today’s plan.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                                ) {
+                                    Text(
+                                        text = "You can only log meals that appear in today’s plan. Add ingredients now, then return when this meal is scheduled.",
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                             OutlinedButton(
                                 onClick = addToGroceryAction,
@@ -574,7 +686,17 @@ fun RecipeDetailsScreen(
                                     .height(46.dp),
                                 shape = MaterialTheme.shapes.medium
                             ) {
-                                Text("Add to Grocery List")
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.ShoppingCart,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text("Add ingredients to grocery list")
+                                }
                             }
                         }
                     }
@@ -600,7 +722,7 @@ fun RecipeDetailsScreen(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(200.dp)
+                                        .height(220.dp)
                                         .background(
                                             Brush.verticalGradient(
                                                 colors = listOf(colorScheme.primary, colorScheme.tertiary)
@@ -612,27 +734,50 @@ fun RecipeDetailsScreen(
                                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = colorScheme.onPrimary)
                                     }
                                     Column(
-                                        modifier = Modifier.align(Alignment.Center),
-                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier
+                                            .align(Alignment.BottomStart)
+                                            .fillMaxWidth(),
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Text(text = "🥗", fontSize = 48.sp)
+                                        Text(
+                                            text = mealTypeLabel.uppercase(Locale.ENGLISH),
+                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, letterSpacing = 0.8.sp),
+                                            color = colorScheme.onPrimary.copy(alpha = 0.92f)
+                                        )
                                         Text(
                                             text = r.title,
-                                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                                             color = colorScheme.onPrimary,
                                             maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis,
-                                            textAlign = TextAlign.Center
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = heroSubtitle,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = colorScheme.onPrimary.copy(alpha = 0.9f),
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
                             }
                         }
 
-                        // 2. Meal Type & Time Card
                         item {
                             StaggeredRecipeItem(index = 1, trigger = showLoadedContent) {
+                                StatusCenterCard(
+                                    queuedActionsLabel = recipeStatusSummary,
+                                    syncLabel = recipeSyncSummary,
+                                    planRangeLabel = recipePlanRangeLabel,
+                                    nextReminderLabel = recipeNextFocusLabel,
+                                    modifier = Modifier.testTag("recipe_status_center_card")
+                                )
+                            }
+                        }
+
+                        // 2. Meal Type & Time Card
+                        item {
+                            StaggeredRecipeItem(index = 2, trigger = showLoadedContent) {
                                 Card(
                                     shape = MaterialTheme.shapes.extraLarge,
                                     colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
@@ -643,18 +788,24 @@ fun RecipeDetailsScreen(
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Text(
-                                            text = r.mealType?.uppercase() ?: "HEALTHY",
-                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black),
-                                            color = colorScheme.primary,
+                                            text = if (isRecipeInTodayPlan) "How this recipe fits today" else "How this recipe fits",
+                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                         )
-                                        Text(text = r.title, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
-                                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                            Text(text = "⏱ ${r.minutes ?: 20} min", style = MaterialTheme.typography.bodyMedium, color = colorScheme.onSurfaceVariant)
-                                            Text(text = "👥 $householdLabel", style = MaterialTheme.typography.bodyMedium, color = colorScheme.onSurfaceVariant)
+                                        Text(
+                                            text = "$mealTypeLabel • $recipeMinutesLabel • $householdLabel",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = colorScheme.onSurfaceVariant
+                                        )
+                                        if (isRecipeInTodayPlan) {
+                                            Text(
+                                                text = "Today's slot: ${plannedTodayMeal?.mealLabel ?: mealTypeLabel}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = colorScheme.primary
+                                            )
                                         }
                                         if (safeHouseholdSize > 1) {
                                             Text(
-                                                text = "Ingredients are scaled for $householdLabel. Nutrition stays shown per person.",
+                                                text = householdPlanningSummary(safeHouseholdSize),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = colorScheme.onSurfaceVariant
                                             )
@@ -680,7 +831,7 @@ fun RecipeDetailsScreen(
 
                         // 3. Nutritional Information Card
                         item {
-                            StaggeredRecipeItem(index = 2, trigger = showLoadedContent) {
+                            StaggeredRecipeItem(index = 3, trigger = showLoadedContent) {
                                 Card(
                                     shape = MaterialTheme.shapes.extraLarge,
                                     colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
@@ -710,34 +861,66 @@ fun RecipeDetailsScreen(
 
                         // 4. Ingredients List
                         item {
-                            StaggeredRecipeItem(index = 3, trigger = showLoadedContent) {
+                            StaggeredRecipeItem(index = 4, trigger = showLoadedContent) {
                                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Text(text = "Ingredients", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                                    RecipeSectionHeader(
+                                        title = "Ingredients",
+                                        subtitle = "${r.ingredients.size} item(s) scaled for $householdLabel."
+                                    )
                                     Card(
                                         shape = MaterialTheme.shapes.extraLarge,
                                         colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                                        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f))
                                     ) {
-                                        Column(modifier = Modifier.padding(16.dp)) {
-                                            r.ingredients.forEach { ing ->
+                                        Column(
+                                            modifier = Modifier.padding(16.dp),
+                                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                                        ) {
+                                            r.ingredients.forEachIndexed { index, ing ->
                                                 IngredientRow(ing.name, scaleQuantityText(ing.quantity, safeHouseholdSize))
+                                                if (index < r.ingredients.lastIndex) {
+                                                    HorizontalDivider(
+                                                        modifier = Modifier.padding(vertical = 4.dp),
+                                                        color = colorScheme.outlineVariant.copy(alpha = 0.60f)
+                                                    )
+                                                }
                                             }
                                         }
                                     }
-                                    Text(
-                                        text = "Ready to shop? Use the fixed Add button below.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = colorScheme.onSurfaceVariant
-                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(14.dp),
+                                        color = colorScheme.primary.copy(alpha = 0.08f),
+                                        contentColor = colorScheme.primary
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.ShoppingCart,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Text(
+                                                text = "Ready to shop? Use the fixed grocery button below.",
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
 
                         // 5. Cooking Steps
                         item {
-                            StaggeredRecipeItem(index = 4, trigger = showLoadedContent) {
+                            StaggeredRecipeItem(index = 5, trigger = showLoadedContent) {
                                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Text(text = "Cooking Steps", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                                    RecipeSectionHeader(
+                                        title = "Cooking Steps",
+                                        subtitle = "${r.steps.size} step(s). Follow in order for the intended result."
+                                    )
                                     r.steps.forEachIndexed { index, step ->
                                         InstructionRow(index + 1, step)
                                     }
@@ -826,11 +1009,14 @@ internal fun RecipeImpactSummarySection(
             )
     ) {
         Column {
-            TextButton(
+            OutlinedButton(
                 onClick = onToggleDetails,
-                modifier = Modifier.padding(horizontal = 0.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 44.dp),
+                shape = MaterialTheme.shapes.large
             ) {
-                Text(if (detailsExpanded) "Hide details" else "View details")
+                Text(if (detailsExpanded) "Hide impact details" else "View impact details")
             }
             if (detailsExpanded) {
                 if (summary.detailLine.isNotBlank()) {
@@ -853,13 +1039,13 @@ internal fun RecipeImpactSummarySection(
                 }
                 summary.nextRoute?.let { route ->
                     val cta = summary.nextCtaLabel ?: "Continue"
-                    OutlinedButton(
+                    FilledTonalButton(
                         onClick = { onNavigateToRoute(route) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(38.dp)
+                            .height(44.dp)
                             .testTag("recipe_impact_next_cta"),
-                        shape = MaterialTheme.shapes.small
+                        shape = MaterialTheme.shapes.large
                     ) {
                         Text(cta)
                     }
@@ -890,6 +1076,24 @@ private fun StaggeredRecipeItem(
         enter = fadeIn(animationSpec = tween(durationMillis = UiMotionTokens.RecipeItemFadeInMs))
     ) {
         content()
+    }
+}
+
+@Composable
+private fun RecipeSectionHeader(
+    title: String,
+    subtitle: String
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+        )
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -951,32 +1155,132 @@ private fun LoadingSkeletonBar(modifier: Modifier = Modifier) {
 @Composable
 private fun IngredientRow(name: String, amount: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.Top
     ) {
-        Text(text = name, style = MaterialTheme.typography.bodyLarge)
-        Text(text = amount, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.Top
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                contentColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Filled.ShoppingCart,
+                        contentDescription = null,
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = name,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+        ) {
+            Text(
+                text = amount,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
     }
 }
 
 @Composable
 private fun InstructionRow(step: Int, text: String) {
+    val stepHelper = if (step == 1) {
+        "Start here before moving through the rest of the recipe."
+    } else {
+        "Finish this part cleanly before moving on."
+    }
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
-            Box(
-                modifier = Modifier.size(28.dp).background(MaterialTheme.colorScheme.primary, shape = CircleShape),
-                contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(text = step.toString(), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(MaterialTheme.colorScheme.primary, shape = CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = step.toString(),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+                Text(
+                    text = "Step",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             Spacer(Modifier.width(16.dp))
-            Text(text = text, style = MaterialTheme.typography.bodyLarge)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "Do this next",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Schedule,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = stepHelper,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
     }
 }

@@ -346,7 +346,7 @@ fun AppNavHost(
                 hasGoalSelection(userProfile.goal) &&
                 (baseRoute == Routes.UserProfile || baseRoute == Routes.GoalSelection) -> {
                 navController.clearSetupFlowBackStack()
-                navigateInternal(Routes.Dashboard) {
+                navigateInternal(Routes.MealPlan) {
                     tabNavigationOptions()
                 }
             }
@@ -428,7 +428,7 @@ fun AppNavHost(
                 onFinish = {
                     userViewModel.setProfileCompleted(true)
                     navController.clearSetupFlowBackStack()
-                    navigateInternal(Routes.Dashboard) {
+                    navigateInternal(Routes.MealPlan) {
                         tabNavigationOptions()
                     }
                 },
@@ -567,12 +567,16 @@ fun AppNavHost(
         composable(Routes.MoreTools) {
             MoreToolsScreen(
                 onBack = { navController.popBackStack() },
-                onOpenMethodology = {
+                onOpenSupport = {
                     navigateInternal(Routes.Ipo) {
                         tabNavigationOptions()
                     }
                 },
+                onOpenMethodology = {
+                    navigateInternal(Routes.AdminMethodology)
+                },
                 onFeedback = onFeedback,
+                showAdminTools = adminMode,
                 modifier = Modifier.fillMaxSize(),
             )
         }

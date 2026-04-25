@@ -142,7 +142,8 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
             _loginState.value = LoginState.Loading
             val result = repository.resendVerification(trimmedEmail, passwordValue)
             if (result.isSuccess) {
-                _loginState.value = LoginState.Error("Verification email sent. Please check your inbox.")
+                _loginState.value = LoginState.Idle
+                _loginMessage.value = "Verification email sent. Please check your inbox."
             } else {
                 _loginState.value = LoginState.Error(result.exceptionOrNull()?.message ?: "Failed to send verification email")
             }

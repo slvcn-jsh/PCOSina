@@ -115,19 +115,33 @@ ING_SYNONYMS = {
     "tapa": "beef",
     "manok": "chicken",
     "isda": "fish",
+    "bangus": "bangus",
+    "milkfish": "milkfish",
+    "tilapia": "tilapia",
+    "galunggong": "galunggong",
+    "tambakol": "tuna",
+    "tulingan": "tuna",
+    "tanigue": "fish",
+    "salmon": "salmon",
+    "tuna": "tuna",
     "hipon": "shrimp",
+    "alimango": "crab",
+    "alimasag": "crab",
     "pusit": "squid",
     "gatas": "dairy",
     "keso": "cheese",
     "itlog": "egg",
+    "patis": "fish",
     "pechay": "bok_choy",
     "sitaw": "string_beans",
     "tokwa": "tofu",
+    "mani": "peanut",
 }
 
 ALLERGEN_SYNONYMS = {
     "peanut": "peanut",
     "peanuts": "peanut",
+    "mani": "peanut",
     "nuts": "nuts",
     "tree_nut": "nuts",
     "almond": "nuts",
@@ -139,6 +153,9 @@ ALLERGEN_SYNONYMS = {
     "gatas": "dairy",
     "cheese": "dairy",
     "keso": "dairy",
+    "yogurt": "dairy",
+    "butter": "dairy",
+    "cream": "dairy",
     "egg": "egg",
     "itlog": "egg",
     "fish": "fish",
@@ -147,6 +164,8 @@ ALLERGEN_SYNONYMS = {
     "shrimp": "shellfish",
     "hipon": "shellfish",
     "crab": "shellfish",
+    "alimango": "shellfish",
+    "alimasag": "shellfish",
     "soy": "soy",
     "toyo": "soy",
     "tofu": "soy",
@@ -156,14 +175,41 @@ ALLERGEN_SYNONYMS = {
 }
 
 MEAT_TOKENS = {"pork", "beef", "chicken", "meat", "lamb", "goat", "duck"}
-SEAFOOD_TOKENS = {"fish", "shrimp", "squid", "tuna", "salmon", "crab", "seafood"}
+FISH_FAMILY_TOKENS = {
+    "fish", "isda", "bangus", "milkfish", "tilapia", "galunggong",
+    "salmon", "tuna", "tambakol", "tulingan", "tanigue", "seafood",
+}
+SHELLFISH_FAMILY_TOKENS = {"shellfish", "shrimp", "hipon", "crab", "alimango", "alimasag"}
+DAIRY_FAMILY_TOKENS = {"dairy", "milk", "gatas", "cheese", "keso", "yogurt", "butter", "cream"}
+EGG_FAMILY_TOKENS = {"egg", "itlog"}
+NUTS_FAMILY_TOKENS = {"nuts", "almond", "cashew", "walnut", "hazelnut", "pistachio", "pecan"}
+PEANUT_FAMILY_TOKENS = {"peanut", "mani"}
+SOY_FAMILY_TOKENS = {"soy", "soya", "toyo", "tofu"}
+GLUTEN_FAMILY_TOKENS = {"gluten", "wheat", "flour", "bread", "pasta", "noodle", "bihon", "miki", "pancit"}
+SEAFOOD_TOKENS = FISH_FAMILY_TOKENS | {"shrimp", "squid", "crab"} | SHELLFISH_FAMILY_TOKENS
 DAIRY_TOKENS = {"dairy", "milk", "cheese", "yogurt", "cream", "butter"}
 EGG_TOKENS = {"egg"}
+ALLERGEN_FAMILY_TOKENS = {
+    "fish": FISH_FAMILY_TOKENS,
+    "shellfish": SHELLFISH_FAMILY_TOKENS,
+    "dairy": DAIRY_FAMILY_TOKENS,
+    "egg": EGG_FAMILY_TOKENS,
+    "nuts": NUTS_FAMILY_TOKENS,
+    "peanut": PEANUT_FAMILY_TOKENS,
+    "soy": SOY_FAMILY_TOKENS,
+    "gluten": GLUTEN_FAMILY_TOKENS,
+    "wheat": GLUTEN_FAMILY_TOKENS,
+}
+ALLERGEN_TOKEN_TO_FAMILY = {
+    token: family
+    for family, tokens in ALLERGEN_FAMILY_TOKENS.items()
+    for token in tokens
+}
 PROTEIN_GROUP_TOKENS = {
     "pork": {"pork"},
     "beef": {"beef"},
     "chicken": {"chicken"},
-    "fish": {"fish", "shrimp", "squid", "tuna", "salmon", "crab", "seafood"},
+    "fish": FISH_FAMILY_TOKENS | SHELLFISH_FAMILY_TOKENS | {"squid"},
     "egg": {"egg"},
     "tofu": {"tofu"},
 }
@@ -177,6 +223,16 @@ VEG_TOKENS = {
 MEAL_LABELS = ["Breakfast", "Lunch", "Dinner"]
 SNACK_LABELS = ["Snack1", "Snack2", "Snack3"]
 ALL_SLOT_LABELS = MEAL_LABELS + SNACK_LABELS
+GOAL_WEIGHT_LOSS = "weight loss"
+GOAL_SYMPTOM_MANAGEMENT = "symptom management"
+GOAL_GENERAL_HEALTH = "general health"
+
+SYMPTOM_ALIASES = {
+    "irregular periods": "irregular_periods",
+    "weight gain": "weight_gain",
+    "acne": "acne",
+    "hair loss": "hair_loss",
+}
 
 
 def _normalize_token(t: str) -> str:
@@ -219,8 +275,183 @@ def normalize_allergies(allergies: List[str]) -> List[str]:
         for raw in str(item).replace("/", " ").replace("-", " ").split():
             tok = _normalize_token(raw)
             if tok:
-                tokens.append(ALLERGEN_SYNONYMS.get(tok, tok))
-    return tokens
+                normalized = ALLERGEN_SYNONYMS.get(tok, tok)
+                tokens.append(ALLERGEN_TOKEN_TO_FAMILY.get(normalized, normalized))
+    return sorted(set(tokens))
+
+
+def normalize_goal_tokens(goal: str | None) -> List[str]:
+    return [
+        "".join(ch for ch in part.lower().strip() if ch.isalnum() or ch == " ").strip()
+        for part in str(goal or "").replace("/", ",").split(",")
+        if str(part or "").strip()
+    ]
+
+
+def goal_has(goal: str | None, expected: str) -> bool:
+    target = str(expected or "").strip().lower()
+    return any(target in token for token in normalize_goal_tokens(goal))
+
+
+def normalize_symptoms(symptoms: List[str]) -> List[str]:
+    normalized: List[str] = []
+    for raw in symptoms or []:
+        token = str(raw or "").strip().lower()
+        if not token:
+            continue
+        normalized_token = SYMPTOM_ALIASES.get(token, token.replace(" ", "_"))
+        normalized.append(normalized_token)
+    return sorted(set(normalized))
+
+
+def derive_allergen_exposures(tags: List[str], ing_tokens: List[str]) -> set[str]:
+    toks = set(ing_tokens or [])
+    exposures = {
+        family
+        for family, family_tokens in ALLERGEN_FAMILY_TOKENS.items()
+        if toks & family_tokens
+    }
+    tagset = set(tags or [])
+    if "contains_dairy" in tagset:
+        exposures.add("dairy")
+    if "contains_egg" in tagset:
+        exposures.add("egg")
+    if "contains_seafood" in tagset and not (exposures & {"fish", "shellfish"}):
+        exposures.add("fish")
+    return exposures
+
+
+def symptom_adjustments(profile: UserProfile, goal_value: str | None = None) -> Dict[str, Any]:
+    normalized_symptoms = normalize_symptoms(profile.symptoms or [])
+    notes: List[str] = []
+    adjustments = {
+        "normalizedSymptoms": normalized_symptoms,
+        "fiberMinBonus": 0,
+        "proteinTargetBonus": 0,
+        "sugarMaxDelta": 0,
+        "carbTargetDelta": 0,
+        "calorieTargetDelta": 0,
+        "dairyPenalty": 0.0,
+        "stage1HighFiberBonus": 0.0,
+        "stage1HighProteinBonus": 0.0,
+        "stage1LowerCalorieBonus": 0.0,
+        "stage1SteadyCarbBonus": 0.0,
+        "notes": notes,
+    }
+
+    if goal_has(goal_value, GOAL_SYMPTOM_MANAGEMENT):
+        adjustments["fiberMinBonus"] += 4
+        adjustments["sugarMaxDelta"] -= 8
+        adjustments["carbTargetDelta"] -= 10
+        adjustments["stage1HighFiberBonus"] += 1.5
+        adjustments["stage1SteadyCarbBonus"] += 1.0
+        notes.append("Symptom Management tightens fiber, sugar, and steadier-carb preferences.")
+    if goal_has(goal_value, GOAL_WEIGHT_LOSS):
+        adjustments["stage1LowerCalorieBonus"] += 0.75
+        adjustments["stage1HighProteinBonus"] += 0.5
+        notes.append("Weight Loss favors lighter, higher-protein meals after calorie target adjustment.")
+
+    if "weight_gain" in normalized_symptoms:
+        adjustments["calorieTargetDelta"] -= 120
+        adjustments["fiberMinBonus"] += 2
+        adjustments["stage1LowerCalorieBonus"] += 1.25
+        adjustments["stage1HighFiberBonus"] += 0.75
+        notes.append("Weight gain symptom nudges the plan toward lower-calorie, higher-fiber meals.")
+    if "irregular_periods" in normalized_symptoms:
+        adjustments["fiberMinBonus"] += 2
+        adjustments["stage1HighFiberBonus"] += 0.75
+        notes.append("Irregular periods nudges the plan toward higher-fiber meals.")
+    if "acne" in normalized_symptoms:
+        adjustments["sugarMaxDelta"] -= 6
+        adjustments["dairyPenalty"] += 2.0
+        adjustments["stage1SteadyCarbBonus"] += 0.5
+        notes.append("Acne symptom reduces sugar allowance and softly penalizes dairy-heavy meals.")
+    if "hair_loss" in normalized_symptoms:
+        adjustments["proteinTargetBonus"] += 8
+        adjustments["stage1HighProteinBonus"] += 1.25
+        notes.append("Hair loss nudges the plan toward higher-protein meals.")
+
+    return adjustments
+
+
+def profile_rule_summary(profile: UserProfile, budget_weekly: Optional[float]) -> Dict[str, List[str]]:
+    hard_filters: List[str] = []
+    soft_drivers: List[str] = []
+    shopping_factors: List[str] = []
+    tracking_only: List[str] = []
+
+    allergies = normalize_allergies(profile.allergies or [])
+    if allergies:
+        hard_filters.append("Allergies exclude matching ingredient families.")
+    if profile.dietaryRestrictions:
+        hard_filters.append("Dietary restrictions exclude incompatible recipes.")
+    if profile.maxCookingTimeMinutes and profile.maxCookingTimeMinutes > 0:
+        hard_filters.append(f"Cooking time is capped at {int(profile.maxCookingTimeMinutes)} minutes.")
+    if budget_weekly:
+        hard_filters.append(f"Weekly budget is capped at ₱{int(budget_weekly)}.")
+
+    soft_drivers.append(f"Activity level changes calorie target ({profile.activityLevel or 'Lightly Active'}).")
+    soft_drivers.append(f"Insulin resistance changes macro targets ({profile.insulinResistanceLevel or 'Mild'}).")
+    soft_drivers.append(f"Variety preference changes repeat pressure ({profile.varietyPreference or 'Balanced'}).")
+    soft_drivers.append(f"Planning priority changes optimization weights ({profile.planningPriority or 'Balanced'}).")
+    if str(profile.goal or "").strip():
+        soft_drivers.append(f"Goal affects solver targets and stage-1 scoring ({profile.goal}).")
+    if normalize_symptoms(profile.symptoms or []):
+        soft_drivers.append("Selected symptoms add deterministic fiber, sugar, protein, or calorie nudges.")
+    else:
+        tracking_only.append("Symptoms are optional; no symptom-specific nudges are active.")
+
+    household_size = household_size_multiplier(profile)
+    shopping_factors.append(f"Household size scales grocery quantities and estimated cost ({household_size}).")
+    if not budget_weekly:
+        tracking_only.append("Weekly budget is not set, so no hard budget cap is active.")
+
+    return {
+        "hardFilters": hard_filters,
+        "softDrivers": soft_drivers,
+        "shoppingFactors": shopping_factors,
+        "trackingOnly": tracking_only,
+    }
+
+
+def stage1_recipe_adjustments(
+    recipe: Dict[str, Any],
+    profile: UserProfile,
+    symptom_state: Dict[str, Any],
+    goal_value: str | None,
+) -> tuple[float, List[str]]:
+    tags = set(recipe.get("_tags") or [])
+    calories = int(recipe.get("calories") or 0)
+    protein = int(recipe.get("proteinGrams") or 0)
+    carbs = int(recipe.get("carbsGrams") or 0)
+    fiber = int(recipe.get("fiberGrams") or 0)
+    sugar = int(recipe.get("sugarGrams") or 0)
+    reasons: List[str] = []
+    boost = 0.0
+
+    if fiber >= 6 and symptom_state.get("stage1HighFiberBonus", 0.0) > 0.0:
+        boost += float(symptom_state["stage1HighFiberBonus"])
+        reasons.append("high_fiber_preferred")
+    if protein >= 25 and symptom_state.get("stage1HighProteinBonus", 0.0) > 0.0:
+        boost += float(symptom_state["stage1HighProteinBonus"])
+        reasons.append("high_protein_preferred")
+    if calories > 0 and calories <= 520 and symptom_state.get("stage1LowerCalorieBonus", 0.0) > 0.0:
+        boost += float(symptom_state["stage1LowerCalorieBonus"])
+        reasons.append("lower_calorie_preferred")
+    if carbs > 0 and carbs <= 45 and symptom_state.get("stage1SteadyCarbBonus", 0.0) > 0.0:
+        boost += float(symptom_state["stage1SteadyCarbBonus"])
+        reasons.append("steady_carb_preferred")
+    if symptom_state.get("dairyPenalty", 0.0) > 0.0 and "contains_dairy" in tags:
+        boost -= float(symptom_state["dairyPenalty"])
+        reasons.append("dairy_soft_penalty")
+    if goal_has(goal_value, GOAL_GENERAL_HEALTH) and fiber >= 5 and protein >= 20:
+        boost += 0.5
+        reasons.append("balanced_goal_fit")
+    if sugar and sugar <= 10 and goal_has(goal_value, GOAL_SYMPTOM_MANAGEMENT):
+        boost += 0.5
+        reasons.append("lower_sugar_goal_fit")
+
+    return boost, reasons
 
 
 def infer_allowed_meals(meal_type: str | None) -> List[str]:
@@ -385,10 +616,11 @@ def _shadow_ml_score(recipe: Dict[str, Any], profile: UserProfile) -> float:
 
 
 def _stage1_ml_feature_vector(recipe: Dict[str, Any], profile: UserProfile) -> Dict[str, float]:
+    budget_weekly = resolve_budget_weekly(profile) or 0.0
     return {
         "restriction_count": float(len(profile.dietaryRestrictions or [])),
         "allergy_count": float(len(profile.allergies or [])),
-        "budget_weekly_norm": float((profile.weeklyBudgetPhp or 0) / 7000.0),
+        "budget_weekly_norm": float(budget_weekly / 7000.0),
         "max_cooking_time_minutes": float(profile.maxCookingTimeMinutes or 0),
         "recipe_calories": float(recipe.get("calories") or 0.0),
         "recipe_protein": float(recipe.get("proteinGrams") or 0.0),
@@ -416,6 +648,20 @@ def _is_profile_in_canary(profile: UserProfile, policy: Optional[Dict[str, Any]]
     return bucket < int(canary_percent)
 
 
+def _stage1_ml_scoring_enabled(policy: Optional[Dict[str, Any]]) -> bool:
+    ml_shadow_enabled = bool(_policy_get(policy, "stage1.ML_shadow_enabled", True))
+    ml_canary_enabled = bool(_policy_get(policy, "stage1.ML_canary_enabled", False))
+    return bool(ml_shadow_enabled or ml_canary_enabled)
+
+
+def _stage1_ml_applies_to_ranking(profile: UserProfile, policy: Optional[Dict[str, Any]]) -> bool:
+    ml_shadow_enabled = bool(_policy_get(policy, "stage1.ML_shadow_enabled", True))
+    ml_canary_enabled = bool(_policy_get(policy, "stage1.ML_canary_enabled", False))
+    # `ML_shadow_enabled` is kept for backward-compatible policy parsing, but now
+    # acts as the main live-ranking switch rather than a score-only shadow path.
+    return bool(ml_shadow_enabled or (ml_canary_enabled and _is_profile_in_canary(profile, policy)))
+
+
 def _apply_stage1_scoring(
     recipe: Dict[str, Any],
     profile: UserProfile,
@@ -433,14 +679,13 @@ def _apply_stage1_scoring(
     if max_cook and max_cook > 0:
         prep_penalty = max(0.0, (minutes - max_cook) / float(max_cook)) * prep_penalty_weight
 
-    ml_shadow_enabled = bool(_policy_get(policy, "stage1.ML_shadow_enabled", True))
-    ml_canary_enabled = bool(_policy_get(policy, "stage1.ML_canary_enabled", False))
+    ml_scoring_enabled = _stage1_ml_scoring_enabled(policy)
     ml_weight = float(_policy_get(policy, "stage1.ML_score_weight", 0.15))
     ml_cap = float(_policy_get(policy, "stage1.ML_score_cap", 0.30))
     ml_weight = max(0.0, min(ml_weight, ml_cap, 1.0))
     ml_score = 0.0
     ml_model_version = "shadow_v0"
-    if ml_shadow_enabled or ml_canary_enabled:
+    if ml_scoring_enabled:
         ranker = get_stage1_ranker()
         ranker_state = ranker.state()
         ml_model_version = ranker_state.model_version
@@ -452,12 +697,13 @@ def _apply_stage1_scoring(
         else:
             ml_score = max(0.0, min(1.0, float(model_score)))
 
-    apply_ml_to_ranking = bool(ml_canary_enabled and _is_profile_in_canary(profile, policy))
+    apply_ml_to_ranking = _stage1_ml_applies_to_ranking(profile, policy)
     effective_weight = ml_weight if apply_ml_to_ranking else 0.0
+    existing_boost = float(recipe.get("_symptom_goal_boost") or 0.0)
     recipe["_ml_shadow_score"] = ml_score
     recipe["_ml_model_version"] = ml_model_version
     recipe["_ml_applied_to_ranking"] = apply_ml_to_ranking
-    recipe["_stage1_score_boost"] = (ml_score * effective_weight * 10.0) - prep_penalty
+    recipe["_stage1_score_boost"] = existing_boost + (ml_score * effective_weight * 10.0) - prep_penalty
 
 
 def _finalize_stage1_scoring(
@@ -471,38 +717,73 @@ def _finalize_stage1_scoring(
 ) -> None:
     bounded_ml_score = max(0.0, min(1.0, float(ml_score or 0.0)))
     effective_weight = float(ml_weight or 0.0) if apply_ml_to_ranking else 0.0
+    preserved_boost = float(recipe.get("_symptom_goal_boost") or (
+        float(recipe.get("_stage1_score_boost") or 0.0) + float(prep_penalty or 0.0)
+    ))
     recipe["_ml_shadow_score"] = bounded_ml_score
     recipe["_ml_model_version"] = str(ml_model_version or "shadow_v0")
     recipe["_ml_applied_to_ranking"] = bool(apply_ml_to_ranking)
-    recipe["_stage1_score_boost"] = (bounded_ml_score * effective_weight * 10.0) - float(prep_penalty or 0.0)
+    recipe["_stage1_score_boost"] = preserved_boost + (bounded_ml_score * effective_weight * 10.0) - float(prep_penalty or 0.0)
 
 
-def passes_restrictions(profile: UserProfile, tags: List[str], ing_tokens: List[str]) -> bool:
+def restriction_failure_reasons(profile: UserProfile, tags: List[str], ing_tokens: List[str]) -> List[str]:
     restrictions = set(profile.dietaryRestrictions or [])
     tagset = set(tags)
     toks = set(ing_tokens)
     allergy_tokens = set(normalize_allergies(profile.allergies or []))
-    if allergy_tokens and (toks & allergy_tokens):
-        return False
+    allergen_exposures = derive_allergen_exposures(tags, ing_tokens)
+    failures: List[str] = []
+    matched_allergies = sorted(allergy_tokens & allergen_exposures)
+    if matched_allergies:
+        failures.extend(f"allergy:{token}" for token in matched_allergies)
     if "No Pork" in restrictions and "pork" in toks:
-        return False
+        failures.append("restriction:no_pork")
     if "No Beef" in restrictions and "beef" in toks:
-        return False
+        failures.append("restriction:no_beef")
     if "Vegetarian" in restrictions and (("contains_meat" in tagset) or ("contains_seafood" in tagset)):
-        return False
+        failures.append("restriction:vegetarian")
     if "Pescatarian" in restrictions and ("contains_meat" in tagset):
-        return False
+        failures.append("restriction:pescatarian")
     if "Lactose Intolerant" in restrictions and ("contains_dairy" in tagset):
-        return False
-    return True
+        failures.append("restriction:lactose_intolerant")
+    return failures
+
+
+def passes_restrictions(profile: UserProfile, tags: List[str], ing_tokens: List[str]) -> bool:
+    return not restriction_failure_reasons(profile, tags, ing_tokens)
+
+
+def _increment_count(counter: Dict[str, int], key: str, amount: int = 1) -> None:
+    if not key:
+        return
+    counter[key] = int(counter.get(key, 0)) + int(amount)
 
 
 def validate_profile(profile: UserProfile) -> Optional[str]:
     restrictions = set(profile.dietaryRestrictions or [])
+    allergy_tokens = set(normalize_allergies(profile.allergies or []))
+    household_raw = getattr(profile, "householdSize", 1)
+    max_cook_raw = getattr(profile, "maxCookingTimeMinutes", 0)
+    household_size = int(1 if household_raw is None else household_raw)
+    max_cook = int(0 if max_cook_raw is None else max_cook_raw)
+    planning_priority = str(profile.planningPriority or "").strip().lower()
+    variety_preference = str(profile.varietyPreference or "").strip().lower()
+    if household_size < 1 or household_size > 6:
+        return "Household size must stay between 1 and 6."
+    if max_cook and not 10 <= max_cook <= 240:
+        return "Max cooking time must stay between 10 and 240 minutes."
+    if "Vegetarian" in restrictions and "Pescatarian" in restrictions:
+        return "Conflicting restrictions: Vegetarian and Pescatarian cannot both be active."
     if "Pescatarian" in restrictions and ("No Seafood" in restrictions or "No Fish" in restrictions):
         return "Conflicting restrictions: Pescatarian + No Seafood."
+    if "Pescatarian" in restrictions and {"fish", "shellfish"}.issubset(allergy_tokens):
+        return "Conflicting profile: Pescatarian cannot be combined with both fish and shellfish allergies."
     if "Vegetarian" in restrictions and ("No Eggs" in restrictions and "No Dairy" in restrictions):
         return "Very restrictive: Vegetarian + No Eggs + No Dairy."
+    if "budget" in planning_priority and resolve_budget_weekly(profile) is None:
+        return "Budget First priority requires a weekly budget."
+    if "variety" in planning_priority and "low" in variety_preference:
+        return "Variety First priority conflicts with Low variety preference."
     return None
 
 
@@ -584,6 +865,10 @@ def priority_overrides(priority: str | None) -> Dict[str, int]:
     return {"budget_mult": 1, "macro_mult": 1, "variety_mult": 1}
 
 
+def _should_optimize_cost(profile: UserProfile) -> bool:
+    return "budget" in str(profile.planningPriority or "").strip().lower()
+
+
 def shortlist_candidates(
     profile: UserProfile,
     recipes: List[Dict[str, Any]],
@@ -611,25 +896,41 @@ def shortlist_candidates(
     budget_keep_min_ratio = float(_policy_get(policy, "stage1.budget_keep_min_ratio", 0.25))
     pantry_match_threshold = int(_policy_get(policy, "stage1.pantry_match_threshold", 0))
     household_size = household_size_multiplier(profile)
-    ml_shadow_enabled = bool(_policy_get(policy, "stage1.ML_shadow_enabled", True))
-    ml_canary_enabled = bool(_policy_get(policy, "stage1.ML_canary_enabled", False))
+    symptom_state = symptom_adjustments(profile, profile.goal)
+    ml_scoring_enabled = _stage1_ml_scoring_enabled(policy)
     ml_weight = float(_policy_get(policy, "stage1.ML_score_weight", 0.15))
     ml_cap = float(_policy_get(policy, "stage1.ML_score_cap", 0.30))
     ml_weight = max(0.0, min(ml_weight, ml_cap, 1.0))
-    apply_ml_to_ranking = bool(ml_canary_enabled and _is_profile_in_canary(profile, policy))
-    ranker = get_stage1_ranker() if (ml_shadow_enabled or ml_canary_enabled) else None
+    apply_ml_to_ranking = _stage1_ml_applies_to_ranking(profile, policy)
+    ranker = get_stage1_ranker() if ml_scoring_enabled else None
     ranker_state = ranker.state() if ranker is not None else None
     ml_model_version = str(ranker_state.model_version) if ranker_state is not None else "shadow_v0"
     ml_scored_recipes: List[Dict[str, Any]] = []
     ml_feature_vectors: List[Dict[str, float]] = []
+    exclusion_summary = {
+        "allergy": 0,
+        "restriction": 0,
+        "prep_time": 0,
+        "pantry": 0,
+    }
+    exclusion_detail_counts: Dict[str, int] = {}
     phase_started_at = time.time()
     for r in recipes:
         tags = infer_tags(r)
         ing_tokens = normalize_ingredients(r.get("ingredients", []))
-        if not passes_restrictions(profile, tags, ing_tokens):
+        restriction_failures = restriction_failure_reasons(profile, tags, ing_tokens)
+        if restriction_failures:
+            for reason in sorted(set(restriction_failures)):
+                _increment_count(exclusion_detail_counts, reason)
+            if any(reason.startswith("allergy:") for reason in restriction_failures):
+                exclusion_summary["allergy"] += 1
+            else:
+                exclusion_summary["restriction"] += 1
             continue
         minutes = int(r.get("minutes") or 0)
         if max_cook is not None and minutes > max_cook:
+            exclusion_summary["prep_time"] += 1
+            _increment_count(exclusion_detail_counts, "prep_time:over_limit")
             continue
         penalty_weights = _policy_get(
             policy,
@@ -654,11 +955,16 @@ def shortlist_candidates(
         r["_ml_shadow_score"] = 0.0
         r["_ml_model_version"] = ml_model_version
         r["_ml_applied_to_ranking"] = apply_ml_to_ranking
-        r["_stage1_score_boost"] = -prep_penalty
-        if ml_shadow_enabled or ml_canary_enabled:
+        symptom_boost, symptom_reasons = stage1_recipe_adjustments(r, profile, symptom_state, profile.goal)
+        r["_symptom_goal_boost"] = symptom_boost
+        r["_selection_reasons"] = symptom_reasons
+        r["_stage1_score_boost"] = symptom_boost - prep_penalty
+        if ml_scoring_enabled:
             ml_scored_recipes.append(r)
             ml_feature_vectors.append(_stage1_ml_feature_vector(r, profile))
         if pantry_match_threshold > 0 and pantry_tokens and r["_pantry_match"] < pantry_match_threshold:
+            exclusion_summary["pantry"] += 1
+            _increment_count(exclusion_detail_counts, "pantry:below_threshold")
             continue
         meal_type = (r.get("mealType") or "Universal").lower()
         if "break" in meal_type:
@@ -712,6 +1018,9 @@ def shortlist_candidates(
         stage1_diag["bucket_finalize_ms"] = max(0, int((time.time() - finalize_started_at) * 1000))
         stage1_diag["ml_candidate_count"] = len(ml_scored_recipes)
         stage1_diag["ranker_ready"] = bool(ranker_state.ready) if ranker_state is not None else False
+        stage1_diag["exclusion_summary"] = dict(exclusion_summary)
+        stage1_diag["exclusion_detail_counts"] = dict(exclusion_detail_counts)
+        stage1_diag["goal_symptom_strategy"] = list(symptom_state.get("notes") or [])
     return buckets
 
 
@@ -951,6 +1260,27 @@ def _default_weight_set() -> Optional[Dict[str, int]]:
     return None
 
 
+def _selection_reason_payload(selected: List[Dict[str, Any]]) -> tuple[Dict[str, List[str]], Dict[str, int]]:
+    by_recipe: Dict[str, List[str]] = {}
+    counts: Dict[str, int] = {}
+    for recipe in selected:
+        recipe_id = str(recipe.get("id") or "").strip()
+        if not recipe_id:
+            continue
+        reasons = [
+            str(reason).strip()
+            for reason in (recipe.get("_selection_reasons") or [])
+            if str(reason).strip()
+        ]
+        if not reasons:
+            continue
+        deduped = sorted(set(reasons))
+        by_recipe[recipe_id] = deduped
+        for reason in deduped:
+            counts[reason] = counts.get(reason, 0) + 1
+    return by_recipe, counts
+
+
 def _build_explanation(
     selected: List[Dict[str, Any]],
     num_days: int,
@@ -965,6 +1295,14 @@ def _build_explanation(
     profile: UserProfile,
     budget_weekly: Optional[float],
     candidate_pool_size: int = 0,
+    *,
+    profile_rule_effects: Optional[Dict[str, List[str]]] = None,
+    symptom_state: Optional[Dict[str, Any]] = None,
+    candidate_exclusion_summary: Optional[Dict[str, int]] = None,
+    budget_hard_cap_applied: bool = False,
+    household_planning_mode: str = "per_person_targets_household_scaled_shopping",
+    fiber_min_target: Optional[int] = None,
+    sugar_max_target: Optional[int] = None,
 ) -> Dict[str, Any]:
     if not selected or num_days <= 0:
         return {}
@@ -995,6 +1333,7 @@ def _build_explanation(
         overshoot = (est_cost - budget_weekly) / max(1.0, budget_weekly)
         confidence -= min(15, int(overshoot * 50))
     confidence = max(0, min(100, confidence))
+    selection_reasons_by_recipe, selection_reason_counts = _selection_reason_payload(selected)
     return {
         "fallbackUsed": False,
         "authority": "cp-sat",
@@ -1017,6 +1356,28 @@ def _build_explanation(
         "restrictionCount": len(profile.dietaryRestrictions or []),
         "candidatePoolSize": int(candidate_pool_size),
         "selectedMeals": len(selected),
+        "budgetHardCapApplied": bool(budget_hard_cap_applied),
+        "householdPlanningMode": str(household_planning_mode),
+        "goalValue": str(profile.goal or "").strip(),
+        "symptomSelections": list(normalize_symptoms(profile.symptoms or [])),
+        "profileRuleEffects": profile_rule_effects or profile_rule_summary(profile, budget_weekly),
+        "symptomStrategy": list((symptom_state or {}).get("notes") or []),
+        "candidateExclusionSummary": candidate_exclusion_summary or {},
+        "selectionReasonsByRecipeId": selection_reasons_by_recipe,
+        "selectionReasonCounts": selection_reason_counts,
+        "fiberMinTarget": fiber_min_target,
+        "sugarMaxTarget": sugar_max_target,
+        "goalStrategy": [
+            note
+            for note in [
+                "Weight Loss lowers calorie target." if goal_has(profile.goal, GOAL_WEIGHT_LOSS) else None,
+                "Symptom Management tightens fiber, sugar, and steadier-carb preferences."
+                if goal_has(profile.goal, GOAL_SYMPTOM_MANAGEMENT) else None,
+                "General Health keeps balanced default targets."
+                if goal_has(profile.goal, GOAL_GENERAL_HEALTH) else None,
+            ]
+            if note is not None
+        ],
     }
 
 
@@ -1135,6 +1496,7 @@ def solve_meal_plan(
         or cold_start_defaults.get("insulinResistanceLevel")
         or "Mild"
     )
+    symptom_state = symptom_adjustments(profile, goal_value)
     debug_solver = _env_bool("PCOSINA_DEBUG_SOLVER", False)
     debug_summary = {
         "pool": 0,
@@ -1195,8 +1557,9 @@ def solve_meal_plan(
     )
     bmr = (10 * w) + (6.25 * h) - (5 * a) - 161
     target = int(bmr * activity_multiplier(activity_level))
-    if "Weight Loss" in goal_value:
+    if goal_has(goal_value, GOAL_WEIGHT_LOSS):
         target -= 500
+    target += int(symptom_state.get("calorieTargetDelta") or 0)
     calorie_min = int(_policy_get_legacy_aware(policy, ["nutrition.calorie_min", "calorie_min"], 1200))
     calorie_max = int(_policy_get_legacy_aware(policy, ["nutrition.calorie_max", "calorie_max"], 3200))
     target = max(calorie_min, min(target, calorie_max))
@@ -1216,6 +1579,8 @@ def solve_meal_plan(
     carb_max = int(_policy_get_legacy_aware(policy, ["nutrition.carb_max", "carb_max"], 420))
     fat_min = int(_policy_get_legacy_aware(policy, ["nutrition.fat_min", "fat_min"], 35))
     fat_max = int(_policy_get_legacy_aware(policy, ["nutrition.fat_max", "fat_max"], 140))
+    target_protein += int(symptom_state.get("proteinTargetBonus") or 0)
+    target_carbs += int(symptom_state.get("carbTargetDelta") or 0)
     target_protein = max(protein_min, min(target_protein, protein_max))
     target_carbs = max(carb_min, min(target_carbs, carb_max))
     target_fats = max(fat_min, min(target_fats, fat_max))
@@ -1263,9 +1628,10 @@ def solve_meal_plan(
     if telemetry_out is not None:
         telemetry_out["candidate_count_pre"] = len(candidates)
         telemetry_out["ranking_strategy"] = "stage1_heuristic_with_ml_shadow"
-        telemetry_out["ml_score_enabled"] = bool(_policy_get(policy, "stage1.ML_shadow_enabled", True))
+        telemetry_out["ml_score_enabled"] = _stage1_ml_scoring_enabled(policy)
         telemetry_out["ml_model_version"] = "shadow_v0"
         telemetry_out["stage1_diag"] = dict(stage1_diag)
+        telemetry_out["profile_rule_effects"] = profile_rule_summary(profile, resolve_budget_weekly(profile))
     max_pool_size = int(
         _policy_get_legacy_aware(
             policy,
@@ -1321,6 +1687,7 @@ def solve_meal_plan(
             telemetry_out["solve_pair_diagnostics"] = []
         return None, "Timed out while searching for a safe plan.", None
     budget_weekly = resolve_budget_weekly(profile)
+    rule_effects = profile_rule_summary(profile, budget_weekly)
     max_per_week_list = adjust_max_per_week(
         [
             int(v)
@@ -1507,13 +1874,9 @@ def solve_meal_plan(
             if pantry_bonus_vars:
                 pantry_match_total = sum(pantry_bonus_vars)
 
+        total_cost = sum(x[s, i] * int(pool[i].get("_cost_est", 0)) for s in range(slot_count) for i in range(len(pool)))
         if budget_weekly:
-            total_cost = sum(x[s, i] * int(pool[i].get("_cost_est", 0)) for s in range(slot_count) for i in range(len(pool)))
-            budget_over = model.NewIntVar(0, 1000000, "budget_over")
-            model.Add(total_cost - int(budget_weekly) <= budget_over)
-            model.Add(budget_over >= 0)
-        else:
-            budget_over = None
+            model.Add(total_cost <= int(budget_weekly))
 
         err_vars = []
         dev_pro_vars = []
@@ -1526,6 +1889,8 @@ def solve_meal_plan(
         fiber_min_target = int(_policy_get_legacy_aware(policy, ["nutrition.fiber_min", "fiber_min"], 20))
         sodium_max_target = int(_policy_get_legacy_aware(policy, ["nutrition.sodium_max", "sodium_max"], 2300))
         sugar_max_target = int(_policy_get_legacy_aware(policy, ["nutrition.sugar_max", "sugar_max"], 50))
+        fiber_min_target = max(0, fiber_min_target + int(symptom_state.get("fiberMinBonus") or 0))
+        sugar_max_target = max(5, sugar_max_target + int(symptom_state.get("sugarMaxDelta") or 0))
         meal_distribution = _policy_get(policy, "nutrition.meal_distribution_targets", None)
         if not isinstance(meal_distribution, list) or len(meal_distribution) < configured_meals_per_day:
             meal_distribution = [1.0 / configured_meals_per_day for _ in range(configured_meals_per_day)]
@@ -1585,7 +1950,7 @@ def solve_meal_plan(
         total_meal_err = sum(meal_err_vars) if meal_err_vars else 0
         total_repeat_over = sum(repeat_over_vars)
         total_group_over = sum(group_over_vars) if group_over_vars else 0
-        budget_penalty = budget_over if budget_over is not None else 0
+        budget_penalty = 0
         pantry_reward = sum(pantry_bonus_vars) if pantry_bonus_vars else 0
         diversity_reward = sum(veg_cov.values()) if veg_cov else 0
         diversity_penalty = (5 * diversity_slack) if diversity_slack is not None else 0
@@ -1619,12 +1984,13 @@ def solve_meal_plan(
         acceptance_w = int(_policy_get(policy, "planning.acceptance_score_weight", 1))
         macro_mult = int(priority.get("macro_mult", 1))
         budget_mult = int(priority.get("budget_mult", 1))
+        cost_objective = total_cost if _should_optimize_cost(profile) else 0
         prep_time_penalty = sum(x[s, i] * int(pool[i].get("minutes", 0)) for s in range(slot_count) for i in range(len(pool)))
         model.Minimize(
             (macro_mult * total_err) + (macro_mult * total_meal_err) +
             (macro_mult * 2 * total_dev_pro) + (macro_mult * total_dev_carb) + (macro_mult * total_dev_fat) +
             (macro_mult * total_fiber_slack) + (macro_mult * total_sodium_over) + (macro_mult * total_sugar_over) +
-            (budget_mult * cost_w * budget_penalty) + (prep_time_w * prep_time_penalty) +
+            (budget_mult * cost_w * cost_objective) + (budget_mult * cost_w * budget_penalty) + (prep_time_w * prep_time_penalty) +
             (repeat_w * total_repeat_over) + (group_w * total_group_over) + (acceptance_w * total_meal_err) +
             diversity_penalty - (pantry_w * pantry_reward) - (diversity_w * diversity_reward)
             + pantry_min_penalty
@@ -1758,6 +2124,12 @@ def solve_meal_plan(
                 profile,
                 budget_weekly,
                 candidate_pool_size=len(pool),
+                profile_rule_effects=rule_effects,
+                symptom_state=symptom_state,
+                candidate_exclusion_summary=dict(stage1_diag.get("exclusion_summary") or {}),
+                budget_hard_cap_applied=bool(budget_weekly),
+                fiber_min_target=fiber_min_target,
+                sugar_max_target=sugar_max_target,
             )
             explanation["solverStatus"] = status_name
             explanation["retryAttemptsUsed"] = attempts_used

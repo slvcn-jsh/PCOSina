@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.4.0",
+  "schemaVersion": "1.5.0",
   "title": "PCOSINA API Contract",
   "description": "Shared request/response contract for PCOSINA backend and mobile client.",
   "type": "object",
@@ -138,6 +138,8 @@
     "PlanExplanation": {
       "type": ["object", "null"],
       "properties": {
+        "fallbackUsed": { "type": "boolean" },
+        "authority": { "type": "string" },
         "confidenceScore": { "type": "integer", "minimum": 0, "maximum": 100 },
         "targetCalories": { "type": "integer" },
         "avgCalories": { "type": "integer" },
@@ -154,7 +156,79 @@
         "uniqueVegTokens": { "type": "integer" },
         "budgetWeekly": { "type": ["number", "null"] },
         "estimatedWeeklyCost": { "type": "integer" },
-        "restrictionCount": { "type": "integer" }
+        "restrictionCount": { "type": "integer" },
+        "candidatePoolSize": { "type": "integer" },
+        "selectedMeals": { "type": "integer" },
+        "budgetHardCapApplied": { "type": "boolean" },
+        "householdPlanningMode": { "type": "string" },
+        "goalValue": { "type": "string" },
+        "symptomSelections": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "profileRuleEffects": {
+          "type": "object",
+          "properties": {
+            "hardFilters": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "softDrivers": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "shoppingFactors": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "trackingOnly": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "symptomStrategy": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "candidateExclusionSummary": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "selectionReasonsByRecipeId": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "selectionReasonCounts": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "fiberMinTarget": { "type": ["integer", "null"] },
+        "sugarMaxTarget": { "type": ["integer", "null"] },
+        "goalStrategy": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "solverStatus": { "type": "string" },
+        "retryAttemptsUsed": { "type": "integer" },
+        "phaseTimingsMs": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "solverBudget": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["integer", "number", "string", "boolean", "null"]
+          }
+        },
+        "solvePairDiagnostics": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
       },
       "additionalProperties": false
     }

@@ -77,6 +77,7 @@ Set environment from the printed shell output:
 Apply policy:
 - `stage1.ML_shadow_enabled=true`
 - `stage1.ML_canary_enabled=false`
+- `ML_shadow_enabled` is a legacy key name; in the current runtime this applies the ML ranker to live ranking immediately.
 
 ## Step 6: Canary deployment
 Prepare canary rollout exports and verify cohort uplifts again:
@@ -90,6 +91,7 @@ python scripts/prepare_ml_rollout_env.py `
 Enable:
 - `stage1.ML_canary_enabled=true`
 - `sre.canary_cohort_percent` (start small, e.g., 5)
+- Use this cohort-gated path only when `stage1.ML_shadow_enabled=false`.
 
 Production note:
 - Current startup policy bootstrapping will seed the active production policy with:

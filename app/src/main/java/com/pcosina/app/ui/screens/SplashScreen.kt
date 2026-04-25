@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -97,29 +98,37 @@ fun SplashScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Logo Container
             Box(
                 modifier = Modifier
-                    .size(180.dp)
+                    .size(212.dp)
                     .clip(CircleShape)
-                    .background(colorScheme.onPrimary.copy(alpha = 0.15f))
-                    .padding(6.dp)
-                    .alpha(pulseAlpha),
+                    .background(colorScheme.onPrimary.copy(alpha = 0.08f))
+                    .padding(14.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.pcosina_logo),
-                    contentDescription = "PCOSINA Logo",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                        .background(colorScheme.onPrimary.copy(alpha = 0.14f))
+                        .padding(10.dp)
+                        .alpha(pulseAlpha),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.pcosina_logo),
+                        contentDescription = "PCOSINA Logo",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
             }
 
             Spacer(Modifier.height(32.dp))
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
                     text = "PCOSINA",
@@ -131,32 +140,56 @@ fun SplashScreen(
                     textAlign = TextAlign.Center,
                 )
                 Text(
-                    text = "Scientific • Personalized • Relevant",
+                    text = "Offline-first Filipino PCOS meal planning",
                     style = MaterialTheme.typography.bodyLarge.copy(
                         letterSpacing = 1.sp
                     ),
                     color = colorScheme.onPrimary.copy(alpha = 0.85f),
                     textAlign = TextAlign.Center,
                 )
+                Text(
+                    text = "Local-first support for planning, grocery, and progress.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.onPrimary.copy(alpha = 0.82f),
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = "Wellness decision support, not diagnosis.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onPrimary.copy(alpha = 0.72f),
+                    textAlign = TextAlign.Center,
+                )
             }
         }
 
-        // Refined Loading Indicator at bottom
-        Box(
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 80.dp)
-                .height(3.dp)
-                .fillMaxSize(fraction = 0.25f)
-                .clip(CircleShape)
-                .background(colorScheme.onPrimary.copy(alpha = 0.2f))
+                .padding(horizontal = 32.dp, vertical = 72.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize(fraction = 0.6f)
+                    .fillMaxWidth(0.42f)
+                    .height(4.dp)
                     .clip(CircleShape)
-                    .background(colorScheme.onPrimary)
-                    .alpha(pulseAlpha)
+                    .background(colorScheme.onPrimary.copy(alpha = 0.2f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.58f)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(colorScheme.onPrimary)
+                        .alpha(pulseAlpha)
+                )
+            }
+            Text(
+                text = "Loading your local plan context",
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                color = colorScheme.onPrimary.copy(alpha = 0.86f),
+                textAlign = TextAlign.Center,
             )
         }
     }

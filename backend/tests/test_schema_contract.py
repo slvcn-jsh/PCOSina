@@ -13,3 +13,31 @@ def test_schema_version_matches():
     path = Path(__file__).parents[1] / "schema" / "pcosina_contract.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     assert data.get("schemaVersion") == schema_contract.SCHEMA_VERSION
+
+
+def test_plan_explanation_contract_includes_extended_diagnostics_fields():
+    path = Path(__file__).parents[1] / "schema" / "pcosina_contract.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    properties = data["definitions"]["PlanExplanation"]["properties"]
+
+    for key in [
+        "candidatePoolSize",
+        "budgetHardCapApplied",
+        "profileRuleEffects",
+        "candidateExclusionSummary",
+        "selectionReasonsByRecipeId",
+        "selectionReasonCounts",
+        "fiberMinTarget",
+        "sugarMaxTarget",
+        "goalStrategy",
+        "solverStatus",
+        "retryAttemptsUsed",
+        "phaseTimingsMs",
+        "solverBudget",
+        "solvePairDiagnostics",
+    ]:
+        assert key in properties
+
+    profile_rule_effects = properties["profileRuleEffects"]["properties"]
+    for key in ["hardFilters", "softDrivers", "shoppingFactors", "trackingOnly"]:
+        assert key in profile_rule_effects

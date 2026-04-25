@@ -2,6 +2,7 @@ package com.pcosina.app.ui.screens
 
 import android.content.Intent
 import android.util.Log
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,7 +18,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -26,16 +29,17 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.InputChipDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -69,8 +73,17 @@ import com.pcosina.app.ui.components.GuidedJourneyCard
 import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.components.ExpandableSection
 import com.pcosina.app.ui.components.AppFeedbackBanner
+import com.pcosina.app.ui.components.CompactWidgetGrid
+import com.pcosina.app.ui.components.CompactWidgetSpec
+import com.pcosina.app.ui.components.FeedbackActionState
 import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
+import com.pcosina.app.ui.components.FocusModePanel
+import com.pcosina.app.ui.components.FriendlyEmptyStateCard
+import com.pcosina.app.ui.components.LoadingActionButton
+import com.pcosina.app.ui.components.ScreenFocusOption
+import com.pcosina.app.ui.components.ScreenFocusStrip
+import com.pcosina.app.ui.components.StatusCenterCard
 import com.pcosina.app.ui.components.TokenizedFilterChip
 import com.pcosina.app.ui.theme.PcosinaSuccess
 import com.pcosina.app.ui.theme.UiChipTokens
@@ -107,6 +120,13 @@ private enum class GroceryItemStatusFilter(val label: String) {
     All("All items"),
     NeedToBuy("Need to buy"),
     Completed("Bought / pantry")
+}
+
+private enum class GroceryScreenFocus {
+    List,
+    Pantry,
+    Budget,
+    Tips,
 }
 
 private const val AllCategoriesFilterKey = "All categories"
@@ -149,6 +169,7 @@ fun GroceryListScreen(
     val screenWidthDp = LocalConfiguration.current.screenWidthDp
     val groceryChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 108.dp, medium = 168.dp)
     val pantryChipLabelWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 132.dp, medium = 196.dp)
+    var groceryFocusKey by rememberSaveable { mutableStateOf(GroceryScreenFocus.List.name) }
     val weeklyBudget = userProfile.weeklyBudgetPhp.takeIf { it > 0 }
     var checkedNames by remember { mutableStateOf(setOf<String>()) }
     var pantryOptOut by remember { mutableStateOf(setOf<String>()) }
@@ -156,6 +177,7 @@ fun GroceryListScreen(
     val hasReviewedWeek = activePlanId != null && activePlanId == lastReviewedWeek
     val hasGrocery = addedItems.isNotEmpty()
     val hasTracked = logs.isNotEmpty()
+    val showJourneyCard = !hasPlan || !hasGrocery
     val groceryLockedCopy = remember { LockedFlowCopy.groceryLocked() }
     val guidedStep = resolveGuidedJourneyStep(
         GuidedJourneyInput(
@@ -194,9 +216,14 @@ fun GroceryListScreen(
     var sortAlpha by rememberSaveable { mutableStateOf(false) }
     var statusFilter by rememberSaveable { mutableStateOf(GroceryItemStatusFilter.All) }
     var selectedCategoryFilter by rememberSaveable { mutableStateOf(AllCategoriesFilterKey) }
+    var showListFilters by rememberSaveable { mutableStateOf(false) }
     var showLockedInfo by rememberSaveable { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     var groceryFeedbackBanner by remember { mutableStateOf<FeedbackBannerData?>(null) }
+    var groceryActionNoteTitle by rememberSaveable { mutableStateOf<String?>(null) }
+    var groceryActionNoteDetail by rememberSaveable { mutableStateOf<String?>(null) }
+    val groceryPrimaryHeroActionState = remember { mutableStateOf(FeedbackActionState.Idle) }
+    val grocerySecondaryHeroActionState = remember { mutableStateOf(FeedbackActionState.Idle) }
     val observedOnline by rememberIsOnline(context)
     val isOnline = onlineStateOverride ?: observedOnline
     val searchFilteredItems = if (searchQuery.text.isBlank()) groupedEntries else groupedEntries.filter {
@@ -252,6 +279,7 @@ fun GroceryListScreen(
         mutableStateOf(displayCategories.associateWith { defaultCategoryExpanded(it) })
     }
     val allExpanded = displayCategories.isNotEmpty() && expandedMap.values.all { it }
+    val anyExpanded = displayCategories.any { expandedMap[it] == true }
     val weekLabel = remember(activePlanId, lastPlanTimestamp) {
         formatWeekRange(activePlanId, lastPlanTimestamp)
     }
@@ -275,6 +303,11 @@ fun GroceryListScreen(
         }
         if (!stillAvailable) {
             selectedCategoryFilter = AllCategoriesFilterKey
+        }
+    }
+    LaunchedEffect(displayCategories, selectedCategoryFilter) {
+        if (selectedCategoryFilter != AllCategoriesFilterKey && displayCategories.size == 1) {
+            expandedMap = displayCategories.associateWith { it == selectedCategoryFilter }
         }
     }
 
@@ -320,10 +353,55 @@ fun GroceryListScreen(
             }
         }
     }
+    fun noteGroceryAction(title: String, detail: String) {
+        groceryActionNoteTitle = title
+        groceryActionNoteDetail = detail
+    }
+    fun runGroceryHeroAction(
+        state: androidx.compose.runtime.MutableState<FeedbackActionState>,
+        loadingMessage: String,
+        successMessage: String,
+        action: () -> Unit
+    ) {
+        if (state.value == FeedbackActionState.Loading) return
+        coroutineScope.launch {
+            state.value = FeedbackActionState.Loading
+            postGroceryFeedback(
+                tone = FeedbackBannerTone.Loading,
+                message = loadingMessage
+            )
+            delay(140)
+            state.value = FeedbackActionState.Success
+            postGroceryFeedback(
+                tone = FeedbackBannerTone.Success,
+                message = successMessage
+            )
+            delay(110)
+            action()
+            delay(500)
+            state.value = FeedbackActionState.Idle
+        }
+    }
+    LaunchedEffect(groceryActionNoteTitle, groceryActionNoteDetail) {
+        val currentTitle = groceryActionNoteTitle ?: return@LaunchedEffect
+        val currentDetail = groceryActionNoteDetail
+        delay(2800)
+        if (groceryActionNoteTitle == currentTitle && groceryActionNoteDetail == currentDetail) {
+            groceryActionNoteTitle = null
+            groceryActionNoteDetail = null
+        }
+    }
+    LaunchedEffect(groceryFocusKey) {
+        groceryPrimaryHeroActionState.value = FeedbackActionState.Idle
+        grocerySecondaryHeroActionState.value = FeedbackActionState.Idle
+    }
 
     fun effectivePrice(item: GroceryListEntry): Int {
         return item.estimatedCostPhp.coerceAtLeast(0)
     }
+    val remainingCount = groupedEntries.count { it.name !in effectiveCheckedNames }
+    val completedCount = (groupedEntries.size - remainingCount).coerceAtLeast(0)
+    val pantryCoveredCount = pantryMatches.count { it !in pantryOptOut }
     val totalCost = groupedEntries
         .filter { it.name !in effectiveCheckedNames }
         .sumOf { effectivePrice(it) }
@@ -331,6 +409,62 @@ fun GroceryListScreen(
     val costProgress = if (displayBudget != null && displayBudget > 0) {
         (totalCost.toFloat() / displayBudget.toFloat()).coerceIn(0f, 1f)
     } else 0f
+    val shoppingProgress = if (groupedEntries.isNotEmpty()) {
+        completedCount.toFloat() / groupedEntries.size.toFloat()
+    } else 0f
+    val groceryStatusSummary = when {
+        !hasPlan -> "Generate a weekly plan to unlock shopping totals and auto-filled items."
+        groupedEntries.isEmpty() -> "Plan exists, but grocery items have not populated yet."
+        pantryMatches.isNotEmpty() -> "Pantry-first matches are already marked so you can shop the gap."
+        else -> "Shopping list is ready for review and check-off."
+    }
+    val grocerySyncSummary = if (isOnline) {
+        "Online: grocery changes can sync when needed."
+    } else {
+        "Offline-safe: using your saved grocery list."
+    }
+    val hasActiveListControls = searchQuery.text.isNotBlank() ||
+        sortAlpha ||
+        statusFilter != GroceryItemStatusFilter.All ||
+        selectedCategoryFilter != AllCategoriesFilterKey
+    val groceryNextFocus = when {
+        !hasPlan -> "Next focus: open meal planning"
+        groupedEntries.isEmpty() -> "Next focus: review your meal plan"
+        emptySearchResults -> "Next focus: clear search and browse all categories"
+        weeklyBudget == null -> "Next focus: add a budget in Profile for spending alerts"
+        else -> "Next focus: filter to need-to-buy items and check them off"
+    }
+    val groceryFocus = remember(groceryFocusKey) {
+        GroceryScreenFocus.valueOf(groceryFocusKey)
+    }
+    val groceryFocusOptions = remember(weeklyBudget, groupedEntries.isNotEmpty()) {
+        listOf(
+            ScreenFocusOption(
+                key = GroceryScreenFocus.List.name,
+                label = "List",
+                summary = "See your shopping list and filters."
+            ),
+            ScreenFocusOption(
+                key = GroceryScreenFocus.Pantry.name,
+                label = "Pantry",
+                summary = "Manage what you already have."
+            ),
+            ScreenFocusOption(
+                key = GroceryScreenFocus.Budget.name,
+                label = "Spend",
+                summary = if (weeklyBudget == null) {
+                    "See estimated cost and decide if you want a budget."
+                } else {
+                    "See estimated cost and budget pressure."
+                }
+            ),
+            ScreenFocusOption(
+                key = GroceryScreenFocus.Tips.name,
+                label = "Help",
+                summary = "Open shopping help and next steps."
+            )
+        )
+    }
 
     LazyColumn(
         modifier = modifier
@@ -342,16 +476,23 @@ fun GroceryListScreen(
     ) {
         item {
             GradientHeader(
-                title = "Grocery List",
-                subtitle = weekLabel,
+                title = "Shopping",
+                subtitle = if (hasPlan) {
+                    "$weekLabel • What to buy, what you have, and what is done."
+                } else {
+                    "Your shopping list appears after you create a week."
+                },
+                containerHeight = 116,
             )
         }
 
-        item {
-            GuidedJourneyCard(
-                step = guidedStep,
-                onContinue = { step -> onNavigateToRoute(step.route) }
-            )
+        if (showJourneyCard) {
+            item {
+                GuidedJourneyCard(
+                    step = guidedStep,
+                    onContinue = { step -> onNavigateToRoute(step.route) }
+                )
+            }
         }
         groceryFeedbackBanner?.let { banner ->
             item {
@@ -372,8 +513,125 @@ fun GroceryListScreen(
                 )
             }
         }
+        item {
+            ScreenFocusStrip(
+                title = "Show",
+                options = groceryFocusOptions,
+                selectedKey = groceryFocusKey,
+                onSelect = { groceryFocusKey = it },
+                labelMaxWidth = groceryChipLabelWidth
+            )
+        }
+        item {
+            FocusModePanel(
+                targetKey = groceryFocusKey,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("grocery_focus_panel")
+            ) { focusKey ->
+                when (GroceryScreenFocus.valueOf(focusKey)) {
+                    GroceryScreenFocus.List -> GroceryListHero(
+                        hasPlan = hasPlan,
+                        weekLabel = weekLabel,
+                        totalItems = groupedEntries.size,
+                        remainingCount = remainingCount,
+                        completedCount = completedCount,
+                        totalCost = totalCost,
+                        selectedCategoryLabel = if (selectedCategoryFilter == AllCategoriesFilterKey) "All categories" else selectedCategoryFilter,
+                        statusFilterLabel = statusFilter.label,
+                        onOpenPlan = {
+                            if (!isOnline) {
+                                postGroceryFeedback(
+                                    tone = FeedbackBannerTone.Error,
+                                    message = "${ActionFeedbackCopy.InternetRequired} Connect to open plan generation."
+                                )
+                            } else {
+                                postGroceryFeedback(
+                                    tone = FeedbackBannerTone.Loading,
+                                    message = "Opening plan generator…"
+                                )
+                                onNavigateToRoute(Routes.MealPlan)
+                            }
+                        },
+                        lockedMessage = groceryLockedCopy.cardText
+                    )
 
-        if (!hasPlan) {
+                    GroceryScreenFocus.Pantry -> GroceryPantryHero(
+                        pantryCount = pantryEntries.size,
+                        pantryCoveredCount = pantryCoveredCount,
+                        remainingCount = remainingCount,
+                        householdLabel = householdLabel
+                    )
+
+                    GroceryScreenFocus.Budget -> GroceryBudgetHero(
+                        totalCost = totalCost,
+                        displayBudget = displayBudget?.toInt(),
+                        savings = savings,
+                        remainingCount = remainingCount,
+                        completedCount = completedCount,
+                        totalItems = groupedEntries.size,
+                        actionState = groceryPrimaryHeroActionState.value,
+                        onOpenProgress = {
+                            runGroceryHeroAction(
+                                state = groceryPrimaryHeroActionState,
+                                loadingMessage = "Opening progress…",
+                                successMessage = "Progress opened."
+                            ) {
+                                onNavigateToRoute(Routes.Progress)
+                            }
+                        }
+                    )
+
+                    GroceryScreenFocus.Tips -> GroceryTipsHero(
+                        tipCount = goalShoppingTips(userProfile.goal, householdSize).size,
+                        hasItems = groupedEntries.isNotEmpty(),
+                        planActionState = grocerySecondaryHeroActionState.value,
+                        progressActionState = groceryPrimaryHeroActionState.value,
+                        onOpenPlan = {
+                            runGroceryHeroAction(
+                                state = grocerySecondaryHeroActionState,
+                                loadingMessage = "Opening meal plan…",
+                                successMessage = "Meal plan opened."
+                            ) {
+                                onNavigateToRoute(Routes.MealPlan)
+                            }
+                        },
+                        onOpenProgress = {
+                            runGroceryHeroAction(
+                                state = groceryPrimaryHeroActionState,
+                                loadingMessage = "Opening progress…",
+                                successMessage = "Progress opened."
+                            ) {
+                                onNavigateToRoute(Routes.Progress)
+                            }
+                        }
+                    )
+                }
+            }
+        }
+        if (!groceryActionNoteTitle.isNullOrBlank() && !groceryActionNoteDetail.isNullOrBlank()) {
+            item {
+                AnimatedVisibility(visible = true) {
+                    GroceryActionNoteCard(
+                        title = groceryActionNoteTitle.orEmpty(),
+                        detail = groceryActionNoteDetail.orEmpty()
+                    )
+                }
+            }
+        }
+        if (false && groceryFocus != GroceryScreenFocus.Pantry) {
+            item {
+                StatusCenterCard(
+                    queuedActionsLabel = groceryStatusSummary,
+                    syncLabel = grocerySyncSummary,
+                    planRangeLabel = if (hasPlan) "Shopping week: $weekLabel" else "No shopping week active yet",
+                    nextReminderLabel = groceryNextFocus,
+                    modifier = Modifier.testTag("grocery_status_center_card")
+                )
+            }
+        }
+
+        if (false && !hasPlan && groceryFocus == GroceryScreenFocus.List) {
             item {
                 Card(
                     shape = MaterialTheme.shapes.large,
@@ -401,7 +659,7 @@ fun GroceryListScreen(
                                 labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         )
-                        OutlinedButton(
+                        FilledTonalButton(
                             onClick = {
                                 if (!isOnline) {
                                     postGroceryFeedback(
@@ -416,15 +674,16 @@ fun GroceryListScreen(
                                     onNavigateToRoute(Routes.MealPlan)
                                 }
                             },
-                            modifier = Modifier.heightIn(min = 48.dp)
+                            modifier = Modifier.heightIn(min = 48.dp),
+                            shape = MaterialTheme.shapes.large
                         ) {
-                            Text("Go to Plan")
+                            Text("Open meal plan builder")
                         }
                     }
                 }
             }
         }
-        if (hasPlan) {
+        if (false && hasPlan && groceryFocus == GroceryScreenFocus.Tips) {
             item {
                 Card(
                     modifier = Modifier.testTag("grocery_next_steps_card"),
@@ -444,9 +703,9 @@ fun GroceryListScreen(
                         )
                         Text(
                             text = if (groupedEntries.isEmpty()) {
-                                "Your grocery list is filled from your current plan automatically. If you just generated a plan, give it a moment to finish updating."
+                                "Your shopping list fills in from your week. If you just made a plan, wait a moment."
                             } else {
-                                "Filter to Need to buy, check items as you shop, then open Progress to log meals."
+                                "Check items as you shop, then open Progress after meals."
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -467,7 +726,7 @@ fun GroceryListScreen(
                                     .heightIn(min = 48.dp)
                                     .testTag("grocery_open_mealplan_cta")
                             ) {
-                                Text("Open Meal Plan")
+                                Text("Open Plan")
                             }
                             OutlinedButton(
                                 onClick = {
@@ -489,27 +748,28 @@ fun GroceryListScreen(
             }
         }
 
-        item {
-            ExpandableSection(
-                title = "Pantry Inventory",
-                subtitle = "Optional. Use-first items for planning",
-                defaultExpanded = false
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+        if (groceryFocus == GroceryScreenFocus.Pantry) {
+            item {
+                ExpandableSection(
+                    title = "Manage pantry",
+                    subtitle = if (pantryEntries.isEmpty()) {
+                        "Save what you already have"
+                    } else {
+                        "${pantryEntries.size} item(s) saved"
+                    },
+                    defaultExpanded = false
                 ) {
-                    Text(
-                        text = "Items here are treated as “use-first” during planning.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                     val compactPantryAddFlow = screenWidthDp <= 360
                     var pantryInput by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
                     var pantryQty by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
                     var pantryExpiry by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
+                    var showAllPantryItems by rememberSaveable(pantryEntries.size) { mutableStateOf(false) }
                     var showPantryAddForm by rememberSaveable(compactPantryAddFlow) {
                         mutableStateOf(!compactPantryAddFlow)
                     }
@@ -521,10 +781,6 @@ fun GroceryListScreen(
                                 message = "Enter a pantry item name before saving."
                             )
                         } else {
-                            postGroceryFeedback(
-                                tone = FeedbackBannerTone.Loading,
-                                message = "Saving pantry item…"
-                            )
                             val newEntry = PantryEntry(
                                 name = name,
                                 quantity = pantryQty.text.trim().takeIf { it.isNotBlank() },
@@ -545,9 +801,9 @@ fun GroceryListScreen(
                             pantryQty = TextFieldValue("")
                             pantryExpiry = TextFieldValue("")
                             if (compactPantryAddFlow) showPantryAddForm = false
-                            postGroceryFeedback(
-                                tone = FeedbackBannerTone.Success,
-                                message = "Pantry updated: added $name."
+                            noteGroceryAction(
+                                title = "Pantry saved",
+                                detail = "$name was added. The planner can use it first next time."
                             )
                         }
                     }
@@ -601,7 +857,7 @@ fun GroceryListScreen(
                                         .fillMaxWidth()
                                         .heightIn(min = 48.dp)
                                 ) {
-                                    Text("Add to Pantry")
+                                    Text("Add pantry item")
                                 }
                             } else {
                                 Row(
@@ -613,7 +869,7 @@ fun GroceryListScreen(
                                         onClick = addPantryEntry,
                                         modifier = Modifier.heightIn(min = 48.dp)
                                     ) {
-                                        Text("Add")
+                                        Text("Save pantry item")
                                     }
                                 }
                             }
@@ -626,16 +882,12 @@ fun GroceryListScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     } else {
-                        if (pantryEntries.size > 3) {
-                            Text(
-                                text = "Swipe left or right to review pantry chips.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            items(pantryEntries.size) { idx ->
-                                val entry = pantryEntries[idx]
+                        val visiblePantryEntries = if (showAllPantryItems) pantryEntries else pantryEntries.take(6)
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            visiblePantryEntries.forEach { entry ->
                                 val expiryText = entry.expiryDate?.trim()
                                 val expiryDate = expiryText?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
                                 val isExpired = expiryDate?.isBefore(LocalDate.now()) == true
@@ -672,9 +924,9 @@ fun GroceryListScreen(
                                                 )
                                             )
                                         }
-                                        postGroceryFeedback(
-                                            tone = FeedbackBannerTone.Success,
-                                            message = "Pantry updated: removed ${entry.name}."
+                                        noteGroceryAction(
+                                            title = "Pantry updated",
+                                            detail = "${entry.name} was removed from your saved pantry items."
                                         )
                                     },
                                     modifier = Modifier.heightIn(min = 48.dp),
@@ -699,54 +951,198 @@ fun GroceryListScreen(
                                 )
                             }
                         }
-                        Text(
-                            text = "Tap the X to remove an item.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        if (pantryEntries.size > visiblePantryEntries.size) {
+                            OutlinedButton(
+                                onClick = { showAllPantryItems = true },
+                                modifier = Modifier.heightIn(min = 44.dp)
+                            ) {
+                                Text("Show ${pantryEntries.size - visiblePantryEntries.size} more")
+                            }
+                        } else if (showAllPantryItems && pantryEntries.size > 6) {
+                            OutlinedButton(
+                                onClick = { showAllPantryItems = false },
+                                modifier = Modifier.heightIn(min = 44.dp)
+                            ) {
+                                Text("Show less")
+                            }
+                        }
+                    }
+                }
+            }
+            }
+        }
+
+        if (groupedEntries.isNotEmpty() && groceryFocus == GroceryScreenFocus.List) {
+            item {
+                Card(
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Search items") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Search,
+                                    contentDescription = null
+                                )
+                            },
+                            trailingIcon = {
+                                if (searchQuery.text.isNotBlank()) {
+                                    IconButton(
+                                        onClick = {
+                                            searchQuery = TextFieldValue("")
+                                            postGroceryFeedback(
+                                                tone = FeedbackBannerTone.Success,
+                                                message = "Search cleared. Showing all categories."
+                                            )
+                                        },
+                                        modifier = Modifier.testTag("grocery_clear_search_icon")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Close,
+                                            contentDescription = "Clear search"
+                                        )
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() })
                         )
+                        Text(
+                            text = buildString {
+                                append("Showing ${filteredItems.size} of ${groupedEntries.size}")
+                                append(" • ${statusFilter.label}")
+                                if (selectedCategoryFilter != AllCategoriesFilterKey) {
+                                    append(" • $selectedCategoryFilter")
+                                }
+                                if (sortAlpha) append(" • A-Z")
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { showListFilters = !showListFilters },
+                                modifier = Modifier.heightIn(min = 44.dp)
+                            ) {
+                                Text(if (showListFilters || hasActiveListControls) "Hide filters" else "Show filters")
+                            }
+                            TokenizedFilterChip(
+                                selected = sortAlpha,
+                                onClick = { sortAlpha = !sortAlpha },
+                                modifier = Modifier.heightIn(min = 44.dp),
+                                text = "A-Z",
+                                labelMaxWidth = 44.dp
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    expandedMap = if (anyExpanded) {
+                                        displayCategories.associateWith { false }
+                                    } else {
+                                        displayCategories.associateWith { category ->
+                                            category == displayCategories.firstOrNull()
+                                        }
+                                    }
+                                    postGroceryFeedback(
+                                        tone = FeedbackBannerTone.Success,
+                                        message = if (anyExpanded) {
+                                            "Collapsed all categories."
+                                        } else {
+                                            "Opened the first category."
+                                        }
+                                    )
+                                },
+                                modifier = Modifier
+                                    .heightIn(min = 44.dp)
+                                    .testTag("grocery_expand_toggle_all")
+                            ) {
+                                Text(if (anyExpanded) "Collapse all" else "Open first")
+                            }
+                        }
+                        AnimatedVisibility(visible = showListFilters || hasActiveListControls) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    GroceryItemStatusFilter.values().forEach { option ->
+                                        TokenizedFilterChip(
+                                            selected = statusFilter == option,
+                                            onClick = {
+                                                if (statusFilter != option) {
+                                                    statusFilter = option
+                                                    postGroceryFeedback(
+                                                        tone = FeedbackBannerTone.Success,
+                                                        message = when (option) {
+                                                            GroceryItemStatusFilter.All -> "Showing all grocery items."
+                                                            GroceryItemStatusFilter.NeedToBuy -> "Showing items you still need to buy."
+                                                            GroceryItemStatusFilter.Completed -> "Showing bought and pantry-first items."
+                                                        }
+                                                    )
+                                                }
+                                            },
+                                            text = option.label,
+                                            labelMaxWidth = groceryChipLabelWidth
+                                        )
+                                    }
+                                }
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    TokenizedFilterChip(
+                                        selected = selectedCategoryFilter == AllCategoriesFilterKey,
+                                        onClick = {
+                                            selectedCategoryFilter = AllCategoriesFilterKey
+                                            postGroceryFeedback(
+                                                tone = FeedbackBannerTone.Success,
+                                                message = "Showing all categories."
+                                            )
+                                        },
+                                        text = "$AllCategoriesFilterKey (${filteredItems.size})",
+                                        labelMaxWidth = groceryChipLabelWidth
+                                    )
+                                    orderedCategoryEntries.forEach { (category, count) ->
+                                        TokenizedFilterChip(
+                                            selected = selectedCategoryFilter == category,
+                                            onClick = {
+                                                selectedCategoryFilter = category
+                                                postGroceryFeedback(
+                                                    tone = FeedbackBannerTone.Success,
+                                                    message = "Filtered to $category ($count items)."
+                                                )
+                                            },
+                                            text = "$category ($count)",
+                                            labelMaxWidth = groceryChipLabelWidth
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
 
-        item {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = { Text("Search ingredients") },
-                placeholder = { Text("Try: egg, spinach, fish") },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Filled.Search,
-                        contentDescription = null
-                    )
-                },
-                trailingIcon = {
-                    if (searchQuery.text.isNotBlank()) {
-                        IconButton(
-                            onClick = {
-                                searchQuery = TextFieldValue("")
-                                postGroceryFeedback(
-                                    tone = FeedbackBannerTone.Success,
-                                    message = "Search cleared. Showing all categories."
-                                )
-                            },
-                            modifier = Modifier.testTag("grocery_clear_search_icon")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Close,
-                                contentDescription = "Clear search"
-                            )
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() })
-            )
-        }
-
-        item {
+        if (false && groceryFocus == GroceryScreenFocus.List) {
+            item {
             Text(
                 text = "Showing ${filteredItems.size} of ${groupedEntries.size} items • ${statusFilter.label}" +
                     if (selectedCategoryFilter == AllCategoriesFilterKey) "" else " • $selectedCategoryFilter",
@@ -754,8 +1150,9 @@ fun GroceryListScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        }
 
-        if (groupedEntries.isNotEmpty()) {
+        if (false && groupedEntries.isNotEmpty() && groceryFocus == GroceryScreenFocus.List) {
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(GroceryItemStatusFilter.values().toList()) { option ->
@@ -782,7 +1179,7 @@ fun GroceryListScreen(
             }
         }
 
-        if (groupedEntries.isEmpty()) {
+        if (groupedEntries.isEmpty() && groceryFocus == GroceryScreenFocus.List) {
             item {
                 Card(
                     shape = MaterialTheme.shapes.large,
@@ -833,7 +1230,9 @@ fun GroceryListScreen(
                     }
                 }
             }
-        } else {
+        }
+
+        if (groceryFocus == GroceryScreenFocus.Budget) {
             item {
                 Card(
                     shape = MaterialTheme.shapes.large,
@@ -847,12 +1246,12 @@ fun GroceryListScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         Text(
-                            text = "Shopping overview",
+                            text = "Cost view",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            text = "Cooking for $householdLabel. Totals use a local market guide and may change week to week.",
+                            text = "Shopping for $householdLabel. These prices are only a guide and can change week to week.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -862,7 +1261,7 @@ fun GroceryListScreen(
                         ) {
                             SummaryTile(
                                 title = "Need to buy",
-                                value = "${groupedEntries.count { it.name !in effectiveCheckedNames }} items",
+                                value = "$remainingCount items",
                                 modifier = Modifier.weight(1f),
                             )
                             SummaryTile(
@@ -871,29 +1270,54 @@ fun GroceryListScreen(
                                 modifier = Modifier.weight(1f),
                             )
                         }
-                    }
-                }
-            }
-
-            item {
-                Card(
-                    shape = MaterialTheme.shapes.large,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
+                        Surface(
+                            shape = MaterialTheme.shapes.large,
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.70f))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Shopping progress",
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                                    )
+                                    GroceryStatusPill(
+                                        text = "$completedCount/${groupedEntries.size} covered",
+                                        emphasized = completedCount > 0
+                                    )
+                                }
+                                LinearProgressIndicator(
+                                    progress = { shoppingProgress },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.surface
+                                )
+                                Text(
+                                    text = when {
+                                        groupedEntries.isEmpty() -> "No shopping items yet."
+                                        remainingCount == 0 -> "Everything is either bought or already covered by pantry items."
+                                        pantryCoveredCount > 0 -> "$remainingCount item(s) still need buying. $pantryCoveredCount saved pantry match(es) already cover part of the list."
+                                        else -> "$remainingCount item(s) still need buying for this week."
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                         if (displayBudget == null) {
                             Text(
-                                text = "Budget not set",
+                                text = "No budget yet",
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
-                                text = "Estimates are shown without a budget limit. Set a weekly budget in Profile if you want alerts.",
+                                text = "You can still use the estimate. Add a weekly budget in Profile if you want faster warnings.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -903,39 +1327,19 @@ fun GroceryListScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                FilterChip(
+                                TokenizedFilterChip(
                                     selected = budgetMode == "Weekly",
                                     onClick = { budgetMode = "Weekly" },
                                     modifier = Modifier.heightIn(min = 48.dp),
-                                    label = {
-                                        Text(
-                                            text = "Weekly",
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.widthIn(max = groceryChipLabelWidth)
-                                        )
-                                    },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                                    )
+                                    text = "Weekly",
+                                    labelMaxWidth = groceryChipLabelWidth
                                 )
-                                FilterChip(
+                                TokenizedFilterChip(
                                     selected = budgetMode == "Monthly",
                                     onClick = { budgetMode = "Monthly" },
                                     modifier = Modifier.heightIn(min = 48.dp),
-                                    label = {
-                                        Text(
-                                            text = "Monthly (≈ weekly × 4.33)",
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.widthIn(max = groceryChipLabelWidth)
-                                        )
-                                    },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                                    )
+                                    text = "Monthly (≈ weekly × 4.33)",
+                                    labelMaxWidth = groceryChipLabelWidth
                                 )
                             }
                             Text(
@@ -944,9 +1348,9 @@ fun GroceryListScreen(
                             )
                             Text(
                                 text = if (budgetMode == "Weekly") {
-                                    "Estimated ₱$totalCost for $householdLabel against a ₱${displayBudget.toInt()} weekly budget. ${if (savings >= 0) "About ₱$savings left." else "About ₱${-savings} over."}"
+                                    "This week's shopping is about ₱$totalCost for $householdLabel against a ₱${displayBudget.toInt()} weekly budget. ${if (savings >= 0) "About ₱$savings left." else "About ₱${-savings} over."}"
                                 } else {
-                                    "Estimated ₱$totalCost for $householdLabel against a ₱${displayBudget.toInt()} monthly budget. Weekly guide: ₱${derivedWeekly?.toInt() ?: 0}."
+                                    "This month's budget is ₱${displayBudget.toInt()}. Your current week guide is about ₱${derivedWeekly?.toInt() ?: 0}, and this list is about ₱$totalCost."
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -954,7 +1358,7 @@ fun GroceryListScreen(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "Budget is projected, not actual. Log actual spending in Progress.",
+                                text = "This is still only an estimate. Save your real spending in Progress.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -1002,14 +1406,14 @@ fun GroceryListScreen(
                                 contentDescription = null,
                                 modifier = Modifier.padding(end = 6.dp),
                             )
-                            Text("Share List")
+                            Text("Share grocery list")
                         }
                     }
                 }
             }
         }
 
-        if (emptySearchResults) {
+        if (emptySearchResults && groceryFocus == GroceryScreenFocus.List) {
             item {
                 Card(
                     shape = MaterialTheme.shapes.large,
@@ -1044,13 +1448,13 @@ fun GroceryListScreen(
                                 .fillMaxWidth()
                                 .heightIn(min = 48.dp),
                         ) {
-                            Text("Clear Search")
+                            Text("Clear search and show all")
                         }
                     }
                 }
             }
         }
-        if (emptyFilterResults) {
+        if (emptyFilterResults && groceryFocus == GroceryScreenFocus.List) {
             item {
                 Card(
                     shape = MaterialTheme.shapes.large,
@@ -1086,22 +1490,22 @@ fun GroceryListScreen(
                                 .fillMaxWidth()
                                 .heightIn(min = 48.dp)
                         ) {
-                            Text("Reset Filters")
+                            Text("Reset filters and show all items")
                         }
                     }
                 }
             }
         }
 
-        if (filteredItems.isNotEmpty()) {
-            item {
+        if (filteredItems.isNotEmpty() && groceryFocus == GroceryScreenFocus.List) {
+            if (false) item {
                 Text(
                     text = "Quick categories",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            item {
+            if (false) item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
                         TokenizedFilterChip(
@@ -1133,7 +1537,7 @@ fun GroceryListScreen(
                     }
                 }
             }
-            item {
+            if (false) item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1141,21 +1545,12 @@ fun GroceryListScreen(
                 ) {
                     Text("Categories", style = MaterialTheme.typography.titleMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
+                        TokenizedFilterChip(
                             selected = sortAlpha,
                             onClick = { sortAlpha = !sortAlpha },
                             modifier = Modifier.heightIn(min = 48.dp),
-                            label = {
-                                Text(
-                                    text = "A–Z",
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                            )
+                            text = "A–Z",
+                            labelMaxWidth = 44.dp
                         )
                         OutlinedButton(
                             onClick = {
@@ -1178,7 +1573,7 @@ fun GroceryListScreen(
                     }
                 }
             }
-            if (displayCategories.size > 4) {
+            if (false && displayCategories.size > 4) {
                 item {
                     Text(
                         text = if (selectedCategoryFilter == AllCategoriesFilterKey) {
@@ -1213,8 +1608,9 @@ fun GroceryListScreen(
                         items = items,
                         expanded = expandedMap[category] ?: true,
                         onToggle = {
-                            expandedMap = expandedMap.toMutableMap().apply {
-                                this[category] = !(this[category] ?: true)
+                            val willExpand = !(expandedMap[category] ?: false)
+                            expandedMap = displayCategories.associateWith { current ->
+                                willExpand && current == category
                             }
                         },
                         checkedNames = checkedNames,
@@ -1224,23 +1620,23 @@ fun GroceryListScreen(
                             if (name in pantryMatches) {
                                 nextPantryOptOut = if (checked) pantryOptOut - name else pantryOptOut + name
                                 pantryOptOut = nextPantryOptOut
-                                postGroceryFeedback(
-                                    tone = FeedbackBannerTone.Success,
-                                    message = if (checked) {
-                                        "Using pantry-first for $name."
+                                noteGroceryAction(
+                                    title = if (checked) "Pantry-first enabled" else "Back on the buy list",
+                                    detail = if (checked) {
+                                        "$name is now treated as already at home."
                                     } else {
-                                        "Marked $name as needed from store."
+                                        "$name will show up as something to buy again."
                                     }
                                 )
                             } else {
                                 nextCheckedNames = if (checked) checkedNames + name else checkedNames - name
                                 checkedNames = nextCheckedNames
-                                postGroceryFeedback(
-                                    tone = FeedbackBannerTone.Success,
-                                    message = if (checked) {
-                                        "Marked $name as bought."
+                                noteGroceryAction(
+                                    title = if (checked) "Marked bought" else "Back on the buy list",
+                                    detail = if (checked) {
+                                        "$name was moved out of your shopping list."
                                     } else {
-                                        "Moved $name back to buy list."
+                                        "$name still needs to be bought."
                                     }
                                 )
                             }
@@ -1262,7 +1658,9 @@ fun GroceryListScreen(
                     )
                 }
             }
+        }
 
+        if (groceryFocus == GroceryScreenFocus.Tips) {
             item {
                 Card(
                     shape = MaterialTheme.shapes.large,
@@ -1298,15 +1696,409 @@ fun GroceryListScreen(
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showLockedInfo = false },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = { showLockedInfo = false }) {
-                    Text("Got it")
-                }
+                GroceryDialogGotItButton(onClick = { showLockedInfo = false })
             },
             title = { Text(groceryLockedCopy.dialogTitle) },
             text = {
                 Text(groceryLockedCopy.dialogBody)
             }
         )
+    }
+}
+
+@Composable
+private fun GroceryListHero(
+    hasPlan: Boolean,
+    weekLabel: String,
+    totalItems: Int,
+    remainingCount: Int,
+    completedCount: Int,
+    totalCost: Int,
+    selectedCategoryLabel: String,
+    statusFilterLabel: String,
+    onOpenPlan: () -> Unit,
+    lockedMessage: String,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    if (!hasPlan) {
+        FriendlyEmptyStateCard(
+            title = "Shopping starts after your first week",
+            message = lockedMessage,
+            actionLabel = "Open meal plan",
+            onAction = onOpenPlan,
+            accentColor = colorScheme.primary,
+            modifier = modifier
+        )
+        return
+    }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(30.dp),
+        color = colorScheme.surface,
+        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Shopping for $weekLabel",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = colorScheme.primary
+            )
+            Text(
+                text = "See what still needs buying, what is already covered, and which view you are using before you scroll.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            CompactWidgetGrid(
+                widgets = listOf(
+                    CompactWidgetSpec(
+                        title = "Need to buy",
+                        value = "$remainingCount",
+                        hint = "Items still missing this week.",
+                        accentColor = colorScheme.primary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Covered",
+                        value = "$completedCount/$totalItems",
+                        hint = "Already bought or already covered at home.",
+                        accentColor = colorScheme.secondary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Showing",
+                        value = statusFilterLabel,
+                        hint = selectedCategoryLabel,
+                        accentColor = colorScheme.tertiary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Estimate",
+                        value = "₱$totalCost",
+                        hint = "Guide total for what is still missing.",
+                        accentColor = colorScheme.primary.copy(alpha = 0.9f)
+                    )
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun GroceryPantryHero(
+    pantryCount: Int,
+    pantryCoveredCount: Int,
+    remainingCount: Int,
+    householdLabel: String,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(30.dp),
+        color = colorScheme.surface,
+        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Pantry first",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = colorScheme.secondary
+            )
+            Text(
+                text = "These items help the plan use what you already have at home for $householdLabel.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            CompactWidgetGrid(
+                widgets = listOf(
+                    CompactWidgetSpec(
+                        title = "Pantry items",
+                        value = "$pantryCount",
+                        hint = "Saved ingredients in your pantry list.",
+                        accentColor = colorScheme.primary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Auto-covered",
+                        value = "$pantryCoveredCount",
+                        hint = "Shopping items already covered at home.",
+                        accentColor = colorScheme.secondary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Still to buy",
+                        value = "$remainingCount",
+                        hint = "Items not covered yet.",
+                        accentColor = colorScheme.tertiary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Planner use",
+                        value = if (pantryCount > 0) "Active" else "Add items",
+                        hint = "Saved pantry items get used first when possible.",
+                        accentColor = colorScheme.primary.copy(alpha = 0.9f)
+                    )
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun GroceryBudgetHero(
+    totalCost: Int,
+    displayBudget: Int?,
+    savings: Int,
+    remainingCount: Int,
+    completedCount: Int,
+    totalItems: Int,
+    actionState: FeedbackActionState,
+    onOpenProgress: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(30.dp),
+        color = colorScheme.surface,
+        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Cost view",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = colorScheme.tertiary
+            )
+            Text(
+                text = if (displayBudget == null) {
+                    "You can still see a price guide even without a budget."
+                } else if (savings >= 0) {
+                    "Your current shopping guide is still within the budget you set."
+                } else {
+                    "Your current shopping guide is above the budget you set."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            CompactWidgetGrid(
+                widgets = listOf(
+                    CompactWidgetSpec(
+                        title = "Need to buy",
+                        value = "$remainingCount",
+                        hint = "Items still on your shopping run.",
+                        accentColor = colorScheme.primary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Covered",
+                        value = "$completedCount/$totalItems",
+                        hint = "Bought or pantry-covered items.",
+                        accentColor = colorScheme.secondary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Estimate",
+                        value = "₱$totalCost",
+                        hint = "Guide total for this list.",
+                        accentColor = colorScheme.tertiary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Budget",
+                        value = displayBudget?.let { "₱$it" } ?: "Not set",
+                        hint = displayBudget?.let {
+                            if (savings >= 0) "About ₱$savings left." else "About ₱${-savings} over."
+                        } ?: "Set one in Profile for quicker warnings.",
+                        accentColor = colorScheme.primary.copy(alpha = 0.9f)
+                    )
+                )
+            )
+            LoadingActionButton(
+                state = actionState,
+                idleLabel = "Open progress to save real spending",
+                loadingLabel = "Opening progress…",
+                successLabel = "Progress opened",
+                errorLabel = "Try again",
+                onClick = onOpenProgress,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colorScheme.secondaryContainer,
+                    contentColor = colorScheme.onSecondaryContainer
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun GroceryTipsHero(
+    tipCount: Int,
+    hasItems: Boolean,
+    planActionState: FeedbackActionState,
+    progressActionState: FeedbackActionState,
+    onOpenPlan: () -> Unit,
+    onOpenProgress: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(30.dp),
+        color = colorScheme.surface,
+        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Shopping help",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = colorScheme.primary
+            )
+            Text(
+                text = if (hasItems) {
+                    "Use the checklist first, then open Progress after meals and spending."
+                } else {
+                    "Create a week first so your list and tips feel specific instead of empty."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            CompactWidgetGrid(
+                widgets = listOf(
+                    CompactWidgetSpec(
+                        title = "Tips ready",
+                        value = "$tipCount",
+                        hint = "Quick reminders for your goal.",
+                        accentColor = colorScheme.primary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Plan link",
+                        value = "Meal plan",
+                        hint = "Open the current week anytime.",
+                        accentColor = colorScheme.secondary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Progress link",
+                        value = "Tracking",
+                        hint = "Save meals and spending there.",
+                        accentColor = colorScheme.tertiary
+                    ),
+                    CompactWidgetSpec(
+                        title = "Mode",
+                        value = if (hasItems) "Active week" else "Needs plan",
+                        hint = "Shopping works best with a current week.",
+                        accentColor = colorScheme.primary.copy(alpha = 0.9f)
+                    )
+                )
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                LoadingActionButton(
+                    state = planActionState,
+                    idleLabel = "Open plan",
+                    loadingLabel = "Opening meal plan…",
+                    successLabel = "Plan opened",
+                    errorLabel = "Try again",
+                    onClick = onOpenPlan,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorScheme.surfaceVariant,
+                        contentColor = colorScheme.onSurface
+                    )
+                )
+                LoadingActionButton(
+                    state = progressActionState,
+                    idleLabel = "Open progress",
+                    loadingLabel = "Opening progress…",
+                    successLabel = "Progress opened",
+                    errorLabel = "Try again",
+                    onClick = onOpenProgress,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorScheme.secondaryContainer,
+                        contentColor = colorScheme.onSecondaryContainer
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GroceryDialogGotItButton(onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
+    ) {
+        Text(
+            "Got it",
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun GroceryActionNoteCard(
+    title: String,
+    detail: String,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = colorScheme.primaryContainer.copy(alpha = 0.32f),
+        border = BorderStroke(1.dp, colorScheme.primary.copy(alpha = 0.16f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = colorScheme.primary.copy(alpha = 0.12f),
+                contentColor = colorScheme.primary
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    modifier = Modifier.padding(8.dp)
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    color = colorScheme.primary
+                )
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
     }
 }
 
@@ -1340,6 +2132,34 @@ private fun SummaryTile(
 }
 
 @Composable
+private fun GroceryStatusPill(
+    text: String,
+    emphasized: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        color = if (emphasized) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+        },
+        contentColor = if (emphasized) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+        )
+    }
+}
+
+@Composable
 private fun CategoryCard(
     icon: String,
     title: String,
@@ -1352,36 +2172,47 @@ private fun CategoryCard(
     pantryOptOut: Set<String>,
     priceResolver: (GroceryListEntry) -> Int,
 ) {
+    val coveredCount = items.count { item ->
+        if (item.name in pantryMatches) item.name !in pantryOptOut else item.name in checkedNames
+    }
     Card(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(text = icon, style = MaterialTheme.typography.titleLarge)
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = "• ${items.size} items",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.weight(1f))
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    )
+                    Text(
+                        text = "${items.size} items • $coveredCount covered",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 IconButton(
                     onClick = onToggle,
                     modifier = Modifier
-                        .heightIn(min = 48.dp)
+                        .heightIn(min = 40.dp)
                         .semantics {
                             contentDescription = if (expanded) {
                                 "Collapse $title category"
@@ -1397,17 +2228,38 @@ private fun CategoryCard(
                 }
             }
             AnimatedVisibility(visible = expanded) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items.forEach { item ->
                         val pantryMatch = item.name in pantryMatches
                         val checked = if (pantryMatch) item.name !in pantryOptOut else item.name in checkedNames
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                        val statusText = if (pantryMatch) {
+                            if (checked) "Use what you have" else "Buy instead"
+                        } else if (checked) {
+                            "Bought"
+                        } else {
+                            "Still need"
+                        }
+                        Surface(
+                            shape = MaterialTheme.shapes.medium,
+                            color = if (checked) {
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f)
+                            },
+                            border = BorderStroke(
+                                1.dp,
+                                if (checked) {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                                } else {
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                                }
+                            )
                         ) {
                             Row(
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Checkbox(
@@ -1420,35 +2272,52 @@ private fun CategoryCard(
                                 ) {
                                     Text(
                                         text = item.name,
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                                         color = if (checked) MaterialTheme.colorScheme.onSurfaceVariant
                                         else MaterialTheme.colorScheme.onSurface,
                                         textDecoration = if (checked) TextDecoration.LineThrough else TextDecoration.None,
                                         maxLines = 1,
                                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                     )
-                                    if (pantryMatch) {
-                                        Text(
-                                            text = "Use first • Pantry",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
                                     Text(
-                                        text = item.quantityDisplay,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        text = buildString {
+                                            append(item.quantityDisplay)
+                                            if (pantryMatch) {
+                                                append(" • ")
+                                                append(if (checked) "Use what you have" else "Buy instead")
+                                            }
+                                        },
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (pantryMatch) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
                                         maxLines = 1,
                                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                     )
                                 }
+                                Column(
+                                    horizontalAlignment = Alignment.End,
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Text(
+                                        text = "₱${if (checked) 0 else priceResolver(item)}",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                        color = if (checked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = statusText,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (checked || pantryMatch) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                        maxLines = 1
+                                    )
+                                }
                             }
-                            Text(
-                                text = "₱${if (checked) 0 else priceResolver(item)}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (checked) MaterialTheme.colorScheme.onSurfaceVariant
-                                else MaterialTheme.colorScheme.onSurface,
-                            )
                         }
                     }
                 }
@@ -1458,7 +2327,7 @@ private fun CategoryCard(
 }
 
 private fun defaultCategoryExpanded(category: String): Boolean {
-    return !category.equals("Others", ignoreCase = true)
+    return false
 }
 
 private fun normalizedPantryEntryKey(raw: String): String =

@@ -16,6 +16,10 @@ val defaultDebugBaseUrl = "http://10.0.2.2:8000/"
 val debugBaseUrlFromEnv = System.getenv("DEBUG_BASE_URL")
 val debugBaseUrlFromProperty = providers.gradleProperty("debugBaseUrl").orNull
 val resolvedDebugBaseUrl = (debugBaseUrlFromEnv ?: debugBaseUrlFromProperty ?: defaultDebugBaseUrl).trim()
+val defaultSchemaVersion = "1.5.0"
+val debugSchemaVersionFromEnv = System.getenv("DEBUG_SCHEMA_VERSION")
+val debugSchemaVersionFromProperty = providers.gradleProperty("debugSchemaVersion").orNull
+val resolvedDebugSchemaVersion = (debugSchemaVersionFromEnv ?: debugSchemaVersionFromProperty ?: defaultSchemaVersion).trim()
 val insecureReleaseSigningFromEnv = System.getenv("PCOSINA_ALLOW_INSECURE_RELEASE_SIGNING")
 val insecureReleaseSigningFromProperty = providers.gradleProperty("allowInsecureReleaseSigning").orNull
 val allowInsecureReleaseSigning = (
@@ -151,7 +155,7 @@ android {
         validateBaseUrl("release", releaseBaseUrl)
         buildConfigField("String", "BASE_URL", "\"$releaseBaseUrl\"")
         buildConfigField("String", "SENTRY_DSN", "\"$releaseSentryDsn\"")
-        buildConfigField("String", "SCHEMA_VERSION", "\"1.4.0\"")
+        buildConfigField("String", "SCHEMA_VERSION", "\"$defaultSchemaVersion\"")
     }
 
     buildTypes {
@@ -199,8 +203,13 @@ android {
             if (!pattern.matches(debugBaseUrl)) {
                 throw GradleException("Invalid BASE_URL for debug: $debugBaseUrl")
             }
+            val schemaPattern = Regex("""^\d+\.\d+\.\d+$""")
+            if (!schemaPattern.matches(resolvedDebugSchemaVersion)) {
+                throw GradleException("Invalid SCHEMA_VERSION for debug: $resolvedDebugSchemaVersion")
+            }
             buildConfigField("String", "BASE_URL", "\"$debugBaseUrl\"")
             buildConfigField("String", "SENTRY_DSN", "\"\"")
+            buildConfigField("String", "SCHEMA_VERSION", "\"$resolvedDebugSchemaVersion\"")
         }
     }
 

@@ -356,6 +356,7 @@ def run_once() -> bool:
         policy_version=policy_version,
         started_ms=started_ms,
         completed_ms=completed_ms,
+        telemetry=telemetry,
     )
     no_safe.solverMetadata = dict(no_safe.solverMetadata or {})
     no_safe.solverMetadata["runtimeMs"] = runtime_ms

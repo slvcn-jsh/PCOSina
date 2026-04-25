@@ -1,43 +1,59 @@
 package com.pcosina.app.ui.components
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.pcosina.app.ui.theme.PcosinaSuccess
+import com.pcosina.app.ui.theme.UiMotionTokens
 
 enum class FeedbackActionState {
     Idle,
@@ -66,6 +82,11 @@ fun AppFeedbackBanner(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val containerColor: Color
+    val toneLabel = when (data.tone) {
+        FeedbackBannerTone.Success -> "Saved"
+        FeedbackBannerTone.Loading -> "Working"
+        FeedbackBannerTone.Error -> "Action needed"
+    }
     val icon = when (data.tone) {
         FeedbackBannerTone.Success -> Icons.Filled.CheckCircle
         FeedbackBannerTone.Loading -> Icons.Filled.Notifications
@@ -86,60 +107,96 @@ fun AppFeedbackBanner(
             accentColor = colorScheme.error
         }
     }
-    Row(
+    Surface(
         modifier = modifier
             .fillMaxWidth()
-            .background(
-                color = containerColor,
-                shape = RoundedCornerShape(16.dp)
-            )
-            .padding(horizontal = 12.dp, vertical = 10.dp)
-            .animateContentSize(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+            .animateContentSize()
+            .semantics { stateDescription = toneLabel },
+        color = containerColor,
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.18f))
     ) {
-        if (data.tone == FeedbackBannerTone.Loading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(16.dp),
-                strokeWidth = 2.dp,
-                color = accentColor
-            )
-        } else {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = accentColor,
-                modifier = Modifier.size(16.dp)
-            )
-        }
-        Text(
-            text = data.message,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodySmall,
-            color = colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-        if (!data.actionLabel.isNullOrBlank() && onAction != null) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             Row(
                 modifier = Modifier
-                    .clickable(onClick = onAction)
-                    .padding(horizontal = 2.dp),
+                    .background(
+                        color = accentColor.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(999.dp)
+                    )
+                    .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Refresh,
-                    contentDescription = null,
-                    tint = accentColor,
-                    modifier = Modifier.size(14.dp)
-                )
+                if (data.tone == FeedbackBannerTone.Loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = accentColor
+                    )
+                } else {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = accentColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = accentColor.copy(alpha = 0.10f),
+                    contentColor = accentColor
+                ) {
+                    Text(
+                        text = toneLabel,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 Text(
-                    text = data.actionLabel,
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = accentColor,
-                    maxLines = 1
+                    text = data.message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurface,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
                 )
+                if (!data.actionLabel.isNullOrBlank() && onAction != null) {
+                    Surface(
+                        onClick = onAction,
+                        shape = RoundedCornerShape(14.dp),
+                        color = accentColor.copy(alpha = 0.08f),
+                        contentColor = accentColor,
+                        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.18f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = data.actionLabel,
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -161,6 +218,21 @@ fun LoadingActionButton(
 ) {
     val haptics = LocalHapticFeedback.current
     val lastHapticState = remember { mutableStateOf(FeedbackActionState.Idle) }
+    val buttonStateLabel = when (state) {
+        FeedbackActionState.Idle -> "Ready"
+        FeedbackActionState.Loading -> "Working"
+        FeedbackActionState.Success -> "Completed"
+        FeedbackActionState.Error -> "Needs attention"
+    }
+    val buttonScale by animateFloatAsState(
+        targetValue = when (state) {
+            FeedbackActionState.Success -> 1.02f
+            FeedbackActionState.Loading -> 0.99f
+            else -> 1f
+        },
+        animationSpec = tween(UiMotionTokens.PrimaryActionStateMs),
+        label = "loadingActionButtonScale"
+    )
     LaunchedEffect(state) {
         if (state != lastHapticState.value) {
             when (state) {
@@ -174,32 +246,72 @@ fun LoadingActionButton(
     Button(
         onClick = onClick,
         enabled = enabled && state != FeedbackActionState.Loading,
-        modifier = modifier.animateContentSize(),
+        modifier = modifier
+            .heightIn(min = 52.dp)
+            .animateContentSize()
+            .graphicsLayer {
+                scaleX = buttonScale
+                scaleY = buttonScale
+            }
+            .semantics { stateDescription = buttonStateLabel },
         colors = colors,
-        shape = MaterialTheme.shapes.medium
+        shape = MaterialTheme.shapes.large
     ) {
-        when (state) {
-            FeedbackActionState.Idle -> {
-                Text(idleLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            FeedbackActionState.Loading -> {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(loadingLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            FeedbackActionState.Success -> {
-                Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(successLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            FeedbackActionState.Error -> {
-                Icon(Icons.Filled.ErrorOutline, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(errorLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        AnimatedContent(
+            targetState = state,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(UiMotionTokens.PrimaryActionStateMs)) +
+                    slideInVertically(animationSpec = tween(UiMotionTokens.PrimaryActionStateMs)) { it / 2 }) togetherWith
+                    (fadeOut(animationSpec = tween(UiMotionTokens.PrimaryActionStateMs / 2)) +
+                        slideOutVertically(animationSpec = tween(UiMotionTokens.PrimaryActionStateMs / 2)) { -it / 2 })
+            },
+            label = "loadingActionButtonContent"
+        ) { currentState ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                when (currentState) {
+                    FeedbackActionState.Idle -> {
+                        Text(
+                            idleLabel,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    FeedbackActionState.Loading -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Text(
+                            loadingLabel,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    FeedbackActionState.Success -> {
+                        Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Text(
+                            successLabel,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    FeedbackActionState.Error -> {
+                        Icon(Icons.Filled.ErrorOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Text(
+                            errorLabel,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
             }
         }
     }
@@ -210,31 +322,79 @@ fun SyncStatusChip(
     state: FeedbackActionState,
     modifier: Modifier = Modifier
 ) {
-    val (label, iconTint) = when (state) {
-        FeedbackActionState.Idle -> "Ready" to MaterialTheme.colorScheme.onSurfaceVariant
-        FeedbackActionState.Loading -> "Syncing…" to MaterialTheme.colorScheme.primary
-        FeedbackActionState.Success -> "Synced" to MaterialTheme.colorScheme.primary
-        FeedbackActionState.Error -> "Failed" to MaterialTheme.colorScheme.error
+    val colorScheme = MaterialTheme.colorScheme
+    val label: String
+    val iconVector: androidx.compose.ui.graphics.vector.ImageVector
+    val chipContainer: Color
+    val chipContent: Color
+    val chipBorder: Color
+    when (state) {
+        FeedbackActionState.Idle -> {
+            label = "Sync ready"
+            iconVector = Icons.Filled.CheckCircle
+            chipContainer = colorScheme.primary.copy(alpha = 0.10f)
+            chipContent = colorScheme.primary
+            chipBorder = colorScheme.primary.copy(alpha = 0.20f)
+        }
+        FeedbackActionState.Loading -> {
+            label = "Syncing"
+            iconVector = Icons.Filled.Refresh
+            chipContainer = colorScheme.surface
+            chipContent = colorScheme.primary
+            chipBorder = colorScheme.primary.copy(alpha = 0.18f)
+        }
+        FeedbackActionState.Success -> {
+            label = "Synced"
+            iconVector = Icons.Filled.CheckCircle
+            chipContainer = PcosinaSuccess.copy(alpha = 0.12f)
+            chipContent = PcosinaSuccess
+            chipBorder = PcosinaSuccess.copy(alpha = 0.22f)
+        }
+        FeedbackActionState.Error -> {
+            label = "Offline-safe"
+            iconVector = Icons.Filled.Info
+            chipContainer = colorScheme.surfaceVariant
+            chipContent = colorScheme.onSurfaceVariant
+            chipBorder = colorScheme.outline.copy(alpha = 0.30f)
+        }
     }
-    AssistChip(
-        onClick = { },
-        modifier = modifier.heightIn(min = 36.dp),
-        enabled = false,
-        label = { Text(label, maxLines = 1) },
-        leadingIcon = {
-            Icon(
-                imageVector = if (state == FeedbackActionState.Error) Icons.Filled.ErrorOutline else Icons.Filled.CheckCircle,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(14.dp)
+    Surface(
+        modifier = modifier
+            .heightIn(min = 38.dp)
+            .semantics { stateDescription = label },
+        shape = RoundedCornerShape(999.dp),
+        color = chipContainer,
+        contentColor = chipContent,
+        border = BorderStroke(1.dp, chipBorder),
+        tonalElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (state == FeedbackActionState.Loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                    color = chipContent
+                )
+            } else {
+                Icon(
+                    imageVector = iconVector,
+                    contentDescription = null,
+                    tint = chipContent,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = chipContent,
+                maxLines = 1
             )
-        },
-        colors = AssistChipDefaults.assistChipColors(
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-            disabledLabelColor = MaterialTheme.colorScheme.onSurface,
-            disabledLeadingIconContentColor = iconTint
-        )
-    )
+        }
+    }
 }
 
 @Composable
@@ -245,69 +405,92 @@ fun StatusCenterCard(
     nextReminderLabel: String? = null,
     modifier: Modifier = Modifier
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     androidx.compose.material3.Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(UiMotionTokens.ExpandableContentMs)),
+        shape = RoundedCornerShape(18.dp),
         colors = androidx.compose.material3.CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = colorScheme.surfaceVariant.copy(alpha = 0.28f)
         ),
-        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 1.dp)
+        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.45f)),
+        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(
+        FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Notifications,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "Status Center",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
-                )
-            }
             queuedActionsLabel?.takeIf { it.isNotBlank() }?.let { label ->
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                StatusCenterItem(
+                    icon = Icons.Filled.CheckCircle,
+                    label = "Now",
+                    text = label
                 )
             }
             syncLabel?.takeIf { it.isNotBlank() }?.let { label ->
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                StatusCenterItem(
+                    icon = Icons.Filled.Refresh,
+                    label = "Sync",
+                    text = label
                 )
             }
-            Text(
-                text = planRangeLabel,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+            StatusCenterItem(
+                icon = Icons.Filled.Info,
+                label = "Plan",
+                text = planRangeLabel
             )
             nextReminderLabel?.takeIf { it.isNotBlank() }?.let { label ->
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                StatusCenterItem(
+                    icon = Icons.Filled.Notifications,
+                    label = "Next",
+                    text = label
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun StatusCenterItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    text: String,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = colorScheme.surface,
+        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.40f))
+    ) {
+        Row(
+            modifier = Modifier
+                .widthIn(max = 320.dp)
+                .padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(12.dp),
+            tint = colorScheme.primary
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = colorScheme.primary
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
     }
 }

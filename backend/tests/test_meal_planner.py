@@ -22,6 +22,36 @@ def _require_lightgbm() -> None:
         pytest.skip("lightgbm not installed in this environment")
 
 
+def _recipe(
+    recipe_id: str,
+    title: str,
+    meal_type: str,
+    *,
+    calories: int = 500,
+    protein: int = 24,
+    carbs: int = 40,
+    fats: int = 15,
+    fiber: int = 6,
+    minutes: int = 20,
+    ingredients: list[dict] | None = None,
+    sugar: int | None = None,
+) -> dict:
+    return {
+        "id": recipe_id,
+        "title": title,
+        "mealType": meal_type,
+        "calories": calories,
+        "proteinGrams": protein,
+        "carbsGrams": carbs,
+        "fatsGrams": fats,
+        "fiberGrams": fiber,
+        "minutes": minutes,
+        "ingredients": ingredients or [{"name": "egg", "quantity": "2 pcs"}],
+        "tags": [],
+        "sugarGrams": sugar,
+    }
+
+
 def test_macro_ratios_moderate():
     assert meal_planner.macro_ratios("Moderate") == (0.28, 0.35, 0.37)
 
@@ -81,6 +111,66 @@ def test_allergy_filter_blocks_recipe():
     ]
     buckets = meal_planner.shortlist_candidates(profile, recipes)
     assert all(len(v) == 0 for v in buckets.values())
+
+
+@pytest.mark.parametrize(
+    ("allergy", "ingredient_name"),
+    [
+        ("fish", "bangus fillet"),
+        ("fish", "tilapia"),
+        ("fish", "galunggong"),
+        ("fish", "salmon"),
+        ("fish", "tuna steak"),
+        ("shellfish", "shrimp"),
+        ("shellfish", "crab"),
+        ("dairy", "cheese"),
+        ("dairy", "milk"),
+        ("egg", "egg"),
+    ],
+)
+def test_allergy_filter_blocks_descendant_ingredients(allergy, ingredient_name):
+    profile = UserProfile(allergies=[allergy], maxCookingTimeMinutes=45)
+    stage1_diag = {}
+    buckets = meal_planner.shortlist_candidates(
+        profile,
+        [
+            _recipe(
+                "r1",
+                "Allergen Recipe",
+                "Lunch",
+                ingredients=[{"name": ingredient_name, "quantity": "1 kg"}],
+            )
+        ],
+        stage1_diag=stage1_diag,
+    )
+
+    assert all(len(v) == 0 for v in buckets.values())
+    assert stage1_diag["exclusion_summary"]["allergy"] == 1
+    assert stage1_diag["exclusion_detail_counts"][f"allergy:{allergy}"] == 1
+
+
+def test_build_swap_candidates_blocks_descendant_allergy_matches():
+    profile = UserProfile(
+        allergies=["fish"],
+        pantryItems=["egg", "banana"],
+        maxCookingTimeMinutes=45,
+    )
+    recipes = [
+        _recipe("b_current", "Current Breakfast", "Breakfast", ingredients=[{"name": "egg", "quantity": "2 pcs"}]),
+        _recipe("b_fish", "Tilapia Breakfast", "Breakfast", ingredients=[{"name": "tilapia", "quantity": "1 fillet"}]),
+        _recipe("b_safe", "Banana Breakfast", "Breakfast", ingredients=[{"name": "banana", "quantity": "1 pc"}]),
+    ]
+
+    swaps = meal_planner.build_swap_candidates(
+        profile,
+        recipes,
+        meal_label="Breakfast",
+        current_recipe_id="b_current",
+        active_recipe_ids=["b_current"],
+        limit=10,
+    )
+
+    assert [recipe["id"] for recipe in swaps] == ["b_safe"]
 
 
 def test_infer_allowed_meals():
@@ -256,6 +346,22 @@ def test_shortlist_candidates_scales_cost_estimates_for_households():
     assert shortlisted[0]["_cost_est"] == meal_planner.estimate_cost(recipe, household_size=4)
 
 
+def test_estimate_cost_scales_monotonically_with_household_size():
+    recipe = _recipe(
+        "family_scale",
+        "Scaled Meal",
+        "Lunch",
+        ingredients=[{"name": "rice", "quantity": "1 cup"}, {"name": "egg", "quantity": "2 pcs"}],
+    )
+
+    costs = [
+        meal_planner.estimate_cost(recipe, household_size=size)
+        for size in (1, 2, 4, 6)
+    ]
+
+    assert costs[0] < costs[1] < costs[2] < costs[3]
+
+
 def test_shortlist_candidates_batches_ml_shadow_scoring(monkeypatch):
     class FakeRanker:
         def __init__(self):
@@ -321,6 +427,76 @@ def test_shortlist_candidates_batches_ml_shadow_scoring(monkeypatch):
     assert stage1_diag["ranker_ready"] is True
     assert buckets["Breakfast"][0]["_ml_model_version"] == "fake_v1"
     assert buckets["Breakfast"][0]["_ml_shadow_score"] == pytest.approx(0.42)
+
+
+def test_finalize_stage1_scoring_preserves_existing_goal_boost_when_ml_is_not_applied():
+    recipe = {
+        "_symptom_goal_boost": 2.5,
+        "_stage1_score_boost": 1.5,
+    }
+
+    meal_planner._finalize_stage1_scoring(
+        recipe,
+        ml_score=0.9,
+        ml_model_version="fake_v1",
+        apply_ml_to_ranking=False,
+        ml_weight=0.3,
+        prep_penalty=1.0,
+    )
+
+    assert recipe["_ml_applied_to_ranking"] is False
+    assert recipe["_stage1_score_boost"] == pytest.approx(1.5)
+
+
+def test_shortlist_candidates_legacy_ml_flag_applies_live_ranking(monkeypatch):
+    class FakeRanker:
+        def state(self):
+            return RankerState(
+                ready=True,
+                model_version="fake_v2",
+                feature_columns=["recipe_calories"],
+                error=None,
+            )
+
+        def score_many(self, features_list):
+            assert len(features_list) == 2
+            return [0.1, 0.9]
+
+    monkeypatch.setattr(meal_planner, "get_stage1_ranker", lambda: FakeRanker())
+
+    profile = UserProfile(
+        displayName="LiveML",
+        age=28,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        maxCookingTimeMinutes=45,
+    )
+    recipes = [
+        _recipe("b_low", "Breakfast Low", "Breakfast", ingredients=[{"name": "egg", "quantity": "2 pcs"}]),
+        _recipe("b_high", "Breakfast High", "Breakfast", ingredients=[{"name": "egg", "quantity": "2 pcs"}]),
+    ]
+    policy = {
+        "stage1": {
+            "ML_shadow_enabled": True,
+            "ML_canary_enabled": False,
+            "ML_score_weight": 0.15,
+            "ML_score_cap": 0.3,
+            "max_candidates_per_slot": 10,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "restricted_shortlist_multiplier": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "pantry_match_threshold": 0,
+            "minimum_candidates_required": 1,
+            "pool_cap_top_share": 1.0,
+        }
+    }
+
+    buckets = meal_planner.shortlist_candidates(profile, recipes, policy=policy, stage1_diag={})
+
+    assert [recipe["id"] for recipe in buckets["Breakfast"]] == ["b_high", "b_low"]
+    assert buckets["Breakfast"][0]["_ml_applied_to_ranking"] is True
 
 
 def test_build_swap_candidates_allows_repeats_up_to_policy_limit():
@@ -485,7 +661,7 @@ def test_solve_meal_plan_emits_telemetry_snapshot():
     assert telemetry.get("candidate_count_post", 0) > 0
     assert isinstance(telemetry.get("stage1_candidates"), list)
     assert isinstance(telemetry.get("selected_recipe_ids"), list)
-    assert telemetry.get("ranking_strategy") == "stage1_heuristic_shadow_only"
+    assert telemetry.get("ranking_strategy") == "stage1_ml_canary_plus_heuristic"
     assert isinstance(telemetry.get("phase_timings_ms"), dict)
     assert telemetry["phase_timings_ms"].get("stage1_shortlist", -1) >= 0
     assert telemetry["phase_timings_ms"].get("stage1_ml_score", -1) >= 0
@@ -593,7 +769,7 @@ def test_solve_meal_plan_canary_applies_ml_ranking_strategy():
     assert telemetry.get("ranking_strategy") == "stage1_ml_canary_plus_heuristic"
 
 
-def test_solve_meal_plan_shadow_uses_file_backed_ranker_artifacts(monkeypatch):
+def test_solve_meal_plan_stage1_ml_uses_file_backed_ranker_artifacts(monkeypatch):
     _require_lightgbm()
     assert MODEL_ARTIFACT.exists()
     assert METRICS_ARTIFACT.exists()
@@ -693,11 +869,246 @@ def test_solve_meal_plan_shadow_uses_file_backed_ranker_artifacts(monkeypatch):
     assert msg == "Success"
     assert plan is not None
     assert explanation is not None
-    assert telemetry.get("ranking_strategy") == "stage1_heuristic_shadow_only"
+    assert telemetry.get("ranking_strategy") == "stage1_ml_canary_plus_heuristic"
     assert telemetry.get("ml_model_version") == "lightgbm_stage1_ranker_v1"
     stage1_candidates = telemetry.get("stage1_candidates") or []
     assert stage1_candidates
     assert any(float(candidate.get("model_score") or 0.0) > 0.0 for candidate in stage1_candidates)
+
+
+def test_budget_cost_objective_only_applies_for_budget_priority():
+    assert meal_planner._should_optimize_cost(
+        UserProfile(planningPriority="Budget First", weeklyBudgetPhp=2500)
+    ) is True
+    assert meal_planner._should_optimize_cost(
+        UserProfile(planningPriority="Balanced", weeklyBudgetPhp=2500)
+    ) is False
+
+
+def test_validate_profile_rejects_semantically_conflicting_inputs():
+    assert meal_planner.validate_profile(
+        UserProfile(dietaryRestrictions=["Vegetarian", "Pescatarian"])
+    ) == "Conflicting restrictions: Vegetarian and Pescatarian cannot both be active."
+
+    assert meal_planner.validate_profile(
+        UserProfile(dietaryRestrictions=["Pescatarian"], allergies=["fish", "shellfish"])
+    ) == "Conflicting profile: Pescatarian cannot be combined with both fish and shellfish allergies."
+
+    assert meal_planner.validate_profile(
+        UserProfile(planningPriority="Budget First", weeklyBudgetPhp=0)
+    ) == "Budget First priority requires a weekly budget."
+
+    assert meal_planner.validate_profile(
+        UserProfile(planningPriority="Variety First", varietyPreference="Low")
+    ) == "Variety First priority conflicts with Low variety preference."
+
+    assert meal_planner.validate_profile(
+        UserProfile.model_construct(householdSize=0)
+    ) == "Household size must stay between 1 and 6."
+
+    assert meal_planner.validate_profile(
+        UserProfile.model_construct(maxCookingTimeMinutes=5)
+    ) == "Max cooking time must stay between 10 and 240 minutes."
+
+
+def test_symptoms_create_deterministic_planner_adjustments():
+    symptom_state = meal_planner.symptom_adjustments(
+        UserProfile(symptoms=["Weight gain", "Acne", "Hair loss"]),
+        "Symptom Management",
+    )
+
+    assert symptom_state["calorieTargetDelta"] < 0
+    assert symptom_state["fiberMinBonus"] > 0
+    assert symptom_state["proteinTargetBonus"] > 0
+    assert symptom_state["sugarMaxDelta"] < 0
+    assert symptom_state["dairyPenalty"] > 0
+    assert symptom_state["notes"]
+
+
+def test_goal_and_symptoms_are_reflected_in_planner_explanation():
+    recipes = [
+        _recipe("b1", "Breakfast", "Breakfast", ingredients=[{"name": "egg", "quantity": "2 pcs"}], sugar=4),
+        _recipe("l1", "Lunch", "Lunch", ingredients=[{"name": "rice", "quantity": "1 cup"}], sugar=6),
+        _recipe("d1", "Dinner", "Dinner", ingredients=[{"name": "chicken", "quantity": "200 g"}], sugar=5),
+    ]
+    policy = {
+        "planning": {"planning_horizon_days": 1, "meals_per_day": 3, "recipe_repeat_limits": [3]},
+        "stage1": {
+            "max_candidates_per_slot": 10,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "restricted_shortlist_multiplier": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "pantry_match_threshold": 0,
+            "minimum_candidates_required": 1,
+            "pool_cap_top_share": 1.0,
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+        },
+        "solver": {
+            "solver_time_limit_seconds": 1.0,
+            "solver_max_seconds": 2.0,
+            "total_solver_seconds": 3.0,
+            "retry_attempts": 0,
+            "optimality_gap_target": 0.1,
+            "solver_workers": 1,
+        },
+    }
+    general_request = meal_planner.GeneratePlanRequest(
+        profile=UserProfile(
+            displayName="GoalGeneral",
+            age=28,
+            heightCm=160,
+            weightKg=62,
+            activityLevel="Lightly Active",
+            goal="General Health",
+            maxCookingTimeMinutes=60,
+        ),
+        days=1,
+        mealsPerDay=3,
+    )
+    symptom_request = meal_planner.GeneratePlanRequest(
+        profile=UserProfile(
+            displayName="GoalSymptom",
+            age=28,
+            heightCm=160,
+            weightKg=62,
+            activityLevel="Lightly Active",
+            goal="Symptom Management",
+            symptoms=["Acne", "Hair loss"],
+            maxCookingTimeMinutes=60,
+        ),
+        days=1,
+        mealsPerDay=3,
+    )
+    weight_loss_request = meal_planner.GeneratePlanRequest(
+        profile=UserProfile(
+            displayName="GoalLoss",
+            age=28,
+            heightCm=160,
+            weightKg=62,
+            activityLevel="Lightly Active",
+            goal="Weight Loss",
+            maxCookingTimeMinutes=60,
+        ),
+        days=1,
+        mealsPerDay=3,
+    )
+
+    _, general_msg, general_explanation = meal_planner.solve_meal_plan(general_request, recipes, policy=policy, telemetry_out={})
+    _, symptom_msg, symptom_explanation = meal_planner.solve_meal_plan(symptom_request, recipes, policy=policy, telemetry_out={})
+    _, loss_msg, loss_explanation = meal_planner.solve_meal_plan(weight_loss_request, recipes, policy=policy, telemetry_out={})
+
+    assert general_msg == "Success"
+    assert symptom_msg == "Success"
+    assert loss_msg == "Success"
+    assert symptom_explanation["fiberMinTarget"] > general_explanation["fiberMinTarget"]
+    assert symptom_explanation["sugarMaxTarget"] < general_explanation["sugarMaxTarget"]
+    assert symptom_explanation["symptomStrategy"]
+    assert symptom_explanation["selectionReasonsByRecipeId"]
+    assert symptom_explanation["selectionReasonCounts"]
+    assert loss_explanation["targetCalories"] < general_explanation["targetCalories"]
+    assert any("Weight Loss lowers calorie target." == item for item in loss_explanation["goalStrategy"])
+
+
+def test_solve_meal_plan_enforces_budget_as_hard_cap():
+    profile = UserProfile(
+        displayName="BudgetGuard",
+        age=27,
+        heightCm=160,
+        weightKg=60,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        weeklyBudgetPhp=150,
+        maxCookingTimeMinutes=60,
+    )
+    request = meal_planner.GeneratePlanRequest(profile=profile, days=1, mealsPerDay=3)
+    recipes = [
+        _recipe("b1", "Breakfast", "Breakfast", ingredients=[{"name": "egg", "quantity": "2 pcs"}]),
+        _recipe("l1", "Lunch", "Lunch", ingredients=[{"name": "rice", "quantity": "1 cup"}]),
+        _recipe("d1", "Dinner", "Dinner", ingredients=[{"name": "tomato", "quantity": "1 kg"}]),
+    ]
+    policy = {
+        "planning": {"planning_horizon_days": 1, "meals_per_day": 3, "recipe_repeat_limits": [3]},
+        "stage1": {
+            "max_candidates_per_slot": 10,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "restricted_shortlist_multiplier": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "pantry_match_threshold": 0,
+            "minimum_candidates_required": 1,
+            "pool_cap_top_share": 1.0,
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+        },
+        "solver": {
+            "solver_time_limit_seconds": 1.0,
+            "solver_max_seconds": 2.0,
+            "total_solver_seconds": 3.0,
+            "retry_attempts": 0,
+            "optimality_gap_target": 0.1,
+            "solver_workers": 1,
+        },
+    }
+
+    plan, msg, explanation = meal_planner.solve_meal_plan(request, recipes, policy=policy, telemetry_out={})
+
+    assert msg == "Success"
+    assert plan is not None
+    assert explanation["estimatedWeeklyCost"] <= 150
+    assert explanation["budgetHardCapApplied"] is True
+
+
+def test_solve_meal_plan_returns_no_safe_plan_when_budget_makes_model_infeasible():
+    profile = UserProfile(
+        displayName="BudgetTooLow",
+        age=27,
+        heightCm=160,
+        weightKg=60,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        weeklyBudgetPhp=20,
+        maxCookingTimeMinutes=60,
+    )
+    request = meal_planner.GeneratePlanRequest(profile=profile, days=1, mealsPerDay=3)
+    recipes = [
+        _recipe("b1", "Breakfast", "Breakfast", ingredients=[{"name": "egg", "quantity": "2 pcs"}]),
+        _recipe("l1", "Lunch", "Lunch", ingredients=[{"name": "rice", "quantity": "1 cup"}]),
+        _recipe("d1", "Dinner", "Dinner", ingredients=[{"name": "tomato", "quantity": "1 kg"}]),
+    ]
+    policy = {
+        "planning": {"planning_horizon_days": 1, "meals_per_day": 3, "recipe_repeat_limits": [3]},
+        "stage1": {
+            "max_candidates_per_slot": 10,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "restricted_shortlist_multiplier": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "pantry_match_threshold": 0,
+            "minimum_candidates_required": 1,
+            "pool_cap_top_share": 1.0,
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+        },
+        "solver": {
+            "solver_time_limit_seconds": 1.0,
+            "solver_max_seconds": 2.0,
+            "total_solver_seconds": 3.0,
+            "retry_attempts": 0,
+            "optimality_gap_target": 0.1,
+            "solver_workers": 1,
+        },
+    }
+
+    plan, msg, explanation = meal_planner.solve_meal_plan(request, recipes, policy=policy, telemetry_out={})
+
+    assert plan is None
+    assert msg != "Success"
+    assert explanation is None
 
 
 def test_solve_meal_plan_with_snack_slot_does_not_relax_breakfast_lunch_dinner_constraints():

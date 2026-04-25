@@ -1,5 +1,6 @@
 package com.pcosina.app.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -9,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Height
@@ -49,9 +51,13 @@ import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.AppFeedbackBanner
+import com.pcosina.app.ui.components.ExpandableSection
 import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
 import com.pcosina.app.ui.components.GradientHeader
+import com.pcosina.app.ui.components.ScreenFocusOption
+import com.pcosina.app.ui.components.ScreenFocusStrip
+import com.pcosina.app.ui.components.StatusCenterCard
 import com.pcosina.app.data.model.NotificationPreferences
 import com.pcosina.app.domain.HealthMetrics
 import com.pcosina.app.domain.UnitConverter
@@ -69,6 +75,13 @@ import java.time.temporal.WeekFields
 import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private enum class SettingsScreenFocus {
+    Profile,
+    Reminders,
+    Tools,
+    Account,
+}
 
 @Composable
 fun SettingsScreen(
@@ -93,6 +106,38 @@ fun SettingsScreen(
     val userName = profile.displayName.ifBlank { "Warrior" }
     val baseUrl = BuildConfig.BASE_URL.trim().trim('"').trim('\'').trimEnd('/')
     val schemaUrl = "$baseUrl/schema"
+    var settingsFocusKey by rememberSaveable { mutableStateOf(SettingsScreenFocus.Profile.name) }
+    val settingsFocus = remember(settingsFocusKey) {
+        SettingsScreenFocus.valueOf(settingsFocusKey)
+    }
+    val settingsFocusOptions = remember(adminMode) {
+        listOf(
+            ScreenFocusOption(
+                key = SettingsScreenFocus.Profile.name,
+                label = "Profile",
+                summary = "See your basics and open profile editing."
+            ),
+            ScreenFocusOption(
+                key = SettingsScreenFocus.Reminders.name,
+                label = "Reminders",
+                summary = "Pick when reminders show up on this phone."
+            ),
+            ScreenFocusOption(
+                key = SettingsScreenFocus.Tools.name,
+                label = "Tools",
+                summary = if (adminMode) {
+                    "Open team-only setup links and testing tools."
+                } else {
+                    "Keep setup hints separate from your main settings."
+                }
+            ),
+            ScreenFocusOption(
+                key = SettingsScreenFocus.Account.name,
+                label = "Account",
+                summary = "Handle sign-out and saved data for this phone."
+            )
+        )
+    }
     var tapCount by rememberSaveable { mutableStateOf(0) }
 
     var showClearDialog by rememberSaveable { mutableStateOf(false) }
@@ -116,6 +161,24 @@ fun SettingsScreen(
         !appNotificationsEnabled -> "Blocked in system settings"
         runtimeNotificationPermissionGranted -> "Allowed"
         else -> "Permission not granted"
+    }
+    val notificationStatusSummary = when {
+        !notificationPrefs.masterEnabled -> "Reminders are paused."
+        !appNotificationsEnabled -> "Phone settings are blocking reminders."
+        runtimeNotificationPermissionGranted -> "Reminders are ready for meals and plan updates."
+        else -> "Reminder permission still needs approval."
+    }
+    val scheduledWorkersSummary = if (scheduledWorkSummaries.isEmpty()) {
+        "No reminder times lined up yet."
+    } else {
+        "${scheduledWorkSummaries.size} reminder time(s) lined up"
+    }
+    val nextReminderSummary = nextReminderSummaries.firstOrNull()?.let { "Next reminder: $it" }
+        ?: "No reminder time saved yet."
+    val reminderOverviewLabel = if (notificationPrefs.masterEnabled) {
+        "Reminders on"
+    } else {
+        "Reminders paused"
     }
     val lastFiredByType = remember(notificationLogs) {
         notificationLogs
@@ -243,9 +306,9 @@ fun SettingsScreen(
                 }
         ) {
             GradientHeader(
-                title = "Hi, $userName! ✨",
-                subtitle = "Your PCOS journey is uniquely yours.",
-                containerHeight = 180
+                title = "Settings",
+                subtitle = "Profile, reminders, and account choices.",
+                containerHeight = 116
             )
         }
         settingsFeedbackBanner?.let { banner ->
@@ -254,9 +317,26 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+        ScreenFocusStrip(
+            title = "Show",
+            options = settingsFocusOptions,
+            selectedKey = settingsFocusKey,
+            onSelect = { settingsFocusKey = it },
+            labelMaxWidth = 132.dp
+        )
+        if (settingsFocus == SettingsScreenFocus.Reminders) {
+            StatusCenterCard(
+                queuedActionsLabel = notificationStatusSummary,
+                syncLabel = scheduledWorkersSummary,
+                planRangeLabel = "Phone permission: $permissionStateLabel",
+                nextReminderLabel = nextReminderSummary,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         // Personalized Profile Summary Card
-        Card(
+        if (settingsFocus == SettingsScreenFocus.Profile) {
+            Card(
             shape = MaterialTheme.shapes.extraLarge,
             colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -289,16 +369,25 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                     )
                     Text(
-                        text = "PCOS Management Active",
+                        text = primaryGoalLabel(profile.goal),
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "$reminderOverviewLabel • Alerts $permissionStateLabel",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
         }
+        }
 
         // Health & Goals Section
-        SettingsSection(title = "Health Markers") {
+        if (settingsFocus == SettingsScreenFocus.Profile) {
+            SettingsSection(title = "Your body details") {
             val weightText = if (profile.weightUnit == UnitConverter.WEIGHT_LB) {
                 "${UnitConverter.kgToLb(profile.weightKg)} lb"
             } else {
@@ -310,18 +399,18 @@ fun SettingsScreen(
             } else {
                 "${profile.heightCm} cm"
             }
-            SettingsItem(icon = Icons.Default.MonitorWeight, label = "Current Weight", value = weightText)
+            SettingsItem(icon = Icons.Default.MonitorWeight, label = "Weight", value = weightText)
             SettingsDivider()
             SettingsItem(icon = Icons.Default.Height, label = "Height", value = heightText)
             SettingsDivider()
-            SettingsItem(icon = Icons.Default.LocalFireDepartment, label = "Activity Level", value = profile.activityLevel)
+            SettingsItem(icon = Icons.Default.LocalFireDepartment, label = "Daily activity", value = profile.activityLevel)
             SettingsDivider()
             val bmiValue = HealthMetrics.bmi(profile.weightKg, profile.heightCm)
             val bmiLabel = if (bmiValue > 0) String.format("%.1f", bmiValue) else "—"
             val bmiCategory = HealthMetrics.bmiCategory(bmiValue)
             SettingsItem(icon = Icons.Default.MonitorWeight, label = "BMI", value = "$bmiLabel ($bmiCategory)")
             SettingsDivider()
-            SettingsItem(icon = Icons.Default.Info, label = "Current Focus", value = primaryGoalLabel(profile.goal))
+            SettingsItem(icon = Icons.Default.Info, label = "Main goal", value = primaryGoalLabel(profile.goal))
 
             Button(
                 onClick = onNavigateToProfileEdit,
@@ -332,30 +421,32 @@ fun SettingsScreen(
             ) {
                 Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Update Health Data", fontWeight = FontWeight.Bold)
+                Text("Edit my profile", fontWeight = FontWeight.Bold)
             }
             Text(
-                text = "Includes profile, preferences, and budget.",
+                text = "This includes your food rules, cooking limits, and budget.",
                 style = MaterialTheme.typography.bodySmall,
                 color = colorScheme.onSurfaceVariant
             )
         }
+        }
 
         // Destructive Account Actions
-        SettingsSection(
-            title = "Danger Zone",
+        if (settingsFocus == SettingsScreenFocus.Account) {
+            SettingsSection(
+            title = "Device actions",
             titleColor = colorScheme.error,
             containerColor = colorScheme.errorContainer.copy(alpha = 0.35f)
         ) {
             Text(
-                text = "Local device actions only.",
+                text = "These actions only affect this phone.",
                 style = MaterialTheme.typography.bodySmall,
                 color = colorScheme.onSurfaceVariant
             )
             SettingsActionItem(
                 icon = Icons.Default.History,
-                label = "Clear Meal History",
-                description = "Delete local plans, groceries, and logs",
+                label = "Clear saved week data",
+                description = "Deletes saved plans, groceries, and logs on this phone",
                 color = colorScheme.error,
                 destructive = true
             ) {
@@ -373,7 +464,7 @@ fun SettingsScreen(
             SettingsActionItem(
                 icon = Icons.AutoMirrored.Filled.Logout,
                 label = "Logout",
-                description = "Sign out from this device",
+                description = "Sign out on this phone",
                 color = colorScheme.error,
                 destructive = true
             ) {
@@ -391,7 +482,7 @@ fun SettingsScreen(
                 SettingsDivider()
                 SettingsActionItem(
                     icon = Icons.Default.Warning,
-                    label = "Test Crash (Debug only)",
+                    label = "Test crash report",
                     description = "Send a test crash to Crashlytics",
                     color = MaterialTheme.colorScheme.error,
                     destructive = true
@@ -401,9 +492,10 @@ fun SettingsScreen(
                 }
             }
         }
+        }
 
 
-        if (!adminMode && tapCount >= 5) {
+        if (!adminMode && tapCount >= 5 && settingsFocus == SettingsScreenFocus.Tools) {
             Card(
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
@@ -411,7 +503,7 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Tip: long‑press the header to enable Admin mode.",
+                    text = "Tip: long-press the header to open team tools.",
                     modifier = Modifier.padding(14.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = colorScheme.onSurfaceVariant
@@ -419,72 +511,84 @@ fun SettingsScreen(
             }
         }
 
-        if (adminMode) {
-            SettingsSection(title = "System") {
-                SettingsItem(
-                    icon = Icons.Default.Info,
-                    label = "Schema Version",
-                    value = BuildConfig.SCHEMA_VERSION
-                )
-                SettingsItem(
-                    icon = Icons.Default.History,
-                    label = "API Base URL",
-                    value = baseUrl
-                )
-                SettingsActionItem(
-                    icon = Icons.Default.Link,
-                    label = "View API Contract",
-                    description = schemaUrl,
-                    color = colorScheme.primary
+        if (adminMode && settingsFocus == SettingsScreenFocus.Tools) {
+            ExpandableSection(
+                title = "Team tools",
+                subtitle = "For setup and testing only",
+                defaultExpanded = false
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(schemaUrl))
-                    context.startActivity(intent)
-                }
-                SettingsActionItem(
-                    icon = Icons.Default.Info,
-                    label = "View planning methodology",
-                    description = "Open the admin-only technical pipeline view",
-                    color = colorScheme.primary
-                ) {
-                    onOpenAdminMethodology()
-                }
-                if (BuildConfig.DEBUG) {
-                    SettingsActionItem(
+                    SettingsItem(
                         icon = Icons.Default.Info,
-                        label = "Seed Demo Weeks",
-                        description = "Generate 3 weeks of demo plans + progress",
+                        label = "App data version",
+                        value = BuildConfig.SCHEMA_VERSION
+                    )
+                    SettingsItem(
+                        icon = Icons.Default.History,
+                        label = "Server address",
+                        value = baseUrl
+                    )
+                    SettingsActionItem(
+                        icon = Icons.Default.Link,
+                        label = "Open data contract",
+                        description = schemaUrl,
                         color = colorScheme.primary
                     ) {
-                        if (userId.isBlank()) {
-                            postSettingsFeedback(
-                                tone = FeedbackBannerTone.Error,
-                                message = "No change: sign in first to seed demo weeks."
-                            )
-                        } else {
-                            val start = LocalDate.now().with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
-                            progressViewModel.loadForUser(userId, start.format(DateTimeFormatter.ISO_LOCAL_DATE))
-                            val seeds = mealPlanViewModel.seedDemoWeeks(profile)
-                            progressViewModel.seedDemoWeeks(seeds)
-                            postSettingsFeedback(
-                                tone = FeedbackBannerTone.Success,
-                                message = "Seeded ${seeds.size} demo weeks. Plan and progress timelines were refreshed."
-                            )
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(schemaUrl))
+                        context.startActivity(intent)
+                    }
+                    SettingsActionItem(
+                        icon = Icons.Default.Info,
+                        label = "Open planner guide",
+                        description = "Open the team guide for how the planner builds a week",
+                        color = colorScheme.primary
+                    ) {
+                        onOpenAdminMethodology()
+                    }
+                    if (BuildConfig.DEBUG) {
+                        SettingsActionItem(
+                            icon = Icons.Default.Info,
+                            label = "Seed demo weeks",
+                            description = "Create 3 sample weeks with progress history",
+                            color = colorScheme.primary
+                        ) {
+                            if (userId.isBlank()) {
+                                postSettingsFeedback(
+                                    tone = FeedbackBannerTone.Error,
+                                    message = "No change: sign in first before creating sample weeks."
+                                )
+                            } else {
+                                val start = LocalDate.now().with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
+                                progressViewModel.loadForUser(userId, start.format(DateTimeFormatter.ISO_LOCAL_DATE))
+                                val seeds = mealPlanViewModel.seedDemoWeeks(profile)
+                                progressViewModel.seedDemoWeeks(seeds)
+                                postSettingsFeedback(
+                                    tone = FeedbackBannerTone.Success,
+                                    message = "Created ${seeds.size} sample weeks. Plan and progress history are ready."
+                                )
+                            }
                         }
                     }
                 }
             }
         }
 
-        SettingsSection(title = "Notifications") {
+        if (settingsFocus == SettingsScreenFocus.Reminders) {
+            SettingsSection(title = "Reminders") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Enable Notifications", style = MaterialTheme.typography.labelLarge)
+                    Text("Turn reminders on", style = MaterialTheme.typography.labelLarge)
                     Text(
-                        text = "Local reminders only. Generic lock-screen text is used for privacy.",
+                        text = "These reminders stay on this phone. Lock-screen text stays generic for privacy.",
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.onSurfaceVariant
                     )
@@ -516,15 +620,15 @@ fun SettingsScreen(
                 )
             }
             Text(
-                text = "Permission state: $permissionStateLabel",
+                text = "Phone permission: $permissionStateLabel",
                 style = MaterialTheme.typography.bodySmall,
                 color = colorScheme.onSurfaceVariant
             )
             if (!appNotificationsEnabled) {
                 SettingsActionItem(
                     icon = Icons.Default.Info,
-                    label = "Open system notification settings",
-                    description = "Allow notifications for PCOSINA in Android settings",
+                    label = "Open phone notification settings",
+                    description = "Allow reminders for PCOSINA in Android settings",
                     color = colorScheme.primary
                 ) {
                     val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
@@ -547,9 +651,9 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Meal reminders", style = MaterialTheme.typography.labelLarge)
+                    Text("Meal time reminders", style = MaterialTheme.typography.labelLarge)
                     Text(
-                        text = "Breakfast, lunch, and dinner reminders (max 3/day).",
+                        text = "Breakfast, lunch, and dinner reminders.",
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.onSurfaceVariant
                     )
@@ -601,9 +705,9 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Plan ready notification", style = MaterialTheme.typography.labelLarge)
+                    Text("Plan is ready", style = MaterialTheme.typography.labelLarge)
                     Text(
-                        text = "Sent when a weekly plan generation finishes.",
+                        text = "Tells you when a new week finishes loading.",
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.onSurfaceVariant
                     )
@@ -647,9 +751,9 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Grocery sync status", style = MaterialTheme.typography.labelLarge)
+                    Text("Grocery update alerts", style = MaterialTheme.typography.labelLarge)
                     Text(
-                        text = "Notifies only when you manually start sync.",
+                        text = "Shown when you refresh grocery data yourself.",
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.onSurfaceVariant
                     )
@@ -668,9 +772,9 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Weekly reset reminder", style = MaterialTheme.typography.labelLarge)
+                    Text("New week reminder", style = MaterialTheme.typography.labelLarge)
                     Text(
-                        text = "Weekly reminder to generate your next plan (max 1/week).",
+                        text = "A weekly nudge to create your next plan.",
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.onSurfaceVariant
                     )
@@ -689,7 +793,7 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Consistency nudges", style = MaterialTheme.typography.labelLarge)
+                    Text("Keep-going nudges", style = MaterialTheme.typography.labelLarge)
                     Text(
                         text = "Gentle routine nudges, goal-aware and non-judgmental.",
                         style = MaterialTheme.typography.bodySmall,
@@ -710,9 +814,9 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Inactivity reminder", style = MaterialTheme.typography.labelLarge)
+                    Text("Come-back reminder", style = MaterialTheme.typography.labelLarge)
                     Text(
-                        text = "A quick check-in reminder after inactivity (max 1/3 days).",
+                        text = "A quick check-in after a few quiet days.",
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.onSurfaceVariant
                     )
@@ -732,9 +836,9 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Quiet hours", style = MaterialTheme.typography.labelLarge)
+                    Text("Do not disturb hours", style = MaterialTheme.typography.labelLarge)
                     Text(
-                        text = "Pauses routine reminders within selected time window.",
+                        text = "Pauses reminders during the hours you choose.",
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.onSurfaceVariant
                     )
@@ -770,7 +874,7 @@ fun SettingsScreen(
                 }
             }
             Text(
-                text = "Next reminders: B ${formatTime(notificationPrefs.breakfastHour, notificationPrefs.breakfastMinute)} • " +
+                text = "Saved times: B ${formatTime(notificationPrefs.breakfastHour, notificationPrefs.breakfastMinute)} • " +
                     "L ${formatTime(notificationPrefs.lunchHour, notificationPrefs.lunchMinute)} • " +
                     "D ${formatTime(notificationPrefs.dinnerHour, notificationPrefs.dinnerMinute)} • " +
                     "Weekly ${formatDayOfWeek(notificationPrefs.weeklyResetDayOfWeek)} ${formatTime(notificationPrefs.weeklyResetHour, notificationPrefs.weeklyResetMinute)}",
@@ -780,164 +884,177 @@ fun SettingsScreen(
                 overflow = TextOverflow.Ellipsis
             )
             if (BuildConfig.DEBUG) {
-                SettingsDivider()
-                SettingsActionItem(
-                    icon = Icons.Default.Info,
-                    label = "Send test notification",
-                    description = "Triggers a local debug notification",
-                    color = colorScheme.primary
+                ExpandableSection(
+                    title = "Reminder testing",
+                    subtitle = "For local testing only",
+                    defaultExpanded = false
                 ) {
-                    if (userId.isBlank()) {
-                        postSettingsFeedback(
-                            tone = FeedbackBannerTone.Error,
-                            message = "No change: sign in first to send a test notification."
-                        )
-                        return@SettingsActionItem
-                    }
-                    scope.launch {
-                        NotificationScheduler.notifyDebugTest(context, userId)
-                        postSettingsFeedback(
-                            tone = FeedbackBannerTone.Success,
-                            message = "Test notification sent. Delivery logs were updated."
-                        )
-                        scheduledWorkSummaries = NotificationScheduler.getScheduledWorkSummaries(context)
-                    }
-                }
-                SettingsActionItem(
-                    icon = Icons.Default.History,
-                    label = "Send meal reminder now",
-                    description = "Fires meal reminder path with caps and quiet-hours checks",
-                    color = colorScheme.primary
-                ) {
-                    if (userId.isBlank()) {
-                        postSettingsFeedback(
-                            tone = FeedbackBannerTone.Error,
-                            message = "No change: sign in first to send meal reminders."
-                        )
-                        return@SettingsActionItem
-                    }
-                    scope.launch {
-                        val delivered = NotificationScheduler.notifyMealReminderNow(context, userId)
-                        postSettingsFeedback(
-                            tone = if (delivered) FeedbackBannerTone.Success else FeedbackBannerTone.Error,
-                            message = if (delivered) {
-                                "Meal reminder delivered. Scheduling state was refreshed."
-                            } else {
-                                "No reminder sent: blocked by caps, quiet hours, permission, or session."
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        SettingsActionItem(
+                            icon = Icons.Default.Info,
+                            label = "Send sample reminder",
+                            description = "Send a sample reminder on this phone",
+                            color = colorScheme.primary
+                        ) {
+                            if (userId.isBlank()) {
+                                postSettingsFeedback(
+                                    tone = FeedbackBannerTone.Error,
+                                    message = "No change: sign in first before sending a sample reminder."
+                                )
+                                return@SettingsActionItem
                             }
-                        )
-                        scheduledWorkSummaries = NotificationScheduler.getScheduledWorkSummaries(context)
-                    }
-                }
-                SettingsActionItem(
-                    icon = Icons.Default.History,
-                    label = "Send weekly reset now",
-                    description = "Fires weekly reset path with 7-day cap checks",
-                    color = colorScheme.primary
-                ) {
-                    if (userId.isBlank()) {
-                        postSettingsFeedback(
-                            tone = FeedbackBannerTone.Error,
-                            message = "No change: sign in first to send weekly reset reminders."
-                        )
-                        return@SettingsActionItem
-                    }
-                    scope.launch {
-                        val delivered = NotificationScheduler.notifyWeeklyResetNow(context, userId)
-                        postSettingsFeedback(
-                            tone = if (delivered) FeedbackBannerTone.Success else FeedbackBannerTone.Error,
-                            message = if (delivered) {
-                                "Weekly reset reminder delivered. Scheduling state was refreshed."
-                            } else {
-                                "No reminder sent: blocked by caps, quiet hours, permission, or session."
+                            scope.launch {
+                                NotificationScheduler.notifyDebugTest(context, userId)
+                                postSettingsFeedback(
+                                    tone = FeedbackBannerTone.Success,
+                                    message = "Sample reminder sent. The reminder list was refreshed."
+                                )
+                                scheduledWorkSummaries = NotificationScheduler.getScheduledWorkSummaries(context)
                             }
-                        )
-                        scheduledWorkSummaries = NotificationScheduler.getScheduledWorkSummaries(context)
-                    }
-                }
-                Text(
-                    text = "Scheduled workers",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = colorScheme.onSurface
-                )
-                nextReminderSummaries.forEach { summary ->
-                    Text(
-                        text = "• $summary",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                if (nextReminderSummaries.isNotEmpty()) {
-                    SettingsDivider()
-                }
-                if (scheduledWorkSummaries.isEmpty()) {
-                    Text(
-                        text = "No active notification workers.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    scheduledWorkSummaries.take(6).forEach { summary ->
+                        }
+                        SettingsActionItem(
+                            icon = Icons.Default.History,
+                            label = "Send meal reminder now",
+                            description = "Try the meal reminder right now",
+                            color = colorScheme.primary
+                        ) {
+                            if (userId.isBlank()) {
+                                postSettingsFeedback(
+                                    tone = FeedbackBannerTone.Error,
+                                    message = "No change: sign in first before sending meal reminders."
+                                )
+                                return@SettingsActionItem
+                            }
+                            scope.launch {
+                                val delivered = NotificationScheduler.notifyMealReminderNow(context, userId)
+                                postSettingsFeedback(
+                                    tone = if (delivered) FeedbackBannerTone.Success else FeedbackBannerTone.Error,
+                                    message = if (delivered) {
+                                        "Meal reminder sent. The reminder list was refreshed."
+                                    } else {
+                                        "No reminder was sent right now because of quiet hours, limits, permission, or sign-in."
+                                    }
+                                )
+                                scheduledWorkSummaries = NotificationScheduler.getScheduledWorkSummaries(context)
+                            }
+                        }
+                        SettingsActionItem(
+                            icon = Icons.Default.History,
+                            label = "Send new week reminder now",
+                            description = "Try the new-week reminder right now",
+                            color = colorScheme.primary
+                        ) {
+                            if (userId.isBlank()) {
+                                postSettingsFeedback(
+                                    tone = FeedbackBannerTone.Error,
+                                    message = "No change: sign in first before sending the new-week reminder."
+                                )
+                                return@SettingsActionItem
+                            }
+                            scope.launch {
+                                val delivered = NotificationScheduler.notifyWeeklyResetNow(context, userId)
+                                postSettingsFeedback(
+                                    tone = if (delivered) FeedbackBannerTone.Success else FeedbackBannerTone.Error,
+                                    message = if (delivered) {
+                                        "New-week reminder sent. The reminder list was refreshed."
+                                    } else {
+                                        "No reminder was sent right now because of quiet hours, limits, permission, or sign-in."
+                                    }
+                                )
+                                scheduledWorkSummaries = NotificationScheduler.getScheduledWorkSummaries(context)
+                            }
+                        }
                         Text(
-                            text = "• $summary",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
+                            text = "Upcoming reminders",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = colorScheme.onSurface
                         )
-                    }
-                }
-                Text(
-                    text = "Last fired timestamps by type",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = colorScheme.onSurface
-                )
-                if (lastFiredByType.isEmpty()) {
-                    Text(
-                        text = "No fired notifications yet.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    lastFiredByType.take(8).forEach { (type, timestamp) ->
-                        val stamp = Instant.ofEpochMilli(timestamp)
-                            .atZone(ZoneId.systemDefault())
-                            .toLocalDateTime()
-                            .format(DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.ENGLISH))
+                        nextReminderSummaries.forEach { summary ->
+                            Text(
+                                text = "• $summary",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        if (nextReminderSummaries.isNotEmpty()) {
+                            SettingsDivider()
+                        }
+                        if (scheduledWorkSummaries.isEmpty()) {
+                            Text(
+                                text = "No reminder times lined up yet.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            scheduledWorkSummaries.take(6).forEach { summary ->
+                                Text(
+                                    text = "• $summary",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
                         Text(
-                            text = "• $type → $stamp",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            text = "Recent reminder types",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = colorScheme.onSurface
                         )
-                    }
-                }
-                Text(
-                    text = "Last delivered notifications",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = colorScheme.onSurface
-                )
-                if (notificationLogs.isEmpty()) {
-                    Text(
-                        text = "No notifications delivered yet.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    notificationLogs.take(5).forEach { log ->
+                        if (lastFiredByType.isEmpty()) {
+                            Text(
+                                text = "No reminders fired yet.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            lastFiredByType.take(8).forEach { (type, timestamp) ->
+                                val stamp = Instant.ofEpochMilli(timestamp)
+                                    .atZone(ZoneId.systemDefault())
+                                    .toLocalDateTime()
+                                    .format(DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.ENGLISH))
+                                Text(
+                                    text = "• $type → $stamp",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
                         Text(
-                            text = "• ${log.type}: ${log.title}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
+                            text = "Recent reminders sent",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = colorScheme.onSurface
                         )
+                        if (notificationLogs.isEmpty()) {
+                            Text(
+                                text = "No notifications delivered yet.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            notificationLogs.take(5).forEach { log ->
+                                Text(
+                                    text = "• ${log.type}: ${log.title}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
                     }
                 }
             }
+        }
         }
 
         Spacer(Modifier.height(24.dp))
@@ -955,7 +1072,10 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
             confirmButton = {
-                TextButton(onClick = {
+                SettingsDialogConfirmButton(
+                    label = "Clear history",
+                    destructive = true,
+                    onClick = {
                     if (userId.isNotBlank()) {
                         mealPlanViewModel.clearPlanHistory()
                         groceryViewModel.clearForUser()
@@ -967,10 +1087,11 @@ fun SettingsScreen(
                         clearActionError = true
                     }
                     showClearDialog = false
-                }) { Text("Clear") }
+                }
+                )
             },
             dismissButton = {
-                TextButton(onClick = { showClearDialog = false }) { Text("Cancel") }
+                SettingsDialogDismissButton(onClick = { showClearDialog = false })
             },
             title = { Text("Clear meal history?") },
             text = { Text("This removes plans, grocery snapshots, and adherence logs for this account.") }
@@ -981,13 +1102,16 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
             confirmButton = {
-                TextButton(onClick = {
+                SettingsDialogConfirmButton(
+                    label = "Sign out",
+                    onClick = {
                     showLogoutDialog = false
                     logoutActionPending = true
-                }) { Text("Logout") }
+                }
+                )
             },
             dismissButton = {
-                TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") }
+                SettingsDialogDismissButton(onClick = { showLogoutDialog = false })
             },
             title = { Text("Logout?") },
             text = { Text("You will need to sign in again to access your data.") }
@@ -998,15 +1122,22 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showWeeklyResetDayDialog = false },
             confirmButton = {
-                TextButton(onClick = { showWeeklyResetDayDialog = false }) {
-                    Text("Done")
-                }
+                SettingsDialogDismissButton(
+                    label = "Keep current day",
+                    onClick = { showWeeklyResetDayDialog = false }
+                )
             },
             title = { Text("Weekly reset day") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Choose the day that starts your new planning week and reminder reset.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colorScheme.onSurfaceVariant
+                    )
                     (1..7).forEach { day ->
-                        TextButton(
+                        SettingsDialogOptionButton(
+                            label = formatDayOfWeek(day),
                             onClick = {
                                 updateNotificationPrefs { prefs ->
                                     prefs.copy(weeklyResetDayOfWeek = day)
@@ -1014,12 +1145,7 @@ fun SettingsScreen(
                                 showWeeklyResetDayDialog = false
                             },
                             modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = formatDayOfWeek(day),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
+                        )
                     }
                 }
             }
@@ -1030,21 +1156,18 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showNotificationPermissionDialog = false },
             confirmButton = {
-                TextButton(
+                SettingsDialogConfirmButton(
+                    label = "Allow reminders",
                     onClick = {
                         showNotificationPermissionDialog = false
                         permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
-                ) {
-                    Text("Continue")
-                }
+                )
             },
             dismissButton = {
-                TextButton(onClick = { showNotificationPermissionDialog = false }) {
-                    Text("Cancel")
-                }
+                SettingsDialogDismissButton(onClick = { showNotificationPermissionDialog = false })
             },
-            title = { Text("Allow notifications?") },
+            title = { Text("Allow local reminders?") },
             text = {
                 Text(
                     "PCOSINA uses local reminders for meal check-ins and weekly planning. " +
@@ -1079,6 +1202,71 @@ private fun SettingsInlineNotice(
 }
 
 @Composable
+private fun SettingsDialogConfirmButton(
+    label: String,
+    onClick: () -> Unit,
+    destructive: Boolean = false
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Button(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.large,
+        colors = if (destructive) {
+            ButtonDefaults.buttonColors(
+                containerColor = colorScheme.errorContainer,
+                contentColor = colorScheme.onErrorContainer
+            )
+        } else {
+            ButtonDefaults.buttonColors()
+        }
+    ) {
+        Text(
+            text = label,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun SettingsDialogDismissButton(
+    onClick: () -> Unit,
+    label: String = "Cancel"
+) {
+    OutlinedButton(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
+    ) {
+        Text(
+            text = label,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun SettingsDialogOptionButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
 fun SettingsSection(title: String, content: @Composable () -> Unit) {
     SettingsSection(
         title = title,
@@ -1097,15 +1285,19 @@ fun SettingsSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionHeaderGap)) {
         Text(
-            text = title.uppercase(),
-            style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 1.sp, fontWeight = FontWeight.Black),
+            text = title,
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.2.sp
+            ),
             color = titleColor,
             modifier = Modifier.padding(start = 4.dp)
         )
         Card(
             shape = MaterialTheme.shapes.extraLarge,
             colors = CardDefaults.cardColors(containerColor = containerColor),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f))
         ) {
             Column(
                 modifier = Modifier.padding(UiSpacingTokens.CardContentPadding),
@@ -1120,36 +1312,56 @@ fun SettingsSection(
 @Composable
 fun SettingsItem(icon: ImageVector, label: String, value: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.Top
     ) {
         Row(
             modifier = Modifier.weight(1f),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Top
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(Modifier.width(10.dp))
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                contentColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Surface(
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.60f)
+        ) {
             Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
+                text = value,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
         }
-        Spacer(Modifier.width(12.dp))
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.primary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
     }
 }
 
@@ -1164,39 +1376,82 @@ fun SettingsActionItem(
 ) {
     Surface(
         onClick = onClick,
-        color = if (destructive) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f) else Color.Transparent,
-        shape = MaterialTheme.shapes.medium,
+        color = if (destructive) {
+            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.42f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
+        },
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (destructive) {
+                MaterialTheme.colorScheme.error.copy(alpha = 0.18f)
+            } else {
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.70f)
+            }
+        ),
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 48.dp)
+            .heightIn(min = 64.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
         ) {
-            Box(
-                modifier = Modifier.size(28.dp).background(color.copy(alpha = 0.1f), CircleShape),
-                contentAlignment = Alignment.Center
+            Surface(
+                shape = CircleShape,
+                color = color.copy(alpha = 0.12f),
+                contentColor = color,
+                modifier = Modifier.size(40.dp)
             ) {
-                Icon(imageVector = icon, contentDescription = null, tint = color)
+                Box(
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(20.dp))
+                }
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(12.dp))
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = color
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                    color = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = if (destructive) 1 else 2,
+                    maxLines = if (destructive) 2 else 3,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+            Spacer(Modifier.width(10.dp))
+            Surface(
+                shape = CircleShape,
+                color = if (destructive) {
+                    MaterialTheme.colorScheme.error.copy(alpha = 0.10f)
+                } else {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                },
+                contentColor = if (destructive) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.primary
+                }
+            ) {
+                Box(
+                    modifier = Modifier.size(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }

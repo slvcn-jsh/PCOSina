@@ -1177,6 +1177,7 @@ def _build_no_safe_plan_response(
     started_ms: int,
     completed_ms: int,
     diagnostics_ref: str | None = None,
+    telemetry: dict | None = None,
 ) -> GeneratePlanResponse:
     return shared_build_no_safe_plan_response(
         request=request,
@@ -1186,6 +1187,7 @@ def _build_no_safe_plan_response(
         started_ms=started_ms,
         completed_ms=completed_ms,
         diagnostics_ref=diagnostics_ref,
+        telemetry=telemetry,
     )
 
 
@@ -4132,6 +4134,7 @@ def _run_job(job_id: str, request: GeneratePlanRequest, owner_uid: str | None = 
                 policy_version=policy_version,
                 started_ms=started_ms,
                 completed_ms=completed_ms,
+                telemetry=telemetry,
             )
             _set_job(job_id, "done", result=response)
             _record_solver_outcome(False)
@@ -4353,6 +4356,7 @@ async def generate_plan(
             policy_version=policy_version,
             started_ms=started_ms,
             completed_ms=completed_ms,
+            telemetry=telemetry,
         )
         if scoped_idempotency_key:
             _idempotency_set(scoped_idempotency_key, response.model_dump())

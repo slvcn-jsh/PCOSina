@@ -52,6 +52,8 @@ def test_generate_plan_returns_structured_no_safe_plan(monkeypatch):
     assert "MODEL_INFEASIBLE" in body["machineReasonCodes"]
     assert body["policyVersion"] == "policy-v1:test"
     assert "timestamps" in body
+    assert "diagnosticsSummary" in body
+    assert "profileRuleEffects" in body["diagnosticsSummary"]
 
 
 def test_generate_plan_accepts_supported_legacy_schema_header(monkeypatch):
@@ -261,6 +263,52 @@ def test_no_safe_response_refresh_helper_updates_request_scoped_diagnostics_refe
     assert refreshed.requestId == "new-request"
     assert refreshed.diagnosticsReference == "new-request"
     assert refreshed.timestamps == {"requestedAtMs": 2000, "completedAtMs": 2500}
+
+
+def test_no_safe_response_captures_exclusion_and_budget_diagnostics():
+    request = main.GeneratePlanRequest.model_validate(
+        {
+            "profile": {
+                "displayName": "Diagnostic User",
+                "age": 25,
+                "heightCm": 160,
+                "weightKg": 60,
+                "activityLevel": "Lightly Active",
+                "goal": "General Health",
+                "weeklyBudgetPhp": 700,
+                "dietaryRestrictions": ["No Pork"],
+                "allergies": ["fish"],
+                "pantryItems": [],
+            },
+            "days": 7,
+            "mealsPerDay": 3,
+        }
+    )
+
+    response = main._build_no_safe_plan_response(
+        request=request,
+        request_id="diag-request",
+        message="No safe recipes found.",
+        policy_version="policy-v1:test",
+        started_ms=1000,
+        completed_ms=1500,
+        telemetry={
+            "stage1_diag": {
+                "exclusion_summary": {"allergy": 5, "restriction": 2, "prep_time": 1},
+                "exclusion_detail_counts": {"allergy:fish": 5, "restriction:no_pork": 2},
+            },
+            "budget_exceeded_stage": "stage1_shortlist",
+            "solver_budget": {"totalTimeLimitSeconds": 14.0},
+            "phase_timings_ms": {"stage1_shortlist": 4200},
+        },
+    )
+
+    assert response.status == "no-safe-plan"
+    assert response.diagnosticsSummary["candidateExclusionSummary"]["allergy"] == 5
+    assert response.diagnosticsSummary["candidateExclusionDetailCounts"]["allergy:fish"] == 5
+    assert response.diagnosticsSummary["budgetExceededStage"] == "stage1_shortlist"
+    assert response.diagnosticsSummary["profileRuleEffects"]["hardFilters"]
+    assert any("Allergy rules removed some candidate meals" in item for item in response.humanGuidance)
 
 
 def test_generate_plan_no_safe_cache_hit_emits_completion_events_for_new_request(monkeypatch):

@@ -1,0 +1,84 @@
+keyword,normalized_keyword_if_any,price_php,category,unit,source_file,notes
+egg,egg,7.0,Eggs & Dairy,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:15,Android grocery price rule
+itlog,itlog,7.0,Eggs & Dairy,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:15,Android grocery price rule
+milk,milk,90.0,Eggs & Dairy,l,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:16,Android grocery price rule
+gatas,gatas,90.0,Eggs & Dairy,l,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:16,Android grocery price rule
+cheese,cheese,300.0,Eggs & Dairy,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:17,Android grocery price rule
+keso,keso,300.0,Eggs & Dairy,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:17,Android grocery price rule
+yogurt,yogurt,60.0,Eggs & Dairy,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:18,Android grocery price rule
+gata,gata,70.0,Eggs & Dairy,l,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:19,Android grocery price rule
+coconut milk,coconut_milk,70.0,Eggs & Dairy,l,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:19,Android grocery price rule
+rice,rice,60.0,Dry Goods,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:20,Android grocery price rule
+bigas,bigas,60.0,Dry Goods,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:20,Android grocery price rule
+oat,oat,140.0,Dry Goods,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:21,Android grocery price rule
+bread,bread,80.0,Dry Goods,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:22,Android grocery price rule
+tinapay,tinapay,80.0,Dry Goods,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:22,Android grocery price rule
+pasta,pasta,90.0,Dry Goods,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:23,Android grocery price rule
+noodles,noodles,90.0,Dry Goods,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:23,Android grocery price rule
+bihon,bihon,90.0,Dry Goods,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:23,Android grocery price rule
+miki,miki,90.0,Dry Goods,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:23,Android grocery price rule
+pancit,pancit,90.0,Dry Goods,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:23,Android grocery price rule
+flour,flour,60.0,Dry Goods,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:24,Android grocery price rule
+chicken,chicken,180.0,Meat/Seafood,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:25,Android grocery price rule
+manok,manok,180.0,Meat/Seafood,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:25,Android grocery price rule
+beef,beef,320.0,Meat/Seafood,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:26,Android grocery price rule
+pork,pork,260.0,Meat/Seafood,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:27,Android grocery price rule
+liempo,liempo,260.0,Meat/Seafood,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:27,Android grocery price rule
+baboy,baboy,260.0,Meat/Seafood,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:27,Android grocery price rule
+fish,fish,220.0,Meat/Seafood,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:28,Android grocery price rule
+tilapia,tilapia,220.0,Meat/Seafood,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:28,Android grocery price rule
+bangus,bangus,220.0,Meat/Seafood,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:28,Android grocery price rule
+salmon,salmon,220.0,Meat/Seafood,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:28,Android grocery price rule
+galunggong,galunggong,220.0,Meat/Seafood,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:28,Android grocery price rule
+tuna,tuna,35.0,Canned/Packaged,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:29,Android grocery price rule
+sardines,sardines,35.0,Canned/Packaged,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:29,Android grocery price rule
+shrimp,shrimp,300.0,Meat/Seafood,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:30,Android grocery price rule
+hipon,hipon,300.0,Meat/Seafood,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:30,Android grocery price rule
+tomato,tomato,60.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:31,Android grocery price rule
+kamatis,kamatis,60.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:31,Android grocery price rule
+onion,onion,80.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:32,Android grocery price rule
+sibuyas,sibuyas,80.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:32,Android grocery price rule
+garlic,garlic,120.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:33,Android grocery price rule
+bawang,bawang,120.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:33,Android grocery price rule
+carrot,carrot,70.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:34,Android grocery price rule
+cabbage,cabbage,55.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:35,Android grocery price rule
+repolyo,repolyo,55.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:35,Android grocery price rule
+pechay,pechay,60.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:36,Android grocery price rule
+spinach,spinach,60.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:36,Android grocery price rule
+kale,kale,60.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:36,Android grocery price rule
+malunggay,malunggay,60.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:36,Android grocery price rule
+kangkong,kangkong,60.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:36,Android grocery price rule
+okra,okra,70.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:37,Android grocery price rule
+ampalaya,ampalaya,70.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:37,Android grocery price rule
+talong,talong,70.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:37,Android grocery price rule
+sayote,sayote,70.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:37,Android grocery price rule
+kalabasa,kalabasa,70.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:37,Android grocery price rule
+sili,sili,140.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:38,Android grocery price rule
+chili,chili,140.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:38,Android grocery price rule
+banana,banana,60.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:39,Android grocery price rule
+apple,apple,120.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:40,Android grocery price rule
+orange,orange,80.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:41,Android grocery price rule
+ginger,ginger,140.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:42,Android grocery price rule
+luya,luya,140.0,Produce,kg,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:42,Android grocery price rule
+oil,oil,120.0,Spices & Condiments,l,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:43,Android grocery price rule
+olive,olive,120.0,Spices & Condiments,l,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:43,Android grocery price rule
+coconut,coconut,120.0,Spices & Condiments,l,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:43,Android grocery price rule
+soy,soy,40.0,Spices & Condiments,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:44,Android grocery price rule
+toyo,toyo,40.0,Spices & Condiments,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:44,Android grocery price rule
+sauce,sauce,40.0,Spices & Condiments,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:44,Android grocery price rule
+vinegar,vinegar,40.0,Spices & Condiments,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:44,Android grocery price rule
+suka,suka,40.0,Spices & Condiments,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:44,Android grocery price rule
+patis,patis,40.0,Spices & Condiments,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:44,Android grocery price rule
+salt,salt,20.0,Spices & Condiments,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:45,Android grocery price rule
+asin,asin,20.0,Spices & Condiments,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:45,Android grocery price rule
+pepper,pepper,20.0,Spices & Condiments,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:45,Android grocery price rule
+paminta,paminta,20.0,Spices & Condiments,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:45,Android grocery price rule
+spice,spice,20.0,Spices & Condiments,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:45,Android grocery price rule
+coffee,coffee,90.0,Beverages,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:46,Android grocery price rule
+tea,tea,90.0,Beverages,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:46,Android grocery price rule
+juice,juice,40.0,Beverages,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:47,Android grocery price rule
+soda,soda,40.0,Beverages,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:47,Android grocery price rule
+water,water,20.0,Beverages,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:48,Android grocery price rule
+canned,canned,45.0,Canned/Packaged,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:49,Android grocery price rule
+packaged,packaged,45.0,Canned/Packaged,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:49,Android grocery price rule
+instant,instant,45.0,Canned/Packaged,piece,app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:49,Android grocery price rule

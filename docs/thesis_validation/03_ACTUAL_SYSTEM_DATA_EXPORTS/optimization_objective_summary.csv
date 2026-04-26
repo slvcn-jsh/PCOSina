@@ -1,0 +1,15 @@
+objective_component,direction,hard_or_soft,source_file,function,notes
+Daily calorie deviation,minimize,soft,backend/services/meal_planner.py:1474,solve_meal_plan,Absolute daily calorie error from jittered target.
+Daily protein deviation,minimize,soft,backend/services/meal_planner.py:1474,solve_meal_plan,Absolute protein deviation from target grams.
+Daily carbohydrate deviation,minimize,soft,backend/services/meal_planner.py:1474,solve_meal_plan,Absolute carbohydrate deviation from target grams.
+Daily fat deviation,minimize,soft,backend/services/meal_planner.py:1474,solve_meal_plan,Absolute fat deviation from target grams.
+Fiber slack,minimize,soft,backend/services/meal_planner.py:1474,solve_meal_plan,Penalty when fiber target is missed.
+Sodium overage,minimize,soft,backend/services/meal_planner.py:1474,solve_meal_plan,Penalty when daily sodium exceeds the policy ceiling.
+Sugar overage,minimize,soft,backend/services/meal_planner.py:1474,solve_meal_plan,Penalty when daily sugar exceeds the policy ceiling.
+Weekly cost,minimize when budget priority is active,soft,backend/services/meal_planner.py:868,_should_optimize_cost + solve_meal_plan,Hard budget cap may still apply even when cost is not in the soft objective.
+Preparation time burden,minimize,soft,backend/services/meal_planner.py:1474,solve_meal_plan,Longer preparation time increases penalty.
+Recipe repetition overage,minimize,soft,backend/services/meal_planner.py:1474,solve_meal_plan,Works with hard per-attempt repetition caps.
+Protein group concentration,minimize,soft,backend/services/meal_planner.py:1474,solve_meal_plan,Discourages over-concentration in one protein group.
+Acceptance/diversity penalties,minimize,soft,backend/policy_config.py:87,PlanningPolicy + solve_meal_plan,Uses planning weights from policy config.
+Pantry reward,maximize (implemented as subtracting reward),soft,backend/services/meal_planner.py:1474,solve_meal_plan,Rewards pantry overlap but does not enforce full pantry feasibility.
+Vegetable diversity reward,maximize (implemented as subtracting reward),soft,backend/services/meal_planner.py:1474,solve_meal_plan,Rewards unique vegetable token coverage.

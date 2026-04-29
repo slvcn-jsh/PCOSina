@@ -37,13 +37,13 @@ import com.pcosina.app.ui.components.BottomNavBar
 import com.pcosina.app.ui.components.DefaultBottomNavItems
 import com.pcosina.app.ui.navigation.Routes.MealLabelArg
 import com.pcosina.app.ui.navigation.Routes.RecipeIdArg
-import com.pcosina.app.ui.screens.DashboardScreen
+import com.pcosina.app.ui.screens.CanvaDashboardScreen
+import com.pcosina.app.ui.screens.CanvaGroceryListScreen
+import com.pcosina.app.ui.screens.CanvaLoginScreen
+import com.pcosina.app.ui.screens.CanvaMealPlanScreen
 import com.pcosina.app.ui.screens.CommunityScreen
 import com.pcosina.app.ui.screens.GoalSelectionScreen
-import com.pcosina.app.ui.screens.GroceryListScreen
 import com.pcosina.app.ui.screens.IpoVisualizationScreen
-import com.pcosina.app.ui.screens.LoginScreen
-import com.pcosina.app.ui.screens.MealPlanScreen
 import com.pcosina.app.ui.screens.MoreToolsScreen
 import com.pcosina.app.ui.screens.ProgressScreen
 import com.pcosina.app.ui.screens.RecipeDetailsScreen
@@ -379,7 +379,7 @@ fun AppNavHost(
         }
 
         composable(Routes.Login) {
-            LoginScreen(
+            CanvaLoginScreen(
                 authViewModel = authViewModel,
                 onLoginSuccess = {
                     navigateInternal(Routes.Splash) {
@@ -439,7 +439,7 @@ fun AppNavHost(
         // Bottom tab destinations
         composable(Routes.Dashboard) {
             TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
-                DashboardScreen(
+                CanvaDashboardScreen(
                     userViewModel = userViewModel,
                     authViewModel = authViewModel,
                     mealPlanViewModel = mealPlanViewModel,
@@ -467,7 +467,7 @@ fun AppNavHost(
         }
         composable(Routes.MealPlan) {
             TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
-                MealPlanScreen(
+                CanvaMealPlanScreen(
                     userViewModel = userViewModel,
                     mealPlanViewModel = mealPlanViewModel,
                     groceryViewModel = groceryViewModel,
@@ -490,7 +490,7 @@ fun AppNavHost(
         }
         composable(Routes.GroceryList) {
             TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
-                GroceryListScreen(
+                CanvaGroceryListScreen(
                     groceryViewModel = groceryViewModel,
                     userViewModel = userViewModel,
                     mealPlanViewModel = mealPlanViewModel,

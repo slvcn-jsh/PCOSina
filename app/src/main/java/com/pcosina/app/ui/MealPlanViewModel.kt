@@ -234,7 +234,16 @@ class MealPlanViewModel(
             val continuityPlan = continuityPlanSnapshot()
             _generationNotice.value = null
             _uiState.value = MealPlanUiState.Loading
-            repository.warmup()
+            val warmupResult = repository.warmup()
+            val warmupError = warmupResult.exceptionOrNull()
+            if (warmupError != null) {
+                pendingGenerateRequest = null
+                _generationNotice.value = null
+                _uiState.value = MealPlanUiState.Error(
+                    warmupError.message ?: "Cannot reach planner service right now."
+                )
+                return@launch
+            }
             val effectiveProfile = resolveProfile(profile)
             val tunedProfile = applyFeedbackTuning(effectiveProfile)
             val apiProfile = tunedProfile.copy(goal = goalTextForApi(tunedProfile.goal))
@@ -330,6 +339,11 @@ class MealPlanViewModel(
                 _uiState.value = MealPlanUiState.Error(message)
             }
         }
+    }
+
+    fun generateMealPlanFresh(profile: UserProfile) {
+        pendingGenerateRequest = null
+        generateMealPlan(profile)
     }
 
     private fun shouldKeepPendingGenerateRequest(message: String): Boolean {

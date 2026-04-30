@@ -37,15 +37,15 @@ import com.pcosina.app.ui.components.BottomNavBar
 import com.pcosina.app.ui.components.DefaultBottomNavItems
 import com.pcosina.app.ui.navigation.Routes.MealLabelArg
 import com.pcosina.app.ui.navigation.Routes.RecipeIdArg
-import com.pcosina.app.ui.screens.DashboardScreen
+import com.pcosina.app.ui.screens.DashboardRefinedScreen
 import com.pcosina.app.ui.screens.CommunityScreen
 import com.pcosina.app.ui.screens.GoalSelectionScreen
-import com.pcosina.app.ui.screens.GroceryListScreen
+import com.pcosina.app.ui.screens.GroceryRefinedScreen
 import com.pcosina.app.ui.screens.IpoVisualizationScreen
 import com.pcosina.app.ui.screens.LoginScreen
-import com.pcosina.app.ui.screens.MealPlanScreen
+import com.pcosina.app.ui.screens.MealPlanRefinedScreen
 import com.pcosina.app.ui.screens.MoreToolsScreen
-import com.pcosina.app.ui.screens.ProgressScreen
+import com.pcosina.app.ui.screens.ProgressRefinedScreen
 import com.pcosina.app.ui.screens.RecipeDetailsScreen
 import com.pcosina.app.ui.screens.SettingsScreen
 import com.pcosina.app.ui.screens.SignUpScreen
@@ -145,6 +145,17 @@ fun AppNavHost(
         }
         navController.navigateKnown(route) {
             options?.invoke(this)
+        }
+    }
+
+    fun navigateFromRefinedShell(route: String) {
+        when (Routes.baseRoute(route)) {
+            Routes.Dashboard,
+            Routes.MealPlan,
+            Routes.GroceryList,
+            Routes.Progress,
+            Routes.Ipo -> navigateInternal(route) { tabNavigationOptions() }
+            else -> navigateInternal(route)
         }
     }
 
@@ -439,7 +450,7 @@ fun AppNavHost(
         // Bottom tab destinations
         composable(Routes.Dashboard) {
             TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
-                DashboardScreen(
+                DashboardRefinedScreen(
                     userViewModel = userViewModel,
                     authViewModel = authViewModel,
                     mealPlanViewModel = mealPlanViewModel,
@@ -447,71 +458,42 @@ fun AppNavHost(
                     progressViewModel = progressViewModel,
                     onRecipeClick = { id, mealLabel -> navigateInternal(Routes.recipeDetailsRoute(id, mealLabel)) },
                     onViewPlan = { navigateInternal(Routes.MealPlan) { tabNavigationOptions() } },
-                    onOpenMoreTools = { navigateInternal(Routes.MoreTools) },
+                    onOpenMoreTools = { navigateInternal(Routes.Ipo) { tabNavigationOptions() } },
                     onNavigateToSettings = { navigateInternal(Routes.Settings) },
-                    onNavigateToRoute = { route ->
-                        when (route) {
-                            Routes.UserProfile -> navigateInternal(Routes.UserProfile)
-                            Routes.GoalSelection -> navigateInternal(Routes.GoalSelection)
-                            Routes.MealPlan,
-                            Routes.GroceryList,
-                            Routes.Progress,
-                            Routes.Ipo,
-                            Routes.Dashboard -> navigateInternal(route) { tabNavigationOptions() }
-                            else -> navigateInternal(route)
-                        }
-                    },
+                    onNavigateToRoute = ::navigateFromRefinedShell,
                     modifier = Modifier.padding(contentPadding),
                 )
             }
         }
         composable(Routes.MealPlan) {
             TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
-                MealPlanScreen(
+                MealPlanRefinedScreen(
                     userViewModel = userViewModel,
                     mealPlanViewModel = mealPlanViewModel,
                     groceryViewModel = groceryViewModel,
                     progressViewModel = progressViewModel,
                     onRecipeClick = { id, mealLabel -> navigateInternal(Routes.recipeDetailsRoute(id, mealLabel)) },
                     onViewProgress = { navigateInternal(Routes.Progress) { tabNavigationOptions() } },
-                    onNavigateToRoute = { route ->
-                        when (route) {
-                            Routes.UserProfile -> navigateInternal(Routes.UserProfile)
-                            Routes.GoalSelection -> navigateInternal(Routes.GoalSelection)
-                            Routes.MealPlan,
-                            Routes.GroceryList,
-                            Routes.Progress -> navigateInternal(route) { tabNavigationOptions() }
-                            else -> navigateInternal(route)
-                        }
-                    },
+                    onNavigateToRoute = ::navigateFromRefinedShell,
                     modifier = Modifier.padding(contentPadding),
                 )
             }
         }
         composable(Routes.GroceryList) {
             TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
-                GroceryListScreen(
+                GroceryRefinedScreen(
                     groceryViewModel = groceryViewModel,
                     userViewModel = userViewModel,
                     mealPlanViewModel = mealPlanViewModel,
                     progressViewModel = progressViewModel,
-                    onNavigateToRoute = { route ->
-                        when (route) {
-                            Routes.UserProfile -> navigateInternal(Routes.UserProfile)
-                            Routes.GoalSelection -> navigateInternal(Routes.GoalSelection)
-                            Routes.MealPlan,
-                            Routes.GroceryList,
-                            Routes.Progress -> navigateInternal(route) { tabNavigationOptions() }
-                            else -> navigateInternal(route)
-                        }
-                    },
+                    onNavigateToRoute = ::navigateFromRefinedShell,
                     modifier = Modifier.padding(contentPadding)
                 )
             }
         }
         composable(Routes.Progress) {
             TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
-                ProgressScreen(
+                ProgressRefinedScreen(
                     userViewModel = userViewModel,
                     mealPlanViewModel = mealPlanViewModel,
                     progressViewModel = progressViewModel,
@@ -522,16 +504,7 @@ fun AppNavHost(
                             tabNavigationOptions()
                         }
                     },
-                    onNavigateToRoute = { route ->
-                        when (route) {
-                            Routes.UserProfile -> navigateInternal(Routes.UserProfile)
-                            Routes.GoalSelection -> navigateInternal(Routes.GoalSelection)
-                            Routes.MealPlan,
-                            Routes.GroceryList,
-                            Routes.Progress -> navigateInternal(route) { tabNavigationOptions() }
-                            else -> navigateInternal(route)
-                        }
-                    },
+                    onNavigateToRoute = ::navigateFromRefinedShell,
                     modifier = Modifier.padding(contentPadding),
                 )
             }

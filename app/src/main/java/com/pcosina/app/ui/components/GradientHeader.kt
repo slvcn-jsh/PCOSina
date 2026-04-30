@@ -1,10 +1,5 @@
 package com.pcosina.app.ui.components
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -17,20 +12,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.pcosina.app.ui.theme.UiMotionTokens
+import com.pcosina.app.ui.theme.PcosinaDeepRose
+import com.pcosina.app.ui.theme.PcosinaSurface
+import com.pcosina.app.ui.theme.PcosinaSurfaceAlt
 
 @Composable
 fun GradientHeader(
@@ -41,7 +38,7 @@ fun GradientHeader(
     colors: List<Color>? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    val shape = MaterialTheme.shapes.extraLarge
+    val shape = RoundedCornerShape(30.dp)
     val colorScheme = MaterialTheme.colorScheme
     val compactHeader = containerHeight <= 136
     val gradientColors = colors ?: listOf(
@@ -49,182 +46,123 @@ fun GradientHeader(
         colorScheme.secondary,
         colorScheme.tertiary,
     )
-    val infiniteTransition = rememberInfiniteTransition(label = "headerFloat")
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.08f,
-        targetValue = 0.18f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(UiMotionTokens.HeaderGlowMs),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "headerGlowAlpha"
-    )
-    val drift by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 10f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(UiMotionTokens.HeaderDriftMs),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "headerDrift"
-    )
-    val overlayGradient = remember(glowAlpha) {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color.White.copy(alpha = 0.10f + (glowAlpha / 5f)),
-                Color.Transparent,
-                Color.Black.copy(alpha = 0.08f)
+    val accentBrush = remember(gradientColors) {
+        Brush.horizontalGradient(
+            listOf(
+                gradientColors[0].copy(alpha = 0.92f),
+                gradientColors.getOrElse(1) { gradientColors[0] }.copy(alpha = 0.72f),
+                gradientColors.getOrElse(2) { gradientColors[0] }.copy(alpha = 0.46f),
             )
         )
     }
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(containerHeight.dp)
-            .clip(shape)
-            .border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.14f),
-                shape = shape
+    val backgroundBrush = remember(gradientColors) {
+        Brush.verticalGradient(
+            listOf(
+                PcosinaSurface,
+                gradientColors[0].copy(alpha = 0.06f),
+                PcosinaSurfaceAlt
             )
-            .background(
-                brush = Brush.linearGradient(gradientColors)
-            )
-            .padding(
-                horizontal = if (compactHeader) 14.dp else 20.dp,
-                vertical = if (compactHeader) 14.dp else 20.dp
-            )
+        )
+    }
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = shape,
+        color = Color.Transparent,
+        tonalElevation = 0.dp,
+        shadowElevation = 8.dp
     ) {
         Box(
             modifier = Modifier
-                .matchParentSize()
-                .background(
-                    brush = overlayGradient
+                .height(containerHeight.dp)
+                .clip(shape)
+                .border(
+                    width = 1.dp,
+                    color = gradientColors[0].copy(alpha = 0.18f),
+                    shape = shape
                 )
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 6.dp, end = 6.dp)
-                .width(if (compactHeader) 64.dp else 116.dp)
-                .height(if (compactHeader) 64.dp else 116.dp)
-                .graphicsLayer {
-                    translationX = drift
-                    translationY = drift / 2f
-                }
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.12f + (glowAlpha / 6f)))
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 8.dp, bottom = 4.dp)
-                .width(if (compactHeader) 52.dp else 92.dp)
-                .height(if (compactHeader) 52.dp else 92.dp)
-                .graphicsLayer {
-                    translationX = -drift / 2f
-                    translationY = -drift / 3f
-                }
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.08f))
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(start = 6.dp, top = 10.dp)
-                .width(if (compactHeader) 40.dp else 72.dp)
-                .height(if (compactHeader) 40.dp else 72.dp)
-                .graphicsLayer {
-                    translationY = drift / 2f
-                }
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.06f))
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .background(backgroundBrush)
+                .padding(
+                    horizontal = if (compactHeader) 14.dp else 18.dp,
+                    vertical = if (compactHeader) 14.dp else 18.dp
+                )
         ) {
-            Column(
-                modifier = Modifier.weight(1f, fill = true),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .width(if (compactHeader) 92.dp else 132.dp)
+                    .height(8.dp)
+                    .clip(CircleShape)
+                    .background(accentBrush)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = if (compactHeader) 16.dp else 20.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text(
-                    text = title,
-                    style = if (compactHeader) {
-                        MaterialTheme.typography.titleMedium
-                    } else {
-                        MaterialTheme.typography.headlineSmall
-                    },
-                    color = Color.White,
-                    maxLines = if (compactHeader) 1 else 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (!subtitle.isNullOrBlank()) {
-                    if (compactHeader) {
+                Column(
+                    modifier = Modifier.weight(1f, fill = true),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = title,
+                        style = if (compactHeader) {
+                            MaterialTheme.typography.titleLarge
+                        } else {
+                            MaterialTheme.typography.headlineSmall
+                        },
+                        color = PcosinaDeepRose,
+                        maxLines = if (compactHeader) 2 else 3,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (!subtitle.isNullOrBlank()) {
                         Box(
                             modifier = Modifier
                                 .clip(MaterialTheme.shapes.large)
-                                .background(Color.White.copy(alpha = 0.14f))
+                                .background(Color.White.copy(alpha = 0.9f))
                                 .border(
                                     width = 1.dp,
-                                    color = Color.White.copy(alpha = 0.12f),
+                                    color = gradientColors[0].copy(alpha = 0.12f),
                                     shape = MaterialTheme.shapes.large
                                 )
-                                .padding(horizontal = 10.dp, vertical = 7.dp)
+                                .padding(horizontal = 12.dp, vertical = if (compactHeader) 8.dp else 10.dp)
                         ) {
                             Text(
                                 text = subtitle,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.92f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .clip(MaterialTheme.shapes.large)
-                                .background(Color.White.copy(alpha = 0.12f))
-                                .border(
-                                    width = 1.dp,
-                                    color = Color.White.copy(alpha = 0.12f),
-                                    shape = MaterialTheme.shapes.large
-                                )
-                                .padding(horizontal = 12.dp, vertical = 10.dp)
-                        ) {
-                            Text(
-                                text = subtitle,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.92f),
-                                maxLines = 3,
+                                style = if (compactHeader) {
+                                    MaterialTheme.typography.bodySmall
+                                } else {
+                                    MaterialTheme.typography.bodyMedium
+                                },
+                                color = colorScheme.onSurfaceVariant,
+                                maxLines = if (compactHeader) 2 else 3,
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
                 }
-            }
-            if (trailing != null) {
-                Spacer(Modifier.width(12.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.16f))
-                        .border(
-                            width = 1.dp,
-                            color = Color.White.copy(alpha = 0.14f),
-                            shape = CircleShape
-                        )
-                        .padding(
-                            horizontal = if (compactHeader) 8.dp else 10.dp,
-                            vertical = if (compactHeader) 6.dp else 8.dp
-                        ),
-                    contentAlignment = Alignment.TopEnd
-                ) {
-                    trailing()
+                if (trailing != null) {
+                    Spacer(Modifier.width(12.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.95f))
+                            .border(
+                                width = 1.dp,
+                                color = gradientColors[0].copy(alpha = 0.16f),
+                                shape = CircleShape
+                            )
+                            .padding(
+                                horizontal = if (compactHeader) 8.dp else 10.dp,
+                                vertical = if (compactHeader) 6.dp else 8.dp
+                            ),
+                        contentAlignment = Alignment.TopEnd
+                    ) {
+                        trailing()
+                    }
                 }
             }
         }
-        Spacer(Modifier.height(0.dp))
     }
 }

@@ -8,14 +8,13 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -34,6 +33,7 @@ data class ScreenFocusOption(
     val summary: String,
 )
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ScreenFocusStrip(
     title: String,
@@ -100,11 +100,12 @@ fun ScreenFocusStrip(
                 }
             }
         }
-        LazyRow(
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
-            contentPadding = PaddingValues(end = 2.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            items(options, key = { it.key }) { option ->
+            options.forEach { option ->
                 TokenizedFilterChip(
                     selected = selectedKey == option.key,
                     onClick = { onSelect(option.key) },

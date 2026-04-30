@@ -111,7 +111,7 @@ fun MoreToolsScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = colorScheme.onPrimary
+                        tint = colorScheme.primary
                     )
                 }
             }

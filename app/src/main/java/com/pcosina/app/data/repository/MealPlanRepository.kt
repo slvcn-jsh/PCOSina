@@ -21,10 +21,13 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.HttpException
 import org.json.JSONObject
+import java.net.ConnectException
 import java.io.IOException
 import java.net.InetAddress
+import java.net.SocketTimeoutException
 import java.net.URI
 import java.net.UnknownHostException
+import javax.net.ssl.SSLException
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.security.MessageDigest
@@ -80,6 +83,7 @@ class MealPlanRepository {
             .dns(dns)
             .addInterceptor { chain ->
                 val original = chain.request()
+                val requiresFirebaseAuth = requiresFirebaseAuth(original.url.encodedPath)
                 val requestBuilder = original.newBuilder()
                     .addHeader("X-PCOSINA-Schema-Version", BuildConfig.SCHEMA_VERSION)
                 val currentUser = firebaseAuth.currentUser
@@ -89,10 +93,19 @@ class MealPlanRepository {
                         val token = tokenResult.token
                         if (!token.isNullOrBlank()) {
                             requestBuilder.addHeader("Authorization", "Bearer $token")
+                        } else if (requiresFirebaseAuth) {
+                            throw IOException("Authentication token is unavailable. Reopen the app or sign in again.")
                         }
-                    } catch (_: Exception) {
-                        // If token fetch fails, proceed without auth header.
+                    } catch (e: Exception) {
+                        if (requiresFirebaseAuth) {
+                            throw IOException(
+                                "Authentication token could not be prepared. Reopen the app or sign in again after internet is restored.",
+                                e
+                            )
+                        }
                     }
+                } else if (requiresFirebaseAuth) {
+                    throw IOException("You must sign in before using the planner.")
                 }
                 try {
                     val appCheckResult = Tasks.await(firebaseAppCheck.getAppCheckToken(false), 5, TimeUnit.SECONDS)
@@ -169,7 +182,7 @@ class MealPlanRepository {
             apiService.health()
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(mapGeneratePlanException(e))
         }
     }
 
@@ -393,6 +406,14 @@ class MealPlanRepository {
                     "Check Private DNS/VPN/adblock settings, then try again."
             )
         }
+        if (isBackendConnectFailure(error)) {
+            val host = backendHost()
+            return IllegalStateException(
+                "Cannot reach the PCOSina backend over HTTPS from this network. " +
+                    "The app tried $host and its Render fallback edge, but the connection was blocked or unavailable. " +
+                    "Check emulator internet access, VPN/Private DNS/adblock settings, or try again later."
+            )
+        }
         if (error !is HttpException) return error
         val detail = parseErrorDetail(error)
         return when (error.code()) {
@@ -440,6 +461,34 @@ class MealPlanRepository {
             .getOrNull()
             ?.takeIf { it.isNotBlank() }
             ?: "pcosina-backend.onrender.com"
+    }
+
+    private fun requiresFirebaseAuth(encodedPath: String): Boolean {
+        val normalized = encodedPath.trim().trim('/')
+        if (normalized.isBlank()) return false
+        return normalized != "health" &&
+            normalized != "health/ready" &&
+            normalized != "feedback"
+    }
+
+    private fun isBackendConnectFailure(error: Throwable): Boolean {
+        var current: Throwable? = error
+        while (current != null) {
+            if (current is ConnectException || current is SocketTimeoutException || current is SSLException) {
+                return true
+            }
+            val message = current.message.orEmpty()
+            if (
+                message.contains("failed to connect", ignoreCase = true) ||
+                message.contains("connection refused", ignoreCase = true) ||
+                message.contains("timed out", ignoreCase = true) ||
+                message.contains("unable to resolve host", ignoreCase = true)
+            ) {
+                return true
+            }
+            current = current.cause
+        }
+        return false
     }
 
     private class ResilientBackendDns(

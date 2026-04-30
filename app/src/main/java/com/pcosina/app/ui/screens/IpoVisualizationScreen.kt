@@ -49,7 +49,7 @@ fun IpoVisualizationScreen(
                     containerHeight = 180
                 )
                 IconButton(onClick = onBackToDashboard, modifier = Modifier.padding(8.dp)) {
-                    Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = colorScheme.onPrimary)
+                    Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = colorScheme.primary)
                 }
             }
         }

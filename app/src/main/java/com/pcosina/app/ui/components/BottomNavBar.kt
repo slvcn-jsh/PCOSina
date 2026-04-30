@@ -10,6 +10,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -27,6 +28,10 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import com.pcosina.app.ui.navigation.Routes
+import com.pcosina.app.ui.theme.PcosinaDeepRose
+import com.pcosina.app.ui.theme.PcosinaPink
+import com.pcosina.app.ui.theme.PcosinaSurface
+import com.pcosina.app.ui.theme.PcosinaSurfaceAlt
 
 @Immutable
 data class BottomNavItem(
@@ -36,9 +41,9 @@ data class BottomNavItem(
 )
 
 val DefaultBottomNavItems: List<BottomNavItem> = listOf(
-    BottomNavItem(route = Routes.Dashboard, label = "Home", icon = Icons.Filled.Home),
     BottomNavItem(route = Routes.MealPlan, label = "Plan", icon = Icons.Filled.RestaurantMenu),
     BottomNavItem(route = Routes.GroceryList, label = "Grocery", icon = Icons.AutoMirrored.Filled.ListAlt),
+    BottomNavItem(route = Routes.Dashboard, label = "Home", icon = Icons.Filled.Home),
     BottomNavItem(route = Routes.Progress, label = "Progress", icon = Icons.Filled.Insights),
     BottomNavItem(route = Routes.Ipo, label = "Support", icon = Icons.Filled.Help),
 )
@@ -53,21 +58,21 @@ fun BottomNavBar(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     Surface(
-        color = colorScheme.surface,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        color = PcosinaSurface,
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
         tonalElevation = 0.dp,
-        shadowElevation = 14.dp,
+        shadowElevation = 10.dp,
         border = BorderStroke(
             width = 1.dp,
-            color = colorScheme.outlineVariant.copy(alpha = 0.65f)
+            color = PcosinaPink.copy(alpha = 0.18f)
         )
     ) {
         NavigationBar(
             containerColor = Color.Transparent,
             tonalElevation = 0.dp,
             modifier = Modifier
-                .heightIn(min = 84.dp)
-                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .heightIn(min = 80.dp)
+                .padding(horizontal = 10.dp, vertical = 6.dp)
         ) {
             items.forEach { item ->
                 val selected = currentDestination
@@ -100,15 +105,15 @@ fun BottomNavBar(
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
                             ),
                             color = when {
-                                selected -> colorScheme.primary
+                                selected -> PcosinaPink
                                 isEnabled -> colorScheme.onSurfaceVariant
                                 else -> colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
                             }
                         )
                     },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = colorScheme.primary,
-                        selectedTextColor = colorScheme.primary,
+                        selectedIconColor = PcosinaPink,
+                        selectedTextColor = PcosinaPink,
                         indicatorColor = Color.Transparent,
                         unselectedIconColor = if (isEnabled) colorScheme.onSurfaceVariant
                         else colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
@@ -129,27 +134,30 @@ private fun BottomNavItemIcon(
     enabled: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val colorScheme = MaterialTheme.colorScheme
     val tint = when {
-        selected -> colorScheme.primary
-        enabled -> colorScheme.onSurfaceVariant
-        else -> colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+        selected -> PcosinaPink
+        enabled -> PcosinaDeepRose.copy(alpha = 0.72f)
+        else -> PcosinaDeepRose.copy(alpha = 0.35f)
     }
     val containerColor = when {
-        selected -> colorScheme.primary.copy(alpha = 0.12f)
+        selected -> PcosinaPink.copy(alpha = 0.14f)
         enabled -> Color.Transparent
-        else -> colorScheme.surfaceVariant.copy(alpha = 0.45f)
+        else -> PcosinaSurfaceAlt.copy(alpha = 0.7f)
     }
+    val emphasizedHome = selected && label == "Home"
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        shape = if (emphasizedHome) CircleShape else RoundedCornerShape(16.dp),
         color = containerColor
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = tint,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+            modifier = Modifier.padding(
+                horizontal = if (emphasizedHome) 14.dp else 12.dp,
+                vertical = if (emphasizedHome) 14.dp else 8.dp
+            )
         )
     }
 }

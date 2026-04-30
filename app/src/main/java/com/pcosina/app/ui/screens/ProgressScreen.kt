@@ -6,12 +6,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -123,7 +122,7 @@ private enum class ProgressAdvancedPanel {
     Macros,
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ProgressScreen(
     userViewModel: UserViewModel,
@@ -895,7 +894,7 @@ fun ProgressScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = colorScheme.onPrimary,
+                        tint = colorScheme.primary,
                     )
                 }
             }
@@ -1290,8 +1289,11 @@ fun ProgressScreen(
                                     color = colorScheme.onSurfaceVariant
                                 )
                             }
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(sortedHistory) { instance ->
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                sortedHistory.forEach { instance ->
                                     TokenizedFilterChip(
                                         selected = instance.id == activePlanId,
                                         onClick = {
@@ -1946,8 +1948,11 @@ fun ProgressScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = colorScheme.onSurfaceVariant
                             )
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(planFeedbackOptions) { tag ->
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                planFeedbackOptions.forEach { tag ->
                                     val selected = planFeedbackTags.contains(tag)
                                     TokenizedFilterChip(
                                         selected = selected,
@@ -1986,8 +1991,11 @@ fun ProgressScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant
                         )
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            item {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            run {
                                 TokenizedFilterChip(
                                     selected = advancedPanelKey == ProgressAdvancedPanel.Goal.name,
                                     onClick = { advancedPanelKey = ProgressAdvancedPanel.Goal.name },
@@ -1995,7 +2003,7 @@ fun ProgressScreen(
                                     labelMaxWidth = weekChipLabelWidth
                                 )
                             }
-                            item {
+                            run {
                                 TokenizedFilterChip(
                                     selected = advancedPanelKey == ProgressAdvancedPanel.Meals.name,
                                     onClick = { advancedPanelKey = ProgressAdvancedPanel.Meals.name },
@@ -2003,7 +2011,7 @@ fun ProgressScreen(
                                     labelMaxWidth = weekChipLabelWidth
                                 )
                             }
-                            item {
+                            run {
                                 TokenizedFilterChip(
                                     selected = advancedPanelKey == ProgressAdvancedPanel.Macros.name,
                                     onClick = { advancedPanelKey = ProgressAdvancedPanel.Macros.name },
@@ -2527,11 +2535,12 @@ fun ProgressScreen(
                             onClick = { showLoggingPolicyInfo = true }
                         )
                     }
-                    LazyRow(
+                    FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        itemsIndexed(weekDays) { idx, date ->
+                        weekDays.forEachIndexed { idx, date ->
                             val label = date.format(dayLabelFmt)
                             val isToday = label == todayLabel
                             TokenizedFilterChip(
@@ -2544,7 +2553,7 @@ fun ProgressScreen(
                     }
                     if (screenWidthDp <= 380) {
                         Text(
-                            text = "Swipe the day chips to switch dates.",
+                            text = "Choose a day below to switch dates.",
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant
                         )
@@ -3027,8 +3036,11 @@ fun ProgressScreen(
                             onJump = { selectedDayIndex = todayIndexInWeek }
                         )
                     }
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        itemsIndexed(weekDays) { idx, date ->
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        weekDays.forEachIndexed { idx, date ->
                             val label = date.format(dayLabelFmt)
                             val isToday = label == todayLabel
                             TokenizedFilterChip(
@@ -3041,7 +3053,7 @@ fun ProgressScreen(
                     }
                     if (screenWidthDp <= 380) {
                         Text(
-                            text = "Swipe the day chips to pick a reflection date.",
+                            text = "Choose a reflection date below.",
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant
                         )
@@ -3083,8 +3095,11 @@ fun ProgressScreen(
                             }
                         }
                     Text("Symptoms", style = MaterialTheme.typography.labelLarge)
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(symptomOptions) { symptom ->
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        symptomOptions.forEach { symptom ->
                             val selected = symptomTags.contains(symptom)
                             TokenizedFilterChip(
                                 selected = selected,

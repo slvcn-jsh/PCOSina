@@ -2,14 +2,12 @@ package com.pcosina.app.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.AnimatedContent
@@ -167,7 +165,7 @@ private fun rememberMealPlanNextActionAnalytics(): MealPlanNextActionAnalytics {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun MealPlanScreen(
     userViewModel: UserViewModel,
@@ -801,8 +799,11 @@ fun MealPlanScreen(
                                 style = MaterialTheme.typography.labelLarge,
                                 color = colorScheme.onSurfaceVariant
                             )
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(planHistory.sortedByDescending { it.weekStart }) { instance ->
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                planHistory.sortedByDescending { it.weekStart }.forEach { instance ->
                                     TokenizedFilterChip(
                                         selected = false,
                                         onClick = { mealPlanViewModel.selectPlan(instance.id) },
@@ -1297,8 +1298,11 @@ fun MealPlanScreen(
                                     modifier = Modifier.padding(top = 8.dp),
                                     verticalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        items(planHistory.sortedByDescending { it.weekStart }) { instance ->
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        planHistory.sortedByDescending { it.weekStart }.forEach { instance ->
                                             val selected = instance.id == activePlanId
                                             TokenizedFilterChip(
                                                 selected = selected,
@@ -1724,11 +1728,10 @@ fun MealPlanScreen(
                             }
                         }
                         Spacer(Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             dayLabels.forEachIndexed { index, label ->
                                 val selected = index == selectedDayIndex

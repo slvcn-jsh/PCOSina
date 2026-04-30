@@ -1,5 +1,6 @@
 package com.pcosina.app.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,15 +11,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,11 +43,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.pcosina.app.R
 import com.pcosina.app.data.api.PlannedMealDto
 import com.pcosina.app.data.api.RecipeDetailDto
 import com.pcosina.app.data.api.RecipeSummaryDto
@@ -55,8 +63,6 @@ import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
-import com.pcosina.app.ui.components.RefinedActionCard
-import com.pcosina.app.ui.components.RefinedHeroBanner
 import com.pcosina.app.ui.components.RefinedMetricBar
 import com.pcosina.app.ui.components.RefinedOverviewCard
 import com.pcosina.app.ui.components.RefinedPrimaryButton
@@ -64,9 +70,11 @@ import com.pcosina.app.ui.components.RefinedRingMeter
 import com.pcosina.app.ui.components.RefinedStatusPill
 import com.pcosina.app.ui.components.RefinedTabBrandHeader
 import com.pcosina.app.ui.navigation.Routes
+import com.pcosina.app.ui.theme.PcosinaBlush
 import com.pcosina.app.ui.theme.PcosinaDeepRose
 import com.pcosina.app.ui.theme.PcosinaMuted
 import com.pcosina.app.ui.theme.PcosinaPink
+import com.pcosina.app.ui.theme.PcosinaRoseShadow
 import com.pcosina.app.ui.theme.PcosinaSoftPink
 import com.pcosina.app.ui.theme.PcosinaSuccess
 import com.pcosina.app.ui.theme.PcosinaSurfaceAlt
@@ -305,6 +313,7 @@ fun MealPlanRefinedScreen(
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
     ) {
+        val scrollState = rememberScrollState()
         val noSafePlanNotice = generationNotice as? MealPlanGenerationNotice.NoSafePlan
         val errorState = uiState as? MealPlanUiState.Error
         val isGenerating = uiState is MealPlanUiState.Loading
@@ -312,7 +321,7 @@ fun MealPlanRefinedScreen(
             message.contains("still running", ignoreCase = true) ||
                 message.contains("keep waiting", ignoreCase = true)
         } == true
-        val compact = maxHeight < 760.dp
+        val compact = maxHeight < 760.dp || maxWidth < 390.dp
         val heroDate = selectedDate.format(DateTimeFormatter.ofPattern("MMM\ndd", Locale.ENGLISH))
         val explanation = currentPlan?.explanation
         val targetCalories = explanation?.targetCalories ?: userViewModel.dailyCalorieTarget
@@ -329,10 +338,18 @@ fun MealPlanRefinedScreen(
                 completedMealIds.contains(meal.recipeId)
         }
         val canLogSelectedDay = progressViewModel.isDateLoggable(selectedDate)
+        val servingLabel = profile.householdSize.coerceAtLeast(1)
+        val weekStatusLabel = when {
+            hasReviewedActiveWeek -> "Reviewed"
+            selectedMeals.isEmpty() -> "No meals"
+            else -> "${loggedMeals}/${selectedMeals.size} logged"
+        }
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(scrollState)
+                .navigationBarsPadding()
                 .padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 10.dp else 14.dp),
             verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 14.dp)
         ) {
@@ -343,18 +360,9 @@ fun MealPlanRefinedScreen(
                 compact = compact
             )
 
-            RefinedHeroBanner(
-                title = "Plan Your Meals",
-                subtitle = "Meals picked for your goal, budget, and pantry.",
-                icon = Icons.Filled.RestaurantMenu,
-                compact = compact,
-                trailing = {
-                    RefinedStatusPill(
-                        text = heroDate,
-                        containerColor = Color.White.copy(alpha = 0.86f),
-                        contentColor = PcosinaDeepRose
-                    )
-                }
+            MealPlanHeadlineCard(
+                heroDate = heroDate,
+                compact = compact
             )
 
             if (isGenerating || errorState != null) {
@@ -507,7 +515,7 @@ fun MealPlanRefinedScreen(
             )
 
             if (currentPlan == null) {
-                RefinedOverviewCard(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                RefinedOverviewCard(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = "No meal plan yet",
                         style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
@@ -519,215 +527,421 @@ fun MealPlanRefinedScreen(
                         color = PcosinaMuted
                     )
                 }
-                RefinedActionCard(
-                    title = if (profile.isProfileCompleted) {
-                        "Ready to start your first weekly plan?"
-                    } else {
-                        "Finish your profile first"
-                    },
+                MealPlanShoppingCard(
+                    title = if (profile.isProfileCompleted) "Ready to start your first weekly plan?" else "Finish your profile first",
                     subtitle = if (profile.isProfileCompleted) {
                         "Generate a plan using your saved goal, budget, pantry, and cooking preferences."
                     } else {
                         "Complete your basic profile and goal setup so PCOSina can generate a valid weekly plan."
                     },
-                    buttonLabel = if (uiState is MealPlanUiState.Loading) "Generating..." else "Generate plan",
-                    buttonEnabled = profile.isProfileCompleted && uiState !is MealPlanUiState.Loading,
-                    onClick = {
+                    primaryLabel = "Generate plan",
+                    secondaryLabel = if (!profile.isProfileCompleted) "Finish profile" else null,
+                    onPrimaryClick = {
                         if (profile.isProfileCompleted && uiState !is MealPlanUiState.Loading) {
                             mealPlanViewModel.generateMealPlan(profile)
                             feedbackMessage = "Generating a weekly plan..."
                         }
                     },
-                    secondaryLabel = if (!profile.isProfileCompleted) "Finish profile" else null,
                     onSecondaryClick = if (!profile.isProfileCompleted) {
                         { onNavigateToRoute(Routes.UserProfile) }
-                    } else {
-                        null
-                    },
+                    } else null,
+                    primaryEnabled = profile.isProfileCompleted && uiState !is MealPlanUiState.Loading,
                     compact = compact
                 )
             } else {
                 Column(
-                    modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 12.dp)
                 ) {
-                    RefinedOverviewCard(
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(if (compact) 14.dp else 16.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    text = currentPlan.weekLabel.ifBlank { "Current week" },
-                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-                                    color = PcosinaDeepRose
-                                )
-                                Text(
-                                    text = currentPlan.message.ifBlank {
-                                        "This week was built around your nutrition targets, budget, and pantry."
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = PcosinaMuted
-                                )
-                            }
+                        RefinedStatusPill(
+                            text = weekStatusLabel,
+                            modifier = Modifier.weight(1f),
+                            containerColor = if (hasReviewedActiveWeek) Color(0xFFF3FFF7) else PcosinaSoftPink.copy(alpha = 0.22f),
+                            contentColor = if (hasReviewedActiveWeek) PcosinaSuccess else PcosinaDeepRose
+                        )
+                        explanation?.confidenceScore?.let {
                             RefinedStatusPill(
-                                text = if (hasReviewedActiveWeek) "Reviewed" else "Needs review",
-                                containerColor = if (hasReviewedActiveWeek) Color(0xFFF3FFF7) else PcosinaSoftPink.copy(alpha = 0.26f),
-                                contentColor = if (hasReviewedActiveWeek) PcosinaSuccess else PcosinaDeepRose
+                                text = "Fit $it%",
+                                modifier = Modifier.weight(1f),
+                                containerColor = PcosinaSurfaceAlt
                             )
                         }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            explanation?.confidenceScore?.let {
-                                RefinedStatusPill(
-                                    text = "Fit $it%",
-                                    modifier = Modifier.weight(1f),
-                                    containerColor = PcosinaSurfaceAlt
-                                )
-                            }
-                            explanation?.estimatedWeeklyCost?.let {
-                                RefinedStatusPill(
-                                    text = "₱$it est.",
-                                    modifier = Modifier.weight(1f),
-                                    containerColor = PcosinaSurfaceAlt
-                                )
-                            }
-                            explanation?.pantryMatches?.let {
-                                RefinedStatusPill(
-                                    text = "$it pantry",
-                                    modifier = Modifier.weight(1f),
-                                    containerColor = PcosinaSurfaceAlt
-                                )
-                            }
+                        explanation?.estimatedWeeklyCost?.let {
+                            RefinedStatusPill(
+                                text = "₱$it est.",
+                                modifier = Modifier.weight(1f),
+                                containerColor = PcosinaSurfaceAlt
+                            )
                         }
-                        if (!hasReviewedActiveWeek && activePlanId != null) {
-                            Surface(
-                                shape = RoundedCornerShape(999.dp),
-                                color = PcosinaSurfaceAlt,
-                                modifier = Modifier.clickable {
-                                    mealPlanViewModel.markWeekReviewed(activePlanId)
-                                    feedbackMessage = "This week is marked as reviewed."
-                                }
-                            ) {
-                                Text(
-                                    text = "Mark this week as reviewed",
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                                    color = PcosinaDeepRose
-                                )
+                    }
+                    if (!hasReviewedActiveWeek && activePlanId != null) {
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = PcosinaSurfaceAlt,
+                            modifier = Modifier.clickable {
+                                mealPlanViewModel.markWeekReviewed(activePlanId)
+                                feedbackMessage = "This week is marked as reviewed."
                             }
+                        ) {
+                            Text(
+                                text = "Mark this week as reviewed",
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                color = PcosinaDeepRose
+                            )
                         }
                     }
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        selectedMeals.take(3).forEachIndexed { mealIndex, meal ->
-                            val isLogged = completedMealIds.contains(ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)) ||
-                                completedMealIds.contains(meal.recipeId)
-                            MealPlanOutlineMealCard(
-                                meal = meal,
-                                logged = isLogged,
-                                canLog = canLogSelectedDay,
-                                onOpen = { onRecipeClick(meal.recipeId, meal.mealLabel) },
-                                onLog = {
-                                    if (progressViewModel.markMealAsEaten(selectedDate, meal.recipeId, meal.mealLabel)) {
-                                        feedbackMessage = "${meal.mealLabel} logged for ${selectedDate.format(DateTimeFormatter.ofPattern("EEEE", Locale.ENGLISH))}."
-                                    } else {
-                                        feedbackMessage = "Meal logging is available for today only."
-                                    }
-                                },
-                                onSwap = {
-                                    if (!isOnline) {
-                                        feedbackMessage = "Internet required for meal swaps."
-                                    } else {
-                                        swapTarget = MealSwapTarget(
-                                            dayIndex = selectedDayIndex,
-                                            mealIndex = mealIndex,
-                                            meal = meal
-                                        )
-                                    }
-                                },
-                                compact = compact
-                            )
-                        }
-                    }
-
-                    RefinedOverviewCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        containerColor = Color(0xFFFFF4F7),
-                        borderColor = PcosinaPink.copy(alpha = 0.2f),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(if (compact) 14.dp else 18.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RefinedRingMeter(
-                                valueText = "$dayCalories",
-                                subtitle = "planned kcal",
-                                progress = if (targetCalories > 0) dayCalories.toFloat() / targetCalories.toFloat() else 0f,
-                                color = PcosinaPink,
-                                compact = compact
-                            )
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                RefinedStatusPill(
-                                    text = "${loggedMeals}/${selectedMeals.size.coerceAtLeast(1)} meals logged • ${profile.householdSize.coerceAtLeast(1)} serving",
-                                    containerColor = Color.White.copy(alpha = 0.8f)
+                        if (selectedMeals.isEmpty()) {
+                            RefinedOverviewCard(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    text = "No meals assigned for this day yet.",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = PcosinaDeepRose
                                 )
-                                RefinedMetricBar(
-                                    label = "Protein",
-                                    valueText = "${totalProtein}g/$targetProtein g",
-                                    progress = totalProtein.toFloat() / targetProtein.toFloat(),
-                                    color = Color(0xFFFF9BAA)
+                                Text(
+                                    text = "Choose another day or generate a fresh weekly plan.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = PcosinaMuted
                                 )
-                                RefinedMetricBar(
-                                    label = "Carbs",
-                                    valueText = "${totalCarbs}g/$targetCarbs g",
-                                    progress = totalCarbs.toFloat() / targetCarbs.toFloat(),
-                                    color = Color(0xFFD9AF77)
-                                )
-                                RefinedMetricBar(
-                                    label = "Fiber",
-                                    valueText = "${totalFiber}g/$targetFiber g",
-                                    progress = totalFiber.toFloat() / targetFiber.toFloat(),
-                                    color = Color(0xFFB7E8A8)
+                            }
+                        } else {
+                            selectedMeals.take(3).forEachIndexed { mealIndex, meal ->
+                                val isLogged = completedMealIds.contains(ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)) ||
+                                    completedMealIds.contains(meal.recipeId)
+                                MealPlanOutlineMealCard(
+                                    meal = meal,
+                                    logged = isLogged,
+                                    canLog = canLogSelectedDay,
+                                    onOpen = { onRecipeClick(meal.recipeId, meal.mealLabel) },
+                                    onLog = {
+                                        if (progressViewModel.markMealAsEaten(selectedDate, meal.recipeId, meal.mealLabel)) {
+                                            feedbackMessage = "${meal.mealLabel} logged for ${selectedDate.format(DateTimeFormatter.ofPattern("EEEE", Locale.ENGLISH))}."
+                                        } else {
+                                            feedbackMessage = "Meal logging is available for today only."
+                                        }
+                                    },
+                                    onSwap = {
+                                        if (!isOnline) {
+                                            feedbackMessage = "Internet required for meal swaps."
+                                        } else {
+                                            swapTarget = MealSwapTarget(
+                                                dayIndex = selectedDayIndex,
+                                                mealIndex = mealIndex,
+                                                meal = meal
+                                            )
+                                        }
+                                    },
+                                    compact = compact
                                 )
                             }
                         }
                     }
 
-                    RefinedActionCard(
+                    MealPlanDailySummaryCard(
+                        dayCalories = dayCalories,
+                        targetCalories = targetCalories,
+                        loggedMeals = loggedMeals,
+                        mealCount = selectedMeals.size,
+                        servingLabel = servingLabel,
+                        totalProtein = totalProtein,
+                        totalCarbs = totalCarbs,
+                        totalFiber = totalFiber,
+                        targetProtein = targetProtein,
+                        targetCarbs = targetCarbs,
+                        targetFiber = targetFiber,
+                        compact = compact
+                    )
+
+                    MealPlanShoppingCard(
                         title = "Ready to shop?",
-                        subtitle = "Sync this week's ingredients to Grocery and keep logging meals from the same plan.",
-                        buttonLabel = "Go to Grocery",
-                        buttonEnabled = currentPlan.days.isNotEmpty(),
-                        onClick = {
+                        subtitle = "Consolidate this week's meals and sync them to your grocery list.",
+                        primaryLabel = "Go to Grocery",
+                        secondaryLabel = if (uiState is MealPlanUiState.Loading) "Generating..." else "Generate a new weekly plan",
+                        onPrimaryClick = {
                             mealPlanViewModel.extractGrocerySourcesForPlan { sources ->
                                 groceryViewModel.setPlanSources(sources)
                                 onNavigateToRoute(Routes.GroceryList)
                             }
                         },
-                        secondaryLabel = if (uiState is MealPlanUiState.Loading) "Generating..." else "New week",
                         onSecondaryClick = {
                             if (uiState !is MealPlanUiState.Loading) {
                                 mealPlanViewModel.generateMealPlan(profile)
                             }
                         },
+                        primaryEnabled = currentPlan.days.isNotEmpty(),
                         compact = compact
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MealPlanHeadlineCard(
+    heroDate: String,
+    compact: Boolean,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(PcosinaBlush, RoundedCornerShape(30.dp))
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(30.dp),
+            color = PcosinaBlush,
+            border = BorderStroke(2.dp, Color(0xFF30181E).copy(alpha = 0.76f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 14.dp else 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color(0xFFFFD6E1),
+                    border = BorderStroke(1.dp, Color(0xFF30181E).copy(alpha = 0.18f))
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.pcosina_logo),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(if (compact) 70.dp else 82.dp)
+                            .padding(8.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "Plan Your Meals",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF682937),
+                            shadow = androidx.compose.ui.graphics.Shadow(
+                                color = PcosinaRoseShadow.copy(alpha = 0.22f),
+                                offset = androidx.compose.ui.geometry.Offset(0f, 3f),
+                                blurRadius = 4f
+                            )
+                        )
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF682937).copy(alpha = 0.35f))
+                            .padding(vertical = 0.5.dp)
+                    )
+                    Text(
+                        text = "Meals picked for your goal, budget, and pantry.",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFF682937),
+                            fontStyle = FontStyle.Italic
+                        )
+                    )
+                }
+                Text(
+                    text = heroDate,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF2B1B20)
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MealPlanDailySummaryCard(
+    dayCalories: Int,
+    targetCalories: Int,
+    loggedMeals: Int,
+    mealCount: Int,
+    servingLabel: Int,
+    totalProtein: Int,
+    totalCarbs: Int,
+    totalFiber: Int,
+    targetProtein: Int,
+    targetCarbs: Int,
+    targetFiber: Int,
+    compact: Boolean,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(30.dp),
+        color = Color(0xFFFFE2E8),
+        border = BorderStroke(2.dp, Color(0xFF30181E).copy(alpha = 0.72f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 14.dp else 18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Today's Plan",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF682937)
+                    )
+                )
+                RefinedStatusPill(
+                    text = "Serving size is set for $servingLabel person${if (servingLabel == 1) "" else "s"}.",
+                    containerColor = Color.White.copy(alpha = 0.76f),
+                    contentColor = Color(0xFF682937)
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RefinedRingMeter(
+                    valueText = "$dayCalories",
+                    subtitle = "planned of ${targetCalories.coerceAtLeast(1)} kcal",
+                    progress = if (targetCalories > 0) dayCalories.toFloat() / targetCalories.toFloat() else 0f,
+                    color = PcosinaPink,
+                    compact = compact
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = Color(0xFFF58C9F)
+                    ) {
+                        Text(
+                            text = "Macronutrients",
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF682937)
+                            )
+                        )
+                    }
+                    RefinedMetricBar(
+                        label = "Protein",
+                        valueText = "${totalProtein}g/${targetProtein}g",
+                        progress = totalProtein.toFloat() / targetProtein.coerceAtLeast(1).toFloat(),
+                        color = Color(0xFFFF9BAA)
+                    )
+                    RefinedMetricBar(
+                        label = "Carbs",
+                        valueText = "${totalCarbs}g/${targetCarbs}g",
+                        progress = totalCarbs.toFloat() / targetCarbs.coerceAtLeast(1).toFloat(),
+                        color = Color(0xFFD0A069)
+                    )
+                    RefinedMetricBar(
+                        label = "Fibers",
+                        valueText = "${totalFiber}g/${targetFiber}g",
+                        progress = totalFiber.toFloat() / targetFiber.coerceAtLeast(1).toFloat(),
+                        color = Color(0xFFB9E7A6)
+                    )
+                    RefinedStatusPill(
+                        text = "$loggedMeals/${mealCount.coerceAtLeast(1)} meals logged",
+                        containerColor = Color.White.copy(alpha = 0.82f),
+                        contentColor = PcosinaDeepRose
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MealPlanShoppingCard(
+    title: String,
+    subtitle: String,
+    primaryLabel: String,
+    secondaryLabel: String? = null,
+    onPrimaryClick: () -> Unit,
+    onSecondaryClick: (() -> Unit)? = null,
+    primaryEnabled: Boolean = true,
+    compact: Boolean,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(32.dp),
+        color = Color(0xFFFF8FA6),
+        border = BorderStroke(2.dp, Color(0xFF30181E).copy(alpha = 0.72f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = if (compact) 16.dp else 18.dp, vertical = if (compact) 16.dp else 18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF682937)
+                )
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    color = Color.White,
+                    shadow = androidx.compose.ui.graphics.Shadow(
+                        color = PcosinaRoseShadow.copy(alpha = 0.28f),
+                        offset = androidx.compose.ui.geometry.Offset(0f, 3f),
+                        blurRadius = 6f
+                    )
+                )
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    RefinedPrimaryButton(
+                        text = primaryLabel,
+                        onClick = onPrimaryClick,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = primaryEnabled
+                    )
+                    if (!secondaryLabel.isNullOrBlank() && onSecondaryClick != null) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().clickable(onClick = onSecondaryClick),
+                            shape = RoundedCornerShape(18.dp),
+                            color = PcosinaBlush.copy(alpha = 0.95f),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.42f))
+                        ) {
+                            Text(
+                                text = secondaryLabel,
+                                modifier = Modifier.padding(vertical = 12.dp),
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            )
+                        }
+                    }
+                }
+                Text(
+                    text = "🛒",
+                    style = MaterialTheme.typography.headlineLarge,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
             }
         }
     }
@@ -760,9 +974,9 @@ private fun MealPlanWeekStrip(
             dates.forEachIndexed { index, date ->
                 val selected = index == selectedDayIndex
                 Surface(
-                    shape = RoundedCornerShape(22.dp),
-                    color = if (selected) PcosinaDeepRose else Color.White,
-                    border = BorderStroke(1.dp, if (selected) PcosinaDeepRose else PcosinaMuted.copy(alpha = 0.35f)),
+                    shape = RoundedCornerShape(26.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, if (selected) PcosinaPink else PcosinaMuted.copy(alpha = 0.35f)),
                     modifier = Modifier
                         .weight(1f)
                         .padding(horizontal = 2.dp)
@@ -775,7 +989,7 @@ private fun MealPlanWeekStrip(
                         Text(
                             text = date.format(DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = if (selected) Color.White else PcosinaMuted
+                            color = if (selected) PcosinaPink else PcosinaMuted
                         )
                         Text(
                             text = date.dayOfMonth.toString(),
@@ -784,8 +998,21 @@ private fun MealPlanWeekStrip(
                             } else {
                                 MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
                             },
-                            color = if (selected) Color.White else PcosinaDeepRose
+                            color = if (selected) PcosinaPink else PcosinaDeepRose
                         )
+                        Box(
+                            modifier = Modifier
+                                .padding(top = 6.dp)
+                                .background(
+                                    color = if (selected) PcosinaPink else Color.Transparent,
+                                    shape = RoundedCornerShape(999.dp)
+                                )
+                        ) {
+                            Text(
+                                text = if (selected) " " else "",
+                                modifier = Modifier.padding(horizontal = 18.dp, vertical = 1.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -833,17 +1060,17 @@ private fun MealPlanOutlineMealCard(
         meal.mealLabel.equals("Breakfast", ignoreCase = true) -> Triple(
             if (logged) Color(0xFF2D181D) else Color.White,
             Color(0xFFFFB171),
-            Icons.Filled.RestaurantMenu
+            "🍳"
         )
         meal.mealLabel.equals("Lunch", ignoreCase = true) -> Triple(
             if (logged) Color(0xFF2D181D) else Color.White,
             Color(0xFFFF7EA0),
-            Icons.Filled.RestaurantMenu
+            "🍱"
         )
         else -> Triple(
             if (logged) Color(0xFF2D181D) else Color.White,
             Color(0xFF8E93FF),
-            Icons.Filled.RestaurantMenu
+            "🥘"
         )
     }
     Surface(
@@ -865,11 +1092,10 @@ private fun MealPlanOutlineMealCard(
                 shape = CircleShape,
                 color = accentColor.copy(alpha = 0.22f)
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = accentColor,
-                    modifier = Modifier.padding(12.dp)
+                Text(
+                    text = icon,
+                    modifier = Modifier.padding(12.dp),
+                    style = MaterialTheme.typography.titleMedium
                 )
             }
             Column(
@@ -910,16 +1136,27 @@ private fun MealPlanOutlineMealCard(
                 )
             }
             Surface(
-                shape = CircleShape,
-                color = if (logged) Color.White.copy(alpha = 0.12f) else PcosinaSurfaceAlt,
+                shape = RoundedCornerShape(999.dp),
+                color = if (logged) Color.White.copy(alpha = 0.12f) else Color.Transparent,
                 modifier = Modifier.clickable(onClick = onSwap)
             ) {
-                Icon(
-                    imageVector = Icons.Filled.SwapHoriz,
-                    contentDescription = "Swap meal",
-                    tint = if (logged) Color.White else PcosinaPink,
-                    modifier = Modifier.padding(10.dp)
-                )
+                Column(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SwapHoriz,
+                        contentDescription = "Swap meal",
+                        tint = if (logged) Color.White else PcosinaPink,
+                        modifier = Modifier.padding(horizontal = 2.dp)
+                    )
+                    Text(
+                        text = "Swap",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (logged) Color.White else PcosinaPink
+                    )
+                }
             }
         }
     }

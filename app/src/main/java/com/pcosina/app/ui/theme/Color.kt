@@ -13,6 +13,11 @@ val PcosinaMidnight = Color(0xFF2B1B20)
 val PcosinaMuted = Color(0xFF7B6C71)
 val PcosinaInfo = Color(0xFF2E6ACF)
 val PcosinaSuccess = Color(0xFF2E7D32)
+val PcosinaBlush = Color(0xFFF89CAD)
+val PcosinaBlushStrong = Color(0xFFF45F7E)
+val PcosinaBlushSurface = Color(0xFFFDECEF)
+val PcosinaBlushBorder = Color(0xFFC8B6BB)
+val PcosinaRoseShadow = Color(0xFF9E5968)
 
 // Standard Scheme Mapping
 val PrimaryPink = PcosinaPink

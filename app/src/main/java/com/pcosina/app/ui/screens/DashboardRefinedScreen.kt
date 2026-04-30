@@ -63,6 +63,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,10 +81,12 @@ import com.pcosina.app.ui.components.FeedbackBannerTone
 import com.pcosina.app.ui.components.FriendlyEmptyStateCard
 import com.pcosina.app.ui.components.LoadingActionButton
 import com.pcosina.app.ui.navigation.Routes
+import com.pcosina.app.ui.theme.PcosinaBlush
 import com.pcosina.app.ui.theme.PcosinaDeepRose
 import com.pcosina.app.ui.theme.PcosinaLightPink
 import com.pcosina.app.ui.theme.PcosinaMuted
 import com.pcosina.app.ui.theme.PcosinaPink
+import com.pcosina.app.ui.theme.PcosinaRoseShadow
 import com.pcosina.app.ui.theme.PcosinaSoftPink
 import com.pcosina.app.ui.theme.PcosinaSurface
 import com.pcosina.app.ui.theme.PcosinaSurfaceAlt
@@ -248,7 +251,14 @@ fun DashboardRefinedScreen(
             append(today.format(DateTimeFormatter.ofPattern("EEEE", Locale.ENGLISH)))
         }
     }
-    val dualColumnCards = screenWidthDp >= 390
+    val compactHomeLayout = screenWidthDp < 410
+    val welcomeSubline = when {
+        !hasPlan -> "You're one thoughtful step away from your first weekly meal plan."
+        todaySnapshot.nextMeal != null -> "You're doing well today! ${todaySnapshot.nextMeal?.mealLabel} is your next focus."
+        todaySnapshot.completedCount > 0 -> "You're doing well today! Ready for your next goal?"
+        else -> "Your saved plan and progress are ready when you are."
+    }
+    val dualColumnCards = screenWidthDp >= 430
     val primaryActionTitle = when {
         !profile.isProfileCompleted -> "Finish your profile first"
         !hasGoalSelection(profile.goal) -> "Choose the goals you want to follow"
@@ -272,6 +282,8 @@ fun DashboardRefinedScreen(
         todaySnapshot.nextMeal != null -> "Open ${todaySnapshot.nextMeal?.mealLabel.orEmpty()}"
         else -> "Open Progress"
     }
+    val todayMealSubtitle = todayPlan?.totalCalories?.let { "Day total: $it kcal" }
+        ?: if (hasPlan) "Your saved meals for today." else "Create a plan to reveal today's assigned meals."
 
     LaunchedEffect(feedbackBanner.value?.message) {
         val message = feedbackBanner.value?.message ?: return@LaunchedEffect
@@ -344,17 +356,18 @@ fun DashboardRefinedScreen(
             RefinedWelcomeCard(
                 displayName = profile.displayName.ifBlank { "there" },
                 dateHeader = dateHeader,
+                welcomeSubline = welcomeSubline,
                 weekRangeLabel = weekRangeLabel,
-                hasPlan = hasPlan,
                 nextFocusLabel = when {
                     !hasPlan -> guidedStep.ctaLabel
                     todaySnapshot.nextMeal != null -> "Next: ${todaySnapshot.nextMeal?.mealLabel}"
-                    else -> "Week is active"
+                    else -> "Week active"
                 },
                 groceryCount = groceryItems.size,
                 estimatedWeeklyCost = planExplanation?.estimatedWeeklyCost,
                 dailyCalorieTarget = dailyCalorieTarget,
                 adminMode = adminMode,
+                compactLayout = compactHomeLayout,
                 onTargetInfo = { showTargetInfo.value = true },
                 onBmiInfo = { showBmiInfo.value = true }
             )
@@ -400,8 +413,7 @@ fun DashboardRefinedScreen(
         item {
             RefinedSectionHeader(
                 title = "Your Meal Plan for Today",
-                subtitle = todayPlan?.totalCalories?.let { "Daily total: $it kcal" }
-                    ?: if (hasPlan) "Open each meal card to see today's assigned recipes." else "Create a plan to reveal today's meals."
+                subtitle = todayMealSubtitle
             )
         }
 
@@ -426,6 +438,19 @@ fun DashboardRefinedScreen(
                     onAction = { onNavigateToRoute(Routes.MealPlan) },
                     accentColor = PcosinaPink
                 )
+            } else if (mealCards.size in 1..3) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    mealCards.forEach { meal ->
+                        RefinedMealCard(
+                            meal = meal,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onRecipeClick(meal.recipeId, meal.mealLabel) }
+                        )
+                    }
+                }
             } else {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(mealCards) { meal ->
@@ -593,29 +618,39 @@ private fun RefinedBrandHeader(
         ) {
             Row(
                 modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.pcosina_logo),
-                    contentDescription = "PCOSina",
-                    modifier = Modifier
-                        .size(54.dp)
-                        .clip(CircleShape)
-                        .background(Color.White),
-                    contentScale = ContentScale.Crop
-                )
+                Surface(
+                    shape = CircleShape,
+                    color = PcosinaBlush.copy(alpha = 0.24f)
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.pcosina_logo),
+                        contentDescription = "PCOSina",
+                        modifier = Modifier
+                            .size(56.dp)
+                            .padding(6.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = "PCOSina",
                         style = MaterialTheme.typography.headlineSmall.copy(
                             color = PcosinaPink,
-                            fontWeight = FontWeight.ExtraBold
+                            fontWeight = FontWeight.ExtraBold,
+                            shadow = androidx.compose.ui.graphics.Shadow(
+                                color = PcosinaRoseShadow.copy(alpha = 0.3f),
+                                offset = androidx.compose.ui.geometry.Offset(0f, 4f),
+                                blurRadius = 6f
+                            )
                         )
                     )
                     Text(
-                        text = "Smarter PCOS meal planning, one clear step at a time.",
+                        text = "“Take the first step toward smarter PCOS nutrition.”",
                         style = MaterialTheme.typography.bodySmall,
+                        fontStyle = FontStyle.Italic,
                         color = PcosinaMuted,
                         maxLines = 2
                     )
@@ -639,7 +674,7 @@ private fun RefinedBrandHeader(
             shape = RoundedCornerShape(999.dp)
         ) {
             Text(
-                text = if (online) "Online and ready to sync changes when needed." else "Offline-safe mode: using your saved local data.",
+                text = if (online) "Online and ready to sync." else "Offline-safe mode: using saved local data.",
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.labelMedium
             )
@@ -673,13 +708,14 @@ private fun RefinedIconAction(
 private fun RefinedWelcomeCard(
     displayName: String,
     dateHeader: String,
+    welcomeSubline: String,
     weekRangeLabel: String,
-    hasPlan: Boolean,
     nextFocusLabel: String,
     groceryCount: Int,
     estimatedWeeklyCost: Int?,
     dailyCalorieTarget: Int,
     adminMode: Boolean,
+    compactLayout: Boolean,
     onTargetInfo: () -> Unit,
     onBmiInfo: () -> Unit,
 ) {
@@ -687,74 +723,153 @@ private fun RefinedWelcomeCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(30.dp))
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(Color(0xFFFFB3C1), Color(0xFFFF7E97))
-                )
-            )
-            .border(1.5.dp, PcosinaDeepRose.copy(alpha = 0.22f), RoundedCornerShape(30.dp))
+            .background(PcosinaBlush)
+            .border(2.dp, Color(0xFF30181E), RoundedCornerShape(30.dp))
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Welcome, $displayName!",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            color = Color(0xFF5E2230),
-                            fontWeight = FontWeight.ExtraBold
+            if (compactLayout) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(24.dp),
+                            color = Color(0xFFFFD6E1),
+                            border = BorderStroke(1.5.dp, Color(0xFF30181E))
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.pcosina_logo),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(70.dp)
+                                    .padding(8.dp)
+                            )
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "Welcome, $displayName!",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    color = Color(0xFF662532),
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(Color(0xFF662532).copy(alpha = 0.45f))
+                            )
+                            Text(
+                                text = welcomeSubline,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF662532)
+                            )
+                        }
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(22.dp),
+                        color = Color.White.copy(alpha = 0.36f)
+                    ) {
+                        Text(
+                            text = dateHeader,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = Color(0xFF2B1B20),
+                                fontWeight = FontWeight.ExtraBold
+                            )
                         )
-                    )
-                    Text(
-                        text = if (hasPlan) {
-                            "Your plan, grocery list, and progress are easier to review from one calm home screen."
-                        } else {
-                            "You're one good step away from turning your profile into a weekly meal plan."
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF5E2230)
-                    )
+                    }
                 }
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = Color.White.copy(alpha = 0.86f)
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = dateHeader,
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            color = PcosinaDeepRose,
-                            fontWeight = FontWeight.Bold
+                    Surface(
+                        shape = RoundedCornerShape(24.dp),
+                        color = Color(0xFFFFD6E1),
+                        border = BorderStroke(1.5.dp, Color(0xFF30181E))
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.pcosina_logo),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(78.dp)
+                                .padding(8.dp)
                         )
-                    )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Welcome, $displayName!",
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                color = Color(0xFF662532),
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(Color(0xFF662532).copy(alpha = 0.45f))
+                        )
+                        Text(
+                            text = welcomeSubline,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFF662532)
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(22.dp),
+                        color = Color.Transparent
+                    ) {
+                        Text(
+                            text = dateHeader,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = Color(0xFF2B1B20),
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        )
+                    }
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 RefinedStatChip(label = "Week", value = weekRangeLabel)
                 RefinedStatChip(label = "Next", value = nextFocusLabel)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 RefinedMiniStat(
                     title = "Target",
-                    value = "$dailyCalorieTarget kcal"
+                    value = "$dailyCalorieTarget kcal",
+                    modifier = Modifier.weight(1f)
                 )
                 RefinedMiniStat(
                     title = "Grocery",
-                    value = if (groceryCount > 0) "$groceryCount items" else "Not ready"
+                    value = if (groceryCount > 0) "$groceryCount items" else "Not ready",
+                    modifier = Modifier.weight(1f)
                 )
                 RefinedMiniStat(
                     title = "Cost",
-                    value = estimatedWeeklyCost?.let { "₱$it" } ?: "Pending"
+                    value = estimatedWeeklyCost?.let { "₱$it" } ?: "Pending",
+                    modifier = Modifier.weight(1f)
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -854,12 +969,22 @@ private fun RefinedGoalsCard(
 ) {
     RefinedContentCard(
         modifier = modifier,
-        containerColor = Color(0xFFFFD7E1),
+        containerColor = Color(0xFFF27693),
         title = "Your Goals",
-        titleColor = PcosinaDeepRose,
+        titleColor = Color(0xFF682937),
         trailing = {
-            TextButton(onClick = onEditGoals) {
-                Text("Edit", color = PcosinaDeepRose, fontWeight = FontWeight.SemiBold)
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = Color.White.copy(alpha = 0.94f),
+                border = BorderStroke(1.dp, Color(0xFF682937).copy(alpha = 0.25f)),
+                modifier = Modifier.clickable(onClick = onEditGoals)
+            ) {
+                Text(
+                    "Edit",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    color = Color(0xFF682937),
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     ) {
@@ -867,13 +992,13 @@ private fun RefinedGoalsCard(
             Text(
                 text = "Choose at least one goal so the planner knows what to prioritize.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = PcosinaMuted
+                color = Color.White.copy(alpha = 0.92f)
             )
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 goalOptions.forEach { option ->
                     Surface(
-                        shape = RoundedCornerShape(18.dp),
+                        shape = RoundedCornerShape(999.dp),
                         color = Color.White.copy(alpha = 0.86f)
                     ) {
                         Row(
@@ -885,12 +1010,12 @@ private fun RefinedGoalsCard(
                         ) {
                             Surface(
                                 shape = CircleShape,
-                                color = PcosinaPink.copy(alpha = 0.14f)
+                                color = PcosinaPink
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.Verified,
                                     contentDescription = null,
-                                    tint = PcosinaPink,
+                                    tint = Color.White,
                                     modifier = Modifier.padding(8.dp)
                                 )
                             }
@@ -922,9 +1047,9 @@ private fun RefinedTipCard(
 ) {
     RefinedContentCard(
         modifier = modifier,
-        containerColor = Color(0xFFF4D1BE),
+        containerColor = Color(0xFFE7B18C),
         title = "Daily Tip",
-        titleColor = PcosinaDeepRose
+        titleColor = Color(0xFF6B2D24)
     ) {
         Text(
             text = tipLines.firstOrNull().orEmpty(),
@@ -994,7 +1119,8 @@ private fun RefinedSectionHeader(
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodyMedium,
-            color = PcosinaMuted
+            color = PcosinaMuted,
+            fontStyle = FontStyle.Italic
         )
     }
 }
@@ -1008,44 +1134,55 @@ private fun RefinedMealCard(
     val (containerColor, accentColor) = mealPalette(meal.mealLabel)
     Card(
         modifier = modifier
+            .heightIn(min = 176.dp)
             .clip(RoundedCornerShape(28.dp))
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = containerColor),
         shape = RoundedCornerShape(28.dp),
-        border = BorderStroke(1.5.dp, accentColor.copy(alpha = 0.22f))
+        border = BorderStroke(2.dp, Color(0xFF30181E).copy(alpha = 0.7f))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = Color.White.copy(alpha = 0.55f)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.58f)
+                ) {
+                    Text(
+                        text = mealIcon(meal.mealLabel),
+                        modifier = Modifier.padding(10.dp),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
                 Text(
                     text = meal.mealLabel,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
                     color = accentColor
                 )
             }
             Text(
                 text = meal.title,
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = Color(0xFF39212B),
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
+            Spacer(modifier = Modifier.weight(1f, fill = true))
             Surface(
-                shape = RoundedCornerShape(999.dp),
+                shape = RoundedCornerShape(18.dp),
                 color = Color.White.copy(alpha = 0.72f)
             ) {
                 Text(
-                    text = if (meal.isLogged) "Logged today" else "Open recipe",
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    style = MaterialTheme.typography.labelMedium,
+                    text = if (meal.isLogged) "Logged today" else "Tap to open",
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = accentColor
                 )
             }
@@ -1062,12 +1199,12 @@ private fun RefinedWeekProgressCard(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(30.dp),
-        border = BorderStroke(1.5.dp, PcosinaDeepRose.copy(alpha = 0.18f))
+        border = BorderStroke(2.dp, Color(0xFF30181E).copy(alpha = 0.72f))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 18.dp),
+                .padding(horizontal = 12.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             entries.forEachIndexed { index, entry ->
@@ -1152,12 +1289,8 @@ private fun RefinedPrimaryActionCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(32.dp))
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(PcosinaLightPink.copy(alpha = 0.88f), PcosinaPink.copy(alpha = 0.9f))
-                )
-            )
-            .border(1.5.dp, PcosinaDeepRose.copy(alpha = 0.18f), RoundedCornerShape(32.dp))
+            .background(Brush.linearGradient(colors = listOf(PcosinaLightPink.copy(alpha = 0.92f), PcosinaBlush.copy(alpha = 0.94f))))
+            .border(2.dp, Color(0xFF30181E).copy(alpha = 0.72f), RoundedCornerShape(32.dp))
     ) {
         Box(
             modifier = Modifier
@@ -1175,13 +1308,13 @@ private fun RefinedPrimaryActionCard(
                 text = title,
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.ExtraBold,
-                    color = Color.White
+                    color = Color(0xFF682937)
                 )
             )
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyLarge,
-                color = Color.White.copy(alpha = 0.92f)
+                color = Color(0xFF45232C)
             )
             LoadingActionButton(
                 state = state,
@@ -1205,6 +1338,13 @@ private fun mealPalette(mealLabel: String): Pair<Color, Color> = when {
     mealLabel.equals("Lunch", ignoreCase = true) -> Color(0xFFFFC9DA) to Color(0xFFC14E7B)
     mealLabel.equals("Dinner", ignoreCase = true) -> Color(0xFFD8D9FF) to Color(0xFF6268D9)
     else -> PcosinaSurfaceAlt to PcosinaDeepRose
+}
+
+private fun mealIcon(mealLabel: String): String = when {
+    mealLabel.equals("Breakfast", ignoreCase = true) -> "☀"
+    mealLabel.equals("Lunch", ignoreCase = true) -> "🍴"
+    mealLabel.equals("Dinner", ignoreCase = true) -> "☾"
+    else -> "•"
 }
 
 private fun goalInfoCopy(option: GoalOption): String = when (option) {

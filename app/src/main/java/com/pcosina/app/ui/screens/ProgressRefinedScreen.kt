@@ -9,16 +9,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Insights
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -35,11 +37,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.pcosina.app.data.api.GeneratePlanResponse
 import com.pcosina.app.data.model.DailyLog
 import com.pcosina.app.domain.UnitConverter
 import com.pcosina.app.ui.GroceryViewModel
@@ -47,13 +52,13 @@ import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
-import com.pcosina.app.ui.components.RefinedActionCard
-import com.pcosina.app.ui.components.RefinedHeroBanner
 import com.pcosina.app.ui.components.RefinedMetricBar
 import com.pcosina.app.ui.components.RefinedOverviewCard
+import com.pcosina.app.ui.components.RefinedPrimaryButton
 import com.pcosina.app.ui.components.RefinedStatusPill
 import com.pcosina.app.ui.components.RefinedTabBrandHeader
 import com.pcosina.app.ui.navigation.Routes
+import com.pcosina.app.ui.theme.PcosinaBlush
 import com.pcosina.app.ui.theme.PcosinaDeepRose
 import com.pcosina.app.ui.theme.PcosinaMuted
 import com.pcosina.app.ui.theme.PcosinaPink
@@ -328,13 +333,17 @@ fun ProgressRefinedScreen(
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
     ) {
-        val compact = maxHeight < 760.dp
+        val scrollState = rememberScrollState()
+        val compact = maxHeight < 760.dp || maxWidth < 390.dp
+        val narrow = maxWidth < 420.dp
         val calorieTarget = userViewModel.dailyCalorieTarget
         val budgetTarget = profile.weeklyBudgetPhp.takeIf { it > 0 }
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(scrollState)
+                .navigationBarsPadding()
                 .padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 10.dp else 14.dp),
             verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 14.dp)
         ) {
@@ -345,25 +354,16 @@ fun ProgressRefinedScreen(
                 compact = compact
             )
 
-            RefinedHeroBanner(
-                title = "Track Your Progress",
-                subtitle = "See today's momentum and your week at a glance.",
-                icon = Icons.Filled.Insights,
-                compact = compact,
-                trailing = {
-                    RefinedStatusPill(
-                        text = today.format(DateTimeFormatter.ofPattern("MMM dd", Locale.ENGLISH)),
-                        containerColor = Color.White.copy(alpha = 0.86f),
-                        contentColor = PcosinaDeepRose
-                    )
-                }
+            ProgressHeadlineCard(
+                dateLabel = today.format(DateTimeFormatter.ofPattern("MMM dd", Locale.ENGLISH)),
+                compact = compact
             )
 
             if (!feedbackMessage.isNullOrBlank()) {
                 RefinedOverviewCard(
                     containerColor = Color(0xFFF3FFF7),
                     borderColor = PcosinaPink.copy(alpha = 0.18f),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp)
+                    contentPadding = PaddingValues(12.dp)
                 ) {
                     Text(
                         text = feedbackMessage.orEmpty(),
@@ -373,190 +373,445 @@ fun ProgressRefinedScreen(
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                ProgressSummaryTile(
-                    title = "Today",
-                    value = "$completedMealsToday/$plannedMealsToday",
-                    subtitle = "meals logged",
-                    modifier = Modifier.weight(1f)
-                )
-                ProgressSummaryTile(
-                    title = "Target",
-                    value = "$calorieTarget",
-                    subtitle = "kcal/day",
-                    modifier = Modifier.weight(1f)
-                )
-                ProgressSummaryTile(
-                    title = "Spend",
-                    value = weeklySpend?.let { "₱$it" } ?: "--",
-                    subtitle = budgetTarget?.let { "of ₱$it" } ?: "weekly spend",
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            RefinedOverviewCard(
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(if (compact) 14.dp else 16.dp)
-            ) {
-                Text(
-                    text = "Your Weekly Progress",
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
-                    color = PcosinaDeepRose
-                )
+            if (narrow) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ProgressSummaryTile(
+                        title = "Today",
+                        value = "$completedMealsToday/$plannedMealsToday",
+                        subtitle = "meals logged",
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    ProgressSummaryTile(
+                        title = "Target",
+                        value = "$calorieTarget",
+                        subtitle = "kcal/day",
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    ProgressSummaryTile(
+                        title = "Spend",
+                        value = weeklySpend?.let { "₱$it" } ?: "--",
+                        subtitle = budgetTarget?.let { "of ₱$it" } ?: "weekly spend",
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            } else {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    weekNodes.forEachIndexed { index, node ->
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = when (node.state) {
-                                    ProgressNodeState.Complete -> PcosinaPink
-                                    ProgressNodeState.Partial -> PcosinaSoftPink
-                                    ProgressNodeState.Pending -> Color.White
-                                    ProgressNodeState.Future -> PcosinaSurfaceAlt
-                                },
-                                border = BorderStroke(
-                                    2.dp,
-                                    when (node.state) {
-                                        ProgressNodeState.Complete -> PcosinaDeepRose
-                                        ProgressNodeState.Partial -> PcosinaPink
-                                        ProgressNodeState.Pending -> PcosinaMuted.copy(alpha = 0.35f)
-                                        ProgressNodeState.Future -> PcosinaMuted.copy(alpha = 0.26f)
-                                    }
-                                ),
-                                modifier = Modifier.size(if (compact) 38.dp else 44.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text(
-                                        text = node.valueText,
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                        color = if (node.state == ProgressNodeState.Complete) Color.White else PcosinaDeepRose,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                            Text(
-                                text = node.label,
-                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                                color = PcosinaDeepRose
-                            )
-                        }
-                        if (index != weekNodes.lastIndex) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(0.35f)
-                                    .padding(bottom = if (compact) 26.dp else 28.dp)
-                                    .background(PcosinaMuted.copy(alpha = 0.2f), CircleShape)
-                            ) {
-                                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp)) {}
-                            }
-                        }
-                    }
+                    ProgressSummaryTile(
+                        title = "Today",
+                        value = "$completedMealsToday/$plannedMealsToday",
+                        subtitle = "meals logged",
+                        modifier = Modifier.weight(1f)
+                    )
+                    ProgressSummaryTile(
+                        title = "Target",
+                        value = "$calorieTarget",
+                        subtitle = "kcal/day",
+                        modifier = Modifier.weight(1f)
+                    )
+                    ProgressSummaryTile(
+                        title = "Spend",
+                        value = weeklySpend?.let { "₱$it" } ?: "--",
+                        subtitle = budgetTarget?.let { "of ₱$it" } ?: "weekly spend",
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
 
-            Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                RefinedOverviewCard(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(if (compact) 14.dp else 16.dp)
-                ) {
-                    Text(
-                        text = "Today's Check-in",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-                        color = PcosinaDeepRose
-                    )
-                    ProgressLevelDisplay("Energy", todayLog?.energyLevel)
-                    ProgressLevelDisplay("Mood", todayLog?.moodLevel)
-                    ProgressLevelDisplay("Cravings", todayLog?.cravingsLevel)
-                    ProgressLevelDisplay("Weight", todayLog?.weightKg?.let { kg ->
-                        if (profile.weightUnit == UnitConverter.WEIGHT_LB) {
-                            "${String.format(Locale.ENGLISH, "%.1f", UnitConverter.kgToLb(kg))} lb"
-                        } else {
-                            "${String.format(Locale.ENGLISH, "%.1f", kg)} kg"
-                        }
-                    })
-                    if (!todayLog?.symptomsNote.isNullOrBlank()) {
-                        Text(
-                            text = todayLog?.symptomsNote.orEmpty(),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = PcosinaMuted
-                        )
-                    } else {
-                        Text(
-                            text = "No note saved yet.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = PcosinaMuted
-                        )
-                    }
-                }
+            ProgressWeeklyCard(
+                weekNodes = weekNodes,
+                compact = compact
+            )
 
-                RefinedOverviewCard(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(if (compact) 14.dp else 16.dp)
+            if (narrow) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ProgressCheckInCard(
+                        todayLog = todayLog,
+                        profileWeightLb = profile.weightUnit == UnitConverter.WEIGHT_LB,
+                        modifier = Modifier.fillMaxWidth(),
+                        compact = compact
+                    )
+
+                    ProgressInsightsCard(
+                        planMetrics = planMetrics,
+                        currentPlan = currentPlan,
+                        planFeedbackTags = planFeedbackTags,
+                        modifier = Modifier.fillMaxWidth(),
+                        compact = compact
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        text = "Plan Insights",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-                        color = PcosinaDeepRose
+                    ProgressCheckInCard(
+                        todayLog = todayLog,
+                        profileWeightLb = profile.weightUnit == UnitConverter.WEIGHT_LB,
+                        modifier = Modifier.weight(1f),
+                        compact = compact
                     )
-                    RefinedMetricBar(
-                        label = "Protein",
-                        valueText = "${planMetrics.avgProtein}g avg",
-                        progress = planMetrics.avgProtein.toFloat() / (currentPlan?.explanation?.targetProtein?.coerceAtLeast(1) ?: 1).toFloat(),
-                        color = Color(0xFFFF9BAA)
+
+                    ProgressInsightsCard(
+                        planMetrics = planMetrics,
+                        currentPlan = currentPlan,
+                        planFeedbackTags = planFeedbackTags,
+                        modifier = Modifier.weight(1f),
+                        compact = compact
                     )
-                    RefinedMetricBar(
-                        label = "Carbs",
-                        valueText = "${planMetrics.avgCarbs}g avg",
-                        progress = planMetrics.avgCarbs.toFloat() / (currentPlan?.explanation?.targetCarbs?.coerceAtLeast(1) ?: 1).toFloat(),
-                        color = Color(0xFFD9AF77)
-                    )
-                    RefinedMetricBar(
-                        label = "Fiber",
-                        valueText = "${planMetrics.avgFiber}g avg",
-                        progress = planMetrics.avgFiber.toFloat() / (currentPlan?.explanation?.fiberMinTarget?.coerceAtLeast(1) ?: 1).toFloat(),
-                        color = Color(0xFFB7E8A8)
-                    )
-                    if (planFeedbackTags.isNotEmpty()) {
-                        Text(
-                            text = "Next plan tuning: ${planFeedbackTags.joinToString()}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = PcosinaMuted
-                        )
-                    }
                 }
             }
 
-            RefinedActionCard(
-                title = if (completedMealsToday >= plannedMealsToday && plannedMealsToday > 0) {
-                    "Today's plan is on track."
-                } else {
-                    "Keep today's plan moving."
-                },
-                subtitle = if (weeklyJournal.isNotBlank()) {
-                    weeklyJournal
-                } else {
-                    "Update today's check-in here, then open your weekly review to save spending and tune the next plan."
-                },
-                buttonLabel = if (todayLog == null) "Add check-in" else "Update check-in",
-                onClick = { showReflectionDialog = true },
-                secondaryLabel = "Review week",
-                onSecondaryClick = { showWeeklyReviewDialog = true },
+            ProgressBottomCtaCard(
+                completedMealsToday = completedMealsToday,
+                plannedMealsToday = plannedMealsToday,
+                weeklyJournal = weeklyJournal,
+                onCheckIn = { showReflectionDialog = true },
+                onReviewWeek = { showWeeklyReviewDialog = true },
                 compact = compact
             )
         }
     }
+}
+
+@Composable
+private fun ProgressHeadlineCard(
+    dateLabel: String,
+    compact: Boolean,
+) {
+    Surface(
+        shape = RoundedCornerShape(if (compact) 24.dp else 28.dp),
+        color = Color.Transparent,
+        border = BorderStroke(2.dp, PcosinaDeepRose.copy(alpha = 0.78f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(PcosinaBlush, Color(0xFFFF91A7))
+                    )
+                )
+                .padding(horizontal = if (compact) 16.dp else 18.dp, vertical = if (compact) 14.dp else 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = Color.White.copy(alpha = 0.24f),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.36f))
+            ) {
+                Box(
+                    modifier = Modifier.padding(horizontal = if (compact) 14.dp else 16.dp, vertical = if (compact) 12.dp else 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "📈",
+                        style = if (compact) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "Track Your Progress",
+                    style = if (compact) {
+                        MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = PcosinaDeepRose
+                        )
+                    } else {
+                        MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = PcosinaDeepRose
+                        )
+                    }
+                )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = PcosinaDeepRose.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(999.dp)
+                ) {
+                    Text(text = " ", modifier = Modifier.padding(vertical = 1.dp))
+                }
+                Text(
+                    text = "See today's momentum and your week at a glance.",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
+                    color = PcosinaDeepRose
+                )
+            }
+            RefinedStatusPill(
+                text = dateLabel,
+                containerColor = Color.White.copy(alpha = 0.82f),
+                contentColor = PcosinaDeepRose
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProgressWeeklyCard(
+    weekNodes: List<ProgressWeekNode>,
+    compact: Boolean,
+) {
+    RefinedOverviewCard(
+        contentPadding = PaddingValues(if (compact) 14.dp else 16.dp)
+    ) {
+        Text(
+            text = "Your Weekly Progress",
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
+            color = PcosinaDeepRose
+        )
+        Text(
+            text = "Check each day at a glance and spot where the week is slipping or staying steady.",
+            style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
+            color = PcosinaMuted
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            weekNodes.forEachIndexed { index, node ->
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = when (node.state) {
+                            ProgressNodeState.Complete -> PcosinaPink
+                            ProgressNodeState.Partial -> PcosinaSoftPink
+                            ProgressNodeState.Pending -> Color.White
+                            ProgressNodeState.Future -> PcosinaSurfaceAlt
+                        },
+                        border = BorderStroke(
+                            2.dp,
+                            when (node.state) {
+                                ProgressNodeState.Complete -> PcosinaDeepRose
+                                ProgressNodeState.Partial -> PcosinaPink
+                                ProgressNodeState.Pending -> PcosinaMuted.copy(alpha = 0.35f)
+                                ProgressNodeState.Future -> PcosinaMuted.copy(alpha = 0.26f)
+                            }
+                        ),
+                        modifier = Modifier.size(if (compact) 38.dp else 44.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = node.valueText,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = if (node.state == ProgressNodeState.Complete) Color.White else PcosinaDeepRose,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    Text(
+                        text = node.label,
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = PcosinaDeepRose
+                    )
+                }
+                if (index != weekNodes.lastIndex) {
+                    Box(
+                        modifier = Modifier
+                            .weight(0.35f)
+                            .padding(bottom = if (compact) 26.dp else 28.dp)
+                            .background(PcosinaMuted.copy(alpha = 0.2f), CircleShape)
+                    ) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp)) {}
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressCheckInCard(
+    todayLog: DailyLog?,
+    profileWeightLb: Boolean,
+    modifier: Modifier = Modifier,
+    compact: Boolean,
+) {
+    RefinedOverviewCard(
+        modifier = modifier,
+        contentPadding = PaddingValues(if (compact) 14.dp else 16.dp)
+    ) {
+        Text(
+            text = "Today's Check-in",
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+            color = PcosinaDeepRose
+        )
+        ProgressLevelDisplay("Energy", todayLog?.energyLevel)
+        ProgressLevelDisplay("Mood", todayLog?.moodLevel)
+        ProgressLevelDisplay("Cravings", todayLog?.cravingsLevel)
+        ProgressLevelDisplay("Weight", todayLog?.weightKg?.let { kg ->
+            if (profileWeightLb) {
+                "${String.format(Locale.ENGLISH, "%.1f", UnitConverter.kgToLb(kg))} lb"
+            } else {
+                "${String.format(Locale.ENGLISH, "%.1f", kg)} kg"
+            }
+        })
+        if (!todayLog?.symptomsNote.isNullOrBlank()) {
+            Text(
+                text = todayLog?.symptomsNote.orEmpty(),
+                style = MaterialTheme.typography.bodySmall,
+                color = PcosinaMuted
+            )
+        } else {
+            Text(
+                text = "No note saved yet.",
+                style = MaterialTheme.typography.bodySmall,
+                color = PcosinaMuted
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProgressInsightsCard(
+    planMetrics: com.pcosina.app.ui.PlanMetrics,
+    currentPlan: GeneratePlanResponse?,
+    planFeedbackTags: List<String>,
+    modifier: Modifier = Modifier,
+    compact: Boolean,
+) {
+    RefinedOverviewCard(
+        modifier = modifier,
+        contentPadding = PaddingValues(if (compact) 14.dp else 16.dp)
+    ) {
+        Text(
+            text = "Plan Insights",
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+            color = PcosinaDeepRose
+        )
+        RefinedMetricBar(
+            label = "Protein",
+            valueText = "${planMetrics.avgProtein}g avg",
+            progress = planMetrics.avgProtein.toFloat() / (currentPlan?.explanation?.targetProtein?.coerceAtLeast(1) ?: 1).toFloat(),
+            color = Color(0xFFFF9BAA)
+        )
+        RefinedMetricBar(
+            label = "Carbs",
+            valueText = "${planMetrics.avgCarbs}g avg",
+            progress = planMetrics.avgCarbs.toFloat() / (currentPlan?.explanation?.targetCarbs?.coerceAtLeast(1) ?: 1).toFloat(),
+            color = Color(0xFFD9AF77)
+        )
+        RefinedMetricBar(
+            label = "Fiber",
+            valueText = "${planMetrics.avgFiber}g avg",
+            progress = planMetrics.avgFiber.toFloat() / (currentPlan?.explanation?.fiberMinTarget?.coerceAtLeast(1) ?: 1).toFloat(),
+            color = Color(0xFFB7E8A8)
+        )
+        if (planFeedbackTags.isNotEmpty()) {
+            Text(
+                text = "Next plan tuning: ${planFeedbackTags.joinToString()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = PcosinaMuted
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProgressBottomCtaCard(
+    completedMealsToday: Int,
+    plannedMealsToday: Int,
+    weeklyJournal: String,
+    onCheckIn: () -> Unit,
+    onReviewWeek: () -> Unit,
+    compact: Boolean,
+) {
+    Surface(
+        shape = RoundedCornerShape(if (compact) 24.dp else 28.dp),
+        color = Color.Transparent,
+        border = BorderStroke(2.dp, PcosinaDeepRose.copy(alpha = 0.72f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(Color(0xFFFF8BA2), Color(0xFFFFC3CE))
+                    )
+                )
+                .padding(horizontal = if (compact) 16.dp else 18.dp, vertical = if (compact) 14.dp else 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = if (completedMealsToday >= plannedMealsToday && plannedMealsToday > 0) {
+                        "Today's plan is on track."
+                    } else {
+                        "Keep today's plan moving."
+                    },
+                    style = if (compact) {
+                        MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = PcosinaDeepRose
+                        )
+                    } else {
+                        MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = PcosinaDeepRose
+                        )
+                    }
+                )
+                Text(
+                    text = if (weeklyJournal.isNotBlank()) {
+                        weeklyJournal
+                    } else {
+                        "Update today's check-in here, then review the week to save spending and tune the next plan."
+                    },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RefinedPrimaryButton(
+                        text = "Check in",
+                        onClick = onCheckIn,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = Color.White.copy(alpha = 0.18f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
+                        modifier = Modifier.clickable(onClick = onReviewWeek)
+                    ) {
+                        Text(
+                            text = "Review week",
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+            Surface(
+                shape = CircleShape,
+                color = Color.White.copy(alpha = 0.16f),
+                shadowElevation = 8.dp
+            ) {
+                    Text(
+                        text = "✍️",
+                        modifier = Modifier.padding(horizontal = if (compact) 16.dp else 18.dp, vertical = if (compact) 14.dp else 16.dp),
+                        style = if (compact) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.displaySmall,
+                        color = PcosinaDeepRose
+                    )
+                }
+            }
+        }
 }
 
 @Composable

@@ -1,8 +1,10 @@
 import re
 import os
 import time
+import datetime
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Tuple
+import database
 
 
 @dataclass
@@ -198,7 +200,7 @@ _QTY_PATTERN = re.compile(
 )
 
 
-def _extract_quantity(text: str) -> Tuple[Optional[float], Optional[str]]:
+def _parse_quantity(text: str) -> Tuple[Optional[float], Optional[str]]:
     if not text:
         return None, None
     match = _QTY_PATTERN.search(text.lower())
@@ -334,15 +336,24 @@ def _active_rules() -> List[PriceRule]:
 def estimate_price_detail(name: str, quantity_text: str = "") -> Tuple[int, str]:
     rule = _rule_for_name(name)
     category = rule.category if rule else infer_category(name)
-    base_price = rule.price_php if rule else _CATEGORY_AVG.get(category, 60)
-    target_unit = rule.unit if rule and rule.unit else _CATEGORY_DEFAULT_UNIT.get(category, "piece")
-    qty_value, qty_unit = _extract_quantity(f"{quantity_text} {name}".strip())
+    base_price = rule.price_php if rule else _CATEGORY_AVG.get(category, 50)
+    target_unit = rule.unit or _CATEGORY_DEFAULT_UNIT.get(category, "piece")
+    qty_value, qty_unit = _parse_quantity(quantity_text)
+
     factor = _quantity_factor(qty_value, qty_unit, target_unit, category)
     factor = _clamp_factor(factor, category)
+
+    # Apply seasonal multiplier
+    current_month = datetime.datetime.now().month
+    seasonal_multiplier = database.get_market_multiplier(category, current_month)
+
     price = base_price * factor
     price *= _CATEGORY_MULTIPLIER.get(category, 0.7)
+    price *= seasonal_multiplier
+
     price = max(5.0, price)
     return int(round(price)), category
+
 
 
 def estimate_price(name: str) -> int:

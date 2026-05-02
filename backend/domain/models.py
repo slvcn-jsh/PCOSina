@@ -25,6 +25,7 @@ class UserProfile(BaseModel):
     maxCookingTimeMinutes: int = 45
     varietyPreference: str = "Balanced"
     planningPriority: str = "Balanced"
+    preferredMarketType: str = "Supermarket"
     pantryItems: List[str] = []
     isProfileCompleted: bool = False
 

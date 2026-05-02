@@ -770,10 +770,40 @@ def _migration_admin_sessions(conn) -> None:
     _ensure_admin_session_indexes(conn)
 
 
+def _create_market_seasonality_rules_table_sql() -> str:
+    if _use_postgres():
+        return """
+            CREATE TABLE IF NOT EXISTS market_seasonality_rules (
+                id TEXT PRIMARY KEY,
+                category TEXT NOT NULL,
+                month_index INTEGER NOT NULL,
+                multiplier FLOAT NOT NULL DEFAULT 1.0,
+                notes TEXT,
+                updated_at BIGINT NOT NULL
+            )
+        """
+    return """
+        CREATE TABLE IF NOT EXISTS market_seasonality_rules (
+            id TEXT PRIMARY KEY,
+            category TEXT NOT NULL,
+            month_index INTEGER NOT NULL,
+            multiplier REAL NOT NULL DEFAULT 1.0,
+            notes TEXT,
+            updated_at INTEGER NOT NULL
+        )
+    """
+
+
 def _migration_operator_access_overrides(conn) -> None:
     cur = conn.cursor()
     cur.execute(_create_operator_access_overrides_table_sql())
     _ensure_operator_access_override_indexes(conn)
+
+
+def _migration_market_heuristics(conn) -> None:
+    cur = conn.cursor()
+    cur.execute(_create_market_seasonality_rules_table_sql())
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_market_seasonality_cat_month ON market_seasonality_rules(category, month_index)")
 
 
 def _registered_schema_migrations():
@@ -788,6 +818,7 @@ def _registered_schema_migrations():
         ("20260319_app_008_support_case_handoff", "Add support case assignee and escalation columns", _migration_support_case_handoff_columns),
         ("20260319_app_009_admin_sessions", "Create admin session registry and indexes", _migration_admin_sessions),
         ("20260319_app_010_operator_access_overrides", "Create operator access override registry", _migration_operator_access_overrides),
+        ("20260319_app_011_market_heuristics", "Create market seasonality and volatility rules", _migration_market_heuristics),
     ]
 
 
@@ -2079,6 +2110,28 @@ def append_support_case_note(case_id: str, *, actor: str, message: str) -> Dict[
     finally:
         conn.close()
     return get_support_case(case_id)
+
+def get_market_multiplier(category: str, month_index: int) -> float:
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        if _use_postgres():
+            cur.execute(
+                "SELECT multiplier FROM market_seasonality_rules WHERE category = %s AND month_index = %s LIMIT 1",
+                (category, month_index)
+            )
+        else:
+            cur.execute(
+                "SELECT multiplier FROM market_seasonality_rules WHERE category = ? AND month_index = ? LIMIT 1",
+                (category, month_index)
+            )
+        row = cur.fetchone()
+        if isinstance(row, dict):
+            return float(row.get("multiplier") or 1.0)
+        return float(row[0]) if row else 1.0
+    finally:
+        conn.close()
+
 
 def init_db():
     conn = _connect()

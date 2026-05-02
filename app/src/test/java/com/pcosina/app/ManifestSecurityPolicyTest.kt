@@ -14,8 +14,8 @@ class ManifestSecurityPolicyTest {
         assertTrue(source.contains("android:allowBackup=\"false\""))
         assertTrue(source.contains("android:usesCleartextTraffic=\"false\""))
         assertTrue(source.contains("android:networkSecurityConfig=\"@xml/network_security_config\""))
-        assertTrue(source.contains("android:name=\"io.sentry.enabled\""))
-        assertTrue(source.contains("android:value=\"true\""))
+        assertTrue(source.contains("android:name=\"io.sentry.auto-init\""))
+        assertTrue(source.contains("android:value=\"false\""))
     }
 
     @Test

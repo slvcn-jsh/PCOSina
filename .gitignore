@@ -40,9 +40,11 @@ backend/tests/.tmp_pytest_run2/
 .gradle-user/
 .gradle-user-home/
 .gradle-user-merged/
+.gradle-local/
 .android/
 .android-user/
 .android-user-home/
+.codex_tmp/
 .npm-cache/
 .release-build-check/
 .wt-rel/
@@ -54,6 +56,11 @@ pcosina.db
 tmp/pytest_registry/
 tmp/pytest_cache/
 tmp/
+backend/.tmp_pytest/
+backend/.tmp_pytest_run2/
+backend/.tmp_pytest_cache/
+app/design_extract/
+app/*.zip
 
 # Secrets
 backend/backend/secrets/

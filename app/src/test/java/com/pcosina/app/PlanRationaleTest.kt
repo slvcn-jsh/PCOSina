@@ -1,6 +1,6 @@
 package com.pcosina.app
 
-import com.pcosina.app.data.api.PlanExplanation
+import com.pcosina.app.data.model.PlannerPlanExplanation
 import com.pcosina.app.ui.util.buildMealReasons
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -10,7 +10,7 @@ class PlanRationaleTest {
 
     @Test
     fun buildMealReasons_stays_generic_even_when_backend_has_internal_selection_signals() {
-        val explanation = PlanExplanation(
+        val explanation = PlannerPlanExplanation(
             maxPerWeek = 2,
             budgetWeekly = 1500.0,
             budgetHardCapApplied = true,

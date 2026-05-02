@@ -12,26 +12,25 @@ def _read(path: Path) -> str:
 
 def test_community_screen_feels_product_ready_even_with_placeholder_content() -> None:
     source = _read(COMMUNITY_SCREEN)
-    assert "title = \"Community\"" in source
-    assert "Guides, meal tips, and simple support for your week" in source
-    assert "Start here this week" in source
-    assert "PCOS-friendly eating basics" in source
-    assert "Community corner" in source
-    assert "Coming soon" in source
+    assert "title = \"Support\"" in source
+    assert "Clear help for planning, logging, and sending feedback." in source
+    assert "Start with the next useful step." in source
+    assert "Make the week feel lighter" in source
     assert "Need a hand?" in source
+    assert "Send feedback now" in source
 
 
 def test_methodology_screen_is_kept_for_admin_side_only() -> None:
     source = _read(METHODOLOGY_SCREEN)
-    assert "title = \"System Methodology\"" in source
-    assert "subtitle = \"Admin-only planning pipeline\"" in source
-    assert "PROFILE + PANTRY INPUTS" in source
-    assert "DETERMINISTIC FILTERING" in source
-    assert "DETERMINISTIC OPTIMIZATION" in source
-    assert "EXPLAINABLE OUTPUTS" in source
+    assert "title = \"Planning Methodology\"" in source
+    assert "subtitle = \"Internal view of the deterministic planning pipeline.\"" in source
+    assert "Profile + Pantry Inputs" in source
+    assert "Deterministic Filtering" in source
+    assert "Deterministic Optimization" in source
+    assert "Explainable Outputs" in source
     assert "ML can assist ranking candidates, but never overrides hard constraints" in source
-    assert "This view is for internal review." in source
-    assert "Wellness Decision Support" in source
+    assert "This screen is for internal review so regular users can stay on plan, grocery, progress, and support." in source
+    assert "Decision support" in source
     assert "does not diagnose conditions or replace clinical care" in source
 
     stale_copy = (

@@ -13,7 +13,7 @@ class MealPlanDaySelectionPolicyTest {
     fun mealPlanScreen_keepsSelectedDayStableDuringInPlaceUiStateUpdates() {
         val mealPlanPath = resolve(
             "app", "src", "main", "java", "com", "pcosina", "app",
-            "ui", "screens", "MealPlanScreen.kt"
+            "ui", "screens", "MealPlanRefinedScreen.kt"
         )
         val source = read(mealPlanPath)
 
@@ -23,11 +23,12 @@ class MealPlanDaySelectionPolicyTest {
         )
         assertTrue(
             "Selected day initialization should be anchored to plan identity.",
-            source.contains("LaunchedEffect(activePlanId, currentPlan?.weekLabel)")
+            source.contains("rememberSaveable(activePlanId)")
         )
         assertTrue(
-            "Selected day should only auto-reset when plan anchor changes.",
-            source.contains("if (anchor != null && anchor != selectedDayAnchor)")
+            "Selected day should derive from the selected index within the active plan week.",
+            source.contains("val selectedDate = remember(weekStart, selectedDayIndex)") &&
+                source.contains("val selectedDay = remember(currentPlan, selectedDate)")
         )
     }
 

@@ -9,39 +9,35 @@ import org.junit.Test
 class ProgressTraversalPolicyTest {
 
     @Test
-    fun progressWeekCards_defineTraversalGroupsForTalkBackOrder() {
+    fun progressRefinedSections_defineCurrentWeeklyDashboardStructure() {
         val progressText = readMainSource(
             "com",
             "pcosina",
             "app",
             "ui",
             "screens",
-            "ProgressScreen.kt"
+            "ProgressRefinedScreen.kt"
         )
-        assertTrue(progressText.contains("progress_week_insights_card"))
-        assertTrue(progressText.contains("progress_week_spending_card"))
-        assertTrue(progressText.contains("progress_week_macro_card"))
-        assertTrue(progressText.contains("progress_plan_feedback_card"))
-        assertTrue(progressText.contains("traversalIndex = 5f"))
-        assertTrue(progressText.contains("traversalIndex = 6f"))
-        assertTrue(progressText.contains("traversalIndex = 7f"))
-        assertTrue(progressText.contains("traversalIndex = 8f"))
+        assertTrue(progressText.contains("Weekly adherence"))
+        assertTrue(progressText.contains("Weekly savings"))
+        assertTrue(progressText.contains("Average daily macros"))
+        assertTrue(!progressText.contains("progress_week_insights_card"))
     }
 
     @Test
-    fun dashboardSecondaryCards_defineTraversalGroups() {
+    fun dashboardRefinedHomeCards_replaceLegacyTraversalCards() {
         val dashboardText = readMainSource(
             "com",
             "pcosina",
             "app",
             "ui",
             "screens",
-            "DashboardScreen.kt"
+            "DashboardRefinedScreen.kt"
         )
-        assertTrue(dashboardText.contains("dashboard_advanced_metrics_card"))
-        assertTrue(dashboardText.contains("dashboard_more_tools_card"))
-        assertTrue(dashboardText.contains("traversalIndex = 7f"))
-        assertTrue(dashboardText.contains("traversalIndex = 8f"))
+        assertTrue(dashboardText.contains("Daily Tips"))
+        assertTrue(dashboardText.contains("Open Progress"))
+        assertTrue(!dashboardText.contains("dashboard_advanced_metrics_card"))
+        assertTrue(!dashboardText.contains("dashboard_more_tools_card"))
     }
 
     private fun readMainSource(vararg segments: String): String {

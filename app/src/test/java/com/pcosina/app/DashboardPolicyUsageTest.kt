@@ -8,22 +8,22 @@ import org.junit.Test
 
 class DashboardPolicyUsageTest {
     @Test
-    fun dashboard_usesDisclosureHelpersForStepGating() {
+    fun dashboard_usesGuidedJourneyHelpersForStepGating() {
         val file = resolveDashboardFile()
         val text = String(Files.readAllBytes(file))
 
-        assertTrue(text.contains("shouldShowAdvancedMetrics("))
-        assertTrue(text.contains("shouldShowAdvancedTools("))
+        assertTrue(text.contains("resolveGuidedJourneyStep("))
+        assertTrue(text.contains("hasGoalSelection("))
         assertFalse(
-            "Use DashboardDisclosure helpers instead of direct guidedStep.stepIndex comparisons.",
+            "Use guided-journey helpers instead of direct guidedStep.stepIndex comparisons.",
             Regex("""guidedStep\.stepIndex\s*[<>!=]=?\s*\d+""").containsMatchIn(text)
         )
     }
 
     private fun resolveDashboardFile() =
         listOf(
-            Paths.get("app", "src", "main", "java", "com", "pcosina", "app", "ui", "screens", "DashboardScreen.kt"),
-            Paths.get("src", "main", "java", "com", "pcosina", "app", "ui", "screens", "DashboardScreen.kt")
+            Paths.get("app", "src", "main", "java", "com", "pcosina", "app", "ui", "screens", "DashboardRefinedScreen.kt"),
+            Paths.get("src", "main", "java", "com", "pcosina", "app", "ui", "screens", "DashboardRefinedScreen.kt")
         ).firstOrNull { Files.exists(it) }
-            ?: error("Could not locate DashboardScreen.kt for policy test.")
+            ?: error("Could not locate DashboardRefinedScreen.kt for policy test.")
 }

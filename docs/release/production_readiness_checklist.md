@@ -76,7 +76,7 @@ Date: 2026-03-21
 - `backend/main.py`
 - `app/src/main/java/com/pcosina/app/ui/navigation/Routes.kt`
 - `app/src/main/java/com/pcosina/app/ui/navigation/AppNavHost.kt`
-- `app/src/main/java/com/pcosina/app/ui/screens/DashboardScreen.kt`
+- `app/src/main/java/com/pcosina/app/ui/screens/DashboardRefinedScreen.kt`
 - `app/src/main/java/com/pcosina/app/ui/screens/MoreToolsScreen.kt`
 - `app/src/main/java/com/pcosina/app/ui/screens/IpoVisualizationScreen.kt`
 - `.github/workflows/ci.yml`

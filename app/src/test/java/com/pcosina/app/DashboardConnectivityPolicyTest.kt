@@ -13,7 +13,7 @@ class DashboardConnectivityPolicyTest {
     fun dashboardTracksConnectivityAsReactiveState() {
         val dashboardPath = resolve(
             "app", "src", "main", "java", "com", "pcosina", "app",
-            "ui", "screens", "DashboardScreen.kt"
+            "ui", "screens", "DashboardRefinedScreen.kt"
         )
         val connectivityStatePath = resolve(
             "app", "src", "main", "java", "com", "pcosina", "app",

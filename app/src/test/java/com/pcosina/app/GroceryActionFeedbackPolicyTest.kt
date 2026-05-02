@@ -9,32 +9,28 @@ import org.junit.Test
 class GroceryActionFeedbackPolicyTest {
 
     @Test
-    fun groceryRemainingActions_emitUnifiedBannerMessages() {
+    fun groceryRemainingActions_emitCurrentInlineFeedbackMessages() {
         val groceryText = readMainSource(
             "com",
             "pcosina",
             "app",
             "ui",
             "screens",
-            "GroceryListScreen.kt"
+            "GroceryRefinedScreen.kt"
         )
 
         assertTrue(
-            "Share action should post loading feedback.",
-            groceryText.contains("Preparing grocery list to share…")
-        )
-        assertTrue(
-            "Share action should confirm success feedback.",
+            "Share action should confirm success feedback in the refined screen.",
             groceryText.contains("Share options opened for your grocery list.")
         )
         assertTrue(
-            "Clear search should post confirmation feedback.",
-            groceryText.contains("Search cleared. Showing all categories.")
+            "Sync action should confirm success feedback in the refined screen.",
+            groceryText.contains("Ingredients synced from your current meal plan.")
         )
         assertTrue(
-            "Expand/collapse all should post confirmation feedback.",
-            groceryText.contains("Collapsed all categories.") &&
-                groceryText.contains("Expanded all categories.")
+            "Pantry add/remove actions should keep inline confirmation feedback.",
+            groceryText.contains("added to pantry.") &&
+                groceryText.contains("removed from pantry.")
         )
     }
 

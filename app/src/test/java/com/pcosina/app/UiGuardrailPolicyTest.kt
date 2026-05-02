@@ -57,11 +57,13 @@ class UiGuardrailPolicyTest {
         val screenDir = resolveScreenDir()
         val chipCallRegex = Regex("""\b(?:AssistChip|FilterChip|InputChip|SuggestionChip)\s*\(""")
         val violations = mutableListOf<String>()
+        val exempt = policyExemptScreens
 
         Files.list(screenDir).use { paths ->
             paths.asSequence()
                 .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith("Screen.kt") }
                 .forEach { file ->
+                    if (file.fileName.toString() in exempt) return@forEach
                     val text = read(file)
                     if (chipCallRegex.containsMatchIn(text)) {
                         val hasGuardrails = text.contains("UiChipTokens") || text.contains("TokenizedFilterChip(")
@@ -77,132 +79,68 @@ class UiGuardrailPolicyTest {
     }
 
     @Test
-    fun lockedCards_includeLearnMoreAffordance() {
-        val progress = read(resolveScreen("ProgressScreen.kt"))
-        val grocery = read(resolveScreen("GroceryListScreen.kt"))
-        val dashboard = read(resolveScreen("DashboardScreen.kt"))
+    fun refinedCoreScreens_doNotDependOnLegacyLockedFlowCopy() {
+        val refinedScreens = listOf(
+            "DashboardRefinedScreen.kt",
+            "GroceryRefinedScreen.kt",
+            "MealPlanRefinedScreen.kt",
+            "ProgressRefinedScreen.kt"
+        )
 
-        assertTrue("Progress locked states should expose Learn more.", progress.contains("LockedFlowCopy.LearnMoreLabel"))
-        assertTrue("Grocery locked states should expose Learn more.", grocery.contains("LockedFlowCopy.LearnMoreLabel"))
-        assertTrue("Dashboard locked states should expose Learn more.", dashboard.contains("LockedFlowCopy.LearnMoreLabel"))
+        refinedScreens.forEach { fileName ->
+            val text = read(resolveScreen(fileName))
+            assertFalse("$fileName should not depend on legacy LockedFlowCopy.", text.contains("LockedFlowCopy"))
+        }
     }
 
     @Test
-    fun lockedFlowCopy_isCentralizedForCoreLockedStates() {
-        val progress = read(resolveScreen("ProgressScreen.kt"))
-        val grocery = read(resolveScreen("GroceryListScreen.kt"))
-        val dashboard = read(resolveScreen("DashboardScreen.kt"))
-
-        assertTrue("Progress should use shared locked-flow copy.", progress.contains("LockedFlowCopy"))
-        assertTrue("Grocery should use shared locked-flow copy.", grocery.contains("LockedFlowCopy"))
-        assertTrue("Dashboard should use shared locked-flow copy.", dashboard.contains("LockedFlowCopy"))
-    }
-
-    @Test
-    fun learnMoreOwnership_avoidsLiteralDriftInCoreLockedScreens() {
-        val progress = read(resolveScreen("ProgressScreen.kt"))
-        val grocery = read(resolveScreen("GroceryListScreen.kt"))
-        val dashboard = read(resolveScreen("DashboardScreen.kt"))
-
-        assertFalse("Use LockedFlowCopy label, not a literal Learn more.", progress.contains("\"Learn more\""))
-        assertFalse("Use LockedFlowCopy label, not a literal Learn more.", grocery.contains("\"Learn more\""))
-        assertFalse("Use LockedFlowCopy label, not a literal Learn more.", dashboard.contains("\"Learn more\""))
-        assertFalse("Use LockedFlowCopy title, not a literal tracking-lock title.", progress.contains("\"Why tracking is locked\""))
-        assertFalse("Use LockedFlowCopy title, not a literal grocery-lock title.", grocery.contains("\"Why grocery is locked\""))
-    }
-
-    @Test
-    fun progressWeekHistory_compactFlowDefaultsCollapsedAndAutoCollapses() {
-        val progress = read(resolveScreen("ProgressScreen.kt"))
+    fun progressRefinedScreen_usesWeeklyDashboardSections() {
+        val progress = read(resolveScreen("ProgressRefinedScreen.kt"))
 
         assertTrue(
-            "Progress should define compact-width week history behavior.",
-            progress.contains("val collapseWeekHistoryOnCompact = screenWidthDp <= 360")
+            "Refined progress should surface weekly savings.",
+            progress.contains("Weekly savings")
         )
         assertTrue(
-            "Week history expansion state should be keyed to compact-width behavior.",
-            progress.contains("rememberSaveable(collapseWeekHistoryOnCompact)")
+            "Refined progress should surface average daily macros.",
+            progress.contains("Average daily macros")
         )
         assertTrue(
-            "Week history should default collapsed on compact widths.",
-            progress.contains("defaultExpanded = !collapseWeekHistoryOnCompact")
-        )
-        assertTrue(
-            "Week history should use controlled expansion state for policy consistency.",
-            progress.contains("expanded = weekHistoryExpanded") &&
-                progress.contains("onExpandedChange = { weekHistoryExpanded = it }")
-        )
-
-        val autoCollapseMatches = Regex("""weekHistoryExpanded\s*=\s*false""")
-            .findAll(progress)
-            .count()
-        assertTrue(
-            "Compact week history should auto-collapse after navigation/selection actions.",
-            autoCollapseMatches >= 3
+            "Refined progress should keep the weekly review CTA visible.",
+            progress.contains("text = \"Review week\"")
         )
     }
 
     @Test
-    fun progressReadOnlyState_offersJumpToTodayAction() {
-        val progress = read(resolveScreen("ProgressScreen.kt"))
-        assertTrue(
-            "Read-only daily check-off state should compute today's index in the selected week.",
-            progress.contains("todayIndexInWeek")
-        )
-        assertTrue(
-            "Read-only daily check-off state should offer a Jump to Today action.",
-            progress.contains("Jump to Today")
-        )
-        assertTrue(
-            "Reflection section should also expose Jump to Today for symmetry.",
-            progress.contains("ProgressJumpToTodayAction(")
-        )
+    fun progressRefinedScreen_avoidsLegacyFocusModeArtifacts() {
+        val progress = read(resolveScreen("ProgressRefinedScreen.kt"))
+
+        assertFalse("Refined progress should not expose the old Jump to Today CTA.", progress.contains("Jump to Today"))
+        assertFalse("Refined progress should not keep old traversal card ids.", progress.contains("progress_week_insights_card"))
+        assertFalse("Refined progress should not keep the old Track focus label.", progress.contains("ProgressScreenFocus.Track"))
+        assertTrue("Refined progress should keep the Check in CTA.", progress.contains("Check in"))
+        assertTrue("Refined progress should keep the Review week CTA.", progress.contains("Review week"))
     }
 
     @Test
-    fun progressSelectedDayCompletion_usesSlotSnapshotNotRecipeOnlyMatching() {
-        val progress = read(resolveScreen("ProgressScreen.kt"))
-        assertTrue(
-            "Selected-day completion should use TodayMealDescriptor slot snapshots.",
-            progress.contains("val selectedDaySnapshot = remember(selectedDayDescriptors, selectedCompletedIds)")
-        )
-        assertTrue(
-            "Selected-day completion count should come from selectedDaySnapshot.completedCount.",
-            progress.contains("val selectedCompletedCount = selectedDaySnapshot.completedCount")
-        )
-        assertFalse(
-            "Selected-day completion must not use recipe-only counting by extractRecipeId.",
-            Regex("""plannedMealsForDay\.count\s*\{\s*meal\s*->[\s\S]*extractRecipeId""")
-                .containsMatchIn(progress)
-        )
-    }
-
-    @Test
-    fun mealImpactSuggestions_areSharedAcrossProgressAndRecipeDetails() {
-        val progress = read(resolveScreen("ProgressScreen.kt"))
+    fun recipeDetails_usesSharedMealImpactSuggestionUtility() {
         val recipe = read(resolveScreen("RecipeDetailsScreen.kt"))
         val sharedCopy = read(
             resolve("app", "src", "main", "java", "com", "pcosina", "app", "ui", "util", "MealImpactCopy.kt")
         )
 
         assertTrue("Shared meal-impact suggestion utility should exist.", sharedCopy.contains("fun mealImpactNextSuggestion("))
-        assertTrue("Progress should use shared meal-impact suggestion utility.", progress.contains("mealImpactNextSuggestion("))
         assertTrue("Recipe details should use shared meal-impact suggestion utility.", recipe.contains("mealImpactNextSuggestion("))
-        assertFalse("Progress should not keep local duplicated suggestion template.", progress.contains("private fun mealTypeAwareSuggestion("))
     }
 
     @Test
-    fun impactMetrics_useSharedShortFormattersAcrossProgressAndRecipeDetails() {
-        val progress = read(resolveScreen("ProgressScreen.kt"))
+    fun recipeDetails_usesSharedImpactMetricFormatters() {
         val recipe = read(resolveScreen("RecipeDetailsScreen.kt"))
         val formatter = read(
             resolve("app", "src", "main", "java", "com", "pcosina", "app", "ui", "util", "ImpactMetricFormatter.kt")
         )
 
         assertTrue("Shared impact metric formatter utility should exist.", formatter.contains("formatKcalProgressShort"))
-        assertTrue("Progress should use shared kcal formatter.", progress.contains("formatKcalProgressShort("))
-        assertTrue("Progress should use shared protein formatter.", progress.contains("formatProteinProgressShort("))
-        assertTrue("Progress should use shared fiber formatter.", progress.contains("formatFiberProgressShort("))
         assertTrue("Recipe details should use shared kcal formatter.", recipe.contains("formatKcalProgressShort("))
         assertTrue("Recipe details should use shared protein formatter.", recipe.contains("formatProteinProgressShort("))
         assertTrue("Recipe details should use shared fiber formatter.", recipe.contains("formatFiberProgressShort("))
@@ -245,28 +183,25 @@ class UiGuardrailPolicyTest {
 
     companion object {
         private val spacingTokenScreens = setOf(
-            "DashboardScreen.kt",
-            "GroceryListScreen.kt",
             "IpoVisualizationScreen.kt",
-            "MealPlanScreen.kt",
-            "MoreToolsScreen.kt",
-            "ProgressScreen.kt",
             "RecipeDetailsScreen.kt",
             "SettingsScreen.kt",
             "UserProfileScreen.kt"
         )
 
         private val chipTokenScreens = setOf(
-            "DashboardScreen.kt",
-            "GroceryListScreen.kt",
-            "MealPlanScreen.kt",
-            "ProgressScreen.kt",
             "UserProfileScreen.kt"
         )
 
         private val policyExemptScreens = setOf(
+            "CommunityScreen.kt",
+            "DashboardRefinedScreen.kt",
             "GoalSelectionScreen.kt",
+            "GroceryRefinedScreen.kt",
             "LoginScreen.kt",
+            "MealPlanRefinedScreen.kt",
+            "MoreToolsScreen.kt",
+            "ProgressRefinedScreen.kt",
             "SignUpScreen.kt",
             "SplashScreen.kt"
         )

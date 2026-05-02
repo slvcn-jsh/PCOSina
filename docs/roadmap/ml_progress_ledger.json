@@ -25,9 +25,9 @@
         "app/src/main/java/com/pcosina/app/data/api/PcosinaApiService.kt",
         "app/src/main/java/com/pcosina/app/data/repository/MealPlanRepository.kt",
         "app/src/main/java/com/pcosina/app/ui/MealPlanViewModel.kt",
-        "app/src/main/java/com/pcosina/app/ui/screens/GroceryListScreen.kt",
-        "app/src/main/java/com/pcosina/app/ui/screens/ProgressScreen.kt",
-        "app/src/main/java/com/pcosina/app/ui/screens/MealPlanScreen.kt",
+        "app/src/main/java/com/pcosina/app/ui/screens/GroceryRefinedScreen.kt",
+        "app/src/main/java/com/pcosina/app/ui/screens/ProgressRefinedScreen.kt",
+        "app/src/main/java/com/pcosina/app/ui/screens/MealPlanRefinedScreen.kt",
         "app/src/main/java/com/pcosina/app/ui/screens/RecipeDetailsScreen.kt",
         "scripts/check_mobile_ml_event_coverage.py",
         ".github/workflows/go-live-gates.yml"

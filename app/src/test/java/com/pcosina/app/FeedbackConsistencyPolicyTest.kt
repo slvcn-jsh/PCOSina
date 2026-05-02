@@ -9,111 +9,49 @@ import org.junit.Test
 class FeedbackConsistencyPolicyTest {
 
     @Test
-    fun dashboardGroceryMealPlanRecipeSettings_useSharedFeedbackBanners() {
-        val dashboardText = readMainSource(
-            "com",
-            "pcosina",
-            "app",
-            "ui",
-            "screens",
-            "DashboardScreen.kt"
-        )
-        val groceryText = readMainSource(
-            "com",
-            "pcosina",
-            "app",
-            "ui",
-            "screens",
-            "GroceryListScreen.kt"
-        )
-        val mealPlanText = readMainSource(
-            "com",
-            "pcosina",
-            "app",
-            "ui",
-            "screens",
-            "MealPlanScreen.kt"
-        )
-        val recipeText = readMainSource(
-            "com",
-            "pcosina",
-            "app",
-            "ui",
-            "screens",
-            "RecipeDetailsScreen.kt"
-        )
-        val settingsText = readMainSource(
-            "com",
-            "pcosina",
-            "app",
-            "ui",
-            "screens",
-            "SettingsScreen.kt"
-        )
+    fun dashboardRecipeSettings_keepReusableFeedbackBanners() {
+        val dashboardText = readMainSource("com", "pcosina", "app", "ui", "screens", "DashboardRefinedScreen.kt")
+        val recipeText = readMainSource("com", "pcosina", "app", "ui", "screens", "RecipeDetailsScreen.kt")
+        val settingsText = readMainSource("com", "pcosina", "app", "ui", "screens", "SettingsScreen.kt")
+
         assertTrue("Dashboard should render AppFeedbackBanner.", dashboardText.contains("AppFeedbackBanner"))
-        assertTrue("Dashboard should emit dashboard feedback messages.", dashboardText.contains("postDashboardFeedback"))
-        assertTrue(
-            "Dashboard should avoid toast-only feedback for admin actions.",
-            !dashboardText.contains("Toast.makeText")
-        )
-        assertTrue("Grocery should render AppFeedbackBanner.", groceryText.contains("AppFeedbackBanner"))
-        assertTrue("Grocery should emit grocery feedback messages.", groceryText.contains("postGroceryFeedback"))
-        assertTrue("Meal Plan should render AppFeedbackBanner.", mealPlanText.contains("AppFeedbackBanner"))
-        assertTrue("Meal Plan should emit inline meal-plan feedback messages.", mealPlanText.contains("postMealPlanFeedback"))
-        assertTrue(
-            "Meal Plan should avoid snackbar-only confirmation flows.",
-            !mealPlanText.contains("showSnackbar(")
-        )
+        assertTrue("Dashboard should avoid toast-only feedback for home actions.", !dashboardText.contains("Toast.makeText"))
         assertTrue("Recipe details should render AppFeedbackBanner.", recipeText.contains("AppFeedbackBanner"))
         assertTrue("Recipe details should emit recipe feedback messages.", recipeText.contains("postRecipeFeedback"))
-        assertTrue(
-            "Recipe details should avoid snackbar-only confirmation flows.",
-            !recipeText.contains("showSnackbar(")
-        )
+        assertTrue("Recipe details should avoid snackbar-only confirmation flows.", !recipeText.contains("showSnackbar("))
         assertTrue("Settings should render AppFeedbackBanner.", settingsText.contains("AppFeedbackBanner"))
         assertTrue("Settings should emit settings feedback messages.", settingsText.contains("postSettingsFeedback"))
-        assertTrue(
-            "Settings should avoid toast-only user feedback flows.",
-            !settingsText.contains("Toast.makeText")
-        )
+        assertTrue("Settings should avoid toast-only user feedback flows.", !settingsText.contains("Toast.makeText"))
     }
 
     @Test
-    fun progressUsesNormalizedOfflineCopy() {
-        val progressText = readMainSource(
-            "com",
-            "pcosina",
-            "app",
-            "ui",
-            "screens",
-            "ProgressScreen.kt"
-        )
-        assertTrue("Progress should use normalized online feedback copy.", progressText.contains("ActionFeedbackCopy.OnlineSync"))
-        assertTrue("Progress should use normalized offline feedback copy.", progressText.contains("ActionFeedbackCopy.OfflineSync"))
+    fun groceryMealPlanProgress_useInlineFeedbackState_notLegacyToastFlows() {
+        val groceryText = readMainSource("com", "pcosina", "app", "ui", "screens", "GroceryRefinedScreen.kt")
+        val mealPlanText = readMainSource("com", "pcosina", "app", "ui", "screens", "MealPlanRefinedScreen.kt")
+        val progressText = readMainSource("com", "pcosina", "app", "ui", "screens", "ProgressRefinedScreen.kt")
+
+        assertTrue("Grocery should use inline feedback message state.", groceryText.contains("var feedbackMessage by remember"))
+        assertTrue("Grocery should keep current share confirmation copy.", groceryText.contains("Share options opened for your grocery list."))
+        assertTrue("Meal Plan should use inline feedback message state.", mealPlanText.contains("var feedbackMessage by remember"))
+        assertTrue("Meal Plan should avoid snackbar-only confirmation flows.", !mealPlanText.contains("showSnackbar("))
+        assertTrue("Progress should use inline feedback message state.", progressText.contains("var feedbackMessage by remember"))
+        assertTrue("Progress should keep weekly review confirmation copy.", progressText.contains("Weekly review updated."))
+        assertTrue("Progress should avoid toast-only save flows.", !progressText.contains("Toast.makeText"))
     }
 
     @Test
-    fun mealPlanDialogs_useHeadingAndActionRowSemantics() {
-        val mealPlanText = readMainSource(
-            "com",
-            "pcosina",
-            "app",
-            "ui",
-            "screens",
-            "MealPlanScreen.kt"
-        )
+    fun mealPlanDialogs_useCurrentConfirmAndRetryCopy() {
+        val mealPlanText = readMainSource("com", "pcosina", "app", "ui", "screens", "MealPlanRefinedScreen.kt")
 
         assertTrue(
-            "Meal Plan dialogs should use semantic heading markers for accessibility.",
-            mealPlanText.contains("modifier = Modifier.semantics { heading() }")
+            "Meal Plan should keep an explicit replace-week confirmation dialog.",
+            mealPlanText.contains("Replace this week's plan?") &&
+                mealPlanText.contains("Replace week") &&
+                mealPlanText.contains("Keep this week")
         )
         assertTrue(
-            "Meal Plan dialogs should use shared action-row button semantics.",
-            mealPlanText.contains("MealPlanDialogGotItButton")
-        )
-        assertTrue(
-            "Dialog action row should include traversal order semantics.",
-            mealPlanText.contains("traversalIndex = 1f")
+            "Meal Plan should tell the user to keep waiting on long-running planner jobs.",
+            mealPlanText.contains("Keep waiting")
         )
     }
 

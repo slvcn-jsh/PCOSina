@@ -170,7 +170,7 @@ flowchart TD
     F --> G[Display grocery list and snapshots]
 ```
 
-- Source files used: `app/src/main/java/com/pcosina/app/domain/GroceryAggregation.kt:64`, `app/src/main/java/com/pcosina/app/ui/screens/GroceryListScreen.kt:2347`, `app/src/main/java/com/pcosina/app/data/repository/UserPreferencesRepository.kt:35`
+- Source files used: `app/src/main/java/com/pcosina/app/domain/GroceryAggregation.kt:64`, `app/src/main/java/com/pcosina/app/ui/screens/GroceryRefinedScreen.kt:1500`, `app/src/main/java/com/pcosina/app/data/repository/UserPreferencesRepository.kt:35`
 - Input variables: recipe ingredient strings, household size, pantry entries, checked state
 - Output variables: grocery items, prices, pantry-covered state, saved snapshots
 - Validation approach: manual grocery rebuild check using one sample recipe

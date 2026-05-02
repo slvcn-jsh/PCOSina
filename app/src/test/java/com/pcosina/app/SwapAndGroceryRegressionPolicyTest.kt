@@ -33,16 +33,18 @@ class SwapAndGroceryRegressionPolicyTest {
     }
 
     @Test
-    fun mealPlanSwap_clearsStaleMealSourcesWhenIngredientLookupFails() {
+    fun mealPlanSwap_updatesMealSourcesOnlyAfterSuccessfulIngredientLookup() {
         val mealPlanPath = resolve(
             "app", "src", "main", "java", "com", "pcosina", "app",
-            "ui", "screens", "MealPlanScreen.kt"
+            "ui", "screens", "MealPlanRefinedScreen.kt"
         )
         val source = read(mealPlanPath)
 
         assertTrue(
-            "Swap fallback should clear the old meal grocery sources when ingredient details are unavailable.",
-            source.contains("groceryViewModel.replaceMealItems(mealId, emptyList())")
+            "Swap flow should load grocery sources and only replace meal items on successful ingredient lookup.",
+            source.contains("val sources = swapGrocerySourceLoader?.invoke(option.id)") &&
+                source.contains("sources.onSuccess { newSources ->") &&
+                source.contains("groceryViewModel.replaceMealItems(mealId, newSources)")
         )
     }
 
@@ -50,15 +52,15 @@ class SwapAndGroceryRegressionPolicyTest {
     fun householdAwareWeeklyCost_isNotScaledAgainOnClient() {
         val dashboardPath = resolve(
             "app", "src", "main", "java", "com", "pcosina", "app",
-            "ui", "screens", "DashboardScreen.kt"
+            "ui", "screens", "DashboardRefinedScreen.kt"
         )
         val mealPlanPath = resolve(
             "app", "src", "main", "java", "com", "pcosina", "app",
-            "ui", "screens", "MealPlanScreen.kt"
+            "ui", "screens", "MealPlanRefinedScreen.kt"
         )
         val progressPath = resolve(
             "app", "src", "main", "java", "com", "pcosina", "app",
-            "ui", "screens", "ProgressScreen.kt"
+            "ui", "screens", "ProgressRefinedScreen.kt"
         )
 
         val dashboard = read(dashboardPath)
@@ -71,12 +73,14 @@ class SwapAndGroceryRegressionPolicyTest {
         )
         assertFalse(
             "MealPlan should not multiply estimatedWeeklyCost by household size after backend scaling.",
-            mealPlan.contains("estimatedWeeklyCost\n                                ?.times(userProfile.householdSize.coerceIn(1, 6))")
+            mealPlan.contains("estimatedWeeklyCost\n                                ?.times(profile.householdSize.coerceIn(1, 6))") ||
+                mealPlan.contains("estimatedWeeklyCost?.times(profile.householdSize.coerceIn(1, 6))")
         )
         assertFalse(
             "Progress should not multiply estimatedWeeklyCost by household size after backend scaling.",
             progress.contains("estimatedWeeklyCost\n                ?.times(profile.householdSize.coerceIn(1, 6))") ||
-                progress.contains("estimatedWeeklyCost\n        ?.times(profile.householdSize.coerceIn(1, 6))")
+                progress.contains("estimatedWeeklyCost\n        ?.times(profile.householdSize.coerceIn(1, 6))") ||
+                progress.contains("estimatedWeeklyCost?.times(profile.householdSize.coerceIn(1, 6))")
         )
     }
 

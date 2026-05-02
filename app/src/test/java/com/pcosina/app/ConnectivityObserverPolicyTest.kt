@@ -9,11 +9,11 @@ import org.junit.Test
 class ConnectivityObserverPolicyTest {
 
     @Test
-    fun dashboardGroceryProgress_useSharedConnectivityObserver() {
-        val dashboard = readMainSource("com", "pcosina", "app", "ui", "screens", "DashboardScreen.kt")
-        val grocery = readMainSource("com", "pcosina", "app", "ui", "screens", "GroceryListScreen.kt")
-        val mealPlan = readMainSource("com", "pcosina", "app", "ui", "screens", "MealPlanScreen.kt")
-        val progress = readMainSource("com", "pcosina", "app", "ui", "screens", "ProgressScreen.kt")
+    fun dashboardGroceryMealPlanProgress_useSharedConnectivityObserver() {
+        val dashboard = readMainSource("com", "pcosina", "app", "ui", "screens", "DashboardRefinedScreen.kt")
+        val grocery = readMainSource("com", "pcosina", "app", "ui", "screens", "GroceryRefinedScreen.kt")
+        val mealPlan = readMainSource("com", "pcosina", "app", "ui", "screens", "MealPlanRefinedScreen.kt")
+        val progress = readMainSource("com", "pcosina", "app", "ui", "screens", "ProgressRefinedScreen.kt")
         val connectivityUtil = readMainSource("com", "pcosina", "app", "ui", "util", "ConnectivityState.kt")
 
         assertTrue("Dashboard should rely on shared online observer.", dashboard.contains("rememberIsOnline(context)"))
@@ -28,10 +28,11 @@ class ConnectivityObserverPolicyTest {
     }
 
     @Test
-    fun offlineBranching_usesStandardizedCopyForBlockedAndQueuedActions() {
-        val dashboard = readMainSource("com", "pcosina", "app", "ui", "screens", "DashboardScreen.kt")
-        val grocery = readMainSource("com", "pcosina", "app", "ui", "screens", "GroceryListScreen.kt")
-        val progress = readMainSource("com", "pcosina", "app", "ui", "screens", "ProgressScreen.kt")
+    fun refinedConnectivityBranches_useCurrentScreenSpecificFeedback() {
+        val dashboard = readMainSource("com", "pcosina", "app", "ui", "screens", "DashboardRefinedScreen.kt")
+        val grocery = readMainSource("com", "pcosina", "app", "ui", "screens", "GroceryRefinedScreen.kt")
+        val mealPlan = readMainSource("com", "pcosina", "app", "ui", "screens", "MealPlanRefinedScreen.kt")
+        val progress = readMainSource("com", "pcosina", "app", "ui", "screens", "ProgressRefinedScreen.kt")
 
         assertTrue(
             "Dashboard should branch first-plan CTA on offline state with internet-required copy.",
@@ -39,24 +40,27 @@ class ConnectivityObserverPolicyTest {
                 dashboard.contains("ActionFeedbackCopy.InternetRequired")
         )
         assertTrue(
-            "Grocery should display standardized offline and internet-required action copy.",
-            grocery.contains("if (!isOnline)") &&
-                grocery.contains("ActionFeedbackCopy.OfflineSync") &&
-                grocery.contains("ActionFeedbackCopy.InternetRequired")
+            "Grocery should propagate reactive online state into the refined overview shell.",
+            grocery.contains("val isOnline = onlineStateOverride ?: observedOnline") &&
+                grocery.contains("online = isOnline")
         )
         assertTrue(
-            "Progress retry/queue logic should branch on offline state with queue copy.",
-            progress.contains("if (!isOnline)") &&
-                progress.contains("ActionFeedbackCopy.QueueSaved") &&
-                progress.contains("ActionFeedbackCopy.QueueRetrying")
+            "Meal plan should block swap actions with explicit internet-required feedback.",
+            mealPlan.contains("if (!isOnline)") &&
+                mealPlan.contains("Internet required for meal swaps.")
+        )
+        assertTrue(
+            "Progress should propagate reactive online state into the refined weekly hero.",
+            progress.contains("val isOnline = onlineStateOverride ?: observedOnline") &&
+                progress.contains("online = isOnline")
         )
     }
 
     @Test
-    fun criticalScreens_avoidLegacyMinTouchTokenForPrimaryChips() {
-        val dashboard = readMainSource("com", "pcosina", "app", "ui", "screens", "DashboardScreen.kt")
-        val grocery = readMainSource("com", "pcosina", "app", "ui", "screens", "GroceryListScreen.kt")
-        val progress = readMainSource("com", "pcosina", "app", "ui", "screens", "ProgressScreen.kt")
+    fun refinedCriticalScreens_avoidLegacyMinTouchTokenForPrimaryChips() {
+        val dashboard = readMainSource("com", "pcosina", "app", "ui", "screens", "DashboardRefinedScreen.kt")
+        val grocery = readMainSource("com", "pcosina", "app", "ui", "screens", "GroceryRefinedScreen.kt")
+        val progress = readMainSource("com", "pcosina", "app", "ui", "screens", "ProgressRefinedScreen.kt")
         val tokenizedChips = readMainSource("com", "pcosina", "app", "ui", "components", "TokenizedChips.kt")
 
         assertTrue(

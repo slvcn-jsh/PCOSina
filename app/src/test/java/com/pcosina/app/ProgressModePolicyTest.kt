@@ -9,7 +9,7 @@ import org.junit.Test
 class ProgressModePolicyTest {
 
     @Test
-    fun progressScreen_exposesTodayWeekModes_andPrimaryCta() {
+    fun progressScreen_exposesWeeklyDashboardSections_andPrimaryCta() {
         val file = resolveMainSourceRoot().resolve(
             Paths.get(
                 "com",
@@ -17,14 +17,16 @@ class ProgressModePolicyTest {
                 "app",
                 "ui",
                 "screens",
-                "ProgressScreen.kt"
+                "ProgressRefinedScreen.kt"
             )
         )
         val text = String(Files.readAllBytes(file))
-        assertTrue("Progress screen must define Today mode.", text.contains("Today(\"Today\")"))
-        assertTrue("Progress screen must define Week mode.", text.contains("Week(\"Week\")"))
-        assertTrue("Progress screen should show focus mode switcher.", text.contains("Focus Mode"))
-        assertTrue("Progress screen should expose one primary CTA label.", text.contains("primaryCtaLabel"))
+        assertTrue("Progress screen should surface weekly savings.", text.contains("Weekly savings"))
+        assertTrue("Progress screen should surface average daily macros.", text.contains("Average daily macros"))
+        assertTrue("Progress screen should clearly label actual spend when present.", text.contains("Actual spend"))
+        assertTrue("Progress screen should clearly label estimated cost fallback.", text.contains("Estimated cost"))
+        assertTrue("Progress screen should expose a primary check-in CTA.", text.contains("text = \"Check in\""))
+        assertTrue("Progress screen should expose the weekly review CTA.", text.contains("text = \"Review week\""))
     }
 
     private fun resolveMainSourceRoot(): Path {

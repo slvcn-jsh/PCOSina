@@ -90,7 +90,7 @@ class NotificationGuardrailPolicyTest {
         val events = read(eventsPath)
         val scheduler = read(schedulerPath)
 
-        val typeNames = Regex("""const val (\w+) = \"[^\"]+\"""")
+        val typeNames = Regex("""const val (\w+) = "[^"]+"""")
             .findAll(events)
             .map { it.groupValues[1] }
             .filterNot { it.startsWith("Tag") || it.startsWith("Work") }
@@ -109,60 +109,37 @@ class NotificationGuardrailPolicyTest {
     }
 
     @Test
-    fun mealPlanEntryPoints_useUnifiedFeedbackTriggerFunctions() {
+    fun mealPlanRefinedScreen_usesInlineFeedbackAndViewModelEntryPoints() {
         val mealPlanPath = resolve(
             "app", "src", "main", "java", "com", "pcosina", "app",
-            "ui", "screens", "MealPlanScreen.kt"
+            "ui", "screens", "MealPlanRefinedScreen.kt"
         )
         val source = read(mealPlanPath)
 
         assertTrue(
-            "MealPlan should define triggerPlanGeneration().",
-            Regex("""fun\s+triggerPlanGeneration\s*\(\s*\)""").containsMatchIn(source)
+            "MealPlan should keep inline feedback message state in the refined shell.",
+            source.contains("var feedbackMessage by remember { mutableStateOf<String?>(null) }")
         )
         assertTrue(
-            "MealPlan should define triggerGrocerySync().",
-            Regex("""fun\s+triggerGrocerySync\s*\([^)]*\)""").containsMatchIn(source)
+            "Primary generation should route through MealPlanViewModel.generateMealPlan(profile).",
+            source.contains("mealPlanViewModel.generateMealPlan(profile)")
         )
-        assertTrue("MealPlan should render AppFeedbackBanner for action feedback.", source.contains("AppFeedbackBanner("))
-
-        val generateCalls = Regex("""generateMealPlan\s*\(userProfile\)""")
-            .findAll(source)
-            .count()
-        assertEquals(
-            "Generate entry points should route through triggerPlanGeneration() only.",
-            1,
-            generateCalls
-        )
-
-        val syncCalls = Regex("""extractGrocerySourcesForPlan\s*\{""")
-            .findAll(source)
-            .count()
-        assertEquals(
-            "Sync entry points should route through triggerGrocerySync() only.",
-            1,
-            syncCalls
-        )
-        val loadingButtons = Regex("""LoadingActionButton\s*\(""")
-            .findAll(source)
-            .count()
         assertTrue(
-            "Core plan/sync actions should use LoadingActionButton for consistent feedback state machine.",
-            loadingButtons >= 2
+            "Replace-week flow should route through MealPlanViewModel.generateMealPlanFresh(profile).",
+            source.contains("mealPlanViewModel.generateMealPlanFresh(profile)")
         )
-        val rawGenerateButtons = Regex("""(?<![A-Za-z])Button\s*\(\s*onClick\s*=\s*\{\s*triggerPlanGeneration\(\)\s*\}""")
-            .findAll(source)
-            .count()
-        assertFalse(
-            "Use LoadingActionButton for triggerPlanGeneration actions instead of plain Button.",
-            rawGenerateButtons > 0
+        assertTrue(
+            "Grocery sync path should route through extractGrocerySourcesForPlan in one place.",
+            source.contains("mealPlanViewModel.extractGrocerySourcesForPlan { sources ->")
         )
-        val rawSyncButtons = Regex("""(?<![A-Za-z])Button\s*\(\s*onClick\s*=\s*\{\s*triggerGrocerySync\(\)\s*\}""")
-            .findAll(source)
-            .count()
+        assertTrue(
+            "Refined MealPlan screen should avoid direct notification dispatch calls.",
+            !source.contains("NotificationScheduler.notifyPlanReady") &&
+                !source.contains("NotificationScheduler.notifyGrocerySyncResult")
+        )
         assertFalse(
-            "Use LoadingActionButton for triggerGrocerySync actions instead of plain Button.",
-            rawSyncButtons > 0
+            "Refined MealPlan screen should not keep a local pending plan-ready notification flag.",
+            source.contains("pendingPlanReadyNotification")
         )
     }
 

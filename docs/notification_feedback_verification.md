@@ -25,9 +25,9 @@ Expected terminal tail:
 | Foundation | Notification channels + permission gate + scheduler + persisted prefs | Grep + Manual | `NotificationHelper.kt`, `NotificationScheduler.kt`, `SettingsScreen.kt`, `UserPreferencesRepository.kt` |
 | Meal reminders | Breakfast/Lunch/Dinner schedule with time prefs + caps + quiet-hours | Manual + Debug panel | Settings → Notifications + Debug details |
 | Weekly reset | Weekly reminder scheduling + anti-spam | Grep + Manual | `NotificationScheduler.WeeklyResetWorker` |
-| Plan ready | Trigger on generation success only | Grep + Manual | `MealPlanScreen.kt`, `NotificationScheduler.notifyPlanReady` |
-| Grocery sync status | User-initiated success/failure notifications only | Grep + Manual | `MealPlanScreen.kt`, `NotificationScheduler.notifyGrocerySyncResult` |
-| In-app feedback | Reusable feedback kit + long-action state machine | Grep + Manual | `FeedbackKit.kt`, `MealPlanScreen.kt`, `ProgressScreen.kt` |
+| Plan ready | Trigger on generation success only | Grep + Manual | `MealPlanRefinedScreen.kt`, `NotificationScheduler.notifyPlanReady` |
+| Grocery sync status | User-initiated success/failure notifications only | Grep + Manual | `MealPlanRefinedScreen.kt`, `NotificationScheduler.notifyGrocerySyncResult` |
+| In-app feedback | Reusable feedback kit + refined inline feedback cards | Grep + Manual | `FeedbackKit.kt`, `MealPlanRefinedScreen.kt`, `ProgressRefinedScreen.kt` |
 
 ## Foundation Verification Checklist
 1. Channels created at app startup.

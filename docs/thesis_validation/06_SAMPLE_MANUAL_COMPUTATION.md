@@ -79,7 +79,7 @@
 
 ## 8. Grocery Missing-Items Determination For The Same Recipe
 
-- Source: `app/src/main/java/com/pcosina/app/ui/screens/GroceryListScreen.kt:2347`
+- Source: `app/src/main/java/com/pcosina/app/ui/screens/GroceryRefinedScreen.kt:1500`
 - Important actual behavior: the Android grocery screen uses pantry-name matching, not the backend token-overlap algorithm.
 - With pantry entries entered exactly as `egg`, `rice`, `tomato`, and `onion`:
   - `egg` can exact-match a grocery item named `egg`

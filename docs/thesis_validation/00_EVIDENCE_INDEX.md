@@ -40,7 +40,6 @@ This evidence pack was generated from the `dev` branch only, as requested. No `m
 | File | Purpose | Input | Formula | Rule | Optimize | Stored Data | Tests | UI | Trust | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | app/build.gradle.kts | Android build config, schema version, and release endpoints. | N | N | Y | N | N | N | Y | HIGH |  |
-| app/src/androidTest/java/com/example/pcosina/ExampleInstrumentedTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/androidTest/java/com/pcosina/app/AppLaunchTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/androidTest/java/com/pcosina/app/CompactWidthVisualRegressionTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/androidTest/java/com/pcosina/app/DashboardWeekCloseoutUiTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
@@ -86,20 +85,19 @@ This evidence pack was generated from the `dev` branch only, as requested. No `m
 | app/src/main/java/com/pcosina/app/ui/UserViewModel.kt | Android UI and view-model behavior. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/navigation/AppNavHost.kt | Android UI and view-model behavior. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/CommunityScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
-| app/src/main/java/com/pcosina/app/ui/screens/DashboardScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
+| app/src/main/java/com/pcosina/app/ui/screens/DashboardRefinedScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/GoalSelectionScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
-| app/src/main/java/com/pcosina/app/ui/screens/GroceryListScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
+| app/src/main/java/com/pcosina/app/ui/screens/GroceryRefinedScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/IpoVisualizationScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/LoginScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
-| app/src/main/java/com/pcosina/app/ui/screens/MealPlanScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
+| app/src/main/java/com/pcosina/app/ui/screens/MealPlanRefinedScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/MoreToolsScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
-| app/src/main/java/com/pcosina/app/ui/screens/ProgressScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
+| app/src/main/java/com/pcosina/app/ui/screens/ProgressRefinedScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/RecipeDetailsScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/SettingsScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/SignUpScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/SplashScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/UserProfileScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
-| app/src/test/java/com/example/pcosina/ExampleUnitTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/AdbPreflightRemediationPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/AndroidEnvPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/AppCheckPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |

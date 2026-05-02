@@ -26,11 +26,11 @@ class SettingsNotificationPolicyTest {
         )
         assertTrue(
             "Settings should expose weekly reset day control.",
-            source.contains("label = \"Weekly reset day\"")
+            source.contains("title = { Text(\"Weekly reset day\") }")
         )
         assertTrue(
             "Settings should expose weekly reset time control.",
-            source.contains("label = \"Weekly reset time\"")
+            source.contains("label = \"Weekly reminder time\"")
         )
         assertTrue(
             "Weekly day selection should update NotificationPreferences.weeklyResetDayOfWeek.",

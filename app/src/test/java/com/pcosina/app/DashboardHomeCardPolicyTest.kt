@@ -7,10 +7,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class DashboardPrimaryActionPolicyTest {
+class DashboardHomeCardPolicyTest {
 
     @Test
-    fun dashboard_usesSinglePrimaryNextStepCardCopy() {
+    fun dashboard_usesDailyTipsAndKcalFirstMealCards() {
         val file = resolveMainSourceRoot().resolve(
             Paths.get(
                 "com",
@@ -22,9 +22,19 @@ class DashboardPrimaryActionPolicyTest {
             )
         )
         val text = String(Files.readAllBytes(file))
-        assertTrue("Dashboard should show a clear primary next-step card.", text.contains("RefinedPrimaryActionCard("))
-        assertTrue("Dashboard should keep primary action copy centralized.", text.contains("val primaryActionTitle = when"))
-        assertFalse("Legacy duplicate next-step title should be removed.", text.contains("NEXT OPTIMIZED MEAL"))
+
+        assertTrue(
+            "Dashboard should keep the Home tip card aligned to the Daily Tips wording from the mobile design.",
+            text.contains("title = \"Daily Tips\"")
+        )
+        assertTrue(
+            "Home meal cards should emphasize kcal values when recipe details are available.",
+            text.contains("text = meal.calories.toString()")
+        )
+        assertFalse(
+            "Legacy Logged today/Open recipe footer copy should no longer be the main meal card emphasis.",
+            text.contains("text = if (meal.isLogged) \"Logged today\" else \"Open recipe\"")
+        )
     }
 
     private fun resolveMainSourceRoot(): Path {

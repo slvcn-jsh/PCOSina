@@ -14,16 +14,16 @@ class ProgressRecoveryPolicyTest {
         val progress = read(
             resolve(
                 "app", "src", "main", "java", "com", "pcosina", "app",
-                "ui", "screens", "ProgressScreen.kt"
+                "ui", "screens", "ProgressRefinedScreen.kt"
             )
         )
 
         assertFalse(
-            "ProgressScreen should not keep screen-local form state in rememberSaveable after the crash investigation.",
+            "Progress screen should not keep screen-local form state in rememberSaveable after the crash investigation.",
             progress.contains("rememberSaveable")
         )
         assertTrue(
-            "ProgressScreen side effects should be guarded so a single bad payload does not crash the route.",
+            "Progress screen side effects should be guarded so a single bad payload does not crash the route.",
             progress.contains("Failed to hydrate progress inputs safely.") &&
                 progress.contains("Failed to compute progress macro summary safely.")
         )

@@ -18,12 +18,17 @@ class GuidedProfileRoutePolicyTest {
         val source = read(appNavHostPath)
 
         assertTrue(
-            "Guided route mapping should keep profile CTA on onboarding profile route.",
-            source.contains("Routes.UserProfile -> navigateInternal(Routes.UserProfile)")
+            "Guided route mapping should keep incomplete users on onboarding profile route.",
+            source.contains("!inferredProfileCompleted && !Routes.isProfileRoute(route) && !Routes.isGoalRoute(route)") &&
+                source.contains("navigateInternal(Routes.UserProfile)")
         )
         assertFalse(
-            "Guided profile route must not redirect to edit-mode profile route.",
+            "Guided profile route must not redirect onboarding users to edit mode.",
             source.contains("Routes.UserProfile -> navigateInternal(Routes.UserProfileEdit)")
+        )
+        assertTrue(
+            "Edit mode should stay available only from the settings profile edit action.",
+            source.contains("onNavigateToProfileEdit = { navigateInternal(Routes.UserProfileEdit) }")
         )
     }
 

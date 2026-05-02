@@ -57,6 +57,15 @@ Notes:
 ### Android
 
 Debug builds expect a backend base URL ending with `/`.
+By default, debug now targets the hosted HTTPS backend so emulator installs work without a local server.
+If you want the emulator to hit a backend running on your laptop instead, explicitly override the debug base URL.
+
+```powershell
+. .\scripts\android-env.ps1
+.\gradlew :app:assembleDebug
+```
+
+Local-backend override example:
 
 ```powershell
 . .\scripts\android-env.ps1

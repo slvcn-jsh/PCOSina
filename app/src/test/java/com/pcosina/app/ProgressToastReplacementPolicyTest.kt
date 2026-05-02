@@ -9,26 +9,26 @@ import org.junit.Test
 class ProgressToastReplacementPolicyTest {
 
     @Test
-    fun progressValidationAndExport_useBannerCopyInsteadOfToast() {
+    fun progressValidationAndSaveFeedback_useInlineCopyInsteadOfToast() {
         val progressText = readMainSource(
             "com",
             "pcosina",
             "app",
             "ui",
             "screens",
-            "ProgressScreen.kt"
+            "ProgressRefinedScreen.kt"
         )
         assertTrue(
-            "Progress should not rely on Toast for validation/export feedback.",
+            "Progress should not rely on Toast for validation/save feedback.",
             !progressText.contains("Toast.makeText")
         )
         assertTrue(
-            "Weekly spending validation should use banner copy.",
-            progressText.contains("Enter a valid amount before saving actual spending.")
+            "Weekly spending validation should use current inline feedback copy.",
+            progressText.contains("Weekly spend must be a whole number in pesos.")
         )
         assertTrue(
-            "Export reflections empty-state should use banner copy.",
-            progressText.contains("No reflections to export yet.")
+            "Refined check-in lock state should use inline feedback copy instead of toast.",
+            progressText.contains("Check-ins can only be saved for today.")
         )
     }
 

@@ -25,7 +25,7 @@ class PlannerPollingPolicyTest {
         val screen = read(
             resolve(
                 "app", "src", "main", "java", "com", "pcosina", "app",
-                "ui", "screens", "MealPlanScreen.kt"
+                "ui", "screens", "MealPlanRefinedScreen.kt"
             )
         )
 
@@ -35,10 +35,10 @@ class PlannerPollingPolicyTest {
         )
         assertTrue(
             "MealPlanRepository should create a per-attempt token for fresh generations.",
-            repo.contains("data class GeneratePlanAttempt(")
-                && repo.contains("token = UUID.randomUUID().toString()")
-                && repo.contains("buildGeneratePlanIdempotencyKey(request, attempt.token)")
-                && repo.contains("apiService.generatePlanAsync(request, idempotencyKey = idempotencyKey)")
+            repo.contains("data class GeneratePlanAttempt(") &&
+                repo.contains("token = UUID.randomUUID().toString()") &&
+                repo.contains("buildGeneratePlanIdempotencyKey(request, attempt.token)") &&
+                repo.contains("apiService.generatePlanAsync(request, idempotencyKey = idempotencyKey)")
         )
         assertTrue(
             "MealPlanViewModel should preserve the same attempt only while a request is still pending.",
@@ -57,8 +57,27 @@ class PlannerPollingPolicyTest {
             repo.contains("Tap Retry to keep waiting for the same request.")
         )
         assertTrue(
-            "Loading copy should no longer promise ~30s for long-running planner jobs.",
-            screen.contains("This can take a few minutes on the current server setup. Please keep the app open.")
+            "Loading copy should acknowledge backend queue delay in the refined shell.",
+            screen.contains("This can take a while if the backend queue is busy.")
+        )
+    }
+
+    @Test
+    fun repository_transportPath_avoidsBlockingWaits() {
+        val repo = read(
+            resolve(
+                "app", "src", "main", "java", "com", "pcosina", "app",
+                "data", "repository", "MealPlanRepository.kt"
+            )
+        )
+
+        assertTrue(
+            "Planner transport should avoid blocking Task.await calls in the OkHttp path.",
+            !repo.contains("Tasks.await(")
+        )
+        assertTrue(
+            "Planner transport should avoid sleep-based HTTP retries in the OkHttp path.",
+            !repo.contains("Thread.sleep(")
         )
     }
 

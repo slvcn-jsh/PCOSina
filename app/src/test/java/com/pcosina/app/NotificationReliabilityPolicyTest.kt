@@ -40,17 +40,15 @@ class NotificationReliabilityPolicyTest {
     }
 
     @Test
-    fun mealPlanScreen_clearsPendingPlanReadyFlagOnError() {
+    fun mealPlanRefinedScreen_doesNotHoldLocalPendingNotificationFlags() {
         val mealPlanPath = resolve(
             "app", "src", "main", "java", "com", "pcosina", "app",
-            "ui", "screens", "MealPlanScreen.kt"
+            "ui", "screens", "MealPlanRefinedScreen.kt"
         )
         val source = read(mealPlanPath)
-        assertTrue(
-            "Error state should clear pendingPlanReadyNotification to prevent false plan-ready notifications.",
-            Regex("""is\s+MealPlanUiState\.Error\s*->\s*\{[\s\S]*?pendingPlanReadyNotification\s*=\s*false""")
-                .containsMatchIn(source)
-        )
+        assertFalse("Refined MealPlan should not keep a pendingPlanReadyNotification flag.", source.contains("pendingPlanReadyNotification"))
+        assertFalse("Refined MealPlan should not dispatch plan-ready notifications directly.", source.contains("NotificationScheduler.notifyPlanReady"))
+        assertFalse("Refined MealPlan should not dispatch grocery-sync notifications directly.", source.contains("NotificationScheduler.notifyGrocerySyncResult"))
     }
 
     @Test

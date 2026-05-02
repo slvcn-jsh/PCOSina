@@ -18,7 +18,7 @@ class GroceryListDataIsolationPolicyTest {
                 "app",
                 "ui",
                 "screens",
-                "GroceryListScreen.kt"
+                "GroceryRefinedScreen.kt"
             )
         )
         val text = String(Files.readAllBytes(file))
@@ -28,12 +28,12 @@ class GroceryListDataIsolationPolicyTest {
         )
         assertTrue(
             "Grocery screen should show an explicit empty state when no account grocery data exists.",
-            text.contains("No grocery items yet")
+            text.contains("No ingredients are synced yet.")
         )
     }
 
     @Test
-    fun groceryList_searchEmptyStateAndUxLogs_arePresent() {
+    fun groceryList_searchEmptyStateAndInlineFeedback_arePresent() {
         val file = resolveMainSourceRoot().resolve(
             Paths.get(
                 "com",
@@ -41,17 +41,18 @@ class GroceryListDataIsolationPolicyTest {
                 "app",
                 "ui",
                 "screens",
-                "GroceryListScreen.kt"
+                "GroceryRefinedScreen.kt"
             )
         )
         val text = String(Files.readAllBytes(file))
         assertTrue(
-            "Grocery screen should show a clear no-results message for search misses.",
-            text.contains("No results for")
+            "Grocery screen should show clear no-results messages for current filter and query misses.",
+            text.contains("No ingredients match your current filters.") &&
+                text.contains("No ingredients match")
         )
         assertTrue(
-            "Grocery UX instrumentation logs should exist for verification.",
-            text.contains("GroceryUX")
+            "Refined grocery should keep inline feedback state for user-visible confirmations.",
+            text.contains("var feedbackMessage by remember")
         )
     }
 

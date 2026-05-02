@@ -20,8 +20,8 @@ class DebugBaseUrlPolicyTest {
             source.contains("providers.gradleProperty(\"debugBaseUrl\")")
         )
         assertTrue(
-            "Build script should keep a safe emulator fallback base URL.",
-            source.contains("http://10.0.2.2:8000/")
+            "Debug builds should default to the hosted HTTPS backend so emulator installs work without a local server.",
+            source.contains("val defaultDebugBaseUrl = releaseBaseUrl")
         )
         assertTrue(
             "Debug build BASE_URL should be sourced from resolved debug base URL instead of hardcoded LAN IP.",

@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 ROUTES = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "ui" / "navigation" / "Routes.kt"
 APP_NAV_HOST = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "ui" / "navigation" / "AppNavHost.kt"
-DASHBOARD_SCREEN = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "ui" / "screens" / "DashboardScreen.kt"
+DASHBOARD_SCREEN = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "ui" / "screens" / "DashboardRefinedScreen.kt"
 BOTTOM_NAV_BAR = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "ui" / "components" / "BottomNavBar.kt"
 
 
@@ -26,15 +26,15 @@ def test_bottom_nav_keeps_methodology_tab_available_before_first_plan() -> None:
     assert "base.remove(Routes.Ipo)" not in nav_source
 
 
-def test_dashboard_keeps_community_entry_visible_with_early_help_copy() -> None:
+def test_dashboard_keeps_support_entry_visible_with_early_help_copy() -> None:
     dashboard_source = _read(DASHBOARD_SCREEN)
-    assert "val moreToolsSubtitle = if (showSecondaryCards)" in dashboard_source
-    assert "Start with simple guides, meal tips, and community support." in dashboard_source
-    assert "dashboard_more_tools_card" in dashboard_source
-    assert "onClick = onOpenMoreTools" in dashboard_source
+    assert "contentDescription = \"Support\"" in dashboard_source
+    assert "onOpenSupport = onOpenMoreTools" in dashboard_source
+    assert "RefinedIconAction(" in dashboard_source
 
 
-def test_bottom_navigation_uses_product_facing_community_label() -> None:
+def test_bottom_navigation_uses_product_facing_support_label() -> None:
     nav_source = _read(BOTTOM_NAV_BAR)
-    assert "BottomNavItem(route = Routes.Ipo, label = \"Community\"" in nav_source
+    assert "BottomNavItem(route = Routes.Ipo, label = \"Support\"" in nav_source
+    assert "label = \"Community\"" not in nav_source
     assert "label = \"IPO\"" not in nav_source

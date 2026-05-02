@@ -1,5 +1,4 @@
 suite,test_name,source_file,line_number,test_type
-android_unit,addition_isCorrect,app/src/test/java/com/example/pcosina/ExampleUnitTest.kt,13,kotlin_test
 android_unit,adbPreflightScript_supportsOptionalAttemptFixPath,app/src/test/java/com/pcosina/app/AdbPreflightRemediationPolicyTest.kt,11,kotlin_test
 android_unit,connectedRunner_exposesAttemptAdbFixOption,app/src/test/java/com/pcosina/app/AdbPreflightRemediationPolicyTest.kt,28,kotlin_test
 android_unit,androidEnvScript_routesAndroidToolingIntoRepoLocalWritableHomes,app/src/test/java/com/pcosina/app/AndroidEnvPolicyTest.kt,11,kotlin_test
@@ -162,7 +161,6 @@ android_unit,refreshScript_updatesManifestAfterBaselineCapture,app/src/test/java
 android_unit,manifestUpdaterScript_exists,app/src/test/java/com/pcosina/app/VisualBaselineManifestRefreshPolicyTest.kt,20,kotlin_test
 android_unit,baselineReadme_mentionsManualManifestUpdateStep,app/src/test/java/com/pcosina/app/VisualBaselineManifestRefreshPolicyTest.kt,26,kotlin_test
 android_unit,refreshScript_runsAdbAccessPreflight,app/src/test/java/com/pcosina/app/VisualBaselineRefreshPreflightPolicyTest.kt,11,kotlin_test
-android_instrumented,useAppContext,app/src/androidTest/java/com/example/pcosina/ExampleInstrumentedTest.kt,18,kotlin_test
 android_instrumented,appLaunches,app/src/androidTest/java/com/pcosina/app/AppLaunchTest.kt,11,kotlin_test
 android_instrumented,compactWidth_profileStep3_screenshotRegression,app/src/androidTest/java/com/pcosina/app/CompactWidthVisualRegressionTest.kt,67,kotlin_test
 android_instrumented,compactWidth_chipRow_screenshotRegression,app/src/androidTest/java/com/pcosina/app/CompactWidthVisualRegressionTest.kt,112,kotlin_test

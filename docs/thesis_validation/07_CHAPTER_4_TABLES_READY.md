@@ -88,7 +88,7 @@
 | Layer | Actual Rule | Source |
 | --- | --- | --- |
 | Backend planner | Token overlap count influences Stage 1 score and Stage 2 soft reward | backend/services/meal_planner.py:539 |
-| Android grocery UI | Pantry coverage uses pantry-name matching, not backend token-overlap count | app/src/main/java/com/pcosina/app/ui/screens/GroceryListScreen.kt:2347 |
+| Android grocery UI | Pantry coverage uses pantry-name matching, not backend token-overlap count | app/src/main/java/com/pcosina/app/ui/screens/GroceryRefinedScreen.kt:1500 |
 
 ## Table 10: Grocery Price Estimation Rules
 

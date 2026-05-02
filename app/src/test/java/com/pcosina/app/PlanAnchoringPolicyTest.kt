@@ -56,33 +56,62 @@ class PlanAnchoringPolicyTest {
         val progress = read(
             resolve(
                 "app", "src", "main", "java", "com", "pcosina", "app",
-                "ui", "screens", "ProgressScreen.kt"
+                "ui", "screens", "ProgressRefinedScreen.kt"
             )
         )
 
         assertFalse(
-            "ProgressScreen should not save transient MealImpactSummary in rememberSaveable.",
+            "Progress screen should not keep the removed legacy MealImpactSummary saveable state.",
             progress.contains("rememberSaveable { mutableStateOf<MealImpactSummary?>(null) }")
         )
         assertTrue(
-            "ProgressScreen should keep transient MealImpactSummary in regular remember state.",
-            progress.contains("remember { mutableStateOf<MealImpactSummary?>(null) }")
+            "Progress screen should keep the current weekly dashboard sections in code.",
+            progress.contains("Weekly savings") &&
+                progress.contains("Average daily macros")
         )
     }
 
     @Test
-    fun mealPlanScreen_usesCompactTodayAndWeekendJumps() {
+    fun mealPlanScreen_usesFullWeekStripInsteadOfJumpChips() {
         val mealPlan = read(
             resolve(
                 "app", "src", "main", "java", "com", "pcosina", "app",
-                "ui", "screens", "MealPlanScreen.kt"
+                "ui", "screens", "MealPlanRefinedScreen.kt"
             )
         )
 
-        assertTrue("MealPlanScreen should use compact Today jump chip.", mealPlan.contains("label = { Text(\"Today\") }"))
-        assertTrue("MealPlanScreen should use compact Weekend jump chip.", mealPlan.contains("label = { Text(\"Weekend\") }"))
-        assertFalse("MealPlanScreen should not keep the long Jump to Today label.", mealPlan.contains("Text(\"Jump to Today ("))
-        assertFalse("MealPlanScreen should not keep the long Jump to Weekend label.", mealPlan.contains("Text(\"Jump to Weekend (Sat)\")"))
+        assertTrue("MealPlan screen should render the whole week strip directly.", mealPlan.contains("dates.forEachIndexed"))
+        assertTrue(
+            "MealPlan screen should mark selected and today within the strip using compact indicator bars.",
+            mealPlan.contains("isToday -> PcosinaSoftPink") &&
+                mealPlan.contains("selected -> PcosinaPink")
+        )
+        assertFalse("MealPlan screen should not keep legacy Jump to Today copy.", mealPlan.contains("Jump to Today"))
+    }
+
+    @Test
+    fun mealPlanScreen_avoidsConfusingTopStats_andRestoresMealCheckIns() {
+        val mealPlan = read(
+            resolve(
+                "app", "src", "main", "java", "com", "pcosina", "app",
+                "ui", "screens", "MealPlanRefinedScreen.kt"
+            )
+        )
+
+        assertFalse(
+            "MealPlan screen should not keep the old fit-confidence or estimated-cost chips at the top.",
+            mealPlan.contains("text = \"Fit \$it%\"") ||
+                mealPlan.contains("text = \"₱\$it est.\"")
+        )
+        assertTrue(
+            "MealPlan screen should bring the meal check-in dialog back into direct meal logging.",
+            mealPlan.contains("MealCheckInDialog(") &&
+                mealPlan.contains("saveMealCheckIn(")
+        )
+        assertTrue(
+            "MealPlan screen should steer users back to weekly progress before replacing an in-progress week.",
+            mealPlan.contains("Review this week in Progress before starting a new one.")
+        )
     }
 
     private fun resolve(vararg parts: String): Path {

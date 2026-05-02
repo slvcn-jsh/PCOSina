@@ -46,8 +46,9 @@ class GuidedJourneyRegressionPolicyTest {
             text.contains("Routes.UserProfile -> navigateInternal(Routes.UserProfileEdit)")
         )
         assertTrue(
-            "Guided route mapping should send Routes.UserProfile to the non-edit profile route.",
-            text.contains("Routes.UserProfile -> navigateInternal(Routes.UserProfile)")
+            "Guided route guardrail should send incomplete users to the non-edit profile route.",
+            text.contains("!inferredProfileCompleted && !Routes.isProfileRoute(route) && !Routes.isGoalRoute(route)") &&
+                text.contains("navigateInternal(Routes.UserProfile)")
         )
     }
 

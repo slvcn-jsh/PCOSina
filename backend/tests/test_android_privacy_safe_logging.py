@@ -14,8 +14,6 @@ def test_mobile_common_flow_logs_use_redacted_user_scope() -> None:
     assert "MessageDigest.getInstance(\"SHA-256\")" in helper
 
     tracked_files = {
-        "app/src/main/java/com/pcosina/app/ui/screens/MealPlanScreen.kt",
-        "app/src/main/java/com/pcosina/app/ui/screens/GroceryListScreen.kt",
         "app/src/main/java/com/pcosina/app/ui/ProgressViewModel.kt",
         "app/src/main/java/com/pcosina/app/data/repository/UserPreferencesRepository.kt",
         "app/src/main/java/com/pcosina/app/notifications/NotificationScheduler.kt",

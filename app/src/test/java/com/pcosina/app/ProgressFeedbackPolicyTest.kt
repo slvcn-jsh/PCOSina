@@ -9,7 +9,7 @@ import org.junit.Test
 class ProgressFeedbackPolicyTest {
 
     @Test
-    fun progressScreen_usesFeedbackKitForSaveAndQueueActions() {
+    fun progressScreen_usesInlineFeedbackStateForSaveAndReviewActions() {
         val source = read(
             resolve(
                 "app",
@@ -21,24 +21,24 @@ class ProgressFeedbackPolicyTest {
                 "app",
                 "ui",
                 "screens",
-                "ProgressScreen.kt"
+                "ProgressRefinedScreen.kt"
             )
         )
         assertTrue(
-            "Progress screen should render AppFeedbackBanner for save/log feedback visibility.",
-            source.contains("AppFeedbackBanner(")
+            "Progress screen should keep inline feedback message state in the refined shell.",
+            source.contains("var feedbackMessage by remember { mutableStateOf<String?>(null) }")
         )
         assertTrue(
-            "Progress screen should use LoadingActionButton for reflection saves.",
-            source.contains("idleLabel = \"Save Reflection\"")
+            "Progress screen should confirm saved daily check-ins.",
+            source.contains("Today's check-in was saved.")
         )
         assertTrue(
-            "Progress screen should use LoadingActionButton for weight saves.",
-            source.contains("idleLabel = \"Save Weight\"")
+            "Progress screen should validate weekly spend with inline feedback.",
+            source.contains("Weekly spend must be a whole number in pesos.")
         )
         assertTrue(
-            "Progress screen should use LoadingActionButton for queued feedback send.",
-            source.contains("idleLabel = \"Send (Queued if offline)\"")
+            "Progress screen should confirm weekly review updates.",
+            source.contains("Weekly review updated.")
         )
     }
 

@@ -213,27 +213,6 @@ fun AppNavHost(
             operatorAccessResolved.value = false
             operatorAccessWarning.value = null
         } else {
-            if (!pendingOperatorAccess.value && !adminMode) {
-                operatorAuthorized.value = false
-                operatorAccessResolved.value = true
-                operatorAccessWarning.value = null
-            } else {
-                operatorAccessResolved.value = false
-                val operatorAccessResult = runCatching {
-                    authRepository.getCurrentUserOperatorAccess(forceRefresh = true)
-                }
-                val operatorAccess = operatorAccessResult.getOrNull()
-                val operatorAccessGranted = operatorAccess?.allowed == true
-                operatorAuthorized.value = operatorAccessGranted
-                operatorAccessWarning.value = when {
-                    !pendingOperatorAccess.value -> null
-                    operatorAccessResult.isFailure ->
-                        "Couldn't verify operator access right now. Try signing in again when the connection is stable."
-                    operatorAccessGranted -> null
-                    else -> operatorAccess?.message ?: "This account can sign in, but it doesn't have operator access."
-                }
-                operatorAccessResolved.value = true
-            }
             session.currentUserEmail?.let { email ->
                 userPrefsRepository.migrateFromEmailIfNeeded(userId, email)
             }
@@ -248,6 +227,43 @@ fun AppNavHost(
             mealPlanViewModel.loadSavedPlan(userId)
             groceryViewModel.loadGroceryForUser(userId)
         }
+    }
+
+    LaunchedEffect(
+        session.currentUserUid,
+        session.currentUserEmail,
+        pendingOperatorAccess.value,
+        adminMode
+    ) {
+        val userId = session.currentUserUid
+        if (userId.isNullOrBlank()) {
+            operatorAuthorized.value = false
+            operatorAccessResolved.value = false
+            operatorAccessWarning.value = null
+            return@LaunchedEffect
+        }
+        if (!pendingOperatorAccess.value && !adminMode) {
+            operatorAuthorized.value = false
+            operatorAccessResolved.value = true
+            operatorAccessWarning.value = null
+            return@LaunchedEffect
+        }
+
+        operatorAccessResolved.value = false
+        val operatorAccessResult = runCatching {
+            authRepository.getCurrentUserOperatorAccess(forceRefresh = true)
+        }
+        val operatorAccess = operatorAccessResult.getOrNull()
+        val operatorAccessGranted = operatorAccess?.allowed == true
+        operatorAuthorized.value = operatorAccessGranted
+        operatorAccessWarning.value = when {
+            !pendingOperatorAccess.value -> null
+            operatorAccessResult.isFailure ->
+                "Couldn't verify operator access right now. Try signing in again when the connection is stable."
+            operatorAccessGranted -> null
+            else -> operatorAccess?.message ?: "This account can sign in, but it doesn't have operator access."
+        }
+        operatorAccessResolved.value = true
     }
 
     LaunchedEffect(session.currentUserUid, notificationPrefs) {

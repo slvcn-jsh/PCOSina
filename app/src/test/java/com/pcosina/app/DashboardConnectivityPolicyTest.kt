@@ -35,6 +35,10 @@ class DashboardConnectivityPolicyTest {
             connectivitySource.contains("registerDefaultNetworkCallback(callback)")
         )
         assertFalse(
+            "Shared connectivity utility should not require Android's validated-internet bit for local backend links.",
+            connectivitySource.contains("NET_CAPABILITY_VALIDATED")
+        )
+        assertFalse(
             "Dashboard must avoid one-shot connectivity snapshot for plan gating.",
             source.contains("remember(context) { isNetworkAvailable(context) }")
         )

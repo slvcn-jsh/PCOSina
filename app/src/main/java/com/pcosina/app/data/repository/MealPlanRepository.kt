@@ -34,15 +34,23 @@ import javax.net.ssl.SSLException
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.security.MessageDigest
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 class MealPlanRepository {
 
     data class GeneratePlanAttempt(
         val startDate: String,
         val token: String
+    )
+
+    private data class QueuedPlanStart(
+        val service: PcosinaApiService,
+        val jobId: String? = null,
+        val immediateResponse: PlannerPlanResponse? = null
     )
 
     private val apiService: PcosinaApiService
@@ -151,18 +159,26 @@ class MealPlanRepository {
                 startDate = attempt.startDate
             )
             val idempotencyKey = buildGeneratePlanIdempotencyKey(request, attempt.token)
-            val response = executeWithBackendFallback("plan generation") { apiService ->
+            val queuedPlanStart = executeWithBackendFallback("plan generation request") { apiService ->
                 try {
                     val queued = apiService.generatePlanAsync(request, idempotencyKey = idempotencyKey)
-                    awaitQueuedPlan(apiService, queued.jobId)
+                    QueuedPlanStart(service = apiService, jobId = queued.jobId)
                 } catch (e: Exception) {
                     if (shouldFallbackToSyncPlanner(e)) {
-                        apiService.generatePlan(request).toPlannerPlanResponse()
+                        QueuedPlanStart(
+                            service = apiService,
+                            immediateResponse = apiService.generatePlan(request).toPlannerPlanResponse()
+                        )
                     } else {
                         throw e
                     }
                 }
             }
+            val response = queuedPlanStart.immediateResponse
+                ?: awaitQueuedPlan(
+                    service = queuedPlanStart.service,
+                    jobId = requireNotNull(queuedPlanStart.jobId)
+                )
             Result.success(response)
         } catch (e: Exception) {
             Result.failure(mapGeneratePlanException(e))
@@ -479,6 +495,45 @@ class MealPlanRepository {
             }
     }
 
+    private fun awaitAuthToken(
+        user: FirebaseUser,
+        forceRefresh: Boolean,
+        timeoutMs: Long = 15_000L
+    ): String? {
+        cachedAuthToken?.takeIf { it.isNotBlank() }?.let { return it }
+
+        val latch = CountDownLatch(1)
+        val tokenRef = AtomicReference<String?>(null)
+        val errorRef = AtomicReference<Exception?>(null)
+
+        user.getIdToken(forceRefresh)
+            .addOnSuccessListener { result ->
+                val token = result.token?.takeIf { it.isNotBlank() }
+                cachedAuthToken = token
+                tokenRef.set(token)
+            }
+            .addOnFailureListener { error ->
+                android.util.Log.w("MealPlanRepository", "Auth token sync wait failed: ${error.message}")
+                errorRef.set(error)
+            }
+            .addOnCompleteListener {
+                latch.countDown()
+            }
+
+        val completed = latch.await(timeoutMs, TimeUnit.MILLISECONDS)
+        if (!completed) {
+            android.util.Log.w("MealPlanRepository", "Timed out waiting for Firebase auth token.")
+            return cachedAuthToken?.takeIf { it.isNotBlank() }
+        }
+
+        return tokenRef.get()
+            ?: cachedAuthToken?.takeIf { it.isNotBlank() }
+            ?: run {
+                errorRef.get()?.let { throw IOException("Couldn't verify your sign-in session right now.", it) }
+                null
+            }
+    }
+
     private fun refreshAppCheckTokenAsync(
         firebaseAppCheck: FirebaseAppCheck,
         forceRefresh: Boolean
@@ -567,14 +622,19 @@ class MealPlanRepository {
                     .addHeader("X-PCOSINA-Schema-Version", BuildConfig.SCHEMA_VERSION)
                 val currentUser = firebaseAuth.currentUser
                 if (currentUser != null) {
-                    val authToken = cachedAuthToken
+                    val authToken = cachedAuthToken?.takeIf { it.isNotBlank() }
+                        ?: if (requiresFirebaseAuth) {
+                            awaitAuthToken(currentUser, forceRefresh = false)
+                        } else {
+                            refreshAuthTokenAsync(currentUser, forceRefresh = false)
+                            null
+                        }
                     if (!authToken.isNullOrBlank()) {
                         requestBuilder.addHeader("Authorization", "Bearer $authToken")
                     } else {
-                        refreshAuthTokenAsync(currentUser, forceRefresh = false)
                         if (requiresFirebaseAuth) {
                             throw IOException(
-                                "Authentication is still syncing for this session. Please retry in a moment."
+                                "Couldn't verify your sign-in session right now. Please retry in a moment."
                             )
                         }
                     }

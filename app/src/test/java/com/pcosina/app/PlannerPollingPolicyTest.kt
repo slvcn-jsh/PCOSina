@@ -41,6 +41,13 @@ class PlannerPollingPolicyTest {
                 repo.contains("apiService.generatePlanAsync(request, idempotencyKey = idempotencyKey)")
         )
         assertTrue(
+            "Queue polling should stay pinned to the backend that accepted the async job.",
+            repo.contains("private data class QueuedPlanStart(") &&
+                repo.contains("QueuedPlanStart(service = apiService, jobId = queued.jobId)") &&
+                repo.contains("awaitQueuedPlan(") &&
+                repo.contains("service = queuedPlanStart.service")
+        )
+        assertTrue(
             "MealPlanViewModel should preserve the same attempt only while a request is still pending.",
             viewModelContainsPendingRequestState()
         )
@@ -78,6 +85,10 @@ class PlannerPollingPolicyTest {
         assertTrue(
             "Planner transport should avoid sleep-based HTTP retries in the OkHttp path.",
             !repo.contains("Thread.sleep(")
+        )
+        assertTrue(
+            "Authenticated planner requests should wait for a usable Firebase token before failing.",
+            repo.contains("awaitAuthToken(")
         )
     }
 

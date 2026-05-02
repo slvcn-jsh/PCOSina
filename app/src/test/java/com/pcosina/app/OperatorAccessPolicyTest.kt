@@ -23,6 +23,12 @@ class OperatorAccessPolicyTest {
         assertTrue("Authorized operator login should land on MoreTools.", text.contains("activateOperatorMode -> Routes.MoreTools"))
         assertTrue("Operator-only screens should be guarded for unauthorized accounts.", text.contains("Operator access is only available for authorized accounts."))
         assertTrue("Operator access should be checked through the repository endpoint flow.", text.contains("getCurrentUserOperatorAccess(forceRefresh = true)"))
+        assertTrue(
+            "Operator access resolution should rerun when pending operator mode is requested.",
+            text.contains("LaunchedEffect(") &&
+                text.contains("pendingOperatorAccess.value,") &&
+                text.contains("adminMode")
+        )
     }
 
     @Test

@@ -5,7 +5,6 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -36,7 +35,6 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -446,32 +444,7 @@ fun DashboardScreen(
     ) {
         item {
             Box {
-                Box(
-                    modifier = Modifier.pointerInput(Unit) {
-                        detectTapGestures(
-                            onLongPress = {
-                                val enabled = !adminMode
-                                userViewModel.toggleAdminMode()
-                                noteDashboardAction(
-                                    title = if (enabled) "Admin tools on" else "Admin tools off",
-                                    detail = if (enabled) {
-                                        "Extra system tools are now available in Settings."
-                                    } else {
-                                        "The app is back to the regular user view."
-                                    }
-                                )
-                                postDashboardFeedback(
-                                    tone = FeedbackBannerTone.Success,
-                                    message = if (enabled) {
-                                        "Admin mode enabled. Open Settings to access system tools."
-                                    } else {
-                                        "Admin mode disabled. System tools are now hidden."
-                                    }
-                                )
-                            }
-                        )
-                    }
-                ) {
+                Box {
                     GradientHeader(
                         title = "Today, ${profile.displayName.ifBlank { "there" }}",
                         subtitle = "Your week, shopping list, and progress in one place.",

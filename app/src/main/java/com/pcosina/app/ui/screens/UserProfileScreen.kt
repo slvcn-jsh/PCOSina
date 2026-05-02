@@ -34,6 +34,11 @@ import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.components.TokenizedFilterChip
 import com.pcosina.app.domain.UnitConverter
+import com.pcosina.app.ui.theme.PcosinaBlushBorder
+import com.pcosina.app.ui.theme.PcosinaBlushStrong
+import com.pcosina.app.ui.theme.PcosinaBlushSurface
+import com.pcosina.app.ui.theme.PcosinaDeepRose
+import com.pcosina.app.ui.theme.PcosinaSurface
 import com.pcosina.app.ui.theme.UiChipTokens
 import com.pcosina.app.ui.theme.UiMotionTokens
 import com.pcosina.app.ui.theme.UiSpacingTokens
@@ -338,7 +343,7 @@ fun UserProfileScreen(
                 title = if (isEditMode) "Profile & planning rules" else "Build your planning profile",
                 subtitle = "Step $currentStep of 3 • $currentStepLabel",
                 containerHeight = 104,
-                modifier = Modifier.background(colorScheme.background)
+                modifier = Modifier.background(PcosinaSurface)
             )
         },
         bottomBar = {
@@ -365,9 +370,14 @@ fun UserProfileScreen(
                 }
             )
         },
-        containerColor = colorScheme.background
+        containerColor = PcosinaSurface
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .background(PcosinaSurface),
+        ) {
             AnimatedContent(
                 targetState = currentStep,
                 transitionSpec = {
@@ -409,82 +419,86 @@ fun UserProfileScreen(
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            when (step) {
-                                1 -> StepOneIdentity(
-                                    name = displayName,
-                                    onName = { displayName = it },
-                                    age = age,
-                                    onAge = { age = it },
-                                    weight = weight,
-                                    onWeight = { weight = it },
-                                    weightUnit = weightUnit,
-                                    onWeightUnit = { weightUnit = it },
-                                    heightUnit = heightUnit,
-                                    onHeightUnit = { heightUnit = it },
-                                    heightCm = heightCmInput,
-                                    onHeightCm = { heightCmInput = it },
-                                    heightFt = heightFtInput,
-                                    onHeightFt = { heightFtInput = it },
-                                    heightIn = heightInInput,
-                                    onHeightIn = { heightInInput = it },
-                                    activity = activityLevel,
-                                    onActivity = { activityLevel = it },
-                                    color = colorScheme.primary,
-                                    showName = !isEditMode
-                                )
-                                2 -> StepTwoMedical(
-                                    insulin = insulinLevel,
-                                    onInsulin = { insulinLevel = it },
-                                    s1 = symptomIrregularPeriods,
-                                    onS1 = { symptomIrregularPeriods = it },
-                                    s2 = symptomWeightGain,
-                                    onS2 = { symptomWeightGain = it },
-                                    s3 = symptomAcne,
-                                    onS3 = { symptomAcne = it },
-                                    s4 = symptomHairLoss,
-                                    onS4 = { symptomHairLoss = it },
-                                    color = colorScheme.primary
-                                )
-                                3 -> StepThreeDiet(
-                                    r1 = lacto,
-                                    onR1 = { lacto = it },
-                                    r2 = vegetarian,
-                                    onR2 = { vegetarian = it },
-                                    r3 = pescatarian,
-                                    onR3 = { pescatarian = it },
-                                    r4 = noPork,
-                                    onR4 = { noPork = it },
-                                    r5 = noBeef,
-                                    onR5 = { noBeef = it },
-                                    budget = budget,
-                                    onBudget = { budget = sanitizeBudgetInput(it) },
-                                    householdSize = householdSize,
-                                    onHouseholdSize = { householdSize = it.coerceIn(1, 6) },
-                                    maxCookingTime = maxCookingTime,
-                                    onMaxCookingTime = { maxCookingTime = it },
-                                    varietyPreference = varietyPref,
-                                    onVarietyPreference = { varietyPref = it },
-                                    planningPriority = planningPriority,
-                                    onPlanningPriority = { planningPriority = it },
-                                    pantryText = pantryText,
-                                    onPantryText = { pantryText = it },
-                                    allergiesText = allergiesText,
-                                    onAllergiesText = { allergiesText = it },
-                                    color = colorScheme.primary
-                                )
-                            }
+                            ProfileSectionCard(
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                when (step) {
+                                    1 -> StepOneIdentity(
+                                        name = displayName,
+                                        onName = { displayName = it },
+                                        age = age,
+                                        onAge = { age = it },
+                                        weight = weight,
+                                        onWeight = { weight = it },
+                                        weightUnit = weightUnit,
+                                        onWeightUnit = { weightUnit = it },
+                                        heightUnit = heightUnit,
+                                        onHeightUnit = { heightUnit = it },
+                                        heightCm = heightCmInput,
+                                        onHeightCm = { heightCmInput = it },
+                                        heightFt = heightFtInput,
+                                        onHeightFt = { heightFtInput = it },
+                                        heightIn = heightInInput,
+                                        onHeightIn = { heightInInput = it },
+                                        activity = activityLevel,
+                                        onActivity = { activityLevel = it },
+                                        color = colorScheme.primary,
+                                        showName = !isEditMode
+                                    )
+                                    2 -> StepTwoMedical(
+                                        insulin = insulinLevel,
+                                        onInsulin = { insulinLevel = it },
+                                        s1 = symptomIrregularPeriods,
+                                        onS1 = { symptomIrregularPeriods = it },
+                                        s2 = symptomWeightGain,
+                                        onS2 = { symptomWeightGain = it },
+                                        s3 = symptomAcne,
+                                        onS3 = { symptomAcne = it },
+                                        s4 = symptomHairLoss,
+                                        onS4 = { symptomHairLoss = it },
+                                        color = colorScheme.primary
+                                    )
+                                    3 -> StepThreeDiet(
+                                        r1 = lacto,
+                                        onR1 = { lacto = it },
+                                        r2 = vegetarian,
+                                        onR2 = { vegetarian = it },
+                                        r3 = pescatarian,
+                                        onR3 = { pescatarian = it },
+                                        r4 = noPork,
+                                        onR4 = { noPork = it },
+                                        r5 = noBeef,
+                                        onR5 = { noBeef = it },
+                                        budget = budget,
+                                        onBudget = { budget = sanitizeBudgetInput(it) },
+                                        householdSize = householdSize,
+                                        onHouseholdSize = { householdSize = it.coerceIn(1, 6) },
+                                        maxCookingTime = maxCookingTime,
+                                        onMaxCookingTime = { maxCookingTime = it },
+                                        varietyPreference = varietyPref,
+                                        onVarietyPreference = { varietyPref = it },
+                                        planningPriority = planningPriority,
+                                        onPlanningPriority = { planningPriority = it },
+                                        pantryText = pantryText,
+                                        onPantryText = { pantryText = it },
+                                        allergiesText = allergiesText,
+                                        onAllergiesText = { allergiesText = it },
+                                        color = colorScheme.primary
+                                    )
+                                }
 
-                            if (!canProceed) {
-                                Text(
-                                    text = when (currentStep) {
-                                        1 -> stepOneBlockerMessage
-                                        2 -> stepTwoBlockerMessage
-                                        3 -> stepThreeBlockerMessage
-                                        else -> ""
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error
-                                )
+                                if (!canProceed) {
+                                    Text(
+                                        text = when (currentStep) {
+                                            1 -> stepOneBlockerMessage
+                                            2 -> stepTwoBlockerMessage
+                                            3 -> stepThreeBlockerMessage
+                                            else -> ""
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
                             }
                         }
                     }
@@ -507,14 +521,21 @@ private fun ProfileStepOverviewCard(
     Card(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = PcosinaBlushSurface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f))
+        border = BorderStroke(1.dp, PcosinaBlushBorder)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            Box(
+                modifier = Modifier
+                    .width(92.dp)
+                    .height(8.dp)
+                    .clip(CircleShape)
+                    .background(PcosinaBlushStrong.copy(alpha = 0.78f))
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -528,12 +549,13 @@ private fun ProfileStepOverviewCard(
                     )
                     Text(
                         text = currentStepLabel,
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = PcosinaDeepRose
                     )
                 }
                 Surface(
                     shape = RoundedCornerShape(999.dp),
-                    color = if (isReady) colorScheme.primary.copy(alpha = 0.10f) else colorScheme.surfaceVariant,
+                    color = if (isReady) colorScheme.primary.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.94f),
                     contentColor = if (isReady) colorScheme.primary else colorScheme.onSurfaceVariant
                 ) {
                     Text(
@@ -559,6 +581,26 @@ private fun ProfileStepOverviewCard(
                 overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+@Composable
+private fun ProfileSectionCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, PcosinaBlushBorder),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = content,
+        )
     }
 }
 
@@ -633,12 +675,12 @@ fun BottomActionRow(
     Surface(
         tonalElevation = 0.dp,
         shadowElevation = 10.dp,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
         border = BorderStroke(
             width = 1.dp,
-            color = colorScheme.outlineVariant.copy(alpha = 0.65f)
+            color = PcosinaBlushBorder
         ),
-        color = colorScheme.surface
+        color = Color.White
     ) {
         Column(
             modifier = Modifier
@@ -664,7 +706,7 @@ fun BottomActionRow(
                 }
                 Surface(
                     shape = RoundedCornerShape(999.dp),
-                    color = colorScheme.surfaceVariant.copy(alpha = 0.70f),
+                    color = PcosinaBlushSurface,
                     contentColor = colorScheme.onSurfaceVariant
                 ) {
                     Text(
@@ -1284,7 +1326,27 @@ fun StepThreeDiet(
 
 @Composable
 fun SectionTitle(text: String) {
-    Text(text = text, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp), color = MaterialTheme.colorScheme.secondary)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Surface(
+            shape = RoundedCornerShape(999.dp),
+            color = PcosinaBlushSurface,
+            contentColor = PcosinaDeepRose,
+        ) {
+            Text(
+                text = "Section focus",
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            )
+        }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.5).sp,
+            ),
+            color = PcosinaDeepRose,
+        )
+    }
 }
 
 @Composable

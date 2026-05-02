@@ -80,8 +80,8 @@ import com.pcosina.app.ui.util.rememberIsOnline
 import com.pcosina.app.ui.util.resolveGuidedJourneyStep
 import com.pcosina.app.ui.util.supportsLowGiGuidance
 import com.google.firebase.analytics.FirebaseAnalytics
-import com.pcosina.app.data.api.RecipeSummaryDto
 import com.pcosina.app.data.model.GroceryItemSource
+import com.pcosina.app.data.model.PlannerRecipeSummary
 import kotlinx.coroutines.launch
 import java.util.Locale
 import java.time.LocalDate
@@ -177,7 +177,7 @@ fun MealPlanScreen(
     onNavigateToRoute: (String) -> Unit = {},
     nextActionAnalytics: MealPlanNextActionAnalytics? = null,
     onlineStateOverride: Boolean? = null,
-    swapOptionsLoader: (suspend (mealLabel: String, limit: Int) -> Result<List<RecipeSummaryDto>>)? = null,
+    swapOptionsLoader: (suspend (mealLabel: String, limit: Int) -> Result<List<PlannerRecipeSummary>>)? = null,
     swapGrocerySourceLoader: (suspend (recipeId: String) -> Result<List<GroceryItemSource>>)? = null,
     swapApplyOverride: (suspend (dayIndex: Int, mealIndex: Int, recipeId: String, title: String) -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -239,7 +239,7 @@ fun MealPlanScreen(
     var feedbackBanner by remember { mutableStateOf<MealPlanBannerState?>(null) }
     var stickyTapState by remember { mutableStateOf(FeedbackActionState.Idle) }
     var swapTarget by remember { mutableStateOf<SwapTarget?>(null) }
-    var swapOptions by remember { mutableStateOf<List<RecipeSummaryDto>>(emptyList()) }
+    var swapOptions by remember { mutableStateOf<List<PlannerRecipeSummary>>(emptyList()) }
     var swapQuery by remember { mutableStateOf("") }
     var swapLoading by remember { mutableStateOf(false) }
     var swapApplying by remember { mutableStateOf(false) }
@@ -1677,14 +1677,20 @@ fun MealPlanScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            IconButton(
+                            FilledTonalIconButton(
                                 onClick = {
                                     if (selectedDayIndex > 0) {
                                         selectedDayIndex--
                                         Log.i("MealPlanUX", "Day navigation previous tapped index=$selectedDayIndex")
                                     }
                                 },
-                                enabled = selectedDayIndex > 0
+                                enabled = selectedDayIndex > 0,
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = colorScheme.surface,
+                                    contentColor = colorScheme.primary,
+                                    disabledContainerColor = colorScheme.surfaceVariant.copy(alpha = 0.82f),
+                                    disabledContentColor = colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+                                )
                             ) {
                                 Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous day")
                             }
@@ -1715,14 +1721,20 @@ fun MealPlanScreen(
                                     }
                                 }
                             }
-                            IconButton(
+                            FilledTonalIconButton(
                                 onClick = {
                                     if (selectedDayIndex < dayCount - 1) {
                                         selectedDayIndex++
                                         Log.i("MealPlanUX", "Day navigation next tapped index=$selectedDayIndex")
                                     }
                                 },
-                                enabled = selectedDayIndex < dayCount - 1
+                                enabled = selectedDayIndex < dayCount - 1,
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = colorScheme.surface,
+                                    contentColor = colorScheme.primary,
+                                    disabledContainerColor = colorScheme.surfaceVariant.copy(alpha = 0.82f),
+                                    disabledContentColor = colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+                                )
                             ) {
                                 Icon(Icons.Filled.ChevronRight, contentDescription = "Next day")
                             }
@@ -1736,19 +1748,16 @@ fun MealPlanScreen(
                             dayLabels.forEachIndexed { index, label ->
                                 val selected = index == selectedDayIndex
                                 val isToday = label.equals(todayLabel, true)
-                                TokenizedFilterChip(
+                                MealPlanDayChip(
+                                    label = label,
+                                    date = weekStartDate.plusDays(index.toLong()),
+                                    isToday = isToday,
                                     selected = selected,
                                     onClick = {
                                         selectedDayIndex = index
                                         Log.i("MealPlanUX", "Day chip selected index=$index day=$label")
                                     },
-                                    text = if (isToday) "$label • Today" else label,
-                                    labelMaxWidth = dayChipLabelWidth,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = colorScheme.primary,
-                                        selectedLabelColor = colorScheme.onPrimary,
-                                        labelColor = colorScheme.onSurfaceVariant
-                                    )
+                                    modifier = Modifier.widthIn(min = dayChipLabelWidth)
                                 )
                             }
                         }
@@ -2672,6 +2681,80 @@ private fun MealPlanTodayHero(
                 colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
             ) {
                 Text(ctaLabel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MealPlanDayChip(
+    label: String,
+    date: LocalDate,
+    isToday: Boolean,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(22.dp),
+        color = if (selected) colorScheme.primary else colorScheme.surface,
+        contentColor = if (selected) colorScheme.onPrimary else colorScheme.onSurface,
+        border = BorderStroke(
+            1.dp,
+            if (selected) {
+                colorScheme.primary.copy(alpha = 0.22f)
+            } else {
+                colorScheme.outlineVariant.copy(alpha = 0.70f)
+            }
+        ),
+        shadowElevation = if (selected) 4.dp else 0.dp,
+        tonalElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = if (selected) {
+                    colorScheme.onPrimary.copy(alpha = 0.16f)
+                } else {
+                    colorScheme.primary.copy(alpha = 0.10f)
+                },
+                contentColor = if (selected) colorScheme.onPrimary else colorScheme.primary
+            ) {
+                Text(
+                    text = date.format(DateTimeFormatter.ofPattern("d", Locale.ENGLISH)),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = if (selected) colorScheme.onPrimary else colorScheme.onSurface
+                )
+                Text(
+                    text = if (isToday) {
+                        "Today"
+                    } else {
+                        date.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH))
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (selected) {
+                        colorScheme.onPrimary.copy(alpha = 0.84f)
+                    } else {
+                        colorScheme.onSurfaceVariant
+                    }
+                )
             }
         }
     }

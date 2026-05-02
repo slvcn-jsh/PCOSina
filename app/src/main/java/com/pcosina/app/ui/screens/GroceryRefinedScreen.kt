@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -52,6 +53,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -86,6 +89,12 @@ import com.pcosina.app.ui.theme.PcosinaSurfaceAlt
 import com.pcosina.app.ui.util.rememberIsOnline
 import java.util.Locale
 
+private enum class GroceryFilterScope {
+    AllItems,
+    NeedToBuy,
+    BoughtOrPantry,
+}
+
 @Composable
 fun GroceryRefinedScreen(
     groceryViewModel: GroceryViewModel,
@@ -104,14 +113,25 @@ fun GroceryRefinedScreen(
     val activePlanId by groceryViewModel.activePlanId.collectAsState()
     val userProfile by userViewModel.userProfile.collectAsState()
     val pantryEntries by userViewModel.pantryEntries.collectAsState()
+    val effectivePantryEntries = remember(pantryEntries, userProfile.pantryItems) {
+        if (pantryEntries.isNotEmpty()) {
+            pantryEntries
+        } else {
+            userProfile.pantryItems
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .map { PantryEntry(name = it) }
+        }
+    }
     val planHistory by mealPlanViewModel.planHistory.collectAsState()
     val planState by mealPlanViewModel.uiState.collectAsState()
     val householdSize = userProfile.householdSize.coerceIn(1, 6)
     val groupedEntries = remember(groceryItems, householdSize) {
         buildGroceryListEntries(groceryItems, householdSize)
     }
-    val pantryTokens = remember(pantryEntries) {
-        pantryEntries.map { refinedPantryKey(it.name) }.filter { it.isNotBlank() }.toSet()
+    val pantryTokens = remember(effectivePantryEntries) {
+        effectivePantryEntries.map { refinedPantryKey(it.name) }.filter { it.isNotBlank() }.toSet()
     }
     val pantryMatches = remember(groupedEntries, pantryTokens) {
         groupedEntries.filter { item ->
@@ -122,11 +142,15 @@ fun GroceryRefinedScreen(
     var pantryOptOut by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedCategoryIndex by rememberSaveable(activePlanId) { mutableStateOf(0) }
+    var expandedCategories by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
     var showPantryDialog by remember { mutableStateOf(false) }
     var showAddPantryDialog by remember { mutableStateOf(false) }
+    var showFilterDialog by remember { mutableStateOf(false) }
     var pantryName by rememberSaveable { mutableStateOf("") }
     var pantryQty by rememberSaveable { mutableStateOf("") }
+    var groceryFilterScope by rememberSaveable { mutableStateOf(GroceryFilterScope.AllItems.name) }
+    var selectedFilterCategories by rememberSaveable { mutableStateOf(setOf<String>()) }
 
     val effectiveChecked = remember(checkedNames, pantryMatches, pantryOptOut) {
         checkedNames + pantryMatches.filter { it !in pantryOptOut }
@@ -141,10 +165,6 @@ fun GroceryRefinedScreen(
         }
     }
 
-    val searchFiltered = remember(groupedEntries, searchQuery) {
-        if (searchQuery.isBlank()) groupedEntries
-        else groupedEntries.filter { it.name.contains(searchQuery, ignoreCase = true) }
-    }
     val categoryOrder = listOf(
         "Produce",
         "Meat/Seafood",
@@ -155,8 +175,32 @@ fun GroceryRefinedScreen(
         "Beverages",
         "Others"
     )
-    val categoryEntries = remember(searchFiltered) {
-        val grouped = searchFiltered.groupBy { it.category }
+    val activeFilterScope = remember(groceryFilterScope) {
+        runCatching { GroceryFilterScope.valueOf(groceryFilterScope) }.getOrDefault(GroceryFilterScope.AllItems)
+    }
+    val filteredEntries = remember(
+        groupedEntries,
+        searchQuery,
+        activeFilterScope,
+        selectedFilterCategories,
+        pantryMatches,
+        pantryOptOut,
+        checkedNames
+    ) {
+        groupedEntries.filter { item ->
+            val matchesSearch = searchQuery.isBlank() || item.name.contains(searchQuery, ignoreCase = true)
+            val matchesCategory = selectedFilterCategories.isEmpty() || item.category in selectedFilterCategories
+            val isCovered = item.name in checkedNames || (item.name in pantryMatches && item.name !in pantryOptOut)
+            val matchesScope = when (activeFilterScope) {
+                GroceryFilterScope.AllItems -> true
+                GroceryFilterScope.NeedToBuy -> !isCovered
+                GroceryFilterScope.BoughtOrPantry -> isCovered
+            }
+            matchesSearch && matchesCategory && matchesScope
+        }
+    }
+    val categoryEntries = remember(filteredEntries) {
+        val grouped = filteredEntries.groupBy { it.category }
         categoryOrder.mapNotNull { category ->
             grouped[category]?.takeIf { it.isNotEmpty() }?.let { category to it }
         } + grouped.filterKeys { key -> key !in categoryOrder }.toList().sortedBy { it.first }
@@ -169,7 +213,6 @@ fun GroceryRefinedScreen(
     val selectedCategoryPair = categoryEntries.getOrNull(selectedCategoryIndex)
     val selectedCategory = selectedCategoryPair?.first
     val visibleItems = selectedCategoryPair?.second.orEmpty()
-    val previewItems = visibleItems.take(2)
     val totalCount = groupedEntries.size
     val coveredCount = groupedEntries.count { it.name in effectiveChecked }
     val remainingCount = (totalCount - coveredCount).coerceAtLeast(0)
@@ -192,38 +235,81 @@ fun GroceryRefinedScreen(
         AlertDialog(
             onDismissRequest = { showPantryDialog = false },
             confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPantryDialog = false
+                        showAddPantryDialog = true
+                    }
+                ) {
+                    Text(if (effectivePantryEntries.isEmpty()) "Add item" else "Add pantry item")
+                }
+            },
+            dismissButton = {
                 TextButton(onClick = { showPantryDialog = false }) { Text("Close") }
             },
-            title = { Text("Saved pantry items") },
+            title = {
+                Text(
+                    text = "Manage Pantry",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
+                )
+            },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (pantryEntries.isEmpty()) {
-                        Text("No pantry items saved yet.")
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Save what you already have so Grocery can mark pantry-covered ingredients clearly.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PcosinaMuted
+                    )
+                    if (effectivePantryEntries.isEmpty()) {
+                        Text(
+                            text = "No pantry items saved yet. Add staples you already have so the list stays realistic.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = PcosinaDeepRose
+                        )
                     } else {
-                        pantryEntries.take(6).forEach { entry ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                        effectivePantryEntries.forEach { entry ->
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = Color(0xFFFFF3F6),
+                                border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.16f))
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = entry.name,
-                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                                    )
-                                    if (!entry.quantity.isNullOrBlank()) {
-                                        Text(entry.quantity.orEmpty(), style = MaterialTheme.typography.bodySmall, color = PcosinaMuted)
-                                    }
-                                }
-                                TextButton(
-                                    onClick = {
-                                        userViewModel.updatePantryEntries(
-                                            pantryEntries.filterNot { refinedPantryKey(it.name) == refinedPantryKey(entry.name) }
-                                        )
-                                        feedbackMessage = "${entry.name} removed from pantry."
-                                    }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Remove")
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = entry.name,
+                                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = PcosinaDeepRose
+                                        )
+                                        Text(
+                                            text = entry.quantity.orEmpty().ifBlank { "Saved pantry staple" },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = PcosinaMuted
+                                        )
+                                    }
+                                    TextButton(
+                                        modifier = Modifier
+                                            .heightIn(min = 48.dp)
+                                            .semantics { contentDescription = "Remove pantry item" },
+                                        onClick = {
+                                            userViewModel.updatePantryEntries(
+                                                effectivePantryEntries.filterNot {
+                                                    refinedPantryKey(it.name) == refinedPantryKey(entry.name)
+                                                }
+                                            )
+                                            feedbackMessage = "${entry.name} removed from pantry."
+                                        }
+                                    ) {
+                                        Text("Remove")
+                                    }
                                 }
                             }
                         }
@@ -242,7 +328,7 @@ fun GroceryRefinedScreen(
                         val trimmed = pantryName.trim()
                         if (trimmed.isNotBlank()) {
                             userViewModel.updatePantryEntries(
-                                pantryEntries + PantryEntry(
+                                effectivePantryEntries + PantryEntry(
                                     name = trimmed,
                                     quantity = pantryQty.trim().takeIf { it.isNotBlank() }
                                 )
@@ -258,23 +344,122 @@ fun GroceryRefinedScreen(
             dismissButton = {
                 TextButton(onClick = { showAddPantryDialog = false }) { Text("Cancel") }
             },
-            title = { Text("Add pantry item") },
+            title = {
+                Text(
+                    text = "Manage Pantry",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
+                )
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color(0xFFFF8FA5),
+                        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.18f))
+                    ) {
+                        Text(
+                            text = "Save what you already have",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 12.dp),
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White
+                        )
+                    }
                     OutlinedTextField(
                         value = pantryName,
                         onValueChange = { pantryName = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Ingredient") },
+                        label = { Text("Pantry item") },
+                        placeholder = { Text("Pantry item") },
                         singleLine = true
                     )
-                    OutlinedTextField(
-                        value = pantryQty,
-                        onValueChange = { pantryQty = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Quantity (optional)") },
-                        singleLine = true
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(
+                            value = pantryQty,
+                            onValueChange = { pantryQty = it },
+                            modifier = Modifier.weight(1f),
+                            label = { Text("Qty") },
+                            placeholder = { Text("Qty") },
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = "",
+                            onValueChange = {},
+                            modifier = Modifier.weight(1f),
+                            label = { Text("Expiry Date") },
+                            placeholder = { Text("YYYY-MM-DD") },
+                            enabled = false,
+                            singleLine = true
+                        )
+                    }
+                    Text(
+                        text = "Quantity is optional. Expiry stays visual only for now until pantry tracking expands.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PcosinaMuted
                     )
+                }
+            }
+        )
+    }
+
+    if (showFilterDialog) {
+        AlertDialog(
+            onDismissRequest = { showFilterDialog = false },
+            confirmButton = {
+                TextButton(onClick = { showFilterDialog = false }) { Text("Done") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        groceryFilterScope = GroceryFilterScope.AllItems.name
+                        selectedFilterCategories = emptySet()
+                    }
+                ) {
+                    Text("Clear all")
+                }
+            },
+            title = {
+                Text(
+                    text = "Select Filters",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    GroceryFilterSectionTitle("All Items")
+                    GroceryFilterChoiceRow(
+                        title = "All items",
+                        selected = activeFilterScope == GroceryFilterScope.AllItems,
+                        onClick = { groceryFilterScope = GroceryFilterScope.AllItems.name }
+                    )
+                    GroceryFilterChoiceRow(
+                        title = "Need to buy",
+                        selected = activeFilterScope == GroceryFilterScope.NeedToBuy,
+                        onClick = { groceryFilterScope = GroceryFilterScope.NeedToBuy.name }
+                    )
+                    GroceryFilterChoiceRow(
+                        title = "Bought/Pantry",
+                        selected = activeFilterScope == GroceryFilterScope.BoughtOrPantry,
+                        onClick = { groceryFilterScope = GroceryFilterScope.BoughtOrPantry.name }
+                    )
+                    GroceryFilterSectionTitle("Categories")
+                    categoryOrder.forEach { category ->
+                        GroceryFilterChoiceRow(
+                            title = category,
+                            selected = selectedFilterCategories.isEmpty() || category in selectedFilterCategories,
+                            onClick = {
+                                selectedFilterCategories = when {
+                                    selectedFilterCategories.isEmpty() -> setOf(category)
+                                    category in selectedFilterCategories -> {
+                                        val updated = selectedFilterCategories - category
+                                        if (updated.isEmpty()) emptySet() else updated
+                                    }
+                                    else -> selectedFilterCategories + category
+                                }
+                            }
+                        )
+                    }
                 }
             }
         )
@@ -294,8 +479,8 @@ fun GroceryRefinedScreen(
                 .fillMaxSize()
                 .verticalScroll(scrollState)
                 .navigationBarsPadding()
-                .padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 10.dp else 14.dp),
-            verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 14.dp)
+                .padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 8.dp else 12.dp),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp)
         ) {
             RefinedTabBrandHeader(
                 online = isOnline,
@@ -325,7 +510,6 @@ fun GroceryRefinedScreen(
                 totalEstimated = totalEstimated,
                 remainingBudget = remainingBudget,
                 budgetProgress = budgetProgress,
-                onOpenProgress = { onNavigateToRoute(Routes.Progress) },
                 compact = compact
             )
 
@@ -346,6 +530,7 @@ fun GroceryRefinedScreen(
                         type = "text/plain"
                         putExtra(Intent.EXTRA_TEXT, body)
                     }
+                    feedbackMessage = "Share options opened for your grocery list."
                     context.startActivity(Intent.createChooser(intent, "Share grocery list"))
                 },
                 onOpenPantry = { showPantryDialog = true },
@@ -355,6 +540,8 @@ fun GroceryRefinedScreen(
             GroceryKitchenHubHeader(
                 searchQuery = searchQuery,
                 onSearchChange = { searchQuery = it },
+                onOpenFilters = { showFilterDialog = true },
+                filtersActive = activeFilterScope != GroceryFilterScope.AllItems || selectedFilterCategories.isNotEmpty(),
                 tipLine = tipLine,
                 compact = compact
             )
@@ -363,18 +550,27 @@ fun GroceryRefinedScreen(
                 modifier = Modifier.fillMaxWidth(),
                 hasPlan = hasPlan,
                 groupedEntriesEmpty = groupedEntries.isEmpty(),
-                searchFilteredEmpty = searchFiltered.isEmpty(),
+                searchFilteredEmpty = filteredEntries.isEmpty(),
                 searchQuery = searchQuery,
                 selectedCategory = selectedCategory,
                 visibleItems = visibleItems,
-                previewItems = previewItems,
                 pantryMatches = pantryMatches,
                 pantryOptOut = pantryOptOut,
                 checkedNames = checkedNames,
                 selectedCategoryIndex = selectedCategoryIndex,
                 categoryEntries = categoryEntries,
+                expanded = selectedCategory != null && selectedCategory in expandedCategories,
                 onPreviousCategory = { if (selectedCategoryIndex > 0) selectedCategoryIndex-- },
                 onNextCategory = { if (selectedCategoryIndex < categoryEntries.lastIndex) selectedCategoryIndex++ },
+                onToggleExpanded = {
+                    selectedCategory?.let { key ->
+                        expandedCategories = if (key in expandedCategories) {
+                            expandedCategories - key
+                        } else {
+                            expandedCategories + key
+                        }
+                    }
+                },
                 onToggleItem = { item ->
                     if (item.name in pantryMatches) {
                         pantryOptOut = if (item.name in pantryOptOut) pantryOptOut - item.name else pantryOptOut + item.name
@@ -391,15 +587,7 @@ fun GroceryRefinedScreen(
                 compact = compact
             )
 
-            GroceryTipsCard(
-                householdSize = householdSize,
-                goal = userProfile.goal,
-                compact = compact
-            )
-
             GroceryBottomCtaCard(
-                pantryEntriesEmpty = pantryEntries.isEmpty(),
-                onGoToPlan = { onNavigateToRoute(Routes.MealPlan) },
                 onAddPantry = { showAddPantryDialog = true },
                 compact = compact
             )
@@ -416,7 +604,7 @@ private fun GroceryPreviewRow(
 ) {
     Surface(
         color = if (checked || pantryCovered) Color(0xFFFFF1F4) else Color.White,
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.dp, if (checked || pantryCovered) PcosinaPink.copy(alpha = 0.18f) else PcosinaMuted.copy(alpha = 0.24f)),
         modifier = Modifier
             .fillMaxWidth()
@@ -425,8 +613,8 @@ private fun GroceryPreviewRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
@@ -447,7 +635,7 @@ private fun GroceryPreviewRow(
             ) {
                 Text(
                     text = item.name,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
                     color = PcosinaDeepRose,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -455,14 +643,14 @@ private fun GroceryPreviewRow(
                 )
                 Text(
                     text = item.quantityDisplay,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = PcosinaMuted
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "₱${item.estimatedCostPhp}",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = PcosinaDeepRose
                 )
                 RefinedStatusPill(
@@ -501,9 +689,9 @@ private fun GroceryHeadlineCard(
     compact: Boolean,
 ) {
     Surface(
-        shape = RoundedCornerShape(if (compact) 24.dp else 28.dp),
+        shape = RoundedCornerShape(if (compact) 22.dp else 24.dp),
         color = Color.Transparent,
-        border = BorderStroke(2.dp, PcosinaDeepRose.copy(alpha = 0.8f))
+        border = BorderStroke(1.5.dp, PcosinaDeepRose.copy(alpha = 0.78f))
     ) {
         Row(
             modifier = Modifier
@@ -513,65 +701,55 @@ private fun GroceryHeadlineCard(
                         listOf(PcosinaBlush, Color(0xFFFF8FA5))
                     )
                 )
-                .padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 12.dp else 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                .padding(horizontal = if (compact) 12.dp else 14.dp, vertical = if (compact) 12.dp else 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(18.dp),
                 color = Color.White.copy(alpha = 0.24f),
                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.32f))
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.pcosina_logo),
                         contentDescription = null,
-                        modifier = Modifier.size(if (compact) 38.dp else 44.dp),
+                        modifier = Modifier.size(if (compact) 30.dp else 34.dp),
                         contentScale = ContentScale.Crop
                     )
                     Icon(
                         imageVector = Icons.Filled.ShoppingCart,
                         contentDescription = null,
                         tint = PcosinaDeepRose,
-                        modifier = Modifier.size(if (compact) 22.dp else 24.dp)
+                        modifier = Modifier.size(if (compact) 18.dp else 20.dp)
                     )
                 }
             }
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
                     text = "Grocery Pantry",
                     style = if (compact) {
-                        MaterialTheme.typography.headlineSmall.copy(
+                        MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = PcosinaDeepRose
                         )
                     } else {
-                        MaterialTheme.typography.headlineMedium.copy(
+                        MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = PcosinaDeepRose
                         )
                     }
                 )
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = PcosinaDeepRose.copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(999.dp)
-                ) {
-                    Text(
-                        text = " ",
-                        modifier = Modifier.padding(vertical = 1.dp)
-                    )
-                }
                 Text(
                     text = "All your essentials, budgeted and in one place.",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
+                    style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
                     color = PcosinaDeepRose
                 )
             }
@@ -585,7 +763,6 @@ private fun GroceryBudgetCard(
     totalEstimated: Int,
     remainingBudget: Int?,
     budgetProgress: Float,
-    onOpenProgress: () -> Unit,
     compact: Boolean,
 ) {
     val withinBudget = remainingBudget == null || remainingBudget >= 0
@@ -598,7 +775,7 @@ private fun GroceryBudgetCard(
 
     RefinedOverviewCard(
         borderColor = PcosinaDeepRose.copy(alpha = 0.14f),
-        contentPadding = PaddingValues(if (compact) 14.dp else 18.dp)
+        contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
     ) {
         RefinedStatusPill(
             text = budgetLabel,
@@ -606,19 +783,19 @@ private fun GroceryBudgetCard(
             contentColor = budgetColor
         )
         Row(
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                shape = RoundedCornerShape(22.dp),
+                shape = RoundedCornerShape(18.dp),
                 color = Color(0xFFFFF4E8),
                 border = BorderStroke(1.dp, Color(0xFFCCB38A).copy(alpha = 0.4f))
             ) {
                 Text(
                     text = "₱",
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                     style = if (compact) {
-                        MaterialTheme.typography.headlineMedium.copy(
+                        MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = PcosinaDeepRose
                         )
@@ -632,10 +809,10 @@ private fun GroceryBudgetCard(
             }
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = "Total Estimated Spending",
+                    text = "Estimated this week",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = PcosinaMuted
                 )
@@ -668,22 +845,9 @@ private fun GroceryBudgetCard(
             )
         } else {
             Text(
-                text = "Set a weekly grocery budget in Progress to compare plan costs against your target.",
+                text = "Set a weekly grocery budget in your profile to compare plan costs against your target.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = PcosinaMuted
-            )
-        }
-        Surface(
-            shape = RoundedCornerShape(999.dp),
-            color = Color(0xFFFFF3F6),
-            border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.16f)),
-            modifier = Modifier.clickable(onClick = onOpenProgress)
-        ) {
-            Text(
-                text = "Open Progress to update weekly budget",
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = PcosinaDeepRose
             )
         }
     }
@@ -701,18 +865,18 @@ private fun GroceryProgressCard(
 ) {
     RefinedOverviewCard(
         borderColor = PcosinaDeepRose.copy(alpha = 0.14f),
-        contentPadding = PaddingValues(if (compact) 14.dp else 18.dp)
+        contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
     ) {
         Text(
             text = "Grocery Progress",
-            style = MaterialTheme.typography.headlineSmall.copy(
+            style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.ExtraBold,
                 color = PcosinaDeepRose
             )
         )
         Text(
             text = "Built for ${householdSizeLabel(householdSize)} and synced with your saved pantry.",
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
             color = PcosinaMuted
         )
         if (compact) {
@@ -790,7 +954,7 @@ private fun GroceryActionTile(
     compact: Boolean,
 ) {
     Surface(
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(18.dp),
         color = Color(0xFFFFEDF1),
         border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.14f)),
         modifier = modifier.clickable(onClick = onClick)
@@ -798,19 +962,27 @@ private fun GroceryActionTile(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = if (compact) 14.dp else 16.dp),
+                .padding(horizontal = 12.dp, vertical = if (compact) 12.dp else 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = PcosinaPink,
-                modifier = Modifier.size(if (compact) 22.dp else 26.dp)
-            )
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = Color.White.copy(alpha = 0.78f),
+                border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.16f))
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = PcosinaPink,
+                    modifier = Modifier
+                        .padding(10.dp)
+                        .size(if (compact) 18.dp else 20.dp)
+                )
+            }
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                 color = PcosinaDeepRose,
                 textAlign = TextAlign.Center
             )
@@ -822,31 +994,33 @@ private fun GroceryActionTile(
 private fun GroceryKitchenHubHeader(
     searchQuery: String,
     onSearchChange: (String) -> Unit,
+    onOpenFilters: () -> Unit,
+    filtersActive: Boolean,
     tipLine: String,
     compact: Boolean,
 ) {
     Column(
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "🍽️",
-                style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium
+                style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall
             )
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = "Your Kitchen Hub",
-                    style = MaterialTheme.typography.headlineSmall.copy(
+                    style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = PcosinaDeepRose
                     )
                 )
                 Text(
                     text = tipLine,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
+                    style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
                     color = PcosinaMuted
                 )
             }
@@ -859,38 +1033,39 @@ private fun GroceryKitchenHubHeader(
             shape = RoundedCornerShape(999.dp),
             placeholder = {
                 Text(
-                    text = "Search your ingredients...",
-                    color = Color.White.copy(alpha = 0.92f)
+                    text = "Search ingredients",
+                    color = PcosinaMuted
                 )
             },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Filled.Search,
                     contentDescription = null,
-                    tint = Color.White
+                    tint = PcosinaPink
                 )
             },
             trailingIcon = {
                 Surface(
                     shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.16f)
+                    color = if (filtersActive) PcosinaPink else PcosinaSurfaceAlt,
+                    modifier = Modifier.clickable(onClick = onOpenFilters)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Tune,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = if (filtersActive) Color.White else PcosinaMuted,
                         modifier = Modifier.padding(8.dp)
                     )
                 }
             },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color.White.copy(alpha = 0.72f),
-                unfocusedBorderColor = Color.White.copy(alpha = 0.56f),
-                focusedContainerColor = PcosinaBlush,
-                unfocusedContainerColor = PcosinaBlush,
-                cursorColor = Color.White,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
+                focusedBorderColor = PcosinaPink.copy(alpha = 0.4f),
+                unfocusedBorderColor = PcosinaMuted.copy(alpha = 0.2f),
+                focusedContainerColor = Color(0xFFFFEEF2),
+                unfocusedContainerColor = Color(0xFFFFEEF2),
+                cursorColor = PcosinaDeepRose,
+                focusedTextColor = PcosinaDeepRose,
+                unfocusedTextColor = PcosinaDeepRose
             )
         )
     }
@@ -905,14 +1080,15 @@ private fun GroceryCategoryPanel(
     searchQuery: String,
     selectedCategory: String?,
     visibleItems: List<GroceryListEntry>,
-    previewItems: List<GroceryListEntry>,
     pantryMatches: Set<String>,
     pantryOptOut: Set<String>,
     checkedNames: Set<String>,
     selectedCategoryIndex: Int,
     categoryEntries: List<Pair<String, List<GroceryListEntry>>>,
+    expanded: Boolean,
     onPreviousCategory: () -> Unit,
     onNextCategory: () -> Unit,
+    onToggleExpanded: () -> Unit,
     onToggleItem: (GroceryListEntry) -> Unit,
     onSyncIngredients: () -> Unit,
     compact: Boolean,
@@ -920,7 +1096,7 @@ private fun GroceryCategoryPanel(
     RefinedOverviewCard(
         modifier = modifier,
         borderColor = PcosinaDeepRose.copy(alpha = 0.14f),
-        contentPadding = PaddingValues(if (compact) 14.dp else 18.dp)
+        contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
     ) {
         when {
             !hasPlan && groupedEntriesEmpty -> {
@@ -959,53 +1135,69 @@ private fun GroceryCategoryPanel(
 
             searchFilteredEmpty -> {
                 Text(
-                    text = "No ingredients match \"$searchQuery\".",
+                    text = if (searchQuery.isBlank()) {
+                        "No ingredients match your current filters."
+                    } else {
+                        "No ingredients match \"$searchQuery\"."
+                    },
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = PcosinaDeepRose
                     )
                 )
                 Text(
-                    text = "Try a broader search term or clear the search field to view all synced ingredients again.",
+                    text = if (searchQuery.isBlank()) {
+                        "Clear a filter or switch back to all items to view the full synced list again."
+                    } else {
+                        "Try a broader search term or clear the search field to view all synced ingredients again."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = PcosinaMuted
                 )
             }
 
             else -> {
+                val title = selectedCategory.orEmpty()
+                val toggleCategoryLabel = if (expanded) {
+                    "Collapse $title category"
+                } else {
+                    "Expand $title category"
+                }
+                val collapsedCount = 2
+                val displayedItems = if (expanded) visibleItems else visibleItems.take(collapsedCount)
                 val coveredInCategory = visibleItems.count { item ->
                     item.name in checkedNames || (item.name in pantryMatches && item.name !in pantryOptOut)
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.Top
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = groceryCategoryEmoji(selectedCategory),
-                        style = if (compact) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge
+                        style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall
                     )
                     Column(
                         modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         Text(
                             text = selectedCategory.orEmpty(),
                             style = if (compact) {
-                                MaterialTheme.typography.headlineSmall.copy(
+                                MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = PcosinaDeepRose
                                 )
                             } else {
-                                MaterialTheme.typography.headlineMedium.copy(
+                                MaterialTheme.typography.headlineSmall.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = PcosinaDeepRose
                                 )
                             }
                         )
                         Text(
-                            text = "$coveredInCategory out of ${visibleItems.size} items bought/covered",
-                            style = MaterialTheme.typography.bodyLarge,
+                            text = "$coveredInCategory of ${visibleItems.size} items bought or covered",
+                            style = MaterialTheme.typography.bodySmall,
                             color = PcosinaMuted
                         )
                     }
@@ -1023,7 +1215,7 @@ private fun GroceryCategoryPanel(
                     }
                 }
 
-                previewItems.forEach { item ->
+                displayedItems.forEach { item ->
                     GroceryPreviewRow(
                         item = item,
                         pantryCovered = item.name in pantryMatches && item.name !in pantryOptOut,
@@ -1032,12 +1224,40 @@ private fun GroceryCategoryPanel(
                     )
                 }
 
-                if (visibleItems.size > previewItems.size) {
-                    RefinedStatusPill(
-                        text = "+${visibleItems.size - previewItems.size} more in ${selectedCategory.orEmpty()}",
-                        containerColor = Color(0xFFFFEEF2),
-                        contentColor = PcosinaDeepRose
-                    )
+                if (visibleItems.size > displayedItems.size) {
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = Color(0xFFFFEEF2),
+                        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.18f)),
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .semantics { contentDescription = toggleCategoryLabel }
+                            .clickable(onClick = onToggleExpanded)
+                    ) {
+                        Text(
+                            text = "View all ${visibleItems.size} items",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = PcosinaDeepRose
+                        )
+                    }
+                } else if (expanded && visibleItems.size > collapsedCount) {
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, PcosinaMuted.copy(alpha = 0.24f)),
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .semantics { contentDescription = toggleCategoryLabel }
+                            .clickable(onClick = onToggleExpanded)
+                    ) {
+                        Text(
+                            text = "Show less",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = PcosinaDeepRose
+                        )
+                    }
                 }
             }
         }
@@ -1061,27 +1281,27 @@ private fun GroceryTipsCard(
     }
 
     Column(
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "💡",
-                style = if (compact) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge
+                style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall
             )
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = "Shopping Tips",
-                    style = MaterialTheme.typography.headlineSmall.copy(
+                    style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = PcosinaDeepRose
                     )
                 )
                 Text(
                     text = "Good food, good mood.",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
+                    style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
                     color = PcosinaMuted
                 )
             }
@@ -1111,24 +1331,24 @@ private fun GroceryTipStripe(
     colors: List<Color>,
 ) {
     Surface(
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(18.dp),
         color = Color.Transparent,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Brush.linearGradient(colors), RoundedCornerShape(22.dp))
-                .padding(horizontal = 14.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .background(Brush.linearGradient(colors), RoundedCornerShape(18.dp))
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = icon,
-                style = MaterialTheme.typography.headlineMedium
+                style = MaterialTheme.typography.titleLarge
             )
             Text(
                 text = text,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xFF3B1B22)
             )
         }
@@ -1137,109 +1357,113 @@ private fun GroceryTipStripe(
 
 @Composable
 private fun GroceryBottomCtaCard(
-    pantryEntriesEmpty: Boolean,
-    onGoToPlan: () -> Unit,
     onAddPantry: () -> Unit,
     compact: Boolean,
 ) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
-            shape = RoundedCornerShape(if (compact) 24.dp else 28.dp),
-            color = Color.Transparent,
-            border = BorderStroke(2.dp, PcosinaDeepRose.copy(alpha = 0.75f))
+            shape = RoundedCornerShape(18.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.22f)),
+            modifier = Modifier
+                .weight(1f)
+                .heightIn(min = 52.dp)
         ) {
-            BoxWithConstraints(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        brush = Brush.linearGradient(
-                            listOf(Color(0xFFFF8BA2), Color(0xFFFFC2CE))
-                        )
-                    )
-                    .padding(horizontal = if (compact) 16.dp else 18.dp, vertical = if (compact) 14.dp else 18.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "Ready to Cook & Log Your Meals?",
-                            style = if (compact) {
-                                MaterialTheme.typography.headlineSmall.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = PcosinaDeepRose
-                                )
-                            } else {
-                                MaterialTheme.typography.headlineMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = PcosinaDeepRose
-                                )
-                            }
-                        )
-                        Text(
-                            text = if (pantryEntriesEmpty) {
-                                "Review your synced ingredients, then jump back to your plan when you're ready to cook."
-                            } else {
-                                "Ingredients are synced and pantry-aware. Open your plan to review recipes and start logging meals."
-                            },
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Color.White
-                        )
-                        RefinedPrimaryButton(
-                            text = "Go to Plan",
-                            onClick = onGoToPlan
-                        )
-                    }
-                    Text(
-                        text = "🍲",
-                        style = if (compact) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium
-                    )
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = PcosinaPink,
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable(onClick = onAddPantry)
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
-                    text = "ADD AN ITEM TO THE PANTRY",
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
-                    color = Color.White,
-                    textAlign = TextAlign.Center
+                    text = "Add an item to the pantry",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = PcosinaDeepRose
+                )
+                Text(
+                    text = "Use the + button to save a staple.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = PcosinaMuted
                 )
             }
+        }
+        Surface(
+            shape = CircleShape,
+            color = PcosinaPink,
+            modifier = Modifier
+                .size(if (compact) 54.dp else 60.dp)
+                .clickable(onClick = onAddPantry)
+        ) {
+            BoxWithConstraints(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = "Add pantry item",
+                    tint = Color.White,
+                    modifier = Modifier.size(if (compact) 24.dp else 28.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GroceryFilterSectionTitle(text: String) {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = Color(0xFFFF8FA5),
+        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.2f))
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+            color = Color.White
+        )
+    }
+}
+
+@Composable
+private fun GroceryFilterChoiceRow(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = if (selected) Color(0xFFFFE8EE) else Color.White,
+        border = BorderStroke(1.dp, if (selected) PcosinaPink.copy(alpha = 0.28f) else PcosinaMuted.copy(alpha = 0.16f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 44.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = PcosinaDeepRose
+            )
             Surface(
                 shape = CircleShape,
-                color = PcosinaPink,
-                modifier = Modifier
-                    .size(if (compact) 58.dp else 66.dp)
-                    .clickable(onClick = onAddPantry)
+                color = if (selected) PcosinaPink else Color.White,
+                border = BorderStroke(1.dp, if (selected) PcosinaPink else PcosinaMuted.copy(alpha = 0.24f))
             ) {
-                BoxWithConstraints(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = "Add pantry item",
-                        tint = Color.White,
-                        modifier = Modifier.size(if (compact) 28.dp else 32.dp)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = if (selected) Color.White else Color.Transparent,
+                    modifier = Modifier.padding(6.dp)
+                )
             }
         }
     }

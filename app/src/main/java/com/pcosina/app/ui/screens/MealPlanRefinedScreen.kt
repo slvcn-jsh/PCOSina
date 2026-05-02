@@ -20,8 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -46,23 +44,24 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pcosina.app.R
-import com.pcosina.app.data.api.PlannedMealDto
-import com.pcosina.app.data.api.RecipeDetailDto
-import com.pcosina.app.data.api.RecipeSummaryDto
 import com.pcosina.app.data.model.GroceryItemSource
+import com.pcosina.app.data.model.PlannerPlannedMeal
+import com.pcosina.app.data.model.PlannerRecipeDetail
+import com.pcosina.app.data.model.PlannerRecipeSummary
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanGenerationNotice
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
+import com.pcosina.app.ui.components.MealCheckInDialog
+import com.pcosina.app.ui.components.MealCheckInDraft
 import com.pcosina.app.ui.components.RefinedMetricBar
 import com.pcosina.app.ui.components.RefinedOverviewCard
 import com.pcosina.app.ui.components.RefinedPrimaryButton
@@ -89,7 +88,13 @@ import java.util.Locale
 private data class MealSwapTarget(
     val dayIndex: Int,
     val mealIndex: Int,
-    val meal: PlannedMealDto,
+    val meal: PlannerPlannedMeal,
+)
+
+private data class PlanMealCheckInPrompt(
+    val recipeId: String,
+    val mealLabel: String,
+    val mealTitle: String,
 )
 
 @Composable
@@ -101,9 +106,8 @@ fun MealPlanRefinedScreen(
     onRecipeClick: (String, String?) -> Unit,
     onViewProgress: () -> Unit = {},
     onNavigateToRoute: (String) -> Unit = {},
-    nextActionAnalytics: MealPlanNextActionAnalytics? = null,
     onlineStateOverride: Boolean? = null,
-    swapOptionsLoader: (suspend (mealLabel: String, limit: Int) -> Result<List<RecipeSummaryDto>>)? = null,
+    swapOptionsLoader: (suspend (mealLabel: String, limit: Int) -> Result<List<PlannerRecipeSummary>>)? = null,
     swapGrocerySourceLoader: (suspend (recipeId: String) -> Result<List<GroceryItemSource>>)? = null,
     swapApplyOverride: (suspend (dayIndex: Int, mealIndex: Int, recipeId: String, title: String) -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -147,19 +151,16 @@ fun MealPlanRefinedScreen(
     val selectedMeals = selectedDay?.meals.orEmpty()
     val logKey = remember(selectedDate) { selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE) }
     val completedMealIds = logs[logKey]?.completedMealIds.orEmpty()
-    val recipeDetails = remember { mutableStateMapOf<String, RecipeDetailDto?>() }
+    val recipeDetails = remember { mutableStateMapOf<String, PlannerRecipeDetail?>() }
     val scope = rememberCoroutineScope()
-    val activeIndex = remember(activePlanId, sortedHistory) {
-        sortedHistory.indexOfFirst { it.id == activePlanId }.takeIf { it >= 0 } ?: (sortedHistory.size - 1)
-    }
-    val previousPlan = sortedHistory.getOrNull(activeIndex - 1)
-    val nextPlan = sortedHistory.getOrNull(activeIndex + 1)
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
     var swapTarget by remember { mutableStateOf<MealSwapTarget?>(null) }
-    var swapOptions by remember { mutableStateOf<List<RecipeSummaryDto>>(emptyList()) }
+    var swapOptions by remember { mutableStateOf<List<PlannerRecipeSummary>>(emptyList()) }
     var swapLoading by remember { mutableStateOf(false) }
     var swapApplying by remember { mutableStateOf(false) }
     var swapError by remember { mutableStateOf<String?>(null) }
+    var mealCheckInPrompt by remember(logKey) { mutableStateOf<PlanMealCheckInPrompt?>(null) }
+    var showReplacePlanDialog by remember(activePlanId) { mutableStateOf(false) }
 
     LaunchedEffect(selectedMeals.map { it.recipeId }.joinToString(",")) {
         selectedMeals.forEach { meal ->
@@ -339,10 +340,28 @@ fun MealPlanRefinedScreen(
         }
         val canLogSelectedDay = progressViewModel.isDateLoggable(selectedDate)
         val servingLabel = profile.householdSize.coerceAtLeast(1)
-        val weekStatusLabel = when {
-            hasReviewedActiveWeek -> "Reviewed"
-            selectedMeals.isEmpty() -> "No meals"
-            else -> "${loggedMeals}/${selectedMeals.size} logged"
+        val weekHasAnyRecordedProgress = weekDates.any { date ->
+            val dayLog = logs[date.format(DateTimeFormatter.ISO_LOCAL_DATE)]
+            !dayLog?.completedMealIds.isNullOrEmpty() || !dayLog?.mealCheckIns.isNullOrEmpty()
+        }
+        val currentPlanCoversToday = weekDates.any { it == today }
+        val needsWeekReview = currentPlan != null &&
+            currentPlanCoversToday &&
+            weekHasAnyRecordedProgress &&
+            !hasReviewedActiveWeek
+        val canReplaceCurrentWeek = currentPlan == null || !needsWeekReview
+        val replaceWeekSubtitle = if (needsWeekReview) {
+            "Your grocery list updates automatically from this plan. Review this week in Progress before starting a new one."
+        } else {
+            "Your grocery list updates automatically from this plan. Open Grocery to review what you need."
+        }
+        val requestFreshWeek: () -> Unit = {
+            if (currentPlan == null) {
+                mealPlanViewModel.generateMealPlanFresh(profile)
+                feedbackMessage = "Generating a new weekly plan..."
+            } else {
+                showReplacePlanDialog = true
+            }
         }
 
         Column(
@@ -451,16 +470,19 @@ fun MealPlanRefinedScreen(
                                     modifier = Modifier
                                         .weight(1f)
                                         .clickable {
-                                            if (waitingOnSameRequest) {
-                                                mealPlanViewModel.generateMealPlanFresh(profile)
-                                                feedbackMessage = "Started a fresh weekly plan request."
+                                            if (waitingOnSameRequest && canReplaceCurrentWeek) {
+                                                requestFreshWeek()
                                             } else {
                                                 onNavigateToRoute(Routes.Ipo)
                                             }
                                         }
                                 ) {
                                     Text(
-                                        text = if (waitingOnSameRequest) "Start fresh" else "Open Support",
+                                        text = if (waitingOnSameRequest && canReplaceCurrentWeek) {
+                                            "Start fresh"
+                                        } else {
+                                            "Open Support"
+                                        },
                                         modifier = Modifier.padding(vertical = 12.dp),
                                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                         color = PcosinaDeepRose,
@@ -508,9 +530,8 @@ fun MealPlanRefinedScreen(
             MealPlanWeekStrip(
                 dates = weekDates,
                 selectedDayIndex = selectedDayIndex,
+                today = today,
                 onSelectDay = { selectedDayIndex = it },
-                onPreviousWeek = previousPlan?.let { { mealPlanViewModel.selectPlan(it.id) } },
-                onNextWeek = nextPlan?.let { { mealPlanViewModel.selectPlan(it.id) } },
                 compact = compact
             )
 
@@ -522,7 +543,7 @@ fun MealPlanRefinedScreen(
                         color = PcosinaDeepRose
                     )
                     Text(
-                        text = "Generate a weekly plan to see meals, nutrition targets, and grocery syncing in this screen.",
+                        text = "Generate a weekly plan to see your meals here. Your grocery list will update automatically from it.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = PcosinaMuted
                     )
@@ -552,31 +573,6 @@ fun MealPlanRefinedScreen(
                 Column(
                     verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 12.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        RefinedStatusPill(
-                            text = weekStatusLabel,
-                            modifier = Modifier.weight(1f),
-                            containerColor = if (hasReviewedActiveWeek) Color(0xFFF3FFF7) else PcosinaSoftPink.copy(alpha = 0.22f),
-                            contentColor = if (hasReviewedActiveWeek) PcosinaSuccess else PcosinaDeepRose
-                        )
-                        explanation?.confidenceScore?.let {
-                            RefinedStatusPill(
-                                text = "Fit $it%",
-                                modifier = Modifier.weight(1f),
-                                containerColor = PcosinaSurfaceAlt
-                            )
-                        }
-                        explanation?.estimatedWeeklyCost?.let {
-                            RefinedStatusPill(
-                                text = "₱$it est.",
-                                modifier = Modifier.weight(1f),
-                                containerColor = PcosinaSurfaceAlt
-                            )
-                        }
-                    }
                     if (!hasReviewedActiveWeek && activePlanId != null) {
                         Surface(
                             shape = RoundedCornerShape(999.dp),
@@ -619,10 +615,26 @@ fun MealPlanRefinedScreen(
                                     canLog = canLogSelectedDay,
                                     onOpen = { onRecipeClick(meal.recipeId, meal.mealLabel) },
                                     onLog = {
-                                        if (progressViewModel.markMealAsEaten(selectedDate, meal.recipeId, meal.mealLabel)) {
-                                            feedbackMessage = "${meal.mealLabel} logged for ${selectedDate.format(DateTimeFormatter.ofPattern("EEEE", Locale.ENGLISH))}."
+                                        if (progressViewModel.markMealAsEaten(
+                                                date = selectedDate,
+                                                recipeId = meal.recipeId,
+                                                mealLabel = meal.mealLabel,
+                                                plannedMealLabels = selectedMeals.map { it.mealLabel }
+                                            )
+                                        ) {
+                                            mealCheckInPrompt = PlanMealCheckInPrompt(
+                                                recipeId = meal.recipeId,
+                                                mealLabel = meal.mealLabel,
+                                                mealTitle = meal.title
+                                            )
                                         } else {
-                                            feedbackMessage = "Meal logging is available for today only."
+                                            feedbackMessage = progressViewModel.mealLoggingLockReason(
+                                                date = selectedDate,
+                                                mealLabel = meal.mealLabel,
+                                                plannedMealLabels = selectedMeals.map { it.mealLabel }
+                                            ).ifBlank {
+                                                "Meal logging is available for today only."
+                                            }
                                         }
                                     },
                                     onSwap = {
@@ -659,9 +671,13 @@ fun MealPlanRefinedScreen(
 
                     MealPlanShoppingCard(
                         title = "Ready to shop?",
-                        subtitle = "Consolidate this week's meals and sync them to your grocery list.",
+                        subtitle = replaceWeekSubtitle,
                         primaryLabel = "Go to Grocery",
-                        secondaryLabel = if (uiState is MealPlanUiState.Loading) "Generating..." else "Generate a new weekly plan",
+                        secondaryLabel = when {
+                            uiState is MealPlanUiState.Loading -> "Generating..."
+                            needsWeekReview -> "Open Progress"
+                            else -> "Replace this week"
+                        },
                         onPrimaryClick = {
                             mealPlanViewModel.extractGrocerySourcesForPlan { sources ->
                                 groceryViewModel.setPlanSources(sources)
@@ -670,7 +686,11 @@ fun MealPlanRefinedScreen(
                         },
                         onSecondaryClick = {
                             if (uiState !is MealPlanUiState.Loading) {
-                                mealPlanViewModel.generateMealPlan(profile)
+                                if (needsWeekReview) {
+                                    onViewProgress()
+                                } else {
+                                    requestFreshWeek()
+                                }
                             }
                         },
                         primaryEnabled = currentPlan.days.isNotEmpty(),
@@ -678,6 +698,76 @@ fun MealPlanRefinedScreen(
                     )
                 }
             }
+        }
+
+        if (showReplacePlanDialog) {
+            AlertDialog(
+                onDismissRequest = { showReplacePlanDialog = false },
+                title = {
+                    Text(
+                        text = "Replace this week's plan?",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Use this only before you start logging meals. Your grocery list will update to match the new week.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = PcosinaDeepRose
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showReplacePlanDialog = false
+                            mealPlanViewModel.generateMealPlanFresh(profile)
+                            feedbackMessage = "Generating a fresh weekly plan..."
+                        }
+                    ) {
+                        Text("Replace week")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showReplacePlanDialog = false }) {
+                        Text("Keep this week")
+                    }
+                }
+            )
+        }
+
+        mealCheckInPrompt?.let { prompt ->
+            val existing = logs[logKey]?.mealCheckIns.orEmpty().firstOrNull { checkIn ->
+                checkIn.mealKey == ProgressViewModel.buildMealKey(prompt.mealLabel, prompt.recipeId) ||
+                    (checkIn.recipeId == prompt.recipeId &&
+                        checkIn.mealLabel.equals(prompt.mealLabel, ignoreCase = true))
+            }
+            MealCheckInDialog(
+                goal = profile.goal,
+                mealTitle = prompt.mealTitle,
+                mealLabel = prompt.mealLabel,
+                initial = existing,
+                onDismiss = { mealCheckInPrompt = null },
+                onSave = { draft: MealCheckInDraft ->
+                    val saved = progressViewModel.saveMealCheckIn(
+                        date = selectedDate,
+                        recipeId = prompt.recipeId,
+                        mealLabel = prompt.mealLabel,
+                        energyLevel = draft.energyLevel,
+                        fullnessLevel = draft.fullnessLevel,
+                        cravingsLevel = draft.cravingsLevel,
+                        satisfactionLevel = draft.satisfactionLevel,
+                        note = draft.note
+                    )
+                    feedbackMessage = if (saved) {
+                        "${prompt.mealLabel} check-in saved."
+                    } else {
+                        "Couldn’t save this meal check-in right now."
+                    }
+                    if (saved) {
+                        mealCheckInPrompt = null
+                    }
+                }
+            )
         }
     }
 }
@@ -690,23 +780,23 @@ private fun MealPlanHeadlineCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(PcosinaBlush, RoundedCornerShape(30.dp))
+            .background(PcosinaBlush, RoundedCornerShape(26.dp))
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(30.dp),
+            shape = RoundedCornerShape(26.dp),
             color = PcosinaBlush,
             border = BorderStroke(2.dp, Color(0xFF30181E).copy(alpha = 0.76f))
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 14.dp else 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    .padding(horizontal = if (compact) 12.dp else 14.dp, vertical = if (compact) 12.dp else 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(20.dp),
                     color = Color(0xFFFFD6E1),
                     border = BorderStroke(1.dp, Color(0xFF30181E).copy(alpha = 0.18f))
                 ) {
@@ -714,18 +804,18 @@ private fun MealPlanHeadlineCard(
                         painter = painterResource(id = R.drawable.pcosina_logo),
                         contentDescription = null,
                         modifier = Modifier
-                            .size(if (compact) 70.dp else 82.dp)
-                            .padding(8.dp),
+                            .size(if (compact) 56.dp else 62.dp)
+                            .padding(6.dp),
                         contentScale = ContentScale.Fit
                     )
                 }
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
                         text = "Plan Your Meals",
-                        style = MaterialTheme.typography.headlineMedium.copy(
+                        style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFF682937),
                             shadow = androidx.compose.ui.graphics.Shadow(
@@ -743,7 +833,7 @@ private fun MealPlanHeadlineCard(
                     )
                     Text(
                         text = "Meals picked for your goal, budget, and pantry.",
-                        style = MaterialTheme.typography.bodyMedium.copy(
+                        style = MaterialTheme.typography.bodySmall.copy(
                             color = Color(0xFF682937),
                             fontStyle = FontStyle.Italic
                         )
@@ -752,7 +842,7 @@ private fun MealPlanHeadlineCard(
                 Text(
                     text = heroDate,
                     textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.titleMedium.copy(
+                    style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF2B1B20)
                     )
@@ -779,13 +869,13 @@ private fun MealPlanDailySummaryCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(30.dp),
+        shape = RoundedCornerShape(26.dp),
         color = Color(0xFFFFE2E8),
         border = BorderStroke(2.dp, Color(0xFF30181E).copy(alpha = 0.72f))
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 14.dp else 18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(horizontal = if (compact) 12.dp else 14.dp, vertical = if (compact) 12.dp else 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -794,7 +884,7 @@ private fun MealPlanDailySummaryCard(
             ) {
                 Text(
                     text = "Today's Plan",
-                    style = MaterialTheme.typography.headlineMedium.copy(
+                    style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF682937)
                     )
@@ -807,7 +897,7 @@ private fun MealPlanDailySummaryCard(
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 RefinedRingMeter(
@@ -819,7 +909,7 @@ private fun MealPlanDailySummaryCard(
                 )
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Surface(
                         shape = RoundedCornerShape(999.dp),
@@ -877,40 +967,36 @@ private fun MealPlanShoppingCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(32.dp),
-        color = Color(0xFFFF8FA6),
+        shape = RoundedCornerShape(26.dp),
+        color = Color(0xFFF7F2F4),
         border = BorderStroke(2.dp, Color(0xFF30181E).copy(alpha = 0.72f))
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = if (compact) 16.dp else 18.dp, vertical = if (compact) 16.dp else 18.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.padding(horizontal = if (compact) 14.dp else 16.dp, vertical = if (compact) 14.dp else 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.headlineMedium.copy(
+                style = MaterialTheme.typography.headlineSmall.copy(
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFF682937)
                 )
             )
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    color = Color.White,
-                    shadow = androidx.compose.ui.graphics.Shadow(
-                        color = PcosinaRoseShadow.copy(alpha = 0.28f),
-                        offset = androidx.compose.ui.geometry.Offset(0f, 3f),
-                        blurRadius = 6f
-                    )
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = PcosinaMuted
                 )
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     RefinedPrimaryButton(
                         text = primaryLabel,
@@ -922,16 +1008,16 @@ private fun MealPlanShoppingCard(
                         Surface(
                             modifier = Modifier.fillMaxWidth().clickable(onClick = onSecondaryClick),
                             shape = RoundedCornerShape(18.dp),
-                            color = PcosinaBlush.copy(alpha = 0.95f),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.42f))
+                            color = PcosinaBlush.copy(alpha = 0.9f),
+                            border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.22f))
                         ) {
                             Text(
                                 text = secondaryLabel,
                                 modifier = Modifier.padding(vertical = 12.dp),
                                 textAlign = TextAlign.Center,
-                                style = MaterialTheme.typography.titleMedium.copy(
+                                style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                                    color = PcosinaDeepRose
                                 )
                             )
                         }
@@ -939,8 +1025,8 @@ private fun MealPlanShoppingCard(
                 }
                 Text(
                     text = "🛒",
-                    style = MaterialTheme.typography.headlineLarge,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.padding(bottom = 6.dp)
                 )
             }
         }
@@ -951,9 +1037,8 @@ private fun MealPlanShoppingCard(
 private fun MealPlanWeekStrip(
     dates: List<LocalDate>,
     selectedDayIndex: Int,
+    today: LocalDate,
     onSelectDay: (Int) -> Unit,
-    onPreviousWeek: (() -> Unit)?,
-    onNextWeek: (() -> Unit)?,
     compact: Boolean,
 ) {
     Row(
@@ -961,11 +1046,6 @@ private fun MealPlanWeekStrip(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        WeekArrowButton(
-            icon = Icons.Filled.ChevronLeft,
-            enabled = onPreviousWeek != null,
-            onClick = { onPreviousWeek?.invoke() }
-        )
         Row(
             modifier = Modifier.weight(1f),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -973,8 +1053,9 @@ private fun MealPlanWeekStrip(
         ) {
             dates.forEachIndexed { index, date ->
                 val selected = index == selectedDayIndex
+                val isToday = date == today
                 Surface(
-                    shape = RoundedCornerShape(26.dp),
+                    shape = RoundedCornerShape(22.dp),
                     color = Color.White,
                     border = BorderStroke(1.dp, if (selected) PcosinaPink else PcosinaMuted.copy(alpha = 0.35f)),
                     modifier = Modifier
@@ -983,72 +1064,46 @@ private fun MealPlanWeekStrip(
                         .clickable { onSelectDay(index) }
                 ) {
                     Column(
-                        modifier = Modifier.padding(vertical = if (compact) 8.dp else 10.dp),
+                        modifier = Modifier.padding(vertical = if (compact) 7.dp else 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
                             text = date.format(DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)),
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = if (selected) PcosinaPink else PcosinaMuted
                         )
                         Text(
                             text = date.dayOfMonth.toString(),
                             style = if (compact) {
-                                MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                                MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold)
                             } else {
-                                MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
+                                MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
                             },
                             color = if (selected) PcosinaPink else PcosinaDeepRose
                         )
                         Box(
                             modifier = Modifier
-                                .padding(top = 6.dp)
+                                .padding(top = 5.dp)
+                                .size(width = if (selected) 18.dp else 6.dp, height = 3.dp)
                                 .background(
-                                    color = if (selected) PcosinaPink else Color.Transparent,
+                                    color = when {
+                                        selected -> PcosinaPink
+                                        isToday -> PcosinaSoftPink
+                                        else -> Color.Transparent
+                                    },
                                     shape = RoundedCornerShape(999.dp)
                                 )
-                        ) {
-                            Text(
-                                text = if (selected) " " else "",
-                                modifier = Modifier.padding(horizontal = 18.dp, vertical = 1.dp)
-                            )
-                        }
+                        )
                     }
                 }
             }
         }
-        WeekArrowButton(
-            icon = Icons.Filled.ChevronRight,
-            enabled = onNextWeek != null,
-            onClick = { onNextWeek?.invoke() }
-        )
-    }
-}
-
-@Composable
-private fun WeekArrowButton(
-    icon: ImageVector,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    Surface(
-        shape = CircleShape,
-        color = if (enabled) Color.White else PcosinaSurfaceAlt,
-        border = BorderStroke(1.dp, PcosinaMuted.copy(alpha = 0.3f)),
-        modifier = Modifier.clickable(enabled = enabled, onClick = onClick)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (enabled) PcosinaDeepRose else PcosinaMuted,
-            modifier = Modifier.padding(8.dp)
-        )
     }
 }
 
 @Composable
 private fun MealPlanOutlineMealCard(
-    meal: PlannedMealDto,
+    meal: PlannerPlannedMeal,
     logged: Boolean,
     canLog: Boolean,
     onOpen: () -> Unit,
@@ -1075,7 +1130,7 @@ private fun MealPlanOutlineMealCard(
     }
     Surface(
         color = containerColor,
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(24.dp),
         border = BorderStroke(1.dp, if (logged) Color.Transparent else PcosinaMuted.copy(alpha = 0.26f)),
         modifier = Modifier
             .fillMaxWidth()
@@ -1084,8 +1139,8 @@ private fun MealPlanOutlineMealCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = if (compact) 14.dp else 16.dp, vertical = if (compact) 12.dp else 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = if (compact) 12.dp else 14.dp, vertical = if (compact) 10.dp else 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
@@ -1094,22 +1149,22 @@ private fun MealPlanOutlineMealCard(
             ) {
                 Text(
                     text = icon,
-                    modifier = Modifier.padding(12.dp),
-                    style = MaterialTheme.typography.titleMedium
+                    modifier = Modifier.padding(10.dp),
+                    style = MaterialTheme.typography.titleSmall
                 )
             }
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Text(
-                    text = "${meal.mealLabel} • Tap for details",
-                    style = MaterialTheme.typography.labelMedium,
+                    text = "${meal.mealLabel} • Tap for more details",
+                    style = MaterialTheme.typography.labelSmall,
                     color = if (logged) Color.White.copy(alpha = 0.78f) else PcosinaMuted
                 )
                 Text(
                     text = meal.title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
                     color = if (logged) Color.White else PcosinaDeepRose,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -1130,8 +1185,8 @@ private fun MealPlanOutlineMealCard(
                         canLog -> "LOG MEAL"
                         else -> "TODAY ONLY"
                     },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                     color = if (logged) Color.White else if (canLog) PcosinaDeepRose else PcosinaMuted
                 )
             }
@@ -1141,15 +1196,14 @@ private fun MealPlanOutlineMealCard(
                 modifier = Modifier.clickable(onClick = onSwap)
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                    verticalArrangement = Arrangement.spacedBy(1.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.SwapHoriz,
                         contentDescription = "Swap meal",
-                        tint = if (logged) Color.White else PcosinaPink,
-                        modifier = Modifier.padding(horizontal = 2.dp)
+                        tint = if (logged) Color.White else PcosinaPink
                     )
                     Text(
                         text = "Swap",

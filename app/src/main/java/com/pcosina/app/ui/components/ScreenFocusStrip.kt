@@ -48,7 +48,7 @@ fun ScreenFocusStrip(
     val selectedOption = options.firstOrNull { it.key == selectedKey } ?: options.firstOrNull()
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = title,
@@ -56,29 +56,35 @@ fun ScreenFocusStrip(
             color = colorScheme.onSurfaceVariant
         )
         Surface(
-            shape = MaterialTheme.shapes.large,
-            color = colorScheme.primary.copy(alpha = 0.08f),
-            border = BorderStroke(1.dp, colorScheme.primary.copy(alpha = 0.12f))
+            shape = MaterialTheme.shapes.extraLarge,
+            color = colorScheme.surface,
+            border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.70f)),
+            shadowElevation = 2.dp
         ) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = colorScheme.primary.copy(alpha = 0.16f)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "Focus",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Surface(
+                        shape = MaterialTheme.shapes.large,
+                        color = colorScheme.primary.copy(alpha = 0.10f),
+                        border = BorderStroke(1.dp, colorScheme.primary.copy(alpha = 0.12f))
+                    ) {
+                        Text(
+                            text = "Focus mode",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
                 AnimatedContent(
                     targetState = selectedOption?.summary ?: helperText,
@@ -92,9 +98,9 @@ fun ScreenFocusStrip(
                 ) { summary ->
                     Text(
                         text = summary,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = colorScheme.primary,
-                        maxLines = 1,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurface,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }

@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Restaurant
@@ -95,7 +97,13 @@ fun MealCheckInDialog(
             )
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 460.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Card(
                     shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(
@@ -202,7 +210,7 @@ fun MealCheckInDialog(
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Optional note") },
                     placeholder = { Text("Anything you want to remember about this meal?") },
-                    minLines = 3,
+                    minLines = 2,
                     supportingText = {
                         Text("Use this for symptoms, cravings, or anything unusual about the meal.")
                     }

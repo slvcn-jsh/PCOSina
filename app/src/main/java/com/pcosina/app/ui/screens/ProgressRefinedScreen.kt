@@ -1,5 +1,7 @@
 package com.pcosina.app.ui.screens
 
+import android.util.Log
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -11,12 +13,15 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
@@ -33,20 +38,30 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.pcosina.app.data.api.GeneratePlanResponse
 import com.pcosina.app.data.model.DailyLog
+import com.pcosina.app.data.model.PlannerPlanResponse
+import com.pcosina.app.domain.HealthMetrics
+import com.pcosina.app.domain.PlannedDayCount
+import com.pcosina.app.domain.ProgressAdherencePoint
+import com.pcosina.app.domain.ProgressDayStatus
+import com.pcosina.app.domain.ProgressSummaryUseCase
+import com.pcosina.app.domain.ProgressWeekNodeSummary
 import com.pcosina.app.domain.UnitConverter
+import com.pcosina.app.domain.WeeklyMealSummaryResult
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
@@ -84,6 +99,36 @@ private data class ProgressWeekNode(
     val state: ProgressNodeState,
 )
 
+private data class ProgressChartPoint(
+    val label: String,
+    val value: Float,
+    val valueText: String,
+    val color: Color,
+)
+
+private data class ProgressSpendStat(
+    val label: String,
+    val value: String,
+)
+
+private data class WeeklyMealSummary(
+    val plannedMeals: Int,
+    val completedMeals: Int,
+    val adherencePercent: Int,
+    val chartPoints: List<ProgressChartPoint>,
+)
+
+private data class ProgressDraftInputs(
+    val energyLevel: Int = 3,
+    val moodLevel: Int = 3,
+    val cravingsLevel: Int = 3,
+    val noteText: String = "",
+    val weightInput: String = "",
+    val weeklyJournalDraft: String = "",
+    val weeklySpendInput: String = "",
+    val selectedFeedbackTags: Set<String> = emptySet(),
+)
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ProgressRefinedScreen(
@@ -117,6 +162,7 @@ fun ProgressRefinedScreen(
             ?: planHistory.firstOrNull { it.id == activePlanId }?.response
             ?: planHistory.maxByOrNull { it.generatedAt }?.response
     }
+    val progressSummaryUseCase = remember { ProgressSummaryUseCase() }
     val weekStart = remember(activeWeekStart, currentPlan?.weekLabel) {
         activeWeekStart?.let {
             runCatching { LocalDate.parse(it, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
@@ -132,34 +178,101 @@ fun ProgressRefinedScreen(
             todayLog?.completedMealIds?.contains(meal.recipeId) == true
     } ?: 0
     val plannedMealsToday = todayPlan?.meals?.size ?: 0
-    val weekNodes = remember(currentPlan, logs, weekStart, today) {
-        buildProgressWeekNodes(currentPlan?.days.orEmpty(), logs, weekStart, today)
+    val plannedDayCounts = remember(currentPlan) {
+        currentPlan?.days.orEmpty().map { PlannedDayCount(dayLabel = it.dayLabel, mealCount = it.meals.size) }
+    }
+    val weekNodes = remember(plannedDayCounts, logs, weekStart, today) {
+        runCatching {
+            progressSummaryUseCase.buildWeekNodes(plannedDayCounts, logs, weekStart, today)
+                .map { it.toUiWeekNode() }
+        }.onFailure { error ->
+            Log.e("ProgressRefinedScreen", "Failed to compute progress macro summary safely.", error)
+        }.getOrElse {
+            emptyList()
+        }
+    }
+    val weeklyMealSummary = remember(plannedDayCounts, logs, weekStart, today) {
+        runCatching {
+            progressSummaryUseCase.buildWeeklyMealSummary(plannedDayCounts, logs, weekStart, today)
+                .toUiWeeklyMealSummary()
+        }.onFailure { error ->
+            Log.e("ProgressRefinedScreen", "Failed to compute progress macro summary safely.", error)
+        }.getOrElse {
+            WeeklyMealSummary(
+                plannedMeals = 0,
+                completedMeals = 0,
+                adherencePercent = 0,
+                chartPoints = emptyList()
+            )
+        }
     }
     var showReflectionDialog by remember { mutableStateOf(false) }
     var showWeeklyReviewDialog by remember { mutableStateOf(false) }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
     val weekStartKey = remember(weekStart) { weekStart.format(DateTimeFormatter.ISO_LOCAL_DATE) }
     val weightUnitLabel = if (profile.weightUnit == UnitConverter.WEIGHT_LB) "lb" else "kg"
-    val displayedWeight = remember(todayLog?.weightKg, profile.weightUnit) {
-        todayLog?.weightKg?.let { value ->
-            val displayValue = if (profile.weightUnit == UnitConverter.WEIGHT_LB) {
-                UnitConverter.kgToLb(value)
-            } else {
-                value
-            }
-            String.format(Locale.ENGLISH, "%.1f", displayValue)
-        }.orEmpty()
+    val draftInputs = remember(
+        todayLog?.energyLevel,
+        todayLog?.moodLevel,
+        todayLog?.cravingsLevel,
+        todayLog?.symptomsNote,
+        todayLog?.weightKg,
+        profile.weightUnit,
+        weeklyJournal,
+        weeklySpend,
+        planFeedbackTags,
+        weekStartKey
+    ) {
+        runCatching {
+            val displayWeight = todayLog?.weightKg?.let { value ->
+                val displayValue = if (profile.weightUnit == UnitConverter.WEIGHT_LB) {
+                    UnitConverter.kgToLb(value)
+                } else {
+                    value
+                }
+                String.format(Locale.ENGLISH, "%.1f", displayValue)
+            }.orEmpty()
+            ProgressDraftInputs(
+                energyLevel = todayLog?.energyLevel ?: 3,
+                moodLevel = todayLog?.moodLevel ?: 3,
+                cravingsLevel = todayLog?.cravingsLevel ?: 3,
+                noteText = todayLog?.symptomsNote.orEmpty(),
+                weightInput = displayWeight,
+                weeklyJournalDraft = weeklyJournal,
+                weeklySpendInput = weeklySpend?.toString().orEmpty(),
+                selectedFeedbackTags = planFeedbackTags.toSet()
+            )
+        }.onFailure { error ->
+            Log.e("ProgressRefinedScreen", "Failed to hydrate progress inputs safely.", error)
+        }.getOrElse {
+            ProgressDraftInputs()
+        }
     }
-    var energyLevel by rememberSaveable(today.toString()) { mutableStateOf(todayLog?.energyLevel ?: 3) }
-    var moodLevel by rememberSaveable(today.toString()) { mutableStateOf(todayLog?.moodLevel ?: 3) }
-    var cravingsLevel by rememberSaveable(today.toString()) { mutableStateOf(todayLog?.cravingsLevel ?: 3) }
-    var noteText by rememberSaveable(today.toString()) { mutableStateOf(todayLog?.symptomsNote.orEmpty()) }
-    var weightInput by rememberSaveable(today.toString(), profile.weightUnit) { mutableStateOf(displayedWeight) }
-    var weeklyJournalDraft by rememberSaveable(weekStartKey) { mutableStateOf(weeklyJournal) }
-    var weeklySpendInput by rememberSaveable(weekStartKey) { mutableStateOf(weeklySpend?.toString().orEmpty()) }
-    var selectedFeedbackTags by rememberSaveable(weekStartKey) { mutableStateOf(planFeedbackTags.toSet()) }
+    var energyLevel by remember(today.toString()) { mutableStateOf(draftInputs.energyLevel) }
+    var moodLevel by remember(today.toString()) { mutableStateOf(draftInputs.moodLevel) }
+    var cravingsLevel by remember(today.toString()) { mutableStateOf(draftInputs.cravingsLevel) }
+    var noteText by remember(today.toString()) { mutableStateOf(draftInputs.noteText) }
+    var weightInput by remember(today.toString(), profile.weightUnit) { mutableStateOf(draftInputs.weightInput) }
+    var weeklyJournalDraft by remember(weekStartKey) { mutableStateOf(draftInputs.weeklyJournalDraft) }
+    var weeklySpendInput by remember(weekStartKey) { mutableStateOf(draftInputs.weeklySpendInput) }
+    var selectedFeedbackTags by remember(weekStartKey) { mutableStateOf(draftInputs.selectedFeedbackTags) }
     val planFeedbackOptions = remember { listOf("Too repetitive", "Too expensive", "Too hard to cook") }
 
+    LaunchedEffect(
+        draftInputs.energyLevel,
+        draftInputs.moodLevel,
+        draftInputs.cravingsLevel,
+        draftInputs.noteText,
+        draftInputs.weightInput,
+        today.toString(),
+        profile.weightUnit
+    ) {
+        energyLevel = draftInputs.energyLevel
+        moodLevel = draftInputs.moodLevel
+        cravingsLevel = draftInputs.cravingsLevel
+        noteText = draftInputs.noteText
+        weightInput = draftInputs.weightInput
+    }
     LaunchedEffect(weeklyJournal, weekStartKey) {
         weeklyJournalDraft = weeklyJournal
     }
@@ -335,9 +448,99 @@ fun ProgressRefinedScreen(
     ) {
         val scrollState = rememberScrollState()
         val compact = maxHeight < 760.dp || maxWidth < 390.dp
-        val narrow = maxWidth < 420.dp
-        val calorieTarget = userViewModel.dailyCalorieTarget
         val budgetTarget = profile.weeklyBudgetPhp.takeIf { it > 0 }
+        val weeklySpendValue = weeklySpend
+        val estimatedWeeklyCost = currentPlan?.explanation?.estimatedWeeklyCost
+        val bmiValue = remember(profile.weightKg, profile.heightCm) {
+            HealthMetrics.bmi(profile.weightKg, profile.heightCm)
+        }
+        val bmiLabel = remember(bmiValue) {
+            if (bmiValue > 0) {
+                String.format(Locale.ENGLISH, "%.1f", bmiValue)
+            } else {
+                "--"
+            }
+        }
+        val bmiCategory = remember(bmiValue) { HealthMetrics.bmiCategory(bmiValue) }
+        val weeklySavings = when {
+            budgetTarget != null && weeklySpendValue != null -> budgetTarget - weeklySpendValue
+            budgetTarget != null && estimatedWeeklyCost != null -> budgetTarget - estimatedWeeklyCost
+            else -> null
+        }
+        val savingsTileSubtitle = when {
+            weeklySpendValue != null -> "actual spend vs budget"
+            estimatedWeeklyCost != null -> "estimated cost vs budget"
+            budgetTarget != null -> "budget ready for comparison"
+            else -> "add a budget to track savings"
+        }
+        val savingsSummaryLabel = when {
+            budgetTarget == null -> "Set a weekly budget to compare this plan against it."
+            weeklySpendValue != null && weeklySavings != null && weeklySavings >= 0 -> "Saved ₱$weeklySavings this week."
+            weeklySpendValue != null && weeklySavings != null -> "Over budget by ₱${kotlin.math.abs(weeklySavings)} this week."
+            estimatedWeeklyCost != null && weeklySavings != null && weeklySavings >= 0 -> "Current plan is about ₱$weeklySavings under budget."
+            estimatedWeeklyCost != null && weeklySavings != null -> "Current plan estimate is ₱${kotlin.math.abs(weeklySavings)} over budget."
+            else -> "Add weekly spend to compare actual savings."
+        }
+        val spendStats = remember(budgetTarget, estimatedWeeklyCost, weeklySpendValue) {
+            when {
+                weeklySpendValue != null -> buildList {
+                    add(ProgressSpendStat(label = "Actual spend", value = "₱$weeklySpendValue"))
+                    estimatedWeeklyCost?.let { add(ProgressSpendStat(label = "Estimated cost", value = "₱$it")) }
+                    budgetTarget?.let { add(ProgressSpendStat(label = "Weekly budget", value = "₱$it")) }
+                }
+                estimatedWeeklyCost != null -> buildList {
+                    add(ProgressSpendStat(label = "Estimated cost", value = "₱$estimatedWeeklyCost"))
+                    budgetTarget?.let { add(ProgressSpendStat(label = "Weekly budget", value = "₱$it")) }
+                }
+                budgetTarget != null -> listOf(
+                    ProgressSpendStat(label = "Weekly budget", value = "₱$budgetTarget")
+                )
+                else -> emptyList()
+            }
+        }
+        val savingsChartPoints = remember(budgetTarget, estimatedWeeklyCost, weeklySpendValue) {
+            buildList {
+                budgetTarget?.let {
+                    add(
+                        ProgressChartPoint(
+                            label = "Budget",
+                            value = it.toFloat(),
+                            valueText = "₱$it",
+                            color = PcosinaSoftPink
+                        )
+                    )
+                }
+                estimatedWeeklyCost?.let {
+                    add(
+                        ProgressChartPoint(
+                            label = "Plan",
+                            value = it.toFloat(),
+                            valueText = "₱$it",
+                            color = Color(0xFFFFB171)
+                        )
+                    )
+                }
+                weeklySpendValue?.let {
+                    add(
+                        ProgressChartPoint(
+                            label = "Actual",
+                            value = it.toFloat(),
+                            valueText = "₱$it",
+                            color = if (budgetTarget != null && it > budgetTarget) Color(0xFFE2526E) else PcosinaPink
+                        )
+                    )
+                }
+            }
+        }
+        val weeklySavingsValue = when {
+            weeklySavings != null && weeklySavings >= 0 -> "₱$weeklySavings"
+            weeklySavings != null -> "-₱${kotlin.math.abs(weeklySavings)}"
+            else -> "--"
+        }
+        val mealsDoneLabel = "${weeklyMealSummary.completedMeals}/${weeklyMealSummary.plannedMeals}"
+        var adherenceExpanded by remember { mutableStateOf(true) }
+        var savingsExpanded by remember { mutableStateOf(false) }
+        var macrosExpanded by remember { mutableStateOf(feedbackSectionExpandedByDefault) }
 
         Column(
             modifier = Modifier
@@ -356,6 +559,9 @@ fun ProgressRefinedScreen(
 
             ProgressHeadlineCard(
                 dateLabel = today.format(DateTimeFormatter.ofPattern("MMM dd", Locale.ENGLISH)),
+                bmiLabel = bmiLabel,
+                bmiCategory = bmiCategory,
+                mealsDoneLabel = mealsDoneLabel,
                 compact = compact
             )
 
@@ -373,95 +579,53 @@ fun ProgressRefinedScreen(
                 }
             }
 
-            if (narrow) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ProgressSummaryTile(
-                        title = "Today",
-                        value = "$completedMealsToday/$plannedMealsToday",
-                        subtitle = "meals logged",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    ProgressSummaryTile(
-                        title = "Target",
-                        value = "$calorieTarget",
-                        subtitle = "kcal/day",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    ProgressSummaryTile(
-                        title = "Spend",
-                        value = weeklySpend?.let { "₱$it" } ?: "--",
-                        subtitle = budgetTarget?.let { "of ₱$it" } ?: "weekly spend",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    ProgressSummaryTile(
-                        title = "Today",
-                        value = "$completedMealsToday/$plannedMealsToday",
-                        subtitle = "meals logged",
-                        modifier = Modifier.weight(1f)
-                    )
-                    ProgressSummaryTile(
-                        title = "Target",
-                        value = "$calorieTarget",
-                        subtitle = "kcal/day",
-                        modifier = Modifier.weight(1f)
-                    )
-                    ProgressSummaryTile(
-                        title = "Spend",
-                        value = weeklySpend?.let { "₱$it" } ?: "--",
-                        subtitle = budgetTarget?.let { "of ₱$it" } ?: "weekly spend",
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+            ProgressDropdownCard(
+                title = "Weekly adherence",
+                value = "${weeklyMealSummary.adherencePercent}%",
+                subtitle = "$mealsDoneLabel meals done",
+                expanded = adherenceExpanded,
+                onToggle = { adherenceExpanded = !adherenceExpanded },
+                compact = compact
+            ) {
+                ProgressWeeklyCard(
+                    weekNodes = weekNodes,
+                    weeklyMealSummary = weeklyMealSummary,
+                    compact = compact
+                )
             }
 
-            ProgressWeeklyCard(
-                weekNodes = weekNodes,
+            ProgressDropdownCard(
+                title = "Weekly savings",
+                value = weeklySavingsValue,
+                subtitle = savingsTileSubtitle,
+                expanded = savingsExpanded,
+                onToggle = { savingsExpanded = !savingsExpanded },
                 compact = compact
-            )
+            ) {
+                ProgressSavingsCard(
+                    summary = savingsSummaryLabel,
+                    chartPoints = savingsChartPoints,
+                    spendStats = spendStats,
+                    compact = compact
+                )
+            }
 
-            if (narrow) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ProgressCheckInCard(
-                        todayLog = todayLog,
-                        profileWeightLb = profile.weightUnit == UnitConverter.WEIGHT_LB,
-                        modifier = Modifier.fillMaxWidth(),
-                        compact = compact
-                    )
-
-                    ProgressInsightsCard(
-                        planMetrics = planMetrics,
-                        currentPlan = currentPlan,
-                        planFeedbackTags = planFeedbackTags,
-                        modifier = Modifier.fillMaxWidth(),
-                        compact = compact
-                    )
-                }
-            } else {
-                Row(
+            ProgressDropdownCard(
+                title = "Average daily macros",
+                value = "",
+                subtitle = if (currentPlan != null) "See your weekly nutrition balance." else "Generate a plan to see macro balance.",
+                expanded = macrosExpanded,
+                onToggle = { macrosExpanded = !macrosExpanded },
+                compact = compact
+            ) {
+                ProgressInsightsCard(
+                    planMetrics = planMetrics,
+                    currentPlan = currentPlan,
+                    weeklyMealSummary = weeklyMealSummary,
+                    planFeedbackTags = planFeedbackTags,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    ProgressCheckInCard(
-                        todayLog = todayLog,
-                        profileWeightLb = profile.weightUnit == UnitConverter.WEIGHT_LB,
-                        modifier = Modifier.weight(1f),
-                        compact = compact
-                    )
-
-                    ProgressInsightsCard(
-                        planMetrics = planMetrics,
-                        currentPlan = currentPlan,
-                        planFeedbackTags = planFeedbackTags,
-                        modifier = Modifier.weight(1f),
-                        compact = compact
-                    )
-                }
+                    compact = compact
+                )
             }
 
             ProgressBottomCtaCard(
@@ -479,14 +643,17 @@ fun ProgressRefinedScreen(
 @Composable
 private fun ProgressHeadlineCard(
     dateLabel: String,
+    bmiLabel: String,
+    bmiCategory: String,
+    mealsDoneLabel: String,
     compact: Boolean,
 ) {
     Surface(
-        shape = RoundedCornerShape(if (compact) 24.dp else 28.dp),
+        shape = RoundedCornerShape(if (compact) 20.dp else 22.dp),
         color = Color.Transparent,
-        border = BorderStroke(2.dp, PcosinaDeepRose.copy(alpha = 0.78f))
+        border = BorderStroke(1.25.dp, PcosinaDeepRose.copy(alpha = 0.72f))
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
@@ -494,61 +661,167 @@ private fun ProgressHeadlineCard(
                         listOf(PcosinaBlush, Color(0xFFFF91A7))
                     )
                 )
-                .padding(horizontal = if (compact) 16.dp else 18.dp, vertical = if (compact) 14.dp else 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = if (compact) 14.dp else 16.dp, vertical = if (compact) 12.dp else 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Surface(
-                shape = CircleShape,
-                color = Color.White.copy(alpha = 0.24f),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.36f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
-                Box(
-                    modifier = Modifier.padding(horizontal = if (compact) 14.dp else 16.dp, vertical = if (compact) 12.dp else 14.dp),
-                    contentAlignment = Alignment.Center
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     Text(
-                        text = "📈",
-                        style = if (compact) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge
+                        text = "Weekly Progress",
+                        style = if (compact) {
+                            MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = PcosinaDeepRose
+                            )
+                        } else {
+                            MaterialTheme.typography.headlineSmall.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = PcosinaDeepRose
+                            )
+                        }
+                    )
+                    Text(
+                        text = "Track how your week is going in one clean view.",
+                        style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+                        color = PcosinaDeepRose
                     )
                 }
+                RefinedStatusPill(
+                    text = dateLabel,
+                    containerColor = Color.White.copy(alpha = 0.82f),
+                    contentColor = PcosinaDeepRose
+                )
             }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ProgressHeroMetricCard(
+                    title = "BMI",
+                    value = bmiLabel,
+                    subtitle = bmiCategory,
+                    modifier = Modifier.weight(1f),
+                    compact = compact
+                )
+                ProgressHeroMetricCard(
+                    title = "Meal summary",
+                    value = mealsDoneLabel,
+                    subtitle = "Meals completed this week",
+                    modifier = Modifier.weight(1f),
+                    compact = compact
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressHeroMetricCard(
+    title: String,
+    value: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    compact: Boolean,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White.copy(alpha = 0.22f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.32f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = if (compact) 10.dp else 12.dp, vertical = if (compact) 9.dp else 10.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                color = PcosinaDeepRose
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                color = PcosinaDeepRose
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = PcosinaDeepRose.copy(alpha = 0.84f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProgressDropdownCard(
+    title: String,
+    value: String,
+    subtitle: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    compact: Boolean,
+    content: @Composable () -> Unit,
+) {
+    RefinedOverviewCard(
+        contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = "Track Your Progress",
-                    style = if (compact) {
-                        MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = PcosinaDeepRose
-                        )
-                    } else {
-                        MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = PcosinaDeepRose
-                        )
-                    }
-                )
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = PcosinaDeepRose.copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(999.dp)
-                ) {
-                    Text(text = " ", modifier = Modifier.padding(vertical = 1.dp))
-                }
-                Text(
-                    text = "See today's momentum and your week at a glance.",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
                     color = PcosinaDeepRose
                 )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PcosinaMuted
+                )
             }
-            RefinedStatusPill(
-                text = dateLabel,
-                containerColor = Color.White.copy(alpha = 0.82f),
-                contentColor = PcosinaDeepRose
-            )
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                if (value.isNotBlank()) {
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                        color = PcosinaDeepRose,
+                        textAlign = TextAlign.End
+                    )
+                }
+                RefinedStatusPill(
+                    text = if (expanded) "Hide details" else "Show details",
+                    containerColor = Color(0xFFFFF2F5),
+                    contentColor = PcosinaDeepRose
+                )
+            }
+        }
+        if (expanded) {
+            Column(
+                modifier = Modifier.padding(top = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                content()
+            }
         }
     }
 }
@@ -556,75 +829,99 @@ private fun ProgressHeadlineCard(
 @Composable
 private fun ProgressWeeklyCard(
     weekNodes: List<ProgressWeekNode>,
+    weeklyMealSummary: WeeklyMealSummary,
     compact: Boolean,
 ) {
-    RefinedOverviewCard(
-        contentPadding = PaddingValues(if (compact) 14.dp else 16.dp)
-    ) {
-        Text(
-            text = "Your Weekly Progress",
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
-            color = PcosinaDeepRose
-        )
-        Text(
-            text = "Check each day at a glance and spot where the week is slipping or staying steady.",
-            style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
-            color = PcosinaMuted
-        )
+    Text(
+        text = "See how your daily small actions are adding up this week.",
+        style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+        color = PcosinaMuted
+    )
+    weekNodes.forEachIndexed { index, node ->
+        val point = weeklyMealSummary.chartPoints.getOrNull(index)
         Row(
             modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            weekNodes.forEachIndexed { index, node ->
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = when (node.state) {
-                            ProgressNodeState.Complete -> PcosinaPink
-                            ProgressNodeState.Partial -> PcosinaSoftPink
-                            ProgressNodeState.Pending -> Color.White
-                            ProgressNodeState.Future -> PcosinaSurfaceAlt
-                        },
-                        border = BorderStroke(
-                            2.dp,
-                            when (node.state) {
-                                ProgressNodeState.Complete -> PcosinaDeepRose
-                                ProgressNodeState.Partial -> PcosinaPink
-                                ProgressNodeState.Pending -> PcosinaMuted.copy(alpha = 0.35f)
-                                ProgressNodeState.Future -> PcosinaMuted.copy(alpha = 0.26f)
-                            }
-                        ),
-                        modifier = Modifier.size(if (compact) 38.dp else 44.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = node.valueText,
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = if (node.state == ProgressNodeState.Complete) Color.White else PcosinaDeepRose,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                    Text(
-                        text = node.label,
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                        color = PcosinaDeepRose
-                    )
-                }
-                if (index != weekNodes.lastIndex) {
+            Text(
+                text = node.label.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ENGLISH) else it.toString() },
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = PcosinaDeepRose
+            )
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(12.dp)
+                    .background(Color(0xFFFFEFF3), RoundedCornerShape(999.dp))
+            ) {
+                val progress = point?.value?.coerceIn(0f, 1f) ?: 0f
+                if (progress > 0f) {
                     Box(
                         modifier = Modifier
-                            .weight(0.35f)
-                            .padding(bottom = if (compact) 26.dp else 28.dp)
-                            .background(PcosinaMuted.copy(alpha = 0.2f), CircleShape)
-                    ) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp)) {}
-                    }
+                            .fillMaxHeight()
+                            .fillMaxWidth(progress)
+                            .background(point?.color ?: PcosinaPink, RoundedCornerShape(999.dp))
+                    )
                 }
+            }
+            Text(
+                text = point?.valueText ?: node.valueText.ifBlank { "--" },
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = PcosinaDeepRose,
+                textAlign = TextAlign.End
+            )
+        }
+    }
+    RefinedStatusPill(
+        text = "${weeklyMealSummary.completedMeals}/${weeklyMealSummary.plannedMeals} meals completed this week",
+        containerColor = PcosinaSoftPink.copy(alpha = 0.26f),
+        contentColor = PcosinaDeepRose
+    )
+}
+
+@Composable
+private fun ProgressSavingsCard(
+    summary: String,
+    chartPoints: List<ProgressChartPoint>,
+    spendStats: List<ProgressSpendStat>,
+    compact: Boolean,
+) {
+    Text(
+        text = summary,
+        style = MaterialTheme.typography.bodyMedium,
+        color = PcosinaMuted
+    )
+    if (spendStats.isNotEmpty()) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            spendStats.forEach { stat ->
+                RefinedStatusPill(
+                    text = "${stat.label}: ${stat.value}",
+                    containerColor = Color(0xFFFFF2F5),
+                    contentColor = PcosinaDeepRose
+                )
+            }
+        }
+    }
+    if (chartPoints.isEmpty()) {
+        Text(
+            text = "Add a weekly budget or spend value to compare savings here.",
+            style = MaterialTheme.typography.bodySmall,
+            color = PcosinaMuted
+        )
+    } else {
+        val maxValue = chartPoints.maxOfOrNull { it.value }?.coerceAtLeast(1f) ?: 1f
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            chartPoints.forEach { point ->
+                ProgressComparisonRow(
+                    label = point.label,
+                    valueText = point.valueText,
+                    fillRatio = (point.value / maxValue).coerceIn(0f, 1f),
+                    color = point.color
+                )
             }
         }
     }
@@ -639,23 +936,36 @@ private fun ProgressCheckInCard(
 ) {
     RefinedOverviewCard(
         modifier = modifier,
-        contentPadding = PaddingValues(if (compact) 14.dp else 16.dp)
+        contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
     ) {
         Text(
-            text = "Today's Check-in",
+            text = "Today snapshot",
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
             color = PcosinaDeepRose
         )
-        ProgressLevelDisplay("Energy", todayLog?.energyLevel)
-        ProgressLevelDisplay("Mood", todayLog?.moodLevel)
-        ProgressLevelDisplay("Cravings", todayLog?.cravingsLevel)
-        ProgressLevelDisplay("Weight", todayLog?.weightKg?.let { kg ->
-            if (profileWeightLb) {
-                "${String.format(Locale.ENGLISH, "%.1f", UnitConverter.kgToLb(kg))} lb"
-            } else {
-                "${String.format(Locale.ENGLISH, "%.1f", kg)} kg"
-            }
-        })
+        Text(
+            text = "Today's reflection is still here when you need to update it.",
+            style = MaterialTheme.typography.bodySmall,
+            color = PcosinaMuted
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ProgressLevelPill("Energy", todayLog?.energyLevel?.toString() ?: "--")
+            ProgressLevelPill("Mood", todayLog?.moodLevel?.toString() ?: "--")
+            ProgressLevelPill("Cravings", todayLog?.cravingsLevel?.toString() ?: "--")
+            ProgressLevelPill(
+                "Weight",
+                todayLog?.weightKg?.let { kg ->
+                    if (profileWeightLb) {
+                        "${String.format(Locale.ENGLISH, "%.1f", UnitConverter.kgToLb(kg))} lb"
+                    } else {
+                        "${String.format(Locale.ENGLISH, "%.1f", kg)} kg"
+                    }
+                } ?: "--"
+            )
+        }
         if (!todayLog?.symptomsNote.isNullOrBlank()) {
             Text(
                 text = todayLog?.symptomsNote.orEmpty(),
@@ -675,20 +985,46 @@ private fun ProgressCheckInCard(
 @Composable
 private fun ProgressInsightsCard(
     planMetrics: com.pcosina.app.ui.PlanMetrics,
-    currentPlan: GeneratePlanResponse?,
+    currentPlan: PlannerPlanResponse?,
+    weeklyMealSummary: WeeklyMealSummary,
     planFeedbackTags: List<String>,
     modifier: Modifier = Modifier,
     compact: Boolean,
 ) {
-    RefinedOverviewCard(
+    Column(
         modifier = modifier,
-        contentPadding = PaddingValues(if (compact) 14.dp else 16.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
-            text = "Plan Insights",
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-            color = PcosinaDeepRose
+            text = "Use these averages as a quick weekly nutrition snapshot.",
+            style = MaterialTheme.typography.bodySmall,
+            color = PcosinaMuted
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ProgressMacroDonutChart(
+                protein = planMetrics.avgProtein,
+                carbs = planMetrics.avgCarbs,
+                fiber = planMetrics.avgFiber,
+                compact = compact
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ProgressMacroLegendRow("Protein", "${planMetrics.avgProtein}g avg", Color(0xFFFF9BAA))
+                ProgressMacroLegendRow("Carbs", "${planMetrics.avgCarbs}g avg", Color(0xFFD9AF77))
+                ProgressMacroLegendRow("Fiber", "${planMetrics.avgFiber}g avg", Color(0xFFB7E8A8))
+                RefinedStatusPill(
+                    text = "${weeklyMealSummary.completedMeals}/${weeklyMealSummary.plannedMeals} meals done",
+                    containerColor = Color(0xFFFFF2F5),
+                    contentColor = PcosinaDeepRose
+                )
+            }
+        }
         RefinedMetricBar(
             label = "Protein",
             valueText = "${planMetrics.avgProtein}g avg",
@@ -718,6 +1054,127 @@ private fun ProgressInsightsCard(
 }
 
 @Composable
+private fun ProgressComparisonRow(
+    label: String,
+    valueText: String,
+    fillRatio: Float,
+    color: Color,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = PcosinaDeepRose
+            )
+            Text(
+                text = valueText,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = PcosinaDeepRose
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(12.dp)
+                .background(Color(0xFFFFEFF3), RoundedCornerShape(999.dp))
+        ) {
+            if (fillRatio > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(fillRatio)
+                        .background(color, RoundedCornerShape(999.dp))
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressMacroDonutChart(
+    protein: Int,
+    carbs: Int,
+    fiber: Int,
+    compact: Boolean,
+) {
+    val slices = listOf(
+        "Protein" to (protein.coerceAtLeast(0).toFloat() to Color(0xFFFF9BAA)),
+        "Carbs" to (carbs.coerceAtLeast(0).toFloat() to Color(0xFFD9AF77)),
+        "Fiber" to (fiber.coerceAtLeast(0).toFloat() to Color(0xFFB7E8A8))
+    )
+    val total = slices.sumOf { it.second.first.toDouble() }.toFloat().coerceAtLeast(1f)
+
+    Box(
+        modifier = Modifier.size(if (compact) 118.dp else 126.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val stroke = Stroke(width = if (compact) 18.dp.toPx() else 20.dp.toPx(), cap = StrokeCap.Round)
+            var startAngle = -90f
+            slices.forEach { (_, data) ->
+                val sweep = (data.first / total) * 360f
+                if (sweep > 0f) {
+                    drawArc(
+                        color = data.second,
+                        startAngle = startAngle,
+                        sweepAngle = sweep,
+                        useCenter = false,
+                        size = Size(size.width, size.height),
+                        style = stroke
+                    )
+                }
+                startAngle += sweep
+            }
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "${protein + carbs + fiber}g",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                color = PcosinaDeepRose
+            )
+            Text(
+                text = "avg total",
+                style = MaterialTheme.typography.bodySmall,
+                color = PcosinaMuted
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProgressMacroLegendRow(
+    label: String,
+    valueText: String,
+    color: Color,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .background(color, CircleShape)
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = PcosinaDeepRose
+        )
+        Text(
+            text = valueText,
+            style = MaterialTheme.typography.bodySmall,
+            color = PcosinaMuted
+        )
+    }
+}
+
+@Composable
 private fun ProgressBottomCtaCard(
     completedMealsToday: Int,
     plannedMealsToday: Int,
@@ -727,9 +1184,9 @@ private fun ProgressBottomCtaCard(
     compact: Boolean,
 ) {
     Surface(
-        shape = RoundedCornerShape(if (compact) 24.dp else 28.dp),
+        shape = RoundedCornerShape(if (compact) 22.dp else 24.dp),
         color = Color.Transparent,
-        border = BorderStroke(2.dp, PcosinaDeepRose.copy(alpha = 0.72f))
+        border = BorderStroke(1.5.dp, PcosinaDeepRose.copy(alpha = 0.72f))
     ) {
         Row(
             modifier = Modifier
@@ -739,19 +1196,19 @@ private fun ProgressBottomCtaCard(
                         listOf(Color(0xFFFF8BA2), Color(0xFFFFC3CE))
                     )
                 )
-                .padding(horizontal = if (compact) 16.dp else 18.dp, vertical = if (compact) 14.dp else 18.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                .padding(horizontal = if (compact) 14.dp else 16.dp, vertical = if (compact) 12.dp else 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
                     text = if (completedMealsToday >= plannedMealsToday && plannedMealsToday > 0) {
-                        "Today's plan is on track."
+                        "You're keeping the week on track."
                     } else {
-                        "Keep today's plan moving."
+                        "Save today's check-in before the week gets away from you."
                     },
                     style = if (compact) {
                         MaterialTheme.typography.headlineSmall.copy(
@@ -769,10 +1226,12 @@ private fun ProgressBottomCtaCard(
                     text = if (weeklyJournal.isNotBlank()) {
                         weeklyJournal
                     } else {
-                        "Update today's check-in here, then review the week to save spending and tune the next plan."
+                        "Use Check in for today's reflection, then Review week for spending notes and plan feedback."
                     },
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -803,15 +1262,15 @@ private fun ProgressBottomCtaCard(
                 color = Color.White.copy(alpha = 0.16f),
                 shadowElevation = 8.dp
             ) {
-                    Text(
-                        text = "✍️",
-                        modifier = Modifier.padding(horizontal = if (compact) 16.dp else 18.dp, vertical = if (compact) 14.dp else 16.dp),
-                        style = if (compact) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.displaySmall,
-                        color = PcosinaDeepRose
-                    )
-                }
+                Text(
+                    text = "✍️",
+                    modifier = Modifier.padding(horizontal = if (compact) 14.dp else 16.dp, vertical = if (compact) 12.dp else 14.dp),
+                    style = if (compact) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge,
+                    color = PcosinaDeepRose
+                )
             }
         }
+    }
 }
 
 @Composable
@@ -827,12 +1286,16 @@ private fun ProgressSummaryTile(
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
             color = PcosinaMuted
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
+            style = if (value.length > 16) {
+                MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+            } else {
+                MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold)
+            },
             color = PcosinaDeepRose
         )
         Text(
@@ -844,23 +1307,20 @@ private fun ProgressSummaryTile(
 }
 
 @Composable
-private fun ProgressLevelDisplay(
+private fun ProgressLevelPill(
     label: String,
-    value: Any?,
+    value: String,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = Color(0xFFFFF2F5),
+        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.18f))
     ) {
         Text(
-            text = label,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            text = "$label: $value",
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
             color = PcosinaDeepRose
-        )
-        RefinedStatusPill(
-            text = value?.toString() ?: "--",
-            containerColor = PcosinaSoftPink.copy(alpha = 0.3f)
         )
     }
 }
@@ -897,26 +1357,33 @@ private fun ProgressLevelPicker(
     }
 }
 
-private fun buildProgressWeekNodes(
-    days: List<com.pcosina.app.data.api.DayPlanDto>,
-    logs: Map<String, DailyLog>,
-    weekStart: LocalDate,
-    today: LocalDate,
-): List<ProgressWeekNode> {
-    val dayCounts = days.associate { it.dayLabel.lowercase(Locale.ENGLISH) to it.meals.size }
-    val formatter = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
-    return (0..6).map { offset ->
-        val date = weekStart.plusDays(offset.toLong())
-        val dateKey = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
-        val label = date.format(formatter).uppercase(Locale.ENGLISH).take(3)
-        val planned = dayCounts[date.format(formatter).lowercase(Locale.ENGLISH)] ?: 0
-        val completed = logs[dateKey]?.completedMealIds?.size ?: 0
-        when {
-            date.isAfter(today) -> ProgressWeekNode(label, "", ProgressNodeState.Future)
-            planned == 0 -> ProgressWeekNode(label, "--", ProgressNodeState.Pending)
-            completed >= planned && planned > 0 -> ProgressWeekNode(label, "✓", ProgressNodeState.Complete)
-            completed > 0 -> ProgressWeekNode(label, "${((completed.toFloat() / planned.toFloat()) * 100f).toInt()}%", ProgressNodeState.Partial)
-            else -> ProgressWeekNode(label, "0%", ProgressNodeState.Pending)
-        }
+private fun ProgressWeekNodeSummary.toUiWeekNode(): ProgressWeekNode = ProgressWeekNode(
+    label = label,
+    valueText = valueText,
+    state = status.toUiNodeState()
+)
+
+private fun WeeklyMealSummaryResult.toUiWeeklyMealSummary(): WeeklyMealSummary = WeeklyMealSummary(
+    plannedMeals = plannedMeals,
+    completedMeals = completedMeals,
+    adherencePercent = adherencePercent,
+    chartPoints = chartPoints.map { it.toUiChartPoint() }
+)
+
+private fun ProgressAdherencePoint.toUiChartPoint(): ProgressChartPoint = ProgressChartPoint(
+    label = label,
+    value = ratio,
+    valueText = valueText,
+    color = when (status) {
+        ProgressDayStatus.COMPLETE -> PcosinaPink
+        ProgressDayStatus.PARTIAL -> Color(0xFFFFB171)
+        ProgressDayStatus.PENDING, ProgressDayStatus.FUTURE -> PcosinaSoftPink
     }
+)
+
+private fun ProgressDayStatus.toUiNodeState(): ProgressNodeState = when (this) {
+    ProgressDayStatus.COMPLETE -> ProgressNodeState.Complete
+    ProgressDayStatus.PARTIAL -> ProgressNodeState.Partial
+    ProgressDayStatus.PENDING -> ProgressNodeState.Pending
+    ProgressDayStatus.FUTURE -> ProgressNodeState.Future
 }

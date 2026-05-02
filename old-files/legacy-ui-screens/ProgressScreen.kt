@@ -4140,7 +4140,7 @@ private data class WeekStats(
     val pantryMatches: Int?
 )
 
-private fun computeWeekStats(plan: com.pcosina.app.data.api.GeneratePlanResponse): WeekStats {
+private fun computeWeekStats(plan: com.pcosina.app.data.model.PlannerPlanResponse): WeekStats {
     val avgCalories = if (plan.days.isNotEmpty()) {
         plan.days.sumOf { it.totalCalories } / plan.days.size
     } else 0

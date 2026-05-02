@@ -2,12 +2,11 @@ package com.pcosina.app.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -40,7 +39,6 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import android.util.Log
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.crashlytics.FirebaseCrashlytics
@@ -54,10 +52,11 @@ import com.pcosina.app.ui.components.AppFeedbackBanner
 import com.pcosina.app.ui.components.ExpandableSection
 import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
+import com.pcosina.app.ui.components.FocusSummaryCard
 import com.pcosina.app.ui.components.GradientHeader
+import com.pcosina.app.ui.components.RefinedFeatureCard
 import com.pcosina.app.ui.components.ScreenFocusOption
 import com.pcosina.app.ui.components.ScreenFocusStrip
-import com.pcosina.app.ui.components.StatusCenterCard
 import com.pcosina.app.data.model.NotificationPreferences
 import com.pcosina.app.domain.HealthMetrics
 import com.pcosina.app.domain.UnitConverter
@@ -103,7 +102,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
-    val userName = profile.displayName.ifBlank { "Warrior" }
+    val userName = profile.displayName.ifBlank { "Your account" }
     val baseUrl = BuildConfig.BASE_URL.trim().trim('"').trim('\'').trimEnd('/')
     val schemaUrl = "$baseUrl/schema"
     var settingsFocusKey by rememberSaveable { mutableStateOf(SettingsScreenFocus.Profile.name) }
@@ -111,35 +110,39 @@ fun SettingsScreen(
         SettingsScreenFocus.valueOf(settingsFocusKey)
     }
     val settingsFocusOptions = remember(adminMode) {
-        listOf(
-            ScreenFocusOption(
-                key = SettingsScreenFocus.Profile.name,
-                label = "Profile",
-                summary = "See your basics and open profile editing."
-            ),
-            ScreenFocusOption(
-                key = SettingsScreenFocus.Reminders.name,
-                label = "Reminders",
-                summary = "Pick when reminders show up on this phone."
-            ),
-            ScreenFocusOption(
-                key = SettingsScreenFocus.Tools.name,
-                label = "Tools",
-                summary = if (adminMode) {
-                    "Open team-only setup links and testing tools."
-                } else {
-                    "Keep setup hints separate from your main settings."
-                }
-            ),
-            ScreenFocusOption(
-                key = SettingsScreenFocus.Account.name,
-                label = "Account",
-                summary = "Handle sign-out and saved data for this phone."
+        buildList {
+            add(
+                ScreenFocusOption(
+                    key = SettingsScreenFocus.Profile.name,
+                    label = "Profile",
+                    summary = "See the details that shape your plans, groceries, and reminders."
+                )
             )
-        )
+            add(
+                ScreenFocusOption(
+                    key = SettingsScreenFocus.Reminders.name,
+                    label = "Reminders",
+                    summary = "Choose the nudges that help on this phone."
+                )
+            )
+            add(
+                ScreenFocusOption(
+                    key = SettingsScreenFocus.Account.name,
+                    label = "Account",
+                    summary = "Handle sign-out and saved data for this phone."
+                )
+            )
+            if (adminMode) {
+                add(
+                    ScreenFocusOption(
+                        key = SettingsScreenFocus.Tools.name,
+                        label = "Tools",
+                        summary = "Open hidden review links and local testing tools."
+                    )
+                )
+            }
+        }
     }
-    var tapCount by rememberSaveable { mutableStateOf(0) }
-
     var showClearDialog by rememberSaveable { mutableStateOf(false) }
     var showLogoutDialog by rememberSaveable { mutableStateOf(false) }
     var clearActionMessage by rememberSaveable { mutableStateOf<String?>(null) }
@@ -180,6 +183,94 @@ fun SettingsScreen(
     } else {
         "Reminders paused"
     }
+    val mainGoalLabel = primaryGoalLabel(profile.goal)
+    val householdLabel = if (profile.householdSize <= 1) {
+        "1 person"
+    } else {
+        "${profile.householdSize} people"
+    }
+    val ageLabel = profile.age.takeIf { it > 0 }?.let { "$it years old" } ?: "Not set"
+    val budgetLabel = profile.weeklyBudgetPhp.takeIf { it > 0 }?.let { "₱$it / week" } ?: "Not set"
+    val dietRulesLabel = if (profile.dietaryRestrictions.isEmpty()) {
+        "None saved"
+    } else {
+        "${profile.dietaryRestrictions.size} saved"
+    }
+    val allergyLabel = if (profile.allergies.isEmpty()) {
+        "None saved"
+    } else {
+        "${profile.allergies.size} saved"
+    }
+    val pantryLabel = if (profile.pantryItems.isEmpty()) {
+        "No pantry saved"
+    } else {
+        "${profile.pantryItems.size} saved"
+    }
+    val planningPriorityLabel = profile.planningPriority.ifBlank { "Balanced" }
+    val maxCookTimeLabel = "${profile.maxCookingTimeMinutes} min max"
+    val settingsStatusLabel = when (settingsFocus) {
+        SettingsScreenFocus.Profile -> if (profile.isProfileCompleted) {
+            "Your profile is ready to guide meals, groceries, and reminders."
+        } else {
+            "Finish your profile so planning feels more personal."
+        }
+        SettingsScreenFocus.Reminders -> notificationStatusSummary
+        SettingsScreenFocus.Tools -> if (adminMode) {
+            "Operator tools are available for this account."
+        } else {
+            "Review-only tools stay hidden in normal use."
+        }
+        SettingsScreenFocus.Account -> "Account actions stay local to this device."
+    }
+    val settingsSyncLabel = when (settingsFocus) {
+        SettingsScreenFocus.Profile -> "Saved food rules: ${profile.dietaryRestrictions.size + profile.allergies.size}"
+        SettingsScreenFocus.Reminders -> if (notificationPrefs.masterEnabled) {
+            nextReminderSummary
+        } else {
+            scheduledWorkersSummary
+        }
+        SettingsScreenFocus.Tools -> "Authenticated operator access is active on this account."
+        SettingsScreenFocus.Account -> if (logoutActionPending) {
+            "Sign-out is already in progress."
+        } else {
+            "You stay in control of what stays on this phone."
+        }
+    }
+    val settingsPlanRangeLabel = when (settingsFocus) {
+        SettingsScreenFocus.Profile -> "Main goal: $mainGoalLabel"
+        SettingsScreenFocus.Reminders -> "Phone permission: $permissionStateLabel"
+        SettingsScreenFocus.Tools -> "Review tools stay tucked away from everyday settings."
+        SettingsScreenFocus.Account -> "Clearing data only affects this phone unless you confirm it."
+    }
+    val settingsNextLabel = when (settingsFocus) {
+        SettingsScreenFocus.Profile -> "Next focus: review the details that affect budget, time, and food rules."
+        SettingsScreenFocus.Reminders -> nextReminderSummary
+        SettingsScreenFocus.Tools -> "Next focus: open the guide or local test tools only when you are reviewing the build."
+        SettingsScreenFocus.Account -> "Next focus: confirm before clearing data or signing out."
+    }
+    val settingsSummaryBadge = when (settingsFocus) {
+        SettingsScreenFocus.Profile -> "Profile setup"
+        SettingsScreenFocus.Reminders -> "Reminder controls"
+        SettingsScreenFocus.Tools -> "Review tools"
+        SettingsScreenFocus.Account -> "Account actions"
+    }
+    val settingsSummaryTitle = when (settingsFocus) {
+        SettingsScreenFocus.Profile -> "Profile details shape your week."
+        SettingsScreenFocus.Reminders -> "Keep reminders helpful, not noisy."
+        SettingsScreenFocus.Tools -> "Internal tools stay out of normal use."
+        SettingsScreenFocus.Account -> "Account controls should stay clear and deliberate."
+    }
+    val settingsSummaryAccent = when (settingsFocus) {
+        SettingsScreenFocus.Profile -> colorScheme.primary
+        SettingsScreenFocus.Reminders -> colorScheme.secondary
+        SettingsScreenFocus.Tools -> colorScheme.tertiary
+        SettingsScreenFocus.Account -> colorScheme.error
+    }
+    val settingsSummaryHighlights = buildList {
+        add(settingsPlanRangeLabel)
+        add(settingsSyncLabel)
+        add(settingsNextLabel)
+    }
     val lastFiredByType = remember(notificationLogs) {
         notificationLogs
             .groupBy { it.type }
@@ -194,6 +285,11 @@ fun SettingsScreen(
             scheduledWorkSummaries = emptyList()
         } else {
             scheduledWorkSummaries = NotificationScheduler.getScheduledWorkSummaries(context)
+        }
+    }
+    LaunchedEffect(adminMode, settingsFocusKey) {
+        if (!adminMode && settingsFocusKey == SettingsScreenFocus.Tools.name) {
+            settingsFocusKey = SettingsScreenFocus.Profile.name
         }
     }
     fun postSettingsFeedback(
@@ -283,34 +379,11 @@ fun SettingsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap)
     ) {
-        Box(
-            modifier = Modifier
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onLongPress = {
-                            val enabled = !adminMode
-                            userViewModel.toggleAdminMode()
-                            postSettingsFeedback(
-                                tone = FeedbackBannerTone.Success,
-                                message = if (enabled) {
-                                    "Admin mode enabled. System actions are now visible."
-                                } else {
-                                    "Admin mode disabled. System actions are now hidden."
-                                }
-                            )
-                        }
-                    )
-                }
-                .clickable {
-                    tapCount += 1
-                }
-        ) {
-            GradientHeader(
-                title = "Settings",
-                subtitle = "Profile, reminders, and account choices.",
-                containerHeight = 116
-            )
-        }
+        GradientHeader(
+            title = "Settings",
+            subtitle = "Make PCOSINA feel calm, useful, and easy to return to.",
+            containerHeight = 116
+        )
         settingsFeedbackBanner?.let { banner ->
             AppFeedbackBanner(
                 data = banner,
@@ -318,209 +391,233 @@ fun SettingsScreen(
             )
         }
         ScreenFocusStrip(
-            title = "Show",
+            title = "Go to",
             options = settingsFocusOptions,
             selectedKey = settingsFocusKey,
             onSelect = { settingsFocusKey = it },
-            labelMaxWidth = 132.dp
+            labelMaxWidth = 132.dp,
+            helperText = "Move between profile, reminders, and account controls without the clutter."
         )
-        if (settingsFocus == SettingsScreenFocus.Reminders) {
-            StatusCenterCard(
-                queuedActionsLabel = notificationStatusSummary,
-                syncLabel = scheduledWorkersSummary,
-                planRangeLabel = "Phone permission: $permissionStateLabel",
-                nextReminderLabel = nextReminderSummary,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
+        FocusSummaryCard(
+            badge = settingsSummaryBadge,
+            title = settingsSummaryTitle,
+            body = settingsStatusLabel,
+            accentColor = settingsSummaryAccent,
+            highlights = settingsSummaryHighlights,
+            modifier = Modifier.fillMaxWidth()
+        )
 
         // Personalized Profile Summary Card
         if (settingsFocus == SettingsScreenFocus.Profile) {
             Card(
-            shape = MaterialTheme.shapes.extraLarge,
-            colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(CircleShape)
-                        .background(colorScheme.primary.copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = userName.take(1).uppercase(),
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = colorScheme.primary
-                        )
-                    )
-                }
-                Spacer(Modifier.width(14.dp))
-                Column {
-                    Text(
-                        text = userName,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Text(
-                        text = primaryGoalLabel(profile.goal),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "$reminderOverviewLabel • Alerts $permissionStateLabel",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-        }
-
-        // Health & Goals Section
-        if (settingsFocus == SettingsScreenFocus.Profile) {
-            SettingsSection(title = "Your body details") {
-            val weightText = if (profile.weightUnit == UnitConverter.WEIGHT_LB) {
-                "${UnitConverter.kgToLb(profile.weightKg)} lb"
-            } else {
-                "${profile.weightKg} kg"
-            }
-            val heightText = if (profile.heightUnit == UnitConverter.HEIGHT_FT_IN) {
-                val (ft, inch) = UnitConverter.cmToFeetInches(profile.heightCm)
-                "${ft}ft ${inch}in"
-            } else {
-                "${profile.heightCm} cm"
-            }
-            SettingsItem(icon = Icons.Default.MonitorWeight, label = "Weight", value = weightText)
-            SettingsDivider()
-            SettingsItem(icon = Icons.Default.Height, label = "Height", value = heightText)
-            SettingsDivider()
-            SettingsItem(icon = Icons.Default.LocalFireDepartment, label = "Daily activity", value = profile.activityLevel)
-            SettingsDivider()
-            val bmiValue = HealthMetrics.bmi(profile.weightKg, profile.heightCm)
-            val bmiLabel = if (bmiValue > 0) String.format("%.1f", bmiValue) else "—"
-            val bmiCategory = HealthMetrics.bmiCategory(bmiValue)
-            SettingsItem(icon = Icons.Default.MonitorWeight, label = "BMI", value = "$bmiLabel ($bmiCategory)")
-            SettingsDivider()
-            SettingsItem(icon = Icons.Default.Info, label = "Main goal", value = primaryGoalLabel(profile.goal))
-
-            Button(
-                onClick = onNavigateToProfileEdit,
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
-            ) {
-                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Edit my profile", fontWeight = FontWeight.Bold)
-            }
-            Text(
-                text = "This includes your food rules, cooking limits, and budget.",
-                style = MaterialTheme.typography.bodySmall,
-                color = colorScheme.onSurfaceVariant
-            )
-        }
-        }
-
-        // Destructive Account Actions
-        if (settingsFocus == SettingsScreenFocus.Account) {
-            SettingsSection(
-            title = "Device actions",
-            titleColor = colorScheme.error,
-            containerColor = colorScheme.errorContainer.copy(alpha = 0.35f)
-        ) {
-            Text(
-                text = "These actions only affect this phone.",
-                style = MaterialTheme.typography.bodySmall,
-                color = colorScheme.onSurfaceVariant
-            )
-            SettingsActionItem(
-                icon = Icons.Default.History,
-                label = "Clear saved week data",
-                description = "Deletes saved plans, groceries, and logs on this phone",
-                color = colorScheme.error,
-                destructive = true
-            ) {
-                clearActionMessage = null
-                clearActionError = false
-                showClearDialog = true
-            }
-            clearActionMessage?.let { message ->
-                SettingsInlineNotice(
-                    message = message,
-                    isError = clearActionError
-                )
-            }
-            SettingsDivider()
-            SettingsActionItem(
-                icon = Icons.AutoMirrored.Filled.Logout,
-                label = "Logout",
-                description = "Sign out on this phone",
-                color = colorScheme.error,
-                destructive = true
-            ) {
-                logoutActionPending = false
-                showLogoutDialog = true
-            }
-            if (logoutActionPending) {
-                SettingsInlineNotice(
-                    message = "Signing out…",
-                    isError = false
-                )
-            }
-
-            if (BuildConfig.DEBUG) {
-                SettingsDivider()
-                SettingsActionItem(
-                    icon = Icons.Default.Warning,
-                    label = "Test crash report",
-                    description = "Send a test crash to Crashlytics",
-                    color = MaterialTheme.colorScheme.error,
-                    destructive = true
-                ) {
-                    FirebaseCrashlytics.getInstance().log("Manual test crash from Settings")
-                    throw RuntimeException("Crashlytics test crash")
-                }
-            }
-        }
-        }
-
-
-        if (!adminMode && tapCount >= 5 && settingsFocus == SettingsScreenFocus.Tools) {
-            Card(
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(68.dp)
+                            .clip(CircleShape)
+                            .background(colorScheme.primary.copy(alpha = 0.1f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = userName.take(1).uppercase(),
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = colorScheme.primary
+                            )
+                        )
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        SettingsStatePill(
+                            text = if (profile.isProfileCompleted) "Profile ready" else "Finish profile",
+                            emphasized = profile.isProfileCompleted
+                        )
+                        Text(
+                            text = userName,
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            text = "Saved on this phone and used when you build a week.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            SettingsStatePill(
+                                text = mainGoalLabel,
+                                emphasized = true
+                            )
+                            SettingsStatePill(
+                                text = reminderOverviewLabel,
+                                emphasized = notificationPrefs.masterEnabled
+                            )
+                            SettingsStatePill(
+                                text = budgetLabel,
+                                emphasized = profile.weeklyBudgetPhp > 0
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (settingsFocus == SettingsScreenFocus.Profile) {
+            SettingsSection(
+                title = "Basics",
+                summary = "These details help size targets, portions, and everyday planning choices."
+            ) {
+                val weightText = if (profile.weightUnit == UnitConverter.WEIGHT_LB) {
+                    "${UnitConverter.kgToLb(profile.weightKg)} lb"
+                } else {
+                    "${profile.weightKg} kg"
+                }
+                val heightText = if (profile.heightUnit == UnitConverter.HEIGHT_FT_IN) {
+                    val (ft, inch) = UnitConverter.cmToFeetInches(profile.heightCm)
+                    "${ft}ft ${inch}in"
+                } else {
+                    "${profile.heightCm} cm"
+                }
+                val bmiValue = HealthMetrics.bmi(profile.weightKg, profile.heightCm)
+                val bmiLabel = if (bmiValue > 0) String.format("%.1f", bmiValue) else "—"
+                val bmiCategory = HealthMetrics.bmiCategory(bmiValue)
+                SettingsItem(icon = Icons.Default.Info, label = "Age", value = ageLabel)
+                SettingsDivider()
+                SettingsItem(icon = Icons.Default.MonitorWeight, label = "Weight", value = weightText)
+                SettingsDivider()
+                SettingsItem(icon = Icons.Default.Height, label = "Height", value = heightText)
+                SettingsDivider()
+                SettingsItem(icon = Icons.Default.LocalFireDepartment, label = "Daily activity", value = profile.activityLevel)
+                SettingsDivider()
+                SettingsItem(icon = Icons.Default.Info, label = "Household", value = householdLabel)
+                SettingsDivider()
+                SettingsItem(icon = Icons.Default.MonitorWeight, label = "BMI", value = "$bmiLabel ($bmiCategory)")
+            }
+        }
+
+        if (settingsFocus == SettingsScreenFocus.Profile) {
+            SettingsSection(
+                title = "Planning preferences",
+                summary = "These choices shape food matching, budget limits, and how flexible the week feels."
+            ) {
+                SettingsItem(icon = Icons.Default.Info, label = "Main goal", value = mainGoalLabel)
+                SettingsDivider()
+                SettingsItem(icon = Icons.Default.Info, label = "Weekly budget", value = budgetLabel)
+                SettingsDivider()
+                SettingsItem(icon = Icons.Default.History, label = "Max cooking time", value = maxCookTimeLabel)
+                SettingsDivider()
+                SettingsItem(icon = Icons.Default.Info, label = "Food rules", value = dietRulesLabel)
+                SettingsDivider()
+                SettingsItem(icon = Icons.Default.Warning, label = "Allergies", value = allergyLabel)
+                SettingsDivider()
+                SettingsItem(icon = Icons.Default.Info, label = "Pantry saved", value = pantryLabel)
+                SettingsDivider()
+                SettingsItem(icon = Icons.Default.Info, label = "Planning priority", value = planningPriorityLabel)
+                SettingsDivider()
+                SettingsItem(icon = Icons.Default.Info, label = "Variety", value = profile.varietyPreference)
+
+                Button(
+                    onClick = onNavigateToProfileEdit,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Edit my profile", fontWeight = FontWeight.Bold)
+                }
                 Text(
-                    text = "Tip: long-press the header to open team tools.",
-                    modifier = Modifier.padding(14.dp),
+                    text = "This is where you update food rules, cooking limits, pantry details, and budget choices.",
                     style = MaterialTheme.typography.bodySmall,
                     color = colorScheme.onSurfaceVariant
                 )
             }
         }
 
+        if (settingsFocus == SettingsScreenFocus.Account) {
+            SettingsSection(
+                title = "Account and device actions",
+                summary = "Use these only when you need a clean reset or want to leave this phone signed out.",
+                titleColor = colorScheme.error,
+                containerColor = colorScheme.errorContainer.copy(alpha = 0.45f)
+            ) {
+                SettingsActionItem(
+                    icon = Icons.Default.History,
+                    label = "Clear saved week data",
+                    description = "Removes saved plans, groceries, and logs from this phone only.",
+                    color = colorScheme.error,
+                    destructive = true
+                ) {
+                    clearActionMessage = null
+                    clearActionError = false
+                    showClearDialog = true
+                }
+                clearActionMessage?.let { message ->
+                    SettingsInlineNotice(
+                        message = message,
+                        isError = clearActionError
+                    )
+                }
+                SettingsDivider()
+                SettingsActionItem(
+                    icon = Icons.AutoMirrored.Filled.Logout,
+                    label = "Sign out on this phone",
+                    description = "You can sign back in later without changing your planner rules.",
+                    color = colorScheme.error,
+                    destructive = true
+                ) {
+                    logoutActionPending = false
+                    showLogoutDialog = true
+                }
+                if (logoutActionPending) {
+                    SettingsInlineNotice(
+                        message = "Signing out…",
+                        isError = false
+                    )
+                }
+            }
+        }
+
+
         if (adminMode && settingsFocus == SettingsScreenFocus.Tools) {
-            ExpandableSection(
-                title = "Team tools",
-                subtitle = "For setup and testing only",
-                defaultExpanded = false
+            RefinedFeatureCard(
+                icon = Icons.Default.Info,
+                accentColor = colorScheme.primary,
+                statusLabel = "Review mode",
+                title = "Team tools are hidden away from the everyday settings flow",
+                body = "Use these only when you are testing the build, reviewing internal behavior, or preparing demo data.",
+                highlights = listOf(
+                    "Open the planner guide or data contract only when you need internal context.",
+                    "Testing actions stay here so personal settings remain calm and user-facing."
+                )
+            )
+        }
+
+        if (adminMode && settingsFocus == SettingsScreenFocus.Tools) {
+            SettingsSection(
+                title = "Internal review tools",
+                summary = "Visible only for authenticated operator accounts."
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp),
+                        .padding(top = 2.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     SettingsItem(
@@ -536,7 +633,7 @@ fun SettingsScreen(
                     SettingsActionItem(
                         icon = Icons.Default.Link,
                         label = "Open data contract",
-                        description = schemaUrl,
+                        description = "Open the current schema for this build",
                         color = colorScheme.primary
                     ) {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(schemaUrl))
@@ -551,27 +648,16 @@ fun SettingsScreen(
                         onOpenAdminMethodology()
                     }
                     if (BuildConfig.DEBUG) {
+                        SettingsDivider()
                         SettingsActionItem(
-                            icon = Icons.Default.Info,
-                            label = "Seed demo weeks",
-                            description = "Create 3 sample weeks with progress history",
-                            color = colorScheme.primary
+                            icon = Icons.Default.Warning,
+                            label = "Test crash report",
+                            description = "Send a manual test crash to Crashlytics",
+                            color = MaterialTheme.colorScheme.error,
+                            destructive = true
                         ) {
-                            if (userId.isBlank()) {
-                                postSettingsFeedback(
-                                    tone = FeedbackBannerTone.Error,
-                                    message = "No change: sign in first before creating sample weeks."
-                                )
-                            } else {
-                                val start = LocalDate.now().with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
-                                progressViewModel.loadForUser(userId, start.format(DateTimeFormatter.ISO_LOCAL_DATE))
-                                val seeds = mealPlanViewModel.seedDemoWeeks(profile)
-                                progressViewModel.seedDemoWeeks(seeds)
-                                postSettingsFeedback(
-                                    tone = FeedbackBannerTone.Success,
-                                    message = "Created ${seeds.size} sample weeks. Plan and progress history are ready."
-                                )
-                            }
+                            FirebaseCrashlytics.getInstance().log("Manual test crash from Settings")
+                            throw RuntimeException("Crashlytics test crash")
                         }
                     }
                 }
@@ -579,21 +665,13 @@ fun SettingsScreen(
         }
 
         if (settingsFocus == SettingsScreenFocus.Reminders) {
-            SettingsSection(title = "Reminders") {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            SettingsSection(
+                title = "Reminder control",
+                summary = "Choose whether PCOSINA can nudge you on this phone and keep notifications respectful."
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Turn reminders on", style = MaterialTheme.typography.labelLarge)
-                    Text(
-                        text = "These reminders stay on this phone. Lock-screen text stays generic for privacy.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
+                SettingsToggleItem(
+                    label = "Turn reminders on",
+                    description = "These reminders stay on this phone. Lock-screen text stays generic for privacy.",
                     checked = notificationPrefs.masterEnabled,
                     onCheckedChange = { enabled ->
                         if (enabled) {
@@ -604,11 +682,14 @@ fun SettingsScreen(
                                 ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                                 if (!granted) {
                                     showNotificationPermissionDialog = true
-                                    return@Switch
+                                } else {
+                                    updateNotificationPrefs { prefs -> prefs.copy(masterEnabled = true) }
+                                    notificationPermissionHint = null
                                 }
+                            } else {
+                                updateNotificationPrefs { prefs -> prefs.copy(masterEnabled = true) }
+                                notificationPermissionHint = null
                             }
-                            updateNotificationPrefs { prefs -> prefs.copy(masterEnabled = true) }
-                            notificationPermissionHint = null
                         } else {
                             updateNotificationPrefs { prefs -> prefs.copy(masterEnabled = false) }
                             if (userId.isNotBlank()) {
@@ -618,275 +699,218 @@ fun SettingsScreen(
                         }
                     }
                 )
-            }
-            Text(
-                text = "Phone permission: $permissionStateLabel",
-                style = MaterialTheme.typography.bodySmall,
-                color = colorScheme.onSurfaceVariant
-            )
-            if (!appNotificationsEnabled) {
-                SettingsActionItem(
-                    icon = Icons.Default.Info,
-                    label = "Open phone notification settings",
-                    description = "Allow reminders for PCOSINA in Android settings",
-                    color = colorScheme.primary
-                ) {
-                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                    }
-                    context.startActivity(intent)
-                }
-            }
-            notificationPermissionHint?.let { hint ->
-                Text(
-                    text = hint,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onSurfaceVariant
+                SettingsInlineNotice(
+                    message = "Phone permission: $permissionStateLabel",
+                    isError = !runtimeNotificationPermissionGranted || !appNotificationsEnabled
                 )
-            }
-            SettingsDivider()
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Meal time reminders", style = MaterialTheme.typography.labelLarge)
-                    Text(
-                        text = "Breakfast, lunch, and dinner reminders.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
+                if (!appNotificationsEnabled) {
+                    SettingsActionItem(
+                        icon = Icons.Default.Info,
+                        label = "Open phone notification settings",
+                        description = "Allow reminders for PCOSINA in Android settings",
+                        color = colorScheme.primary
+                    ) {
+                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                        }
+                        context.startActivity(intent)
+                    }
+                }
+                notificationPermissionHint?.let { hint ->
+                    SettingsInlineNotice(
+                        message = hint,
+                        isError = hint.contains("denied", ignoreCase = true)
                     )
                 }
-                Switch(
+            }
+
+            SettingsSection(
+                title = "Meal reminders",
+                summary = "Pick meal nudges that fit your day instead of chasing ideal times."
+            ) {
+                SettingsToggleItem(
+                    label = "Meal time reminders",
+                    description = "Breakfast, lunch, and dinner reminders.",
                     checked = notificationPrefs.mealRemindersEnabled,
                     enabled = notificationPrefs.masterEnabled,
                     onCheckedChange = { enabled ->
                         updateNotificationPrefs { prefs -> prefs.copy(mealRemindersEnabled = enabled) }
                     }
                 )
+                if (notificationPrefs.mealRemindersEnabled && notificationPrefs.masterEnabled) {
+                    SettingsActionItem(
+                        icon = Icons.Default.History,
+                        label = "Breakfast time",
+                        description = formatTime(notificationPrefs.breakfastHour, notificationPrefs.breakfastMinute),
+                        color = colorScheme.primary
+                    ) {
+                        showTimePicker(notificationPrefs.breakfastHour, notificationPrefs.breakfastMinute) { h, m ->
+                            updateNotificationPrefs { prefs -> prefs.copy(breakfastHour = h, breakfastMinute = m) }
+                        }
+                    }
+                    SettingsActionItem(
+                        icon = Icons.Default.History,
+                        label = "Lunch time",
+                        description = formatTime(notificationPrefs.lunchHour, notificationPrefs.lunchMinute),
+                        color = colorScheme.primary
+                    ) {
+                        showTimePicker(notificationPrefs.lunchHour, notificationPrefs.lunchMinute) { h, m ->
+                            updateNotificationPrefs { prefs -> prefs.copy(lunchHour = h, lunchMinute = m) }
+                        }
+                    }
+                    SettingsActionItem(
+                        icon = Icons.Default.History,
+                        label = "Dinner time",
+                        description = formatTime(notificationPrefs.dinnerHour, notificationPrefs.dinnerMinute),
+                        color = colorScheme.primary
+                    ) {
+                        showTimePicker(notificationPrefs.dinnerHour, notificationPrefs.dinnerMinute) { h, m ->
+                            updateNotificationPrefs { prefs -> prefs.copy(dinnerHour = h, dinnerMinute = m) }
+                        }
+                    }
+                }
+                Text(
+                    text = "Saved meal times: B ${formatTime(notificationPrefs.breakfastHour, notificationPrefs.breakfastMinute)} • " +
+                        "L ${formatTime(notificationPrefs.lunchHour, notificationPrefs.lunchMinute)} • " +
+                        "D ${formatTime(notificationPrefs.dinnerHour, notificationPrefs.dinnerMinute)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-            if (notificationPrefs.mealRemindersEnabled && notificationPrefs.masterEnabled) {
-                SettingsActionItem(
-                    icon = Icons.Default.History,
-                    label = "Breakfast time",
-                    description = formatTime(notificationPrefs.breakfastHour, notificationPrefs.breakfastMinute),
-                    color = colorScheme.primary
-                ) {
-                    showTimePicker(notificationPrefs.breakfastHour, notificationPrefs.breakfastMinute) { h, m ->
-                        updateNotificationPrefs { prefs -> prefs.copy(breakfastHour = h, breakfastMinute = m) }
-                    }
-                }
-                SettingsActionItem(
-                    icon = Icons.Default.History,
-                    label = "Lunch time",
-                    description = formatTime(notificationPrefs.lunchHour, notificationPrefs.lunchMinute),
-                    color = colorScheme.primary
-                ) {
-                    showTimePicker(notificationPrefs.lunchHour, notificationPrefs.lunchMinute) { h, m ->
-                        updateNotificationPrefs { prefs -> prefs.copy(lunchHour = h, lunchMinute = m) }
-                    }
-                }
-                SettingsActionItem(
-                    icon = Icons.Default.History,
-                    label = "Dinner time",
-                    description = formatTime(notificationPrefs.dinnerHour, notificationPrefs.dinnerMinute),
-                    color = colorScheme.primary
-                ) {
-                    showTimePicker(notificationPrefs.dinnerHour, notificationPrefs.dinnerMinute) { h, m ->
-                        updateNotificationPrefs { prefs -> prefs.copy(dinnerHour = h, dinnerMinute = m) }
-                    }
-                }
-            }
-            SettingsDivider()
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+
+            SettingsSection(
+                title = "Weekly planning nudges",
+                summary = "Keep planning reminders helpful without making them feel noisy."
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Plan is ready", style = MaterialTheme.typography.labelLarge)
-                    Text(
-                        text = "Tells you when a new week finishes loading.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
+                SettingsToggleItem(
+                    label = "Plan is ready",
+                    description = "Tells you when a new week finishes loading.",
                     checked = notificationPrefs.planReadyEnabled,
                     enabled = notificationPrefs.masterEnabled,
                     onCheckedChange = { enabled ->
                         updateNotificationPrefs { prefs -> prefs.copy(planReadyEnabled = enabled) }
                     }
                 )
-            }
-            if (notificationPrefs.weeklyResetEnabled && notificationPrefs.masterEnabled) {
-                SettingsActionItem(
-                    icon = Icons.Default.History,
-                    label = "Weekly reset day",
-                    description = formatDayOfWeek(notificationPrefs.weeklyResetDayOfWeek),
-                    color = colorScheme.primary
-                ) {
-                    showWeeklyResetDayDialog = true
-                }
-                SettingsActionItem(
-                    icon = Icons.Default.History,
-                    label = "Weekly reset time",
-                    description = formatTime(notificationPrefs.weeklyResetHour, notificationPrefs.weeklyResetMinute),
-                    color = colorScheme.primary
-                ) {
-                    showTimePicker(notificationPrefs.weeklyResetHour, notificationPrefs.weeklyResetMinute) { h, m ->
-                        updateNotificationPrefs { prefs ->
-                            prefs.copy(
-                                weeklyResetHour = h,
-                                weeklyResetMinute = m
-                            )
-                        }
-                    }
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Grocery update alerts", style = MaterialTheme.typography.labelLarge)
-                    Text(
-                        text = "Shown when you refresh grocery data yourself.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
+                SettingsToggleItem(
+                    label = "Grocery update alerts",
+                    description = "Shown when you refresh grocery data yourself.",
                     checked = notificationPrefs.grocerySyncEnabled,
                     enabled = notificationPrefs.masterEnabled,
                     onCheckedChange = { enabled ->
                         updateNotificationPrefs { prefs -> prefs.copy(grocerySyncEnabled = enabled) }
                     }
                 )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("New week reminder", style = MaterialTheme.typography.labelLarge)
-                    Text(
-                        text = "A weekly nudge to create your next plan.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
+                SettingsToggleItem(
+                    label = "New week reminder",
+                    description = "A weekly nudge to create your next plan.",
                     checked = notificationPrefs.weeklyResetEnabled,
                     enabled = notificationPrefs.masterEnabled,
                     onCheckedChange = { enabled ->
                         updateNotificationPrefs { prefs -> prefs.copy(weeklyResetEnabled = enabled) }
                     }
                 )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Keep-going nudges", style = MaterialTheme.typography.labelLarge)
-                    Text(
-                        text = "Gentle routine nudges, goal-aware and non-judgmental.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
-                    )
+                if (notificationPrefs.weeklyResetEnabled && notificationPrefs.masterEnabled) {
+                    SettingsActionItem(
+                        icon = Icons.Default.History,
+                        label = "Weekly reminder day",
+                        description = formatDayOfWeek(notificationPrefs.weeklyResetDayOfWeek),
+                        color = colorScheme.primary
+                    ) {
+                        showWeeklyResetDayDialog = true
+                    }
+                    SettingsActionItem(
+                        icon = Icons.Default.History,
+                        label = "Weekly reminder time",
+                        description = formatTime(notificationPrefs.weeklyResetHour, notificationPrefs.weeklyResetMinute),
+                        color = colorScheme.primary
+                    ) {
+                        showTimePicker(notificationPrefs.weeklyResetHour, notificationPrefs.weeklyResetMinute) { h, m ->
+                            updateNotificationPrefs { prefs ->
+                                prefs.copy(
+                                    weeklyResetHour = h,
+                                    weeklyResetMinute = m
+                                )
+                            }
+                        }
+                    }
                 }
-                Switch(
+                Text(
+                    text = "Weekly reminder: ${formatDayOfWeek(notificationPrefs.weeklyResetDayOfWeek)} ${formatTime(notificationPrefs.weeklyResetHour, notificationPrefs.weeklyResetMinute)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            SettingsSection(
+                title = "Gentle routine nudges",
+                summary = "Keep check-ins supportive, lightweight, and easy to ignore when you need quiet."
+            ) {
+                SettingsToggleItem(
+                    label = "Keep-going nudges",
+                    description = "Gentle routine nudges, goal-aware and non-judgmental.",
                     checked = notificationPrefs.streakNudgesEnabled,
                     enabled = notificationPrefs.masterEnabled,
                     onCheckedChange = { enabled ->
                         updateNotificationPrefs { prefs -> prefs.copy(streakNudgesEnabled = enabled) }
                     }
                 )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Come-back reminder", style = MaterialTheme.typography.labelLarge)
-                    Text(
-                        text = "A quick check-in after a few quiet days.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
+                SettingsToggleItem(
+                    label = "Come-back reminder",
+                    description = "A quick check-in after a few quiet days.",
                     checked = notificationPrefs.inactivityNudgesEnabled,
                     enabled = notificationPrefs.masterEnabled,
                     onCheckedChange = { enabled ->
                         updateNotificationPrefs { prefs -> prefs.copy(inactivityNudgesEnabled = enabled) }
                     }
                 )
-            }
-            SettingsDivider()
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Do not disturb hours", style = MaterialTheme.typography.labelLarge)
-                    Text(
-                        text = "Pauses reminders during the hours you choose.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
+                SettingsToggleItem(
+                    label = "Do not disturb hours",
+                    description = "Pauses reminders during the hours you choose.",
                     checked = notificationPrefs.quietHoursEnabled,
                     enabled = notificationPrefs.masterEnabled,
                     onCheckedChange = { enabled ->
                         updateNotificationPrefs { prefs -> prefs.copy(quietHoursEnabled = enabled) }
                     }
                 )
-            }
-            if (notificationPrefs.quietHoursEnabled && notificationPrefs.masterEnabled) {
-                SettingsActionItem(
-                    icon = Icons.Default.History,
-                    label = "Quiet hours start",
-                    description = formatTime(notificationPrefs.quietStartHour, notificationPrefs.quietStartMinute),
-                    color = colorScheme.primary
-                ) {
-                    showTimePicker(notificationPrefs.quietStartHour, notificationPrefs.quietStartMinute) { h, m ->
-                        updateNotificationPrefs { prefs -> prefs.copy(quietStartHour = h, quietStartMinute = m) }
+                if (notificationPrefs.quietHoursEnabled && notificationPrefs.masterEnabled) {
+                    SettingsActionItem(
+                        icon = Icons.Default.History,
+                        label = "Quiet hours start",
+                        description = formatTime(notificationPrefs.quietStartHour, notificationPrefs.quietStartMinute),
+                        color = colorScheme.primary
+                    ) {
+                        showTimePicker(notificationPrefs.quietStartHour, notificationPrefs.quietStartMinute) { h, m ->
+                            updateNotificationPrefs { prefs -> prefs.copy(quietStartHour = h, quietStartMinute = m) }
+                        }
+                    }
+                    SettingsActionItem(
+                        icon = Icons.Default.History,
+                        label = "Quiet hours end",
+                        description = formatTime(notificationPrefs.quietEndHour, notificationPrefs.quietEndMinute),
+                        color = colorScheme.primary
+                    ) {
+                        showTimePicker(notificationPrefs.quietEndHour, notificationPrefs.quietEndMinute) { h, m ->
+                            updateNotificationPrefs { prefs -> prefs.copy(quietEndHour = h, quietEndMinute = m) }
+                        }
                     }
                 }
-                SettingsActionItem(
-                    icon = Icons.Default.History,
-                    label = "Quiet hours end",
-                    description = formatTime(notificationPrefs.quietEndHour, notificationPrefs.quietEndMinute),
-                    color = colorScheme.primary
-                ) {
-                    showTimePicker(notificationPrefs.quietEndHour, notificationPrefs.quietEndMinute) { h, m ->
-                        updateNotificationPrefs { prefs -> prefs.copy(quietEndHour = h, quietEndMinute = m) }
-                    }
-                }
+                Text(
+                    text = "Upcoming reminders: ${nextReminderSummaries.firstOrNull() ?: "No reminder time saved yet."}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-            Text(
-                text = "Saved times: B ${formatTime(notificationPrefs.breakfastHour, notificationPrefs.breakfastMinute)} • " +
-                    "L ${formatTime(notificationPrefs.lunchHour, notificationPrefs.lunchMinute)} • " +
-                    "D ${formatTime(notificationPrefs.dinnerHour, notificationPrefs.dinnerMinute)} • " +
-                    "Weekly ${formatDayOfWeek(notificationPrefs.weeklyResetDayOfWeek)} ${formatTime(notificationPrefs.weeklyResetHour, notificationPrefs.weeklyResetMinute)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (BuildConfig.DEBUG) {
+
+            if (BuildConfig.DEBUG && adminMode) {
                 ExpandableSection(
                     title = "Reminder testing",
-                    subtitle = "For local testing only",
+                    subtitle = "For review builds only",
                     defaultExpanded = false
                 ) {
                     Column(
@@ -969,6 +993,9 @@ fun SettingsScreen(
                                 scheduledWorkSummaries = NotificationScheduler.getScheduledWorkSummaries(context)
                             }
                         }
+                        if (nextReminderSummaries.isNotEmpty()) {
+                            SettingsDivider()
+                        }
                         Text(
                             text = "Upcoming reminders",
                             style = MaterialTheme.typography.labelLarge,
@@ -1003,6 +1030,7 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                        SettingsDivider()
                         Text(
                             text = "Recent reminder types",
                             style = MaterialTheme.typography.labelLarge,
@@ -1021,7 +1049,7 @@ fun SettingsScreen(
                                     .toLocalDateTime()
                                     .format(DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.ENGLISH))
                                 Text(
-                                    text = "• $type → $stamp",
+                                    text = "• $type -> $stamp",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = colorScheme.onSurfaceVariant,
                                     maxLines = 1,
@@ -1029,6 +1057,7 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                        SettingsDivider()
                         Text(
                             text = "Recent reminders sent",
                             style = MaterialTheme.typography.labelLarge,
@@ -1055,11 +1084,10 @@ fun SettingsScreen(
                 }
             }
         }
-        }
 
         Spacer(Modifier.height(24.dp))
         Text(
-            text = "PCOSINA • Empowerment through Nutrition",
+            text = "PCOSINA • Calm planning, private reminders, and easy routines",
             modifier = Modifier.fillMaxWidth(),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             style = MaterialTheme.typography.labelSmall,
@@ -1185,16 +1213,24 @@ private fun SettingsInlineNotice(
 ) {
     Surface(
         color = if (isError) {
-            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)
+            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.72f)
         } else {
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
         },
-        shape = MaterialTheme.shapes.small
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(
+            1.dp,
+            if (isError) {
+                MaterialTheme.colorScheme.error.copy(alpha = 0.18f)
+            } else {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+            }
+        )
     ) {
         Text(
             text = message,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            style = MaterialTheme.typography.bodySmall,
             color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.SemiBold
         )
@@ -1267,9 +1303,14 @@ private fun SettingsDialogOptionButton(
 }
 
 @Composable
-fun SettingsSection(title: String, content: @Composable () -> Unit) {
+fun SettingsSection(
+    title: String,
+    summary: String? = null,
+    content: @Composable () -> Unit
+) {
     SettingsSection(
         title = title,
+        summary = summary,
         titleColor = MaterialTheme.colorScheme.secondary,
         containerColor = MaterialTheme.colorScheme.surface,
         content = content
@@ -1279,32 +1320,36 @@ fun SettingsSection(title: String, content: @Composable () -> Unit) {
 @Composable
 fun SettingsSection(
     title: String,
+    summary: String? = null,
     titleColor: Color,
     containerColor: Color,
     content: @Composable () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionHeaderGap)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall.copy(
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.2.sp
-            ),
-            color = titleColor,
-            modifier = Modifier.padding(start = 4.dp)
-        )
-        Card(
-            shape = MaterialTheme.shapes.extraLarge,
-            colors = CardDefaults.cardColors(containerColor = containerColor),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f))
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.70f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(UiSpacingTokens.CardContentPadding),
-                verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.CardContentGap)
-            ) {
-                content()
+            SettingsStatePill(
+                text = title,
+                emphasized = true,
+                accentColor = titleColor
+            )
+            if (!summary.isNullOrBlank()) {
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                SettingsDivider()
             }
+            content()
         }
     }
 }
@@ -1351,13 +1396,14 @@ fun SettingsItem(icon: ImageVector, label: String, value: String) {
         Spacer(Modifier.width(12.dp))
         Surface(
             shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.60f)
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.58f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
         ) {
             Text(
                 text = value,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1377,15 +1423,15 @@ fun SettingsActionItem(
     Surface(
         onClick = onClick,
         color = if (destructive) {
-            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.42f)
+            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)
         } else {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
+            MaterialTheme.colorScheme.surface
         },
-        shape = MaterialTheme.shapes.large,
+        shape = RoundedCornerShape(20.dp),
         border = BorderStroke(
             width = 1.dp,
             color = if (destructive) {
-                MaterialTheme.colorScheme.error.copy(alpha = 0.18f)
+                MaterialTheme.colorScheme.error.copy(alpha = 0.20f)
             } else {
                 MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.70f)
             }
@@ -1396,7 +1442,7 @@ fun SettingsActionItem(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp)
         ) {
             Surface(
                 shape = CircleShape,
@@ -1454,6 +1500,110 @@ fun SettingsActionItem(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SettingsToggleItem(
+    label: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = if (checked && enabled) {
+            colorScheme.primaryContainer.copy(alpha = 0.55f)
+        } else {
+            colorScheme.surface
+        },
+        border = BorderStroke(
+            1.dp,
+            if (checked && enabled) {
+                colorScheme.primary.copy(alpha = 0.22f)
+            } else {
+                colorScheme.outlineVariant.copy(alpha = 0.70f)
+            }
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant
+                )
+                SettingsStatePill(
+                    text = if (!enabled) {
+                        "Unavailable"
+                    } else if (checked) {
+                        "On"
+                    } else {
+                        "Off"
+                    },
+                    emphasized = checked && enabled
+                )
+            }
+            Switch(
+                checked = checked,
+                enabled = enabled,
+                onCheckedChange = onCheckedChange
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsStatePill(
+    text: String,
+    emphasized: Boolean,
+    modifier: Modifier = Modifier,
+    accentColor: Color? = null
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val resolvedAccentColor = accentColor ?: colorScheme.primary
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        color = if (emphasized) {
+            resolvedAccentColor.copy(alpha = 0.10f)
+        } else {
+            colorScheme.surface
+        },
+        border = BorderStroke(
+            1.dp,
+            if (emphasized) {
+                resolvedAccentColor.copy(alpha = 0.16f)
+            } else {
+                colorScheme.outlineVariant.copy(alpha = 0.60f)
+            }
+        ),
+        contentColor = if (emphasized) {
+            resolvedAccentColor
+        } else {
+            colorScheme.onSurfaceVariant
+        }
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+        )
     }
 }
 

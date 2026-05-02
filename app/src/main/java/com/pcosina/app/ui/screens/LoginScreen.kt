@@ -53,7 +53,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -94,7 +96,7 @@ import java.util.Locale
 @Composable
 fun LoginScreen(
     authViewModel: AuthViewModel,
-    onLoginSuccess: () -> Unit,
+    onLoginSuccess: (Boolean) -> Unit,
     onNavigateToSignUp: () -> Unit,
     onDebugFirstWinContinue: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -102,6 +104,7 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    var operatorMode by rememberSaveable { mutableStateOf(false) }
     val loginState by authViewModel.loginState.collectAsState()
     val loginMessage by authViewModel.loginMessage.collectAsState()
     val analytics = FirebaseAnalytics.getInstance(LocalContext.current)
@@ -158,7 +161,7 @@ fun LoginScreen(
     LaunchedEffect(loginState) {
         if (loginState is LoginState.Success) {
             analytics.logEvent("login_success", null)
-            onLoginSuccess()
+            onLoginSuccess(operatorMode)
         }
     }
     LaunchedEffect(Unit) {
@@ -183,17 +186,22 @@ fun LoginScreen(
             .background(Color.White),
     ) {
         val scrollState = rememberScrollState()
-        val compact = maxHeight < 900.dp || maxWidth < 400.dp
-        val contentModifier = Modifier
-            .verticalScroll(scrollState)
-            .imePadding()
-        val sheetTop = maxHeight * if (compact) 0.27f else 0.33f
-        val sheetFlatTop = sheetTop + if (compact) 72.dp else 88.dp
-        val outerArcSize = maxWidth * if (compact) 1.48f else 1.66f
-        val innerArcSize = maxWidth * if (compact) 1.34f else 1.5f
-        val outerArcTop = sheetTop - outerArcSize / 4.6f
-        val innerArcTop = sheetTop - innerArcSize / 4.35f
-        val contentTopPadding = sheetTop + if (compact) 6.dp else 20.dp
+        val compact = maxHeight < 790.dp || maxWidth < 400.dp
+        val allowScroll = maxHeight < 660.dp || maxWidth < 350.dp
+        val contentModifier = if (allowScroll) {
+            Modifier
+                .verticalScroll(scrollState)
+                .imePadding()
+        } else {
+            Modifier.imePadding()
+        }
+        val sheetTop = maxHeight * if (compact) 0.27f else 0.3f
+        val sheetFlatTop = sheetTop + if (compact) 62.dp else 76.dp
+        val outerArcSize = maxWidth * if (compact) 1.46f else 1.62f
+        val innerArcSize = maxWidth * if (compact) 1.3f else 1.44f
+        val outerArcTop = sheetTop - outerArcSize / 5f
+        val innerArcTop = sheetTop - innerArcSize / 4.7f
+        val contentTopPadding = sheetTop - if (compact) 14.dp else 10.dp
         val welcomeShadow = Shadow(
             color = Color.Black.copy(alpha = 0.12f),
             offset = Offset(0f, 7f),
@@ -204,7 +212,7 @@ fun LoginScreen(
             LoginHeroPattern(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(sheetFlatTop + 20.dp)
+                    .height(sheetFlatTop + if (compact) 6.dp else 14.dp)
                     .statusBarsPadding(),
             )
 
@@ -235,24 +243,24 @@ fun LoginScreen(
                 modifier = contentModifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(horizontal = if (compact) 22.dp else 28.dp)
-                    .padding(top = contentTopPadding, bottom = if (compact) 28.dp else 20.dp),
+                    .padding(horizontal = if (compact) 24.dp else 30.dp)
+                    .padding(top = contentTopPadding, bottom = if (compact) 18.dp else 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 12.dp),
+                verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp),
             ) {
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(if (compact) 0.dp else 4.dp))
 
                 androidx.compose.foundation.Image(
                     painter = painterResource(id = R.drawable.pcosina_logo),
                     contentDescription = "PCOSina logo",
-                    modifier = Modifier.size(if (compact) 112.dp else 138.dp),
+                    modifier = Modifier.size(if (compact) 156.dp else 182.dp),
                 )
 
                 Text(
                     text = "Wellness decision support tool",
-                    style = MaterialTheme.typography.titleMedium.copy(
+                    style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Medium,
-                        fontSize = if (compact) 16.sp else 19.sp,
+                        fontSize = if (compact) 14.sp else 15.sp,
                     ),
                     color = PcosinaMidnight,
                     textAlign = TextAlign.Center,
@@ -260,10 +268,10 @@ fun LoginScreen(
 
                 Text(
                     text = "Welcome Back!",
-                    style = MaterialTheme.typography.headlineLarge.copy(
+                    style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = if (compact) 36.sp else 44.sp,
-                        lineHeight = if (compact) 38.sp else 46.sp,
+                        fontSize = if (compact) 29.sp else 34.sp,
+                        lineHeight = if (compact) 31.sp else 36.sp,
                         shadow = welcomeShadow,
                     ),
                     color = Color.Black,
@@ -348,7 +356,7 @@ fun LoginScreen(
                     ) {
                         Text(
                             text = "Forgot password?",
-                            style = MaterialTheme.typography.titleMedium.copy(
+                            style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Medium,
                                 color = Color.White,
                             ),
@@ -378,7 +386,7 @@ fun LoginScreen(
 
                 Button(
                     onClick = {
-                        analytics.logEvent("login_attempt", null)
+                        analytics.logEvent(if (operatorMode) "operator_login_attempt" else "login_attempt", null)
                         authViewModel.onLogin(email, password)
                     },
                     enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
@@ -393,7 +401,7 @@ fun LoginScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .widthIn(max = 420.dp)
-                        .height(if (compact) 72.dp else 84.dp)
+                        .height(if (compact) 58.dp else 64.dp)
                         .shadow(
                             elevation = 16.dp,
                             shape = RoundedCornerShape(24.dp),
@@ -404,24 +412,24 @@ fun LoginScreen(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(22.dp),
+                                modifier = Modifier.size(20.dp),
                                 color = Color.White,
-                                strokeWidth = 2.6.dp,
+                                strokeWidth = 2.4.dp,
                             )
                         }
                         Text(
                             text = when (loginState) {
-                                LoginState.Loading -> "Signing in..."
-                                LoginState.Success -> "Signed in"
-                                else -> "Sign in"
+                                LoginState.Loading -> if (operatorMode) "Checking access..." else "Signing in..."
+                                LoginState.Success -> if (operatorMode) "Opening tools" else "Signed in"
+                                else -> if (operatorMode) "Continue to operator tools" else "Sign in"
                             },
-                            style = MaterialTheme.typography.headlineSmall.copy(
+                            style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.ExtraBold,
-                                fontSize = if (compact) 21.sp else 24.sp,
+                                fontSize = if (compact) 18.sp else 20.sp,
                             ),
                         )
                     }
@@ -441,9 +449,9 @@ fun LoginScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .widthIn(max = 420.dp)
-                        .height(if (compact) 68.dp else 80.dp)
+                        .height(if (compact) 50.dp else 54.dp)
                         .shadow(
-                            elevation = 12.dp,
+                            elevation = 8.dp,
                             shape = RoundedCornerShape(22.dp),
                             spotColor = PcosinaRoseShadow.copy(alpha = 0.16f),
                             ambientColor = PcosinaRoseShadow.copy(alpha = 0.12f),
@@ -453,12 +461,12 @@ fun LoginScreen(
                         text = "Continue with Google",
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = if (compact) 18.sp else 21.sp,
+                            fontSize = if (compact) 16.sp else 18.sp,
                         ),
                     )
                 }
 
-                Spacer(modifier = Modifier.height(if (compact) 4.dp else 18.dp))
+                Spacer(modifier = Modifier.height(if (compact) 2.dp else 10.dp))
 
                 TextButton(
                     onClick = onNavigateToSignUp,
@@ -466,10 +474,38 @@ fun LoginScreen(
                 ) {
                     Text(
                         text = "Don't have an account? Create one",
-                        style = MaterialTheme.typography.titleMedium.copy(
+                        style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = PcosinaDeepRose.copy(alpha = 0.8f),
                         ),
+                    )
+                }
+
+                TextButton(
+                    onClick = { operatorMode = !operatorMode },
+                    enabled = !isLoading,
+                    colors = ButtonDefaults.textButtonColors(contentColor = PcosinaDeepRose),
+                ) {
+                    Text(
+                        text = if (operatorMode) {
+                            "Back to personal sign in"
+                        } else {
+                            "Use operator access"
+                        },
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    )
+                }
+
+                if (operatorMode) {
+                    Text(
+                        text = "Authorized operator accounts only.",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp,
+                        ),
+                        color = PcosinaDeepRose,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.widthIn(max = 260.dp),
                     )
                 }
 
@@ -500,7 +536,7 @@ private fun LoginInputField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailingIcon: @Composable (() -> Unit)? = null,
 ) {
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(16.dp)
     val borderColor = if (isError) {
         MaterialTheme.colorScheme.error
     } else {
@@ -519,16 +555,16 @@ private fun LoginInputField(
         placeholder = {
             Text(
                 text = placeholder,
-                style = MaterialTheme.typography.headlineSmall.copy(
+                style = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = FontWeight.Normal,
-                    fontSize = 20.sp,
+                    fontSize = 17.sp,
                     color = PcosinaMuted,
                 ),
             )
         },
-        textStyle = MaterialTheme.typography.headlineSmall.copy(
+        textStyle = MaterialTheme.typography.bodyLarge.copy(
             fontWeight = FontWeight.Medium,
-            fontSize = 20.sp,
+            fontSize = 16.sp,
             color = PcosinaMidnight,
         ),
         shape = shape,
@@ -544,9 +580,9 @@ private fun LoginInputField(
             cursorColor = PcosinaDeepRose,
         ),
         modifier = modifier
-            .height(78.dp)
+            .height(52.dp)
             .shadow(
-                elevation = 10.dp,
+                elevation = 6.dp,
                 shape = shape,
                 spotColor = PcosinaRoseShadow.copy(alpha = 0.12f),
                 ambientColor = PcosinaRoseShadow.copy(alpha = 0.08f),
@@ -558,8 +594,8 @@ private fun LoginInputField(
 @Composable
 private fun LoginHeroPattern(modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
-        val accent = PcosinaBlushStrong.copy(alpha = 0.9f)
-        val lightStroke = Stroke(width = 6f, cap = StrokeCap.Round)
+        val accent = PcosinaBlushStrong.copy(alpha = 0.92f)
+        val lightStroke = Stroke(width = 4.5f, cap = StrokeCap.Round)
 
         fun dot(x: Float, y: Float, radius: Float) {
             drawCircle(color = accent, radius = radius, center = Offset(size.width * x, size.height * y))
@@ -577,92 +613,126 @@ private fun LoginHeroPattern(modifier: Modifier = Modifier) {
         fun sparkle(x: Float, y: Float, arm: Float) {
             val cx = size.width * x
             val cy = size.height * y
-            drawLine(accent, Offset(cx - arm, cy), Offset(cx + arm, cy), strokeWidth = 6f, cap = StrokeCap.Round)
-            drawLine(accent, Offset(cx, cy - arm), Offset(cx, cy + arm), strokeWidth = 6f, cap = StrokeCap.Round)
+            drawLine(accent, Offset(cx - arm, cy), Offset(cx + arm, cy), strokeWidth = 4f, cap = StrokeCap.Round)
+            drawLine(accent, Offset(cx, cy - arm), Offset(cx, cy + arm), strokeWidth = 4f, cap = StrokeCap.Round)
         }
 
+        fun heart(x: Float, y: Float, scale: Float) {
+            val cx = size.width * x
+            val cy = size.height * y
+            val path = Path().apply {
+                moveTo(cx, cy + 6f * scale)
+                cubicTo(cx - 16f * scale, cy - 8f * scale, cx - 26f * scale, cy + 14f * scale, cx, cy + 26f * scale)
+                cubicTo(cx + 26f * scale, cy + 14f * scale, cx + 16f * scale, cy - 8f * scale, cx, cy + 6f * scale)
+            }
+            drawPath(path, color = accent, style = Stroke(width = 3.5f * scale, cap = StrokeCap.Round))
+        }
+
+        fun pizza(x: Float, y: Float, scale: Float) {
+            val cx = size.width * x
+            val cy = size.height * y
+            val path = Path().apply {
+                moveTo(cx, cy - 22f * scale)
+                lineTo(cx - 20f * scale, cy + 22f * scale)
+                lineTo(cx + 20f * scale, cy + 22f * scale)
+                close()
+            }
+            drawPath(path, color = accent, style = Stroke(width = 4f * scale, cap = StrokeCap.Round))
+            drawArc(
+                color = accent,
+                startAngle = 200f,
+                sweepAngle = 140f,
+                useCenter = false,
+                topLeft = Offset(cx - 22f * scale, cy - 30f * scale),
+                size = Size(44f * scale, 20f * scale),
+                style = Stroke(width = 4f * scale),
+            )
+            drawCircle(accent, 3.5f * scale, Offset(cx - 7f * scale, cy - 2f * scale))
+            drawCircle(accent, 3.5f * scale, Offset(cx + 5f * scale, cy + 8f * scale))
+        }
+
+        fun burger(x: Float, y: Float, scale: Float) {
+            val cx = size.width * x
+            val cy = size.height * y
+            drawArc(
+                color = accent,
+                startAngle = 180f,
+                sweepAngle = 180f,
+                useCenter = false,
+                topLeft = Offset(cx - 24f * scale, cy - 18f * scale),
+                size = Size(48f * scale, 22f * scale),
+                style = Stroke(width = 4f * scale),
+            )
+            drawLine(accent, Offset(cx - 24f * scale, cy + 4f * scale), Offset(cx + 24f * scale, cy + 4f * scale), 4f * scale, StrokeCap.Round)
+            drawLine(accent, Offset(cx - 18f * scale, cy + 12f * scale), Offset(cx + 18f * scale, cy + 12f * scale), 4f * scale, StrokeCap.Round)
+            drawArc(
+                color = accent,
+                startAngle = 0f,
+                sweepAngle = 180f,
+                useCenter = false,
+                topLeft = Offset(cx - 22f * scale, cy + 6f * scale),
+                size = Size(44f * scale, 16f * scale),
+                style = Stroke(width = 4f * scale),
+            )
+        }
+
+        fun taco(x: Float, y: Float, scale: Float) {
+            val cx = size.width * x
+            val cy = size.height * y
+            drawArc(
+                color = accent,
+                startAngle = 200f,
+                sweepAngle = 140f,
+                useCenter = false,
+                topLeft = Offset(cx - 22f * scale, cy - 10f * scale),
+                size = Size(44f * scale, 32f * scale),
+                style = Stroke(width = 4f * scale),
+            )
+            drawLine(accent, Offset(cx - 12f * scale, cy - 4f * scale), Offset(cx - 2f * scale, cy - 10f * scale), 3f * scale, StrokeCap.Round)
+            drawLine(accent, Offset(cx - 1f * scale, cy - 2f * scale), Offset(cx + 10f * scale, cy - 9f * scale), 3f * scale, StrokeCap.Round)
+            drawLine(accent, Offset(cx - 8f * scale, cy + 4f * scale), Offset(cx + 8f * scale, cy - 2f * scale), 3f * scale, StrokeCap.Round)
+        }
+
+        taco(0.14f, 0.54f, 0.96f)
+        pizza(0.5f, 0.26f, 1.16f)
+        burger(0.8f, 0.54f, 1.08f)
+        pizza(0.18f, 0.16f, 0.78f)
+        taco(0.86f, 0.18f, 0.76f)
+        burger(0.7f, 0.14f, 0.68f)
+
+        ring(0.22f, 0.4f, 12f)
+        ring(0.9f, 0.16f, 10f)
+        dot(0.08f, 0.14f, 4f)
+        dot(0.34f, 0.12f, 4f)
+        dot(0.61f, 0.5f, 4f)
+        dot(0.73f, 0.34f, 3.5f)
+        dot(0.9f, 0.42f, 4f)
+
+        sparkle(0.12f, 0.08f, 10f)
+        sparkle(0.3f, 0.47f, 9f)
+        sparkle(0.64f, 0.08f, 9f)
+        sparkle(0.94f, 0.26f, 8f)
+        heart(0.25f, 0.64f, 0.55f)
+        heart(0.63f, 0.42f, 0.42f)
+        heart(0.87f, 0.08f, 0.42f)
+
         drawArc(
             color = accent,
-            startAngle = 180f,
-            sweepAngle = 220f,
+            startAngle = 210f,
+            sweepAngle = 120f,
             useCenter = false,
-            topLeft = Offset(size.width * 0.04f, size.height * 0.2f),
-            size = androidx.compose.ui.geometry.Size(size.width * 0.24f, size.height * 0.2f),
+            topLeft = Offset(size.width * 0.03f, size.height * 0.04f),
+            size = Size(size.width * 0.12f, size.height * 0.08f),
             style = lightStroke,
         )
         drawArc(
             color = accent,
-            startAngle = 5f,
-            sweepAngle = 200f,
+            startAngle = 210f,
+            sweepAngle = 120f,
             useCenter = false,
-            topLeft = Offset(size.width * 0.78f, size.height * 0.22f),
-            size = androidx.compose.ui.geometry.Size(size.width * 0.2f, size.height * 0.18f),
+            topLeft = Offset(size.width * 0.86f, size.height * 0.03f),
+            size = Size(size.width * 0.1f, size.height * 0.07f),
             style = lightStroke,
-        )
-        drawArc(
-            color = accent,
-            startAngle = 200f,
-            sweepAngle = 280f,
-            useCenter = false,
-            topLeft = Offset(size.width * 0.46f, size.height * 0.03f),
-            size = androidx.compose.ui.geometry.Size(size.width * 0.16f, size.height * 0.11f),
-            style = lightStroke,
-        )
-
-        ring(0.12f, 0.48f, 24f)
-        ring(0.85f, 0.62f, 16f)
-        ring(0.55f, 0.18f, 18f)
-        dot(0.22f, 0.3f, 5f)
-        dot(0.28f, 0.64f, 6f)
-        dot(0.62f, 0.34f, 5f)
-        dot(0.73f, 0.54f, 4f)
-        dot(0.92f, 0.4f, 5f)
-
-        sparkle(0.18f, 0.12f, 18f)
-        sparkle(0.74f, 0.14f, 16f)
-        sparkle(0.36f, 0.56f, 14f)
-        sparkle(0.9f, 0.2f, 12f)
-
-        drawLine(
-            color = accent,
-            start = Offset(size.width * 0.36f, size.height * 0.18f),
-            end = Offset(size.width * 0.44f, size.height * 0.38f),
-            strokeWidth = 7f,
-            cap = StrokeCap.Round,
-        )
-        drawLine(
-            color = accent,
-            start = Offset(size.width * 0.42f, size.height * 0.17f),
-            end = Offset(size.width * 0.51f, size.height * 0.32f),
-            strokeWidth = 7f,
-            cap = StrokeCap.Round,
-        )
-        drawArc(
-            color = accent,
-            startAngle = 235f,
-            sweepAngle = 250f,
-            useCenter = false,
-            topLeft = Offset(size.width * 0.12f, size.height * 0.54f),
-            size = androidx.compose.ui.geometry.Size(size.width * 0.18f, size.height * 0.16f),
-            style = Stroke(width = 7f),
-        )
-        drawArc(
-            color = accent,
-            startAngle = 220f,
-            sweepAngle = 220f,
-            useCenter = false,
-            topLeft = Offset(size.width * 0.66f, size.height * 0.38f),
-            size = androidx.compose.ui.geometry.Size(size.width * 0.21f, size.height * 0.15f),
-            style = Stroke(width = 7f),
-        )
-        drawArc(
-            color = accent,
-            startAngle = 180f,
-            sweepAngle = 180f,
-            useCenter = false,
-            topLeft = Offset(size.width * 0.82f, size.height * 0.62f),
-            size = androidx.compose.ui.geometry.Size(size.width * 0.1f, size.height * 0.06f),
-            style = Stroke(width = 7f),
         )
     }
 }

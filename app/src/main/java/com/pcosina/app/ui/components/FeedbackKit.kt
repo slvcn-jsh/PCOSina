@@ -410,45 +410,55 @@ fun StatusCenterCard(
         modifier = modifier
             .fillMaxWidth()
             .animateContentSize(animationSpec = tween(UiMotionTokens.ExpandableContentMs)),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = androidx.compose.material3.CardDefaults.cardColors(
-            containerColor = colorScheme.surfaceVariant.copy(alpha = 0.28f)
+            containerColor = colorScheme.surface
         ),
-        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.45f)),
-        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 0.dp)
+        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.70f)),
+        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        FlowRow(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            queuedActionsLabel?.takeIf { it.isNotBlank() }?.let { label ->
-                StatusCenterItem(
-                    icon = Icons.Filled.CheckCircle,
-                    label = "Now",
-                    text = label
-                )
-            }
-            syncLabel?.takeIf { it.isNotBlank() }?.let { label ->
-                StatusCenterItem(
-                    icon = Icons.Filled.Refresh,
-                    label = "Sync",
-                    text = label
-                )
-            }
-            StatusCenterItem(
-                icon = Icons.Filled.Info,
-                label = "Plan",
-                text = planRangeLabel
+            Text(
+                text = "At a glance",
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = colorScheme.onSurface
             )
-            nextReminderLabel?.takeIf { it.isNotBlank() }?.let { label ->
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                queuedActionsLabel?.takeIf { it.isNotBlank() }?.let { label ->
+                    StatusCenterItem(
+                        icon = Icons.Filled.CheckCircle,
+                        label = "Now",
+                        text = label
+                    )
+                }
+                syncLabel?.takeIf { it.isNotBlank() }?.let { label ->
+                    StatusCenterItem(
+                        icon = Icons.Filled.Refresh,
+                        label = "Ready",
+                        text = label
+                    )
+                }
                 StatusCenterItem(
-                    icon = Icons.Filled.Notifications,
-                    label = "Next",
-                    text = label
+                    icon = Icons.Filled.Info,
+                    label = "Guide",
+                    text = planRangeLabel
                 )
+                nextReminderLabel?.takeIf { it.isNotBlank() }?.let { label ->
+                    StatusCenterItem(
+                        icon = Icons.Filled.Notifications,
+                        label = "Next",
+                        text = label
+                    )
+                }
             }
         }
     }
@@ -462,35 +472,46 @@ private fun StatusCenterItem(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = colorScheme.surface,
-        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.40f))
+        shape = RoundedCornerShape(18.dp),
+        color = colorScheme.surfaceVariant.copy(alpha = 0.72f),
+        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.55f))
     ) {
-        Row(
+        Column(
             modifier = Modifier
-                .widthIn(max = 320.dp)
-                .padding(horizontal = 10.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .widthIn(min = 144.dp, max = 260.dp)
+                .padding(horizontal = 12.dp, vertical = 11.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(12.dp),
-            tint = colorScheme.primary
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-            color = colorScheme.primary
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = colorScheme.primary.copy(alpha = 0.10f),
+                    contentColor = colorScheme.primary
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .padding(7.dp)
+                    )
+                }
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = colorScheme.primary
+                )
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                color = colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }

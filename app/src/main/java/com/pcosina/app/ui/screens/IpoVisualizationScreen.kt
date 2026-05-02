@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
@@ -14,6 +15,11 @@ import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,8 +28,17 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pcosina.app.ui.components.GradientHeader
+import com.pcosina.app.ui.components.RefinedFeatureCard
+import com.pcosina.app.ui.components.ScreenFocusOption
+import com.pcosina.app.ui.components.ScreenFocusStrip
 import com.pcosina.app.ui.components.StatusCenterCard
 import com.pcosina.app.ui.theme.UiSpacingTokens
+
+private enum class MethodologyFocus {
+    Overview,
+    Pipeline,
+    Boundary,
+}
 
 @Composable
 fun IpoVisualizationScreen(
@@ -35,6 +50,27 @@ fun IpoVisualizationScreen(
     val mlBoundaryStatus = "Hard rules always win. ML can assist ranking, but never override constraints."
     val localFirstStatus = "Profile, pantry, and household inputs stay local-first before planning starts."
     val nextReviewStatus = "Use this view for internal review only. Regular users should stay in plan, grocery, and progress."
+    var focusKey by rememberSaveable { mutableStateOf(MethodologyFocus.Overview.name) }
+    val focus = remember(focusKey) { MethodologyFocus.valueOf(focusKey) }
+    val focusOptions = remember {
+        listOf(
+            ScreenFocusOption(
+                key = MethodologyFocus.Overview.name,
+                label = "Overview",
+                summary = "Review the planning contract first."
+            ),
+            ScreenFocusOption(
+                key = MethodologyFocus.Pipeline.name,
+                label = "Pipeline",
+                summary = "See inputs, rules, optimization, and outputs."
+            ),
+            ScreenFocusOption(
+                key = MethodologyFocus.Boundary.name,
+                label = "Boundary",
+                summary = "Recheck what the product and ML cannot do."
+            )
+        )
+    }
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(colorScheme.background).statusBarsPadding(),
@@ -67,117 +103,124 @@ fun IpoVisualizationScreen(
         }
 
         item {
-            IpoCard(
-                step = "01",
-                stageLabel = "Inputs",
-                title = "Profile + Pantry Inputs",
-                description = "Planning starts from your saved profile, pantry, goals, budget, allergies, and exclusions.",
-                items = listOf(
-                    "Profile: age, weight, height, activity level, insulin level, goals, and symptoms",
-                    "Hard rules: allergies, exclusions, budget caps when set, and max cooking time",
-                    "Local pantry and household context stay device-first for shopping guidance"
-                ),
-                color = colorScheme.primary,
-                icon = Icons.Filled.Info
+            ScreenFocusStrip(
+                title = "Show",
+                options = focusOptions,
+                selectedKey = focusKey,
+                onSelect = { focusKey = it },
+                labelMaxWidth = 124.dp
             )
         }
 
-        item {
-            MethodologyConnector(label = "Only feasible recipes move forward")
-        }
-
-        item {
-            IpoCard(
-                step = "02",
-                stageLabel = "Rules first",
-                title = "Deterministic Filtering",
-                description = "Recipes are screened before optimization so infeasible options never reach the final planner.",
-                items = listOf(
-                    "Hard rules remove forbidden, unsafe, or infeasible meals first",
-                    "Allergy families, exclusions, pantry feasibility, and cook-time limits are enforced here",
-                    "This stage remains explainable and repeatable offline"
-                ),
-                color = colorScheme.secondary,
-                icon = Icons.Filled.CheckCircle
-            )
-        }
-
-        item {
-            MethodologyConnector(label = "The solver builds the week from filtered options")
-        }
-
-        item {
-            IpoCard(
-                step = "03",
-                stageLabel = "Optimization",
-                title = "Deterministic Optimization",
-                description = "A deterministic solver chooses the final week from the feasible meal candidates.",
-                items = listOf(
-                    "Balances calories, macros, variety, symptoms, and planning-priority targets",
-                    "ML can assist ranking candidates, but never overrides hard constraints",
-                    "Household size scales shopping outputs while nutrition targets remain per person"
-                ),
-                color = colorScheme.primary,
-                icon = Icons.Filled.Settings
-            )
-        }
-
-        item {
-            MethodologyConnector(label = "Outputs stay explainable and recoverable")
-        }
-
-        item {
-            IpoCard(
-                step = "04",
-                stageLabel = "Outputs",
-                title = "Explainable Outputs",
-                description = "You receive a weekly plan, grocery guidance, and nutrition details with clear fallback messaging.",
-                items = listOf(
-                    "Weekly meals, exclusion summaries, and pantry-aware shopping guidance",
-                    "Recipe details and nutrition totals stay visible for review",
-                    "No-safe-plan cases return actionable adjustments instead of silent failure"
-                ),
-                color = colorScheme.secondary,
-                icon = Icons.Filled.RestaurantMenu
-            )
-        }
-
-        item {
-            Card(
-                shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(UiSpacingTokens.CardContentPadding),
-                    verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.CardContentGap)
-                ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        MethodologyPill(
-                            text = "Decision support",
-                            emphasized = true
-                        )
-                        MethodologyPill(
-                            text = "Internal only",
-                            emphasized = false
-                        )
-                    }
-                    Text(
-                        text = "Decision-support boundary",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+        if (focus == MethodologyFocus.Overview) {
+            item {
+                RefinedFeatureCard(
+                    icon = Icons.Filled.Info,
+                    accentColor = colorScheme.primary,
+                    statusLabel = "Planning contract",
+                    title = "Deterministic planning stays in charge",
+                    body = "Every weekly plan still starts from saved rules, local inputs, and deterministic optimization before any assistive ML ranking step.",
+                    highlights = listOf(
+                        "Hard constraints such as allergies, exclusions, pantry feasibility, cost ceilings, and nutrition bounds stay non-negotiable.",
+                        "The planner remains local-first and explainable even when ML-assisted personalization is available.",
+                        "This screen is for internal review so regular users can stay on plan, grocery, progress, and support."
                     )
-                    Text(
-                        text = "PCOSina supports meal planning and nutrition decisions. It does not diagnose conditions or replace clinical care.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        if (focus == MethodologyFocus.Pipeline) {
+            item {
+                IpoCard(
+                    step = "01",
+                    stageLabel = "Inputs",
+                    title = "Profile + Pantry Inputs",
+                    description = "Planning starts from your saved profile, pantry, goals, budget, allergies, and exclusions.",
+                    items = listOf(
+                        "Profile: age, weight, height, activity level, insulin level, goals, and symptoms",
+                        "Hard rules: allergies, exclusions, budget caps when set, and max cooking time",
+                        "Local pantry and household context stay device-first for shopping guidance"
+                    ),
+                    color = colorScheme.primary,
+                    icon = Icons.Filled.Info
+                )
+            }
+
+            item {
+                MethodologyConnector(label = "Only feasible recipes move forward")
+            }
+
+            item {
+                IpoCard(
+                    step = "02",
+                    stageLabel = "Rules first",
+                    title = "Deterministic Filtering",
+                    description = "Recipes are screened before optimization so infeasible options never reach the final planner.",
+                    items = listOf(
+                        "Hard rules remove forbidden, unsafe, or infeasible meals first",
+                        "Allergy families, exclusions, pantry feasibility, and cook-time limits are enforced here",
+                        "This stage remains explainable and repeatable offline"
+                    ),
+                    color = colorScheme.secondary,
+                    icon = Icons.Filled.CheckCircle
+                )
+            }
+
+            item {
+                MethodologyConnector(label = "The solver builds the week from filtered options")
+            }
+
+            item {
+                IpoCard(
+                    step = "03",
+                    stageLabel = "Optimization",
+                    title = "Deterministic Optimization",
+                    description = "A deterministic solver chooses the final week from the feasible meal candidates.",
+                    items = listOf(
+                        "Balances calories, macros, variety, symptoms, and planning-priority targets",
+                        "ML can assist ranking candidates, but never overrides hard constraints",
+                        "Household size scales shopping outputs while nutrition targets remain per person"
+                    ),
+                    color = colorScheme.primary,
+                    icon = Icons.Filled.Settings
+                )
+            }
+
+            item {
+                MethodologyConnector(label = "Outputs stay explainable and recoverable")
+            }
+
+            item {
+                IpoCard(
+                    step = "04",
+                    stageLabel = "Outputs",
+                    title = "Explainable Outputs",
+                    description = "You receive a weekly plan, grocery guidance, and nutrition details with clear fallback messaging.",
+                    items = listOf(
+                        "Weekly meals, exclusion summaries, and pantry-aware shopping guidance",
+                        "Recipe details and nutrition totals stay visible for review",
+                        "No-safe-plan cases return actionable adjustments instead of silent failure"
+                    ),
+                    color = colorScheme.secondary,
+                    icon = Icons.Filled.RestaurantMenu
+                )
+            }
+        }
+
+        if (focus == MethodologyFocus.Boundary) {
+            item {
+                RefinedFeatureCard(
+                    icon = Icons.Filled.Settings,
+                    accentColor = colorScheme.secondary,
+                    statusLabel = "Decision support",
+                    title = "What this system can and cannot do",
+                    body = "PCOSina supports meal planning and nutrition decisions. It does not diagnose conditions or replace clinical care.",
+                    highlights = listOf(
+                        "ML may rank or personalize feasible candidates, but it cannot override hard constraints or offline-first behavior.",
+                        "No-safe-plan cases must return actionable adjustments instead of silent failure.",
+                        "This internal screen should stay out of the main user journey once review is done."
                     )
-                    Text(
-                        text = "This view is for internal review. Regular users should only see plan outputs, guidance, and progress.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                )
             }
         }
 
@@ -312,7 +355,7 @@ private fun MethodologyPill(
     val colorScheme = MaterialTheme.colorScheme
     Surface(
         modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
+        shape = RoundedCornerShape(999.dp),
         color = if (emphasized) {
             colorScheme.primary.copy(alpha = 0.10f)
         } else {

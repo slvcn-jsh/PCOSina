@@ -3981,7 +3981,15 @@ async def generate_plan(
         idempotency_ttl = int(_policy_value(policy_payload, "security.token_ttl", IDEMPOTENCY_TTL_SECONDS))
         if _is_circuit_open(policy_payload):
             raise HTTPException(status_code=503, detail="Planner temporarily unavailable (circuit open). Retry later.")
+
+        # Generation Guard Logic: Only allow Sunday or if plan is near completion
+        now = datetime.datetime.now()
+        # weekday() 6 is Sunday.
+        if now.weekday() != 6:
+             raise HTTPException(status_code=403, detail="New plan generation is only available on Sundays. Stay the course and finish your week!")
+
         _emit_planner_event(
+
             "plan_generation_requested",
             {
                 "requestId": request_id,

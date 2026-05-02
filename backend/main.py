@@ -26,7 +26,12 @@ from services.plan_response_builder import (
     build_no_safe_plan_response as shared_build_no_safe_plan_response,
     freshen_cached_plan_response as shared_freshen_cached_plan_response,
 )
+from services.operator_access_service import OperatorAccessService
+from services.plan_job_ops_service import PlanJobOpsService
 from services.reason_normalizer import normalize_reason_payload
+from services.admin_session_ops_service import AdminSessionOpsService
+from services.operator_access_override_service import OperatorAccessOverrideService
+from services.support_case_service import SupportCaseService
 from policy_config import (
     PolicyActivateRequest,
     PolicyCreateRequest,
@@ -51,6 +56,7 @@ from domain.models import (
     AdminSupportCaseCreateRequest,
     AdminSupportCaseNoteRequest,
     AdminSupportCaseUpdateRequest,
+    OperatorAccessStatus,
     OperatorAccessOverrideRecord,
     OperatorAccessOverrideUpsertRequest,
     RecipeDetail,
@@ -729,6 +735,39 @@ def _build_admin_principal(decoded: Dict[str, Any], *, auth_type: str) -> Dict[s
     }
 
 
+def _operator_access_service() -> OperatorAccessService:
+    return OperatorAccessService(
+        assert_operator_mfa=_assert_operator_mfa,
+        build_admin_principal=_build_admin_principal,
+    )
+
+
+def _support_case_service() -> SupportCaseService:
+    return SupportCaseService(
+        database_module=database,
+        get_firestore_profile_snapshot=_get_firestore_profile_snapshot,
+    )
+
+
+def _plan_job_ops_service() -> PlanJobOpsService:
+    return PlanJobOpsService(
+        database_module=database,
+        queue_broker=QUEUE_BROKER,
+        rate_limit_store=RATE_LIMIT_STORE,
+        init_job=_init_job,
+        dispatch_async_job=_dispatch_async_job,
+        increment_plan_job_diag=_inc_plan_job_diag,
+    )
+
+
+def _admin_session_ops_service() -> AdminSessionOpsService:
+    return AdminSessionOpsService(database_module=database)
+
+
+def _operator_access_override_service() -> OperatorAccessOverrideService:
+    return OperatorAccessOverrideService(database_module=database)
+
+
 def _admin_session_secret() -> str:
     configured = os.getenv("PCOSINA_ADMIN_SESSION_SECRET", "").strip()
     if configured:
@@ -1051,8 +1090,7 @@ def require_admin_config_token(
 
     decoded = _verify_firebase_bearer_optional(authorization)
     if decoded is not None:
-        _assert_operator_mfa(decoded)
-        return _build_admin_principal(decoded, auth_type="bearer")
+        return _operator_access_service().resolve_principal(decoded, auth_type="bearer")
     raise HTTPException(status_code=401, detail="Unauthorized")
 
 
@@ -1223,6 +1261,14 @@ def ingest_ml_event(
     return {"status": "accepted", "eventName": event_name, "requestId": request_id}
 
 
+@app.get("/mobile/operator/access", response_model=OperatorAccessStatus)
+def mobile_operator_access(
+    user: Any = Depends(require_firebase_auth),
+    __: Any = Depends(require_app_check),
+):
+    return _operator_access_service().build_mobile_access_status(user, auth_type="bearer")
+
+
 @app.get("/admin/login", response_class=HTMLResponse)
 def admin_login_page(request: Request):
     principal = _principal_from_session_token(request.cookies.get(ADMIN_SESSION_COOKIE))
@@ -1285,8 +1331,7 @@ def admin_login_page(request: Request):
 def admin_create_session(id_token: str = Form(...), next_path: str = Form(default="/admin/feedback")):
     decoded = _verify_firebase_id_token(id_token)
     _assert_recent_admin_auth(decoded)
-    _assert_operator_mfa(decoded)
-    principal = _build_admin_principal(decoded, auth_type="bearer")
+    principal = _operator_access_service().resolve_principal(decoded, auth_type="bearer")
     token, _session_principal = _issue_admin_session(principal)
     auth_time = int(decoded.get("auth_time") or 0) if str(decoded.get("auth_time") or "").strip() else 0
     auth_age_seconds = max(0, int(time.time()) - auth_time) if auth_time > 0 else None
@@ -3109,22 +3154,7 @@ def admin_rollback_policy(payload: PolicyRollbackRequest, principal: Any = Depen
 
 @app.get("/ops/plan-jobs/diagnostics")
 def ops_plan_job_diagnostics(_: Any = Depends(require_ops_admin)):
-    counters = database.get_plan_job_diagnostics()
-    queue_status = {
-        "queued": database.count_plan_jobs_by_status("queued"),
-        "running": database.count_plan_jobs_by_status("running"),
-        "done": database.count_plan_jobs_by_status("done"),
-        "error": database.count_plan_jobs_by_status("error"),
-        "dead-letter": database.count_plan_jobs_by_status("dead-letter"),
-    }
-    return {
-        "status": "ok",
-        "queueStatus": queue_status,
-        "diagnostics": counters,
-        "queueBroker": QUEUE_BROKER.health(),
-        "rateLimit": RATE_LIMIT_STORE.health(),
-        "generatedAtMs": int(time.time() * 1000),
-    }
+    return _plan_job_ops_service().diagnostics()
 
 
 @app.get("/ops/plan-jobs")
@@ -3135,16 +3165,12 @@ def ops_list_plan_jobs(
     limit: int = 100,
     _: Any = Depends(require_ops_admin),
 ):
-    items = database.list_plan_jobs(status=status, owner_uid=owner_uid, q=q, limit=limit)
-    return {"status": "ok", "items": items, "count": len(items), "generatedAtMs": int(time.time() * 1000)}
+    return _plan_job_ops_service().list_jobs(status=status, owner_uid=owner_uid, q=q, limit=limit)
 
 
 @app.get("/ops/plan-jobs/{job_id}")
 def ops_get_plan_job(job_id: str, _: Any = Depends(require_ops_admin)):
-    job = database.get_plan_job(job_id, owner_uid=None)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return {"status": "ok", "job": job, "generatedAtMs": int(time.time() * 1000)}
+    return _plan_job_ops_service().get_job_detail(job_id)
 
 
 @app.get("/ops/users/{uid}/cloud-profile")
@@ -3202,33 +3228,7 @@ def ops_get_support_case(case_id: str, _: Any = Depends(require_ops_admin)):
 
 @app.post("/ops/support-cases", response_model=AdminSupportCase)
 def ops_create_support_case(payload: AdminSupportCaseCreateRequest, principal: Any = Depends(require_ops_admin)):
-    related_job_id = str(payload.relatedJobId or "").strip() or None
-    if related_job_id and not database.get_plan_job(related_job_id, owner_uid=None):
-        raise HTTPException(status_code=404, detail="Related plan job not found")
-    case = database.create_support_case(
-        user_uid=payload.userUid,
-        summary=payload.summary,
-        actor=str(principal.get("actor") or "ops-admin"),
-        related_job_id=related_job_id,
-        priority=payload.priority,
-        assignee=payload.assignee,
-        escalated=payload.escalated,
-        initial_note=payload.initialNote,
-    )
-    database.log_admin_action(
-        "support_case.create",
-        actor=str(principal.get("actor") or "ops-admin"),
-        resource_type="support_case",
-        resource_id=case.get("id"),
-        details={
-            "userUid": payload.userUid,
-            "relatedJobId": related_job_id,
-            "priority": payload.priority,
-            "assignee": payload.assignee,
-            "escalated": bool(payload.escalated),
-        },
-    )
-    return AdminSupportCase(**case)
+    return _support_case_service().create_case(payload, principal=principal)
 
 
 @app.patch("/ops/support-cases/{case_id}", response_model=AdminSupportCase)
@@ -3237,26 +3237,7 @@ def ops_update_support_case(
     payload: AdminSupportCaseUpdateRequest,
     principal: Any = Depends(require_ops_admin),
 ):
-    updated = database.update_support_case(
-        case_id,
-        actor=str(principal.get("actor") or "ops-admin"),
-        status=payload.status,
-        priority=payload.priority,
-        assignee=payload.assignee,
-        clear_assignee=bool(payload.clearAssignee),
-        escalated=payload.escalated,
-        summary=payload.summary,
-    )
-    if not updated:
-        raise HTTPException(status_code=404, detail="Support case not found")
-    database.log_admin_action(
-        "support_case.update",
-        actor=str(principal.get("actor") or "ops-admin"),
-        resource_type="support_case",
-        resource_id=case_id,
-        details={k: v for k, v in payload.model_dump().items() if v is not None},
-    )
-    return AdminSupportCase(**updated)
+    return _support_case_service().update_case(case_id, payload, principal=principal)
 
 
 @app.post("/ops/support-cases/{case_id}/notes", response_model=AdminSupportCase)
@@ -3265,21 +3246,7 @@ def ops_add_support_case_note(
     payload: AdminSupportCaseNoteRequest,
     principal: Any = Depends(require_ops_admin),
 ):
-    updated = database.append_support_case_note(
-        case_id,
-        actor=str(principal.get("actor") or "ops-admin"),
-        message=payload.message,
-    )
-    if not updated:
-        raise HTTPException(status_code=404, detail="Support case not found")
-    database.log_admin_action(
-        "support_case.note",
-        actor=str(principal.get("actor") or "ops-admin"),
-        resource_type="support_case",
-        resource_id=case_id,
-        details={"messageLength": len(str(payload.message or ""))},
-    )
-    return AdminSupportCase(**updated)
+    return _support_case_service().add_note(case_id, payload, principal=principal)
 
 
 @app.get("/ops/support-cases/{case_id}/export")
@@ -3290,57 +3257,13 @@ def ops_export_support_case(
     audit_limit: int = 30,
     principal: Any = Depends(require_ops_admin),
 ):
-    item = database.get_support_case(case_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="Support case not found")
-
-    user_uid = str(item.get("userUid") or "").strip()
-    related_job_id = str(item.get("relatedJobId") or "").strip()
-    raw_profile, profile_summary = _get_firestore_profile_snapshot(user_uid)
-    related_job = database.get_plan_job(related_job_id, owner_uid=None) if related_job_id else None
-    recent_jobs = database.list_plan_jobs(owner_uid=user_uid, limit=max(1, min(50, job_limit)))
-
-    audit_candidates = []
-    seen_audit_ids = set()
-    for resource_id in [case_id, user_uid, related_job_id]:
-        token = str(resource_id or "").strip()
-        if not token:
-            continue
-        for entry in database.list_admin_action_logs(limit=audit_limit, resource_id=token):
-            entry_id = entry.get("id")
-            if entry_id in seen_audit_ids:
-                continue
-            seen_audit_ids.add(entry_id)
-            audit_candidates.append(entry)
-    audit_candidates.sort(key=lambda item: (int(item.get("created_at") or 0), int(item.get("id") or 0)), reverse=True)
-    audit_trail = audit_candidates[: max(1, min(200, audit_limit))]
-
-    database.log_admin_action(
-        "support_case.export",
-        actor=str(principal.get("actor") or "ops-admin"),
-        resource_type="support_case",
-        resource_id=case_id,
-        details={
-            "userUid": user_uid,
-            "relatedJobId": related_job_id or None,
-            "includeRawProfile": bool(include_raw_profile),
-            "jobLimit": int(job_limit),
-            "auditLimit": int(audit_limit),
-        },
+    return _support_case_service().export_case(
+        case_id,
+        principal=principal,
+        include_raw_profile=include_raw_profile,
+        job_limit=job_limit,
+        audit_limit=audit_limit,
     )
-
-    response = {
-        "status": "ok",
-        "case": item,
-        "profileSummary": profile_summary,
-        "relatedJob": related_job,
-        "recentPlanJobs": recent_jobs,
-        "auditTrail": audit_trail,
-        "generatedAtMs": int(time.time() * 1000),
-    }
-    if include_raw_profile:
-        response["profileDocument"] = raw_profile
-    return response
 
 
 @app.get("/ops/admin-sessions")
@@ -3350,8 +3273,7 @@ def ops_list_admin_sessions(
     limit: int = 100,
     _: Any = Depends(require_ops_admin),
 ):
-    items = database.list_admin_sessions(uid=uid, active_only=active_only, limit=limit)
-    return {"status": "ok", "items": items, "count": len(items), "generatedAtMs": int(time.time() * 1000)}
+    return _admin_session_ops_service().list_sessions(uid=uid, active_only=active_only, limit=limit)
 
 
 @app.get("/ops/operator-access")
@@ -3360,16 +3282,12 @@ def ops_list_operator_access_overrides(
     limit: int = 100,
     _: Any = Depends(require_ops_admin),
 ):
-    items = database.list_operator_access_overrides(blocked_only=blocked_only, limit=limit)
-    return {"status": "ok", "items": items, "count": len(items), "generatedAtMs": int(time.time() * 1000)}
+    return _operator_access_override_service().list_overrides(blocked_only=blocked_only, limit=limit)
 
 
 @app.get("/ops/operator-access/{uid}", response_model=OperatorAccessOverrideRecord)
 def ops_get_operator_access_override(uid: str, _: Any = Depends(require_ops_admin)):
-    item = database.get_operator_access_override(uid)
-    if not item:
-        raise HTTPException(status_code=404, detail="Operator access override not found")
-    return OperatorAccessOverrideRecord(**item)
+    return _operator_access_override_service().get_override(uid)
 
 
 @app.put("/ops/operator-access/{uid}")
@@ -3378,40 +3296,7 @@ def ops_upsert_operator_access_override(
     payload: OperatorAccessOverrideUpsertRequest,
     principal: Any = Depends(require_ops_admin),
 ):
-    actor = str(principal.get("actor") or "ops-admin")
-    item = database.upsert_operator_access_override(
-        uid,
-        email=payload.email,
-        blocked=payload.blocked,
-        reason=payload.reason,
-        updated_by=actor,
-    )
-    revoked_items: list[Dict[str, Any]] = []
-    if item.get("blocked") and payload.revokeActiveSessions:
-        revoked_items = database.revoke_admin_sessions_for_uid(
-            uid,
-            revoked_by=actor,
-            reason="operator_access_override",
-        )
-    database.log_admin_action(
-        "operator_access.upsert",
-        actor=actor,
-        resource_type="operator_access",
-        resource_id=str(uid),
-        details={
-            "blocked": bool(item.get("blocked")),
-            "reason": str(item.get("reason") or "").strip() or None,
-            "email": item.get("email"),
-            "revokeActiveSessions": bool(payload.revokeActiveSessions),
-            "revokedSessionCount": sum(1 for entry in revoked_items if entry.get("revokedAt") is not None),
-        },
-    )
-    return {
-        "status": "ok",
-        "item": item,
-        "revokedSessionCount": sum(1 for entry in revoked_items if entry.get("revokedAt") is not None),
-        "generatedAtMs": int(time.time() * 1000),
-    }
+    return _operator_access_override_service().upsert_override(uid, payload, principal=principal)
 
 
 @app.post("/ops/admin-sessions/{session_id}/revoke", response_model=AdminSessionRecord)
@@ -3420,21 +3305,7 @@ def ops_revoke_admin_session(
     payload: AdminSessionRevokeRequest,
     principal: Any = Depends(require_ops_admin),
 ):
-    revoked = database.revoke_admin_session(
-        session_id,
-        revoked_by=str(principal.get("actor") or "ops-admin"),
-        reason=payload.reason,
-    )
-    if not revoked:
-        raise HTTPException(status_code=404, detail="Admin session not found")
-    database.log_admin_action(
-        "admin_session.revoke",
-        actor=str(principal.get("actor") or "ops-admin"),
-        resource_type="admin_session",
-        resource_id=session_id,
-        details={"reason": str(payload.reason or "").strip() or "manual_revoke"},
-    )
-    return AdminSessionRecord(**revoked)
+    return _admin_session_ops_service().revoke_session(session_id, payload, principal=principal)
 
 
 @app.post("/ops/admin-sessions/revoke-user/{uid}")
@@ -3443,34 +3314,7 @@ def ops_revoke_admin_sessions_for_uid(
     payload: AdminSessionBulkRevokeRequest,
     principal: Any = Depends(require_ops_admin),
 ):
-    current_session_id = str(principal.get("sessionId") or "").strip()
-    revoked = database.revoke_admin_sessions_for_uid(
-        uid,
-        revoked_by=str(principal.get("actor") or "ops-admin"),
-        reason=payload.reason,
-        exclude_session_id=current_session_id if payload.excludeCurrentSession else None,
-    )
-    revoked_count = sum(1 for item in revoked if item.get("revokedAt") is not None)
-    database.log_admin_action(
-        "admin_session.revoke_user",
-        actor=str(principal.get("actor") or "ops-admin"),
-        resource_type="admin_session",
-        resource_id=str(uid),
-        details={
-            "reason": str(payload.reason or "").strip() or "bulk_revoke",
-            "excludeCurrentSession": bool(payload.excludeCurrentSession),
-            "currentSessionId": current_session_id or None,
-            "revokedCount": revoked_count,
-        },
-    )
-    return {
-        "status": "ok",
-        "uid": str(uid),
-        "count": len(revoked),
-        "revokedCount": revoked_count,
-        "items": revoked,
-        "generatedAtMs": int(time.time() * 1000),
-    }
+    return _admin_session_ops_service().revoke_sessions_for_uid(uid, payload, principal=principal)
 
 
 @app.post("/ops/admin-sessions/cleanup")
@@ -3478,19 +3322,7 @@ def ops_cleanup_admin_sessions(
     payload: AdminSessionCleanupRequest,
     principal: Any = Depends(require_ops_admin),
 ):
-    result = database.cleanup_admin_sessions(
-        retention_days=payload.retentionDays,
-        include_revoked=payload.includeRevoked,
-        include_expired=payload.includeExpired,
-    )
-    database.log_admin_action(
-        "admin_session.cleanup",
-        actor=str(principal.get("actor") or "ops-admin"),
-        resource_type="admin_session",
-        resource_id="cleanup",
-        details=result,
-    )
-    return {"status": "ok", **result, "generatedAtMs": int(time.time() * 1000)}
+    return _admin_session_ops_service().cleanup_sessions(payload, principal=principal)
 
 
 @app.get("/ops/users/{uid}/support-bundle")
@@ -3537,59 +3369,12 @@ def ops_get_user_support_bundle(
 
 @app.post("/ops/plan-jobs/{job_id}/requeue")
 def ops_requeue_plan_job(job_id: str, principal: Any = Depends(require_ops_admin)):
-    existing = database.get_plan_job(job_id, owner_uid=None)
-    if not existing:
-        raise HTTPException(status_code=404, detail="Job not found")
-    if str(existing.get("status") or "").lower() == "running":
-        raise HTTPException(status_code=409, detail="Running jobs cannot be manually requeued")
-    request_payload = existing.get("request")
-    if not isinstance(request_payload, dict):
-        raise HTTPException(status_code=409, detail="Job cannot be requeued without a stored request payload")
-    request = GeneratePlanRequest.model_validate(request_payload)
-    job = database.requeue_plan_job(job_id, reset_attempt_count=True)
-    if not job:
-        raise HTTPException(status_code=409, detail="Job could not be requeued")
-    owner_uid = str(existing.get("ownerUid") or "").strip() or None
-    dispatch = _dispatch_async_job(job_id, request, owner_uid=owner_uid)
-    database.log_admin_action(
-        "plan_job.requeue",
-        actor=str(principal.get("actor") or "ops-admin"),
-        resource_type="plan_job",
-        resource_id=job_id,
-        details={"previousStatus": existing.get("status"), "ownerUid": existing.get("ownerUid"), **dispatch},
-    )
-    return {"status": "ok", "job": job, **dispatch}
+    return _plan_job_ops_service().requeue_job(job_id, principal=principal)
 
 
 @app.post("/ops/plan-jobs/{job_id}/replay")
 def ops_replay_plan_job(job_id: str, principal: Any = Depends(require_ops_admin)):
-    existing = database.get_plan_job(job_id, owner_uid=None)
-    if not existing:
-        raise HTTPException(status_code=404, detail="Job not found")
-    request_payload = existing.get("request")
-    if not isinstance(request_payload, dict):
-        raise HTTPException(status_code=409, detail="Job cannot be replayed without a stored request payload")
-    request = GeneratePlanRequest.model_validate(request_payload)
-    replay_job_id = uuid.uuid4().hex
-    request_json = request.model_dump_json() if hasattr(request, "model_dump_json") else json.dumps(request.model_dump())
-    owner_uid = str(existing.get("ownerUid") or "").strip() or None
-    _init_job(replay_job_id, request_json=request_json, owner_uid=owner_uid)
-    _inc_plan_job_diag("ops_plan_job_replay_total")
-    dispatch = _dispatch_async_job(replay_job_id, request, owner_uid=owner_uid)
-    replay_job = database.get_plan_job(replay_job_id, owner_uid=None)
-    database.log_admin_action(
-        "plan_job.replay",
-        actor=str(principal.get("actor") or "ops-admin"),
-        resource_type="plan_job",
-        resource_id=replay_job_id,
-        details={"sourceJobId": job_id, "ownerUid": owner_uid, **dispatch},
-    )
-    return {
-        "status": "ok",
-        "sourceJobId": job_id,
-        "job": replay_job,
-        **dispatch,
-    }
+    return _plan_job_ops_service().replay_job(job_id, principal=principal)
 
 
 @app.get("/ops/schema/migrations")

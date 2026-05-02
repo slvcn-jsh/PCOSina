@@ -17,6 +17,9 @@ class RankerState:
 class Stage1MLRanker:
     """Best-effort model loader for shadow/canary ranking support."""
 
+    _shared_lock = threading.Lock()
+    _shared_cache: Dict[tuple[str, str], tuple[object | None, List[str], str, Optional[str]]] = {}
+
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._loaded = False
@@ -33,43 +36,50 @@ class Stage1MLRanker:
                 return
             model_path = os.getenv("PCOSINA_ML_MODEL_PATH", "").strip()
             metrics_path = os.getenv("PCOSINA_ML_METRICS_PATH", "").strip()
-            if not model_path:
-                self._error = "PCOSINA_ML_MODEL_PATH not set"
-                self._loaded = True
-                return
-            try:
-                import lightgbm as lgb
-            except Exception as exc:
-                self._error = f"lightgbm unavailable: {exc}"
-                self._loaded = True
-                return
-            try:
-                booster = lgb.Booster(model_file=model_path)
-            except Exception as exc:
-                self._error = f"failed to load model: {exc}"
-                self._loaded = True
-                return
-
-            feature_cols: List[str] = []
-            model_version = "lightgbm_v1_unknown"
-            if metrics_path and os.path.exists(metrics_path):
-                try:
-                    payload = json.loads(open(metrics_path, "r", encoding="utf-8").read())
-                    cols = payload.get("feature_columns") or payload.get("featureColumns") or []
-                    if isinstance(cols, list):
-                        feature_cols = [str(c) for c in cols if str(c).strip()]
-                    model_version = str(payload.get("model_name") or payload.get("model") or model_version)
-                except Exception:
-                    pass
-            if not feature_cols:
-                try:
-                    feature_cols = list(booster.feature_name())
-                except Exception:
-                    feature_cols = []
+            cache_key = (model_path, metrics_path)
+            with self.__class__._shared_lock:
+                cached = self.__class__._shared_cache.get(cache_key)
+            if cached is None:
+                booster = None
+                feature_cols: List[str] = []
+                model_version = "shadow_v0"
+                error: Optional[str] = None
+                if not model_path:
+                    error = "PCOSINA_ML_MODEL_PATH not set"
+                else:
+                    try:
+                        import lightgbm as lgb
+                    except Exception as exc:
+                        error = f"lightgbm unavailable: {exc}"
+                    else:
+                        try:
+                            booster = lgb.Booster(model_file=model_path)
+                        except Exception as exc:
+                            error = f"failed to load model: {exc}"
+                        else:
+                            model_version = "lightgbm_v1_unknown"
+                            if metrics_path and os.path.exists(metrics_path):
+                                try:
+                                    payload = json.loads(open(metrics_path, "r", encoding="utf-8").read())
+                                    cols = payload.get("feature_columns") or payload.get("featureColumns") or []
+                                    if isinstance(cols, list):
+                                        feature_cols = [str(c) for c in cols if str(c).strip()]
+                                    model_version = str(payload.get("model_name") or payload.get("model") or model_version)
+                                except Exception:
+                                    pass
+                            if not feature_cols:
+                                try:
+                                    feature_cols = list(booster.feature_name())
+                                except Exception:
+                                    feature_cols = []
+                cached = (booster, feature_cols, model_version, error)
+                with self.__class__._shared_lock:
+                    self.__class__._shared_cache[cache_key] = cached
+            booster, feature_cols, model_version, error = cached
             self._model = booster
-            self._feature_columns = feature_cols
+            self._feature_columns = list(feature_cols)
             self._model_version = model_version
-            self._error = None
+            self._error = error
             self._loaded = True
 
     def state(self) -> RankerState:

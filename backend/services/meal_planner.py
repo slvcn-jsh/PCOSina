@@ -1479,6 +1479,14 @@ def solve_meal_plan(
     telemetry_out: Optional[Dict[str, Any]] = None,
 ):
     profile = request.profile
+    if _stage1_ml_scoring_enabled(policy):
+        # First-use artifact loading is initialization work, not solver search.
+        # Warm it before the planner deadline starts so a cold model load does
+        # not consume the narrow solve budget on tiny requests.
+        try:
+            get_stage1_ranker().state()
+        except Exception:
+            pass
     planner_started_at = time.time()
     cold_start_defaults = _policy_get(
         policy,

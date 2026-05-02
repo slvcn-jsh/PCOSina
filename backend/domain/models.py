@@ -213,6 +213,18 @@ class OperatorAccessOverrideUpsertRequest(BaseModel):
     revokeActiveSessions: bool = True
 
 
+class OperatorAccessStatus(BaseModel):
+    allowed: bool = True
+    uid: str
+    email: Optional[str] = None
+    emailVerified: bool = False
+    mfaVerified: bool = False
+    roles: List[str] = []
+    roleSources: Dict[str, str] = {}
+    actor: str
+    authType: str
+
+
 class GeneratePlanRequest(BaseModel):
     profile: UserProfile
     days: int = 7

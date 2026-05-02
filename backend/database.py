@@ -2189,7 +2189,7 @@ def update_plan_job(
     finally:
         conn.close()
 
-def get_plan_job(job_id: str, owner_uid: str | None = None):
+def get_plan_job(job_id: str, owner_uid: str | None = None, *, any_owner: bool = False):
     conn = _connect()
     try:
         normalized_owner_uid = str(owner_uid or "").strip() or None
@@ -2199,7 +2199,13 @@ def get_plan_job(job_id: str, owner_uid: str | None = None):
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
         if _use_postgres():
-            if normalized_owner_uid is None:
+            if any_owner:
+                cur.execute(
+                    "SELECT id, status, created_at, updated_at, request_json, result_json, error, idempotency_key, worker_id, owner_uid, attempt_count, next_attempt_at "
+                    "FROM plan_jobs WHERE id = %s",
+                    (job_id,),
+                )
+            elif normalized_owner_uid is None:
                 cur.execute(
                     "SELECT id, status, created_at, updated_at, request_json, result_json, error, idempotency_key, worker_id, owner_uid, attempt_count, next_attempt_at "
                     "FROM plan_jobs WHERE id = %s AND owner_uid IS NULL",
@@ -2212,7 +2218,13 @@ def get_plan_job(job_id: str, owner_uid: str | None = None):
                     (job_id, normalized_owner_uid),
                 )
         else:
-            if normalized_owner_uid is None:
+            if any_owner:
+                cur.execute(
+                    "SELECT id, status, created_at, updated_at, request_json, result_json, error, idempotency_key, worker_id, owner_uid, attempt_count, next_attempt_at "
+                    "FROM plan_jobs WHERE id = ?",
+                    (job_id,),
+                )
+            elif normalized_owner_uid is None:
                 cur.execute(
                     "SELECT id, status, created_at, updated_at, request_json, result_json, error, idempotency_key, worker_id, owner_uid, attempt_count, next_attempt_at "
                     "FROM plan_jobs WHERE id = ? AND owner_uid IS NULL",
@@ -2494,7 +2506,7 @@ def requeue_plan_job(job_id: str, *, reset_attempt_count: bool = True) -> Dict[s
             conn.commit()
             if cur.rowcount <= 0:
                 return None
-        return get_plan_job(token)
+        return get_plan_job(token, any_owner=True)
     finally:
         conn.close()
 

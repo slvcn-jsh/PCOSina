@@ -430,6 +430,9 @@ class MealPlanViewModel(
             val day = days.getOrNull(dayIndex) ?: return@launch
             val meals = day.meals.toMutableList()
             val oldMeal = meals.getOrNull(mealIndex) ?: return@launch
+            
+            if (oldMeal.isLogged) return@launch
+            
             if (oldMeal.recipeId == newRecipeId) return@launch
 
             val oldDetail = repository.getRecipeDetails(oldMeal.recipeId).getOrNull()

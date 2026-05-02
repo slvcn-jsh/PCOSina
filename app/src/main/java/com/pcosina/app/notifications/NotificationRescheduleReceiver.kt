@@ -6,6 +6,7 @@ import android.content.Intent
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.pcosina.app.data.repository.AuthRepository
+import com.pcosina.app.data.repository.UserPreferencesNotificationLocalRepository
 import com.pcosina.app.data.repository.UserPreferencesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,7 +31,9 @@ class NotificationRescheduleReceiver : BroadcastReceiver() {
                     NotificationScheduler.cancelAllForSession(appContext)
                     return@launch
                 }
-                val repository = UserPreferencesRepository(appContext)
+                val repository = UserPreferencesNotificationLocalRepository(
+                    UserPreferencesRepository(appContext)
+                )
                 val prefs = repository.getNotificationPreferences(userId).first()
                 NotificationScheduler.rescheduleAll(appContext, userId, prefs)
             } catch (t: Throwable) {

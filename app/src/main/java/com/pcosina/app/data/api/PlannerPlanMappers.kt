@@ -1,0 +1,79 @@
+package com.pcosina.app.data.api
+
+import com.pcosina.app.data.model.PlannerDayPlan
+import com.pcosina.app.data.model.PlannerPlanExplanation
+import com.pcosina.app.data.model.PlannerPlanResponse
+import com.pcosina.app.data.model.PlannerPlannedMeal
+import com.pcosina.app.data.model.PlannerTimestamps as PlannerTimestampsModel
+
+fun PlannedMealDto.toPlannerPlannedMeal(): PlannerPlannedMeal =
+    PlannerPlannedMeal(
+        mealLabel = mealLabel,
+        recipeId = recipeId,
+        title = title,
+    )
+
+fun DayPlanDto.toPlannerDayPlan(): PlannerDayPlan =
+    PlannerDayPlan(
+        dayLabel = dayLabel,
+        meals = meals.map { it.toPlannerPlannedMeal() },
+        totalCalories = totalCalories,
+    )
+
+fun PlanExplanation.toPlannerPlanExplanation(): PlannerPlanExplanation =
+    PlannerPlanExplanation(
+        confidenceScore = confidenceScore,
+        targetCalories = targetCalories,
+        avgCalories = avgCalories,
+        avgCaloriesDeviation = avgCaloriesDeviation,
+        targetProtein = targetProtein,
+        avgProtein = avgProtein,
+        targetCarbs = targetCarbs,
+        avgCarbs = avgCarbs,
+        targetFats = targetFats,
+        avgFats = avgFats,
+        toleranceUsed = toleranceUsed,
+        maxPerWeek = maxPerWeek,
+        pantryMatches = pantryMatches,
+        uniqueVegTokens = uniqueVegTokens,
+        budgetWeekly = budgetWeekly,
+        estimatedWeeklyCost = estimatedWeeklyCost,
+        restrictionCount = restrictionCount,
+        budgetHardCapApplied = budgetHardCapApplied,
+        householdPlanningMode = householdPlanningMode,
+        goalValue = goalValue,
+        symptomSelections = symptomSelections,
+        profileRuleEffects = profileRuleEffects,
+        symptomStrategy = symptomStrategy,
+        candidateExclusionSummary = candidateExclusionSummary,
+        selectionReasonsByRecipeId = selectionReasonsByRecipeId,
+        selectionReasonCounts = selectionReasonCounts,
+        fiberMinTarget = fiberMinTarget,
+        sugarMaxTarget = sugarMaxTarget,
+        goalStrategy = goalStrategy,
+    )
+
+fun PlannerTimestamps?.toPlannerTimestampsModel(): PlannerTimestampsModel? =
+    this?.let {
+        PlannerTimestampsModel(
+            requestedAtMs = it.requestedAtMs,
+            completedAtMs = it.completedAtMs,
+        )
+    }
+
+fun GeneratePlanResponse.toPlannerPlanResponse(): PlannerPlanResponse =
+    PlannerPlanResponse(
+        weekLabel = weekLabel,
+        days = days.map { it.toPlannerDayPlan() },
+        status = status,
+        message = message,
+        explanation = explanation?.toPlannerPlanExplanation(),
+        requestId = requestId,
+        planId = planId,
+        policyVersion = policyVersion,
+        machineReasonCodes = machineReasonCodes,
+        humanGuidance = humanGuidance,
+        suggestedRelaxations = suggestedRelaxations,
+        diagnosticsReference = diagnosticsReference,
+        timestamps = timestamps.toPlannerTimestampsModel(),
+    )

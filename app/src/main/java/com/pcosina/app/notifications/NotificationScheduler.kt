@@ -9,6 +9,8 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.google.firebase.auth.FirebaseAuth
+import com.pcosina.app.data.repository.NotificationLocalRepository
+import com.pcosina.app.data.repository.UserPreferencesNotificationLocalRepository
 import com.pcosina.app.data.model.NotificationPreferences
 import com.pcosina.app.data.repository.UserPreferencesRepository
 import com.pcosina.app.util.safeUserLogScope
@@ -31,6 +33,9 @@ object NotificationScheduler {
     private const val InputEventType = "event_type"
     private const val InputHour = "hour"
     private const val InputMinute = "minute"
+
+    private fun notificationLocalRepository(context: Context): NotificationLocalRepository =
+        UserPreferencesNotificationLocalRepository(UserPreferencesRepository(context))
 
     suspend fun rescheduleAll(
         context: Context,
@@ -82,7 +87,7 @@ object NotificationScheduler {
     }
 
     suspend fun notifyPlanReady(context: Context, userId: String) {
-        val repository = UserPreferencesRepository(context)
+        val repository = notificationLocalRepository(context)
         val prefs = repository.getNotificationPreferences(userId).first()
         dispatchAndTrackNotification(
             context = context,
@@ -97,7 +102,7 @@ object NotificationScheduler {
     }
 
     suspend fun notifyGrocerySyncResult(context: Context, userId: String, success: Boolean) {
-        val repository = UserPreferencesRepository(context)
+        val repository = notificationLocalRepository(context)
         val prefs = repository.getNotificationPreferences(userId).first()
         val type = if (success) NotificationEvents.GrocerySyncSuccess else NotificationEvents.GrocerySyncFailure
         val title = if (success) "Grocery sync complete" else "Grocery sync failed"
@@ -120,7 +125,7 @@ object NotificationScheduler {
 
     suspend fun notifyDebugTest(context: Context, userId: String) {
         if (userId.isBlank()) return
-        val repository = UserPreferencesRepository(context)
+        val repository = notificationLocalRepository(context)
         val prefs = repository.getNotificationPreferences(userId).first()
         val title = "Notification test"
         val body = "This is a local debug notification from PCOSINA."
@@ -142,7 +147,7 @@ object NotificationScheduler {
         eventType: String = NotificationEvents.MealLunch
     ): Boolean {
         if (userId.isBlank()) return false
-        val repository = UserPreferencesRepository(context)
+        val repository = notificationLocalRepository(context)
         val prefs = repository.getNotificationPreferences(userId).first()
         if (!prefs.masterEnabled || !prefs.mealRemindersEnabled) return false
         val lastFired = repository.getNotificationLastFired(userId, eventType)
@@ -168,7 +173,7 @@ object NotificationScheduler {
 
     suspend fun notifyWeeklyResetNow(context: Context, userId: String): Boolean {
         if (userId.isBlank()) return false
-        val repository = UserPreferencesRepository(context)
+        val repository = notificationLocalRepository(context)
         val prefs = repository.getNotificationPreferences(userId).first()
         if (!prefs.masterEnabled || !prefs.weeklyResetEnabled) return false
         val eventType = NotificationEvents.WeeklyReset
@@ -431,7 +436,7 @@ object NotificationScheduler {
 
     private suspend fun dispatchAndTrackNotification(
         context: Context,
-        repository: UserPreferencesRepository,
+        repository: NotificationLocalRepository,
         userId: String,
         prefs: NotificationPreferences,
         eventType: String,
@@ -501,7 +506,7 @@ object NotificationScheduler {
         override suspend fun doWork(): Result {
             val userId = inputData.getString(InputUserId).orEmpty()
             if (!isUserSessionValid(userId)) return Result.success()
-            val repository = UserPreferencesRepository(applicationContext)
+            val repository = notificationLocalRepository(applicationContext)
             val prefs = repository.getNotificationPreferences(userId).first()
             if (!prefs.masterEnabled || !prefs.mealRemindersEnabled) return Result.success()
             val eventType = inputData.getString(InputEventType).orEmpty()
@@ -546,7 +551,7 @@ object NotificationScheduler {
         override suspend fun doWork(): Result {
             val userId = inputData.getString(InputUserId).orEmpty()
             if (!isUserSessionValid(userId)) return Result.success()
-            val repository = UserPreferencesRepository(applicationContext)
+            val repository = notificationLocalRepository(applicationContext)
             val prefs = repository.getNotificationPreferences(userId).first()
             if (!prefs.masterEnabled || !prefs.weeklyResetEnabled) return Result.success()
 
@@ -582,7 +587,7 @@ object NotificationScheduler {
         override suspend fun doWork(): Result {
             val userId = inputData.getString(InputUserId).orEmpty()
             if (!isUserSessionValid(userId)) return Result.success()
-            val repository = UserPreferencesRepository(applicationContext)
+            val repository = notificationLocalRepository(applicationContext)
             val prefs = repository.getNotificationPreferences(userId).first()
             if (!prefs.masterEnabled) return Result.success()
             if (!prefs.streakNudgesEnabled && !prefs.inactivityNudgesEnabled) return Result.success()

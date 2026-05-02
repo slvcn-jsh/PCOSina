@@ -2,15 +2,18 @@ package com.pcosina.app.data.repository
 
 import com.pcosina.app.BuildConfig
 import com.pcosina.app.data.api.GeneratePlanRequest
-import com.pcosina.app.data.api.GeneratePlanResponse
 import com.pcosina.app.data.api.MlClientEventRequestDto
 import com.pcosina.app.data.api.PcosinaApiService
-import com.pcosina.app.data.api.RecipeDetailDto
-import com.pcosina.app.data.api.RecipeSummaryDto
 import com.pcosina.app.data.api.SwapOptionsRequestDto
+import com.pcosina.app.data.api.toPlannerPlanResponse
+import com.pcosina.app.data.api.toPlannerRecipeDetail
+import com.pcosina.app.data.api.toPlannerRecipeSummary
+import com.pcosina.app.data.model.PlannerPlanResponse
+import com.pcosina.app.data.model.PlannerRecipeDetail
+import com.pcosina.app.data.model.PlannerRecipeSummary
 import com.pcosina.app.data.model.UserProfile
-import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.gson.Gson
 import kotlinx.coroutines.delay
@@ -33,6 +36,7 @@ import java.time.format.DateTimeFormatter
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 class MealPlanRepository {
 
@@ -42,18 +46,25 @@ class MealPlanRepository {
     )
 
     private val apiService: PcosinaApiService
+    private val fallbackApiService: PcosinaApiService?
+    private val primaryBaseUrl: String
+    private val fallbackBaseUrl: String?
     private val gson = Gson()
+    @Volatile private var cachedAuthToken: String? = null
+    @Volatile private var cachedAppCheckToken: String? = null
+    private val authTokenRefreshInFlight = AtomicBoolean(false)
+    private val appCheckTokenRefreshInFlight = AtomicBoolean(false)
     private val plannerPollTimeoutMs = 600_000L
     private val plannerInitialPollIntervalMs = 1_500L
     private val plannerWarmPollIntervalMs = 3_000L
     private val plannerSlowPollIntervalMs = 5_000L
-    private val recipeCache = object : LinkedHashMap<String, RecipeDetailDto>(64, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, RecipeDetailDto>?): Boolean {
+    private val recipeCache = object : LinkedHashMap<String, PlannerRecipeDetail>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, PlannerRecipeDetail>?): Boolean {
             return size > 200
         }
     }
-    private val summaryCache = object : LinkedHashMap<String, List<RecipeSummaryDto>>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<RecipeSummaryDto>>?): Boolean {
+    private val summaryCache = object : LinkedHashMap<String, List<PlannerRecipeSummary>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<PlannerRecipeSummary>>?): Boolean {
             return size > 50
         }
     }
@@ -61,102 +72,34 @@ class MealPlanRepository {
     init {
         val firebaseAuth = FirebaseAuth.getInstance()
         val firebaseAppCheck = FirebaseAppCheck.getInstance()
+        firebaseAuth.addIdTokenListener(FirebaseAuth.IdTokenListener { auth ->
+            refreshAuthTokenAsync(auth.currentUser, forceRefresh = false)
+        })
+        refreshAuthTokenAsync(firebaseAuth.currentUser, forceRefresh = false)
+        refreshAppCheckTokenAsync(firebaseAppCheck, forceRefresh = false)
         val normalizedBaseUrl = normalizeBaseUrl(BuildConfig.BASE_URL)
-        val backendHost = runCatching { URI(normalizedBaseUrl).host.orEmpty() }.getOrDefault("")
-        val dns = ResilientBackendDns(
-            backendHost = backendHost,
-            fallbackIps = listOf("216.24.57.7", "216.24.57.251")
-        )
-        val logging = HttpLoggingInterceptor().apply {
-            level = if (BuildConfig.DEBUG) {
-                HttpLoggingInterceptor.Level.BODY
-            } else {
-                HttpLoggingInterceptor.Level.NONE
-            }
+        val normalizedReleaseBaseUrl = normalizeBaseUrl(RELEASE_BACKEND_URL)
+        primaryBaseUrl = normalizedBaseUrl
+        fallbackBaseUrl = if (
+            isAutoFallbackCandidate(normalizedBaseUrl) &&
+            normalizedBaseUrl != normalizedReleaseBaseUrl
+        ) {
+            normalizedReleaseBaseUrl
+        } else {
+            null
         }
-
-        // Bullet-Proof Resilience: Added a Retry Interceptor
-        // This ensures that if the Wi-Fi signal is weak, the app automatically 
-        // retries the connection 3 times before showing an error.
-        val client = OkHttpClient.Builder()
-            .addInterceptor(logging)
-            .dns(dns)
-            .addInterceptor { chain ->
-                val original = chain.request()
-                val requiresFirebaseAuth = requiresFirebaseAuth(original.url.encodedPath)
-                val requestBuilder = original.newBuilder()
-                    .addHeader("X-PCOSINA-Schema-Version", BuildConfig.SCHEMA_VERSION)
-                val currentUser = firebaseAuth.currentUser
-                if (currentUser != null) {
-                    try {
-                        val tokenResult = Tasks.await(currentUser.getIdToken(false), 5, TimeUnit.SECONDS)
-                        val token = tokenResult.token
-                        if (!token.isNullOrBlank()) {
-                            requestBuilder.addHeader("Authorization", "Bearer $token")
-                        } else if (requiresFirebaseAuth) {
-                            throw IOException("Authentication token is unavailable. Reopen the app or sign in again.")
-                        }
-                    } catch (e: Exception) {
-                        if (requiresFirebaseAuth) {
-                            throw IOException(
-                                "Authentication token could not be prepared. Reopen the app or sign in again after internet is restored.",
-                                e
-                            )
-                        }
-                    }
-                } else if (requiresFirebaseAuth) {
-                    throw IOException("You must sign in before using the planner.")
-                }
-                try {
-                    val appCheckResult = Tasks.await(firebaseAppCheck.getAppCheckToken(false), 5, TimeUnit.SECONDS)
-                    val appCheckToken = appCheckResult.token
-                    if (!appCheckToken.isNullOrBlank()) {
-                        requestBuilder.addHeader("X-Firebase-AppCheck", appCheckToken)
-                    } else if (!BuildConfig.DEBUG) {
-                        throw IOException("Firebase App Check token is unavailable for release request.")
-                    }
-                } catch (e: Exception) {
-                    if (!BuildConfig.DEBUG) {
-                        throw IOException("Firebase App Check token acquisition failed.", e)
-                    }
-                    android.util.Log.w("MealPlanRepository", "App Check token unavailable in debug: ${e.message}")
-                }
-
-                val request = requestBuilder.build()
-                var response = chain.proceed(request)
-                val responseSchema = response.header("X-PCOSINA-Schema-Version")
-                if (!responseSchema.isNullOrBlank() && responseSchema != BuildConfig.SCHEMA_VERSION) {
-                    // Log mismatched schema for visibility; keep running for backward compatibility.
-                    android.util.Log.w(
-                        "MealPlanRepository",
-                        "Schema version mismatch. Client=${BuildConfig.SCHEMA_VERSION}, Server=$responseSchema"
-                    )
-                }
-                var tryCount = 0
-                while (!response.isSuccessful && tryCount < 2) {
-                    tryCount++
-                    Thread.sleep(1000) // Small delay before retry
-                    response.close()
-                    response = chain.proceed(request)
-                }
-                response
-            }
-
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(90, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
-            .callTimeout(120, TimeUnit.SECONDS)
-            .build()
-
-        val baseUrl = normalizedBaseUrl
-        
-        val retrofit = Retrofit.Builder()
-            .baseUrl(baseUrl)
-            .client(client)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-
-        apiService = retrofit.create(PcosinaApiService::class.java)
+        apiService = buildApiService(
+            baseUrl = primaryBaseUrl,
+            firebaseAuth = firebaseAuth,
+            firebaseAppCheck = firebaseAppCheck
+        )
+        fallbackApiService = fallbackBaseUrl?.let { baseUrl ->
+            buildApiService(
+                baseUrl = baseUrl,
+                firebaseAuth = firebaseAuth,
+                firebaseAppCheck = firebaseAppCheck
+            )
+        }
     }
 
     private fun normalizeBaseUrl(raw: String): String {
@@ -179,7 +122,9 @@ class MealPlanRepository {
 
     suspend fun warmup(): Result<Unit> {
         return try {
-            apiService.health()
+            executeWithBackendFallback("planner warmup") { service ->
+                service.health()
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(mapGeneratePlanException(e))
@@ -198,7 +143,7 @@ class MealPlanRepository {
     suspend fun generatePlan(
         profile: UserProfile,
         attempt: GeneratePlanAttempt = createGeneratePlanAttempt()
-    ): Result<GeneratePlanResponse> {
+    ): Result<PlannerPlanResponse> {
         return try {
             validateGeneratePlanProfile(profile)
             val request = GeneratePlanRequest(
@@ -206,14 +151,16 @@ class MealPlanRepository {
                 startDate = attempt.startDate
             )
             val idempotencyKey = buildGeneratePlanIdempotencyKey(request, attempt.token)
-            val response = try {
-                val queued = apiService.generatePlanAsync(request, idempotencyKey = idempotencyKey)
-                awaitQueuedPlan(queued.jobId)
-            } catch (e: Exception) {
-                if (shouldFallbackToSyncPlanner(e)) {
-                    apiService.generatePlan(request)
-                } else {
-                    throw e
+            val response = executeWithBackendFallback("plan generation") { apiService ->
+                try {
+                    val queued = apiService.generatePlanAsync(request, idempotencyKey = idempotencyKey)
+                    awaitQueuedPlan(apiService, queued.jobId)
+                } catch (e: Exception) {
+                    if (shouldFallbackToSyncPlanner(e)) {
+                        apiService.generatePlan(request).toPlannerPlanResponse()
+                    } else {
+                        throw e
+                    }
                 }
             }
             Result.success(response)
@@ -222,18 +169,22 @@ class MealPlanRepository {
         }
     }
 
-    private suspend fun awaitQueuedPlan(jobId: String): GeneratePlanResponse {
+    private suspend fun awaitQueuedPlan(
+        service: PcosinaApiService,
+        jobId: String
+    ): PlannerPlanResponse {
         val normalizedJobId = jobId.trim()
         require(normalizedJobId.isNotBlank()) { "Planner queue did not return a job ID." }
 
         val startedAt = System.currentTimeMillis()
         var lastStatus = "queued"
         while (System.currentTimeMillis() - startedAt < plannerPollTimeoutMs) {
-            val job = apiService.getPlanJob(normalizedJobId)
+            val job = service.getPlanJob(normalizedJobId)
             lastStatus = job.status.trim().lowercase()
             when (lastStatus) {
                 "done", "success" -> {
                     return job.result
+                        ?.toPlannerPlanResponse()
                         ?: throw IllegalStateException("Planner job completed without a result payload.")
                 }
                 "error", "dead-letter", "failed" -> {
@@ -252,11 +203,12 @@ class MealPlanRepository {
             delay(nextDelay)
         }
 
-        val finalJob = runCatching { apiService.getPlanJob(normalizedJobId) }.getOrNull()
+        val finalJob = runCatching { service.getPlanJob(normalizedJobId) }.getOrNull()
         if (finalJob != null) {
             lastStatus = finalJob.status.trim().lowercase()
             if (lastStatus == "done" || lastStatus == "success") {
                 return finalJob.result
+                    ?.toPlannerPlanResponse()
                     ?: throw IllegalStateException("Planner job completed without a result payload.")
             }
         }
@@ -308,25 +260,29 @@ class MealPlanRepository {
             if (normalizedName.isBlank()) {
                 return Result.failure(IllegalArgumentException("eventName cannot be blank"))
             }
-            apiService.postMlEvent(
-                MlClientEventRequestDto(
-                    eventName = normalizedName,
-                    requestId = requestId?.trim()?.takeIf { it.isNotBlank() },
-                    payload = payload
+            executeWithBackendFallback("ML event emission") { service ->
+                service.postMlEvent(
+                    MlClientEventRequestDto(
+                        eventName = normalizedName,
+                        requestId = requestId?.trim()?.takeIf { it.isNotBlank() },
+                        payload = payload
+                    )
                 )
-            )
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    suspend fun getRecipeDetails(recipeId: String): Result<RecipeDetailDto> {
+    suspend fun getRecipeDetails(recipeId: String): Result<PlannerRecipeDetail> {
         return try {
             synchronized(recipeCache) {
                 recipeCache[recipeId]?.let { return Result.success(it) }
             }
-            val response = apiService.getRecipe(recipeId)
+            val response = executeWithBackendFallback("recipe details") { service ->
+                service.getRecipe(recipeId)
+            }.toPlannerRecipeDetail()
             synchronized(recipeCache) {
                 recipeCache[recipeId] = response
             }
@@ -336,13 +292,15 @@ class MealPlanRepository {
         }
     }
 
-    suspend fun getRecipeSummaries(mealType: String, limit: Int = 50): Result<List<RecipeSummaryDto>> {
+    suspend fun getRecipeSummaries(mealType: String, limit: Int = 50): Result<List<PlannerRecipeSummary>> {
         return try {
             val key = "${mealType.lowercase()}_$limit"
             synchronized(summaryCache) {
                 summaryCache[key]?.let { return Result.success(it) }
             }
-            val response = apiService.getRecipeSummaries(mealType = mealType, limit = limit)
+            val response = executeWithBackendFallback("recipe summaries") { service ->
+                service.getRecipeSummaries(mealType = mealType, limit = limit)
+            }.map { it.toPlannerRecipeSummary() }
             synchronized(summaryCache) {
                 summaryCache[key] = response
             }
@@ -358,31 +316,55 @@ class MealPlanRepository {
         currentRecipeId: String?,
         activeRecipeIds: List<String>,
         limit: Int = 30
-    ): Result<List<RecipeSummaryDto>> {
+    ): Result<List<PlannerRecipeSummary>> {
         return try {
             val normalizedMealLabel = mealLabel.trim()
             val normalizedCurrentRecipeId = currentRecipeId?.trim()?.takeIf { it.isNotBlank() }
             val normalizedActiveRecipeIds = activeRecipeIds.mapNotNull { it.trim().takeIf(String::isNotBlank) }
-            val response = try {
-                apiService.getSwapOptions(
-                    SwapOptionsRequestDto(
-                        profile = profile,
-                        mealLabel = normalizedMealLabel,
-                        currentRecipeId = normalizedCurrentRecipeId,
-                        activeRecipeIds = normalizedActiveRecipeIds,
-                        limit = limit
+            val response = executeWithBackendFallback("recipe swap options") { service ->
+                try {
+                    service.getSwapOptions(
+                        SwapOptionsRequestDto(
+                            profile = profile,
+                            mealLabel = normalizedMealLabel,
+                            currentRecipeId = normalizedCurrentRecipeId,
+                            activeRecipeIds = normalizedActiveRecipeIds,
+                            limit = limit
+                        )
                     )
-                )
-            } catch (e: Exception) {
-                if (shouldFallbackToSummarySwapOptions(e)) {
-                    apiService.getRecipeSummaries(mealType = normalizedMealLabel, limit = limit)
-                } else {
-                    throw e
+                } catch (e: Exception) {
+                    if (shouldFallbackToSummarySwapOptions(e)) {
+                        service.getRecipeSummaries(mealType = normalizedMealLabel, limit = limit)
+                    } else {
+                        throw e
+                    }
                 }
-            }
+            }.map { it.toPlannerRecipeSummary() }
             Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    private suspend fun <T> executeWithBackendFallback(
+        operation: String,
+        block: suspend (PcosinaApiService) -> T
+    ): T {
+        return try {
+            block(apiService)
+        } catch (primaryError: Exception) {
+            val fallbackService = fallbackApiService
+            if (fallbackService != null && shouldRetryAgainstFallback(primaryError)) {
+                val fallbackHost = backendHost(fallbackBaseUrl)
+                android.util.Log.w(
+                    "MealPlanRepository",
+                    "Primary backend ${backendHost(primaryBaseUrl)} failed during $operation. " +
+                        "Retrying against hosted backend $fallbackHost."
+                )
+                block(fallbackService)
+            } else {
+                throw primaryError
+            }
         }
     }
 
@@ -400,18 +382,25 @@ class MealPlanRepository {
 
     private fun mapGeneratePlanException(error: Exception): Exception {
         if (error is UnknownHostException) {
-            val host = backendHost()
+            val host = backendHost(primaryBaseUrl)
             return IllegalStateException(
                 "Cannot reach backend host ($host). DNS lookup failed. " +
                     "Check Private DNS/VPN/adblock settings, then try again."
             )
         }
         if (isBackendConnectFailure(error)) {
-            val host = backendHost()
+            val host = backendHost(primaryBaseUrl)
+            val fallbackHost = fallbackBaseUrl?.let(::backendHost)
             return IllegalStateException(
-                "Cannot reach the PCOSina backend over HTTPS from this network. " +
-                    "The app tried $host and its Render fallback edge, but the connection was blocked or unavailable. " +
-                    "Check emulator internet access, VPN/Private DNS/adblock settings, or try again later."
+                if (fallbackHost != null) {
+                    "Cannot reach the local debug backend ($host). " +
+                        "The app also retried the hosted backend ($fallbackHost), but that connection was unavailable. " +
+                        "Start the local backend on your laptop or retry on a network that allows HTTPS access."
+                } else {
+                    "Cannot reach the PCOSina backend over HTTPS from this network. " +
+                        "The app tried $host and its Render fallback edge, but the connection was blocked or unavailable. " +
+                        "Check emulator internet access, VPN/Private DNS/adblock settings, or try again later."
+                }
             )
         }
         if (error !is HttpException) return error
@@ -455,12 +444,12 @@ class MealPlanRepository {
         }
     }
 
-    private fun backendHost(): String {
-        val normalized = normalizeBaseUrl(BuildConfig.BASE_URL)
+    private fun backendHost(baseUrl: String? = primaryBaseUrl): String {
+        val normalized = normalizeBaseUrl(baseUrl ?: BuildConfig.BASE_URL)
         return runCatching { URI(normalized).host }
             .getOrNull()
             ?.takeIf { it.isNotBlank() }
-            ?: "pcosina-backend.onrender.com"
+            ?: RELEASE_BACKEND_HOST
     }
 
     private fun requiresFirebaseAuth(encodedPath: String): Boolean {
@@ -469,6 +458,49 @@ class MealPlanRepository {
         return normalized != "health" &&
             normalized != "health/ready" &&
             normalized != "feedback"
+    }
+
+    private fun refreshAuthTokenAsync(user: FirebaseUser?, forceRefresh: Boolean) {
+        if (user == null) {
+            cachedAuthToken = null
+            authTokenRefreshInFlight.set(false)
+            return
+        }
+        if (!authTokenRefreshInFlight.compareAndSet(false, true)) return
+        user.getIdToken(forceRefresh)
+            .addOnSuccessListener { result ->
+                cachedAuthToken = result.token?.takeIf { it.isNotBlank() }
+            }
+            .addOnFailureListener { error ->
+                android.util.Log.w("MealPlanRepository", "Auth token refresh failed: ${error.message}")
+            }
+            .addOnCompleteListener {
+                authTokenRefreshInFlight.set(false)
+            }
+    }
+
+    private fun refreshAppCheckTokenAsync(
+        firebaseAppCheck: FirebaseAppCheck,
+        forceRefresh: Boolean
+    ) {
+        if (!appCheckTokenRefreshInFlight.compareAndSet(false, true)) return
+        val task = if (forceRefresh) {
+            firebaseAppCheck.getAppCheckToken(true)
+        } else {
+            firebaseAppCheck.getAppCheckToken(false)
+        }
+        task
+            .addOnSuccessListener { result ->
+                cachedAppCheckToken = result.token?.takeIf { it.isNotBlank() }
+            }
+            .addOnFailureListener { error ->
+                if (!BuildConfig.DEBUG) {
+                    android.util.Log.w("MealPlanRepository", "App Check token refresh failed: ${error.message}")
+                }
+            }
+            .addOnCompleteListener {
+                appCheckTokenRefreshInFlight.set(false)
+            }
     }
 
     private fun isBackendConnectFailure(error: Throwable): Boolean {
@@ -489,6 +521,114 @@ class MealPlanRepository {
             current = current.cause
         }
         return false
+    }
+
+    private fun shouldRetryAgainstFallback(error: Exception): Boolean {
+        return error is UnknownHostException || isBackendConnectFailure(error)
+    }
+
+    private fun isAutoFallbackCandidate(baseUrl: String): Boolean {
+        val host = runCatching { URI(baseUrl).host.orEmpty() }.getOrDefault("")
+        if (host.isBlank()) return false
+        return host.equals("10.0.2.2", ignoreCase = true) ||
+            host.equals("127.0.0.1", ignoreCase = true) ||
+            host.equals("localhost", ignoreCase = true)
+    }
+
+    private fun buildApiService(
+        baseUrl: String,
+        firebaseAuth: FirebaseAuth,
+        firebaseAppCheck: FirebaseAppCheck
+    ): PcosinaApiService {
+        val backendHost = runCatching { URI(baseUrl).host.orEmpty() }.getOrDefault("")
+        val dns = if (backendHost.equals(RELEASE_BACKEND_HOST, ignoreCase = true)) {
+            ResilientBackendDns(
+                backendHost = backendHost,
+                fallbackIps = RELEASE_BACKEND_FALLBACK_IPS
+            )
+        } else {
+            Dns.SYSTEM
+        }
+        val logging = HttpLoggingInterceptor().apply {
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BODY
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
+        }
+
+        val client = OkHttpClient.Builder()
+            .addInterceptor(logging)
+            .dns(dns)
+            .addInterceptor { chain ->
+                val original = chain.request()
+                val requiresFirebaseAuth = requiresFirebaseAuth(original.url.encodedPath)
+                val requestBuilder = original.newBuilder()
+                    .addHeader("X-PCOSINA-Schema-Version", BuildConfig.SCHEMA_VERSION)
+                val currentUser = firebaseAuth.currentUser
+                if (currentUser != null) {
+                    val authToken = cachedAuthToken
+                    if (!authToken.isNullOrBlank()) {
+                        requestBuilder.addHeader("Authorization", "Bearer $authToken")
+                    } else {
+                        refreshAuthTokenAsync(currentUser, forceRefresh = false)
+                        if (requiresFirebaseAuth) {
+                            throw IOException(
+                                "Authentication is still syncing for this session. Please retry in a moment."
+                            )
+                        }
+                    }
+                } else if (requiresFirebaseAuth) {
+                    cachedAuthToken = null
+                    throw IOException("You must sign in before using the planner.")
+                }
+                val appCheckToken = cachedAppCheckToken
+                if (!appCheckToken.isNullOrBlank()) {
+                    requestBuilder.addHeader("X-Firebase-AppCheck", appCheckToken)
+                } else {
+                    refreshAppCheckTokenAsync(firebaseAppCheck, forceRefresh = false)
+                    if (!BuildConfig.DEBUG) {
+                        throw IOException("Firebase App Check token is still preparing. Please retry in a moment.")
+                    }
+                }
+
+                val request = requestBuilder.build()
+                val response = chain.proceed(request)
+                val responseSchema = response.header("X-PCOSINA-Schema-Version")
+                if (!responseSchema.isNullOrBlank() && responseSchema != BuildConfig.SCHEMA_VERSION) {
+                    android.util.Log.w(
+                        "MealPlanRepository",
+                        "Schema version mismatch. Client=${BuildConfig.SCHEMA_VERSION}, Server=$responseSchema"
+                    )
+                }
+                if (response.code == 401) {
+                    refreshAuthTokenAsync(currentUser, forceRefresh = true)
+                }
+                if (response.code == 401 || response.code == 403) {
+                    refreshAppCheckTokenAsync(firebaseAppCheck, forceRefresh = true)
+                }
+                response
+            }
+            .retryOnConnectionFailure(true)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(90, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .callTimeout(120, TimeUnit.SECONDS)
+            .build()
+
+        val retrofit = Retrofit.Builder()
+            .baseUrl(baseUrl)
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+
+        return retrofit.create(PcosinaApiService::class.java)
+    }
+
+    companion object {
+        private const val RELEASE_BACKEND_URL = "https://pcosina-backend.onrender.com/"
+        private const val RELEASE_BACKEND_HOST = "pcosina-backend.onrender.com"
+        private val RELEASE_BACKEND_FALLBACK_IPS = listOf("216.24.57.7", "216.24.57.251")
     }
 
     private class ResilientBackendDns(

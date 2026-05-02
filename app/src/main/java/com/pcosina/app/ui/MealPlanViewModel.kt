@@ -5,21 +5,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
-import com.pcosina.app.data.api.DayPlanDto
-import com.pcosina.app.data.api.GeneratePlanResponse
-import com.pcosina.app.data.api.RecipeDetailDto
-import com.pcosina.app.data.api.RecipeSummaryDto
-import com.pcosina.app.data.api.PlanExplanation
 import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.GroceryItemSource
 import com.pcosina.app.data.model.PlanInstance
+import com.pcosina.app.data.model.PlannerDayPlan
+import com.pcosina.app.data.model.PlannerPlanResponse
+import com.pcosina.app.data.model.PlannerRecipeDetail
+import com.pcosina.app.data.model.PlannerRecipeSummary
 import com.pcosina.app.data.model.UserProfile
-import com.pcosina.app.data.model.DemoWeekSeed
 import com.pcosina.app.data.model.DailyLog
 import com.pcosina.app.data.repository.MealPlanRepository
-import com.pcosina.app.data.repository.UserPreferencesRepository
-import com.pcosina.app.ui.util.goalTextForApi
-import com.pcosina.app.ui.util.hasGoalSelection
+import com.pcosina.app.data.repository.PlannerLocalRepository
+import com.pcosina.app.domain.PlannerProfilePreparationUseCase
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,14 +31,14 @@ import java.util.Locale
 sealed class MealPlanUiState {
     object Idle : MealPlanUiState()
     object Loading : MealPlanUiState()
-    data class Success(val response: GeneratePlanResponse, val timestamp: Long) : MealPlanUiState()
+    data class Success(val response: PlannerPlanResponse, val timestamp: Long) : MealPlanUiState()
     data class Error(val message: String) : MealPlanUiState()
 }
 
 sealed class RecipeDetailsUiState {
     object Idle : RecipeDetailsUiState()
     object Loading : RecipeDetailsUiState()
-    data class Success(val recipe: RecipeDetailDto) : RecipeDetailsUiState()
+    data class Success(val recipe: PlannerRecipeDetail) : RecipeDetailsUiState()
     data class Error(val message: String) : RecipeDetailsUiState()
 }
 
@@ -67,7 +64,7 @@ private data class PendingGenerateRequest(
 
 class MealPlanViewModel(
     private val repository: MealPlanRepository,
-    private val userPrefsRepository: UserPreferencesRepository
+    private val plannerLocalRepository: PlannerLocalRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<MealPlanUiState>(MealPlanUiState.Idle)
@@ -103,9 +100,10 @@ class MealPlanViewModel(
     private val gson = Gson()
     private val dayOrder = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
     private var pendingGenerateRequest: PendingGenerateRequest? = null
+    private val plannerProfilePreparationUseCase = PlannerProfilePreparationUseCase()
 
     private data class ContinuityPlanSnapshot(
-        val response: GeneratePlanResponse,
+        val response: PlannerPlanResponse,
         val timestamp: Long,
         val activePlanId: String?,
         val weekStart: String?,
@@ -120,11 +118,11 @@ class MealPlanViewModel(
             _uiState.value = MealPlanUiState.Idle 
             var history = loadPlanHistory(userId)
             if (history.isEmpty()) {
-                val savedJson = userPrefsRepository.getSavedPlanJson(userId).first()
-                val savedTimestamp = userPrefsRepository.getSavedPlanTimestamp(userId).first()
+                val savedJson = plannerLocalRepository.getSavedPlanJson(userId).first()
+                val savedTimestamp = plannerLocalRepository.getSavedPlanTimestamp(userId).first()
                 if (!savedJson.isNullOrBlank()) {
                     try {
-                        val response = gson.fromJson(savedJson, GeneratePlanResponse::class.java)
+                        val response = gson.fromJson(savedJson, PlannerPlanResponse::class.java)
                         val generatedAt = if (savedTimestamp > 0) savedTimestamp else System.currentTimeMillis()
                         val start = weekStartDate(generatedAt)
                         val end = start.plusDays(6)
@@ -138,7 +136,7 @@ class MealPlanViewModel(
                         )
                         history = listOf(instance)
                         savePlanHistory(history)
-                        userPrefsRepository.saveActivePlanId(userId, id)
+                        plannerLocalRepository.saveActivePlanId(userId, id)
                     } catch (_: Exception) {
                         history = emptyList()
                     }
@@ -152,8 +150,8 @@ class MealPlanViewModel(
                 savePlanHistory(normalizedHistory)
             }
             _planHistory.value = normalizedHistory
-            val activeId = userPrefsRepository.getActivePlanId(userId).first()
-            val reviewed = userPrefsRepository.getLastReviewedWeek(userId).first()
+            val activeId = plannerLocalRepository.getActivePlanId(userId).first()
+            val reviewed = plannerLocalRepository.getLastReviewedWeek(userId).first()
             _lastReviewedWeek.value = reviewed
             val today = LocalDate.now()
             val overlappingPlans = normalizedHistory.filter { containsDate(it, today) }
@@ -192,7 +190,7 @@ class MealPlanViewModel(
         }
     }
 
-    private fun calculateMetrics(response: GeneratePlanResponse) {
+    private fun calculateMetrics(response: PlannerPlanResponse) {
         viewModelScope.launch {
             val mealIds = response.days.flatMap { it.meals }.mapNotNull { it.recipeId }
             val countsById = mealIds.groupingBy { it }.eachCount()
@@ -244,9 +242,21 @@ class MealPlanViewModel(
                 )
                 return@launch
             }
-            val effectiveProfile = resolveProfile(profile)
-            val tunedProfile = applyFeedbackTuning(effectiveProfile)
-            val apiProfile = tunedProfile.copy(goal = goalTextForApi(tunedProfile.goal))
+            val storedProfile = if (currentUserId.isBlank() || plannerProfilePreparationUseCase.isProfileValid(profile)) {
+                null
+            } else {
+                runCatching { plannerLocalRepository.getUserProfile(currentUserId).first() }.getOrNull()
+            }
+            val feedbackTags = if (currentUserId.isBlank()) {
+                emptyList()
+            } else {
+                plannerLocalRepository.getPlanFeedbackTags(currentUserId).first()
+            }
+            val apiProfile = plannerProfilePreparationUseCase(
+                requestedProfile = profile,
+                storedProfile = storedProfile,
+                feedbackTags = feedbackTags
+            ).plannerProfile
             val activeAttempt = pendingGenerateRequest?.attempt ?: repository.createGeneratePlanAttempt().also {
                 pendingGenerateRequest = PendingGenerateRequest(it)
             }
@@ -305,8 +315,8 @@ class MealPlanViewModel(
                 calculateMetrics(withLabel)
                 if (currentUserId.isNotBlank()) {
                     upsertPlanInstance(instance)
-                    userPrefsRepository.savePlanJson(currentUserId, gson.toJson(withLabel), completedAtMs)
-                    userPrefsRepository.saveActivePlanId(currentUserId, id)
+                    plannerLocalRepository.savePlanJson(currentUserId, gson.toJson(withLabel), completedAtMs)
+                    plannerLocalRepository.saveActivePlanId(currentUserId, id)
                     _activePlanId.value = id
                     _activeWeekStart.value = instance.weekStart
                     _activeWeekEnd.value = instance.weekEnd
@@ -352,39 +362,6 @@ class MealPlanViewModel(
             normalized.contains("keep waiting for the same request")
     }
 
-    private suspend fun applyFeedbackTuning(profile: UserProfile): UserProfile {
-        if (currentUserId.isBlank()) return profile
-        val tags = userPrefsRepository.getPlanFeedbackTags(currentUserId).first()
-        if (tags.isEmpty()) return profile
-        var tuned = profile
-        if (tags.any { it.equals("Too repetitive", true) }) {
-            tuned = tuned.copy(varietyPreference = "High")
-        }
-        if (tags.any { it.equals("Too expensive", true) }) {
-            val lowered = (tuned.weeklyBudgetPhp * 0.9f).toInt()
-            tuned = tuned.copy(weeklyBudgetPhp = lowered.coerceAtLeast(0))
-        }
-        if (tags.any { it.equals("Too hard to cook", true) }) {
-            tuned = tuned.copy(maxCookingTimeMinutes = (tuned.maxCookingTimeMinutes - 10).coerceAtLeast(10))
-        }
-        return tuned
-    }
-
-    private suspend fun resolveProfile(profile: UserProfile): UserProfile {
-        if (isProfileValid(profile)) return profile
-        return try {
-            if (currentUserId.isBlank()) profile
-            else userPrefsRepository.getUserProfile(currentUserId).first()
-        } catch (_: Exception) {
-            profile
-        }
-    }
-
-    private fun isProfileValid(profile: UserProfile): Boolean {
-        return profile.age > 0 && profile.heightCm > 0 && profile.weightKg > 0 &&
-            profile.activityLevel.isNotBlank() && hasGoalSelection(profile.goal)
-    }
-
     fun showError(message: String) {
         _generationNotice.value = null
         _uiState.value = MealPlanUiState.Error(message)
@@ -420,7 +397,7 @@ class MealPlanViewModel(
         }
     }
 
-    suspend fun getRecipeDetails(recipeId: String): Result<RecipeDetailDto> {
+    suspend fun getRecipeDetails(recipeId: String): Result<PlannerRecipeDetail> {
         return repository.getRecipeDetails(recipeId)
     }
 
@@ -430,7 +407,7 @@ class MealPlanViewModel(
         currentRecipeId: String,
         activeRecipeIds: List<String>,
         limit: Int = 30
-    ): Result<List<RecipeSummaryDto>> {
+    ): Result<List<PlannerRecipeSummary>> {
         return repository.getSwapOptions(
             profile = profile,
             mealLabel = mealLabel,
@@ -440,7 +417,7 @@ class MealPlanViewModel(
         )
     }
 
-    suspend fun getSwapOptions(mealLabel: String, limit: Int = 30): Result<List<RecipeSummaryDto>> {
+    suspend fun getSwapOptions(mealLabel: String, limit: Int = 30): Result<List<PlannerRecipeSummary>> {
         return repository.getRecipeSummaries(mealLabel, limit)
     }
 
@@ -468,7 +445,7 @@ class MealPlanViewModel(
             _uiState.value = MealPlanUiState.Success(updated, currentState.timestamp)
             calculateMetrics(updated)
             if (currentUserId.isNotBlank()) {
-                userPrefsRepository.savePlanJson(currentUserId, gson.toJson(updated), currentState.timestamp)
+                plannerLocalRepository.savePlanJson(currentUserId, gson.toJson(updated), currentState.timestamp)
                 updateActivePlanResponse(updated)
             }
             val planIdForEvent = _activePlanId.value ?: response.planId ?: response.weekLabel
@@ -564,7 +541,7 @@ class MealPlanViewModel(
         )
         if (currentUserId.isNotBlank()) {
             viewModelScope.launch {
-                userPrefsRepository.saveActivePlanId(currentUserId, plan.id)
+                plannerLocalRepository.saveActivePlanId(currentUserId, plan.id)
             }
         }
     }
@@ -572,7 +549,7 @@ class MealPlanViewModel(
     fun clearPlanHistory() {
         if (currentUserId.isBlank()) return
         viewModelScope.launch {
-            userPrefsRepository.clearPlanHistory(currentUserId)
+            plannerLocalRepository.clearPlanHistory(currentUserId)
             _planHistory.value = emptyList()
             _activePlanId.value = null
             _activeWeekStart.value = null
@@ -589,171 +566,8 @@ class MealPlanViewModel(
         if (key.isBlank() || currentUserId.isBlank()) return
         _lastReviewedWeek.value = key
         viewModelScope.launch {
-            userPrefsRepository.saveLastReviewedWeek(currentUserId, key)
+            plannerLocalRepository.saveLastReviewedWeek(currentUserId, key)
         }
-    }
-
-    fun seedDemoWeeks(profile: UserProfile): List<DemoWeekSeed> {
-        if (currentUserId.isBlank()) return emptyList()
-        val basePlan = when (val state = _uiState.value) {
-            is MealPlanUiState.Success -> state.response
-            else -> _planHistory.value.maxByOrNull { it.generatedAt }?.response
-        } ?: buildFallbackPlan(profile)
-
-        val baseStart = weekStartDate(System.currentTimeMillis())
-        val weeks = listOf(0L, 1L, 2L).map { baseStart.minusWeeks(it) }
-        val seeds = weeks.mapIndexed { index, start ->
-            val response = buildVariantPlan(basePlan, start, index)
-            val id = start.format(DateTimeFormatter.ISO_LOCAL_DATE)
-            val end = start.plusDays(6).format(DateTimeFormatter.ISO_LOCAL_DATE)
-            val instance = PlanInstance(
-                id = id,
-                weekStart = id,
-                weekEnd = end,
-                generatedAt = System.currentTimeMillis() - (index * 7L * 24 * 60 * 60 * 1000),
-                response = response
-            )
-            DemoWeekSeed(
-                planInstance = instance,
-                dailyLogs = buildDemoLogs(instance, index),
-                weeklyJournal = demoJournalText(index),
-                weeklySpend = demoWeeklySpend(index, response)
-            )
-        }
-
-        val history = seeds.map { it.planInstance }.sortedBy { it.weekStart }
-        _planHistory.value = history
-        savePlanHistory(history)
-        val active = history.maxByOrNull { it.generatedAt } ?: history.last()
-        _activePlanId.value = active.id
-        _activeWeekStart.value = active.weekStart
-        _activeWeekEnd.value = active.weekEnd
-        _planExpired.value = isExpired(active) && history.none { containsDate(it, LocalDate.now()) }
-        _uiState.value = MealPlanUiState.Success(active.response, active.generatedAt)
-        calculateMetrics(active.response)
-        viewModelScope.launch {
-            userPrefsRepository.saveActivePlanId(currentUserId, active.id)
-        }
-        return seeds
-    }
-
-    private fun buildFallbackPlan(profile: UserProfile): GeneratePlanResponse {
-        val meals = listOf(
-            Pair("Breakfast", "Demo Oatmeal Bowl"),
-            Pair("Lunch", "Demo Chicken Tinola"),
-            Pair("Dinner", "Demo Veggie Stir-fry")
-        )
-        val start = weekStartDate(System.currentTimeMillis())
-        val days = orderedDayLabels(start).mapIndexed { idx, label ->
-            val plannedMeals = meals.mapIndexed { mIndex, (mealLabel, title) ->
-                com.pcosina.app.data.api.PlannedMealDto(
-                    mealLabel = mealLabel,
-                    recipeId = "demo_${idx}_$mIndex",
-                    title = title
-                )
-            }
-            val kcal = 1600 + (idx * 10)
-            com.pcosina.app.data.api.DayPlanDto(
-                dayLabel = label,
-                meals = plannedMeals,
-                totalCalories = kcal
-            )
-        }
-        val explanation = PlanExplanation(
-            targetCalories = profile.age.takeIf { it > 0 }?.let { 1800 } ?: null,
-            avgCalories = days.sumOf { it.totalCalories } / days.size,
-            avgProtein = 85,
-            avgCarbs = 210,
-            avgFats = 60,
-            estimatedWeeklyCost = 1500,
-            pantryMatches = profile.pantryItems.size.takeIf { it > 0 } ?: 0
-        )
-        return GeneratePlanResponse(
-            weekLabel = weekLabelFor(start),
-            days = days,
-            status = "demo",
-            message = "Demo plan generated locally.",
-            explanation = explanation
-        )
-    }
-
-    private fun buildVariantPlan(base: GeneratePlanResponse, start: LocalDate, index: Int): GeneratePlanResponse {
-        val calorieDelta = when (index) {
-            1 -> 40
-            2 -> -30
-            else -> 0
-        }
-        val adjustedDays = base.days.mapIndexed { dayIndex, day ->
-            val meals = day.meals.toMutableList()
-            if (index > 0 && meals.size >= 2 && dayIndex % 2 == index % 2) {
-                val tmp = meals.first()
-                meals[0] = meals.last()
-                meals[meals.lastIndex] = tmp
-            }
-            day.copy(
-                meals = meals,
-                totalCalories = (day.totalCalories + calorieDelta).coerceAtLeast(0)
-            )
-        }
-        val baseExplain = base.explanation
-        val estimated = baseExplain?.estimatedWeeklyCost?.plus(index * 60)
-            ?: (1500 + index * 60)
-        val explanation = baseExplain?.copy(
-            avgCalories = adjustedDays.sumOf { it.totalCalories } / adjustedDays.size,
-            estimatedWeeklyCost = estimated,
-            pantryMatches = (baseExplain.pantryMatches ?: 0) + index
-        ) ?: PlanExplanation(
-            avgCalories = adjustedDays.sumOf { it.totalCalories } / adjustedDays.size,
-            avgProtein = 85,
-            avgCarbs = 210,
-            avgFats = 60,
-            estimatedWeeklyCost = estimated,
-            pantryMatches = index
-        )
-        return base.copy(
-            weekLabel = weekLabelFor(start),
-            days = normalizeResponse(base.copy(days = adjustedDays), start).days,
-            explanation = explanation
-        )
-    }
-
-    private fun buildDemoLogs(instance: PlanInstance, index: Int): List<DailyLog> {
-        val start = LocalDate.parse(instance.weekStart, DateTimeFormatter.ISO_LOCAL_DATE)
-        val logs = mutableListOf<DailyLog>()
-        instance.response.days.forEachIndexed { dayIndex, day ->
-            val date = start.plusDays(dayIndex.toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE)
-            val completedMeals = day.meals.filterIndexed { mealIndex, _ ->
-                (dayIndex + mealIndex + index) % 2 == 0
-            }.map { meal ->
-                ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)
-            }
-            val weight = when (index) {
-                0 -> 65f
-                1 -> 64.5f
-                else -> 64f
-            } + (dayIndex * 0.05f)
-            logs.add(
-                DailyLog(
-                    date = date,
-                    completedMealIds = completedMeals,
-                    weightKg = weight
-                )
-            )
-        }
-        return logs
-    }
-
-    private fun demoJournalText(index: Int): String {
-        return when (index) {
-            0 -> "Baseline week. Focused on getting used to the plan."
-            1 -> "Week 2 felt more consistent. Cooking felt easier."
-            else -> "Week 3: better routine and improved meal prep."
-        }
-    }
-
-    private fun demoWeeklySpend(index: Int, response: GeneratePlanResponse): Int? {
-        val base = response.explanation?.estimatedWeeklyCost ?: 1500
-        return (base + index * 40).coerceAtLeast(0)
     }
 
     private fun isExpired(plan: PlanInstance): Boolean {
@@ -806,7 +620,7 @@ class MealPlanViewModel(
     }
 
     private suspend fun loadPlanHistory(userId: String): List<PlanInstance> {
-        val json = userPrefsRepository.getPlanHistoryJson(userId).first()
+        val json = plannerLocalRepository.getPlanHistoryJson(userId).first()
         if (json.isNullOrBlank()) return emptyList()
         return try {
             val type = object : com.google.gson.reflect.TypeToken<List<PlanInstance>>() {}.type
@@ -819,7 +633,7 @@ class MealPlanViewModel(
     private fun savePlanHistory(history: List<PlanInstance>) {
         if (currentUserId.isBlank()) return
         viewModelScope.launch {
-            userPrefsRepository.savePlanHistoryJson(currentUserId, gson.toJson(history))
+            plannerLocalRepository.savePlanHistoryJson(currentUserId, gson.toJson(history))
         }
     }
 
@@ -831,7 +645,7 @@ class MealPlanViewModel(
         savePlanHistory(_planHistory.value)
     }
 
-    private fun updateActivePlanResponse(updated: GeneratePlanResponse) {
+    private fun updateActivePlanResponse(updated: PlannerPlanResponse) {
         val activeId = _activePlanId.value ?: return
         val activeStart = _activeWeekStart.value?.let(::parsePlanDate)
             ?: _planHistory.value.firstOrNull { it.id == activeId }?.weekStart?.let(::parsePlanDate)
@@ -844,9 +658,9 @@ class MealPlanViewModel(
     }
 
     private fun normalizeResponse(
-        response: GeneratePlanResponse,
+        response: PlannerPlanResponse,
         startDate: LocalDate? = null
-    ): GeneratePlanResponse {
+    ): PlannerPlanResponse {
         val byCanonical = response.days.mapNotNull { day ->
             val canonical = canonicalDayLabel(day.dayLabel) ?: return@mapNotNull null
             canonical to day.copy(dayLabel = canonical)
@@ -857,7 +671,7 @@ class MealPlanViewModel(
             else -> dayOrder
         }
         val normalized = orderedLabels.map { label ->
-            byCanonical[label] ?: DayPlanDto(label, emptyList(), 0)
+            byCanonical[label] ?: PlannerDayPlan(label, emptyList(), 0)
         }
         return response.copy(days = normalized)
     }
@@ -1041,12 +855,12 @@ class MealPlanViewModel(
 
     class Factory(
         private val repository: MealPlanRepository,
-        private val userPrefsRepository: UserPreferencesRepository
+        private val plannerLocalRepository: PlannerLocalRepository
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(MealPlanViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return MealPlanViewModel(repository, userPrefsRepository) as T
+                return MealPlanViewModel(repository, plannerLocalRepository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

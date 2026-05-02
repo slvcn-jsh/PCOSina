@@ -7,7 +7,8 @@ import com.pcosina.app.data.model.PantryEntry
 import com.pcosina.app.data.model.NotificationLogEntry
 import com.pcosina.app.data.model.NotificationPreferences
 import com.pcosina.app.data.model.UserProfile
-import com.pcosina.app.data.repository.UserPreferencesRepository
+import com.pcosina.app.data.repository.NotificationLocalRepository
+import com.pcosina.app.data.repository.UserProfileLocalRepository
 import com.pcosina.app.domain.CalorieTargetBreakdown
 import com.pcosina.app.domain.HealthMetrics
 import kotlinx.coroutines.Job
@@ -19,7 +20,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-class UserViewModel(private val repository: UserPreferencesRepository) : ViewModel() {
+class UserViewModel(
+    private val userProfileLocalRepository: UserProfileLocalRepository,
+    private val notificationLocalRepository: NotificationLocalRepository
+) : ViewModel() {
     private val _userProfile = MutableStateFlow(UserProfile())
     val userProfile: StateFlow<UserProfile> = _userProfile.asStateFlow()
 
@@ -45,14 +49,6 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
     private var currentUserId: String = ""
     private var pendingProfile: UserProfile? = null
 
-    init {
-        viewModelScope.launch {
-            repository.getAdminMode().collectLatest { enabled ->
-                _adminMode.value = enabled
-            }
-        }
-    }
-
     fun loadProfileForUser(userId: String) {
         if (currentUserId == userId) {
             flushPendingProfile()
@@ -67,7 +63,7 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
         notificationPrefsJob?.cancel()
         notificationLogsJob?.cancel()
         profileJob = viewModelScope.launch {
-            repository.getUserProfile(userId).collectLatest { profile ->
+            userProfileLocalRepository.getUserProfile(userId).collectLatest { profile ->
                 val pending = pendingProfile
                 if (pending != null) {
                     if (profile == pending) {
@@ -83,23 +79,23 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
             }
         }
         pantryJob = viewModelScope.launch {
-            repository.getPantryEntries(userId).collectLatest { entries ->
+            userProfileLocalRepository.getPantryEntries(userId).collectLatest { entries ->
                 _pantryEntries.value = entries
             }
         }
         remindersJob = viewModelScope.launch {
-            repository.getRemindersEnabled(userId).collectLatest { enabled ->
+            notificationLocalRepository.getRemindersEnabled(userId).collectLatest { enabled ->
                 _remindersEnabled.value = enabled
             }
         }
         notificationPrefsJob = viewModelScope.launch {
-            repository.getNotificationPreferences(userId).collectLatest { prefs ->
+            notificationLocalRepository.getNotificationPreferences(userId).collectLatest { prefs ->
                 _notificationPreferences.value = prefs
                 _remindersEnabled.value = prefs.masterEnabled
             }
         }
         notificationLogsJob = viewModelScope.launch {
-            repository.getNotificationLogs(userId).collectLatest { logs ->
+            notificationLocalRepository.getNotificationLogs(userId).collectLatest { logs ->
                 _notificationLogs.value = logs
             }
         }
@@ -127,13 +123,12 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
         _remindersEnabled.value = false
         _notificationPreferences.value = NotificationPreferences()
         _notificationLogs.value = emptyList()
+        _adminMode.value = false
         pendingProfile = null
     }
 
-    fun toggleAdminMode() {
-        viewModelScope.launch {
-            repository.setAdminMode(!_adminMode.value)
-        }
+    fun setAdminMode(enabled: Boolean) {
+        _adminMode.value = enabled
     }
 
     private fun saveProfile() {
@@ -142,7 +137,7 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
             return
         }
         viewModelScope.launch {
-            repository.updateProfile(currentUserId, _userProfile.value)
+            userProfileLocalRepository.updateProfile(currentUserId, _userProfile.value)
         }
     }
 
@@ -150,7 +145,7 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
         val pending = pendingProfile ?: return
         if (currentUserId.isBlank()) return
         viewModelScope.launch {
-            repository.updateProfile(currentUserId, pending)
+            userProfileLocalRepository.updateProfile(currentUserId, pending)
         }
     }
 
@@ -217,7 +212,7 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
         saveProfile()
         if (currentUserId.isBlank()) return
         viewModelScope.launch {
-            repository.savePantryEntries(currentUserId, entries)
+            userProfileLocalRepository.savePantryEntries(currentUserId, entries)
         }
     }
 
@@ -241,7 +236,7 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
         saveProfile()
         if (currentUserId.isBlank()) return
         viewModelScope.launch {
-            repository.savePantryEntries(currentUserId, normalizedEntries)
+            userProfileLocalRepository.savePantryEntries(currentUserId, normalizedEntries)
         }
     }
 
@@ -266,7 +261,7 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
         _remindersEnabled.value = updated.masterEnabled
         if (currentUserId.isNotBlank()) {
             viewModelScope.launch {
-                repository.saveNotificationPreferences(currentUserId, updated)
+                notificationLocalRepository.saveNotificationPreferences(currentUserId, updated)
             }
         }
         return updated
@@ -309,11 +304,14 @@ class UserViewModel(private val repository: UserPreferencesRepository) : ViewMod
     val activeUserId: String
         get() = currentUserId
 
-    class Factory(private val repository: UserPreferencesRepository) : ViewModelProvider.Factory {
+    class Factory(
+        private val userProfileLocalRepository: UserProfileLocalRepository,
+        private val notificationLocalRepository: NotificationLocalRepository
+    ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(UserViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return UserViewModel(repository) as T
+                return UserViewModel(userProfileLocalRepository, notificationLocalRepository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

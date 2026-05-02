@@ -25,8 +25,13 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pcosina.app.data.repository.AuthRepository
+import com.pcosina.app.data.repository.UserPreferencesGroceryLocalRepository
 import com.pcosina.app.data.repository.MealPlanRepository
+import com.pcosina.app.data.repository.UserPreferencesNotificationLocalRepository
+import com.pcosina.app.data.repository.UserPreferencesProgressLocalRepository
+import com.pcosina.app.data.repository.UserPreferencesPlannerLocalRepository
 import com.pcosina.app.data.repository.UserPreferencesRepository
+import com.pcosina.app.data.repository.UserPreferencesUserProfileLocalRepository
 import com.pcosina.app.data.repository.ReflectionStore
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.GroceryViewModel
@@ -93,6 +98,11 @@ fun AppNavHost(
     
     // Repositories
     val userPrefsRepository = remember { UserPreferencesRepository(context) }
+    val userProfileLocalRepository = remember { UserPreferencesUserProfileLocalRepository(userPrefsRepository) }
+    val groceryLocalRepository = remember { UserPreferencesGroceryLocalRepository(userPrefsRepository) }
+    val plannerLocalRepository = remember { UserPreferencesPlannerLocalRepository(userPrefsRepository) }
+    val progressLocalRepository = remember { UserPreferencesProgressLocalRepository(userPrefsRepository) }
+    val notificationLocalRepository = remember { UserPreferencesNotificationLocalRepository(userPrefsRepository) }
     val authRepository = remember { AuthRepository(context) }
     val mealPlanRepository = remember { MealPlanRepository() }
     val feedbackRepository = remember { FeedbackRepository(BuildConfig.BASE_URL) }
@@ -100,7 +110,7 @@ fun AppNavHost(
     
     // ViewModels
     val userViewModel: UserViewModel = viewModel(
-        factory = UserViewModel.Factory(userPrefsRepository)
+        factory = UserViewModel.Factory(userProfileLocalRepository, notificationLocalRepository)
     )
     val authViewModel: AuthViewModel = viewModel(
         factory = AuthViewModel.Factory(authRepository)
@@ -108,15 +118,15 @@ fun AppNavHost(
     val mealPlanViewModel: MealPlanViewModel = viewModel(
         factory = MealPlanViewModel.Factory(
             repository = mealPlanRepository,
-            userPrefsRepository = userPrefsRepository
+            plannerLocalRepository = plannerLocalRepository
         )
     )
     val progressViewModel: ProgressViewModel = viewModel(
-        factory = ProgressViewModel.Factory(userPrefsRepository, reflectionStore, feedbackRepository)
+        factory = ProgressViewModel.Factory(progressLocalRepository, reflectionStore, feedbackRepository)
     )
     // FIXED: Use Factory to prevent RuntimeException (NoSuchMethodException)
     val groceryViewModel: GroceryViewModel = viewModel(
-        factory = GroceryViewModel.Factory(userPrefsRepository)
+        factory = GroceryViewModel.Factory(groceryLocalRepository)
     )
 
     val session by authViewModel.session.collectAsState()
@@ -134,6 +144,10 @@ fun AppNavHost(
     val profileCloudSyncInProgress = remember { mutableStateOf(false) }
     val unknownRouteWarnings = remember { mutableSetOf<String>() }
     val unknownGoalWarnings = remember { mutableSetOf<String>() }
+    val pendingOperatorAccess = remember { mutableStateOf(false) }
+    val operatorAuthorized = remember { mutableStateOf(false) }
+    val operatorAccessResolved = remember { mutableStateOf(false) }
+    val operatorAccessWarning = remember { mutableStateOf<String?>(null) }
 
     fun navigateInternal(route: String, options: (NavOptionsBuilder.() -> Unit)? = null) {
         val base = Routes.baseRoute(route).orEmpty()
@@ -159,6 +173,14 @@ fun AppNavHost(
         }
     }
 
+    fun isOperatorRoute(route: String?): Boolean {
+        return when (Routes.baseRoute(route)) {
+            Routes.MoreTools,
+            Routes.AdminMethodology -> true
+            else -> false
+        }
+    }
+
     // Sync session to user data loading
     LaunchedEffect(Unit) {
         authRepository.syncSessionFromFirebase()
@@ -178,6 +200,8 @@ fun AppNavHost(
         val userId = session.currentUserUid
         if (userId.isNullOrBlank()) {
             userViewModel.reset()
+            userViewModel.setAdminMode(false)
+            operatorAuthorized.value = false
             mealPlanViewModel.reset()
             groceryViewModel.reset()
             progressViewModel.reset()
@@ -185,7 +209,31 @@ fun AppNavHost(
             profileCloudSyncInProgress.value = false
             splashReady.value = false
             hasNavigated.value = false
+            pendingOperatorAccess.value = false
+            operatorAccessResolved.value = false
+            operatorAccessWarning.value = null
         } else {
+            if (!pendingOperatorAccess.value && !adminMode) {
+                operatorAuthorized.value = false
+                operatorAccessResolved.value = true
+                operatorAccessWarning.value = null
+            } else {
+                operatorAccessResolved.value = false
+                val operatorAccessResult = runCatching {
+                    authRepository.getCurrentUserOperatorAccess(forceRefresh = true)
+                }
+                val operatorAccess = operatorAccessResult.getOrNull()
+                val operatorAccessGranted = operatorAccess?.allowed == true
+                operatorAuthorized.value = operatorAccessGranted
+                operatorAccessWarning.value = when {
+                    !pendingOperatorAccess.value -> null
+                    operatorAccessResult.isFailure ->
+                        "Couldn't verify operator access right now. Try signing in again when the connection is stable."
+                    operatorAccessGranted -> null
+                    else -> operatorAccess?.message ?: "This account can sign in, but it doesn't have operator access."
+                }
+                operatorAccessResolved.value = true
+            }
             session.currentUserEmail?.let { email ->
                 userPrefsRepository.migrateFromEmailIfNeeded(userId, email)
             }
@@ -312,17 +360,32 @@ fun AppNavHost(
         splashReady.value,
         profileReadyForRouting,
         session.isLoggedIn,
-        inferredProfileCompleted
+        inferredProfileCompleted,
+        pendingOperatorAccess.value,
+        operatorAccessResolved.value,
+        adminMode,
+        operatorAuthorized.value
     ) {
         if (!splashReady.value || !profileReadyForRouting || hasNavigated.value) return@LaunchedEffect
+        if (pendingOperatorAccess.value && session.isLoggedIn && !operatorAccessResolved.value) return@LaunchedEffect
+        val activateOperatorMode = pendingOperatorAccess.value && operatorAuthorized.value
+        userViewModel.setAdminMode(activateOperatorMode)
         val target = when {
             !session.isLoggedIn -> Routes.Login
+            activateOperatorMode -> Routes.MoreTools
             !inferredProfileCompleted -> Routes.UserProfile
             else -> Routes.Dashboard
         }
+        val warnMessage = operatorAccessWarning.value
+        val shouldWarn = pendingOperatorAccess.value && !activateOperatorMode && !warnMessage.isNullOrBlank()
         hasNavigated.value = true
+        pendingOperatorAccess.value = false
+        operatorAccessWarning.value = null
         navigateInternal(target) {
             popUpTo(Routes.Splash) { inclusive = true }
+        }
+        if (shouldWarn) {
+            Toast.makeText(context, warnMessage, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -346,6 +409,20 @@ fun AppNavHost(
             }
             return@LaunchedEffect
         }
+        if (isOperatorRoute(route) && (!operatorAuthorized.value || !adminMode)) {
+            val message = if (operatorAuthorized.value) {
+                "Use operator access from the login screen to open operator tools."
+            } else {
+                "Operator access is only available for authorized accounts."
+            }
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            userViewModel.setAdminMode(false)
+            navigateInternal(Routes.Dashboard) {
+                tabNavigationOptions()
+            }
+            return@LaunchedEffect
+        }
+        if (adminMode && isOperatorRoute(route)) return@LaunchedEffect
 
         when {
             !inferredProfileCompleted && !Routes.isProfileRoute(route) && !Routes.isGoalRoute(route) -> {
@@ -392,7 +469,10 @@ fun AppNavHost(
         composable(Routes.Login) {
             LoginScreen(
                 authViewModel = authViewModel,
-                onLoginSuccess = {
+                onLoginSuccess = { operatorRequested ->
+                    pendingOperatorAccess.value = operatorRequested
+                    operatorAccessResolved.value = false
+                    operatorAccessWarning.value = null
                     navigateInternal(Routes.Splash) {
                         popUpTo(Routes.Login) { inclusive = true }
                     }

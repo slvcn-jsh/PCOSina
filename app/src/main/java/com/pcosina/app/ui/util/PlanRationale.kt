@@ -1,11 +1,11 @@
 package com.pcosina.app.ui.util
 
-import com.pcosina.app.data.api.PlanExplanation
+import com.pcosina.app.data.model.PlannerPlanExplanation
 
 fun buildMealReasons(
     recipeId: String,
     recipeCounts: Map<String, Int>,
-    explanation: PlanExplanation?,
+    explanation: PlannerPlanExplanation?,
     budgetPhp: Int
 ): List<String> {
     val reasons = mutableListOf<String>()

@@ -7,12 +7,12 @@ import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.google.gson.JsonParser
 import com.pcosina.app.data.model.DailyLog
-import com.pcosina.app.data.model.DemoWeekSeed
 import com.pcosina.app.data.model.FeedbackEntry
 import com.pcosina.app.data.model.MealCheckIn
 import com.pcosina.app.data.repository.FeedbackRepository
+import com.pcosina.app.data.repository.ProgressLocalRepository
 import com.pcosina.app.data.repository.ReflectionStore
-import com.pcosina.app.data.repository.UserPreferencesRepository
+import com.pcosina.app.domain.MealLoggingPolicyUseCase
 import com.pcosina.app.util.safeUserLogScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -125,13 +125,14 @@ private fun safeTrimmedText(value: Any?): String? =
 private fun clampFeedbackLevel(value: Int?): Int? = value?.coerceIn(1, 5)
 
 class ProgressViewModel(
-    private val userPrefsRepository: UserPreferencesRepository,
+    private val progressLocalRepository: ProgressLocalRepository,
     private val reflectionStore: ReflectionStore,
     private val feedbackRepository: FeedbackRepository
 ) : ViewModel() {
 
     private val gson = Gson()
     private val dateFmt = DateTimeFormatter.ISO_LOCAL_DATE
+    private val mealLoggingPolicyUseCase = MealLoggingPolicyUseCase()
 
     private var currentUserId: String = ""
 
@@ -182,14 +183,24 @@ class ProgressViewModel(
         }
     }
 
-    fun isDateLoggable(date: LocalDate, now: LocalDate = LocalDate.now()): Boolean = date == now
+    fun isDateLoggable(date: LocalDate, now: LocalDate = LocalDate.now()): Boolean =
+        mealLoggingPolicyUseCase.isDateLoggable(date, now)
 
-    fun loggingLockReason(date: LocalDate, now: LocalDate = LocalDate.now()): String {
-        return when {
-            date.isAfter(now) -> "Future-day logging is locked. You can only log meals for today."
-            date.isBefore(now) -> "Past-day logging is locked. Log meals on the same day to keep insights accurate."
-            else -> ""
-        }
+    fun loggingLockReason(date: LocalDate, now: LocalDate = LocalDate.now()): String =
+        mealLoggingPolicyUseCase.loggingLockReason(date, now)
+
+    fun mealLoggingLockReason(
+        date: LocalDate,
+        mealLabel: String?,
+        plannedMealLabels: List<String> = emptyList(),
+        now: LocalDate = LocalDate.now()
+    ): String {
+        return mealLoggingDecision(
+            date = date,
+            mealLabel = mealLabel,
+            plannedMealLabels = plannedMealLabels,
+            now = now
+        ).reason
     }
 
     fun loadForUser(userId: String, weekStart: String, fallbackWeekStart: String? = null) {
@@ -204,7 +215,7 @@ class ProgressViewModel(
             runCatching {
                 var json = reflectionStore.getDailyLogsJson(userId)
                 if (json.isNullOrBlank()) {
-                    val legacy = userPrefsRepository.getDailyLogsJson(userId).first()
+                    val legacy = progressLocalRepository.getDailyLogsJson(userId).first()
                     if (!legacy.isNullOrBlank()) {
                         reflectionStore.saveDailyLogsJson(userId, legacy)
                         json = legacy
@@ -215,7 +226,7 @@ class ProgressViewModel(
                     .sortedBy { it.timestamp }
                     .associateBy { it.date }
 
-                val fq = userPrefsRepository.getFeedbackQueueJson(userId).first()
+                val fq = progressLocalRepository.getFeedbackQueueJson(userId).first()
                 val entries = parseFeedbackEntriesSafely(fq, gson)
                 val normalized = entries.map { entry ->
                     if (entry.status == "Sending") {
@@ -228,7 +239,7 @@ class ProgressViewModel(
 
                 loadWeeklyJournal(weekStart, fallbackWeekStart)
                 loadWeeklySpend(weekStart, fallbackWeekStart)
-                val tags = userPrefsRepository.getPlanFeedbackTags(userId).first()
+                val tags = progressLocalRepository.getPlanFeedbackTags(userId).first()
                 _planFeedbackTags.value = tags
                 fetchProgressUiPreferences()
             }.onFailure { error ->
@@ -251,9 +262,9 @@ class ProgressViewModel(
             return
         }
         runCatching {
-            _savedProgressMode.value = userPrefsRepository.getProgressMode(currentUserId).first()
+            _savedProgressMode.value = progressLocalRepository.getProgressMode(currentUserId).first()
             _savedAdvancedWeekAnalyticsExpanded.value =
-                userPrefsRepository.getProgressAdvancedAnalyticsExpanded(currentUserId).first()
+                progressLocalRepository.getProgressAdvancedAnalyticsExpanded(currentUserId).first()
         }.onFailure { error ->
             Log.e("ProgressViewModel", "Failed to load saved progress UI preferences.", error)
             _savedProgressMode.value = "Today"
@@ -273,7 +284,7 @@ class ProgressViewModel(
         val normalized = if (mode.equals("Week", ignoreCase = true)) "Week" else "Today"
         _savedProgressMode.value = normalized
         viewModelScope.launch {
-            userPrefsRepository.saveProgressMode(currentUserId, normalized)
+            progressLocalRepository.saveProgressMode(currentUserId, normalized)
             Log.i("ProgressUX", "Saved focus mode: $normalized ${safeUserLogScope(currentUserId)}")
         }
     }
@@ -282,7 +293,7 @@ class ProgressViewModel(
         if (currentUserId.isBlank()) return
         _savedAdvancedWeekAnalyticsExpanded.value = expanded
         viewModelScope.launch {
-            userPrefsRepository.saveProgressAdvancedAnalyticsExpanded(currentUserId, expanded)
+            progressLocalRepository.saveProgressAdvancedAnalyticsExpanded(currentUserId, expanded)
             Log.i("ProgressUX", "Saved advanced analytics expanded=$expanded ${safeUserLogScope(currentUserId)}")
         }
     }
@@ -296,7 +307,7 @@ class ProgressViewModel(
                     _weeklyJournal.value = primary
                     return@launch
                 }
-                val legacyPrimary = userPrefsRepository.getWeeklyJournal(currentUserId, weekStart).first()
+                val legacyPrimary = progressLocalRepository.getWeeklyJournal(currentUserId, weekStart).first()
                 if (!legacyPrimary.isNullOrBlank()) {
                     reflectionStore.saveWeeklyJournal(currentUserId, weekStart, legacyPrimary)
                     _weeklyJournal.value = legacyPrimary
@@ -309,7 +320,7 @@ class ProgressViewModel(
                         reflectionStore.saveWeeklyJournal(currentUserId, weekStart, fallback)
                         return@launch
                     }
-                    val legacyFallback = userPrefsRepository.getWeeklyJournal(currentUserId, fallbackWeekStart).first()
+                    val legacyFallback = progressLocalRepository.getWeeklyJournal(currentUserId, fallbackWeekStart).first()
                     if (!legacyFallback.isNullOrBlank()) {
                         reflectionStore.saveWeeklyJournal(currentUserId, fallbackWeekStart, legacyFallback)
                         reflectionStore.saveWeeklyJournal(currentUserId, weekStart, legacyFallback)
@@ -371,6 +382,27 @@ class ProgressViewModel(
         return normalizedMealLabel.isBlank() || entry.mealLabel.equals(normalizedMealLabel, ignoreCase = true)
     }
 
+    private fun completedMealLabelsFor(date: LocalDate): List<String> {
+        val key = date.format(dateFmt)
+        return _dailyLogs.value[key]
+            ?.completedMealIds
+            .orEmpty()
+            .mapNotNull(::extractMealLabel)
+    }
+
+    private fun mealLoggingDecision(
+        date: LocalDate,
+        mealLabel: String?,
+        plannedMealLabels: List<String> = emptyList(),
+        now: LocalDate = LocalDate.now()
+    ) = mealLoggingPolicyUseCase.evaluate(
+        date = date,
+        mealLabel = mealLabel,
+        completedMealLabels = completedMealLabelsFor(date),
+        plannedMealLabels = plannedMealLabels,
+        now = now
+    )
+
     fun toggleMeal(date: LocalDate, recipeId: String, mealLabel: String): Boolean {
         if (!isDateLoggable(date)) return false
         val key = date.format(dateFmt)
@@ -379,6 +411,10 @@ class ProgressViewModel(
         val currentIds = current?.completedMealIds ?: emptyList()
         val hasKey = currentIds.contains(mealKey)
         val hasLegacy = currentIds.contains(recipeId)
+        if (!hasKey && !hasLegacy) {
+            val decision = mealLoggingDecision(date = date, mealLabel = mealLabel)
+            if (!decision.allowed) return false
+        }
         val updatedIds = if (hasKey || hasLegacy) {
             currentIds.filterNot { it == mealKey || it == recipeId }
         } else {
@@ -403,7 +439,12 @@ class ProgressViewModel(
         return true
     }
 
-    fun markMealAsEaten(date: LocalDate, recipeId: String, mealLabel: String? = null): Boolean {
+    fun markMealAsEaten(
+        date: LocalDate,
+        recipeId: String,
+        mealLabel: String? = null,
+        plannedMealLabels: List<String> = emptyList()
+    ): Boolean {
         if (!isDateLoggable(date)) return false
         val key = date.format(dateFmt)
         val current = _dailyLogs.value[key]
@@ -421,6 +462,12 @@ class ProgressViewModel(
             currentIds.any { extractRecipeId(it) == normalizedRecipeId }
         }
         if (alreadyLogged) return true
+        val decision = mealLoggingDecision(
+            date = date,
+            mealLabel = mealLabel,
+            plannedMealLabels = plannedMealLabels
+        )
+        if (!decision.allowed) return false
         val updated = (current ?: DailyLog(date = key)).copy(
             completedMealIds = currentIds + mealKey,
             timestamp = System.currentTimeMillis()
@@ -550,7 +597,7 @@ class ProgressViewModel(
         }
         _planFeedbackTags.value = current
         viewModelScope.launch {
-            userPrefsRepository.savePlanFeedbackTags(currentUserId, current)
+            progressLocalRepository.savePlanFeedbackTags(currentUserId, current)
         }
     }
 
@@ -563,23 +610,11 @@ class ProgressViewModel(
         if (currentUserId.isBlank()) return
         reflectionStore.clearForUser(currentUserId)
         viewModelScope.launch {
-            userPrefsRepository.clearLegacyReflections(currentUserId)
+            progressLocalRepository.clearLegacyReflections(currentUserId)
         }
         _dailyLogs.value = emptyMap()
         _weeklyJournal.value = ""
         _weeklySpend.value = null
-    }
-
-    fun seedDemoWeeks(seeds: List<DemoWeekSeed>) {
-        if (currentUserId.isBlank()) return
-        val updated = _dailyLogs.value.toMutableMap()
-        seeds.forEach { seed ->
-            seed.dailyLogs.forEach { log -> updated[log.date] = log }
-            reflectionStore.saveWeeklyJournal(currentUserId, seed.planInstance.weekStart, seed.weeklyJournal)
-            reflectionStore.saveWeeklySpend(currentUserId, seed.planInstance.weekStart, seed.weeklySpend)
-        }
-        _dailyLogs.value = updated
-        persistLogs(updated)
     }
 
     fun queueFeedback(message: String) {
@@ -681,19 +716,19 @@ class ProgressViewModel(
     private fun persistFeedback(entries: List<FeedbackEntry>) {
         if (currentUserId.isBlank()) return
         viewModelScope.launch {
-            userPrefsRepository.saveFeedbackQueueJson(currentUserId, gson.toJson(entries))
+            progressLocalRepository.saveFeedbackQueueJson(currentUserId, gson.toJson(entries))
         }
     }
 
     class Factory(
-        private val userPrefsRepository: UserPreferencesRepository,
+        private val progressLocalRepository: ProgressLocalRepository,
         private val reflectionStore: ReflectionStore,
         private val feedbackRepository: FeedbackRepository
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(ProgressViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return ProgressViewModel(userPrefsRepository, reflectionStore, feedbackRepository) as T
+                return ProgressViewModel(progressLocalRepository, reflectionStore, feedbackRepository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

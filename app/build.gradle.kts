@@ -12,7 +12,8 @@ val googleServicesConfig = file("google-services.json")
 val canLoadGoogleServicesConfig = googleServicesConfig.exists() &&
     googleServicesConfig.isFile &&
     googleServicesConfig.canRead()
-val defaultDebugBaseUrl = "http://10.0.2.2:8000/"
+val releaseBaseUrl = "https://pcosina-backend.onrender.com/"
+val defaultDebugBaseUrl = releaseBaseUrl
 val debugBaseUrlFromEnv = System.getenv("DEBUG_BASE_URL")
 val debugBaseUrlFromProperty = providers.gradleProperty("debugBaseUrl").orNull
 val resolvedDebugBaseUrl = (debugBaseUrlFromEnv ?: debugBaseUrlFromProperty ?: defaultDebugBaseUrl).trim()
@@ -145,7 +146,6 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
-        val releaseBaseUrl = "https://pcosina-backend.onrender.com/"
         fun validateBaseUrl(name: String, url: String) {
             val pattern = Regex("^https?://.+/$")
             if (!pattern.matches(url)) {
@@ -165,7 +165,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            val releaseBaseUrl = "https://pcosina-backend.onrender.com/"
             val pattern = Regex("^https?://.+/$")
             if (!pattern.matches(releaseBaseUrl)) {
                 throw GradleException("Invalid BASE_URL for release: $releaseBaseUrl")

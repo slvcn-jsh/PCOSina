@@ -319,9 +319,15 @@ def _load_override_rules() -> List[PriceRule]:
 
 
 def _active_rules() -> List[PriceRule]:
+    """
+    Returns the list of price rules to be used for estimation.
+    Prioritizes database-driven overrides (SRP) before falling back to
+    hardcoded static rules.
+    """
     overrides = _load_override_rules()
     if not overrides:
         return _RULES
+    # Merge overrides first so they are checked before static defaults
     return overrides + _RULES
 
 
@@ -360,5 +366,6 @@ def estimate_recipe_cost(ingredients: List[dict]) -> int:
             price, _ = estimate_price_detail(name, qty)
             total += price
     total *= 0.75  # scale to avoid overestimation for multi-portion recipes
+    total *= 1.10  # Add 10% "Inflation/Safety Buffer" as per Advanced Pricing Plan V2
     total = max(30.0, min(450.0, total))
     return int(round(total))

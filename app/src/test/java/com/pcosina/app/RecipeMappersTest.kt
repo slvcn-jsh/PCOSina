@@ -33,6 +33,10 @@ class RecipeMappersTest {
                 IngredientDto(name = "Malunggay", quantity = "1 bunch"),
             ),
             steps = listOf("Boil", "Season"),
+            nutritionCorrectionId = "corr-1",
+            nutritionDataSource = "nutritionist_review",
+            nutritionConfidence = "high",
+            nutritionReviewStatus = "reviewed",
         ).toPlannerRecipeDetail()
 
         assertEquals("recipe-1", mapped.id)
@@ -40,6 +44,8 @@ class RecipeMappersTest {
         assertEquals("Lunch", mapped.mealType)
         assertEquals("Chicken", mapped.ingredients.first().name)
         assertEquals("500 g", mapped.ingredients.first().quantity)
+        assertEquals("corr-1", mapped.nutritionCorrectionId)
+        assertEquals("high", mapped.nutritionConfidence)
     }
 
     @Test

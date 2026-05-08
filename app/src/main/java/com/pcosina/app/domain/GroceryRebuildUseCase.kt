@@ -8,14 +8,13 @@ class GroceryRebuildUseCase {
     operator fun invoke(mealSources: Map<String, List<GroceryItemSource>>): List<DummyData.GroceryItem> {
         val grouped = linkedMapOf<String, MutableList<String>>()
         mealSources.values.flatten().forEach { item ->
-            val normalizedKey = normalizeItemKey(item.name)
+            val normalizedKey = canonicalGroceryKey(item.name)
             if (normalizedKey.isBlank()) return@forEach
-            grouped.getOrPut(normalizedKey) { mutableListOf() }.add(item.quantity.trim())
+            val quantity = item.quantity.trim().ifBlank { item.name.trim() }
+            grouped.getOrPut(normalizedKey) { mutableListOf() }.add(quantity)
         }
         return grouped.map { (normalizedKey, quantities) ->
-            val name = normalizedKey.replaceFirstChar { char ->
-                if (char.isLowerCase()) char.titlecase() else char.toString()
-            }
+            val name = canonicalGroceryName(normalizedKey)
             val aggregatedQuantity = quantities.joinToString(", ")
             val category = PriceCatalog.inferCategory(name)
             val price = PriceCatalog.estimatePriceDetail(name, aggregatedQuantity).first
@@ -27,6 +26,4 @@ class GroceryRebuildUseCase {
             )
         }
     }
-
-    private fun normalizeItemKey(name: String): String = name.trim().lowercase()
 }

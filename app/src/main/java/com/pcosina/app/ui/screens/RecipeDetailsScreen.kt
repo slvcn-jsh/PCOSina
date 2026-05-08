@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.util.Log
 import com.pcosina.app.BuildConfig
+import com.pcosina.app.R
 import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanUiState
@@ -50,6 +50,7 @@ import com.pcosina.app.ui.components.FeedbackBannerTone
 import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.components.MealCheckInDialog
 import com.pcosina.app.ui.components.MealCheckInDraft
+import com.pcosina.app.ui.components.PcosinaDesignIcon
 import com.pcosina.app.ui.components.StatusCenterCard
 import com.pcosina.app.ui.navigation.Routes
 import com.pcosina.app.ui.util.formatFiberProgressShort
@@ -435,22 +436,6 @@ fun RecipeDetailsScreen(
                     }
                 }
             }
-            val addToGroceryAction: () -> Unit = {
-                val items = r.ingredients.map {
-                    DummyData.GroceryItem(
-                        it.name,
-                        it.quantity,
-                        0,
-                        "Needed"
-                    )
-                }
-                groceryViewModel.addItems(items)
-                postRecipeFeedback(
-                    tone = FeedbackBannerTone.Success,
-                    message = "Added ${items.size} ingredients from ${r.title} to Grocery."
-                )
-                onAddToGrocery()
-            }
             val markAsEatenAction: () -> Unit = {
                 if (!isRecipeInTodayPlan) {
                     impactSummary = RecipeImpactSummary(
@@ -573,6 +558,22 @@ fun RecipeDetailsScreen(
                     }
                 }
             }
+            val addToGroceryAction: () -> Unit = {
+                val items = r.ingredients.map {
+                    DummyData.GroceryItem(
+                        name = it.name,
+                        quantity = it.quantity,
+                        price = 0,
+                        category = r.mealType ?: "Recipe ingredient"
+                    )
+                }
+                groceryViewModel.addItems(items)
+                postRecipeFeedback(
+                    tone = FeedbackBannerTone.Success,
+                    message = "Added recipe ingredients to Grocery."
+                )
+                onAddToGrocery()
+            }
 
             Scaffold(
                 containerColor = colorScheme.background,
@@ -600,6 +601,20 @@ fun RecipeDetailsScreen(
                                     detailsExpanded = impactDetailsExpanded,
                                     onToggleDetails = { impactDetailsExpanded = !impactDetailsExpanded },
                                     onNavigateToRoute = onNavigateToRoute
+                                )
+                            }
+                            OutlinedButton(
+                                onClick = addToGroceryAction,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                                shape = RoundedCornerShape(18.dp),
+                                border = BorderStroke(1.dp, colorScheme.primary.copy(alpha = 0.42f))
+                            ) {
+                                Text(
+                                    text = "Add ingredients to Grocery",
+                                    fontWeight = FontWeight.Bold,
+                                    color = colorScheme.primary
                                 )
                             }
                             if (!isRecipeInTodayPlan) {
@@ -632,25 +647,6 @@ fun RecipeDetailsScreen(
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
-                                }
-                            }
-                            OutlinedButton(
-                                onClick = addToGroceryAction,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(46.dp),
-                                shape = RoundedCornerShape(18.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.ShoppingCart,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Text("Add ingredients to Grocery")
                                 }
                             }
                         }
@@ -754,6 +750,11 @@ fun RecipeDetailsScreen(
                                             NutrientTile("Carbs", "${r.carbsGrams ?: 0}g", colorScheme.primary)
                                             NutrientTile("Fiber", "${r.fiberGrams ?: 0}g", colorScheme.primary)
                                         }
+                                        Text(
+                                            text = nutritionTrustMessage(r.nutritionConfidence, r.nutritionReviewStatus),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = colorScheme.onSurfaceVariant
+                                        )
                                         if (safeHouseholdSize > 1) {
                                             Text(
                                                 text = "Whole recipe for $householdLabel: ${scaleNutritionPerMeal(r.calories, safeHouseholdSize) ?: 0} kcal • ${scaleNutritionPerMeal(r.proteinGrams, safeHouseholdSize) ?: 0}g protein",
@@ -1064,10 +1065,11 @@ private fun IngredientRow(name: String, amount: String) {
                 modifier = Modifier.size(28.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Filled.ShoppingCart,
+                    PcosinaDesignIcon(
+                        resId = R.drawable.pcosina_svg_29_cart,
                         contentDescription = null,
-                        modifier = Modifier.size(13.dp)
+                        modifier = Modifier.size(15.dp),
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -1187,7 +1189,7 @@ private fun RecipeLockedStateCard() {
                 )
             }
             Text(
-                text = "You can only log meals that appear in today’s plan. Add ingredients now, then return when this meal is scheduled.",
+                text = "You can only log meals that appear in today’s plan. Your grocery list already syncs from the active weekly plan.",
                 style = MaterialTheme.typography.bodySmall,
                 color = colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -1215,6 +1217,18 @@ private fun userFacingMealSlotLabel(
         else -> preferred
             .lowercase(Locale.ENGLISH)
             .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ENGLISH) else it.toString() }
+    }
+}
+
+private fun nutritionTrustMessage(confidence: String?, reviewStatus: String?): String {
+    val confidenceToken = confidence.orEmpty().lowercase(Locale.ENGLISH)
+    val reviewToken = reviewStatus.orEmpty().lowercase(Locale.ENGLISH)
+    val reviewed = confidenceToken in setOf("high", "reviewed") ||
+        reviewToken in setOf("reviewed", "verified", "nutritionist_reviewed", "dietitian_reviewed")
+    return if (reviewed) {
+        "Nutrition facts use reviewed correction data."
+    } else {
+        "Nutrition facts are estimates from available recipe data; review them for medical decisions."
     }
 }
 

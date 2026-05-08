@@ -26,6 +26,7 @@ data class UserProfile(
     val planningPriority: String = "Balanced",
 
     val pantryItems: List<String> = emptyList(),
-    
+    val avatarId: String = "doctor_dog",
+
     val isProfileCompleted: Boolean = false
 )

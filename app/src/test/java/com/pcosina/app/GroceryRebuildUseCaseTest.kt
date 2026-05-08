@@ -47,4 +47,21 @@ class GroceryRebuildUseCaseTest {
         assertEquals(1, rebuilt.size)
         assertEquals("Tomato", rebuilt.single().name)
     }
+
+    @Test
+    fun rebuild_groupsIngredientSynonymsBeforePersistingGroceryItems() {
+        val rebuilt = groceryRebuildUseCase(
+            mapOf(
+                "breakfast" to listOf(
+                    GroceryItemSource(name = "bawang", quantity = "3 cloves"),
+                    GroceryItemSource(name = "minced garlic", quantity = "2 tbsp"),
+                    GroceryItemSource(name = "garlic cloves", quantity = "1 clove"),
+                )
+            )
+        )
+
+        assertEquals(1, rebuilt.size)
+        assertEquals("Garlic", rebuilt.single().name)
+        assertEquals("3 cloves, 2 tbsp, 1 clove", rebuilt.single().quantity)
+    }
 }

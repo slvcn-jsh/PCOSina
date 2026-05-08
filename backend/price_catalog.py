@@ -3,7 +3,7 @@ import os
 import time
 import datetime
 from dataclasses import dataclass
-from typing import List, Dict, Optional, Tuple
+from typing import Any, List, Dict, Optional, Tuple
 import database
 
 
@@ -13,6 +13,27 @@ class PriceRule:
     price_php: int
     category: str
     unit: Optional[str] = None  # kg, l, piece
+    source: str = "static"
+    source_label: str = "Static PCOSina baseline"
+    confidence: str = "medium"
+
+
+@dataclass
+class PriceEstimate:
+    price_php: int
+    category: str
+    source: str
+    source_label: str
+    confidence: str
+    base_price_php: int
+    target_unit: str
+    quantity_value: Optional[float]
+    quantity_unit: Optional[str]
+    quantity_factor: float
+    market_multiplier: float
+    tingi_multiplier: float
+    safety_buffer_multiplier: float
+    matched_keywords: List[str]
 
 
 _RULES = [
@@ -106,6 +127,39 @@ _CATEGORY_MULTIPLIER = {
     "Canned/Packaged": 0.8,
     "Beverages": 0.7,
     "Others": 0.7,
+}
+
+_DEFAULT_SEASONAL_MULTIPLIER = {
+    "Produce": {
+        6: 1.06,
+        7: 1.10,
+        8: 1.12,
+        9: 1.12,
+        10: 1.08,
+        11: 1.04,
+    },
+    "Meat/Seafood": {
+        7: 1.04,
+        8: 1.06,
+        9: 1.06,
+        10: 1.04,
+    },
+}
+
+_VOLATILE_INGREDIENT_TOKENS = {
+    "chili",
+    "sili",
+    "calamansi",
+    "tomato",
+    "kamatis",
+    "onion",
+    "sibuyas",
+    "garlic",
+    "bawang",
+    "fish",
+    "tilapia",
+    "bangus",
+    "galunggong",
 }
 
 _PIECE_WEIGHT_KG = {
@@ -213,6 +267,43 @@ def _parse_quantity(text: str) -> Tuple[Optional[float], Optional[str]]:
     return qty, unit
 
 
+def _parse_rule_notes(notes: Any) -> Dict[str, str]:
+    raw = str(notes or "").strip()
+    if not raw:
+        return {}
+    parsed: Dict[str, str] = {}
+    for chunk in raw.replace("\n", ";").split(";"):
+        if "=" not in chunk:
+            continue
+        key, value = chunk.split("=", 1)
+        key = key.strip().lower()
+        value = value.strip()
+        if key and value:
+            parsed[key] = value
+    return parsed
+
+
+def _rule_metadata_from_notes(notes: Any) -> Tuple[str, str, str]:
+    parsed = _parse_rule_notes(notes)
+    source = parsed.get("source", "").strip() or "database"
+    effective = parsed.get("effective", "").strip()
+    confidence = parsed.get("confidence", "").strip().lower()
+    raw_notes = str(notes or "")
+    if "dti" in raw_notes.lower() or "srp" in raw_notes.lower():
+        source = "dti_srp"
+        confidence = confidence or "high"
+    confidence = confidence if confidence in {"high", "medium", "low"} else "medium"
+    if source == "dti_srp":
+        source_label = "DTI SRP baseline"
+    elif source == "admin_market":
+        source_label = "Admin market override"
+    else:
+        source_label = "Database price rule"
+    if effective:
+        source_label = f"{source_label} ({effective})"
+    return source, source_label, confidence
+
+
 def _unit_to_kg(value: float, unit: str) -> Optional[float]:
     if unit == "kg":
         return value
@@ -286,6 +377,18 @@ def _rule_for_name(name: str) -> Optional[PriceRule]:
     return None
 
 
+def _fallback_rule_for_category(category: str) -> PriceRule:
+    return PriceRule(
+        keywords=[],
+        price_php=_CATEGORY_AVG.get(category, 50),
+        category=category,
+        unit=_CATEGORY_DEFAULT_UNIT.get(category, "piece"),
+        source="category_average",
+        source_label="Category average fallback",
+        confidence="low",
+    )
+
+
 def invalidate_override_cache() -> None:
     _override_cache["loaded_at"] = 0.0
     _override_cache["rules"] = None
@@ -305,12 +408,16 @@ def _load_override_rules() -> List[PriceRule]:
             keywords = [str(keyword).strip().lower() for keyword in (item.get("keywords") or []) if str(keyword).strip()]
             if not keywords:
                 continue
+            source, source_label, confidence = _rule_metadata_from_notes(item.get("notes"))
             rules.append(
                 PriceRule(
                     keywords=keywords,
                     price_php=max(1, int(item.get("pricePhp") or 0)),
                     category=str(item.get("category") or "Others"),
                     unit=(str(item.get("unit") or "").strip() or None),
+                    source=source,
+                    source_label=source_label,
+                    confidence=confidence,
                 )
             )
     except Exception:
@@ -333,26 +440,82 @@ def _active_rules() -> List[PriceRule]:
     return overrides + _RULES
 
 
-def estimate_price_detail(name: str, quantity_text: str = "") -> Tuple[int, str]:
+def _market_multiplier(category: str, month_index: Optional[int]) -> float:
+    month = int(month_index or datetime.datetime.now().month)
+    db_multiplier = 1.0
+    try:
+        db_multiplier = float(database.get_market_multiplier(category, month))
+    except Exception:
+        db_multiplier = 1.0
+    if db_multiplier != 1.0:
+        return db_multiplier
+    return _DEFAULT_SEASONAL_MULTIPLIER.get(category, {}).get(month, 1.0)
+
+
+def _tingi_multiplier(unit: Optional[str], target_unit: str, quantity_value: Optional[float]) -> float:
+    normalized_unit = _UNIT_ALIASES.get(str(unit or ""), str(unit or ""))
+    if normalized_unit in {"piece", "clove", "bunch", "stalk", "can", "pack"} and target_unit in {"kg", "l"}:
+        return 1.12
+    if quantity_value is not None and quantity_value > 0 and quantity_value < 0.25 and target_unit in {"kg", "l"}:
+        return 1.08
+    return 1.0
+
+
+def _confidence_for_rule(rule: PriceRule, name: str) -> str:
+    if rule.confidence == "high" and any(tok in (name or "").lower() for tok in _VOLATILE_INGREDIENT_TOKENS):
+        return "medium"
+    return rule.confidence
+
+
+def estimate_price_explained(
+    name: str,
+    quantity_text: str = "",
+    *,
+    month_index: Optional[int] = None,
+    include_safety_buffer: bool = False,
+) -> PriceEstimate:
     rule = _rule_for_name(name)
     category = rule.category if rule else infer_category(name)
-    base_price = rule.price_php if rule else _CATEGORY_AVG.get(category, 50)
-    target_unit = rule.unit or _CATEGORY_DEFAULT_UNIT.get(category, "piece")
-    qty_value, qty_unit = _parse_quantity(quantity_text)
+    resolved_rule = rule or _fallback_rule_for_category(category)
+    base_price = resolved_rule.price_php
+    target_unit = resolved_rule.unit or _CATEGORY_DEFAULT_UNIT.get(category, "piece")
+    qty_value, qty_unit = _parse_quantity(f"{quantity_text} {name}".strip())
 
     factor = _quantity_factor(qty_value, qty_unit, target_unit, category)
     factor = _clamp_factor(factor, category)
 
-    # Apply seasonal multiplier
-    current_month = datetime.datetime.now().month
-    seasonal_multiplier = database.get_market_multiplier(category, current_month)
+    seasonal_multiplier = _market_multiplier(category, month_index)
+    tingi = _tingi_multiplier(qty_unit, target_unit, qty_value)
+    safety = 1.10 if include_safety_buffer else 1.0
 
     price = base_price * factor
     price *= _CATEGORY_MULTIPLIER.get(category, 0.7)
     price *= seasonal_multiplier
+    price *= tingi
+    price *= safety
 
     price = max(5.0, price)
-    return int(round(price)), category
+    return PriceEstimate(
+        price_php=int(round(price)),
+        category=category,
+        source=resolved_rule.source,
+        source_label=resolved_rule.source_label,
+        confidence=_confidence_for_rule(resolved_rule, name),
+        base_price_php=base_price,
+        target_unit=target_unit,
+        quantity_value=qty_value,
+        quantity_unit=qty_unit,
+        quantity_factor=factor,
+        market_multiplier=seasonal_multiplier,
+        tingi_multiplier=tingi,
+        safety_buffer_multiplier=safety,
+        matched_keywords=resolved_rule.keywords,
+    )
+
+
+def estimate_price_detail(name: str, quantity_text: str = "") -> Tuple[int, str]:
+    estimate = estimate_price_explained(name, quantity_text)
+    return estimate.price_php, estimate.category
 
 
 
@@ -374,9 +537,8 @@ def estimate_recipe_cost(ingredients: List[dict]) -> int:
         else:
             name = str(ing)
         if name.strip():
-            price, _ = estimate_price_detail(name, qty)
-            total += price
-    total *= 0.75  # scale to avoid overestimation for multi-portion recipes
-    total *= 1.10  # Add 10% "Inflation/Safety Buffer" as per Advanced Pricing Plan V2
+            estimate = estimate_price_explained(name, qty, include_safety_buffer=True)
+            total += estimate.price_php
+    total *= 0.90  # recipe-level yield/portion calibration after ingredient-level pricing
     total = max(30.0, min(450.0, total))
     return int(round(total))

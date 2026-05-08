@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
@@ -49,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.pcosina.app.R
 import com.pcosina.app.data.model.GroceryItemSource
 import com.pcosina.app.data.model.PlannerPlannedMeal
@@ -62,6 +65,7 @@ import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.MealCheckInDialog
 import com.pcosina.app.ui.components.MealCheckInDraft
+import com.pcosina.app.ui.components.PcosinaAvatarBadge
 import com.pcosina.app.ui.components.RefinedMetricBar
 import com.pcosina.app.ui.components.RefinedOverviewCard
 import com.pcosina.app.ui.components.RefinedPrimaryButton
@@ -98,6 +102,112 @@ private data class PlanMealCheckInPrompt(
 )
 
 @Composable
+private fun MealSwapDialog(
+    target: MealSwapTarget,
+    options: List<PlannerRecipeSummary>,
+    loading: Boolean,
+    applying: Boolean,
+    error: String?,
+    onDismiss: () -> Unit,
+    onSelect: (PlannerRecipeSummary) -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 390.dp),
+            shape = RoundedCornerShape(18.dp),
+            color = Color(0xFFFFF8FB),
+            shadowElevation = 18.dp,
+            border = BorderStroke(1.dp, PcosinaSoftPink.copy(alpha = 0.58f))
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Swap ${target.meal.mealLabel}",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                    color = Color.Black
+                )
+                Text(
+                    text = target.meal.title,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = PcosinaMuted
+                )
+                when {
+                    loading -> Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 92.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = PcosinaPink)
+                    }
+                    !error.isNullOrBlank() -> Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    options.isEmpty() -> Text(
+                        text = "No alternative meals are available right now.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Black
+                    )
+                    else -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        options.take(5).forEach { option ->
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(enabled = !applying) { onSelect(option) },
+                                shape = RoundedCornerShape(14.dp),
+                                color = Color.White,
+                                border = BorderStroke(1.dp, PcosinaSoftPink.copy(alpha = 0.64f))
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Text(
+                                        text = option.title,
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                        color = PcosinaDeepRose,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = option.mealType ?: target.meal.mealLabel,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = PcosinaMuted
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = PcosinaPink,
+                        modifier = Modifier.clickable(enabled = !applying, onClick = onDismiss)
+                    ) {
+                        Text(
+                            text = "Close",
+                            modifier = Modifier.padding(horizontal = 22.dp, vertical = 11.dp),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun MealPlanRefinedScreen(
     userViewModel: UserViewModel,
     mealPlanViewModel: MealPlanViewModel,
@@ -120,7 +230,6 @@ fun MealPlanRefinedScreen(
     val planHistory by mealPlanViewModel.planHistory.collectAsState()
     val activePlanId by mealPlanViewModel.activePlanId.collectAsState()
     val activeWeekStart by mealPlanViewModel.activeWeekStart.collectAsState()
-    val lastReviewedWeek by mealPlanViewModel.lastReviewedWeek.collectAsState()
     val planMetrics by mealPlanViewModel.planMetrics.collectAsState()
     val profile by userViewModel.userProfile.collectAsState()
     val logs by progressViewModel.dailyLogs.collectAsState()
@@ -207,102 +316,48 @@ fun MealPlanRefinedScreen(
         swapLoading = false
     }
 
-    if (swapTarget != null) {
-        AlertDialog(
-            onDismissRequest = { if (!swapApplying) swapTarget = null },
-            confirmButton = {
-                TextButton(onClick = { if (!swapApplying) swapTarget = null }) {
-                    Text("Close")
-                }
-            },
-            title = {
-                Text(
-                    text = "Swap ${swapTarget?.meal?.mealLabel.orEmpty()}",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = swapTarget?.meal?.title.orEmpty(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = PcosinaMuted
-                    )
-                    when {
-                        swapLoading -> {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 18.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(color = PcosinaPink)
-                            }
+    swapTarget?.let { target ->
+        MealSwapDialog(
+            target = target,
+            options = swapOptions,
+            loading = swapLoading,
+            applying = swapApplying,
+            error = swapError,
+            onDismiss = { if (!swapApplying) swapTarget = null },
+            onSelect = { option ->
+                scope.launch {
+                    swapApplying = true
+                    runCatching {
+                        swapApplyOverride?.invoke(
+                            target.dayIndex,
+                            target.mealIndex,
+                            option.id,
+                            option.title
+                        ) ?: mealPlanViewModel.swapMeal(
+                            target.dayIndex,
+                            target.mealIndex,
+                            option.id,
+                            option.title
+                        )
+                    }.onSuccess {
+                        val sources = swapGrocerySourceLoader?.invoke(option.id)
+                            ?: mealPlanViewModel.getGrocerySourcesForRecipe(option.id)
+                        sources.onSuccess { newSources ->
+                            val planId = activePlanId ?: currentPlan?.weekLabel ?: "plan"
+                            val mealId = mealPlanViewModel.buildMealInstanceId(
+                                weekLabel = planId,
+                                dayIndex = target.dayIndex,
+                                mealIndex = target.mealIndex,
+                                mealLabel = target.meal.mealLabel
+                            )
+                            groceryViewModel.replaceMealItems(mealId, newSources)
                         }
-                        !swapError.isNullOrBlank() -> {
-                            Text(text = swapError.orEmpty(), color = MaterialTheme.colorScheme.error)
-                        }
-                        swapOptions.isEmpty() -> {
-                            Text("No alternative meals are available right now.")
-                        }
-                        else -> {
-                            swapOptions.take(5).forEach { option ->
-                                RefinedOverviewCard(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable(enabled = !swapApplying) {
-                                            val target = swapTarget ?: return@clickable
-                                            scope.launch {
-                                                swapApplying = true
-                                                runCatching {
-                                                    swapApplyOverride?.invoke(
-                                                        target.dayIndex,
-                                                        target.mealIndex,
-                                                        option.id,
-                                                        option.title
-                                                    ) ?: mealPlanViewModel.swapMeal(
-                                                        target.dayIndex,
-                                                        target.mealIndex,
-                                                        option.id,
-                                                        option.title
-                                                    )
-                                                }.onSuccess {
-                                                    val sources = swapGrocerySourceLoader?.invoke(option.id)
-                                                        ?: mealPlanViewModel.getGrocerySourcesForRecipe(option.id)
-                                                    sources.onSuccess { newSources ->
-                                                        val planId = activePlanId ?: currentPlan?.weekLabel ?: "plan"
-                                                        val mealId = mealPlanViewModel.buildMealInstanceId(
-                                                            weekLabel = planId,
-                                                            dayIndex = target.dayIndex,
-                                                            mealIndex = target.mealIndex,
-                                                            mealLabel = target.meal.mealLabel
-                                                        )
-                                                        groceryViewModel.replaceMealItems(mealId, newSources)
-                                                    }
-                                                    feedbackMessage = "${target.meal.mealLabel} swapped to ${option.title}."
-                                                    swapTarget = null
-                                                }.onFailure { error ->
-                                                    swapError = error.message ?: "Unable to apply swap."
-                                                }
-                                                swapApplying = false
-                                            }
-                                        },
-                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp)
-                                ) {
-                                    Text(
-                                        text = option.title,
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = PcosinaDeepRose
-                                    )
-                                    Text(
-                                        text = option.mealType ?: swapTarget?.meal?.mealLabel.orEmpty(),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = PcosinaMuted
-                                    )
-                                }
-                            }
-                        }
+                        feedbackMessage = "${target.meal.mealLabel} swapped to ${option.title}."
+                        swapTarget = null
+                    }.onFailure { error ->
+                        swapError = error.message ?: "Unable to apply swap."
                     }
+                    swapApplying = false
                 }
             }
         )
@@ -329,7 +384,6 @@ fun MealPlanRefinedScreen(
         val targetProtein = explanation?.targetProtein?.takeIf { it > 0 } ?: planMetrics.avgProtein.coerceAtLeast(1)
         val targetCarbs = explanation?.targetCarbs?.takeIf { it > 0 } ?: planMetrics.avgCarbs.coerceAtLeast(1)
         val targetFiber = explanation?.fiberMinTarget?.takeIf { it > 0 } ?: planMetrics.avgFiber.coerceAtLeast(1)
-        val hasReviewedActiveWeek = activePlanId != null && activePlanId == lastReviewedWeek
         val totalProtein = selectedMeals.sumOf { recipeDetails[it.recipeId]?.proteinGrams ?: 0 }
         val totalCarbs = selectedMeals.sumOf { recipeDetails[it.recipeId]?.carbsGrams ?: 0 }
         val totalFiber = selectedMeals.sumOf { recipeDetails[it.recipeId]?.fiberGrams ?: 0 }
@@ -340,27 +394,36 @@ fun MealPlanRefinedScreen(
         }
         val canLogSelectedDay = progressViewModel.isDateLoggable(selectedDate)
         val servingLabel = profile.householdSize.coerceAtLeast(1)
-        val weekHasAnyRecordedProgress = weekDates.any { date ->
-            val dayLog = logs[date.format(DateTimeFormatter.ISO_LOCAL_DATE)]
-            !dayLog?.completedMealIds.isNullOrEmpty() || !dayLog?.mealCheckIns.isNullOrEmpty()
-        }
-        val currentPlanCoversToday = weekDates.any { it == today }
-        val needsWeekReview = currentPlan != null &&
-            currentPlanCoversToday &&
-            weekHasAnyRecordedProgress &&
-            !hasReviewedActiveWeek
-        val canReplaceCurrentWeek = currentPlan == null || !needsWeekReview
-        val replaceWeekSubtitle = if (needsWeekReview) {
-            "Your grocery list updates automatically from this plan. Review this week in Progress before starting a new one."
+        val planEndDate = weekStart.plusDays(6)
+        val lastPlanDayIndex = (currentPlan?.days?.lastIndex ?: 6).coerceAtLeast(0)
+        val lastPlanDayDate = weekStart.plusDays(lastPlanDayIndex.toLong())
+        val lastPlanDayMeals = currentPlan?.days?.lastOrNull()?.meals.orEmpty()
+        val lastPlanDayCompletedIds = logs[lastPlanDayDate.format(DateTimeFormatter.ISO_LOCAL_DATE)]
+            ?.completedMealIds
+            .orEmpty()
+        val lastPlanDayComplete = currentPlan != null &&
+            lastPlanDayMeals.isNotEmpty() &&
+            lastPlanDayMeals.all { meal ->
+                lastPlanDayCompletedIds.contains(ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)) ||
+                    lastPlanDayCompletedIds.contains(meal.recipeId)
+            }
+        val planRenewalEligible = currentPlan == null ||
+            today.isAfter(planEndDate) ||
+            (today == lastPlanDayDate && lastPlanDayComplete)
+        val planEndLabel = planEndDate.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH))
+        val replaceWeekSubtitle = if (planRenewalEligible && currentPlan != null) {
+            "Your 7-day plan is complete. Start the next week when you are ready; Grocery will resync automatically."
         } else {
-            "Your grocery list updates automatically from this plan. Open Grocery to review what you need."
+            "Your grocery list updates automatically from this plan. A new weekly plan unlocks after $planEndLabel or when the final day's meals are logged."
         }
         val requestFreshWeek: () -> Unit = {
             if (currentPlan == null) {
                 mealPlanViewModel.generateMealPlanFresh(profile)
                 feedbackMessage = "Generating a new weekly plan..."
-            } else {
+            } else if (planRenewalEligible) {
                 showReplacePlanDialog = true
+            } else {
+                feedbackMessage = "This weekly plan is still active. Finish the 7-day plan before starting the next one."
             }
         }
 
@@ -376,11 +439,13 @@ fun MealPlanRefinedScreen(
                 online = isOnline,
                 onSettings = { onNavigateToRoute(Routes.Settings) },
                 onSupport = { onNavigateToRoute(Routes.Ipo) },
-                compact = compact
+                compact = compact,
+                avatarId = profile.avatarId
             )
 
             MealPlanHeadlineCard(
                 heroDate = heroDate,
+                avatarId = profile.avatarId,
                 compact = compact
             )
 
@@ -470,7 +535,7 @@ fun MealPlanRefinedScreen(
                                     modifier = Modifier
                                         .weight(1f)
                                         .clickable {
-                                            if (waitingOnSameRequest && canReplaceCurrentWeek) {
+                                            if (waitingOnSameRequest && planRenewalEligible) {
                                                 requestFreshWeek()
                                             } else {
                                                 onNavigateToRoute(Routes.Ipo)
@@ -478,8 +543,8 @@ fun MealPlanRefinedScreen(
                                         }
                                 ) {
                                     Text(
-                                        text = if (waitingOnSameRequest && canReplaceCurrentWeek) {
-                                            "Start fresh"
+                                        text = if (waitingOnSameRequest && planRenewalEligible) {
+                                            "Start next week"
                                         } else {
                                             "Open Support"
                                         },
@@ -573,24 +638,6 @@ fun MealPlanRefinedScreen(
                 Column(
                     verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 12.dp)
                 ) {
-                    if (!hasReviewedActiveWeek && activePlanId != null) {
-                        Surface(
-                            shape = RoundedCornerShape(999.dp),
-                            color = PcosinaSurfaceAlt,
-                            modifier = Modifier.clickable {
-                                mealPlanViewModel.markWeekReviewed(activePlanId)
-                                feedbackMessage = "This week is marked as reviewed."
-                            }
-                        ) {
-                            Text(
-                                text = "Mark this week as reviewed",
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                                color = PcosinaDeepRose
-                            )
-                        }
-                    }
-
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (selectedMeals.isEmpty()) {
                             RefinedOverviewCard(modifier = Modifier.fillMaxWidth()) {
@@ -674,9 +721,9 @@ fun MealPlanRefinedScreen(
                         subtitle = replaceWeekSubtitle,
                         primaryLabel = "Go to Grocery",
                         secondaryLabel = when {
-                            uiState is MealPlanUiState.Loading -> "Generating..."
-                            needsWeekReview -> "Open Progress"
-                            else -> "Replace this week"
+                            uiState is MealPlanUiState.Loading -> null
+                            planRenewalEligible -> "Start next week"
+                            else -> null
                         },
                         onPrimaryClick = {
                             mealPlanViewModel.extractGrocerySourcesForPlan { sources ->
@@ -684,14 +731,14 @@ fun MealPlanRefinedScreen(
                                 onNavigateToRoute(Routes.GroceryList)
                             }
                         },
-                        onSecondaryClick = {
-                            if (uiState !is MealPlanUiState.Loading) {
-                                if (needsWeekReview) {
-                                    onViewProgress()
-                                } else {
+                        onSecondaryClick = if (planRenewalEligible) {
+                            {
+                                if (uiState !is MealPlanUiState.Loading) {
                                     requestFreshWeek()
                                 }
                             }
+                        } else {
+                            null
                         },
                         primaryEnabled = currentPlan.days.isNotEmpty(),
                         compact = compact
@@ -711,7 +758,7 @@ fun MealPlanRefinedScreen(
                 },
                 text = {
                     Text(
-                        text = "Use this only before you start logging meals. Your grocery list will update to match the new week.",
+                        text = "Review this week in Progress before starting a new one. Grocery will update to match the replacement week after you confirm.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = PcosinaDeepRose
                     )
@@ -721,7 +768,7 @@ fun MealPlanRefinedScreen(
                         onClick = {
                             showReplacePlanDialog = false
                             mealPlanViewModel.generateMealPlanFresh(profile)
-                            feedbackMessage = "Generating a fresh weekly plan..."
+                            feedbackMessage = "Generating the next weekly plan..."
                         }
                     ) {
                         Text("Replace week")
@@ -775,6 +822,7 @@ fun MealPlanRefinedScreen(
 @Composable
 private fun MealPlanHeadlineCard(
     heroDate: String,
+    avatarId: String,
     compact: Boolean,
 ) {
     Box(
@@ -795,20 +843,11 @@ private fun MealPlanHeadlineCard(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color(0xFFFFD6E1),
-                    border = BorderStroke(1.dp, Color(0xFF30181E).copy(alpha = 0.18f))
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.pcosina_logo),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(if (compact) 56.dp else 62.dp)
-                            .padding(6.dp),
-                        contentScale = ContentScale.Fit
-                    )
-                }
+                PcosinaAvatarBadge(
+                    avatarId = avatarId,
+                    size = if (compact) 68.dp else 78.dp,
+                    shadowElevation = if (compact) 3.dp else 6.dp,
+                )
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp)

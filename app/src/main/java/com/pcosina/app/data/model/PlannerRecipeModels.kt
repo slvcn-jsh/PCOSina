@@ -16,6 +16,11 @@ data class PlannerRecipeDetail(
     val minutes: Int? = null,
     val ingredients: List<Ingredient> = emptyList(),
     val steps: List<String> = emptyList(),
+    val nutritionCorrectionId: String? = null,
+    val nutritionDataSource: String? = null,
+    val nutritionConfidence: String? = null,
+    val nutritionReviewStatus: String? = null,
+    val nutritionNotes: String? = null,
 )
 
 @Immutable

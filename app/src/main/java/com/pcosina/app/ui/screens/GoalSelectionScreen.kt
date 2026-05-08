@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -40,9 +41,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pcosina.app.ui.UserViewModel
@@ -118,9 +119,9 @@ fun GoalSelectionScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         GradientHeader(
-            title = "Choose your planning focus",
-            subtitle = "Final setup before your first week. Pick the focus areas that should shape planning.",
-            containerHeight = 112,
+            title = "CHOOSE YOUR GOALS",
+            subtitle = "Pick the focus areas that should shape your first journey.",
+            containerHeight = 150,
         )
 
         GoalSetupSummaryCard(
@@ -269,29 +270,23 @@ private fun GoalSetupSummaryCard(
     val colorScheme = MaterialTheme.colorScheme
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = PcosinaBlushSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, PcosinaBlushBorder),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, PcosinaBlushBorder.copy(alpha = 0.70f)),
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .width(96.dp)
-                    .height(8.dp)
-                    .background(PcosinaBlushStrong.copy(alpha = 0.78f), CircleShape),
-            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Final setup before Meal Plan",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    text = "Final setup",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                     color = PcosinaDeepRose,
                 )
                 Surface(
@@ -307,21 +302,14 @@ private fun GoalSetupSummaryCard(
                 }
             }
             Text(
-                text = goalStatusSummary,
-                style = MaterialTheme.typography.bodySmall,
-                color = colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
                 text = whyCopy,
-                style = MaterialTheme.typography.labelMedium,
-                color = colorScheme.onSurfaceVariant,
-                maxLines = 2,
+                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+                color = PcosinaDeepRose.copy(alpha = 0.78f),
+                maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = "$goalNextFocusLabel • $goalStorageSummary",
+                text = "$goalStatusSummary $goalNextFocusLabel • $goalStorageSummary",
                 style = MaterialTheme.typography.labelSmall,
                 color = colorScheme.onSurfaceVariant,
                 maxLines = 2,
@@ -344,18 +332,17 @@ private fun GoalCard(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val borderColor = if (selected) {
-        colorScheme.primary.copy(alpha = 0.24f)
+        colorScheme.primary.copy(alpha = 0.44f)
     } else {
         PcosinaBlushBorder
     }
-    val scale = if (selected) 1.01f else 1.0f
 
     Card(
         onClick = onToggle,
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) {
-                colorScheme.primary.copy(alpha = 0.05f)
+                colorScheme.primary.copy(alpha = 0.22f)
             } else {
                 Color.White
             },
@@ -364,8 +351,7 @@ private fun GoalCard(
         border = BorderStroke(1.dp, borderColor),
         modifier = modifier
             .fillMaxWidth()
-            .testTag(testTag)
-            .graphicsLayer(scaleX = scale, scaleY = scale),
+            .testTag(testTag),
     ) {
         Row(
             modifier = Modifier
@@ -375,65 +361,45 @@ private fun GoalCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(
+                modifier = Modifier.size(30.dp),
                 shape = CircleShape,
                 color = if (selected) {
-                    colorScheme.primary.copy(alpha = 0.12f)
+                    colorScheme.primary
                 } else {
-                    PcosinaBlushSurface
+                    Color.White
                 },
+                border = BorderStroke(
+                    1.dp,
+                    if (selected) colorScheme.primary else colorScheme.outline.copy(alpha = 0.72f)
+                ),
             ) {
-                Icon(
-                    imageVector = Icons.Filled.CheckCircle,
-                    contentDescription = null,
-                    tint = if (selected) {
-                        colorScheme.primary
-                    } else {
-                        colorScheme.onSurfaceVariant.copy(alpha = 0.50f)
-                    },
-                    modifier = Modifier.padding(10.dp),
-                )
+                if (selected) {
+                    Icon(
+                        imageVector = Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.padding(6.dp),
+                    )
+                } else {
+                    Spacer(modifier = Modifier.fillMaxSize())
+                }
             }
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = PcosinaDeepRose,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = if (selected) {
-                            colorScheme.primary.copy(alpha = 0.10f)
-                        } else {
-                            PcosinaBlushSurface
-                        },
-                        contentColor = if (selected) {
-                            colorScheme.primary
-                        } else {
-                            colorScheme.onSurfaceVariant
-                        },
-                    ) {
-                        Text(
-                            text = if (selected) "Selected" else emphasisLabel,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                        )
-                    }
-                }
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Text(
                     text = description,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = colorScheme.onSurfaceVariant,
-                    maxLines = 2,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
@@ -442,8 +408,8 @@ private fun GoalCard(
                     } else {
                         "$emphasisLabel • $supportLabel"
                     },
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = if (selected) colorScheme.primary else colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelMedium.copy(fontStyle = FontStyle.Italic),
+                    color = if (selected) PcosinaDeepRose else PcosinaDeepRose.copy(alpha = 0.72f),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )

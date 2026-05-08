@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Use Material3 parent to prevent immediate runtime stop -->
-    <style name="Theme.PCOSINA" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.PCOSINA" parent="Theme.Material3.Light.NoActionBar">
         <item name="colorPrimary">#FC6B7D</item>
-        <item name="android:statusBarColor">#FC6B7D</item>
+        <item name="android:statusBarColor">#FFFFFF</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 </resources>

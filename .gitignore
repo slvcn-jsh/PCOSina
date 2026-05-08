@@ -4,6 +4,7 @@
 
 # Gradle
 .gradle/
+.gradle-codex/
 **/build/
 
 # Local SDK path (DO NOT COMMIT)
@@ -90,6 +91,8 @@ backend/sample_growth*.json
 backend/smoke_*.csv
 backend/smoke_*.json
 backend/strict_*.json
+backend/recipe_quality_diagnostics.*
+backend/recipe_quality_report.json
 backend/tests/.tmp*
 benchmarks/reports/
 crash_watch.txt

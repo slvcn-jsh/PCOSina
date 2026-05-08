@@ -27,6 +27,7 @@ import androidx.navigation.navArgument
 import com.pcosina.app.data.repository.AuthRepository
 import com.pcosina.app.data.repository.UserPreferencesGroceryLocalRepository
 import com.pcosina.app.data.repository.MealPlanRepository
+import com.pcosina.app.data.repository.CloudProfileSyncResult
 import com.pcosina.app.data.repository.UserPreferencesNotificationLocalRepository
 import com.pcosina.app.data.repository.UserPreferencesProgressLocalRepository
 import com.pcosina.app.data.repository.UserPreferencesPlannerLocalRepository
@@ -92,7 +93,7 @@ fun AppNavHost(
         if (intent.resolveActivity(context.packageManager) != null) {
             context.startActivity(intent)
         } else {
-            Toast.makeText(context, "No email app found. Use Progress → Send Feedback.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "No email app found. Use Support > Send feedback.", Toast.LENGTH_LONG).show()
         }
     }
     
@@ -142,6 +143,7 @@ fun AppNavHost(
     val splashReady = remember { mutableStateOf(false) }
     val hasNavigated = remember { mutableStateOf(false) }
     val profileCloudSyncInProgress = remember { mutableStateOf(false) }
+    val profileCloudRestoreBlocked = remember { mutableStateOf(false) }
     val unknownRouteWarnings = remember { mutableSetOf<String>() }
     val unknownGoalWarnings = remember { mutableSetOf<String>() }
     val pendingOperatorAccess = remember { mutableStateOf(false) }
@@ -207,6 +209,7 @@ fun AppNavHost(
             progressViewModel.reset()
             NotificationScheduler.cancelAllForSession(context)
             profileCloudSyncInProgress.value = false
+            profileCloudRestoreBlocked.value = false
             splashReady.value = false
             hasNavigated.value = false
             pendingOperatorAccess.value = false
@@ -219,8 +222,12 @@ fun AppNavHost(
             userPrefsRepository.migrateProfileCompletionKeyIfNeeded(userId)
             userViewModel.loadProfileForUser(userId)
             profileCloudSyncInProgress.value = true
+            profileCloudRestoreBlocked.value = false
+            val localProfileHadData = userPrefsRepository.hasLocalProfileData(userId)
             try {
-                userPrefsRepository.syncProfileWithCloud(userId)
+                val syncResult = userPrefsRepository.syncProfileWithCloud(userId)
+                profileCloudRestoreBlocked.value =
+                    !localProfileHadData && syncResult == CloudProfileSyncResult.Failed
             } finally {
                 profileCloudSyncInProgress.value = false
             }
@@ -478,6 +485,11 @@ fun AppNavHost(
                 onContinue = {
                     splashReady.value = true
                 },
+                statusText = if (profileCloudRestoreBlocked.value) {
+                    "Cloud restore is unavailable. Continuing locally."
+                } else {
+                    "Loading your local plan context"
+                },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -607,13 +619,12 @@ fun AppNavHost(
         }
         composable(Routes.Ipo) {
             TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
+                val profile by userViewModel.userProfile.collectAsState()
                 CommunityScreen(
                     onFeedback = onFeedback,
-                    onBack = {
-                        navigateInternal(Routes.Dashboard) {
-                            tabNavigationOptions()
-                        }
-                    },
+                    avatarId = profile.avatarId,
+                    onOpenSettings = { navigateInternal(Routes.Settings) },
+                    onOpenMealPlan = { navigateInternal(Routes.MealPlan) { tabNavigationOptions() } },
                     modifier = Modifier.padding(contentPadding),
                 )
             }
@@ -627,6 +638,13 @@ fun AppNavHost(
                 groceryViewModel = groceryViewModel,
                 progressViewModel = progressViewModel,
                 userId = session.currentUserUid ?: "",
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navigateInternal(Routes.Dashboard) {
+                            tabNavigationOptions()
+                        }
+                    }
+                },
                 onNavigateToProfileEdit = { navigateInternal(Routes.UserProfileEdit) },
                 onOpenAdminMethodology = { navigateInternal(Routes.AdminMethodology) },
                 modifier = Modifier.fillMaxSize(),

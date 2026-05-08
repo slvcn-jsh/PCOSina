@@ -28,6 +28,14 @@ import java.time.LocalDate
 // Local preferences cache; per-user isolation is handled by key prefixes (userId/email).
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_prefs")
 
+enum class CloudProfileSyncResult {
+    Skipped,
+    RestoredFromCloud,
+    UploadedLocal,
+    SyncedNoChange,
+    Failed
+}
+
 /**
  * Local-first persistence for profile, plans, and cached groceries.
  * User profile data is also synced to Firestore to survive reinstall/new-device scenarios.
@@ -119,6 +127,7 @@ class UserPreferencesRepository(private val context: Context) {
         fun maxCookingTime(userId: String) = intPreferencesKey("max_cooking_time_$userId")
         fun variety(userId: String) = stringPreferencesKey("variety_pref_$userId")
         fun planningPriority(userId: String) = stringPreferencesKey("planning_priority_$userId")
+        fun avatar(userId: String) = stringPreferencesKey("avatar_$userId")
         fun profileCompleted(userId: String) = booleanPreferencesKey("profile_complete_$userId")
         // Keep this persisted key for backward compatibility only.
         fun profileCompletedLegacyAlias(userId: String) = booleanPreferencesKey("onboarding_complete_$userId")
@@ -196,6 +205,7 @@ class UserPreferencesRepository(private val context: Context) {
         fun maxCookingTime(email: String) = intPreferencesKey("max_cooking_time_$email")
         fun variety(email: String) = stringPreferencesKey("variety_pref_$email")
         fun planningPriority(email: String) = stringPreferencesKey("planning_priority_$email")
+        fun avatar(email: String) = stringPreferencesKey("avatar_$email")
         fun profileCompleted(email: String) = booleanPreferencesKey("profile_complete_$email")
         // Keep this persisted key for backward compatibility only.
         fun profileCompletedLegacyAlias(email: String) = booleanPreferencesKey("onboarding_complete_$email")
@@ -298,6 +308,7 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.maxCookingTime(userId)] = preferences[LegacyKeys.maxCookingTime(email)] ?: 45
             preferences[Keys.variety(userId)] = preferences[LegacyKeys.variety(email)] ?: "Balanced"
             preferences[Keys.planningPriority(userId)] = preferences[LegacyKeys.planningPriority(email)] ?: "Balanced"
+            preferences[Keys.avatar(userId)] = preferences[LegacyKeys.avatar(email)] ?: "doctor_dog"
             val legacyProfileCompleted = preferences[LegacyKeys.profileCompleted(email)]
             val legacyProfileCompletedAlias = preferences[LegacyKeys.profileCompletedLegacyAlias(email)]
             preferences[Keys.profileCompleted(userId)] = legacyProfileCompleted ?: legacyProfileCompletedAlias ?: false
@@ -362,14 +373,21 @@ class UserPreferencesRepository(private val context: Context) {
                 maxCookingTimeMinutes = preferences[Keys.maxCookingTime(userId)] ?: 45,
                 varietyPreference = preferences[Keys.variety(userId)] ?: "Balanced",
                 planningPriority = preferences[Keys.planningPriority(userId)] ?: "Balanced",
+                avatarId = preferences[Keys.avatar(userId)] ?: "doctor_dog",
                 isProfileCompleted = preferences[Keys.profileCompleted(userId)]
                     ?: preferences[Keys.profileCompletedLegacyAlias(userId)]
                     ?: false
             )
         }
 
-    suspend fun syncProfileWithCloud(userId: String) {
-        if (userId.isBlank()) return
+    suspend fun hasLocalProfileData(userId: String): Boolean {
+        if (userId.isBlank()) return false
+        val preferences = context.dataStore.data.first()
+        return hasMeaningfulProfileData(userProfileFromPreferences(preferences, userId))
+    }
+
+    suspend fun syncProfileWithCloud(userId: String): CloudProfileSyncResult {
+        if (userId.isBlank()) return CloudProfileSyncResult.Skipped
         try {
             val localPreferences = context.dataStore.data.first()
             val localProfile = userProfileFromPreferences(localPreferences, userId)
@@ -377,17 +395,21 @@ class UserPreferencesRepository(private val context: Context) {
 
             val snapshot = withTimeoutOrNull(Cloud.syncTimeoutMs) {
                 firestore.collection(Cloud.profileCollection).document(userId).get().await()
-            } ?: return
+            } ?: return CloudProfileSyncResult.Failed
 
             if (!snapshot.exists()) {
                 if (hasMeaningfulProfileData(localProfile)) {
                     val now = if (localUpdatedAt > 0L) localUpdatedAt else System.currentTimeMillis()
                     syncProfileToCloud(userId, localProfile, now)
+                    if (hasAnySyncedArtifactState(localPreferences, userId)) {
+                        syncArtifactsWithCloudV2(userId)
+                    }
+                    return CloudProfileSyncResult.UploadedLocal
                 }
                 if (hasAnySyncedArtifactState(localPreferences, userId)) {
                     syncArtifactsWithCloudV2(userId)
                 }
-                return
+                return CloudProfileSyncResult.SyncedNoChange
             }
 
             val data = snapshot.data ?: emptyMap()
@@ -404,10 +426,14 @@ class UserPreferencesRepository(private val context: Context) {
                         profile = remoteProfile,
                         updatedAtMs = if (remoteUpdatedAt > 0L) remoteUpdatedAt else now
                     )
+                    syncArtifactsWithCloudV2(userId)
+                    return CloudProfileSyncResult.RestoredFromCloud
                 }
                 localHasData && (!remoteHasData || localUpdatedAt > remoteUpdatedAt + Cloud.timestampSkewMs) -> {
                     val effectiveUpdatedAt = if (localUpdatedAt > 0L) localUpdatedAt else now
                     syncProfileToCloud(userId, localProfile, effectiveUpdatedAt)
+                    syncArtifactsWithCloudV2(userId)
+                    return CloudProfileSyncResult.UploadedLocal
                 }
                 remoteHasData && localHasData && localUpdatedAt == 0L -> {
                     updateProfileLocalOnly(
@@ -415,13 +441,17 @@ class UserPreferencesRepository(private val context: Context) {
                         profile = remoteProfile,
                         updatedAtMs = if (remoteUpdatedAt > 0L) remoteUpdatedAt else now
                     )
+                    syncArtifactsWithCloudV2(userId)
+                    return CloudProfileSyncResult.RestoredFromCloud
                 }
             }
 
             // Keep non-profile artifacts (plans, pantry entries, groceries, logs) in sync too.
             syncArtifactsWithCloudV2(userId)
+            return CloudProfileSyncResult.SyncedNoChange
         } catch (e: Exception) {
             Log.w("PCOSINA", "Cloud profile sync skipped for ${safeUserLogScope(userId)}: ${e.message}")
+            return CloudProfileSyncResult.Failed
         }
     }
 
@@ -452,6 +482,7 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.maxCookingTime(userId)] = profile.maxCookingTimeMinutes
             preferences[Keys.variety(userId)] = profile.varietyPreference
             preferences[Keys.planningPriority(userId)] = profile.planningPriority
+            preferences[Keys.avatar(userId)] = profile.avatarId
             preferences[Keys.profileCompleted(userId)] = profile.isProfileCompleted
             preferences[Keys.profileUpdatedAt(userId)] = updatedAtMs
             preferences.remove(Keys.profileCompletedLegacyAlias(userId))
@@ -481,6 +512,7 @@ class UserPreferencesRepository(private val context: Context) {
                 "varietyPreference" to profile.varietyPreference,
                 "planningPriority" to profile.planningPriority,
                 "pantryItems" to profile.pantryItems,
+                "avatarId" to profile.avatarId,
                 "isProfileCompleted" to profile.isProfileCompleted,
                 Cloud.updatedAtEpochMs to updatedAtMs
             )
@@ -516,6 +548,7 @@ class UserPreferencesRepository(private val context: Context) {
             maxCookingTimeMinutes = preferences[Keys.maxCookingTime(userId)] ?: 45,
             varietyPreference = preferences[Keys.variety(userId)] ?: "Balanced",
             planningPriority = preferences[Keys.planningPriority(userId)] ?: "Balanced",
+            avatarId = preferences[Keys.avatar(userId)] ?: "doctor_dog",
             isProfileCompleted = preferences[Keys.profileCompleted(userId)]
                 ?: preferences[Keys.profileCompletedLegacyAlias(userId)]
                 ?: false
@@ -551,6 +584,7 @@ class UserPreferencesRepository(private val context: Context) {
             varietyPreference = readString("varietyPreference", "Balanced"),
             planningPriority = readString("planningPriority", "Balanced"),
             pantryItems = readStringList("pantryItems"),
+            avatarId = readString("avatarId", "doctor_dog"),
             isProfileCompleted = readBool("isProfileCompleted", false)
         )
     }

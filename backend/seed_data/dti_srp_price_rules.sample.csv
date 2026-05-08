@@ -1,0 +1,6 @@
+keywords,price_php,category,unit,effective,source,confidence,notes
+"egg,itlog",7,Eggs & Dairy,piece,2026-05,DTI SRP,high,Sample SRP-style baseline; replace with official monthly rows
+"rice,bigas",60,Dry Goods,kg,2026-05,DTI SRP,high,Sample SRP-style baseline; replace with official monthly rows
+"chicken,manok",180,Meat/Seafood,kg,2026-05,DTI SRP,medium,Sample SRP-style baseline; market cut and wet-market variation apply
+"pork,baboy,liempo",260,Meat/Seafood,kg,2026-05,DTI SRP,medium,Sample SRP-style baseline; market cut and wet-market variation apply
+"garlic,bawang",120,Produce,kg,2026-05,DTI SRP,medium,Sample SRP-style baseline; volatile produce item

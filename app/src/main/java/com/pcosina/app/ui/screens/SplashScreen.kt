@@ -14,9 +14,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,8 +48,9 @@ import java.util.Locale
 fun SplashScreen(
     onContinue: () -> Unit,
     modifier: Modifier = Modifier,
+    statusText: String = "Loading your local plan context",
 ) {
-    // Auto‑navigate after 2.5 seconds
+    // Auto-advance timing is part of the existing navigation gate.
     LaunchedEffect(Unit) {
         if (BuildConfig.DEBUG) {
             val stats = sampleFrameTiming(
@@ -66,10 +69,10 @@ fun SplashScreen(
         onContinue()
     }
 
-    // Infinite alpha pulse for logo + loading bar
+    // Keep motion subtle so the splash stays close to the handoff image.
     val infiniteTransition = rememberInfiniteTransition(label = "splashPulse")
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.6f,
+        initialValue = 0.68f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = UiMotionTokens.SplashPulseMs),
@@ -84,111 +87,87 @@ fun SplashScreen(
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        MaterialTheme.colorScheme.primary,
-                        MaterialTheme.colorScheme.tertiary,
+                        Color(0xFFF85F7C),
+                        Color(0xFFFFA8B7),
                     )
                 )
             ),
     ) {
-        val colorScheme = MaterialTheme.colorScheme
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 32.dp, vertical = 64.dp),
-            verticalArrangement = Arrangement.Center,
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 30.dp)
+                .padding(top = 74.dp, bottom = 44.dp),
+            verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Text(
+                text = "OFFLINE-FIRST FILIPINO PCOS MEAL\nPLANNING",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 20.sp,
+                    lineHeight = 28.sp,
+                    letterSpacing = 0.4.sp,
+                ),
+                color = Color.White,
+                textAlign = TextAlign.Center,
+            )
+
+            Spacer(Modifier.height(56.dp))
+
+            Image(
+                painter = painterResource(id = R.drawable.login_heart_hands),
+                contentDescription = "PCOSINA heart logo",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 356.dp),
+                contentScale = ContentScale.Fit,
+            )
+
+            Spacer(Modifier.height(44.dp))
+
+            Text(
+                text = "Disclaimer: A wellness decision support tool\nfor your journey, not a medical diagnosis.",
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 16.sp,
+                    lineHeight = 22.sp,
+                ),
+                color = Color.White,
+                textAlign = TextAlign.Center,
+            )
+
+            Spacer(Modifier.weight(1f))
+
             Box(
                 modifier = Modifier
-                    .size(212.dp)
-                    .clip(CircleShape)
-                    .background(colorScheme.onPrimary.copy(alpha = 0.08f))
-                    .padding(14.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(CircleShape)
-                        .background(colorScheme.onPrimary.copy(alpha = 0.14f))
-                        .padding(10.dp)
-                        .alpha(pulseAlpha),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.pcosina_logo),
-                        contentDescription = "PCOSINA Logo",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(32.dp))
-
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Text(
-                    text = "PCOSINA",
-                    style = MaterialTheme.typography.displaySmall.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 6.sp,
-                    ),
-                    color = colorScheme.onPrimary,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = "Offline-first Filipino PCOS meal planning",
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        letterSpacing = 1.sp
-                    ),
-                    color = colorScheme.onPrimary.copy(alpha = 0.85f),
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = "Local-first support for planning, grocery, and progress.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colorScheme.onPrimary.copy(alpha = 0.82f),
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = "Wellness decision support, not diagnosis.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onPrimary.copy(alpha = 0.72f),
-                    textAlign = TextAlign.Center,
-                )
-            }
-        }
-
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 32.dp, vertical = 72.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.42f)
-                    .height(4.dp)
-                    .clip(CircleShape)
-                    .background(colorScheme.onPrimary.copy(alpha = 0.2f))
+                    .fillMaxWidth()
+                    .widthIn(max = 242.dp)
+                    .height(7.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.45f))
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(0.58f)
-                        .height(4.dp)
-                        .clip(CircleShape)
-                        .background(colorScheme.onPrimary)
-                        .alpha(pulseAlpha)
+                        .height(7.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White)
+                        .alpha(pulseAlpha),
                 )
             }
+
+            Spacer(Modifier.height(22.dp))
+
             Text(
-                text = "Loading your local plan context",
-                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                color = colorScheme.onPrimary.copy(alpha = 0.86f),
+                text = statusText,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 16.sp,
+                ),
+                color = Color.White.copy(alpha = 0.9f),
                 textAlign = TextAlign.Center,
             )
         }

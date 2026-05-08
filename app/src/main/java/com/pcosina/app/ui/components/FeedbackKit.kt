@@ -410,7 +410,7 @@ fun StatusCenterCard(
         modifier = modifier
             .fillMaxWidth()
             .animateContentSize(animationSpec = tween(UiMotionTokens.ExpandableContentMs)),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = androidx.compose.material3.CardDefaults.cardColors(
             containerColor = colorScheme.surface
         ),
@@ -424,7 +424,7 @@ fun StatusCenterCard(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = "At a glance",
+                text = "Status center",
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                 color = colorScheme.onSurface
             )
@@ -472,7 +472,7 @@ private fun StatusCenterItem(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     Surface(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(14.dp),
         color = colorScheme.surfaceVariant.copy(alpha = 0.72f),
         border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.55f))
     ) {

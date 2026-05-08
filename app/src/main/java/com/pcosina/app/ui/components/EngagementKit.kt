@@ -10,10 +10,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -41,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -212,30 +207,11 @@ fun FriendlyEmptyStateCard(
     accentColor: Color = MaterialTheme.colorScheme.tertiary,
 ) {
     val surfaceColor = MaterialTheme.colorScheme.surface
-    val floatTransition = rememberInfiniteTransition(label = "emptyStateFloat")
-    val glowAlpha by floatTransition.animateFloat(
-        initialValue = 0.10f,
-        targetValue = 0.18f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(UiMotionTokens.EmptyStateGlowMs),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "emptyStateGlowAlpha"
-    )
-    val drift by floatTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 10f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(UiMotionTokens.EmptyStateFloatMs),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "emptyStateDrift"
-    )
     val shape = RoundedCornerShape(28.dp)
-    val accentGradient = remember(accentColor, glowAlpha, surfaceColor) {
+    val accentGradient = remember(accentColor, surfaceColor) {
         Brush.verticalGradient(
             colors = listOf(
-                accentColor.copy(alpha = 0.16f + (glowAlpha / 4f)),
+                accentColor.copy(alpha = 0.16f),
                 accentColor.copy(alpha = 0.08f),
                 surfaceColor
             )
@@ -252,27 +228,11 @@ fun FriendlyEmptyStateCard(
         )
         Box(
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 12.dp, end = 14.dp)
-                .size(72.dp)
-                .graphicsLayer {
-                    translationX = drift
-                    translationY = drift / 2f
-                }
-                .clip(CircleShape)
-                .background(accentColor.copy(alpha = 0.10f + (glowAlpha / 4f)))
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 16.dp, bottom = 14.dp)
-                .size(width = 56.dp, height = 56.dp)
-                .graphicsLayer {
-                    translationX = -drift / 2f
-                    translationY = -drift / 3f
-                }
-                .clip(CircleShape)
-                .background(accentColor.copy(alpha = 0.08f))
+                .align(Alignment.TopStart)
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                .background(accentColor.copy(alpha = 0.38f))
         )
         Surface(
             shape = shape,

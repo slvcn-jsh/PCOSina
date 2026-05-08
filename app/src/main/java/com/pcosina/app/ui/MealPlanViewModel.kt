@@ -431,7 +431,6 @@ class MealPlanViewModel(
             val meals = day.meals.toMutableList()
             val oldMeal = meals.getOrNull(mealIndex) ?: return@launch
             
-            if (oldMeal.isLogged) return@launch
             
             if (oldMeal.recipeId == newRecipeId) return@launch
 

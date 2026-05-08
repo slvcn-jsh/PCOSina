@@ -2956,6 +2956,19 @@ def _nutrition_correction_row_to_dict(row: Any) -> Dict[str, Any]:
     }
 
 
+def _parse_nutrition_correction_notes(notes: Optional[str]) -> Dict[str, str]:
+    metadata: Dict[str, str] = {}
+    for part in str(notes or "").split(";"):
+        if "=" not in part:
+            continue
+        key, value = part.split("=", 1)
+        key = key.strip().lower()
+        value = value.strip()
+        if key and value:
+            metadata[key] = value
+    return metadata
+
+
 def _list_active_nutrition_corrections_map(conn, recipe_ids: Optional[Iterable[str]] = None) -> Dict[str, Dict[str, Any]]:
     ids = [str(recipe_id).strip() for recipe_id in (recipe_ids or []) if str(recipe_id).strip()]
     if _use_postgres() and dict_row is not None:
@@ -3021,6 +3034,12 @@ def _apply_nutrition_correction(recipe: Dict[str, Any], correction: Optional[Dic
         if value is not None:
             updated[key] = int(value)
     updated["nutritionCorrectionId"] = correction.get("id")
+    metadata = _parse_nutrition_correction_notes(correction.get("notes"))
+    updated["nutritionDataSource"] = metadata.get("source") or "manual_correction"
+    updated["nutritionConfidence"] = metadata.get("confidence") or "reviewed"
+    updated["nutritionReviewStatus"] = metadata.get("review_status") or metadata.get("reviewStatus") or "reviewed"
+    if metadata.get("notes"):
+        updated["nutritionNotes"] = metadata["notes"]
     return updated
 
 def get_all_recipes():

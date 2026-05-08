@@ -1,43 +1,40 @@
 package com.pcosina.app.ui.screens
 
 import android.content.Intent
-import androidx.compose.foundation.Image
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -50,9 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
@@ -61,17 +56,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.pcosina.app.R
 import com.pcosina.app.data.model.PantryEntry
 import com.pcosina.app.domain.GroceryListEntry
 import com.pcosina.app.domain.buildGroceryListEntries
+import com.pcosina.app.domain.canonicalGroceryKey
 import com.pcosina.app.domain.householdSizeLabel
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
-import com.pcosina.app.ui.components.RefinedMetricBar
+import com.pcosina.app.ui.components.PcosinaAvatarBadge
+import com.pcosina.app.ui.components.PcosinaDesignIcon
 import com.pcosina.app.ui.components.RefinedOverviewCard
 import com.pcosina.app.ui.components.RefinedPrimaryButton
 import com.pcosina.app.ui.components.RefinedRingMeter
@@ -141,7 +139,6 @@ fun GroceryRefinedScreen(
     var checkedNames by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
     var pantryOptOut by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
-    var selectedCategoryIndex by rememberSaveable(activePlanId) { mutableStateOf(0) }
     var expandedCategories by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
     var showPantryDialog by remember { mutableStateOf(false) }
@@ -149,6 +146,7 @@ fun GroceryRefinedScreen(
     var showFilterDialog by remember { mutableStateOf(false) }
     var pantryName by rememberSaveable { mutableStateOf("") }
     var pantryQty by rememberSaveable { mutableStateOf("") }
+    var pantryExpiry by rememberSaveable { mutableStateOf("") }
     var groceryFilterScope by rememberSaveable { mutableStateOf(GroceryFilterScope.AllItems.name) }
     var selectedFilterCategories by rememberSaveable { mutableStateOf(setOf<String>()) }
 
@@ -171,8 +169,6 @@ fun GroceryRefinedScreen(
         "Eggs & Dairy",
         "Dry Goods",
         "Spices & Condiments",
-        "Canned/Packaged",
-        "Beverages",
         "Others"
     )
     val activeFilterScope = remember(groceryFilterScope) {
@@ -205,14 +201,6 @@ fun GroceryRefinedScreen(
             grouped[category]?.takeIf { it.isNotEmpty() }?.let { category to it }
         } + grouped.filterKeys { key -> key !in categoryOrder }.toList().sortedBy { it.first }
     }
-    LaunchedEffect(categoryEntries.size) {
-        if (selectedCategoryIndex > categoryEntries.lastIndex) {
-            selectedCategoryIndex = 0
-        }
-    }
-    val selectedCategoryPair = categoryEntries.getOrNull(selectedCategoryIndex)
-    val selectedCategory = selectedCategoryPair?.first
-    val visibleItems = selectedCategoryPair?.second.orEmpty()
     val totalCount = groupedEntries.size
     val coveredCount = groupedEntries.count { it.name in effectiveChecked }
     val remainingCount = (totalCount - coveredCount).coerceAtLeast(0)
@@ -232,236 +220,74 @@ fun GroceryRefinedScreen(
     }
 
     if (showPantryDialog) {
-        AlertDialog(
-            onDismissRequest = { showPantryDialog = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showPantryDialog = false
-                        showAddPantryDialog = true
+        PantryListDialog(
+            entries = effectivePantryEntries,
+            onDismiss = { showPantryDialog = false },
+            onAdd = {
+                showPantryDialog = false
+                showAddPantryDialog = true
+            },
+            onRemove = { entry ->
+                userViewModel.updatePantryEntries(
+                    effectivePantryEntries.filterNot {
+                        refinedPantryKey(it.name) == refinedPantryKey(entry.name)
                     }
-                ) {
-                    Text(if (effectivePantryEntries.isEmpty()) "Add item" else "Add pantry item")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPantryDialog = false }) { Text("Close") }
-            },
-            title = {
-                Text(
-                    text = "Manage Pantry",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
                 )
-            },
-            text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "Save what you already have so Grocery can mark pantry-covered ingredients clearly.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = PcosinaMuted
-                    )
-                    if (effectivePantryEntries.isEmpty()) {
-                        Text(
-                            text = "No pantry items saved yet. Add staples you already have so the list stays realistic.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = PcosinaDeepRose
-                        )
-                    } else {
-                        effectivePantryEntries.forEach { entry ->
-                            Surface(
-                                shape = RoundedCornerShape(18.dp),
-                                color = Color(0xFFFFF3F6),
-                                border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.16f))
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = entry.name,
-                                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = PcosinaDeepRose
-                                        )
-                                        Text(
-                                            text = entry.quantity.orEmpty().ifBlank { "Saved pantry staple" },
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = PcosinaMuted
-                                        )
-                                    }
-                                    TextButton(
-                                        modifier = Modifier
-                                            .heightIn(min = 48.dp)
-                                            .semantics { contentDescription = "Remove pantry item" },
-                                        onClick = {
-                                            userViewModel.updatePantryEntries(
-                                                effectivePantryEntries.filterNot {
-                                                    refinedPantryKey(it.name) == refinedPantryKey(entry.name)
-                                                }
-                                            )
-                                            feedbackMessage = "${entry.name} removed from pantry."
-                                        }
-                                    ) {
-                                        Text("Remove")
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                feedbackMessage = "${entry.name} removed from pantry."
             }
         )
     }
 
     if (showAddPantryDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddPantryDialog = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val trimmed = pantryName.trim()
-                        if (trimmed.isNotBlank()) {
-                            userViewModel.updatePantryEntries(
-                                effectivePantryEntries + PantryEntry(
-                                    name = trimmed,
-                                    quantity = pantryQty.trim().takeIf { it.isNotBlank() }
-                                )
-                            )
-                            feedbackMessage = "$trimmed added to pantry."
-                            pantryName = ""
-                            pantryQty = ""
-                            showAddPantryDialog = false
-                        }
-                    }
-                ) { Text("Save") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddPantryDialog = false }) { Text("Cancel") }
-            },
-            title = {
-                Text(
-                    text = "Manage Pantry",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = Color(0xFFFF8FA5),
-                        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.18f))
-                    ) {
-                        Text(
-                            text = "Save what you already have",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 12.dp),
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White
+        AddPantryItemDialog(
+            name = pantryName,
+            quantity = pantryQty,
+            expiry = pantryExpiry,
+            onNameChange = { pantryName = it },
+            onQuantityChange = { pantryQty = it },
+            onExpiryChange = { pantryExpiry = it },
+            onDismiss = { showAddPantryDialog = false },
+            onSave = {
+                val trimmed = pantryName.trim()
+                if (trimmed.isNotBlank()) {
+                    userViewModel.updatePantryEntries(
+                        effectivePantryEntries + PantryEntry(
+                            name = trimmed,
+                            quantity = pantryQty.trim().takeIf { it.isNotBlank() },
+                            expiryDate = pantryExpiry.trim().takeIf { it.isNotBlank() }
                         )
-                    }
-                    OutlinedTextField(
-                        value = pantryName,
-                        onValueChange = { pantryName = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Pantry item") },
-                        placeholder = { Text("Pantry item") },
-                        singleLine = true
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(
-                            value = pantryQty,
-                            onValueChange = { pantryQty = it },
-                            modifier = Modifier.weight(1f),
-                            label = { Text("Qty") },
-                            placeholder = { Text("Qty") },
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = "",
-                            onValueChange = {},
-                            modifier = Modifier.weight(1f),
-                            label = { Text("Expiry Date") },
-                            placeholder = { Text("YYYY-MM-DD") },
-                            enabled = false,
-                            singleLine = true
-                        )
-                    }
-                    Text(
-                        text = "Quantity is optional. Expiry stays visual only for now until pantry tracking expands.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = PcosinaMuted
-                    )
+                    feedbackMessage = "$trimmed added to pantry."
+                    pantryName = ""
+                    pantryQty = ""
+                    pantryExpiry = ""
+                    showAddPantryDialog = false
                 }
             }
         )
     }
 
     if (showFilterDialog) {
-        AlertDialog(
-            onDismissRequest = { showFilterDialog = false },
-            confirmButton = {
-                TextButton(onClick = { showFilterDialog = false }) { Text("Done") }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        groceryFilterScope = GroceryFilterScope.AllItems.name
-                        selectedFilterCategories = emptySet()
+        GroceryFilterDialog(
+            activeScope = activeFilterScope,
+            categories = categoryOrder,
+            selectedCategories = selectedFilterCategories,
+            onScopeChange = { groceryFilterScope = it.name },
+            onToggleCategory = { category ->
+                selectedFilterCategories = when {
+                    selectedFilterCategories.isEmpty() -> setOf(category)
+                    category in selectedFilterCategories -> {
+                        val updated = selectedFilterCategories - category
+                        if (updated.isEmpty()) emptySet() else updated
                     }
-                ) {
-                    Text("Clear all")
+                    else -> selectedFilterCategories + category
                 }
             },
-            title = {
-                Text(
-                    text = "Select Filters",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
-                )
+            onClear = {
+                groceryFilterScope = GroceryFilterScope.AllItems.name
+                selectedFilterCategories = emptySet()
             },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GroceryFilterSectionTitle("All Items")
-                    GroceryFilterChoiceRow(
-                        title = "All items",
-                        selected = activeFilterScope == GroceryFilterScope.AllItems,
-                        onClick = { groceryFilterScope = GroceryFilterScope.AllItems.name }
-                    )
-                    GroceryFilterChoiceRow(
-                        title = "Need to buy",
-                        selected = activeFilterScope == GroceryFilterScope.NeedToBuy,
-                        onClick = { groceryFilterScope = GroceryFilterScope.NeedToBuy.name }
-                    )
-                    GroceryFilterChoiceRow(
-                        title = "Bought/Pantry",
-                        selected = activeFilterScope == GroceryFilterScope.BoughtOrPantry,
-                        onClick = { groceryFilterScope = GroceryFilterScope.BoughtOrPantry.name }
-                    )
-                    GroceryFilterSectionTitle("Categories")
-                    categoryOrder.forEach { category ->
-                        GroceryFilterChoiceRow(
-                            title = category,
-                            selected = selectedFilterCategories.isEmpty() || category in selectedFilterCategories,
-                            onClick = {
-                                selectedFilterCategories = when {
-                                    selectedFilterCategories.isEmpty() -> setOf(category)
-                                    category in selectedFilterCategories -> {
-                                        val updated = selectedFilterCategories - category
-                                        if (updated.isEmpty()) emptySet() else updated
-                                    }
-                                    else -> selectedFilterCategories + category
-                                }
-                            }
-                        )
-                    }
-                }
-            }
+            onDismiss = { showFilterDialog = false }
         )
     }
 
@@ -486,10 +312,14 @@ fun GroceryRefinedScreen(
                 online = isOnline,
                 onSettings = { onNavigateToRoute(Routes.Settings) },
                 onSupport = { onNavigateToRoute(Routes.Ipo) },
-                compact = compact
+                compact = compact,
+                avatarId = userProfile.avatarId
             )
 
-            GroceryHeadlineCard(compact = compact)
+            GroceryHeadlineCard(
+                avatarId = userProfile.avatarId,
+                compact = compact
+            )
 
             if (!feedbackMessage.isNullOrBlank()) {
                 RefinedOverviewCard(
@@ -552,23 +382,16 @@ fun GroceryRefinedScreen(
                 groupedEntriesEmpty = groupedEntries.isEmpty(),
                 searchFilteredEmpty = filteredEntries.isEmpty(),
                 searchQuery = searchQuery,
-                selectedCategory = selectedCategory,
-                visibleItems = visibleItems,
                 pantryMatches = pantryMatches,
                 pantryOptOut = pantryOptOut,
                 checkedNames = checkedNames,
-                selectedCategoryIndex = selectedCategoryIndex,
                 categoryEntries = categoryEntries,
-                expanded = selectedCategory != null && selectedCategory in expandedCategories,
-                onPreviousCategory = { if (selectedCategoryIndex > 0) selectedCategoryIndex-- },
-                onNextCategory = { if (selectedCategoryIndex < categoryEntries.lastIndex) selectedCategoryIndex++ },
-                onToggleExpanded = {
-                    selectedCategory?.let { key ->
-                        expandedCategories = if (key in expandedCategories) {
-                            expandedCategories - key
-                        } else {
-                            expandedCategories + key
-                        }
+                expandedCategories = expandedCategories,
+                onToggleCategoryExpanded = { key ->
+                    expandedCategories = if (key in expandedCategories) {
+                        expandedCategories - key
+                    } else {
+                        expandedCategories + key
                     }
                 },
                 onToggleItem = { item ->
@@ -590,6 +413,388 @@ fun GroceryRefinedScreen(
             GroceryBottomCtaCard(
                 onAddPantry = { showAddPantryDialog = true },
                 compact = compact
+            )
+        }
+    }
+}
+
+@Composable
+private fun PantryListDialog(
+    entries: List<PantryEntry>,
+    onDismiss: () -> Unit,
+    onAdd: () -> Unit,
+    onRemove: (PantryEntry) -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        GroceryDialogSurface(maxWidth = 382.dp, containerColor = Color.White) {
+            GroceryDialogHeader(
+                icon = "🧺",
+                title = "Pantry List",
+                subtitle = "Save what you already have so Grocery can mark pantry-covered ingredients clearly."
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 430.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (entries.isEmpty()) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFFFFEEF2),
+                        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.18f))
+                    ) {
+                        Text(
+                            text = "No pantry items saved yet. Add staples you already have so the list stays realistic.",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = PcosinaMuted
+                        )
+                    }
+                } else {
+                    entries.forEach { entry ->
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xFFFFDCE4),
+                            border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.16f))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = PcosinaPink,
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .semantics { contentDescription = "Edit pantry item" }
+                                ) {
+                                    PcosinaDesignIcon(
+                                        resId = R.drawable.pcosina_svg_18_clipboard,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.padding(7.dp)
+                                    )
+                                }
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = entry.name,
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                        color = PcosinaDeepRose
+                                    )
+                                    Text(
+                                        text = entry.quantity.orEmpty().ifBlank { "Saved pantry staple" },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = PcosinaMuted
+                                    )
+                                    entry.expiryDate?.takeIf { it.isNotBlank() }?.let { expiry ->
+                                        RefinedStatusPill(
+                                            text = "Expiry Date: $expiry",
+                                            containerColor = Color.White,
+                                            contentColor = PcosinaPink
+                                        )
+                                    }
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(999.dp),
+                                    color = PcosinaPink,
+                                    border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.24f)),
+                                    modifier = Modifier
+                                        .heightIn(min = 48.dp)
+                                        .semantics { contentDescription = "Remove pantry item" }
+                                        .clickable { onRemove(entry) }
+                                ) {
+                                    Text(
+                                        text = "Remove",
+                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                GroceryDialogActionButton(
+                    text = "Close",
+                    filled = false,
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                )
+                GroceryDialogActionButton(
+                    text = if (entries.isEmpty()) "Add item" else "Add pantry item",
+                    filled = true,
+                    onClick = onAdd,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddPantryItemDialog(
+    name: String,
+    quantity: String,
+    expiry: String,
+    onNameChange: (String) -> Unit,
+    onQuantityChange: (String) -> Unit,
+    onExpiryChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onSave: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        GroceryDialogSurface(maxWidth = 360.dp, containerColor = Color.White) {
+            GroceryDialogHeader(
+                icon = "🧺",
+                title = "Add an item to the pantry",
+                subtitle = "Save what you already have"
+            )
+            OutlinedTextField(
+                value = name,
+                onValueChange = onNameChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Pantry item") },
+                placeholder = { Text("Pantry item") },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp)
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = quantity,
+                    onValueChange = onQuantityChange,
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Qty") },
+                    placeholder = { Text("Qty") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp)
+                )
+                OutlinedTextField(
+                    value = expiry,
+                    onValueChange = onExpiryChange,
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Expiry Date") },
+                    placeholder = { Text("YYYY-MM-DD") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp)
+                )
+            }
+            Text(
+                text = "Quantity and expiry are optional. Saved pantry items are used to mark grocery ingredients as pantry-covered.",
+                style = MaterialTheme.typography.bodySmall,
+                color = PcosinaMuted
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                GroceryDialogActionButton(
+                    text = "Cancel",
+                    filled = false,
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                )
+                GroceryDialogActionButton(
+                    text = "OK",
+                    filled = true,
+                    onClick = onSave,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GroceryFilterDialog(
+    activeScope: GroceryFilterScope,
+    categories: List<String>,
+    selectedCategories: Set<String>,
+    onScopeChange: (GroceryFilterScope) -> Unit,
+    onToggleCategory: (String) -> Unit,
+    onClear: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        GroceryDialogSurface(
+            maxWidth = 360.dp,
+            containerColor = Color(0xFFEFE8EE),
+            borderColor = Color(0xFF5C4B53).copy(alpha = 0.24f)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = PcosinaPink
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Tune,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
+                Text(
+                    text = "Select Filters",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                    color = Color.Black
+                )
+            }
+            GroceryFilterSectionTitle("All Items")
+            GroceryFilterChoiceRow(
+                title = "All items",
+                selected = activeScope == GroceryFilterScope.AllItems,
+                onClick = { onScopeChange(GroceryFilterScope.AllItems) }
+            )
+            GroceryFilterChoiceRow(
+                title = "Need to buy",
+                selected = activeScope == GroceryFilterScope.NeedToBuy,
+                onClick = { onScopeChange(GroceryFilterScope.NeedToBuy) }
+            )
+            GroceryFilterChoiceRow(
+                title = "Bought/Pantry",
+                selected = activeScope == GroceryFilterScope.BoughtOrPantry,
+                onClick = { onScopeChange(GroceryFilterScope.BoughtOrPantry) }
+            )
+            GroceryFilterSectionTitle("Categories")
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                categories.forEach { category ->
+                    GroceryFilterChoiceRow(
+                        title = category,
+                        selected = selectedCategories.isEmpty() || category in selectedCategories,
+                        onClick = { onToggleCategory(category) }
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                GroceryDialogActionButton(
+                    text = "Clear All",
+                    filled = false,
+                    onClick = onClear,
+                    modifier = Modifier.weight(1f)
+                )
+                GroceryDialogActionButton(
+                    text = "Done",
+                    filled = true,
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GroceryDialogSurface(
+    maxWidth: androidx.compose.ui.unit.Dp = 330.dp,
+    containerColor: Color = Color(0xFFFFF8FB),
+    borderColor: Color = PcosinaSoftPink.copy(alpha = 0.62f),
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .widthIn(max = maxWidth),
+        shape = RoundedCornerShape(18.dp),
+        color = containerColor,
+        shadowElevation = 18.dp,
+        border = BorderStroke(1.dp, borderColor)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = content
+        )
+    }
+}
+
+@Composable
+private fun GroceryDialogHeader(
+    icon: String,
+    title: String,
+    subtitle: String,
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = Color(0xFFFF8FA5),
+        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.18f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = icon, style = MaterialTheme.typography.titleLarge)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                    color = Color.White
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.92f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GroceryDialogActionButton(
+    text: String,
+    filled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier
+            .heightIn(min = 46.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(10.dp),
+        color = if (filled) PcosinaPink else Color.White,
+        border = BorderStroke(1.dp, PcosinaPink),
+        shadowElevation = if (filled) 6.dp else 0.dp
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
+                color = if (filled) Color.White else PcosinaPink,
+                textAlign = TextAlign.Center
             )
         }
     }
@@ -622,8 +827,8 @@ private fun GroceryPreviewRow(
                 color = if (checked || pantryCovered) PcosinaPink else Color.White,
                 border = BorderStroke(1.dp, if (checked || pantryCovered) PcosinaPink else PcosinaMuted.copy(alpha = 0.4f))
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
+                PcosinaDesignIcon(
+                    resId = R.drawable.pcosina_svg_12_check,
                     contentDescription = null,
                     tint = if (checked || pantryCovered) Color.White else Color.Transparent,
                     modifier = Modifier.padding(8.dp)
@@ -664,28 +869,8 @@ private fun GroceryPreviewRow(
 }
 
 @Composable
-private fun CategoryArrowButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    Surface(
-        shape = CircleShape,
-        color = if (enabled) Color.White else PcosinaSurfaceAlt,
-        border = BorderStroke(1.dp, PcosinaMuted.copy(alpha = 0.25f)),
-        modifier = Modifier.clickable(enabled = enabled, onClick = onClick)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (enabled) PcosinaDeepRose else PcosinaMuted,
-            modifier = Modifier.padding(8.dp)
-        )
-    }
-}
-
-@Composable
 private fun GroceryHeadlineCard(
+    avatarId: String,
     compact: Boolean,
 ) {
     Surface(
@@ -705,33 +890,14 @@ private fun GroceryHeadlineCard(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = Color.White.copy(alpha = 0.24f),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.32f))
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.pcosina_logo),
-                        contentDescription = null,
-                        modifier = Modifier.size(if (compact) 30.dp else 34.dp),
-                        contentScale = ContentScale.Crop
-                    )
-                    Icon(
-                        imageVector = Icons.Filled.ShoppingCart,
-                        contentDescription = null,
-                        tint = PcosinaDeepRose,
-                        modifier = Modifier.size(if (compact) 18.dp else 20.dp)
-                    )
-                }
-            }
+            PcosinaAvatarBadge(
+                avatarId = avatarId,
+                size = if (compact) 64.dp else 76.dp,
+                shadowElevation = if (compact) 3.dp else 6.dp,
+            )
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = "Grocery Pantry",
@@ -750,7 +916,7 @@ private fun GroceryHeadlineCard(
                 Text(
                     text = "All your essentials, budgeted and in one place.",
                     style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-                    color = PcosinaDeepRose
+                    color = Color(0xFF2B1B20)
                 )
             }
         }
@@ -774,75 +940,64 @@ private fun GroceryBudgetCard(
     }
 
     RefinedOverviewCard(
-        borderColor = PcosinaDeepRose.copy(alpha = 0.14f),
+        containerColor = Color(0xFFF8FFF8),
+        borderColor = budgetColor.copy(alpha = 0.24f),
         contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
     ) {
-        RefinedStatusPill(
-            text = budgetLabel,
-            containerColor = budgetColor.copy(alpha = 0.18f),
-            contentColor = budgetColor
-        )
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = Color(0xFFFFF4E8),
-                border = BorderStroke(1.dp, Color(0xFFCCB38A).copy(alpha = 0.4f))
+                shape = RoundedCornerShape(14.dp),
+                color = budgetColor.copy(alpha = 0.12f)
             ) {
-                Text(
-                    text = "₱",
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    style = if (compact) {
-                        MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = PcosinaDeepRose
-                        )
-                    } else {
-                        MaterialTheme.typography.headlineLarge.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = PcosinaDeepRose
-                        )
-                    }
+                PcosinaDesignIcon(
+                    resId = R.drawable.pcosina_svg_31_wallet,
+                    contentDescription = null,
+                    tint = budgetColor,
+                    modifier = Modifier
+                        .padding(9.dp)
+                        .size(if (compact) 20.dp else 22.dp)
                 )
             }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = "Estimated this week",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = PcosinaMuted
-                )
-                Text(
-                    text = if (weeklyBudget != null) {
-                        "${formatPhp(totalEstimated)} / ${formatPhp(weeklyBudget)}"
-                    } else {
-                        formatPhp(totalEstimated)
-                    },
-                    style = if (compact) {
-                        MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = PcosinaDeepRose
-                        )
-                    } else {
-                        MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = PcosinaDeepRose
-                        )
-                    }
-                )
-            }
-        }
-        if (weeklyBudget != null) {
-            RefinedMetricBar(
-                label = "Weekly budget",
-                valueText = formatPhp((remainingBudget ?: 0).coerceAtLeast(0)) + " left",
-                progress = budgetProgress,
-                color = budgetColor
+            RefinedStatusPill(
+                text = budgetLabel,
+                containerColor = budgetColor.copy(alpha = 0.16f),
+                contentColor = budgetColor
             )
+        }
+        Text(
+            text = "Total Estimated Spending",
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+            color = PcosinaDeepRose
+        )
+        Text(
+            text = if (weeklyBudget != null) {
+                "${formatPhp(totalEstimated)} / ${formatPhp(weeklyBudget)}"
+            } else {
+                formatPhp(totalEstimated)
+            },
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.ExtraBold,
+                color = PcosinaDeepRose
+            )
+        )
+        if (weeklyBudget != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(10.dp)
+                    .background(budgetColor.copy(alpha = 0.16f), RoundedCornerShape(999.dp))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(budgetProgress.coerceIn(0f, 1f))
+                        .height(10.dp)
+                        .background(budgetColor, RoundedCornerShape(999.dp))
+                )
+            }
         } else {
             Text(
                 text = "Set a weekly grocery budget in your profile to compare plan costs against your target.",
@@ -864,26 +1019,56 @@ private fun GroceryProgressCard(
     compact: Boolean,
 ) {
     RefinedOverviewCard(
-        borderColor = PcosinaDeepRose.copy(alpha = 0.14f),
+        containerColor = Color.White,
+        borderColor = PcosinaPink.copy(alpha = 0.26f),
         contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
     ) {
-        Text(
-            text = "Grocery Progress",
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.ExtraBold,
-                color = PcosinaDeepRose
-            )
-        )
-        Text(
-            text = "Built for ${householdSizeLabel(householdSize)} and synced with your saved pantry.",
-            style = MaterialTheme.typography.bodySmall,
-            color = PcosinaMuted
-        )
-        if (compact) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFFFFEDF1)
+            ) {
+                PcosinaDesignIcon(
+                    resId = R.drawable.pcosina_nav_grocery,
+                    contentDescription = null,
+                    tint = Color.Unspecified,
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .size(if (compact) 22.dp else 24.dp)
+                )
+            }
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = "Grocery Progress",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = PcosinaDeepRose
+                    )
+                )
+                Text(
+                    text = "Built for ${householdSizeLabel(householdSize)} and synced with your saved pantry.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PcosinaMuted
+                )
+            }
+        }
+        Surface(
+            shape = RoundedCornerShape(22.dp),
+            color = Color(0xFFFFEEF3),
+            border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.14f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(if (compact) 12.dp else 14.dp),
+                contentAlignment = Alignment.Center
             ) {
                 RefinedRingMeter(
                     valueText = "${remainingCount}/${totalCount.coerceAtLeast(1)}",
@@ -892,55 +1077,27 @@ private fun GroceryProgressCard(
                     color = PcosinaPink,
                     compact = compact
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    GroceryActionTile(
-                        title = "Share Grocery List?",
-                        icon = Icons.AutoMirrored.Filled.ListAlt,
-                        onClick = onShare,
-                        modifier = Modifier.weight(1f),
-                        compact = compact
-                    )
-                    GroceryActionTile(
-                        title = "View Pantry List?",
-                        icon = Icons.Filled.ShoppingCart,
-                        onClick = onOpenPantry,
-                        modifier = Modifier.weight(1f),
-                        compact = compact
-                    )
-                }
             }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                GroceryActionTile(
-                    title = "Share Grocery List?",
-                    icon = Icons.AutoMirrored.Filled.ListAlt,
-                    onClick = onShare,
-                    modifier = Modifier.weight(1f),
-                    compact = compact
-                )
-                RefinedRingMeter(
-                    valueText = "${remainingCount}/${totalCount.coerceAtLeast(1)}",
-                    subtitle = "items left",
-                    progress = 1f - listProgress,
-                    color = PcosinaPink,
-                    compact = compact
-                )
-                GroceryActionTile(
-                    title = "View Pantry List?",
-                    icon = Icons.Filled.ShoppingCart,
-                    onClick = onOpenPantry,
-                    modifier = Modifier.weight(1f),
-                    compact = compact
-                )
-            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            GroceryActionTile(
+                title = "Share Grocery List?",
+                iconRes = R.drawable.pcosina_svg_30_send,
+                onClick = onShare,
+                modifier = Modifier.weight(1f),
+                compact = compact
+            )
+            GroceryActionTile(
+                title = "View Pantry List?",
+                iconRes = R.drawable.pcosina_svg_29_cart,
+                onClick = onOpenPantry,
+                modifier = Modifier.weight(1f),
+                compact = compact
+            )
         }
     }
 }
@@ -948,16 +1105,18 @@ private fun GroceryProgressCard(
 @Composable
 private fun GroceryActionTile(
     title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    @DrawableRes iconRes: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     compact: Boolean,
 ) {
     Surface(
         shape = RoundedCornerShape(18.dp),
-        color = Color(0xFFFFEDF1),
+        color = Color(0xFFFFDCE4),
         border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.14f)),
-        modifier = modifier.clickable(onClick = onClick)
+        modifier = modifier
+            .heightIn(min = if (compact) 104.dp else 118.dp)
+            .clickable(onClick = onClick)
     ) {
         Column(
             modifier = Modifier
@@ -971,8 +1130,8 @@ private fun GroceryActionTile(
                 color = Color.White.copy(alpha = 0.78f),
                 border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.16f))
             ) {
-                Icon(
-                    imageVector = icon,
+                PcosinaDesignIcon(
+                    resId = iconRes,
                     contentDescription = null,
                     tint = PcosinaPink,
                     modifier = Modifier
@@ -1006,11 +1165,16 @@ private fun GroceryKitchenHubHeader(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "🍽️",
-                style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall
+            PcosinaDesignIcon(
+                resId = R.drawable.pcosina_svg_26_chef_hat,
+                contentDescription = null,
+                modifier = Modifier.size(if (compact) 34.dp else 40.dp),
+                tint = Color.Unspecified
             )
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
                 Text(
                     text = "Your Kitchen Hub",
                     style = MaterialTheme.typography.titleLarge.copy(
@@ -1061,8 +1225,8 @@ private fun GroceryKitchenHubHeader(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = PcosinaPink.copy(alpha = 0.4f),
                 unfocusedBorderColor = PcosinaMuted.copy(alpha = 0.2f),
-                focusedContainerColor = Color(0xFFFFEEF2),
-                unfocusedContainerColor = Color(0xFFFFEEF2),
+                focusedContainerColor = Color(0xFFFFE7EE),
+                unfocusedContainerColor = Color(0xFFFFE7EE),
                 cursorColor = PcosinaDeepRose,
                 focusedTextColor = PcosinaDeepRose,
                 unfocusedTextColor = PcosinaDeepRose
@@ -1078,17 +1242,12 @@ private fun GroceryCategoryPanel(
     groupedEntriesEmpty: Boolean,
     searchFilteredEmpty: Boolean,
     searchQuery: String,
-    selectedCategory: String?,
-    visibleItems: List<GroceryListEntry>,
     pantryMatches: Set<String>,
     pantryOptOut: Set<String>,
     checkedNames: Set<String>,
-    selectedCategoryIndex: Int,
     categoryEntries: List<Pair<String, List<GroceryListEntry>>>,
-    expanded: Boolean,
-    onPreviousCategory: () -> Unit,
-    onNextCategory: () -> Unit,
-    onToggleExpanded: () -> Unit,
+    expandedCategories: Set<String>,
+    onToggleCategoryExpanded: (String) -> Unit,
     onToggleItem: (GroceryListEntry) -> Unit,
     onSyncIngredients: () -> Unit,
     compact: Boolean,
@@ -1157,109 +1316,146 @@ private fun GroceryCategoryPanel(
             }
 
             else -> {
-                val title = selectedCategory.orEmpty()
-                val toggleCategoryLabel = if (expanded) {
-                    "Collapse $title category"
-                } else {
-                    "Expand $title category"
-                }
                 val collapsedCount = 2
-                val displayedItems = if (expanded) visibleItems else visibleItems.take(collapsedCount)
-                val coveredInCategory = visibleItems.count { item ->
-                    item.name in checkedNames || (item.name in pantryMatches && item.name !in pantryOptOut)
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = groceryCategoryEmoji(selectedCategory),
-                        style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall
-                    )
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                categoryEntries.forEach { (category, items) ->
+                    val title = category
+                    val categoryExpanded = category in expandedCategories
+                    val displayedItems = if (categoryExpanded) items else items.take(collapsedCount)
+                    val coveredInCategory = items.count { item ->
+                        item.name in checkedNames || (item.name in pantryMatches && item.name !in pantryOptOut)
+                    }
+                    val toggleCategoryLabel = if (categoryExpanded) {
+                        "Collapse $title category"
+                    } else {
+                        "Expand $title category"
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, PcosinaDeepRose.copy(alpha = 0.28f))
                     ) {
-                        Text(
-                            text = selectedCategory.orEmpty(),
-                            style = if (compact) {
-                                MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = PcosinaDeepRose
-                                )
-                            } else {
-                                MaterialTheme.typography.headlineSmall.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = PcosinaDeepRose
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (category == "Produce") {
+                                    PcosinaDesignIcon(
+                                        resId = R.drawable.pcosina_svg_25_corn,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(if (compact) 30.dp else 36.dp),
+                                        tint = Color.Unspecified
+                                    )
+                                } else {
+                                    Text(
+                                        text = groceryCategoryEmoji(category),
+                                        style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall
+                                    )
+                                }
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Text(
+                                        text = category,
+                                        style = if (compact) {
+                                            MaterialTheme.typography.titleLarge.copy(
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = PcosinaDeepRose
+                                            )
+                                        } else {
+                                            MaterialTheme.typography.headlineSmall.copy(
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = PcosinaDeepRose
+                                            )
+                                        }
+                                    )
+                                    Text(
+                                        text = "$coveredInCategory of ${items.size} items bought/covered",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = PcosinaMuted
+                                    )
+                                }
+                                if (items.size > collapsedCount) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Color(0xFFFFEEF2),
+                                        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.18f)),
+                                        modifier = Modifier
+                                            .size(42.dp)
+                                            .semantics { contentDescription = toggleCategoryLabel }
+                                            .clickable { onToggleCategoryExpanded(category) }
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(
+                                                text = if (categoryExpanded) "-" else "+",
+                                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                                                color = PcosinaDeepRose
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            displayedItems.forEach { item ->
+                                GroceryPreviewRow(
+                                    item = item,
+                                    pantryCovered = item.name in pantryMatches && item.name !in pantryOptOut,
+                                    checked = item.name in checkedNames,
+                                    onToggle = { onToggleItem(item) }
                                 )
                             }
-                        )
-                        Text(
-                            text = "$coveredInCategory of ${visibleItems.size} items bought or covered",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = PcosinaMuted
-                        )
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        CategoryArrowButton(
-                            icon = Icons.Filled.ChevronLeft,
-                            enabled = selectedCategoryIndex > 0,
-                            onClick = onPreviousCategory
-                        )
-                        CategoryArrowButton(
-                            icon = Icons.Filled.ChevronRight,
-                            enabled = selectedCategoryIndex < categoryEntries.lastIndex,
-                            onClick = onNextCategory
-                        )
-                    }
-                }
 
-                displayedItems.forEach { item ->
-                    GroceryPreviewRow(
-                        item = item,
-                        pantryCovered = item.name in pantryMatches && item.name !in pantryOptOut,
-                        checked = item.name in checkedNames,
-                        onToggle = { onToggleItem(item) }
-                    )
-                }
-
-                if (visibleItems.size > displayedItems.size) {
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = Color(0xFFFFEEF2),
-                        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.18f)),
-                        modifier = Modifier
-                            .heightIn(min = 48.dp)
-                            .semantics { contentDescription = toggleCategoryLabel }
-                            .clickable(onClick = onToggleExpanded)
-                    ) {
-                        Text(
-                            text = "View all ${visibleItems.size} items",
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                            color = PcosinaDeepRose
-                        )
-                    }
-                } else if (expanded && visibleItems.size > collapsedCount) {
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = Color.White,
-                        border = BorderStroke(1.dp, PcosinaMuted.copy(alpha = 0.24f)),
-                        modifier = Modifier
-                            .heightIn(min = 48.dp)
-                            .semantics { contentDescription = toggleCategoryLabel }
-                            .clickable(onClick = onToggleExpanded)
-                    ) {
-                        Text(
-                            text = "Show less",
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                            color = PcosinaDeepRose
-                        )
+                            if (items.size > displayedItems.size) {
+                                GroceryCategoryExpandAction(
+                                    text = "View all ${items.size} items",
+                                    contentDescription = toggleCategoryLabel,
+                                    onClick = { onToggleCategoryExpanded(category) }
+                                )
+                            } else if (categoryExpanded && items.size > collapsedCount) {
+                                GroceryCategoryExpandAction(
+                                    text = "Show less",
+                                    contentDescription = toggleCategoryLabel,
+                                    onClick = { onToggleCategoryExpanded(category) }
+                                )
+                            }
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun GroceryCategoryExpandAction(
+    text: String,
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = Color(0xFFFFEEF2),
+        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.18f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 44.dp)
+            .semantics { this.contentDescription = contentDescription }
+            .clickable(onClick = onClick)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = text,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = PcosinaDeepRose
+            )
         }
     }
 }
@@ -1433,18 +1629,18 @@ private fun GroceryFilterChoiceRow(
     onClick: () -> Unit,
 ) {
     Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = if (selected) Color(0xFFFFE8EE) else Color.White,
-        border = BorderStroke(1.dp, if (selected) PcosinaPink.copy(alpha = 0.28f) else PcosinaMuted.copy(alpha = 0.16f)),
+        shape = RoundedCornerShape(999.dp),
+        color = if (selected) Color.White.copy(alpha = 0.76f) else Color.Transparent,
+        border = BorderStroke(1.dp, if (selected) PcosinaPink.copy(alpha = 0.18f) else Color.Transparent),
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 44.dp)
+            .heightIn(min = 42.dp)
             .clickable(onClick = onClick)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = 12.dp, vertical = 9.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1458,8 +1654,8 @@ private fun GroceryFilterChoiceRow(
                 color = if (selected) PcosinaPink else Color.White,
                 border = BorderStroke(1.dp, if (selected) PcosinaPink else PcosinaMuted.copy(alpha = 0.24f))
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
+                PcosinaDesignIcon(
+                    resId = R.drawable.pcosina_svg_12_check,
                     contentDescription = null,
                     tint = if (selected) Color.White else Color.Transparent,
                     modifier = Modifier.padding(6.dp)
@@ -1484,11 +1680,7 @@ private fun groceryCategoryEmoji(category: String?): String =
 private fun formatPhp(value: Int): String = "₱%,d".format(Locale.ENGLISH, value)
 
 private fun refinedPantryKey(raw: String): String =
-    raw.trim()
-        .lowercase(Locale.ENGLISH)
-        .replace(Regex("[^a-z0-9]+"), " ")
-        .replace(Regex("\\s+"), " ")
-        .trim()
+    canonicalGroceryKey(raw)
 
 private fun refinedPantryTokens(raw: String): Set<String> =
     refinedPantryKey(raw)

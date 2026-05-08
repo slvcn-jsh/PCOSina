@@ -9,6 +9,7 @@ import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.GroceryItemSource
 import com.pcosina.app.data.model.GrocerySnapshot
 import com.pcosina.app.data.repository.GroceryLocalRepository
+import com.pcosina.app.domain.canonicalGroceryKey
 import com.pcosina.app.domain.GroceryRebuildUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,7 +36,7 @@ class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepositor
     private val groceryRebuildUseCase = GroceryRebuildUseCase()
     private var snapshots: MutableList<GrocerySnapshot> = mutableListOf()
 
-    private fun normalizedItemKey(name: String): String = name.trim().lowercase()
+    private fun normalizedItemKey(name: String): String = canonicalGroceryKey(name)
 
     fun loadGroceryForUser(userId: String) {
         if (currentUserId == userId) return

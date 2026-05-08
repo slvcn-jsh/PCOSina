@@ -19,5 +19,10 @@ data class RecipeDetailDto(
     val fiberGrams: Int? = null,
     val minutes: Int? = null,
     val ingredients: List<IngredientDto> = emptyList(),
-    val steps: List<String> = emptyList()
+    val steps: List<String> = emptyList(),
+    val nutritionCorrectionId: String? = null,
+    val nutritionDataSource: String? = null,
+    val nutritionConfidence: String? = null,
+    val nutritionReviewStatus: String? = null,
+    val nutritionNotes: String? = null
 )

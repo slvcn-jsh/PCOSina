@@ -64,7 +64,7 @@ def test_content_admin_nutrition_correction_overrides_recipe_reads_and_audit_log
         "sodiumMg": 420,
         "sugarGrams": 4,
         "active": True,
-        "notes": "Dietitian-reviewed correction",
+        "notes": "source=nutritionist_review; confidence=high; review_status=reviewed; notes=Dietitian-reviewed correction",
     }
 
     try:
@@ -78,7 +78,7 @@ def test_content_admin_nutrition_correction_overrides_recipe_reads_and_audit_log
 
             get_resp = client.get(f"/admin/nutrition-corrections/{recipe['id']}")
             assert get_resp.status_code == 200
-            assert get_resp.json()["notes"] == "Dietitian-reviewed correction"
+            assert "Dietitian-reviewed correction" in get_resp.json()["notes"]
 
             list_resp = client.get("/admin/nutrition-corrections", params={"q": "Tinola"})
             assert list_resp.status_code == 200
@@ -90,6 +90,10 @@ def test_content_admin_nutrition_correction_overrides_recipe_reads_and_audit_log
             assert corrected_recipe["proteinGrams"] == 34
             assert corrected_recipe["sodiumMg"] == 420
             assert corrected_recipe["nutritionCorrectionId"] == correction["id"]
+            assert corrected_recipe["nutritionDataSource"] == "nutritionist_review"
+            assert corrected_recipe["nutritionConfidence"] == "high"
+            assert corrected_recipe["nutritionReviewStatus"] == "reviewed"
+            assert corrected_recipe["nutritionNotes"] == "Dietitian-reviewed correction"
 
             corrected_pool = {item["id"]: item for item in database.get_all_recipes()}
             assert corrected_pool[recipe["id"]]["sugarGrams"] == 4
@@ -98,6 +102,7 @@ def test_content_admin_nutrition_correction_overrides_recipe_reads_and_audit_log
             assert public_recipe.status_code == 200
             assert public_recipe.json()["calories"] == 390
             assert public_recipe.json()["nutritionCorrectionId"] == correction["id"]
+            assert public_recipe.json()["nutritionConfidence"] == "high"
 
             audit_resp = client.get("/admin/audit/logs", params={"resource_type": "recipe_nutrition_correction"})
             assert audit_resp.status_code == 200

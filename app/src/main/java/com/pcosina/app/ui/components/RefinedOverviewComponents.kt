@@ -1,7 +1,7 @@
 package com.pcosina.app.ui.components
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,9 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -33,14 +30,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.pcosina.app.R
 import com.pcosina.app.ui.theme.PcosinaDeepRose
 import com.pcosina.app.ui.theme.PcosinaLightPink
+import com.pcosina.app.ui.theme.PcosinaMidnight
 import com.pcosina.app.ui.theme.PcosinaMuted
 import com.pcosina.app.ui.theme.PcosinaPink
 import com.pcosina.app.ui.theme.PcosinaSoftPink
@@ -54,6 +50,7 @@ fun RefinedTabBrandHeader(
     onSupport: () -> Unit,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    avatarId: String = "doctor_dog",
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -66,18 +63,8 @@ fun RefinedTabBrandHeader(
         ) {
             Row(
                 modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.pcosina_logo),
-                    contentDescription = "PCOSina",
-                    modifier = Modifier
-                        .size(if (compact) 46.dp else 52.dp)
-                        .clip(CircleShape)
-                        .background(Color.White),
-                    contentScale = ContentScale.Crop
-                )
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = "PCOSina",
@@ -94,20 +81,20 @@ fun RefinedTabBrandHeader(
                         }
                     )
                     Text(
-                        text = "Smarter PCOS nutrition in one clear view.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = PcosinaMuted
+                        text = "Take the first step toward smarter PCOS nutrition.",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                        color = PcosinaMidnight
                     )
                 }
             }
             RefinedTabIconAction(
-                icon = Icons.Filled.Settings,
+                iconRes = R.drawable.pcosina_svg_44_settings,
                 contentDescription = "Settings",
                 onClick = onSettings,
                 compact = compact
             )
             RefinedTabIconAction(
-                icon = Icons.Filled.Info,
+                iconRes = R.drawable.pcosina_svg_45_bell,
                 contentDescription = "Support",
                 onClick = onSupport,
                 compact = compact
@@ -115,7 +102,7 @@ fun RefinedTabBrandHeader(
         }
         Surface(
             color = if (online) PcosinaSoftPink else PcosinaSurfaceAlt,
-            contentColor = if (online) PcosinaDeepRose else PcosinaMuted,
+            contentColor = if (online) PcosinaDeepRose else PcosinaMidnight,
             shape = RoundedCornerShape(999.dp)
         ) {
             Text(
@@ -443,7 +430,8 @@ fun RefinedMetricBar(
 
 @Composable
 private fun RefinedTabIconAction(
-    icon: ImageVector,
+    icon: ImageVector? = null,
+    @DrawableRes iconRes: Int? = null,
     contentDescription: String,
     onClick: () -> Unit,
     compact: Boolean,
@@ -454,11 +442,20 @@ private fun RefinedTabIconAction(
         border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.22f)),
         modifier = Modifier.clickable(onClick = onClick)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = PcosinaPink,
-            modifier = Modifier.padding(if (compact) 10.dp else 12.dp)
-        )
+        if (iconRes != null) {
+            PcosinaDesignIcon(
+                resId = iconRes,
+                contentDescription = contentDescription,
+                tint = PcosinaPink,
+                modifier = Modifier.padding(if (compact) 10.dp else 12.dp)
+            )
+        } else if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = PcosinaPink,
+                modifier = Modifier.padding(if (compact) 10.dp else 12.dp)
+            )
+        }
     }
 }

@@ -1,7 +1,10 @@
 package com.pcosina.app.ui.screens
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -9,15 +12,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Height
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.MonitorWeight
+import androidx.compose.material.icons.filled.ManageAccounts
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,7 +30,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +49,7 @@ import android.provider.Settings
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
+import com.pcosina.app.R
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.pcosina.app.BuildConfig
 import com.pcosina.app.ui.AuthViewModel
@@ -54,12 +63,13 @@ import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
 import com.pcosina.app.ui.components.FocusSummaryCard
 import com.pcosina.app.ui.components.GradientHeader
+import com.pcosina.app.ui.components.PcosinaAvatar
+import com.pcosina.app.ui.components.PcosinaAvatarOptions
+import com.pcosina.app.ui.components.PcosinaDesignIcon
 import com.pcosina.app.ui.components.RefinedFeatureCard
 import com.pcosina.app.ui.components.ScreenFocusOption
 import com.pcosina.app.ui.components.ScreenFocusStrip
 import com.pcosina.app.data.model.NotificationPreferences
-import com.pcosina.app.domain.HealthMetrics
-import com.pcosina.app.domain.UnitConverter
 import com.pcosina.app.notifications.NotificationScheduler
 import com.pcosina.app.ui.theme.UiSpacingTokens
 import com.pcosina.app.ui.util.primaryGoalLabel
@@ -82,6 +92,12 @@ private enum class SettingsScreenFocus {
     Account,
 }
 
+private data class SettingsTabIcon(
+    val icon: ImageVector? = null,
+    @DrawableRes val iconRes: Int? = null,
+    val label: String,
+)
+
 @Composable
 fun SettingsScreen(
     userViewModel: UserViewModel,
@@ -90,6 +106,7 @@ fun SettingsScreen(
     groceryViewModel: GroceryViewModel,
     progressViewModel: ProgressViewModel,
     userId: String,
+    onBack: () -> Unit,
     onNavigateToProfileEdit: () -> Unit,
     onOpenAdminMethodology: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -150,6 +167,9 @@ fun SettingsScreen(
     var logoutActionPending by rememberSaveable { mutableStateOf(false) }
     var showNotificationPermissionDialog by rememberSaveable { mutableStateOf(false) }
     var showWeeklyResetDayDialog by rememberSaveable { mutableStateOf(false) }
+    var showAvatarPickerDialog by rememberSaveable { mutableStateOf(false) }
+    var avatarDraftName by rememberSaveable { mutableStateOf("") }
+    var avatarDraftId by rememberSaveable { mutableStateOf("") }
     var notificationPermissionHint by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsFeedbackBanner by remember { mutableStateOf<FeedbackBannerData?>(null) }
     var scheduledWorkSummaries by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -184,12 +204,6 @@ fun SettingsScreen(
         "Reminders paused"
     }
     val mainGoalLabel = primaryGoalLabel(profile.goal)
-    val householdLabel = if (profile.householdSize <= 1) {
-        "1 person"
-    } else {
-        "${profile.householdSize} people"
-    }
-    val ageLabel = profile.age.takeIf { it > 0 }?.let { "$it years old" } ?: "Not set"
     val budgetLabel = profile.weeklyBudgetPhp.takeIf { it > 0 }?.let { "₱$it / week" } ?: "Not set"
     val dietRulesLabel = if (profile.dietaryRestrictions.isEmpty()) {
         "None saved"
@@ -292,6 +306,12 @@ fun SettingsScreen(
             settingsFocusKey = SettingsScreenFocus.Profile.name
         }
     }
+    LaunchedEffect(showAvatarPickerDialog) {
+        if (showAvatarPickerDialog) {
+            avatarDraftName = profile.displayName
+            avatarDraftId = profile.avatarId
+        }
+    }
     fun postSettingsFeedback(
         tone: FeedbackBannerTone,
         message: String,
@@ -373,148 +393,64 @@ fun SettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(colorScheme.background)
+            .background(Color.White)
             .verticalScroll(rememberScrollState())
-            .statusBarsPadding()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap)
+            .statusBarsPadding(),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        GradientHeader(
-            title = "Settings",
-            subtitle = "Make PCOSINA feel calm, useful, and easy to return to.",
-            containerHeight = 116
+        FigmaSettingsHero(
+            title = "ACCOUNT AND SETTINGS",
+            subtitle = "Personalize your PCOS journey. Manage your profile, set meal reminders, and customize your app experience.",
+            onBack = onBack
         )
         settingsFeedbackBanner?.let { banner ->
             AppFeedbackBanner(
                 data = banner,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp, vertical = 12.dp)
             )
         }
-        ScreenFocusStrip(
-            title = "Go to",
-            options = settingsFocusOptions,
+        FigmaSettingsProfileBand(
+            avatarId = profile.avatarId,
+            displayName = profile.displayName.ifBlank { "Your name" },
+            email = userId.takeIf { it.contains("@") } ?: "Local PCOSina profile",
+            onAvatarClick = { showAvatarPickerDialog = true }
+        )
+        FigmaSettingsTabs(
             selectedKey = settingsFocusKey,
             onSelect = { settingsFocusKey = it },
-            labelMaxWidth = 132.dp,
-            helperText = "Move between profile, reminders, and account controls without the clutter."
-        )
-        FocusSummaryCard(
-            badge = settingsSummaryBadge,
-            title = settingsSummaryTitle,
-            body = settingsStatusLabel,
-            accentColor = settingsSummaryAccent,
-            highlights = settingsSummaryHighlights,
-            modifier = Modifier.fillMaxWidth()
+            showTools = adminMode
         )
 
-        // Personalized Profile Summary Card
-        if (settingsFocus == SettingsScreenFocus.Profile) {
-            Card(
-                shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 18.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(68.dp)
-                            .clip(CircleShape)
-                            .background(colorScheme.primary.copy(alpha = 0.1f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = userName.take(1).uppercase(),
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = colorScheme.primary
-                            )
-                        )
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        SettingsStatePill(
-                            text = if (profile.isProfileCompleted) "Profile ready" else "Finish profile",
-                            emphasized = profile.isProfileCompleted
-                        )
-                        Text(
-                            text = userName,
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            text = "Saved on this phone and used when you build a week.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant
-                        )
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            SettingsStatePill(
-                                text = mainGoalLabel,
-                                emphasized = true
-                            )
-                            SettingsStatePill(
-                                text = reminderOverviewLabel,
-                                emphasized = notificationPrefs.masterEnabled
-                            )
-                            SettingsStatePill(
-                                text = budgetLabel,
-                                emphasized = profile.weeklyBudgetPhp > 0
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 32.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
 
         if (settingsFocus == SettingsScreenFocus.Profile) {
             SettingsSection(
-                title = "Basics",
-                summary = "These details help size targets, portions, and everyday planning choices."
+                title = "Profile",
+                summary = settingsStatusLabel
             ) {
-                val weightText = if (profile.weightUnit == UnitConverter.WEIGHT_LB) {
-                    "${UnitConverter.kgToLb(profile.weightKg)} lb"
-                } else {
-                    "${profile.weightKg} kg"
-                }
-                val heightText = if (profile.heightUnit == UnitConverter.HEIGHT_FT_IN) {
-                    val (ft, inch) = UnitConverter.cmToFeetInches(profile.heightCm)
-                    "${ft}ft ${inch}in"
-                } else {
-                    "${profile.heightCm} cm"
-                }
-                val bmiValue = HealthMetrics.bmi(profile.weightKg, profile.heightCm)
-                val bmiLabel = if (bmiValue > 0) String.format("%.1f", bmiValue) else "—"
-                val bmiCategory = HealthMetrics.bmiCategory(bmiValue)
-                SettingsItem(icon = Icons.Default.Info, label = "Age", value = ageLabel)
+                FigmaSettingsFeatureToggle(
+                    icon = Icons.Default.Warning,
+                    label = "Symptom Management",
+                    checked = profile.goal.equals("symptom_management", ignoreCase = true) || profile.symptoms.isNotEmpty()
+                )
+                FigmaSettingsFeatureToggle(
+                    icon = Icons.Default.Notifications,
+                    label = "Reminders",
+                    checked = notificationPrefs.masterEnabled
+                )
+                FigmaSettingsFeatureToggle(
+                    icon = Icons.Default.Warning,
+                    label = "Alerts",
+                    checked = notificationPrefs.grocerySyncEnabled || notificationPrefs.planReadyEnabled
+                )
                 SettingsDivider()
-                SettingsItem(icon = Icons.Default.MonitorWeight, label = "Weight", value = weightText)
-                SettingsDivider()
-                SettingsItem(icon = Icons.Default.Height, label = "Height", value = heightText)
-                SettingsDivider()
-                SettingsItem(icon = Icons.Default.LocalFireDepartment, label = "Daily activity", value = profile.activityLevel)
-                SettingsDivider()
-                SettingsItem(icon = Icons.Default.Info, label = "Household", value = householdLabel)
-                SettingsDivider()
-                SettingsItem(icon = Icons.Default.MonitorWeight, label = "BMI", value = "$bmiLabel ($bmiCategory)")
-            }
-        }
-
-        if (settingsFocus == SettingsScreenFocus.Profile) {
-            SettingsSection(
-                title = "Planning preferences",
-                summary = "These choices shape food matching, budget limits, and how flexible the week feels."
-            ) {
                 SettingsItem(icon = Icons.Default.Info, label = "Main goal", value = mainGoalLabel)
                 SettingsDivider()
                 SettingsItem(icon = Icons.Default.Info, label = "Weekly budget", value = budgetLabel)
@@ -555,7 +491,7 @@ fun SettingsScreen(
                 title = "Account and device actions",
                 summary = "Use these only when you need a clean reset or want to leave this phone signed out.",
                 titleColor = colorScheme.error,
-                containerColor = colorScheme.errorContainer.copy(alpha = 0.45f)
+                containerColor = colorScheme.errorContainer
             ) {
                 SettingsActionItem(
                     icon = Icons.Default.History,
@@ -738,31 +674,25 @@ fun SettingsScreen(
                     }
                 )
                 if (notificationPrefs.mealRemindersEnabled && notificationPrefs.masterEnabled) {
-                    SettingsActionItem(
-                        icon = Icons.Default.History,
+                    SettingsReminderTimeRow(
                         label = "Breakfast time",
-                        description = formatTime(notificationPrefs.breakfastHour, notificationPrefs.breakfastMinute),
-                        color = colorScheme.primary
+                        time = formatTime(notificationPrefs.breakfastHour, notificationPrefs.breakfastMinute),
                     ) {
                         showTimePicker(notificationPrefs.breakfastHour, notificationPrefs.breakfastMinute) { h, m ->
                             updateNotificationPrefs { prefs -> prefs.copy(breakfastHour = h, breakfastMinute = m) }
                         }
                     }
-                    SettingsActionItem(
-                        icon = Icons.Default.History,
+                    SettingsReminderTimeRow(
                         label = "Lunch time",
-                        description = formatTime(notificationPrefs.lunchHour, notificationPrefs.lunchMinute),
-                        color = colorScheme.primary
+                        time = formatTime(notificationPrefs.lunchHour, notificationPrefs.lunchMinute),
                     ) {
                         showTimePicker(notificationPrefs.lunchHour, notificationPrefs.lunchMinute) { h, m ->
                             updateNotificationPrefs { prefs -> prefs.copy(lunchHour = h, lunchMinute = m) }
                         }
                     }
-                    SettingsActionItem(
-                        icon = Icons.Default.History,
+                    SettingsReminderTimeRow(
                         label = "Dinner time",
-                        description = formatTime(notificationPrefs.dinnerHour, notificationPrefs.dinnerMinute),
-                        color = colorScheme.primary
+                        time = formatTime(notificationPrefs.dinnerHour, notificationPrefs.dinnerMinute),
                     ) {
                         showTimePicker(notificationPrefs.dinnerHour, notificationPrefs.dinnerMinute) { h, m ->
                             updateNotificationPrefs { prefs -> prefs.copy(dinnerHour = h, dinnerMinute = m) }
@@ -820,11 +750,9 @@ fun SettingsScreen(
                     ) {
                         showWeeklyResetDayDialog = true
                     }
-                    SettingsActionItem(
-                        icon = Icons.Default.History,
+                    SettingsReminderTimeRow(
                         label = "Weekly reminder time",
-                        description = formatTime(notificationPrefs.weeklyResetHour, notificationPrefs.weeklyResetMinute),
-                        color = colorScheme.primary
+                        time = formatTime(notificationPrefs.weeklyResetHour, notificationPrefs.weeklyResetMinute),
                     ) {
                         showTimePicker(notificationPrefs.weeklyResetHour, notificationPrefs.weeklyResetMinute) { h, m ->
                             updateNotificationPrefs { prefs ->
@@ -877,21 +805,17 @@ fun SettingsScreen(
                     }
                 )
                 if (notificationPrefs.quietHoursEnabled && notificationPrefs.masterEnabled) {
-                    SettingsActionItem(
-                        icon = Icons.Default.History,
+                    SettingsReminderTimeRow(
                         label = "Quiet hours start",
-                        description = formatTime(notificationPrefs.quietStartHour, notificationPrefs.quietStartMinute),
-                        color = colorScheme.primary
+                        time = formatTime(notificationPrefs.quietStartHour, notificationPrefs.quietStartMinute),
                     ) {
                         showTimePicker(notificationPrefs.quietStartHour, notificationPrefs.quietStartMinute) { h, m ->
                             updateNotificationPrefs { prefs -> prefs.copy(quietStartHour = h, quietStartMinute = m) }
                         }
                     }
-                    SettingsActionItem(
-                        icon = Icons.Default.History,
+                    SettingsReminderTimeRow(
                         label = "Quiet hours end",
-                        description = formatTime(notificationPrefs.quietEndHour, notificationPrefs.quietEndMinute),
-                        color = colorScheme.primary
+                        time = formatTime(notificationPrefs.quietEndHour, notificationPrefs.quietEndMinute),
                     ) {
                         showTimePicker(notificationPrefs.quietEndHour, notificationPrefs.quietEndMinute) { h, m ->
                             updateNotificationPrefs { prefs -> prefs.copy(quietEndHour = h, quietEndMinute = m) }
@@ -1204,6 +1128,516 @@ fun SettingsScreen(
             }
         )
     }
+
+    if (showAvatarPickerDialog) {
+        SettingsAvatarEditorDialog(
+            name = avatarDraftName,
+            selectedAvatarId = avatarDraftId.ifBlank { profile.avatarId },
+            onNameChange = { avatarDraftName = it },
+            onAvatarSelect = { avatarDraftId = it },
+            onDismiss = { showAvatarPickerDialog = false },
+            onSave = {
+                val trimmedName = avatarDraftName.trim()
+                if (trimmedName != profile.displayName) {
+                    userViewModel.updateProfileName(trimmedName)
+                }
+                val selectedAvatar = avatarDraftId.ifBlank { profile.avatarId }
+                if (selectedAvatar != profile.avatarId) {
+                    userViewModel.updateAvatar(selectedAvatar)
+                }
+                showAvatarPickerDialog = false
+                postSettingsFeedback(
+                    tone = FeedbackBannerTone.Success,
+                    message = "Name and avatar saved."
+                )
+            }
+        )
+    }
+}
+
+}
+
+@Composable
+private fun FigmaSettingsHero(
+    title: String,
+    subtitle: String,
+    onBack: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(206.dp)
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFFFF7188), Color(0xFFFF8FA2))
+                )
+            )
+            .padding(horizontal = 34.dp, vertical = 22.dp)
+    ) {
+        Surface(
+            modifier = Modifier
+                .size(38.dp)
+                .align(Alignment.TopStart)
+                .clickable(onClick = onBack),
+            shape = CircleShape,
+            color = Color.White,
+            contentColor = Color(0xFFFF7F93)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .size(142.dp)
+                .align(Alignment.TopEnd)
+                .offset(x = 54.dp, y = 6.dp)
+                .background(Color(0xFFFFC2CB).copy(alpha = 0.78f), CircleShape)
+        )
+        PcosinaDesignIcon(
+            resId = R.drawable.pcosina_svg_44_settings,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.42f),
+            modifier = Modifier
+                .size(148.dp)
+                .align(Alignment.TopEnd)
+                .offset(x = 44.dp, y = 2.dp)
+        )
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(bottom = 8.dp)
+                .fillMaxWidth(0.82f),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 0.sp
+                )
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White,
+                lineHeight = 16.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun FigmaSettingsProfileBand(
+    avatarId: String,
+    displayName: String,
+    email: String,
+    onAvatarClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(218.dp)
+            .background(Color.White)
+    ) {
+        SettingsFoodDoodlePattern(
+            modifier = Modifier.matchParentSize(),
+            color = Color(0xFFFFA2B3).copy(alpha = 0.36f)
+        )
+        Column(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(top = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Surface(
+                    modifier = Modifier.size(118.dp),
+                    shape = CircleShape,
+                    color = Color(0xFFFFEDF1),
+                    border = BorderStroke(3.dp, Color(0xFFFF7A92))
+                ) {}
+                PcosinaAvatar(
+                    avatarId = avatarId,
+                    modifier = Modifier.size(112.dp)
+                )
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(34.dp)
+                        .clickable(onClick = onAvatarClick),
+                    shape = CircleShape,
+                    color = Color(0xFFFF7A92),
+                    contentColor = Color.White
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Choose avatar",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+            Text(
+                text = displayName,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    color = Color(0xFF2B1B20),
+                    fontWeight = FontWeight.ExtraBold
+                )
+            )
+            Text(
+                text = email,
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color(0xFF3B3135),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun FigmaSettingsTabs(
+    selectedKey: String,
+    onSelect: (String) -> Unit,
+    showTools: Boolean,
+) {
+    val tabs = buildList {
+        add(SettingsScreenFocus.Profile.name to SettingsTabIcon(icon = Icons.Default.Person, label = "Profile"))
+        add(SettingsScreenFocus.Reminders.name to SettingsTabIcon(iconRes = R.drawable.pcosina_svg_45_bell, label = "Reminders"))
+        add(SettingsScreenFocus.Account.name to SettingsTabIcon(iconRes = R.drawable.pcosina_svg_44_settings, label = "Account"))
+        if (showTools) add(SettingsScreenFocus.Tools.name to SettingsTabIcon(iconRes = R.drawable.pcosina_svg_14_info, label = "Tools"))
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFFFCCD4))
+            .padding(horizontal = 32.dp, vertical = 11.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        tabs.forEach { (key, data) ->
+            val selected = selectedKey == key
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 36.dp)
+                    .clickable { onSelect(key) },
+                shape = RoundedCornerShape(999.dp),
+                color = if (selected) Color(0xFFFF7A92) else Color.White,
+                contentColor = if (selected) Color.White else Color(0xFFFF7A92)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (data.iconRes != null) {
+                        PcosinaDesignIcon(
+                            resId = data.iconRes,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = if (selected) Color.White else Color(0xFFFF7A92)
+                        )
+                    } else if (data.icon != null) {
+                        Icon(
+                            imageVector = data.icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = data.label,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FigmaSettingsFeatureToggle(
+    icon: ImageVector,
+    label: String,
+    checked: Boolean,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            modifier = Modifier.size(38.dp),
+            shape = CircleShape,
+            color = Color(0xFFFFD6DE),
+            contentColor = Color(0xFFFF6F86)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(21.dp))
+            }
+        }
+        Spacer(Modifier.width(14.dp))
+        Text(
+            text = label,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyLarge,
+            color = Color(0xFF3B3135)
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color(0xFFFF7A92),
+                checkedTrackColor = Color(0xFFFFC4CE),
+                uncheckedThumbColor = Color(0xFFFF7A92),
+                uncheckedTrackColor = Color(0xFFD7D7D7)
+            )
+        )
+    }
+}
+
+@Composable
+private fun SettingsAvatarEditorDialog(
+    name: String,
+    selectedAvatarId: String,
+    onNameChange: (String) -> Unit,
+    onAvatarSelect: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onSave: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(
+                onClick = onSave,
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7A92)),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Save Changes", fontWeight = FontWeight.ExtraBold)
+            }
+        },
+        dismissButton = {
+            SettingsDialogDismissButton(
+                label = "Cancel",
+                onClick = onDismiss,
+            )
+        },
+        title = {
+            Text(
+                text = "Name and Avatar",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFFB95C75),
+                ),
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Edit your name",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                        color = Color(0xFF24191D),
+                    )
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { onNameChange(it.take(32)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Choose your avatar",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                        color = Color(0xFF24191D),
+                    )
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(15.dp, Alignment.CenterHorizontally),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        PcosinaAvatarOptions.forEach { option ->
+                            SettingsAvatarChoice(
+                                avatarId = option.id,
+                                selected = selectedAvatarId == option.id,
+                                onClick = { onAvatarSelect(option.id) },
+                            )
+                        }
+                    }
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun SettingsAvatarChoice(
+    avatarId: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.size(78.dp),
+        shape = CircleShape,
+        color = Color.Transparent,
+        border = BorderStroke(
+            width = if (selected) 3.dp else 1.dp,
+            color = if (selected) Color(0xFFFF7A92) else Color(0xFFFFC0CA),
+        ),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            PcosinaAvatar(
+                avatarId = avatarId,
+                modifier = Modifier
+                    .padding(3.dp)
+                    .fillMaxSize(),
+            )
+            if (selected) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(24.dp),
+                    shape = CircleShape,
+                    color = Color(0xFFFF7A92),
+                    contentColor = Color.White,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsReminderTimeRow(
+    label: String,
+    time: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFFFF1F3),
+        border = BorderStroke(1.dp, Color(0xFF6F4E59).copy(alpha = 0.65f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = CircleShape,
+                color = Color(0xFFFFCED8),
+                contentColor = Color(0xFFFF7A92),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.History,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.ExtraBold),
+                    color = Color(0xFF2B1B20),
+                )
+                Text(
+                    text = time,
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = Color(0xFFC06C7D),
+                )
+            }
+            Surface(
+                modifier = Modifier.size(34.dp),
+                shape = CircleShape,
+                color = Color(0xFFFFCED8),
+                contentColor = Color(0xFFFF7A92),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsFoodDoodlePattern(
+    modifier: Modifier = Modifier,
+    color: Color,
+) {
+    Canvas(modifier = modifier) {
+        fun sparkle(x: Float, y: Float, arm: Float) {
+            val cx = size.width * x
+            val cy = size.height * y
+            drawLine(color, Offset(cx - arm, cy), Offset(cx + arm, cy), strokeWidth = 4f, cap = StrokeCap.Round)
+            drawLine(color, Offset(cx, cy - arm), Offset(cx, cy + arm), strokeWidth = 4f, cap = StrokeCap.Round)
+        }
+
+        fun circle(x: Float, y: Float, radius: Float) {
+            drawCircle(color, radius, Offset(size.width * x, size.height * y), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4f))
+        }
+
+        fun line(x1: Float, y1: Float, x2: Float, y2: Float) {
+            drawLine(
+                color,
+                Offset(size.width * x1, size.height * y1),
+                Offset(size.width * x2, size.height * y2),
+                strokeWidth = 4f,
+                cap = StrokeCap.Round
+            )
+        }
+
+        circle(0.13f, 0.58f, 38f)
+        circle(0.86f, 0.35f, 30f)
+        circle(0.74f, 0.66f, 10f)
+        sparkle(0.31f, 0.64f, 15f)
+        sparkle(0.96f, 0.52f, 12f)
+        sparkle(0.72f, 0.47f, 12f)
+        line(0.02f, 0.24f, 0.18f, 0.10f)
+        line(0.02f, 0.24f, 0.18f, 0.37f)
+        line(0.18f, 0.10f, 0.16f, 0.37f)
+        line(0.26f, 0.33f, 0.34f, 0.18f)
+        line(0.34f, 0.18f, 0.43f, 0.33f)
+        line(0.26f, 0.33f, 0.43f, 0.33f)
+        line(0.72f, 0.22f, 0.84f, 0.13f)
+        line(0.84f, 0.13f, 0.92f, 0.23f)
+        line(0.72f, 0.22f, 0.92f, 0.23f)
+    }
 }
 
 @Composable
@@ -1327,27 +1761,34 @@ fun SettingsSection(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.70f))
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (containerColor == MaterialTheme.colorScheme.errorContainer) {
+                Color(0xFFFFEEEE)
+            } else {
+                Color.White
+            }
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, Color(0xFFE4D8DC))
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            SettingsStatePill(
+            Text(
                 text = title,
-                emphasized = true,
-                accentColor = titleColor
+                style = MaterialTheme.typography.titleLarge.copy(
+                    color = titleColor,
+                    fontWeight = FontWeight.ExtraBold
+                )
             )
             if (!summary.isNullOrBlank()) {
                 Text(
                     text = summary,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.labelSmall.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                    color = Color(0xFFC06C7D)
                 )
-                SettingsDivider()
             }
             content()
         }
@@ -1396,14 +1837,14 @@ fun SettingsItem(icon: ImageVector, label: String, value: String) {
         Spacer(Modifier.width(12.dp))
         Surface(
             shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.58f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+            color = Color(0xFFFFDFE6),
+            border = BorderStroke(1.dp, Color(0xFFFFC2CE))
         ) {
             Text(
                 text = value,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                color = Color(0xFFFF7A92),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1422,19 +1863,11 @@ fun SettingsActionItem(
 ) {
     Surface(
         onClick = onClick,
-        color = if (destructive) {
-            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)
-        } else {
-            MaterialTheme.colorScheme.surface
-        },
-        shape = RoundedCornerShape(20.dp),
+        color = if (destructive) Color(0xFFFFEEEE) else Color.White,
+        shape = RoundedCornerShape(12.dp),
         border = BorderStroke(
             width = 1.dp,
-            color = if (destructive) {
-                MaterialTheme.colorScheme.error.copy(alpha = 0.20f)
-            } else {
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.70f)
-            }
+            color = Color(0xFF5D4A50).copy(alpha = 0.70f)
         ),
         modifier = Modifier
             .fillMaxWidth()
@@ -1446,9 +1879,9 @@ fun SettingsActionItem(
         ) {
             Surface(
                 shape = CircleShape,
-                color = color.copy(alpha = 0.12f),
-                contentColor = color,
-                modifier = Modifier.size(40.dp)
+                color = if (destructive) Color(0xFFFF7A92) else Color(0xFFFFD6DE),
+                contentColor = if (destructive) Color.White else color,
+                modifier = Modifier.size(44.dp)
             ) {
                 Box(
                     contentAlignment = Alignment.Center
@@ -1478,12 +1911,12 @@ fun SettingsActionItem(
             Surface(
                 shape = CircleShape,
                 color = if (destructive) {
-                    MaterialTheme.colorScheme.error.copy(alpha = 0.10f)
+                    Color(0xFFFF7A92)
                 } else {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                    Color(0xFFFFD6DE)
                 },
                 contentColor = if (destructive) {
-                    MaterialTheme.colorScheme.error
+                    Color.White
                 } else {
                     MaterialTheme.colorScheme.primary
                 }
@@ -1517,9 +1950,9 @@ private fun SettingsToggleItem(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         color = if (checked && enabled) {
-            colorScheme.primaryContainer.copy(alpha = 0.55f)
+            Color(0xFFFFEEF2)
         } else {
-            colorScheme.surface
+            Color.White
         },
         border = BorderStroke(
             1.dp,

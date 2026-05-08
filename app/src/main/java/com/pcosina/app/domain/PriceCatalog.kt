@@ -1,5 +1,6 @@
 package com.pcosina.app.domain
 
+import java.time.LocalDate
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -7,7 +8,19 @@ data class PriceRule(
     val keywords: List<String>,
     val pricePhp: Int,
     val category: String,
-    val unit: String
+    val unit: String,
+    val sourceLabel: String = "Offline SRP-style baseline",
+    val confidence: String = "medium",
+)
+
+data class PriceEstimate(
+    val pricePhp: Int,
+    val category: String,
+    val sourceLabel: String,
+    val confidence: String,
+    val marketMultiplier: Double,
+    val tingiMultiplier: Double,
+    val quantityFactor: Double,
 )
 
 object PriceCatalog {
@@ -102,6 +115,16 @@ object PriceCatalog {
         "Others" to 0.75
     )
 
+    private val defaultSeasonalMultiplier = mapOf(
+        "Produce" to mapOf(6 to 1.06, 7 to 1.10, 8 to 1.12, 9 to 1.12, 10 to 1.08, 11 to 1.04),
+        "Meat/Seafood" to mapOf(7 to 1.04, 8 to 1.06, 9 to 1.06, 10 to 1.04)
+    )
+
+    private val volatileIngredientTokens = setOf(
+        "chili", "sili", "calamansi", "tomato", "kamatis", "onion", "sibuyas", "garlic", "bawang",
+        "fish", "tilapia", "bangus", "galunggong"
+    )
+
     private val pieceWeightKg = mapOf(
         "Produce" to 0.12,
         "Meat/Seafood" to 0.15,
@@ -119,15 +142,48 @@ object PriceCatalog {
 
     fun estimatePrice(name: String): Int = estimatePriceDetail(name).first
 
-    fun estimatePriceDetail(name: String, quantityText: String = ""): Pair<Int, String> {
+    fun estimatePriceExplanation(
+        name: String,
+        quantityText: String = "",
+        monthIndex: Int = LocalDate.now().monthValue,
+        includeSafetyBuffer: Boolean = false,
+    ): PriceEstimate {
         val rule = ruleForName(name)
         val category = rule?.category ?: inferCategory(name)
         val basePrice = rule?.pricePhp ?: (categoryAverages[category] ?: 60)
         val targetUnit = rule?.unit ?: (categoryDefaultUnit[category] ?: "piece")
         val (qtyValue, qtyUnit) = extractQuantity("$quantityText $name".trim())
         val factor = clampFactor(quantityFactor(qtyValue, qtyUnit, targetUnit, category), category)
-        val scaledPrice = (basePrice * factor * (categoryMultiplier[category] ?: 0.75)).coerceAtLeast(5.0)
-        return scaledPrice.roundToInt() to category
+        val marketMultiplier = defaultSeasonalMultiplier[category]?.get(monthIndex.coerceIn(1, 12)) ?: 1.0
+        val tingiMultiplier = tingiMultiplier(qtyValue, qtyUnit, targetUnit)
+        val safetyBuffer = if (includeSafetyBuffer) 1.10 else 1.0
+        val scaledPrice = (
+            basePrice *
+                factor *
+                (categoryMultiplier[category] ?: 0.75) *
+                marketMultiplier *
+                tingiMultiplier *
+                safetyBuffer
+            ).coerceAtLeast(5.0)
+        val confidence = when {
+            rule == null -> "low"
+            volatileIngredientTokens.any { name.lowercase(Locale.getDefault()).contains(it) } -> "medium"
+            else -> rule.confidence
+        }
+        return PriceEstimate(
+            pricePhp = scaledPrice.roundToInt(),
+            category = category,
+            sourceLabel = rule?.sourceLabel ?: "Offline category average fallback",
+            confidence = confidence,
+            marketMultiplier = marketMultiplier,
+            tingiMultiplier = tingiMultiplier,
+            quantityFactor = factor,
+        )
+    }
+
+    fun estimatePriceDetail(name: String, quantityText: String = ""): Pair<Int, String> {
+        val estimate = estimatePriceExplanation(name, quantityText)
+        return estimate.pricePhp to estimate.category
     }
 
     fun inferCategory(name: String): String {
@@ -235,6 +291,16 @@ object PriceCatalog {
             }
             else -> 1.0
         }
+    }
+
+    private fun tingiMultiplier(value: Double?, unit: String?, targetUnit: String): Double {
+        if (unit in setOf("piece", "clove", "bunch", "stalk", "can", "pack") && targetUnit in setOf("kg", "l")) {
+            return 1.12
+        }
+        if (value != null && value > 0.0 && value < 0.25 && targetUnit in setOf("kg", "l")) {
+            return 1.08
+        }
+        return 1.0
     }
 
     private fun clampFactor(value: Double, category: String): Double {

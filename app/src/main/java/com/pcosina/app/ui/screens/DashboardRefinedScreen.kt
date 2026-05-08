@@ -1,6 +1,6 @@
 package com.pcosina.app.ui.screens
 
-import androidx.compose.foundation.Image
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,9 +28,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Verified
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -38,7 +35,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -51,10 +47,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.pcosina.app.R
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.GroceryViewModel
@@ -77,6 +72,8 @@ import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
 import com.pcosina.app.ui.components.FriendlyEmptyStateCard
 import com.pcosina.app.ui.components.LoadingActionButton
+import com.pcosina.app.ui.components.PcosinaAvatarBadge
+import com.pcosina.app.ui.components.PcosinaDesignIcon
 import com.pcosina.app.ui.navigation.Routes
 import com.pcosina.app.ui.theme.PcosinaBlush
 import com.pcosina.app.ui.theme.PcosinaDeepRose
@@ -142,8 +139,6 @@ fun DashboardRefinedScreen(
     modifier: Modifier = Modifier,
 ) {
     val profile by userViewModel.userProfile.collectAsState()
-    val dailyCalorieTarget = userViewModel.dailyCalorieTarget
-    val calorieBreakdown = userViewModel.calorieTargetBreakdown
     val mealPlanState by mealPlanViewModel.uiState.collectAsState()
     val planHistory by mealPlanViewModel.planHistory.collectAsState()
     val activePlanId by mealPlanViewModel.activePlanId.collectAsState()
@@ -167,7 +162,6 @@ fun DashboardRefinedScreen(
             ?: planHistory.firstOrNull { it.id == activePlanId }?.response
             ?: planHistory.maxByOrNull { it.generatedAt }?.response
     }
-    val planExplanation = activePlanResponse?.explanation
     val hasPlan = activePlanResponse != null || planHistory.isNotEmpty()
     val hasReviewedWeek = activePlanId != null && activePlanId == lastReviewedWeek
     val guidedStep = resolveGuidedJourneyStep(
@@ -258,13 +252,7 @@ fun DashboardRefinedScreen(
         )
     }
     val dateHeader = remember(today) {
-        buildString {
-            append(today.format(DateTimeFormatter.ofPattern("MMM", Locale.ENGLISH)))
-            append('\n')
-            append(today.format(DateTimeFormatter.ofPattern("dd", Locale.ENGLISH)))
-            append('\n')
-            append(today.format(DateTimeFormatter.ofPattern("EEEE", Locale.ENGLISH)))
-        }
+        "${today.format(DateTimeFormatter.ofPattern("MMM", Locale.ENGLISH)).uppercase(Locale.ENGLISH)}\n${today.dayOfMonth}"
     }
     val compactHomeLayout = screenWidthDp < 380
     val welcomeSubline = when {
@@ -334,8 +322,8 @@ fun DashboardRefinedScreen(
             .fillMaxSize()
             .background(PcosinaSurface)
             .statusBarsPadding(),
-        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        contentPadding = PaddingValues(horizontal = if (compactHomeLayout) 16.dp else 18.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compactHomeLayout) 12.dp else 14.dp)
     ) {
         item {
             RefinedBrandHeader(
@@ -359,11 +347,7 @@ fun DashboardRefinedScreen(
                 displayName = profile.displayName.ifBlank { "there" },
                 dateHeader = dateHeader,
                 welcomeSubline = welcomeSubline,
-                nextFocusLabel = when {
-                    !hasPlan -> guidedStep.ctaLabel
-                    todaySnapshot.nextMeal != null -> "Next: ${todaySnapshot.nextMeal?.mealLabel}"
-                    else -> "Week active"
-                },
+                avatarId = profile.avatarId,
                 compactLayout = compactHomeLayout,
             )
         }
@@ -372,11 +356,11 @@ fun DashboardRefinedScreen(
             if (dualColumnCards) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     RefinedGoalsCard(
                         goalOptions = homeGoalOptions,
-                        modifier = Modifier.weight(1.25f),
+                        modifier = Modifier.weight(1.28f),
                         onEditGoals = {
                             onNavigateToRoute(
                                 if (profile.isProfileCompleted) Routes.GoalSelection else Routes.UserProfile
@@ -386,7 +370,7 @@ fun DashboardRefinedScreen(
                     )
                     RefinedTipCard(
                         tipLines = tipLines,
-                        modifier = Modifier.weight(0.85f)
+                        modifier = Modifier.weight(0.82f)
                     )
                 }
             } else {
@@ -408,7 +392,8 @@ fun DashboardRefinedScreen(
         item {
             RefinedSectionHeader(
                 title = "Your Meal Plan for Today",
-                subtitle = todayMealSubtitle
+                subtitle = todayMealSubtitle,
+                iconRes = R.drawable.pcosina_svg_18_clipboard
             )
         }
 
@@ -466,7 +451,8 @@ fun DashboardRefinedScreen(
                     "${todaySnapshot.completedCount}/${todaySnapshot.plannedCount} meals logged today."
                 } else {
                     "Generate one week first, then your day-by-day progress will appear here."
-                }
+                },
+                iconRes = R.drawable.pcosina_svg_13_calendar
             )
         }
 
@@ -529,25 +515,9 @@ fun DashboardRefinedScreen(
 
     if (goalInfoState.value != null) {
         val option = goalInfoState.value!!
-        AlertDialog(
-            onDismissRequest = { goalInfoState.value = null },
-            confirmButton = {
-                TextButton(onClick = { goalInfoState.value = null }) {
-                    Text("Back")
-                }
-            },
-            title = {
-                Text(
-                    text = option.label,
-                    modifier = Modifier.semantics { heading() }
-                )
-            },
-            text = {
-                Text(
-                    text = goalInfoCopy(option),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
+        HomeGoalInfoDialog(
+            option = option,
+            onDismiss = { goalInfoState.value = null }
         )
     }
 
@@ -571,26 +541,28 @@ private fun RefinedBrandHeader(
         ) {
             Row(
                 modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = PcosinaBlush.copy(alpha = 0.24f)
+                    color = Color.White,
+                    border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.24f)),
+                    shadowElevation = 5.dp
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.pcosina_logo),
-                        contentDescription = "PCOSina",
+                    PcosinaDesignIcon(
+                        resId = R.drawable.pcosina_svg_24_logo,
+                        contentDescription = null,
+                        tint = Color.Unspecified,
                         modifier = Modifier
-                            .size(48.dp)
-                            .padding(5.dp),
-                        contentScale = ContentScale.Fit
+                            .padding(6.dp)
+                            .size(28.dp)
                     )
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = "PCOSina",
-                        style = MaterialTheme.typography.headlineSmall.copy(
+                        style = MaterialTheme.typography.titleLarge.copy(
                             color = PcosinaPink,
                             fontWeight = FontWeight.ExtraBold,
                             shadow = androidx.compose.ui.graphics.Shadow(
@@ -610,13 +582,13 @@ private fun RefinedBrandHeader(
                 }
             }
             RefinedIconAction(
-                icon = Icons.Filled.Settings,
+                iconRes = R.drawable.pcosina_svg_44_settings,
                 contentDescription = "Settings",
                 onClick = onOpenSettings
             )
             Spacer(Modifier.width(8.dp))
             RefinedIconAction(
-                icon = Icons.Filled.Info,
+                iconRes = R.drawable.pcosina_svg_45_bell,
                 contentDescription = "Support",
                 onClick = onOpenSupport
             )
@@ -639,7 +611,8 @@ private fun RefinedBrandHeader(
 
 @Composable
 private fun RefinedIconAction(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    @DrawableRes iconRes: Int? = null,
     contentDescription: String,
     onClick: () -> Unit
 ) {
@@ -650,12 +623,21 @@ private fun RefinedIconAction(
         border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.28f)),
         shadowElevation = 6.dp
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = PcosinaPink,
-            modifier = Modifier.padding(12.dp)
-        )
+        if (iconRes != null) {
+            PcosinaDesignIcon(
+                resId = iconRes,
+                contentDescription = contentDescription,
+                tint = PcosinaPink,
+                modifier = Modifier.padding(12.dp)
+            )
+        } else if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = PcosinaPink,
+                modifier = Modifier.padding(12.dp)
+            )
+        }
     }
 }
 
@@ -664,78 +646,39 @@ private fun RefinedWelcomeCard(
     displayName: String,
     dateHeader: String,
     welcomeSubline: String,
-    nextFocusLabel: String,
+    avatarId: String,
     compactLayout: Boolean,
 ) {
+    val welcomeShape = RoundedCornerShape(18.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(26.dp))
+            .clip(welcomeShape)
             .background(PcosinaBlush)
-            .border(2.dp, Color(0xFF30181E), RoundedCornerShape(26.dp))
+            .border(1.5.dp, Color(0xFF30181E).copy(alpha = 0.78f), welcomeShape)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (compactLayout) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = Color(0xFFFFD6E1),
-                            border = BorderStroke(1.5.dp, Color(0xFF30181E))
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.pcosina_logo),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(58.dp)
-                                    .padding(6.dp)
-                            )
-                        }
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "Welcome, $displayName!",
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    color = Color(0xFF662532),
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(1.dp)
-                                    .background(Color(0xFF662532).copy(alpha = 0.45f))
-                            )
-                            Text(
-                                text = welcomeSubline,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF662532)
-                            )
-                        }
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = Color.White.copy(alpha = 0.42f)
-                    ) {
-                        Text(
-                            text = dateHeader,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                color = Color(0xFF2B1B20),
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        )
-                    }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(9.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    PcosinaAvatarBadge(
+                        avatarId = avatarId,
+                        size = 64.dp,
+                        shadowElevation = 4.dp,
+                    )
+                    WelcomeCopy(
+                        displayName = displayName,
+                        welcomeSubline = welcomeSubline,
+                        modifier = Modifier.weight(1f),
+                        compact = true
+                    )
+                    WelcomeDatePill(dateHeader = dateHeader, compact = true)
                 }
             } else {
                 Row(
@@ -743,116 +686,86 @@ private fun RefinedWelcomeCard(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = Color(0xFFFFD6E1),
-                        border = BorderStroke(1.5.dp, Color(0xFF30181E))
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.pcosina_logo),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(60.dp)
-                                .padding(6.dp)
-                        )
-                    }
-                    Column(
+                    PcosinaAvatarBadge(
+                        avatarId = avatarId,
+                        size = 72.dp,
+                        shadowElevation = 5.dp,
+                    )
+                    WelcomeCopy(
+                        displayName = displayName,
+                        welcomeSubline = welcomeSubline,
                         modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "Welcome, $displayName!",
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                color = Color(0xFF662532),
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(Color(0xFF662532).copy(alpha = 0.45f))
-                        )
-                        Text(
-                            text = welcomeSubline,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF662532)
-                        )
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = Color.White.copy(alpha = 0.42f)
-                    ) {
-                        Text(
-                            text = dateHeader,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                color = Color(0xFF2B1B20),
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        )
-                    }
+                        compact = false
+                    )
+                    WelcomeDatePill(dateHeader = dateHeader, compact = false)
                 }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RefinedMetaPill(text = nextFocusLabel)
             }
         }
     }
 }
 
 @Composable
-private fun RefinedMetaPill(text: String) {
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = Color.White.copy(alpha = 0.88f),
-        border = BorderStroke(1.dp, Color(0xFF662532).copy(alpha = 0.14f))
+private fun WelcomeCopy(
+    displayName: String,
+    welcomeSubline: String,
+    compact: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-            color = Color(0xFF662532),
+            text = "Welcome, $displayName!",
+            style = if (compact) {
+                MaterialTheme.typography.titleLarge.copy(
+                    color = Color(0xFF662532),
+                    fontWeight = FontWeight.ExtraBold
+                )
+            } else {
+                MaterialTheme.typography.headlineSmall.copy(
+                    color = Color(0xFF662532),
+                    fontWeight = FontWeight.ExtraBold
+                )
+            },
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(Color(0xFF662532).copy(alpha = 0.45f))
+        )
+        Text(
+            text = welcomeSubline,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color(0xFF662532),
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
     }
 }
 
 @Composable
-private fun RefinedMiniStat(
-    title: String,
-    value: String,
-    modifier: Modifier = Modifier
+private fun WelcomeDatePill(
+    dateHeader: String,
+    compact: Boolean,
 ) {
     Surface(
-        modifier = modifier.widthIn(min = 90.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = Color.White.copy(alpha = 0.88f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.4f))
+        shape = RoundedCornerShape(14.dp),
+        color = Color.White.copy(alpha = 0.5f),
+        border = BorderStroke(1.dp, Color(0xFF662532).copy(alpha = 0.14f))
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelSmall,
-                color = PcosinaMuted
+        Text(
+            text = dateHeader,
+            modifier = Modifier.padding(horizontal = if (compact) 9.dp else 10.dp, vertical = 6.dp),
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.titleSmall.copy(
+                color = Color(0xFF2B1B20),
+                fontWeight = FontWeight.ExtraBold
             )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = PcosinaDeepRose,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+        )
     }
 }
 
@@ -865,12 +778,13 @@ private fun RefinedGoalsCard(
 ) {
     RefinedContentCard(
         modifier = modifier,
-        containerColor = Color(0xFFF27693),
+        containerColor = Color(0xFFF57B96),
         title = "Your Goals",
+        leadingIconRes = R.drawable.pcosina_svg_20_goal,
         titleColor = Color(0xFF682937),
         titleTextStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
-        contentPadding = 12.dp,
-        contentSpacing = 8.dp,
+        contentPadding = 10.dp,
+        contentSpacing = 6.dp,
         trailing = {
             Surface(
                 shape = RoundedCornerShape(999.dp),
@@ -894,7 +808,7 @@ private fun RefinedGoalsCard(
                 color = Color.White.copy(alpha = 0.92f)
             )
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 goalOptions.forEach { option ->
                     Surface(
                         shape = RoundedCornerShape(999.dp),
@@ -903,29 +817,31 @@ private fun RefinedGoalsCard(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Surface(
                                 shape = CircleShape,
                                 color = PcosinaPink
                             ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Verified,
+                                PcosinaDesignIcon(
+                                    resId = R.drawable.pcosina_svg_12_check,
                                     contentDescription = null,
                                     tint = Color.White,
-                                    modifier = Modifier.padding(6.dp)
+                                    modifier = Modifier.padding(4.dp)
                                 )
                             }
                             Text(
                                 text = option.label,
                                 modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                color = PcosinaDeepRose
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = PcosinaDeepRose,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             IconButton(
-                                modifier = Modifier.size(30.dp),
+                                modifier = Modifier.size(24.dp),
                                 onClick = { onOpenGoalInfo(option) }
                             ) {
                                 Icon(
@@ -949,23 +865,26 @@ private fun RefinedTipCard(
 ) {
     RefinedContentCard(
         modifier = modifier,
-        containerColor = Color(0xFFE7B18C),
+        containerColor = Color(0xFFFFC7D0),
         title = "Daily Tips",
-        titleColor = Color(0xFF6B2D24),
+        leadingIconRes = R.drawable.pcosina_svg_19_tip,
+        titleColor = PcosinaDeepRose,
         titleTextStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
-        contentPadding = 12.dp,
-        contentSpacing = 8.dp
+        contentPadding = 10.dp,
+        contentSpacing = 6.dp
     ) {
         Text(
             text = tipLines.firstOrNull().orEmpty(),
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-            color = Color(0xFF4B2E28)
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+            color = Color(0xFF4B2530)
         )
         tipLines.getOrNull(1)?.let { footer ->
             Text(
                 text = footer,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF6C514C)
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF6F4650),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -977,6 +896,7 @@ private fun RefinedContentCard(
     titleColor: Color,
     containerColor: Color,
     modifier: Modifier = Modifier,
+    @DrawableRes leadingIconRes: Int? = null,
     titleTextStyle: TextStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
     contentPadding: Dp = 14.dp,
     contentSpacing: Dp = 10.dp,
@@ -986,7 +906,7 @@ private fun RefinedContentCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.5.dp, PcosinaDeepRose.copy(alpha = 0.22f))
     ) {
         Column(
@@ -998,11 +918,27 @@ private fun RefinedContentCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = title,
-                        style = titleTextStyle,
-                        color = titleColor
-                    )
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        leadingIconRes?.let { resId ->
+                            PcosinaDesignIcon(
+                                resId = resId,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                                tint = Color.Unspecified
+                            )
+                        }
+                        Text(
+                            text = title,
+                            style = titleTextStyle,
+                            color = titleColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     trailing?.invoke()
                 }
                 content()
@@ -1014,21 +950,43 @@ private fun RefinedContentCard(
 @Composable
 private fun RefinedSectionHeader(
     title: String,
-    subtitle: String
+    subtitle: String,
+    @DrawableRes iconRes: Int? = null,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontWeight = FontWeight.ExtraBold,
-                color = PcosinaDeepRose
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        iconRes?.let { resId ->
+            PcosinaDesignIcon(
+                resId = resId,
+                contentDescription = null,
+                modifier = Modifier.size(28.dp),
+                tint = Color.Unspecified
             )
-        )
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodySmall,
-            color = PcosinaMuted,
-        )
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    color = PcosinaDeepRose
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = PcosinaMuted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -1041,57 +999,45 @@ private fun RefinedMealCard(
     val (containerColor, accentColor) = mealPalette(meal.mealLabel)
     Card(
         modifier = modifier
-            .heightIn(min = 136.dp)
-            .clip(RoundedCornerShape(24.dp))
+            .heightIn(min = 132.dp)
+            .clip(RoundedCornerShape(18.dp))
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.5.dp, Color(0xFF30181E).copy(alpha = 0.7f))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.36f)
                 ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.58f)
-                    ) {
-                        Text(
-                            text = mealIcon(meal.mealLabel),
-                            modifier = Modifier.padding(8.dp),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
-                    Text(
-                        text = meal.mealLabel,
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold),
-                        color = accentColor
+                    PcosinaDesignIcon(
+                        resId = mealIconRes(meal.mealLabel),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier
+                            .padding(6.dp)
+                            .size(24.dp)
                     )
                 }
-                if (meal.isLogged) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.78f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Verified,
-                            contentDescription = "Logged today",
-                            tint = accentColor,
-                            modifier = Modifier.padding(6.dp).size(14.dp)
-                        )
-                    }
-                }
+                Text(
+                    text = meal.mealLabel,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold),
+                    color = accentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
             Text(
                 text = meal.title,
@@ -1108,7 +1054,7 @@ private fun RefinedMealCard(
                 ) {
                     Text(
                         text = meal.calories.toString(),
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
                         color = Color(0xFF2F1A21)
                     )
                     Text(
@@ -1137,13 +1083,13 @@ private fun RefinedWeekProgressCard(
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(30.dp),
-        border = BorderStroke(2.dp, Color(0xFF30181E).copy(alpha = 0.72f))
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(1.5.dp, Color(0xFF30181E).copy(alpha = 0.62f))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 12.dp),
+                .padding(horizontal = 8.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             entries.forEachIndexed { index, entry ->
@@ -1153,7 +1099,7 @@ private fun RefinedWeekProgressCard(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Surface(
-                        modifier = Modifier.size(40.dp),
+                        modifier = Modifier.size(34.dp),
                         shape = CircleShape,
                         color = when (entry.state) {
                             HomeWeekState.Complete -> PcosinaPink
@@ -1173,11 +1119,11 @@ private fun RefinedWeekProgressCard(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             when (entry.state) {
-                                HomeWeekState.Complete -> Icon(
-                                    imageVector = Icons.Filled.Verified,
+                                HomeWeekState.Complete -> PcosinaDesignIcon(
+                                    resId = R.drawable.pcosina_svg_12_check,
                                     contentDescription = null,
                                     tint = Color.White,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(18.dp)
                                 )
                                 HomeWeekState.Partial -> Text(
                                     text = entry.progressLabel,
@@ -1199,14 +1145,14 @@ private fun RefinedWeekProgressCard(
                     }
                     Text(
                         text = entry.label,
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                         color = PcosinaDeepRose
                     )
                 }
                 if (index != entries.lastIndex) {
                     Box(
                         modifier = Modifier
-                            .weight(0.35f)
+                            .weight(0.18f)
                             .height(2.dp)
                             .background(PcosinaMuted.copy(alpha = 0.25f))
                     )
@@ -1227,33 +1173,48 @@ private fun RefinedPrimaryActionCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
+            .clip(RoundedCornerShape(18.dp))
             .background(Brush.linearGradient(colors = listOf(PcosinaLightPink.copy(alpha = 0.92f), PcosinaBlush.copy(alpha = 0.94f))))
-            .border(2.dp, Color(0xFF30181E).copy(alpha = 0.72f), RoundedCornerShape(28.dp))
+            .border(1.5.dp, PcosinaPink.copy(alpha = 0.2f), RoundedCornerShape(18.dp))
     ) {
-        Box(
+        Surface(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 14.dp, bottom = 10.dp)
-                .size(108.dp)
-                .clip(CircleShape)
-                .background(PcosinaDeepRose.copy(alpha = 0.08f))
-        )
+                .padding(end = 14.dp, bottom = 12.dp)
+                .size(104.dp),
+            shape = CircleShape,
+            color = PcosinaDeepRose.copy(alpha = 0.08f),
+            border = BorderStroke(2.dp, PcosinaDeepRose.copy(alpha = 0.22f))
+        ) {
+            PcosinaDesignIcon(
+                resId = R.drawable.pcosina_svg_37_meal,
+                contentDescription = null,
+                tint = PcosinaDeepRose.copy(alpha = 0.62f),
+                modifier = Modifier.padding(20.dp)
+            )
+        }
         Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .padding(end = 86.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.headlineSmall.copy(
+                style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFF682937)
-                )
+                ),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF45232C)
+                color = Color(0xFF45232C),
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
             )
             LoadingActionButton(
                 state = state,
@@ -1262,12 +1223,92 @@ private fun RefinedPrimaryActionCard(
                 successLabel = buttonLabel,
                 errorLabel = "Try again",
                 onClick = onClick,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.widthIn(min = 132.dp, max = 190.dp),
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                     containerColor = PcosinaDeepRose,
                     contentColor = Color.White
                 )
             )
+        }
+    }
+}
+
+@Composable
+private fun HomeGoalInfoDialog(
+    option: GoalOption,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 370.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFFFFD1D8),
+            shadowElevation = 18.dp,
+            border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.28f))
+        ) {
+            Column(
+                modifier = Modifier.padding(top = 0.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .padding(top = 0.dp)
+                        .size(54.dp),
+                    shape = CircleShape,
+                    color = PcosinaPink
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Filled.Info,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = option.label.uppercase(Locale.ENGLISH),
+                    modifier = Modifier
+                        .padding(horizontal = 22.dp)
+                        .semantics { heading() },
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = PcosinaPink
+                    )
+                )
+                Text(
+                    text = goalInfoCopy(option),
+                    modifier = Modifier.padding(horizontal = 28.dp),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color(0xFF2D1A20)
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(PcosinaPink.copy(alpha = 0.62f))
+                )
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 52.dp)
+                        .clickable(onClick = onDismiss),
+                    color = Color.Transparent
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "OKAY",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = PcosinaPink
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -1279,11 +1320,10 @@ private fun mealPalette(mealLabel: String): Pair<Color, Color> = when {
     else -> PcosinaSurfaceAlt to PcosinaDeepRose
 }
 
-private fun mealIcon(mealLabel: String): String = when {
-    mealLabel.equals("Breakfast", ignoreCase = true) -> "☀"
-    mealLabel.equals("Lunch", ignoreCase = true) -> "🍴"
-    mealLabel.equals("Dinner", ignoreCase = true) -> "☾"
-    else -> "•"
+@DrawableRes
+private fun mealIconRes(mealLabel: String): Int = when {
+    mealLabel.equals("Breakfast", ignoreCase = true) -> R.drawable.pcosina_svg_16_sun
+    else -> R.drawable.pcosina_svg_37_meal
 }
 
 private fun goalInfoCopy(option: GoalOption): String = when (option) {

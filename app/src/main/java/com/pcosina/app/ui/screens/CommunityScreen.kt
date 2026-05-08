@@ -1,206 +1,540 @@
 package com.pcosina.app.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.RestaurantMenu
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.pcosina.app.ui.components.GradientHeader
-import com.pcosina.app.ui.components.FocusSummaryCard
-import com.pcosina.app.ui.components.RefinedFeatureCard
-import com.pcosina.app.ui.components.ScreenFocusOption
-import com.pcosina.app.ui.components.ScreenFocusStrip
-
-private enum class CommunityFocus {
-    Start,
-    Tips,
-    Feedback,
-}
+import com.pcosina.app.R
+import com.pcosina.app.ui.components.PcosinaAvatar
+import com.pcosina.app.ui.components.PcosinaDesignIcon
+import com.pcosina.app.ui.theme.PcosinaDeepRose
+import com.pcosina.app.ui.theme.PcosinaMuted
+import com.pcosina.app.ui.theme.PcosinaPink
+import com.pcosina.app.ui.theme.PcosinaSoftPink
 
 @Composable
 fun CommunityScreen(
     onBack: (() -> Unit)? = null,
     onFeedback: () -> Unit,
+    avatarId: String,
     modifier: Modifier = Modifier,
+    onOpenSettings: (() -> Unit)? = null,
+    onOpenMealPlan: (() -> Unit)? = null,
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-    var focusKey by rememberSaveable { mutableStateOf(CommunityFocus.Start.name) }
-    val focus = remember(focusKey) { CommunityFocus.valueOf(focusKey) }
-    val focusOptions = remember {
-        listOf(
-            ScreenFocusOption(
-                key = CommunityFocus.Start.name,
-                label = "Start",
-                summary = "See the easiest next step before the week starts to feel crowded."
-            ),
-            ScreenFocusOption(
-                key = CommunityFocus.Tips.name,
-                label = "Tips",
-                summary = "Open low-pressure help for planning, groceries, and logging."
-            ),
-            ScreenFocusOption(
-                key = CommunityFocus.Feedback.name,
-                label = "Feedback",
-                summary = "Tell us what felt confusing, rough, or missing."
-            )
-        )
-    }
-    val focusSummaryTitle = when (focus) {
-        CommunityFocus.Start -> "Start with the next useful step."
-        CommunityFocus.Tips -> "Open only the help you need."
-        CommunityFocus.Feedback -> "Feedback stays simple here."
-    }
-    val focusSummaryBody = when (focus) {
-        CommunityFocus.Start -> "This help center should feel like a calm reset, not another task list."
-        CommunityFocus.Tips -> "Planning, groceries, and logging should feel lighter after one quick reminder."
-        CommunityFocus.Feedback -> "A short note about what felt confusing or rough is enough for a useful report."
-    }
-    val focusSummaryHighlights = buildList {
-        add(
-            if (onBack != null) {
-                "You can return to the previous screen anytime."
-            } else {
-                "This support space stays separate from the daily meal tabs."
-            }
-        )
-        add(
-            when (focus) {
-                CommunityFocus.Start -> "Check today's meals, grocery needs, or one progress log first."
-                CommunityFocus.Tips -> "Pick the tip that removes the most friction right now."
-                CommunityFocus.Feedback -> "Tell us what you expected and what happened instead."
-            }
-        )
-    }
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(colorScheme.background)
+            .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        contentPadding = PaddingValues(horizontal = 30.dp, vertical = 22.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
         item {
-            Box {
-                GradientHeader(
-                    title = "Support",
-                    subtitle = "Clear help for planning, logging, and sending feedback.",
-                    containerHeight = 108
-                )
-                if (onBack != null) {
-                    IconButton(onClick = onBack, modifier = Modifier.padding(8.dp)) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = colorScheme.onPrimary
+            SupportBrandHeader(
+                onBack = onBack,
+                onOpenSettings = onOpenSettings,
+            )
+        }
+        item {
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = PcosinaSoftPink.copy(alpha = 0.90f),
+                border = BorderStroke(1.dp, PcosinaDeepRose.copy(alpha = 0.55f)),
+                shadowElevation = 2.dp,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    PcosinaAvatar(
+                        avatarId = avatarId,
+                        modifier = Modifier.size(56.dp),
+                    )
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(
+                            text = "Support Page",
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = PcosinaDeepRose,
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = "Browse our support hub or send us your feedback.",
+                            style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
+                            color = PcosinaDeepRose,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
             }
         }
-
         item {
-            ScreenFocusStrip(
-                title = "Show",
-                options = focusOptions,
-                selectedKey = focusKey,
-                onSelect = { focusKey = it },
-                labelMaxWidth = 124.dp,
-                helperText = "Switch between first steps, practical tips, and feedback."
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                SupportVideoCard(
+                    title = "Watch our app walk-through",
+                    modifier = Modifier.weight(1f),
+                )
+                SupportVideoCard(
+                    title = "Step-by-Step Guide",
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        item {
+            SupportFeedbackCard(onFeedback = onFeedback)
+        }
+        item {
+            SupportDirectoryCard()
+        }
+        item {
+            SupportFreshStartCard(onOpenMealPlan = onOpenMealPlan)
+        }
+        item {
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun SupportBrandHeader(
+    onBack: (() -> Unit)?,
+    onOpenSettings: (() -> Unit)?,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        if (onBack != null) {
+            Surface(
+                shape = CircleShape,
+                color = Color.White,
+                shadowElevation = 3.dp,
+            ) {
+                IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = PcosinaPink,
+                    )
+                }
+            }
+        } else {
+            Surface(
+                modifier = Modifier.size(38.dp),
+                shape = CircleShape,
+                color = PcosinaSoftPink.copy(alpha = 0.85f),
+                border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.45f)),
+                shadowElevation = 2.dp,
+            ) {
+                PcosinaDesignIcon(
+                    resId = R.drawable.pcosina_svg_24_logo,
+                    contentDescription = null,
+                    tint = Color.Unspecified,
+                    modifier = Modifier
+                        .padding(5.dp)
+                        .size(28.dp),
+                )
+            }
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "PCOSina",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    color = PcosinaPink,
+                ),
+            )
+            Text(
+                text = "\"Take the first step toward smarter PCOS nutrition.\"",
+                style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
+                color = PcosinaDeepRose,
             )
         }
-        item {
-            FocusSummaryCard(
-                badge = "Help center",
-                title = focusSummaryTitle,
-                body = focusSummaryBody,
-                accentColor = colorScheme.primary,
-                highlights = focusSummaryHighlights
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SupportRoundIcon(
+                iconRes = R.drawable.pcosina_svg_44_settings,
+                contentDescription = "Settings",
+                onClick = onOpenSettings,
+            )
+            SupportRoundIcon(
+                iconRes = R.drawable.pcosina_svg_45_bell,
+                contentDescription = "Notification settings",
+                onClick = onOpenSettings,
             )
         }
-        if (focus == CommunityFocus.Start) {
-            item {
-                RefinedFeatureCard(
-                    icon = Icons.Filled.CheckCircle,
-                    accentColor = colorScheme.primary,
-                    statusLabel = "Start here",
-                    title = "Your easiest next steps",
-                    body = "If the week feels noisy, shrink it down to the next useful move instead of trying to do everything at once.",
-                    highlights = listOf(
-                        "Open your plan and check today first instead of scanning the whole week.",
-                        "Use the grocery list as a guide, not as a pass-or-fail checklist.",
-                        "Log one meal or reflection today so progress stays easy to restart."
-                    )
-                )
-            }
-        }
+    }
+}
 
-        if (focus == CommunityFocus.Tips) {
-            item {
-                RefinedFeatureCard(
-                    icon = Icons.Filled.RestaurantMenu,
-                    accentColor = colorScheme.secondary,
-                    statusLabel = "Helpful tips",
-                    title = "Make the week feel lighter",
-                    body = "These quick reminders are here to reduce friction, not to give you more rules.",
-                    highlights = listOf(
-                        "Save a realistic pantry before you create a week so suggestions feel usable.",
-                        "Swap meals that miss your taste, time, or budget instead of forcing them.",
-                        "Use Plan, Grocery, and Progress together so each screen does less work on its own.",
-                        "Balanced meals and steady routines matter more than perfect days."
+@Composable
+private fun SupportVideoCard(
+    title: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = FontWeight.ExtraBold,
+                color = PcosinaDeepRose,
+            ),
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(75.dp),
+            shape = RoundedCornerShape(10.dp),
+            color = Color(0xFFE4C2C2).copy(alpha = 0.72f),
+            border = BorderStroke(1.dp, PcosinaDeepRose.copy(alpha = 0.35f)),
+            shadowElevation = 3.dp,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White,
+                    contentColor = PcosinaSoftPink,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .padding(7.dp)
+                            .size(18.dp),
                     )
-                )
+                }
             }
         }
+    }
+}
 
-        if (focus == CommunityFocus.Feedback) {
-            item {
-                RefinedFeatureCard(
-                    icon = Icons.Filled.CheckCircle,
-                    accentColor = colorScheme.secondary,
-                    statusLabel = "What to mention",
-                    title = "Useful feedback is short and specific",
-                    body = "You do not need to write a long report. One clear note is usually enough for us to understand the problem.",
-                    highlights = listOf(
-                        "Tell us which screen felt confusing or visually off.",
-                        "Mention what you expected to happen and what actually happened instead.",
-                        "Include the last step you tapped if something broke or felt stuck."
-                    )
+@Composable
+private fun SupportFeedbackCard(onFeedback: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = Color(0xFFFFE2E5),
+        border = BorderStroke(1.dp, PcosinaDeepRose.copy(alpha = 0.40f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                PcosinaDesignIcon(
+                    resId = R.drawable.pcosina_svg_40_email,
+                    contentDescription = null,
+                    tint = PcosinaPink,
+                    modifier = Modifier.size(38.dp),
                 )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Send feedback",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = PcosinaDeepRose,
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = "Tell us if something feels confusing, missing, or harder than it should be.",
+                        style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
+                        color = PcosinaDeepRose,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
-            item {
-                RefinedFeatureCard(
-                    icon = Icons.Filled.Email,
-                    accentColor = colorScheme.primary,
-                    statusLabel = "Send feedback",
-                    title = "Need a hand?",
-                    body = "Tell us if something feels confusing, missing, or harder than it should be. Clear feedback helps the app feel smoother for the next session.",
-                    highlights = listOf(
-                        "Report unclear steps, visual inconsistencies, or bugs from your last session.",
-                        "Tell us what made the flow feel heavier than necessary."
-                    ),
-                    actionLabel = "Send feedback now",
-                    onAction = onFeedback
+            Button(
+                onClick = onFeedback,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PcosinaPink),
+            ) {
+                Text("Send feedback now", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SupportDirectoryCard() {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, PcosinaDeepRose.copy(alpha = 0.40f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                PcosinaDesignIcon(
+                    resId = R.drawable.pcosina_svg_41_book,
+                    contentDescription = null,
+                    tint = PcosinaPink,
+                    modifier = Modifier.size(34.dp),
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "App Directory",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = PcosinaDeepRose),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = "Quick guide to navigating the PCOSina application.",
+                        style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
+                        color = PcosinaMuted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SupportDirectoryTile(
+                        iconRes = R.drawable.pcosina_nav_home,
+                        label = "Home",
+                        description = "Dashboard for quick access to goals and today's focus.",
+                        modifier = Modifier.weight(1f),
+                    )
+                    SupportDirectoryTile(
+                        iconRes = R.drawable.pcosina_nav_progress,
+                        label = "Progress",
+                        description = "Monitor daily intake, financial savings, and manage symptoms.",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SupportDirectoryTile(
+                        iconRes = R.drawable.pcosina_nav_plan,
+                        label = "Plan",
+                        description = "See and follow your weekly hormone-friendly meal plan.",
+                        modifier = Modifier.weight(1f),
+                    )
+                    SupportDirectoryTile(
+                        iconRes = R.drawable.pcosina_nav_support,
+                        label = "Support",
+                        description = "Access learning guides and submit your feedback.",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                SupportDirectoryTile(
+                    iconRes = R.drawable.pcosina_nav_grocery,
+                    label = "Grocery",
+                    description = "Manage pantry inventory and generate smart shopping lists.",
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun SupportFreshStartCard(
+    onOpenMealPlan: (() -> Unit)?,
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color.Transparent,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(155.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    brush = Brush.linearGradient(listOf(PcosinaSoftPink, Color(0xFFFFB2C1))),
+                    shape = RoundedCornerShape(12.dp),
+                ),
+        ) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .fillMaxWidth(0.62f)
+                    .padding(start = 16.dp, top = 16.dp, bottom = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = "Ready for a Fresh Start?",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = PcosinaDeepRose),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "Organize your meals for the coming week.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = PcosinaDeepRose,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Surface(
+                    modifier = if (onOpenMealPlan != null) {
+                        Modifier.clickable(onClick = onOpenMealPlan)
+                    } else {
+                        Modifier
+                    },
+                    shape = RoundedCornerShape(999.dp),
+                    color = PcosinaPink,
+                    contentColor = Color.White,
+                    shadowElevation = 2.dp,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Let's Go!", fontWeight = FontWeight.ExtraBold)
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
+            PcosinaDesignIcon(
+                resId = R.drawable.pcosina_svg_42_activity,
+                contentDescription = null,
+                tint = PcosinaDeepRose.copy(alpha = 0.70f),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 12.dp, y = 10.dp)
+                    .size(132.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SupportDirectoryTile(
+    iconRes: Int,
+    label: String,
+    description: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Surface(
+            shape = RoundedCornerShape(999.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.55f)),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                PcosinaDesignIcon(
+                    resId = iconRes,
+                    contentDescription = null,
+                    tint = PcosinaPink,
+                    modifier = Modifier.size(12.dp),
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = PcosinaPink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Text(
+            text = description,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.labelSmall,
+            color = PcosinaDeepRose,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun SupportRoundIcon(
+    iconRes: Int,
+    contentDescription: String,
+    onClick: (() -> Unit)? = null,
+) {
+    Surface(
+        modifier = if (onClick != null) {
+            Modifier.clickable(onClick = onClick)
+        } else {
+            Modifier
+        },
+        shape = CircleShape,
+        color = Color.White,
+        contentColor = PcosinaPink,
+        shadowElevation = 3.dp,
+    ) {
+        PcosinaDesignIcon(
+            resId = iconRes,
+            contentDescription = contentDescription,
+            tint = PcosinaPink,
+            modifier = Modifier
+                .padding(9.dp)
+                .size(20.dp),
+        )
     }
 }

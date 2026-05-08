@@ -51,6 +51,10 @@ class RecipeDetail(BaseModel):
     sodiumMg: Optional[int] = None
     sugarGrams: Optional[int] = None
     nutritionCorrectionId: Optional[str] = None
+    nutritionDataSource: Optional[str] = None
+    nutritionConfidence: Optional[str] = None
+    nutritionReviewStatus: Optional[str] = None
+    nutritionNotes: Optional[str] = None
 
 class RecipeSummary(BaseModel):
     id: str

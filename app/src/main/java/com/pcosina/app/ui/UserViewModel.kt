@@ -110,6 +110,11 @@ class UserViewModel(
         saveProfile()
     }
 
+    fun updateAvatar(avatarId: String) {
+        _userProfile.update { it.copy(avatarId = avatarId) }
+        saveProfile()
+    }
+
     fun reset() {
         currentUserId = ""
         profileJob?.cancel()

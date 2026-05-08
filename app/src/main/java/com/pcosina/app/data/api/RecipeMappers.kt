@@ -18,6 +18,11 @@ fun RecipeDetailDto.toPlannerRecipeDetail(): PlannerRecipeDetail =
         minutes = minutes,
         ingredients = ingredients.map { Ingredient(name = it.name, quantity = it.quantity) },
         steps = steps,
+        nutritionCorrectionId = nutritionCorrectionId,
+        nutritionDataSource = nutritionDataSource,
+        nutritionConfidence = nutritionConfidence,
+        nutritionReviewStatus = nutritionReviewStatus,
+        nutritionNotes = nutritionNotes,
     )
 
 fun RecipeSummaryDto.toPlannerRecipeSummary(): PlannerRecipeSummary =

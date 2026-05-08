@@ -1,6 +1,7 @@
 package com.pcosina.app.domain
 
 import com.pcosina.app.data.model.DailyLog
+import com.pcosina.app.data.model.MealCheckIn
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -35,6 +36,27 @@ data class WeeklyMealSummaryResult(
     val completedMeals: Int,
     val adherencePercent: Int,
     val chartPoints: List<ProgressAdherencePoint>,
+)
+
+data class ProgressTrendSummary(
+    val checkInDays: Int,
+    val mealCheckIns: Int,
+    val averageEnergy: Double?,
+    val averageMood: Double?,
+    val averageCravings: Double?,
+    val energyDirection: String,
+    val headline: String,
+    val detail: String,
+)
+
+data class ProgressCheckInHistoryDay(
+    val date: LocalDate,
+    val label: String,
+    val energyLevel: Int?,
+    val moodLevel: Int?,
+    val cravingsLevel: Int?,
+    val symptomsNote: String?,
+    val mealCheckIns: List<MealCheckIn>,
 )
 
 class ProgressSummaryUseCase {
@@ -119,5 +141,98 @@ class ProgressSummaryUseCase {
             adherencePercent = adherencePercent,
             chartPoints = chartPoints
         )
+    }
+
+    fun buildFourWeekTrendSummary(
+        logs: Map<String, DailyLog>,
+        today: LocalDate,
+    ): ProgressTrendSummary {
+        val start = today.minusDays(27)
+        val scopedLogs = logs.values
+            .mapNotNull { log ->
+                val date = runCatching { LocalDate.parse(log.date, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
+                    ?: return@mapNotNull null
+                if (date.isBefore(start) || date.isAfter(today)) null else date to log
+            }
+            .sortedBy { it.first }
+        val energyValues = scopedLogs.mapNotNull { it.second.energyLevel }
+        val moodValues = scopedLogs.mapNotNull { it.second.moodLevel }
+        val cravingValues = scopedLogs.mapNotNull { it.second.cravingsLevel }
+        val mealCheckIns = scopedLogs.sumOf { it.second.mealCheckIns.size }
+        val midpoint = today.minusDays(13)
+        val firstHalfAverage = scopedLogs
+            .filter { it.first.isBefore(midpoint) }
+            .mapNotNull { it.second.energyLevel }
+            .takeIf { it.isNotEmpty() }
+            ?.average()
+        val secondHalfAverage = scopedLogs
+            .filter { !it.first.isBefore(midpoint) }
+            .mapNotNull { it.second.energyLevel }
+            .takeIf { it.isNotEmpty() }
+            ?.average()
+        val direction = when {
+            firstHalfAverage == null || secondHalfAverage == null -> "not_enough_data"
+            secondHalfAverage - firstHalfAverage >= 0.4 -> "improving"
+            firstHalfAverage - secondHalfAverage >= 0.4 -> "declining"
+            else -> "steady"
+        }
+        val averageEnergy = energyValues.takeIf { it.isNotEmpty() }?.average()
+        val headline = when {
+            scopedLogs.isEmpty() -> "No local check-in history yet"
+            direction == "improving" -> "Energy is trending up"
+            direction == "declining" -> "Energy may need support"
+            direction == "steady" -> "Energy looks steady"
+            else -> "Check-in history is starting"
+        }
+        val detail = when {
+            scopedLogs.isEmpty() -> "Save daily or meal check-ins to build a private trend view on this device."
+            direction == "improving" -> "Your latest check-ins are higher than the earlier part of this 4-week window."
+            direction == "declining" -> "Your latest check-ins are lower than the earlier part of this 4-week window."
+            direction == "steady" -> "Your recent check-ins are close to your earlier 4-week average."
+            else -> "A few more check-ins will make the trend clearer."
+        }
+        return ProgressTrendSummary(
+            checkInDays = scopedLogs.count { (_, log) ->
+                log.energyLevel != null || log.moodLevel != null || log.cravingsLevel != null || log.mealCheckIns.isNotEmpty()
+            },
+            mealCheckIns = mealCheckIns,
+            averageEnergy = averageEnergy,
+            averageMood = moodValues.takeIf { it.isNotEmpty() }?.average(),
+            averageCravings = cravingValues.takeIf { it.isNotEmpty() }?.average(),
+            energyDirection = direction,
+            headline = headline,
+            detail = detail,
+        )
+    }
+
+    fun buildCheckInHistory(
+        logs: Map<String, DailyLog>,
+        today: LocalDate,
+        daysBack: Long = 28,
+    ): List<ProgressCheckInHistoryDay> {
+        val start = today.minusDays((daysBack - 1).coerceAtLeast(0))
+        val labelFormatter = DateTimeFormatter.ofPattern("MMM d, EEE", Locale.ENGLISH)
+        return logs.values
+            .mapNotNull { log ->
+                val date = runCatching { LocalDate.parse(log.date, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
+                    ?: return@mapNotNull null
+                if (date.isBefore(start) || date.isAfter(today)) return@mapNotNull null
+                val hasDailyReflection = log.energyLevel != null ||
+                    log.moodLevel != null ||
+                    log.cravingsLevel != null ||
+                    !log.symptomsNote.isNullOrBlank()
+                val mealCheckIns = log.mealCheckIns.sortedByDescending { it.timestamp }
+                if (!hasDailyReflection && mealCheckIns.isEmpty()) return@mapNotNull null
+                ProgressCheckInHistoryDay(
+                    date = date,
+                    label = date.format(labelFormatter),
+                    energyLevel = log.energyLevel,
+                    moodLevel = log.moodLevel,
+                    cravingsLevel = log.cravingsLevel,
+                    symptomsNote = log.symptomsNote,
+                    mealCheckIns = mealCheckIns,
+                )
+            }
+            .sortedByDescending { it.date }
     }
 }

@@ -1,17 +1,14 @@
 package com.pcosina.app.ui.components
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Help
-import androidx.compose.material.icons.filled.Insights
-import androidx.compose.material.icons.automirrored.filled.ListAlt
-import androidx.compose.material.icons.filled.RestaurantMenu
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -20,13 +17,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
+import com.pcosina.app.R
 import com.pcosina.app.ui.navigation.Routes
 import com.pcosina.app.ui.theme.PcosinaDeepRose
 import com.pcosina.app.ui.theme.PcosinaPink
@@ -37,15 +35,16 @@ import com.pcosina.app.ui.theme.PcosinaSurfaceAlt
 data class BottomNavItem(
     val route: String,
     val label: String,
-    val icon: ImageVector,
+    @DrawableRes val iconRes: Int,
+    val isCenterItem: Boolean = false,
 )
 
 val DefaultBottomNavItems: List<BottomNavItem> = listOf(
-    BottomNavItem(route = Routes.MealPlan, label = "Plan", icon = Icons.Filled.RestaurantMenu),
-    BottomNavItem(route = Routes.GroceryList, label = "Grocery", icon = Icons.AutoMirrored.Filled.ListAlt),
-    BottomNavItem(route = Routes.Dashboard, label = "Home", icon = Icons.Filled.Home),
-    BottomNavItem(route = Routes.Progress, label = "Progress", icon = Icons.Filled.Insights),
-    BottomNavItem(route = Routes.Ipo, label = "Support", icon = Icons.Filled.Help),
+    BottomNavItem(route = Routes.MealPlan, label = "Plan", iconRes = R.drawable.pcosina_nav_plan),
+    BottomNavItem(route = Routes.GroceryList, label = "Grocery", iconRes = R.drawable.pcosina_nav_grocery),
+    BottomNavItem(route = Routes.Dashboard, label = "Home", iconRes = R.drawable.pcosina_nav_home, isCenterItem = true),
+    BottomNavItem(route = Routes.Progress, label = "Progress", iconRes = R.drawable.pcosina_nav_progress),
+    BottomNavItem(route = Routes.Ipo, label = "Support", iconRes = R.drawable.pcosina_nav_support),
 )
 
 @Composable
@@ -92,10 +91,11 @@ fun BottomNavBar(
                     alwaysShowLabel = true,
                     icon = {
                         BottomNavItemIcon(
-                            icon = item.icon,
+                            iconRes = item.iconRes,
                             label = item.label,
                             selected = selected,
-                            enabled = isEnabled
+                            enabled = isEnabled,
+                            isCenterItem = item.isCenterItem,
                         )
                     },
                     label = {
@@ -128,36 +128,49 @@ fun BottomNavBar(
 
 @Composable
 private fun BottomNavItemIcon(
-    icon: ImageVector,
+    @DrawableRes iconRes: Int,
     label: String,
     selected: Boolean,
     enabled: Boolean,
+    isCenterItem: Boolean,
     modifier: Modifier = Modifier
 ) {
     val tint = when {
-        selected -> PcosinaPink
+        selected && isCenterItem -> Color.White
+        selected -> PcosinaDeepRose.copy(alpha = 0.82f)
         enabled -> PcosinaDeepRose.copy(alpha = 0.72f)
         else -> PcosinaDeepRose.copy(alpha = 0.35f)
     }
     val containerColor = when {
-        selected -> PcosinaPink.copy(alpha = 0.14f)
+        selected && isCenterItem -> PcosinaPink
+        selected -> PcosinaPink.copy(alpha = 0.42f)
         enabled -> Color.Transparent
         else -> PcosinaSurfaceAlt.copy(alpha = 0.7f)
     }
-    val emphasizedHome = selected && label == "Home"
+    val containerModifier = if (isCenterItem) {
+        modifier.size(58.dp)
+    } else {
+        modifier
+            .width(48.dp)
+            .heightIn(min = 44.dp)
+    }
     Surface(
-        modifier = modifier,
-        shape = if (emphasizedHome) CircleShape else RoundedCornerShape(16.dp),
-        color = containerColor
+        modifier = containerModifier,
+        shape = if (isCenterItem) CircleShape else RoundedCornerShape(14.dp),
+        color = containerColor,
+        border = when {
+            isCenterItem && !selected && enabled -> BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.55f))
+            isCenterItem && !enabled -> BorderStroke(1.dp, PcosinaDeepRose.copy(alpha = 0.18f))
+            else -> null
+        }
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = tint,
-            modifier = Modifier.padding(
-                horizontal = if (emphasizedHome) 14.dp else 12.dp,
-                vertical = if (emphasizedHome) 14.dp else 8.dp
+        Box(contentAlignment = Alignment.Center) {
+            PcosinaDesignIcon(
+                resId = iconRes,
+                contentDescription = label,
+                tint = tint,
+                modifier = Modifier.size(if (isCenterItem) 31.dp else 24.dp)
             )
-        )
+        }
     }
 }

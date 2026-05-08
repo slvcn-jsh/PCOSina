@@ -2,6 +2,8 @@ package com.pcosina.app
 
 import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.domain.buildGroceryListEntries
+import com.pcosina.app.domain.canonicalGroceryKey
+import com.pcosina.app.domain.canonicalGroceryName
 import com.pcosina.app.domain.householdSizeLabel
 import com.pcosina.app.domain.scaleQuantityText
 import com.pcosina.app.domain.scaleNutritionPerMeal
@@ -35,6 +37,44 @@ class GroceryAggregationTest {
         assertEquals("1 kg", rice.quantityDisplay)
         assertTrue(eggs.estimatedCostPhp > 0)
         assertTrue(rice.estimatedCostPhp > 0)
+    }
+
+    @Test
+    fun buildGroceryListEntries_canonicalizesSynonymsAndPreparationWords() {
+        val entries = buildGroceryListEntries(
+            items = listOf(
+                DummyData.GroceryItem("bawang", "3 cloves", 0, "Produce"),
+                DummyData.GroceryItem("minced garlic", "2 tbsp", 0, "Produce"),
+                DummyData.GroceryItem("garlic cloves", "1 clove", 0, "Produce"),
+            ),
+            householdSize = 1
+        )
+
+        assertEquals(1, entries.size)
+        assertEquals("Garlic", entries.single().name)
+        assertEquals("50 g", entries.single().quantityDisplay)
+    }
+
+    @Test
+    fun buildGroceryListEntries_extractsQuantityFromIngredientNameWhenQuantityIsBlank() {
+        val entries = buildGroceryListEntries(
+            items = listOf(
+                DummyData.GroceryItem("3 cloves garlic, minced", "", 0, "Produce"),
+                DummyData.GroceryItem("bawang", "2 cloves", 0, "Produce"),
+            ),
+            householdSize = 1
+        )
+
+        assertEquals(1, entries.size)
+        assertEquals("Garlic", entries.single().name)
+        assertEquals("25 g", entries.single().quantityDisplay)
+    }
+
+    @Test
+    fun canonicalGroceryKey_mapsFilipinoSynonymsToSameBaseIngredient() {
+        assertEquals("garlic", canonicalGroceryKey("bawang"))
+        assertEquals("garlic", canonicalGroceryKey("2 cloves garlic, minced"))
+        assertEquals("Garlic", canonicalGroceryName("minced bawang"))
     }
 
     @Test

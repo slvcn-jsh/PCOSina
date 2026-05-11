@@ -21,5 +21,8 @@ class OperatorAccessService:
         *,
         auth_type: str,
     ) -> Dict[str, Any]:
-        principal = self.resolve_principal(decoded, auth_type=auth_type)
+        # Mobile operator routing is a lightweight gate for Android-only internal
+        # tools. Full admin sessions still use resolve_principal(), which keeps
+        # the stricter MFA check for privileged web/admin consoles.
+        principal = self._build_admin_principal(decoded, auth_type=auth_type)
         return {"allowed": True, **principal}

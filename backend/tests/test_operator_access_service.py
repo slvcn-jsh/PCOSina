@@ -30,14 +30,23 @@ def test_resolve_principal_requires_mfa_before_building_principal():
     assert calls == ["mfa:ops-1", "principal:bearer"]
 
 
-def test_build_mobile_access_status_wraps_principal_with_allowed_flag():
-    service = OperatorAccessService(
-        assert_operator_mfa=lambda decoded: None,
-        build_admin_principal=lambda decoded, *, auth_type: {
+def test_build_mobile_access_status_wraps_principal_with_allowed_flag_without_mfa_check():
+    calls: list[str] = []
+
+    def _assert_operator_mfa(decoded):
+        calls.append(f"mfa:{decoded['uid']}")
+
+    def _build_admin_principal(decoded, *, auth_type: str):
+        calls.append(f"principal:{auth_type}")
+        return {
             "uid": decoded["uid"],
             "roles": ["ops_admin"],
             "authType": auth_type,
-        },
+        }
+
+    service = OperatorAccessService(
+        assert_operator_mfa=_assert_operator_mfa,
+        build_admin_principal=_build_admin_principal,
     )
 
     status = service.build_mobile_access_status({"uid": "ops-2"}, auth_type="bearer")
@@ -48,3 +57,4 @@ def test_build_mobile_access_status_wraps_principal_with_allowed_flag():
         "roles": ["ops_admin"],
         "authType": "bearer",
     }
+    assert calls == ["principal:bearer"]

@@ -12,12 +12,12 @@ import main
 
 def test_mobile_operator_access_accepts_allowlisted_email_without_claims(monkeypatch):
     monkeypatch.setenv("PCOSINA_OPS_ADMIN_EMAILS", "ops-mobile@example.com")
+    monkeypatch.setenv("PCOSINA_REQUIRE_OPERATOR_MFA", "true")
     main.app.dependency_overrides[main.require_firebase_auth] = lambda: {
         "uid": "ops-mobile-1",
         "email": "ops-mobile@example.com",
         "email_verified": True,
     }
-    main.app.dependency_overrides[main.require_app_check] = lambda: {"app_id": "pcosina-test"}
 
     try:
         with TestClient(main.app) as client:
@@ -34,12 +34,12 @@ def test_mobile_operator_access_accepts_allowlisted_email_without_claims(monkeyp
 
 
 def test_mobile_operator_access_rejects_non_operator_account(monkeypatch):
+    monkeypatch.setenv("PCOSINA_REQUIRE_OPERATOR_MFA", "true")
     main.app.dependency_overrides[main.require_firebase_auth] = lambda: {
         "uid": "normal-user-1",
         "email": "normal@example.com",
         "email_verified": True,
     }
-    main.app.dependency_overrides[main.require_app_check] = lambda: {"app_id": "pcosina-test"}
 
     try:
         with TestClient(main.app) as client:

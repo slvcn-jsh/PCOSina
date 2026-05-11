@@ -1264,7 +1264,6 @@ def ingest_ml_event(
 @app.get("/mobile/operator/access", response_model=OperatorAccessStatus)
 def mobile_operator_access(
     user: Any = Depends(require_firebase_auth),
-    __: Any = Depends(require_app_check),
 ):
     return _operator_access_service().build_mobile_access_status(user, auth_type="bearer")
 

@@ -2,9 +2,11 @@ package com.pcosina.app.data.api
 
 import com.pcosina.app.data.model.UserProfile
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -122,6 +124,62 @@ data class RecipeSummaryDto(
     val minutes: Int? = null
 )
 
+data class AdminRecipeListResponse(
+    val items: List<RecipeDetailDto> = emptyList(),
+    val count: Int = 0
+)
+
+data class AdminPriceRuleDto(
+    val id: String,
+    val keywords: List<String> = emptyList(),
+    val pricePhp: Int,
+    val priceMinPhp: Int? = null,
+    val priceMaxPhp: Int? = null,
+    val category: String,
+    val unit: String? = null,
+    val active: Boolean = true,
+    val notes: String? = null,
+    val updatedAt: Long? = null
+)
+
+data class AdminRecipeUpsertDto(
+    val id: String? = null,
+    val title: String,
+    val mealType: String,
+    val calories: Int,
+    val proteinGrams: Int,
+    val carbsGrams: Int,
+    val fatsGrams: Int,
+    val fiberGrams: Int,
+    val tags: List<String> = emptyList(),
+    val minutes: Int = 25,
+    val ingredients: List<IngredientDto> = emptyList(),
+    val steps: List<String> = emptyList()
+)
+
+data class AdminPriceRuleUpsertDto(
+    val id: String? = null,
+    val keywords: List<String> = emptyList(),
+    val pricePhp: Int,
+    val priceMinPhp: Int? = null,
+    val priceMaxPhp: Int? = null,
+    val category: String,
+    val unit: String? = null,
+    val active: Boolean = true,
+    val notes: String? = null
+)
+
+data class AdminPriceRuleListResponse(
+    val items: List<AdminPriceRuleDto> = emptyList(),
+    val count: Int = 0
+)
+
+data class AdminDeleteResponse(
+    val status: String,
+    val deleted: Int = 0,
+    val id: String? = null
+)
+
 data class MlClientEventRequestDto(
     val eventName: String,
     val requestId: String? = null,
@@ -161,6 +219,44 @@ interface PcosinaApiService {
 
     @POST("recipes/swap-options")
     suspend fun getSwapOptions(@Body request: SwapOptionsRequestDto): List<RecipeSummaryDto>
+
+    @GET("admin/recipes")
+    suspend fun getAdminRecipes(
+        @Query("q") query: String? = null,
+        @Query("meal_type") mealType: String? = null,
+        @Query("limit") limit: Int = 250
+    ): AdminRecipeListResponse
+
+    @POST("admin/recipes")
+    suspend fun createAdminRecipe(@Body request: AdminRecipeUpsertDto): RecipeDetailDto
+
+    @PUT("admin/recipes/{recipeId}")
+    suspend fun updateAdminRecipe(
+        @Path("recipeId") recipeId: String,
+        @Body request: AdminRecipeUpsertDto
+    ): RecipeDetailDto
+
+    @DELETE("admin/recipes/{recipeId}")
+    suspend fun deleteAdminRecipe(@Path("recipeId") recipeId: String): AdminDeleteResponse
+
+    @GET("admin/price-rules")
+    suspend fun getAdminPriceRules(
+        @Query("q") query: String? = null,
+        @Query("category") category: String? = null,
+        @Query("limit") limit: Int = 250
+    ): AdminPriceRuleListResponse
+
+    @POST("admin/price-rules")
+    suspend fun createAdminPriceRule(@Body request: AdminPriceRuleUpsertDto): AdminPriceRuleDto
+
+    @PUT("admin/price-rules/{ruleId}")
+    suspend fun updateAdminPriceRule(
+        @Path("ruleId") ruleId: String,
+        @Body request: AdminPriceRuleUpsertDto
+    ): AdminPriceRuleDto
+
+    @DELETE("admin/price-rules/{ruleId}")
+    suspend fun deleteAdminPriceRule(@Path("ruleId") ruleId: String): AdminDeleteResponse
 
     @POST("ml/events")
     suspend fun postMlEvent(@Body request: MlClientEventRequestDto): MlClientEventResponseDto

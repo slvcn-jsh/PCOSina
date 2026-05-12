@@ -44,7 +44,7 @@ val DefaultBottomNavItems: List<BottomNavItem> = listOf(
     BottomNavItem(route = Routes.GroceryList, label = "Grocery", iconRes = R.drawable.pcosina_nav_grocery),
     BottomNavItem(route = Routes.Dashboard, label = "Home", iconRes = R.drawable.pcosina_nav_home, isCenterItem = true),
     BottomNavItem(route = Routes.Progress, label = "Progress", iconRes = R.drawable.pcosina_nav_progress),
-    BottomNavItem(route = Routes.Ipo, label = "Support", iconRes = R.drawable.pcosina_nav_support),
+    BottomNavItem(route = Routes.Ipo, label = "Support", iconRes = R.drawable.pcosina_nav_support_clean),
 )
 
 @Composable
@@ -70,8 +70,8 @@ fun BottomNavBar(
             containerColor = Color.Transparent,
             tonalElevation = 0.dp,
             modifier = Modifier
-                .heightIn(min = 80.dp)
-                .padding(horizontal = 10.dp, vertical = 6.dp)
+                .heightIn(min = 88.dp)
+                .padding(horizontal = 8.dp, vertical = 6.dp)
         ) {
             items.forEach { item ->
                 val selected = currentDestination
@@ -136,23 +136,30 @@ private fun BottomNavItemIcon(
     modifier: Modifier = Modifier
 ) {
     val tint = when {
-        selected && isCenterItem -> Color.White
-        selected -> PcosinaDeepRose.copy(alpha = 0.82f)
-        enabled -> PcosinaDeepRose.copy(alpha = 0.72f)
-        else -> PcosinaDeepRose.copy(alpha = 0.35f)
+        !enabled -> PcosinaDeepRose.copy(alpha = 0.35f)
+        selected -> Color.White
+        isCenterItem -> PcosinaPink
+        label == "Progress" -> PcosinaDeepRose.copy(alpha = 0.86f)
+        else -> PcosinaDeepRose.copy(alpha = 0.78f)
+    }
+    val iconSize = when {
+        isCenterItem -> 34.dp
+        label == "Progress" -> 31.dp
+        label == "Support" -> 31.dp
+        else -> 29.dp
     }
     val containerColor = when {
         selected && isCenterItem -> PcosinaPink
-        selected -> PcosinaPink.copy(alpha = 0.42f)
+        selected -> PcosinaPink.copy(alpha = 0.86f)
         enabled -> Color.Transparent
         else -> PcosinaSurfaceAlt.copy(alpha = 0.7f)
     }
     val containerModifier = if (isCenterItem) {
-        modifier.size(58.dp)
+        modifier.size(64.dp)
     } else {
         modifier
-            .width(48.dp)
-            .heightIn(min = 44.dp)
+            .width(56.dp)
+            .heightIn(min = 50.dp)
     }
     Surface(
         modifier = containerModifier,
@@ -169,7 +176,7 @@ private fun BottomNavItemIcon(
                 resId = iconRes,
                 contentDescription = label,
                 tint = tint,
-                modifier = Modifier.size(if (isCenterItem) 31.dp else 24.dp)
+                modifier = Modifier.size(iconSize)
             )
         }
     }

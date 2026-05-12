@@ -1,11 +1,9 @@
 package com.pcosina.app.ui.screens
 
-import android.content.Context
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,15 +35,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -63,19 +57,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -101,6 +89,7 @@ import com.pcosina.app.ui.theme.PcosinaMidnight
 import com.pcosina.app.ui.theme.PcosinaMuted
 import com.pcosina.app.ui.theme.PcosinaRoseShadow
 import com.pcosina.app.ui.theme.UiMotionTokens
+import com.pcosina.app.ui.util.LegalAcceptance
 import com.pcosina.app.ui.util.sampleFrameTiming
 import java.util.Locale
 
@@ -114,22 +103,14 @@ fun LoginScreen(
 ) {
     val loginState by authViewModel.loginState.collectAsState()
     val loginMessage by authViewModel.loginMessage.collectAsState()
+    val session by authViewModel.session.collectAsState()
     val analytics = FirebaseAnalytics.getInstance(LocalContext.current)
     val context = LocalContext.current
-    val legalPrefs = remember(context) {
-        context.getSharedPreferences("pcosina_legal", Context.MODE_PRIVATE)
-    }
-    var termsAccepted by rememberSaveable {
-        mutableStateOf(legalPrefs.getBoolean("terms_accepted_2026_05_05", false))
-    }
-    var showTerms by rememberSaveable { mutableStateOf(!termsAccepted) }
+    val currentUserUid = session.currentUserUid.orEmpty()
+    var showTerms by rememberSaveable(currentUserUid) { mutableStateOf(false) }
     var legalNotice by rememberSaveable { mutableStateOf<String?>(null) }
-    var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-    var passwordVisible by rememberSaveable { mutableStateOf(false) }
-    var emailAccessOpen by rememberSaveable { mutableStateOf(false) }
-    var operatorMode by rememberSaveable { mutableStateOf(false) }
     var operatorAccessRequested by rememberSaveable { mutableStateOf(false) }
+    var loginCompletionHandled by rememberSaveable { mutableStateOf(false) }
     val isLoading = loginState is LoginState.Loading
     val loginErrorMessage = (loginState as? LoginState.Error)?.message
     val bannerData = when {
@@ -165,6 +146,13 @@ fun LoginScreen(
         try {
             val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
             val account = task.getResult(ApiException::class.java)
+            if (BuildConfig.DEBUG) {
+                Log.i(
+                    "PCOSINA-Login",
+                    "Google sign-in success email=${maskLoginEmail(account.email)} " +
+                        "googleId=${maskLoginToken(account.id)}"
+                )
+            }
             authViewModel.onGoogleLogin(account.idToken)
         } catch (e: ApiException) {
             val message = when (e.statusCode) {
@@ -175,16 +163,41 @@ fun LoginScreen(
                 GoogleSignInStatusCodes.SIGN_IN_FAILED -> "Google sign-in failed. Please try again."
                 else -> "Google sign-in failed (code ${e.statusCode})."
             }
+            if (BuildConfig.DEBUG) {
+                Log.w("PCOSINA-Login", "Google sign-in failed status=${e.statusCode}: $message")
+            }
             authViewModel.onGoogleLoginFailure(message)
         } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                Log.w("PCOSINA-Login", "Google sign-in failed unexpectedly.", e)
+            }
             authViewModel.onGoogleLoginFailure("Google sign-in failed. ${e.message ?: ""}".trim())
         }
     }
 
-    LaunchedEffect(loginState) {
-        if (loginState is LoginState.Success) {
+    LaunchedEffect(loginState, currentUserUid) {
+        if (loginState is LoginState.Success && !loginCompletionHandled) {
+            if (currentUserUid.isBlank()) return@LaunchedEffect
+            val acceptedForAccount = LegalAcceptance.hasAccepted(context, currentUserUid)
+            if (!acceptedForAccount) {
+                showTerms = true
+                legalNotice = "Please review and accept the Terms of Service before continuing."
+                return@LaunchedEffect
+            }
+            loginCompletionHandled = true
             analytics.logEvent("login_success", null)
             onLoginSuccess(operatorAccessRequested)
+        }
+    }
+
+    LaunchedEffect(currentUserUid) {
+        if (
+            currentUserUid.isNotBlank() &&
+            !LegalAcceptance.hasAccepted(context, currentUserUid) &&
+            loginState !is LoginState.Loading
+        ) {
+            showTerms = true
+            legalNotice = "Please review and accept the Terms of Service before continuing."
         }
     }
     LaunchedEffect(Unit) {
@@ -210,7 +223,7 @@ fun LoginScreen(
     ) {
         val scrollState = rememberScrollState()
         val compact = maxHeight < 790.dp || maxWidth < 400.dp
-        val allowScroll = emailAccessOpen || maxHeight < 720.dp || maxWidth < 350.dp
+        val allowScroll = maxHeight < 720.dp || maxWidth < 350.dp
         val contentModifier = if (allowScroll) {
             Modifier
                 .verticalScroll(scrollState)
@@ -218,13 +231,13 @@ fun LoginScreen(
         } else {
             Modifier.imePadding()
         }
-        val sheetTop = maxHeight * if (compact) 0.27f else 0.3f
-        val sheetFlatTop = sheetTop + if (compact) 62.dp else 76.dp
-        val outerArcSize = maxWidth * if (compact) 1.46f else 1.62f
-        val innerArcSize = maxWidth * if (compact) 1.3f else 1.44f
+        val sheetTop = maxHeight * if (compact) 0.25f else 0.28f
+        val sheetFlatTop = sheetTop + if (compact) 66.dp else 78.dp
+        val outerArcSize = maxWidth * if (compact) 1.5f else 1.64f
+        val innerArcSize = maxWidth * if (compact) 1.34f else 1.46f
         val outerArcTop = sheetTop - outerArcSize / 5f
         val innerArcTop = sheetTop - innerArcSize / 4.7f
-        val contentTopPadding = if (compact) 76.dp else 82.dp
+        val contentTopPadding = if (compact) 80.dp else 90.dp
         val taglineShadow = Shadow(
             color = Color.Black.copy(alpha = 0.12f),
             offset = Offset(0f, 4f),
@@ -232,11 +245,14 @@ fun LoginScreen(
         )
 
         Box(modifier = Modifier.fillMaxSize()) {
-            LoginHeroPattern(
+            Image(
+                painter = painterResource(id = R.drawable.pcosina_auth_snacks_background),
+                contentDescription = null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(sheetFlatTop + if (compact) 6.dp else 14.dp)
                     .statusBarsPadding(),
+                contentScale = ContentScale.Crop,
             )
 
             Box(
@@ -275,19 +291,19 @@ fun LoginScreen(
                     painter = painterResource(id = R.drawable.login_ownership_watermark),
                     contentDescription = "Developed by Quadrant",
                     modifier = Modifier
-                        .widthIn(max = 238.dp)
-                        .fillMaxWidth(0.68f),
+                        .widthIn(max = if (compact) 260.dp else 286.dp)
+                        .fillMaxWidth(if (compact) 0.78f else 0.84f),
                     contentScale = ContentScale.Fit,
                 )
 
-                Spacer(modifier = Modifier.height(if (compact) 116.dp else 132.dp))
+                Spacer(modifier = Modifier.height(if (compact) 108.dp else 126.dp))
 
                 Image(
                     painter = painterResource(id = R.drawable.login_heart_hands),
                     contentDescription = "PCOSina",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .widthIn(max = if (compact) 322.dp else 356.dp),
+                        .widthIn(max = if (compact) 322.dp else 348.dp),
                     contentScale = ContentScale.Fit,
                 )
 
@@ -311,48 +327,13 @@ fun LoginScreen(
                     )
                 }
 
-                if (emailAccessOpen) {
-                    EmailAccessPanel(
-                        email = email,
-                        onEmailChange = { email = it },
-                        password = password,
-                        onPasswordChange = { password = it },
-                        passwordVisible = passwordVisible,
-                        onTogglePasswordVisible = { passwordVisible = !passwordVisible },
-                        operatorMode = operatorMode,
-                        onOperatorModeChange = { operatorMode = it },
-                        isLoading = isLoading,
-                        onForgotPassword = {
-                            legalNotice = null
-                            authViewModel.sendPasswordReset(email)
-                        },
-                        onSubmit = {
-                            legalNotice = null
-                            if (!termsAccepted) {
-                                showTerms = true
-                                legalNotice = "Please accept the Terms of Service before continuing."
-                            } else {
-                                operatorAccessRequested = operatorMode
-                                authViewModel.onLogin(email, password)
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .widthIn(max = 420.dp),
-                    )
-                }
-
                 Button(
                     onClick = {
                         legalNotice = null
-                        operatorAccessRequested = false
-                        if (!termsAccepted) {
-                            showTerms = true
-                            legalNotice = "Please accept the Terms of Service before continuing."
-                        } else {
-                            analytics.logEvent("google_login_attempt", null)
-                            googleLauncher.launch(googleSignInClient.signInIntent)
-                        }
+                        operatorAccessRequested = true
+                        loginCompletionHandled = false
+                        analytics.logEvent("google_login_attempt", null)
+                        googleLauncher.launch(googleSignInClient.signInIntent)
                     },
                     enabled = !isLoading,
                     shape = RoundedCornerShape(24.dp),
@@ -411,35 +392,6 @@ fun LoginScreen(
                     textAlign = TextAlign.Center,
                 )
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .widthIn(max = 420.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(
-                        onClick = {
-                            emailAccessOpen = true
-                            operatorMode = false
-                        },
-                        enabled = !isLoading,
-                        colors = ButtonDefaults.textButtonColors(contentColor = PcosinaDeepRose),
-                    ) {
-                        Text("Use email access")
-                    }
-                    TextButton(
-                        onClick = {
-                            emailAccessOpen = true
-                            operatorMode = true
-                        },
-                        enabled = !isLoading,
-                        colors = ButtonDefaults.textButtonColors(contentColor = PcosinaDeepRose),
-                    ) {
-                        Text("Use operator access")
-                    }
-                }
-
                 if (BuildConfig.DEBUG && onDebugFirstWinContinue != null) {
                     TextButton(
                         onClick = onDebugFirstWinContinue,
@@ -456,184 +408,48 @@ fun LoginScreen(
         if (showTerms) {
             TermsOfServiceOverlay(
                 onAccept = {
-                    legalPrefs.edit().putBoolean("terms_accepted_2026_05_05", true).apply()
-                    termsAccepted = true
+                    if (currentUserUid.isBlank()) {
+                        legalNotice = "Finish Google sign-in before accepting the Terms of Service."
+                        return@TermsOfServiceOverlay
+                    }
+                    LegalAcceptance.accept(context, currentUserUid)
                     showTerms = false
                     legalNotice = null
+                    if (session.isLoggedIn && !loginCompletionHandled) {
+                        loginCompletionHandled = true
+                        analytics.logEvent("login_success", null)
+                        onLoginSuccess(operatorAccessRequested)
+                    }
                 },
                 onDecline = {
                     showTerms = false
                     legalNotice = "Terms must be accepted before signing in."
+                    loginCompletionHandled = false
+                    if (currentUserUid.isNotBlank()) {
+                        authViewModel.onLogout()
+                    }
                 }
             )
         }
     }
 }
 
-@Composable
-private fun EmailAccessPanel(
-    email: String,
-    onEmailChange: (String) -> Unit,
-    password: String,
-    onPasswordChange: (String) -> Unit,
-    passwordVisible: Boolean,
-    onTogglePasswordVisible: () -> Unit,
-    operatorMode: Boolean,
-    onOperatorModeChange: (Boolean) -> Unit,
-    isLoading: Boolean,
-    onForgotPassword: () -> Unit,
-    onSubmit: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, PcosinaBlushBorder),
-        shadowElevation = 8.dp,
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedButton(
-                    onClick = { onOperatorModeChange(false) },
-                    enabled = !isLoading,
-                    shape = RoundedCornerShape(18.dp),
-                    border = BorderStroke(
-                        1.dp,
-                        if (!operatorMode) PcosinaBlushStrong else PcosinaBlushBorder,
-                    ),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = if (!operatorMode) PcosinaBlushSurface else Color.White,
-                        contentColor = PcosinaDeepRose,
-                    ),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(
-                        text = "Email",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                    )
-                }
-                OutlinedButton(
-                    onClick = { onOperatorModeChange(true) },
-                    enabled = !isLoading,
-                    shape = RoundedCornerShape(18.dp),
-                    border = BorderStroke(
-                        1.dp,
-                        if (operatorMode) PcosinaBlushStrong else PcosinaBlushBorder,
-                    ),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = if (operatorMode) PcosinaBlushSurface else Color.White,
-                        contentColor = PcosinaDeepRose,
-                    ),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(
-                        text = "Operator",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                    )
-                }
-            }
-
-            OutlinedTextField(
-                value = email,
-                onValueChange = onEmailChange,
-                enabled = !isLoading,
-                singleLine = true,
-                label = { Text("Email") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = PcosinaMidnight,
-                    unfocusedTextColor = PcosinaMidnight,
-                    focusedLabelColor = PcosinaDeepRose,
-                    unfocusedLabelColor = PcosinaMuted,
-                    focusedBorderColor = PcosinaBlushStrong,
-                    unfocusedBorderColor = PcosinaBlushBorder,
-                    cursorColor = PcosinaDeepRose,
-                ),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = password,
-                onValueChange = onPasswordChange,
-                enabled = !isLoading,
-                singleLine = true,
-                label = { Text("Password") },
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                trailingIcon = {
-                    IconButton(onClick = onTogglePasswordVisible) {
-                        Icon(
-                            imageVector = if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                            contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                            tint = PcosinaDeepRose,
-                        )
-                    }
-                },
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = PcosinaMidnight,
-                    unfocusedTextColor = PcosinaMidnight,
-                    focusedLabelColor = PcosinaDeepRose,
-                    unfocusedLabelColor = PcosinaMuted,
-                    focusedBorderColor = PcosinaBlushStrong,
-                    unfocusedBorderColor = PcosinaBlushBorder,
-                    cursorColor = PcosinaDeepRose,
-                ),
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                TextButton(
-                    onClick = onForgotPassword,
-                    enabled = !isLoading,
-                    colors = ButtonDefaults.textButtonColors(contentColor = PcosinaDeepRose),
-                ) {
-                    Text("Forgot password?")
-                }
-            }
-
-            Button(
-                onClick = onSubmit,
-                enabled = !isLoading,
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = PcosinaBlushStrong,
-                    contentColor = Color.White,
-                    disabledContainerColor = PcosinaBlushStrong.copy(alpha = 0.58f),
-                    disabledContentColor = Color.White.copy(alpha = 0.76f),
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        color = Color.White,
-                        strokeWidth = 2.2.dp,
-                    )
-                    Spacer(modifier = Modifier.size(8.dp))
-                }
-                Text(
-                    text = if (operatorMode) "Continue to operator tools" else "Sign in with email",
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 15.sp,
-                )
-            }
-        }
+private fun maskLoginEmail(email: String?): String {
+    val clean = email?.trim().orEmpty()
+    if (clean.isBlank() || "@" !in clean) return "(none)"
+    val local = clean.substringBefore("@")
+    val domain = clean.substringAfter("@")
+    val localMask = when {
+        local.length <= 2 -> "${local.firstOrNull() ?: '*'}*"
+        else -> "${local.take(2)}***${local.takeLast(1)}"
     }
+    return "$localMask@$domain"
+}
+
+private fun maskLoginToken(value: String?): String {
+    val clean = value?.trim().orEmpty()
+    if (clean.isBlank()) return "(none)"
+    return if (clean.length <= 8) "***" else "${clean.take(4)}...${clean.takeLast(4)}"
 }
 
 @Composable
@@ -660,11 +476,14 @@ private fun TermsOfServiceOverlay(
         val innerArcSize = screenWidth * if (compact) 1.32f else 1.46f
         val scrollMaxHeight = screenHeight * if (compact) 0.43f else 0.47f
 
-        LoginHeroPattern(
+        Image(
+            painter = painterResource(id = R.drawable.pcosina_auth_snacks_background),
+            contentDescription = null,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(sheetFlatTop + if (compact) 6.dp else 14.dp)
                 .statusBarsPadding(),
+            contentScale = ContentScale.Crop,
         )
 
         Box(
@@ -969,150 +788,4 @@ private fun LoginInputField(
             )
             .border(width = 1.dp, color = Color.Transparent, shape = shape),
     )
-}
-
-@Composable
-private fun LoginHeroPattern(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val accent = PcosinaBlushStrong.copy(alpha = 0.92f)
-        val lightStroke = Stroke(width = 4.5f, cap = StrokeCap.Round)
-
-        fun dot(x: Float, y: Float, radius: Float) {
-            drawCircle(color = accent, radius = radius, center = Offset(size.width * x, size.height * y))
-        }
-
-        fun ring(x: Float, y: Float, radius: Float) {
-            drawCircle(
-                color = accent,
-                radius = radius,
-                center = Offset(size.width * x, size.height * y),
-                style = Stroke(width = 6f),
-            )
-        }
-
-        fun sparkle(x: Float, y: Float, arm: Float) {
-            val cx = size.width * x
-            val cy = size.height * y
-            drawLine(accent, Offset(cx - arm, cy), Offset(cx + arm, cy), strokeWidth = 4f, cap = StrokeCap.Round)
-            drawLine(accent, Offset(cx, cy - arm), Offset(cx, cy + arm), strokeWidth = 4f, cap = StrokeCap.Round)
-        }
-
-        fun heart(x: Float, y: Float, scale: Float) {
-            val cx = size.width * x
-            val cy = size.height * y
-            val path = Path().apply {
-                moveTo(cx, cy + 6f * scale)
-                cubicTo(cx - 16f * scale, cy - 8f * scale, cx - 26f * scale, cy + 14f * scale, cx, cy + 26f * scale)
-                cubicTo(cx + 26f * scale, cy + 14f * scale, cx + 16f * scale, cy - 8f * scale, cx, cy + 6f * scale)
-            }
-            drawPath(path, color = accent, style = Stroke(width = 3.5f * scale, cap = StrokeCap.Round))
-        }
-
-        fun pizza(x: Float, y: Float, scale: Float) {
-            val cx = size.width * x
-            val cy = size.height * y
-            val path = Path().apply {
-                moveTo(cx, cy - 22f * scale)
-                lineTo(cx - 20f * scale, cy + 22f * scale)
-                lineTo(cx + 20f * scale, cy + 22f * scale)
-                close()
-            }
-            drawPath(path, color = accent, style = Stroke(width = 4f * scale, cap = StrokeCap.Round))
-            drawArc(
-                color = accent,
-                startAngle = 200f,
-                sweepAngle = 140f,
-                useCenter = false,
-                topLeft = Offset(cx - 22f * scale, cy - 30f * scale),
-                size = Size(44f * scale, 20f * scale),
-                style = Stroke(width = 4f * scale),
-            )
-            drawCircle(accent, 3.5f * scale, Offset(cx - 7f * scale, cy - 2f * scale))
-            drawCircle(accent, 3.5f * scale, Offset(cx + 5f * scale, cy + 8f * scale))
-        }
-
-        fun burger(x: Float, y: Float, scale: Float) {
-            val cx = size.width * x
-            val cy = size.height * y
-            drawArc(
-                color = accent,
-                startAngle = 180f,
-                sweepAngle = 180f,
-                useCenter = false,
-                topLeft = Offset(cx - 24f * scale, cy - 18f * scale),
-                size = Size(48f * scale, 22f * scale),
-                style = Stroke(width = 4f * scale),
-            )
-            drawLine(accent, Offset(cx - 24f * scale, cy + 4f * scale), Offset(cx + 24f * scale, cy + 4f * scale), 4f * scale, StrokeCap.Round)
-            drawLine(accent, Offset(cx - 18f * scale, cy + 12f * scale), Offset(cx + 18f * scale, cy + 12f * scale), 4f * scale, StrokeCap.Round)
-            drawArc(
-                color = accent,
-                startAngle = 0f,
-                sweepAngle = 180f,
-                useCenter = false,
-                topLeft = Offset(cx - 22f * scale, cy + 6f * scale),
-                size = Size(44f * scale, 16f * scale),
-                style = Stroke(width = 4f * scale),
-            )
-        }
-
-        fun taco(x: Float, y: Float, scale: Float) {
-            val cx = size.width * x
-            val cy = size.height * y
-            drawArc(
-                color = accent,
-                startAngle = 200f,
-                sweepAngle = 140f,
-                useCenter = false,
-                topLeft = Offset(cx - 22f * scale, cy - 10f * scale),
-                size = Size(44f * scale, 32f * scale),
-                style = Stroke(width = 4f * scale),
-            )
-            drawLine(accent, Offset(cx - 12f * scale, cy - 4f * scale), Offset(cx - 2f * scale, cy - 10f * scale), 3f * scale, StrokeCap.Round)
-            drawLine(accent, Offset(cx - 1f * scale, cy - 2f * scale), Offset(cx + 10f * scale, cy - 9f * scale), 3f * scale, StrokeCap.Round)
-            drawLine(accent, Offset(cx - 8f * scale, cy + 4f * scale), Offset(cx + 8f * scale, cy - 2f * scale), 3f * scale, StrokeCap.Round)
-        }
-
-        taco(0.14f, 0.54f, 0.96f)
-        pizza(0.5f, 0.26f, 1.16f)
-        burger(0.8f, 0.54f, 1.08f)
-        pizza(0.18f, 0.16f, 0.78f)
-        taco(0.86f, 0.18f, 0.76f)
-        burger(0.7f, 0.14f, 0.68f)
-
-        ring(0.22f, 0.4f, 12f)
-        ring(0.9f, 0.16f, 10f)
-        dot(0.08f, 0.14f, 4f)
-        dot(0.34f, 0.12f, 4f)
-        dot(0.61f, 0.5f, 4f)
-        dot(0.73f, 0.34f, 3.5f)
-        dot(0.9f, 0.42f, 4f)
-
-        sparkle(0.12f, 0.08f, 10f)
-        sparkle(0.3f, 0.47f, 9f)
-        sparkle(0.64f, 0.08f, 9f)
-        sparkle(0.94f, 0.26f, 8f)
-        heart(0.25f, 0.64f, 0.55f)
-        heart(0.63f, 0.42f, 0.42f)
-        heart(0.87f, 0.08f, 0.42f)
-
-        drawArc(
-            color = accent,
-            startAngle = 210f,
-            sweepAngle = 120f,
-            useCenter = false,
-            topLeft = Offset(size.width * 0.03f, size.height * 0.04f),
-            size = Size(size.width * 0.12f, size.height * 0.08f),
-            style = lightStroke,
-        )
-        drawArc(
-            color = accent,
-            startAngle = 210f,
-            sweepAngle = 120f,
-            useCenter = false,
-            topLeft = Offset(size.width * 0.86f, size.height * 0.03f),
-            size = Size(size.width * 0.1f, size.height * 0.07f),
-            style = lightStroke,
-        )
-    }
 }

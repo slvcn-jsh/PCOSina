@@ -146,6 +146,19 @@ class UiGuardrailPolicyTest {
         assertTrue("Recipe details should use shared fiber formatter.", recipe.contains("formatFiberProgressShort("))
     }
 
+    @Test
+    fun adminOperatorRouting_doesNotWhitelistClientMoreToolsSurface() {
+        val navHost = read(
+            resolve("app", "src", "main", "java", "com", "pcosina", "app", "ui", "navigation", "AppNavHost.kt")
+        )
+
+        assertFalse("Operator accounts should not get a MoreTools client-side bypass.", navHost.contains("isOperatorReviewRoute"))
+        assertTrue(
+            "Operator dashboard More Tools entry should stay in admin methodology.",
+            navHost.contains("onOpenMoreTools = { navigateInternal(Routes.AdminMethodology) }")
+        )
+    }
+
     private fun discoverScreenFileNames(): Set<String> {
         val screenDir = resolveScreenDir()
         Files.list(screenDir).use { paths ->
@@ -201,6 +214,8 @@ class UiGuardrailPolicyTest {
             "LoginScreen.kt",
             "MealPlanRefinedScreen.kt",
             "MoreToolsScreen.kt",
+            "NotificationScreen.kt",
+            "OperatorDashboardScreen.kt",
             "ProgressRefinedScreen.kt",
             "SignUpScreen.kt",
             "SplashScreen.kt"

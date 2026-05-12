@@ -1,6 +1,7 @@
 package com.pcosina.app.domain
 
 import java.time.LocalDate
+import java.time.LocalTime
 import java.util.Locale
 
 data class MealLoggingDecision(
@@ -17,16 +18,22 @@ class MealLoggingPolicyUseCase(
         mealLabel: String?,
         completedMealLabels: List<String>,
         plannedMealLabels: List<String> = emptyList(),
-        now: LocalDate = LocalDate.now()
+        now: LocalDate = LocalDate.now(),
+        currentTime: LocalTime = LocalTime.now()
     ): MealLoggingDecision {
         val dateReason = loggingLockReason(date, now)
         if (dateReason.isNotBlank()) {
             return MealLoggingDecision(allowed = false, reason = dateReason)
         }
+        val windowReason = timeWindowLockReason(mealLabel, currentTime)
+        if (windowReason.isNotBlank()) {
+            return MealLoggingDecision(allowed = false, reason = windowReason)
+        }
         val sequenceReason = sequenceLockReason(
             completedMealLabels = completedMealLabels,
             mealLabel = mealLabel,
-            plannedMealLabels = plannedMealLabels
+            plannedMealLabels = plannedMealLabels,
+            currentTime = currentTime
         )
         if (sequenceReason.isNotBlank()) {
             return MealLoggingDecision(allowed = false, reason = sequenceReason)
@@ -44,10 +51,23 @@ class MealLoggingPolicyUseCase(
         }
     }
 
+    fun timeWindowLockReason(mealLabel: String?, currentTime: LocalTime = LocalTime.now()): String {
+        val slot = canonicalMealSlot(mealLabel) ?: return ""
+        val window = mealWindows[slot] ?: return ""
+        return when {
+            currentTime.isBefore(window.start) ->
+                "${displayMealSlot(slot)} logging opens at ${window.startLabel}."
+            currentTime.isAfter(window.end) ->
+                "${displayMealSlot(slot)} logging closed at ${window.endLabel}."
+            else -> ""
+        }
+    }
+
     fun sequenceLockReason(
         completedMealLabels: List<String>,
         mealLabel: String?,
-        plannedMealLabels: List<String> = emptyList()
+        plannedMealLabels: List<String> = emptyList(),
+        currentTime: LocalTime = LocalTime.now()
     ): String {
         val targetSlot = canonicalMealSlot(mealLabel) ?: return ""
         val plannedSlots = plannedMealLabels
@@ -61,6 +81,9 @@ class MealLoggingPolicyUseCase(
             .mapNotNull(::canonicalMealSlot)
             .toSet()
         val missingSlots = requiredSlots.filterNot { it in completedSlots }
+            .filter { slot ->
+                mealWindows[slot]?.end?.let { end -> !currentTime.isAfter(end) } ?: true
+            }
         if (missingSlots.isEmpty()) return ""
         val missingText = missingSlots.joinToString(" and ") {
             displayMealSlot(it).lowercase(Locale.ENGLISH)
@@ -86,4 +109,17 @@ class MealLoggingPolicyUseCase(
             if (it.isLowerCase()) it.titlecase(Locale.ENGLISH) else it.toString()
         }
     }
+
+    private data class MealWindow(
+        val start: LocalTime,
+        val end: LocalTime,
+        val startLabel: String,
+        val endLabel: String
+    )
+
+    private val mealWindows = mapOf(
+        "breakfast" to MealWindow(LocalTime.of(5, 0), LocalTime.of(11, 30), "5:00 AM", "11:30 AM"),
+        "lunch" to MealWindow(LocalTime.of(10, 30), LocalTime.of(15, 30), "10:30 AM", "3:30 PM"),
+        "dinner" to MealWindow(LocalTime.of(16, 30), LocalTime.of(22, 30), "4:30 PM", "10:30 PM")
+    )
 }

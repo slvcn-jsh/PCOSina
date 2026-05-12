@@ -99,7 +99,7 @@ fun SplashScreen(
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .padding(horizontal = 30.dp)
-                .padding(top = 74.dp, bottom = 44.dp),
+                .padding(top = 126.dp, bottom = 42.dp),
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -107,26 +107,26 @@ fun SplashScreen(
                 text = "OFFLINE-FIRST FILIPINO PCOS MEAL\nPLANNING",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Medium,
-                    fontSize = 20.sp,
-                    lineHeight = 28.sp,
-                    letterSpacing = 0.4.sp,
+                    fontSize = 16.sp,
+                    lineHeight = 26.sp,
+                    letterSpacing = 0.2.sp,
                 ),
                 color = Color.White,
                 textAlign = TextAlign.Center,
             )
 
-            Spacer(Modifier.height(56.dp))
+            Spacer(Modifier.height(48.dp))
 
             Image(
                 painter = painterResource(id = R.drawable.login_heart_hands),
                 contentDescription = "PCOSINA heart logo",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .widthIn(max = 356.dp),
+                    .widthIn(max = 330.dp),
                 contentScale = ContentScale.Fit,
             )
 
-            Spacer(Modifier.height(44.dp))
+            Spacer(Modifier.height(42.dp))
 
             Text(
                 text = "Disclaimer: A wellness decision support tool\nfor your journey, not a medical diagnosis.",

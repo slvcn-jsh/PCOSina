@@ -16,7 +16,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -62,8 +61,8 @@ fun PcosinaAvatar(
     Image(
         painter = painterResource(id = option.drawableRes),
         contentDescription = option.label,
-        modifier = modifier.clip(CircleShape),
-        contentScale = ContentScale.Crop,
+        modifier = modifier,
+        contentScale = ContentScale.Fit,
     )
 }
 
@@ -85,7 +84,9 @@ fun PcosinaAvatarBadge(
     ) {
         PcosinaAvatar(
             avatarId = avatarId,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(1.dp)
         )
     }
 }

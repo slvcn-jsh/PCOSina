@@ -3,6 +3,7 @@ package com.pcosina.app.ui.screens
 import android.content.Intent
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +27,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
@@ -47,7 +50,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
@@ -75,6 +80,7 @@ import com.pcosina.app.ui.components.RefinedPrimaryButton
 import com.pcosina.app.ui.components.RefinedRingMeter
 import com.pcosina.app.ui.components.RefinedStatusPill
 import com.pcosina.app.ui.components.RefinedTabBrandHeader
+import com.pcosina.app.ui.components.SharedAvatarHeader
 import com.pcosina.app.ui.navigation.Routes
 import com.pcosina.app.ui.theme.PcosinaBlush
 import com.pcosina.app.ui.theme.PcosinaDeepRose
@@ -85,6 +91,8 @@ import com.pcosina.app.ui.theme.PcosinaSoftPink
 import com.pcosina.app.ui.theme.PcosinaSuccess
 import com.pcosina.app.ui.theme.PcosinaSurfaceAlt
 import com.pcosina.app.ui.util.rememberIsOnline
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private enum class GroceryFilterScope {
@@ -149,6 +157,7 @@ fun GroceryRefinedScreen(
     var pantryExpiry by rememberSaveable { mutableStateOf("") }
     var groceryFilterScope by rememberSaveable { mutableStateOf(GroceryFilterScope.AllItems.name) }
     var selectedFilterCategories by rememberSaveable { mutableStateOf(setOf<String>()) }
+    var selectedCategoryKey by rememberSaveable(activePlanId) { mutableStateOf("") }
 
     val effectiveChecked = remember(checkedNames, pantryMatches, pantryOptOut) {
         checkedNames + pantryMatches.filter { it !in pantryOptOut }
@@ -201,13 +210,24 @@ fun GroceryRefinedScreen(
             grouped[category]?.takeIf { it.isNotEmpty() }?.let { category to it }
         } + grouped.filterKeys { key -> key !in categoryOrder }.toList().sortedBy { it.first }
     }
+    LaunchedEffect(categoryEntries) {
+        if (categoryEntries.isNotEmpty() && categoryEntries.none { it.first == selectedCategoryKey }) {
+            selectedCategoryKey = categoryEntries.first().first
+        }
+    }
+    val selectedCategoryIndex = categoryEntries.indexOfFirst { it.first == selectedCategoryKey }.let { index ->
+        if (index >= 0) index else 0
+    }
+    val todayLabel = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("MMM dd", Locale.ENGLISH)) }
     val totalCount = groupedEntries.size
     val coveredCount = groupedEntries.count { it.name in effectiveChecked }
     val remainingCount = (totalCount - coveredCount).coerceAtLeast(0)
     val totalEstimated = groupedEntries.filter { it.name !in effectiveChecked }.sumOf { it.estimatedCostPhp }
     val weeklyBudget = userProfile.weeklyBudgetPhp.takeIf { it > 0 }
     val remainingBudget = weeklyBudget?.minus(totalEstimated)
-    val budgetProgress = if ((weeklyBudget ?: 0) > 0) totalEstimated.toFloat() / weeklyBudget!!.toFloat() else 0f
+    val budgetProgress = weeklyBudget?.let { budget ->
+        totalEstimated.toFloat() / budget.toFloat()
+    } ?: 0f
     val listProgress = if (totalCount > 0) coveredCount.toFloat() / totalCount.toFloat() else 0f
     val tipLine = remember(userProfile.goal, householdSize) {
         when {
@@ -311,13 +331,14 @@ fun GroceryRefinedScreen(
             RefinedTabBrandHeader(
                 online = isOnline,
                 onSettings = { onNavigateToRoute(Routes.Settings) },
-                onSupport = { onNavigateToRoute(Routes.Ipo) },
+                onSupport = { onNavigateToRoute(Routes.Notifications) },
                 compact = compact,
                 avatarId = userProfile.avatarId
             )
 
             GroceryHeadlineCard(
                 avatarId = userProfile.avatarId,
+                dateLabel = todayLabel,
                 compact = compact
             )
 
@@ -386,7 +407,20 @@ fun GroceryRefinedScreen(
                 pantryOptOut = pantryOptOut,
                 checkedNames = checkedNames,
                 categoryEntries = categoryEntries,
+                selectedCategoryIndex = selectedCategoryIndex,
                 expandedCategories = expandedCategories,
+                onPreviousCategory = {
+                    if (categoryEntries.isNotEmpty()) {
+                        val nextIndex = (selectedCategoryIndex - 1 + categoryEntries.size) % categoryEntries.size
+                        selectedCategoryKey = categoryEntries[nextIndex].first
+                    }
+                },
+                onNextCategory = {
+                    if (categoryEntries.isNotEmpty()) {
+                        val nextIndex = (selectedCategoryIndex + 1) % categoryEntries.size
+                        selectedCategoryKey = categoryEntries[nextIndex].first
+                    }
+                },
                 onToggleCategoryExpanded = { key ->
                     expandedCategories = if (key in expandedCategories) {
                         expandedCategories - key
@@ -823,6 +857,7 @@ private fun GroceryPreviewRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
+                modifier = Modifier.size(26.dp),
                 shape = RoundedCornerShape(12.dp),
                 color = if (checked || pantryCovered) PcosinaPink else Color.White,
                 border = BorderStroke(1.dp, if (checked || pantryCovered) PcosinaPink else PcosinaMuted.copy(alpha = 0.4f))
@@ -831,7 +866,9 @@ private fun GroceryPreviewRow(
                     resId = R.drawable.pcosina_svg_12_check,
                     contentDescription = null,
                     tint = if (checked || pantryCovered) Color.White else Color.Transparent,
-                    modifier = Modifier.padding(8.dp)
+                    modifier = Modifier
+                        .size(14.dp)
+                        .padding(2.dp)
                 )
             }
             Column(
@@ -871,56 +908,16 @@ private fun GroceryPreviewRow(
 @Composable
 private fun GroceryHeadlineCard(
     avatarId: String,
+    dateLabel: String,
     compact: Boolean,
 ) {
-    Surface(
-        shape = RoundedCornerShape(if (compact) 22.dp else 24.dp),
-        color = Color.Transparent,
-        border = BorderStroke(1.5.dp, PcosinaDeepRose.copy(alpha = 0.78f))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.linearGradient(
-                        listOf(PcosinaBlush, Color(0xFFFF8FA5))
-                    )
-                )
-                .padding(horizontal = if (compact) 12.dp else 14.dp, vertical = if (compact) 12.dp else 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            PcosinaAvatarBadge(
-                avatarId = avatarId,
-                size = if (compact) 64.dp else 76.dp,
-                shadowElevation = if (compact) 3.dp else 6.dp,
-            )
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = "Grocery Pantry",
-                    style = if (compact) {
-                        MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = PcosinaDeepRose
-                        )
-                    } else {
-                        MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = PcosinaDeepRose
-                        )
-                    }
-                )
-                Text(
-                    text = "All your essentials, budgeted and in one place.",
-                    style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-                    color = Color(0xFF2B1B20)
-                )
-            }
-        }
-    }
+    SharedAvatarHeader(
+        title = "Grocery Pantry",
+        subtitle = "All your essentials, budgeted and in one place.",
+        avatarId = avatarId,
+        dateLabel = dateLabel,
+        compact = compact,
+    )
 }
 
 @Composable
@@ -931,10 +928,28 @@ private fun GroceryBudgetCard(
     budgetProgress: Float,
     compact: Boolean,
 ) {
-    val withinBudget = remainingBudget == null || remainingBudget >= 0
-    val budgetColor = if (withinBudget) Color(0xFF19B764) else Color(0xFFE2526E)
+    val hasBudget = weeklyBudget != null
+    val hasBudgetComparison = hasBudget && totalEstimated > 0
+    val withinBudget = hasBudgetComparison && (remainingBudget ?: 0) >= 0
+    val budgetColor = when {
+        !hasBudgetComparison -> PcosinaMuted
+        withinBudget -> Color(0xFF19B764)
+        else -> Color(0xFFE2526E)
+    }
+    val budgetIcon = when {
+        !hasBudgetComparison -> R.drawable.pcosina_grocery_budget
+        withinBudget -> R.drawable.pcosina_budgeting_like
+        else -> R.drawable.pcosina_budgeting_disliked
+    }
+    val budgetTitle = when {
+        weeklyBudget == null -> "Budget not set"
+        !hasBudgetComparison -> "Budget pending"
+        withinBudget -> "Within the Budget"
+        else -> "Over the Budget"
+    }
     val budgetLabel = when {
         weeklyBudget == null -> "Budget not set yet."
+        !hasBudgetComparison -> "Add or sync grocery items to compare against your budget."
         withinBudget -> "Within Budget! ${formatPhp(remainingBudget ?: 0)} left."
         else -> "Over Budget by ${formatPhp(kotlin.math.abs(remainingBudget ?: 0))}."
     }
@@ -946,27 +961,30 @@ private fun GroceryBudgetCard(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = budgetColor.copy(alpha = 0.12f)
+            Image(
+                painter = painterResource(id = budgetIcon),
+                contentDescription = budgetTitle,
+                modifier = Modifier.size(if (compact) 72.dp else 86.dp),
+                contentScale = ContentScale.Fit,
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
-                PcosinaDesignIcon(
-                    resId = R.drawable.pcosina_svg_31_wallet,
-                    contentDescription = null,
-                    tint = budgetColor,
-                    modifier = Modifier
-                        .padding(9.dp)
-                        .size(if (compact) 20.dp else 22.dp)
+                Text(
+                    text = budgetTitle,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                    color = PcosinaDeepRose
+                )
+                RefinedStatusPill(
+                    text = budgetLabel,
+                    containerColor = budgetColor.copy(alpha = 0.16f),
+                    contentColor = budgetColor
                 )
             }
-            RefinedStatusPill(
-                text = budgetLabel,
-                containerColor = budgetColor.copy(alpha = 0.16f),
-                contentColor = budgetColor
-            )
         }
         Text(
             text = "Total Estimated Spending",
@@ -1019,85 +1037,109 @@ private fun GroceryProgressCard(
     compact: Boolean,
 ) {
     RefinedOverviewCard(
-        containerColor = Color.White,
+        containerColor = Color(0xFFFFEEF3),
         borderColor = PcosinaPink.copy(alpha = 0.26f),
-        contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
+        contentPadding = PaddingValues(0.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color(0xFFFFEDF1)
-            ) {
-                PcosinaDesignIcon(
-                    resId = R.drawable.pcosina_nav_grocery,
-                    contentDescription = null,
-                    tint = Color.Unspecified,
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .size(if (compact) 22.dp else 24.dp)
-                )
-            }
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Image(
+                painter = painterResource(id = R.drawable.pcosina_grocery_progress_background),
+                contentDescription = null,
+                modifier = Modifier.matchParentSize(),
+                contentScale = ContentScale.Crop,
+                alpha = 0.96f,
+            )
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text(
-                    text = "Grocery Progress",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = PcosinaDeepRose
-                    )
-                )
-                Text(
-                    text = "Built for ${householdSizeLabel(householdSize)} and synced with your saved pantry.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = PcosinaMuted
-                )
-            }
-        }
-        Surface(
-            shape = RoundedCornerShape(22.dp),
-            color = Color(0xFFFFEEF3),
-            border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.14f))
-        ) {
-            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(if (compact) 12.dp else 14.dp),
-                contentAlignment = Alignment.Center
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                RefinedRingMeter(
-                    valueText = "${remainingCount}/${totalCount.coerceAtLeast(1)}",
-                    subtitle = "items left",
-                    progress = 1f - listProgress,
-                    color = PcosinaPink,
-                    compact = compact
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = "Grocery Progress",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = PcosinaDeepRose
+                            )
+                        )
+                        Text(
+                            text = "Built for ${householdSizeLabel(householdSize)} and synced with your saved pantry.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = PcosinaMuted
+                        )
+                    }
+                    RefinedStatusPill(
+                        text = "${(listProgress * 100).toInt().coerceIn(0, 100)}% checked",
+                        containerColor = Color.White.copy(alpha = 0.84f),
+                        contentColor = PcosinaDeepRose,
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(22.dp),
+                    color = Color.White.copy(alpha = 0.72f),
+                    border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.14f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(if (compact) 12.dp else 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RefinedRingMeter(
+                            valueText = "${remainingCount}/${totalCount.coerceAtLeast(1)}",
+                            subtitle = "items left",
+                            progress = 1f - listProgress,
+                            color = PcosinaPink,
+                            compact = compact
+                        )
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(7.dp),
+                        ) {
+                            Text(
+                                text = if (remainingCount == 0) "All items checked" else "Shop what is still missing",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                color = PcosinaDeepRose,
+                            )
+                            Text(
+                                text = "Use pantry matches first, then buy only the remaining budgeted ingredients for this week's plan.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = PcosinaMuted,
+                            )
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    GroceryActionTile(
+                        title = "Share Grocery List?",
+                        iconRes = R.drawable.pcosina_svg_30_send,
+                        onClick = onShare,
+                        modifier = Modifier.weight(1f),
+                        compact = compact
+                    )
+                    GroceryActionTile(
+                        title = "View Pantry List?",
+                        iconRes = R.drawable.pcosina_svg_29_cart,
+                        onClick = onOpenPantry,
+                        modifier = Modifier.weight(1f),
+                        compact = compact
+                    )
+                }
             }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            GroceryActionTile(
-                title = "Share Grocery List?",
-                iconRes = R.drawable.pcosina_svg_30_send,
-                onClick = onShare,
-                modifier = Modifier.weight(1f),
-                compact = compact
-            )
-            GroceryActionTile(
-                title = "View Pantry List?",
-                iconRes = R.drawable.pcosina_svg_29_cart,
-                onClick = onOpenPantry,
-                modifier = Modifier.weight(1f),
-                compact = compact
-            )
         }
     }
 }
@@ -1165,11 +1207,11 @@ private fun GroceryKitchenHubHeader(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            PcosinaDesignIcon(
-                resId = R.drawable.pcosina_svg_26_chef_hat,
+            Image(
+                painter = painterResource(id = R.drawable.pcosina_grocery_kitchen_hub),
                 contentDescription = null,
-                modifier = Modifier.size(if (compact) 34.dp else 40.dp),
-                tint = Color.Unspecified
+                modifier = Modifier.size(if (compact) 58.dp else 68.dp),
+                contentScale = ContentScale.Fit,
             )
             Column(
                 modifier = Modifier.weight(1f),
@@ -1246,7 +1288,10 @@ private fun GroceryCategoryPanel(
     pantryOptOut: Set<String>,
     checkedNames: Set<String>,
     categoryEntries: List<Pair<String, List<GroceryListEntry>>>,
+    selectedCategoryIndex: Int,
     expandedCategories: Set<String>,
+    onPreviousCategory: () -> Unit,
+    onNextCategory: () -> Unit,
     onToggleCategoryExpanded: (String) -> Unit,
     onToggleItem: (GroceryListEntry) -> Unit,
     onSyncIngredients: () -> Unit,
@@ -1317,7 +1362,16 @@ private fun GroceryCategoryPanel(
 
             else -> {
                 val collapsedCount = 2
-                categoryEntries.forEach { (category, items) ->
+                val categoryIndex = selectedCategoryIndex.coerceIn(0, categoryEntries.lastIndex)
+                val (category, items) = categoryEntries[categoryIndex]
+                GroceryCategoryCarouselHeader(
+                    category = category,
+                    index = categoryIndex,
+                    total = categoryEntries.size,
+                    onPrevious = onPreviousCategory,
+                    onNext = onNextCategory,
+                    compact = compact,
+                )
                     val title = category
                     val categoryExpanded = category in expandedCategories
                     val displayedItems = if (categoryExpanded) items else items.take(collapsedCount)
@@ -1427,8 +1481,89 @@ private fun GroceryCategoryPanel(
                             }
                         }
                     }
-                }
             }
+        }
+    }
+}
+
+@Composable
+private fun GroceryCategoryCarouselHeader(
+    category: String,
+    index: Int,
+    total: Int,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    compact: Boolean,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        GroceryCategoryArrowButton(
+            contentDescription = "Previous grocery category",
+            onClick = onPrevious,
+            enabled = total > 1,
+            icon = Icons.AutoMirrored.Filled.ArrowBack,
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = "Browse category",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = PcosinaMuted
+            )
+            Text(
+                text = category,
+                style = if (compact) {
+                    MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                } else {
+                    MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
+                },
+                color = PcosinaDeepRose,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "${index + 1} of $total",
+                style = MaterialTheme.typography.labelSmall,
+                color = PcosinaMuted
+            )
+        }
+        GroceryCategoryArrowButton(
+            contentDescription = "Next grocery category",
+            onClick = onNext,
+            enabled = total > 1,
+            icon = Icons.AutoMirrored.Filled.ArrowForward,
+        )
+    }
+}
+
+@Composable
+private fun GroceryCategoryArrowButton(
+    contentDescription: String,
+    onClick: () -> Unit,
+    enabled: Boolean,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+) {
+    Surface(
+        modifier = Modifier
+            .size(42.dp)
+            .clickable(enabled = enabled, onClick = onClick),
+        shape = CircleShape,
+        color = if (enabled) Color(0xFFFFEEF2) else PcosinaSurfaceAlt,
+        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = if (enabled) 0.22f else 0.08f))
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = if (enabled) PcosinaDeepRose else PcosinaMuted.copy(alpha = 0.45f),
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

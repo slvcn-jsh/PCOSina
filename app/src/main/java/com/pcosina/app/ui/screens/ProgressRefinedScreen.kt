@@ -1,8 +1,11 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.pcosina.app.ui.screens
 
 import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -49,7 +52,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,6 +62,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.pcosina.app.data.model.DailyLog
+import com.pcosina.app.data.model.MealCheckIn
+import com.pcosina.app.data.model.PlannerPlannedMeal
 import com.pcosina.app.data.model.PlannerPlanResponse
 import com.pcosina.app.domain.HealthMetrics
 import com.pcosina.app.domain.PlannedDayCount
@@ -80,7 +87,9 @@ import com.pcosina.app.ui.components.RefinedOverviewCard
 import com.pcosina.app.ui.components.RefinedPrimaryButton
 import com.pcosina.app.ui.components.RefinedStatusPill
 import com.pcosina.app.ui.components.RefinedTabBrandHeader
+import com.pcosina.app.ui.components.SharedAvatarHeader
 import com.pcosina.app.ui.navigation.Routes
+import com.pcosina.app.ui.theme.PcosinaBlush
 import com.pcosina.app.ui.theme.PcosinaDeepRose
 import com.pcosina.app.ui.theme.PcosinaMuted
 import com.pcosina.app.ui.theme.PcosinaPink
@@ -88,6 +97,7 @@ import com.pcosina.app.ui.theme.PcosinaSoftPink
 import com.pcosina.app.ui.theme.PcosinaSurfaceAlt
 import com.pcosina.app.ui.util.rememberIsOnline
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
@@ -148,6 +158,33 @@ private data class ProgressDraftInputs(
     val weeklyJournalDraft: String = "",
     val weeklySpendInput: String = "",
     val selectedFeedbackTags: Set<String> = emptySet(),
+)
+
+private enum class ProgressCalendarStatus {
+    Completed,
+    Partial,
+    Missed,
+    NoRecord,
+    FutureLocked,
+    Today,
+}
+
+private data class ProgressCalendarDay(
+    val date: LocalDate,
+    val isToday: Boolean,
+    val isFuture: Boolean,
+    val hasLog: Boolean,
+    val hasMealCheckIn: Boolean,
+    val hasReflection: Boolean,
+    val hasWeeklyProgress: Boolean,
+    val completedMealCount: Int,
+    val plannedMealCount: Int,
+    val completedMeals: List<String> = emptyList(),
+    val missedMeals: List<String> = emptyList(),
+    val pendingMeals: List<String> = emptyList(),
+    val checkInSummaries: List<String> = emptyList(),
+    val reflectionSummaries: List<String> = emptyList(),
+    val status: ProgressCalendarStatus,
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -236,7 +273,13 @@ fun ProgressRefinedScreen(
     var showReflectionDialog by remember { mutableStateOf(false) }
     var showWeeklyReviewDialog by remember { mutableStateOf(false) }
     var showWeeklyHighlightsDialog by remember { mutableStateOf(false) }
+    var weeklyAdherenceExpanded by remember { mutableStateOf(false) }
+    var weeklySavingsExpanded by remember { mutableStateOf(false) }
+    var averageMacrosExpanded by remember { mutableStateOf(false) }
+    var symptomTrendsExpanded by remember { mutableStateOf(false) }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
+    var visibleCalendarMonth by remember { mutableStateOf(YearMonth.from(today)) }
+    var selectedCalendarDate by remember { mutableStateOf(today) }
     val weekStartKey = remember(weekStart) { weekStart.format(DateTimeFormatter.ISO_LOCAL_DATE) }
     val weightUnitLabel = if (profile.weightUnit == UnitConverter.WEIGHT_LB) "lb" else "kg"
     val draftInputs = remember(
@@ -590,6 +633,17 @@ fun ProgressRefinedScreen(
         val symptomMetrics = remember(trendSummary) {
             buildProgressSymptomMetrics(trendSummary)
         }
+        val progressCalendarDays = remember(visibleCalendarMonth, logs, weekStart, weeklyJournal, weeklySpend, currentPlan, today) {
+            buildProgressCalendarDays(
+                visibleMonth = visibleCalendarMonth,
+                logs = logs,
+                weekStart = weekStart,
+                weeklyJournal = weeklyJournal,
+                weeklySpend = weeklySpend,
+                currentPlan = currentPlan,
+                today = today,
+            )
+        }
 
         Column(
             modifier = Modifier
@@ -602,13 +656,20 @@ fun ProgressRefinedScreen(
             RefinedTabBrandHeader(
                 online = isOnline,
                 onSettings = { onNavigateToRoute(Routes.Settings) },
-                onSupport = { onNavigateToRoute(Routes.Ipo) },
+                onSupport = { onNavigateToRoute(Routes.Notifications) },
                 compact = compact,
                 avatarId = profile.avatarId
             )
 
+            SharedAvatarHeader(
+                title = "Progress",
+                subtitle = "Track meal adherence and self-reported progress.",
+                avatarId = profile.avatarId,
+                dateLabel = today.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)),
+                compact = compact,
+            )
+
             ProgressHeadlineCard(
-                dateLabel = today.format(DateTimeFormatter.ofPattern("MMM dd", Locale.ENGLISH)),
                 bmiLabel = bmiLabel,
                 bmiCategory = bmiCategory,
                 mealsDoneLabel = mealsDoneLabel,
@@ -621,6 +682,27 @@ fun ProgressRefinedScreen(
                 weeklyHighlights = weeklyHighlights,
                 onClick = { showWeeklyHighlightsDialog = true },
                 compact = compact
+            )
+
+            ProgressCalendarCard(
+                visibleMonth = visibleCalendarMonth,
+                today = today,
+                selectedDate = selectedCalendarDate,
+                days = progressCalendarDays,
+                weeklyJournal = weeklyJournal,
+                weeklySpend = weeklySpend,
+                onPreviousMonth = {
+                    val nextMonth = visibleCalendarMonth.minusMonths(1)
+                    visibleCalendarMonth = nextMonth
+                    selectedCalendarDate = nextMonth.atDay(1)
+                },
+                onNextMonth = {
+                    val nextMonth = visibleCalendarMonth.plusMonths(1)
+                    visibleCalendarMonth = nextMonth
+                    selectedCalendarDate = if (nextMonth == YearMonth.from(today)) today else nextMonth.atDay(1)
+                },
+                onSelectDate = { selectedCalendarDate = it },
+                compact = compact,
             )
 
             if (!feedbackMessage.isNullOrBlank()) {
@@ -637,35 +719,71 @@ fun ProgressRefinedScreen(
                 }
             }
 
-            ProgressWeeklyCard(
-                weekNodes = weekNodes,
-                weeklyMealSummary = weeklyMealSummary,
-                compact = compact
-            )
+            ProgressDropdownCard(
+                title = "Weekly adherence",
+                value = "${weeklyMealSummary.adherencePercent}%",
+                subtitle = "$mealsDoneLabel meals complete this week.",
+                expanded = weeklyAdherenceExpanded,
+                onToggle = { weeklyAdherenceExpanded = !weeklyAdherenceExpanded },
+                compact = compact,
+            ) {
+                ProgressWeeklyCard(
+                    weekNodes = weekNodes,
+                    weeklyMealSummary = weeklyMealSummary,
+                    compact = compact
+                )
+            }
 
-            ProgressSavingsCard(
+            ProgressDropdownCard(
+                title = "Weekly savings",
                 value = weeklySavingsValue,
                 subtitle = savingsTileSubtitle,
-                summary = savingsSummaryLabel,
-                chartPoints = savingsChartPoints,
-                spendStats = spendStats,
-                compact = compact
-            )
+                expanded = weeklySavingsExpanded,
+                onToggle = { weeklySavingsExpanded = !weeklySavingsExpanded },
+                compact = compact,
+            ) {
+                ProgressSavingsCard(
+                    value = weeklySavingsValue,
+                    subtitle = savingsTileSubtitle,
+                    summary = savingsSummaryLabel,
+                    chartPoints = savingsChartPoints,
+                    spendStats = spendStats,
+                    compact = compact
+                )
+            }
 
-            ProgressInsightsCard(
-                planMetrics = planMetrics,
-                currentPlan = currentPlan,
-                weeklyMealSummary = weeklyMealSummary,
-                planFeedbackTags = planFeedbackTags,
-                modifier = Modifier.fillMaxWidth(),
-                compact = compact
-            )
+            ProgressDropdownCard(
+                title = "Average macros",
+                value = "${planMetrics.avgProtein}g protein",
+                subtitle = "Plan averages and target balance.",
+                expanded = averageMacrosExpanded,
+                onToggle = { averageMacrosExpanded = !averageMacrosExpanded },
+                compact = compact,
+            ) {
+                ProgressInsightsCard(
+                    planMetrics = planMetrics,
+                    currentPlan = currentPlan,
+                    weeklyMealSummary = weeklyMealSummary,
+                    planFeedbackTags = planFeedbackTags,
+                    modifier = Modifier.fillMaxWidth(),
+                    compact = compact
+                )
+            }
 
-            ProgressSymptomManagementCard(
-                metrics = symptomMetrics,
-                summary = trendSummary,
-                compact = compact
-            )
+            ProgressDropdownCard(
+                title = "Symptom trends",
+                value = "${trendSummary.checkInDays} days",
+                subtitle = trendSummary.headline,
+                expanded = symptomTrendsExpanded,
+                onToggle = { symptomTrendsExpanded = !symptomTrendsExpanded },
+                compact = compact,
+            ) {
+                ProgressSymptomManagementCard(
+                    metrics = symptomMetrics,
+                    summary = trendSummary,
+                    compact = compact
+                )
+            }
 
             ProgressBottomCtaCard(
                 completedMealsToday = completedMealsToday,
@@ -698,8 +816,418 @@ fun ProgressRefinedScreen(
 }
 
 @Composable
+private fun ProgressCalendarCard(
+    visibleMonth: YearMonth,
+    today: LocalDate,
+    selectedDate: LocalDate,
+    days: List<ProgressCalendarDay>,
+    weeklyJournal: String,
+    weeklySpend: Int?,
+    onPreviousMonth: () -> Unit,
+    onNextMonth: () -> Unit,
+    onSelectDate: (LocalDate) -> Unit,
+    compact: Boolean,
+) {
+    val monthFormatter = remember { DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH) }
+    val summaryFormatter = remember { DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.ENGLISH) }
+    val dayByDate = remember(days) { days.associateBy { it.date } }
+    val selectedDay = dayByDate[selectedDate] ?: ProgressCalendarDay(
+        date = selectedDate,
+        isToday = selectedDate == today,
+        isFuture = selectedDate.isAfter(today),
+        hasLog = false,
+        hasMealCheckIn = false,
+        hasReflection = false,
+        hasWeeklyProgress = false,
+        completedMealCount = 0,
+        plannedMealCount = 0,
+        status = if (selectedDate.isAfter(today)) ProgressCalendarStatus.FutureLocked else ProgressCalendarStatus.NoRecord,
+    )
+    var detailsExpanded by remember(selectedDate) { mutableStateOf(false) }
+    val selectedDayHasDetails = selectedDay.completedMeals.isNotEmpty() ||
+        selectedDay.missedMeals.isNotEmpty() ||
+        selectedDay.pendingMeals.isNotEmpty() ||
+        selectedDay.checkInSummaries.isNotEmpty() ||
+        selectedDay.reflectionSummaries.isNotEmpty() ||
+        selectedDay.hasWeeklyProgress
+    val cells = remember(visibleMonth) { buildMonthCalendarCells(visibleMonth) }
+
+    RefinedOverviewCard(
+        containerColor = Color(0xFFFFF3F6),
+        borderColor = PcosinaPink.copy(alpha = 0.22f),
+        contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.pcosina_calendar),
+                contentDescription = null,
+                modifier = Modifier.size(if (compact) 54.dp else 64.dp),
+                contentScale = ContentScale.Fit,
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Text(
+                    text = "History Calendar",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                    color = PcosinaDeepRose,
+                )
+                Text(
+                    text = "Tap a date to review meal adherence and self-reported progress.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PcosinaMuted,
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = onPreviousMonth) {
+                Text("<", fontWeight = FontWeight.ExtraBold, color = PcosinaPink)
+            }
+            Text(
+                text = visibleMonth.format(monthFormatter),
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                color = PcosinaDeepRose,
+            )
+            TextButton(onClick = onNextMonth) {
+                Text(">", fontWeight = FontWeight.ExtraBold, color = PcosinaPink)
+            }
+        }
+
+        ProgressCalendarGrid(
+            cells = cells,
+            dayByDate = dayByDate,
+            today = today,
+            selectedDate = selectedDate,
+            onSelectDate = onSelectDate,
+            compact = compact,
+        )
+
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            ProgressCalendarLegendDot(color = ProgressCalendarStatus.Completed.legendColor(), label = "All meals marked")
+            ProgressCalendarLegendDot(color = ProgressCalendarStatus.Partial.legendColor(), label = "Partly recorded")
+            ProgressCalendarLegendDot(color = ProgressCalendarStatus.Missed.legendColor(), label = "No meals marked")
+            ProgressCalendarLegendDot(color = ProgressCalendarStatus.NoRecord.legendColor(), label = "No record")
+            ProgressCalendarLegendDot(color = ProgressCalendarStatus.FutureLocked.legendColor(), label = "Future locked")
+            ProgressCalendarLegendDot(color = PcosinaPink, label = "Check-in/reflection")
+        }
+
+        Surface(
+            shape = RoundedCornerShape(22.dp),
+            color = Color.White.copy(alpha = 0.9f),
+            border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.16f)),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = selectedDate.format(summaryFormatter),
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                    color = PcosinaDeepRose,
+                )
+                RefinedStatusPill(
+                    text = selectedDay.status.displayLabel(),
+                    containerColor = selectedDay.status.legendColor().copy(alpha = 0.16f),
+                    contentColor = selectedDay.status.contentColor(),
+                )
+                Text(
+                    text = selectedDay.insightMessage(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PcosinaMuted,
+                )
+                Text(
+                    text = buildString {
+                        if (selectedDay.plannedMealCount > 0) {
+                            append("${selectedDay.completedMealCount}/${selectedDay.plannedMealCount} planned meals marked as eaten")
+                        } else if (selectedDay.hasLog) {
+                            append("Self-reported progress exists, but this date is not linked to the current planned-meal list")
+                        } else {
+                            append("No progress recorded for this date")
+                        }
+                        if (selectedDay.isFuture) append(". This date is unavailable until it arrives")
+                    },
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = PcosinaDeepRose,
+                )
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = selectedDayHasDetails) {
+                            detailsExpanded = !detailsExpanded
+                        },
+                    shape = RoundedCornerShape(999.dp),
+                    color = if (selectedDayHasDetails) {
+                        PcosinaBlush.copy(alpha = 0.72f)
+                    } else {
+                        Color(0xFFF4EEF1)
+                    },
+                    border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.14f)),
+                ) {
+                    Text(
+                        text = when {
+                            !selectedDayHasDetails -> "No additional details for this date"
+                            detailsExpanded -> "Hide details"
+                            else -> "Show details"
+                        },
+                        modifier = Modifier.padding(vertical = 10.dp),
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
+                        color = if (selectedDayHasDetails) PcosinaDeepRose else PcosinaMuted,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+
+                if (detailsExpanded && selectedDayHasDetails) {
+                    if (selectedDay.completedMeals.isNotEmpty()) {
+                        ProgressCalendarTextGroup(
+                            title = "Meals marked as eaten",
+                            items = selectedDay.completedMeals,
+                        )
+                    }
+                    if (selectedDay.missedMeals.isNotEmpty()) {
+                        ProgressCalendarTextGroup(
+                            title = "Meals not marked as eaten",
+                            items = selectedDay.missedMeals,
+                        )
+                    }
+                    if (selectedDay.pendingMeals.isNotEmpty()) {
+                        ProgressCalendarTextGroup(
+                            title = "Still open today",
+                            items = selectedDay.pendingMeals,
+                        )
+                    }
+                    if (selectedDay.checkInSummaries.isNotEmpty()) {
+                        ProgressCalendarTextGroup(
+                            title = "Self-reported meal check-ins",
+                            items = selectedDay.checkInSummaries,
+                        )
+                    }
+                    if (selectedDay.reflectionSummaries.isNotEmpty()) {
+                        ProgressCalendarTextGroup(
+                            title = "Reflection notes",
+                            items = selectedDay.reflectionSummaries,
+                        )
+                    }
+                    if (selectedDay.hasWeeklyProgress) {
+                        Text(
+                            text = buildString {
+                                append("Weekly self-reported progress record available")
+                                weeklySpend?.let { append(" with ₱$it actual spend") }
+                                if (weeklyJournal.isNotBlank()) append(". Weekly note saved.")
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = PcosinaDeepRose,
+                        )
+                    }
+                }
+                Text(
+                    text = when {
+                        selectedDay.isFuture -> "Future days are locked and cannot be edited."
+                        selectedDay.isToday -> "Today can still be updated through the existing meal logging flow when sequence rules allow it."
+                        else -> "Past days are shown for history review only. Meal logging remains today-only."
+                    },
+                    style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
+                    color = PcosinaMuted,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressCalendarTextGroup(
+    title: String,
+    items: List<String>,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
+            color = PcosinaDeepRose,
+        )
+        items.take(4).forEach { item ->
+            Text(
+                text = "- $item",
+                style = MaterialTheme.typography.bodySmall,
+                color = PcosinaMuted,
+            )
+        }
+        if (items.size > 4) {
+            Text(
+                text = "${items.size - 4} more item(s) recorded.",
+                style = MaterialTheme.typography.labelSmall,
+                color = PcosinaMuted,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProgressCalendarGrid(
+    cells: List<LocalDate?>,
+    dayByDate: Map<LocalDate, ProgressCalendarDay>,
+    today: LocalDate,
+    selectedDate: LocalDate,
+    onSelectDate: (LocalDate) -> Unit,
+    compact: Boolean,
+) {
+    val weekLabels = listOf("S", "M", "T", "W", "T", "F", "S")
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            weekLabels.forEach { label ->
+                Text(
+                    text = label,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                    color = PcosinaMuted,
+                )
+            }
+        }
+        cells.chunked(7).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                row.forEach { date ->
+                    if (date == null) {
+                        Spacer(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(if (compact) 38.dp else 44.dp)
+                        )
+                    } else {
+                        val day = dayByDate[date]
+                        val selected = date == selectedDate
+                        val isToday = date == today
+                        ProgressCalendarDayCell(
+                            date = date,
+                            day = day,
+                            selected = selected,
+                            isToday = isToday,
+                            onClick = { onSelectDate(date) },
+                            modifier = Modifier.weight(1f),
+                            compact = compact,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressCalendarDayCell(
+    date: LocalDate,
+    day: ProgressCalendarDay?,
+    selected: Boolean,
+    isToday: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    compact: Boolean,
+) {
+    val status = day?.status ?: if (date.isAfter(LocalDate.now())) ProgressCalendarStatus.FutureLocked else ProgressCalendarStatus.NoRecord
+    val hasActivityMarker = day?.hasMealCheckIn == true || day?.hasReflection == true || day?.hasWeeklyProgress == true
+    Surface(
+        modifier = modifier
+            .height(if (compact) 38.dp else 44.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = when {
+            selected -> PcosinaPink
+            status == ProgressCalendarStatus.FutureLocked -> Color(0xFFEDE8EA)
+            status == ProgressCalendarStatus.NoRecord -> Color.White.copy(alpha = 0.62f)
+            else -> status.legendColor().copy(alpha = 0.15f)
+        },
+        border = BorderStroke(
+            1.dp,
+            when {
+                selected -> PcosinaPink
+                isToday -> PcosinaDeepRose.copy(alpha = 0.5f)
+                status != ProgressCalendarStatus.NoRecord -> status.legendColor().copy(alpha = 0.45f)
+                else -> PcosinaMuted.copy(alpha = 0.12f)
+            }
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 5.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = date.dayOfMonth.toString(),
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
+                color = when {
+                    selected -> Color.White
+                    status == ProgressCalendarStatus.FutureLocked -> PcosinaMuted.copy(alpha = 0.72f)
+                    else -> PcosinaDeepRose
+                },
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ProgressCalendarMarker(color = if (selected) Color.White else status.legendColor())
+                if (hasActivityMarker) {
+                    ProgressCalendarMarker(color = if (selected) Color.White else PcosinaPink)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressCalendarMarker(color: Color) {
+    Box(
+        modifier = Modifier
+            .size(5.dp)
+            .background(color, CircleShape)
+    )
+}
+
+@Composable
+private fun ProgressCalendarLegendDot(
+    color: Color,
+    label: String,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ProgressCalendarMarker(color = color)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = PcosinaMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
 private fun ProgressHeadlineCard(
-    dateLabel: String,
     bmiLabel: String,
     bmiCategory: String,
     mealsDoneLabel: String,
@@ -712,50 +1240,21 @@ private fun ProgressHeadlineCard(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
+            horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            RefinedStatusPill(
-                text = dateLabel,
-                containerColor = Color.White,
-                contentColor = PcosinaDeepRose
+            ProgressBmiCard(
+                bmiLabel = bmiLabel,
+                bmiCategory = bmiCategory,
+                compact = true,
+                modifier = Modifier.weight(1f)
             )
-        }
-        if (compact) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                ProgressBmiCard(
-                    bmiLabel = bmiLabel,
-                    bmiCategory = bmiCategory,
-                    compact = true
-                )
-                ProgressMealSummaryCard(
-                    mealsDoneLabel = mealsDoneLabel,
-                    weeklyMealSummary = weeklyMealSummary,
-                    compact = true
-                )
-            }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ProgressBmiCard(
-                    bmiLabel = bmiLabel,
-                    bmiCategory = bmiCategory,
-                    compact = false,
-                    modifier = Modifier.weight(1f)
-                )
-                ProgressMealSummaryCard(
-                    mealsDoneLabel = mealsDoneLabel,
-                    weeklyMealSummary = weeklyMealSummary,
-                    compact = false,
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            ProgressMealSummaryCard(
+                mealsDoneLabel = mealsDoneLabel,
+                weeklyMealSummary = weeklyMealSummary,
+                compact = true,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
@@ -807,6 +1306,7 @@ private fun ProgressWeeklyHighlightsLauncher(
     compact: Boolean,
 ) {
     val formatter = remember { DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH) }
+    val leadHighlight = weeklyHighlights.firstOrNull()
     RefinedOverviewCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -827,7 +1327,12 @@ private fun ProgressWeeklyHighlightsLauncher(
                 border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.24f))
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text("★", style = MaterialTheme.typography.titleLarge, color = PcosinaPink)
+                    Image(
+                        painter = painterResource(id = R.drawable.pcosina_weekly_highlight),
+                        contentDescription = null,
+                        modifier = Modifier.padding(8.dp),
+                        contentScale = ContentScale.Fit,
+                    )
                 }
             }
             Column(
@@ -840,9 +1345,12 @@ private fun ProgressWeeklyHighlightsLauncher(
                     color = PcosinaDeepRose
                 )
                 Text(
-                    text = "${weekStart.format(formatter)} to ${weekStart.plusDays(6).format(formatter)} • ${weeklyHighlights.size} insights",
+                    text = leadHighlight?.let { "${it.title}: ${it.body}" }
+                        ?: "${weekStart.format(formatter)} to ${weekStart.plusDays(6).format(formatter)} • ${weeklyHighlights.size} insights",
                     style = MaterialTheme.typography.bodySmall,
-                    color = PcosinaMuted
+                    color = PcosinaMuted,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             RefinedStatusPill(
@@ -865,6 +1373,7 @@ private fun ProgressWeeklyHighlightsCard(
 ) {
     val formatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH) }
     val completedDays = weekNodes.count { it.state == ProgressNodeState.Complete }
+    val leadHighlight = weeklyHighlights.firstOrNull()
     RefinedOverviewCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -954,7 +1463,9 @@ private fun ProgressWeeklyHighlightsCard(
                     color = PcosinaSoftPink.copy(alpha = 0.86f),
                 ) {
                     Text(
-                        text = "This is a simple weekly recap from your meals, budget, and check-ins.",
+                        text = leadHighlight?.let {
+                            "This recap uses your meals, budget, and check-ins. ${it.body}"
+                        } ?: "This recap uses your meals, budget, and check-ins once you start logging.",
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                         color = PcosinaDeepRose,
@@ -1167,6 +1678,15 @@ private fun ProgressWeeklyCard(
     weeklyMealSummary: WeeklyMealSummary,
     compact: Boolean,
 ) {
+    val plannedMeals = weeklyMealSummary.plannedMeals.coerceAtLeast(1)
+    val adherencePercent = ((weeklyMealSummary.completedMeals.toFloat() / plannedMeals.toFloat()) * 100f)
+        .toInt()
+        .coerceIn(0, 100)
+    val adherenceSummary = when {
+        adherencePercent >= 80 -> "Strong logging week. Your completed meals give the next plan better context."
+        weeklyMealSummary.completedMeals > 0 -> "Your meal logs are building a usable week-by-week pattern."
+        else -> "Log meals or check in so this weekly pattern can reflect your actual routine."
+    }
     RefinedOverviewCard(
         containerColor = Color(0xFFFFE2E8),
         borderColor = PcosinaPink.copy(alpha = 0.28f),
@@ -1182,7 +1702,12 @@ private fun ProgressWeeklyCard(
                 color = Color.White.copy(alpha = 0.56f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text("!!", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold), color = PcosinaPink)
+                    Image(
+                        painter = painterResource(id = R.drawable.pcosina_weekly_adherence),
+                        contentDescription = null,
+                        modifier = Modifier.padding(7.dp),
+                        contentScale = ContentScale.Fit,
+                    )
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -1192,7 +1717,7 @@ private fun ProgressWeeklyCard(
                     color = PcosinaDeepRose
                 )
                 Text(
-                    text = "Excellent job! See how your daily small actions add up to big progress.",
+                    text = adherenceSummary,
                     style = MaterialTheme.typography.bodySmall,
                     color = PcosinaDeepRose.copy(alpha = 0.76f),
                     maxLines = 2,
@@ -1289,12 +1814,19 @@ private fun ProgressBmiCard(
                         )
                     }
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
                     Text(
-                        text = "Your Target BMI",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                        text = "Target Your BMI",
+                        style = if (compact) {
+                            MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold)
+                        } else {
+                            MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                        },
                         color = Color(0xFF5E2531),
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
@@ -1979,7 +2511,12 @@ private fun ProgressInsightsCard(
                 color = Color(0xFFFFE2E8)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text("♥", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold), color = PcosinaPink)
+                    Image(
+                        painter = painterResource(id = R.drawable.pcosina_average_daily_macros),
+                        contentDescription = null,
+                        modifier = Modifier.padding(7.dp),
+                        contentScale = ContentScale.Fit,
+                    )
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -2073,13 +2610,14 @@ private fun ProgressSymptomManagementCard(
             Surface(
                 modifier = Modifier.size(42.dp),
                 shape = CircleShape,
-                color = PcosinaPink
+                color = Color.White.copy(alpha = 0.72f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "+",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-                        color = Color.White
+                    Image(
+                        painter = painterResource(id = R.drawable.pcosina_pcos_system_management),
+                        contentDescription = null,
+                        modifier = Modifier.padding(7.dp),
+                        contentScale = ContentScale.Fit,
                     )
                 }
             }
@@ -2658,6 +3196,227 @@ private fun buildProgressWeeklyHighlights(
             color = Color(0xFFE2526E),
         ),
     )
+}
+
+private fun buildProgressCalendarDays(
+    visibleMonth: YearMonth,
+    logs: Map<String, DailyLog>,
+    weekStart: LocalDate,
+    weeklyJournal: String,
+    weeklySpend: Int?,
+    currentPlan: PlannerPlanResponse?,
+    today: LocalDate,
+): List<ProgressCalendarDay> {
+    val weeklyRecordExists = weeklyJournal.isNotBlank() || weeklySpend != null
+    val plannedMealsByDate = buildCalendarPlannedMealsByDate(currentPlan, weekStart)
+    return (1..visibleMonth.lengthOfMonth()).map { dayOfMonth ->
+        val date = visibleMonth.atDay(dayOfMonth)
+        val log = logs[date.format(DateTimeFormatter.ISO_LOCAL_DATE)]
+        val plannedMeals = plannedMealsByDate[date].orEmpty()
+        val completedKeys = log?.completedMealIds.orEmpty().toSet()
+        val mealCheckIns = log?.mealCheckIns.orEmpty()
+        val completedPlannedMeals = plannedMeals.filter { meal ->
+            isCalendarMealCompleted(meal, completedKeys, mealCheckIns)
+        }
+        val completedMealCount = if (plannedMeals.isNotEmpty()) {
+            completedPlannedMeals.size
+        } else {
+            distinctLoggedMealLabels(log).size
+        }
+        val completedMeals = if (plannedMeals.isNotEmpty()) {
+            completedPlannedMeals.map { it.calendarDisplayName() }
+        } else {
+            distinctLoggedMealLabels(log)
+        }
+        val remainingPlannedMeals = plannedMeals
+            .filterNot { meal -> isCalendarMealCompleted(meal, completedKeys, mealCheckIns) }
+            .map { it.calendarDisplayName() }
+        val missedMeals = if (date.isBefore(today)) remainingPlannedMeals else emptyList()
+        val pendingMeals = if (date == today) remainingPlannedMeals else emptyList()
+        val hasMealCheckIn = mealCheckIns.isNotEmpty()
+        val hasReflection = hasCalendarReflection(log)
+        val hasWeeklyProgress = weeklyRecordExists && date == weekStart
+        val hasLog = completedMealCount > 0 || hasMealCheckIn || hasReflection || hasWeeklyProgress
+        val isFuture = date.isAfter(today)
+        val status = when {
+            isFuture -> ProgressCalendarStatus.FutureLocked
+            plannedMeals.isNotEmpty() && completedMealCount >= plannedMeals.size -> ProgressCalendarStatus.Completed
+            plannedMeals.isNotEmpty() && completedMealCount > 0 -> ProgressCalendarStatus.Partial
+            plannedMeals.isNotEmpty() && date == today -> ProgressCalendarStatus.Today
+            plannedMeals.isNotEmpty() && date.isBefore(today) -> ProgressCalendarStatus.Missed
+            hasLog -> ProgressCalendarStatus.Partial
+            date == today -> ProgressCalendarStatus.Today
+            else -> ProgressCalendarStatus.NoRecord
+        }
+        ProgressCalendarDay(
+            date = date,
+            isToday = date == today,
+            isFuture = isFuture,
+            hasLog = hasLog,
+            hasMealCheckIn = hasMealCheckIn,
+            hasReflection = hasReflection,
+            hasWeeklyProgress = hasWeeklyProgress,
+            completedMealCount = completedMealCount,
+            plannedMealCount = plannedMeals.size,
+            completedMeals = completedMeals,
+            missedMeals = missedMeals,
+            pendingMeals = pendingMeals,
+            checkInSummaries = buildCalendarCheckInSummaries(mealCheckIns),
+            reflectionSummaries = buildCalendarReflectionSummaries(log),
+            status = status,
+        )
+    }
+}
+
+private fun buildCalendarPlannedMealsByDate(
+    currentPlan: PlannerPlanResponse?,
+    weekStart: LocalDate,
+): Map<LocalDate, List<PlannerPlannedMeal>> {
+    return currentPlan?.days.orEmpty().mapIndexed { index, day ->
+        weekStart.plusDays(index.toLong()) to day.meals
+    }.toMap()
+}
+
+private fun isCalendarMealCompleted(
+    meal: PlannerPlannedMeal,
+    completedKeys: Set<String>,
+    checkIns: List<MealCheckIn>,
+): Boolean {
+    val mealKey = ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)
+    return mealKey in completedKeys ||
+        meal.recipeId in completedKeys ||
+        checkIns.any { checkIn ->
+            checkIn.mealKey == mealKey ||
+                checkIn.recipeId == meal.recipeId ||
+                (checkIn.mealLabel.equals(meal.mealLabel, ignoreCase = true) &&
+                    checkIn.recipeId == meal.recipeId)
+        }
+}
+
+private fun distinctLoggedMealLabels(log: DailyLog?): List<String> {
+    if (log == null) return emptyList()
+    val completedLabels = log.completedMealIds.mapNotNull { key ->
+        ProgressViewModel.extractMealLabel(key)?.toCalendarTitle()
+            ?: key.takeIf { it.isNotBlank() }?.let { "Saved meal record" }
+    }
+    val checkInLabels = log.mealCheckIns.map { checkIn ->
+        checkIn.mealLabel.ifBlank { "Meal" }.toCalendarTitle()
+    }
+    return (completedLabels + checkInLabels).distinct()
+}
+
+private fun hasCalendarReflection(log: DailyLog?): Boolean {
+    if (log == null) return false
+    return log.energyLevel != null ||
+        log.moodLevel != null ||
+        log.cravingsLevel != null ||
+        !log.symptomsNote.isNullOrBlank() ||
+        !log.journalText.isNullOrBlank() ||
+        log.symptomTags.isNotEmpty() ||
+        log.weightKg != null
+}
+
+private fun buildCalendarCheckInSummaries(checkIns: List<MealCheckIn>): List<String> {
+    return checkIns.map { checkIn ->
+        buildString {
+            append(checkIn.mealLabel.ifBlank { "Meal" }.toCalendarTitle())
+            append(" check-in")
+            val ratings = listOfNotNull(
+                checkIn.energyLevel?.let { "energy $it/5" },
+                checkIn.fullnessLevel?.let { "fullness $it/5" },
+                checkIn.cravingsLevel?.let { "cravings $it/5" },
+                checkIn.satisfactionLevel?.let { "satisfaction $it/5" },
+            )
+            if (ratings.isNotEmpty()) append(": ${ratings.joinToString(", ")}")
+            if (!checkIn.note.isNullOrBlank()) append(". Note saved.")
+        }
+    }
+}
+
+private fun buildCalendarReflectionSummaries(log: DailyLog?): List<String> {
+    if (log == null) return emptyList()
+    val lines = mutableListOf<String>()
+    log.energyLevel?.let { lines += "Energy: $it/5" }
+    log.moodLevel?.let { lines += "Mood: $it/5" }
+    log.cravingsLevel?.let { lines += "Cravings: $it/5" }
+    log.weightKg?.let { lines += "Weight record: ${it}kg" }
+    if (log.symptomTags.isNotEmpty()) lines += "Self-reported symptoms: ${log.symptomTags.joinToString(", ")}"
+    if (!log.symptomsNote.isNullOrBlank()) lines += "Symptom note saved."
+    if (!log.journalText.isNullOrBlank()) lines += "Journal note saved."
+    return lines
+}
+
+private fun PlannerPlannedMeal.calendarDisplayName(): String {
+    val mealLabel = this.mealLabel.toCalendarTitle()
+    return if (this.title.isBlank()) mealLabel else "$mealLabel - ${this.title}"
+}
+
+private fun String.toCalendarTitle(): String {
+    return trim()
+        .replace("_", " ")
+        .replace("-", " ")
+        .split(" ")
+        .filter { it.isNotBlank() }
+        .joinToString(" ") { word ->
+            word.lowercase(Locale.ENGLISH).replaceFirstChar { first ->
+                if (first.isLowerCase()) first.titlecase(Locale.ENGLISH) else first.toString()
+            }
+        }
+        .ifBlank { this.ifBlank { "Meal" } }
+}
+
+private fun ProgressCalendarDay.insightMessage(): String {
+    return when (status) {
+        ProgressCalendarStatus.Completed -> "All planned meals were marked as eaten for this day."
+        ProgressCalendarStatus.Partial -> if (plannedMealCount > 0) {
+            "Some planned meals were marked as eaten; other meals were not recorded."
+        } else {
+            "Self-reported progress was recorded for this day."
+        }
+        ProgressCalendarStatus.Missed -> "No planned meals were marked as eaten for this day."
+        ProgressCalendarStatus.NoRecord -> "No progress recorded for this day yet."
+        ProgressCalendarStatus.FutureLocked -> "Future days are locked until they arrive."
+        ProgressCalendarStatus.Today -> "Today is still in progress. Continue logging meals through the existing check-in flow."
+    }
+}
+
+private fun ProgressCalendarStatus.displayLabel(): String {
+    return when (this) {
+        ProgressCalendarStatus.Completed -> "All meals marked"
+        ProgressCalendarStatus.Partial -> "Partly recorded"
+        ProgressCalendarStatus.Missed -> "No meals marked"
+        ProgressCalendarStatus.NoRecord -> "No record"
+        ProgressCalendarStatus.FutureLocked -> "Future locked"
+        ProgressCalendarStatus.Today -> "Today"
+    }
+}
+
+private fun ProgressCalendarStatus.legendColor(): Color {
+    return when (this) {
+        ProgressCalendarStatus.Completed -> Color(0xFF247A45)
+        ProgressCalendarStatus.Partial -> Color(0xFF7FBF68)
+        ProgressCalendarStatus.Missed -> Color(0xFFE2526E)
+        ProgressCalendarStatus.NoRecord -> Color(0xFFB9AEB2)
+        ProgressCalendarStatus.FutureLocked -> Color(0xFF8A8185)
+        ProgressCalendarStatus.Today -> PcosinaDeepRose
+    }
+}
+
+private fun ProgressCalendarStatus.contentColor(): Color {
+    return when (this) {
+        ProgressCalendarStatus.NoRecord,
+        ProgressCalendarStatus.FutureLocked -> PcosinaMuted
+        else -> PcosinaDeepRose
+    }
+}
+
+private fun buildMonthCalendarCells(visibleMonth: YearMonth): List<LocalDate?> {
+    val firstDay = visibleMonth.atDay(1)
+    val leadingBlankCount = firstDay.dayOfWeek.value % 7
+    val datedCells = (1..visibleMonth.lengthOfMonth()).map { visibleMonth.atDay(it) }
+    val cells = List(leadingBlankCount) { null } + datedCells
+    val trailingBlankCount = (7 - (cells.size % 7)).takeIf { it < 7 } ?: 0
+    return cells + List(trailingBlankCount) { null }
 }
 
 private fun buildProgressSymptomMetrics(summary: ProgressTrendSummary): List<ProgressSymptomMetric> {

@@ -142,6 +142,8 @@ object PriceCatalog {
 
     fun estimatePrice(name: String): Int = estimatePriceDetail(name).first
 
+    fun reviewRules(): List<PriceRule> = rules
+
     fun estimatePriceExplanation(
         name: String,
         quantityText: String = "",

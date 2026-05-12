@@ -45,8 +45,12 @@ import com.pcosina.app.ui.theme.UiMotionTokens
 import com.pcosina.app.ui.theme.UiSpacingTokens
 import com.pcosina.app.ui.util.householdPlanningSummary
 import com.pcosina.app.ui.util.profileConstraintConflictMessage
+import com.pcosina.app.ui.util.primaryGoalLabel
 import kotlin.math.roundToInt
 import java.util.Locale
+
+private const val ProfileMinAge = 18
+private const val ProfileMaxAge = 60
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,6 +58,7 @@ fun UserProfileScreen(
     userViewModel: UserViewModel,
     onNext: () -> Unit,
     isEditMode: Boolean = false,
+    onEditGoals: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val profile by userViewModel.userProfile.collectAsState()
@@ -206,7 +211,7 @@ fun UserProfileScreen(
     )
 
     val stepOneValid = (isEditMode || displayName.isNotBlank()) &&
-        ageValue != null && ageValue in 13..60 &&
+        ageValue != null && ageValue in ProfileMinAge..ProfileMaxAge &&
         weightValueKg != null && weightValueKg in 35..180 &&
         heightValueCm != null && heightValueCm in 120..200
 
@@ -232,7 +237,7 @@ fun UserProfileScreen(
         isProfileLoading -> "Loading profile. Please wait..."
         !isEditMode && displayName.isBlank() -> "Add a display name to continue."
         age.isBlank() || ageValue == null -> "Enter age as a whole number."
-        ageValue?.let { it !in 13..60 } == true -> "Age must stay between 13 and 60."
+        ageValue?.let { it !in ProfileMinAge..ProfileMaxAge } == true -> "Age must stay between 18 and 60."
         weight.isBlank() || weightInputValue == null -> "Enter weight as a whole number."
         weightValueKg == null || (weightValueKg !in 35..180) -> "Weight must stay between 35 and 180 kg equivalent."
         heightValueCm == null -> "Enter a valid height before continuing."
@@ -287,7 +292,7 @@ fun UserProfileScreen(
         if (!isEditMode && displayName.isNotBlank()) {
             userViewModel.updateProfileName(displayName)
         }
-        val safeAge = age.toIntOrNull()?.coerceIn(13, 60)
+        val safeAge = age.toIntOrNull()?.coerceIn(ProfileMinAge, ProfileMaxAge)
         val safeWeight = weightValueKg?.coerceIn(35, 180)
         val safeHeight = heightValueCm?.coerceIn(120, 200)
         userViewModel.updateUnitPreferences(heightUnit, weightUnit)
@@ -410,6 +415,16 @@ fun UserProfileScreen(
                                 .fillMaxWidth()
                                 .testTag("profile_status_center_card")
                         )
+                        if (isEditMode && onEditGoals != null) {
+                            EditProfileGoalEntryCard(
+                                currentGoal = primaryGoalLabel(profile.goal),
+                                onClick = {
+                                    persistStepData(currentStep, markComplete = false)
+                                    onEditGoals()
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -503,6 +518,52 @@ fun UserProfileScreen(
                 }
             }
         }
+}
+
+@Composable
+private fun EditProfileGoalEntryCard(
+    currentGoal: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, PcosinaBlushBorder),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Text(
+                    text = "Planning goal",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                    color = PcosinaDeepRose,
+                )
+                Text(
+                    text = currentGoal.ifBlank { "Choose the goal that should guide your plan." },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            OutlinedButton(
+                onClick = onClick,
+                shape = RoundedCornerShape(999.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+            ) {
+                Text("Reselect")
+            }
+        }
+    }
 }
 
 @Composable
@@ -755,7 +816,7 @@ fun StepOneIdentity(
         heightIn.toIntOrNull() == null
     val heightInOutOfRange = heightUnit == UnitConverter.HEIGHT_FT_IN &&
         (heightIn.toIntOrNull()?.let { it !in 0..11 } == true)
-    val ageOutOfRange = ageValue != null && (ageValue < 13 || ageValue > 60)
+    val ageOutOfRange = ageValue != null && (ageValue < ProfileMinAge || ageValue > ProfileMaxAge)
     val weightOutOfRange = weightKg != null && (weightKg < 35 || weightKg > 180)
     val heightOutOfRange = heightCmValue != null && (heightCmValue < 120 || heightCmValue > 200)
     val screenWidthDp = LocalConfiguration.current.screenWidthDp
@@ -795,7 +856,7 @@ fun StepOneIdentity(
                     Text(
                         when {
                             ageInvalidFormat -> "Enter a whole number."
-                            else -> "Age must be 13–60."
+                            else -> "Age must be 18–60."
                         }
                     )
                 }
@@ -803,7 +864,7 @@ fun StepOneIdentity(
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
         )
         Text(
-            text = "Valid Range: 13 - 60 years old",
+            text = "Valid Range: 18 - 60 years old",
             style = MaterialTheme.typography.labelMedium.copy(fontStyle = FontStyle.Italic),
             color = PcosinaDeepRose.copy(alpha = 0.72f),
             maxLines = 2,
@@ -811,7 +872,7 @@ fun StepOneIdentity(
         )
         if (ageOutOfRange || weightOutOfRange) {
             Text(
-                text = "Tip: keep age 13–60 and weight 35–180 for accurate targets.",
+                text = "Tip: keep age 18–60 and weight 35–180 for accurate targets.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error
             )

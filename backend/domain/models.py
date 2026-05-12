@@ -82,6 +82,8 @@ class AdminPriceRule(BaseModel):
     id: str
     keywords: List[str] = []
     pricePhp: int
+    priceMinPhp: Optional[int] = None
+    priceMaxPhp: Optional[int] = None
     category: str
     unit: Optional[str] = None
     active: bool = True
@@ -93,6 +95,8 @@ class AdminPriceRuleUpsertRequest(BaseModel):
     id: Optional[str] = None
     keywords: List[str] = []
     pricePhp: int
+    priceMinPhp: Optional[int] = None
+    priceMaxPhp: Optional[int] = None
     category: str
     unit: Optional[str] = None
     active: bool = True

@@ -52,69 +52,13 @@ fun RefinedTabBrandHeader(
     compact: Boolean = false,
     avatarId: String = "doctor_dog",
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 10.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = "PCOSina",
-                        style = if (compact) {
-                            MaterialTheme.typography.titleLarge.copy(
-                                color = PcosinaPink,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        } else {
-                            MaterialTheme.typography.headlineSmall.copy(
-                                color = PcosinaPink,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                    )
-                    Text(
-                        text = "Take the first step toward smarter PCOS nutrition.",
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                        color = PcosinaMidnight
-                    )
-                }
-            }
-            RefinedTabIconAction(
-                iconRes = R.drawable.pcosina_svg_44_settings,
-                contentDescription = "Settings",
-                onClick = onSettings,
-                compact = compact
-            )
-            RefinedTabIconAction(
-                iconRes = R.drawable.pcosina_svg_45_bell,
-                contentDescription = "Support",
-                onClick = onSupport,
-                compact = compact
-            )
-        }
-        Surface(
-            color = if (online) PcosinaSoftPink else PcosinaSurfaceAlt,
-            contentColor = if (online) PcosinaDeepRose else PcosinaMidnight,
-            shape = RoundedCornerShape(999.dp)
-        ) {
-            Text(
-                text = if (online) "Online and ready to sync." else "Offline-safe mode: using saved local data.",
-                modifier = Modifier.padding(
-                    horizontal = if (compact) 10.dp else 12.dp,
-                    vertical = if (compact) 6.dp else 8.dp
-                ),
-                style = MaterialTheme.typography.labelMedium
-            )
-        }
-    }
+    SharedTopHeader(
+        online = online,
+        onSettings = onSettings,
+        onNotifications = onSupport,
+        modifier = modifier,
+        compact = compact,
+    )
 }
 
 @Composable

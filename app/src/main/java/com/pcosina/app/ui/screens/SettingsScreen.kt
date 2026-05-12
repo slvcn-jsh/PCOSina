@@ -2,7 +2,7 @@ package com.pcosina.app.ui.screens
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -30,12 +30,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -92,6 +94,13 @@ private enum class SettingsScreenFocus {
     Account,
 }
 
+private enum class ReminderSettingsFocus {
+    Control,
+    Meals,
+    Week,
+    Routine,
+}
+
 private data class SettingsTabIcon(
     val icon: ImageVector? = null,
     @DrawableRes val iconRes: Int? = null,
@@ -109,9 +118,11 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onNavigateToProfileEdit: () -> Unit,
     onOpenAdminMethodology: () -> Unit = {},
+    onOpenNotifications: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val profile by userViewModel.userProfile.collectAsState()
+    val session by authViewModel.session.collectAsState()
     val adminMode by userViewModel.adminMode.collectAsState()
     val notificationPrefs by userViewModel.notificationPreferences.collectAsState()
     val notificationLogs by userViewModel.notificationLogs.collectAsState()
@@ -125,6 +136,10 @@ fun SettingsScreen(
     var settingsFocusKey by rememberSaveable { mutableStateOf(SettingsScreenFocus.Profile.name) }
     val settingsFocus = remember(settingsFocusKey) {
         SettingsScreenFocus.valueOf(settingsFocusKey)
+    }
+    var reminderFocusKey by rememberSaveable { mutableStateOf(ReminderSettingsFocus.Control.name) }
+    val reminderFocus = remember(reminderFocusKey) {
+        ReminderSettingsFocus.valueOf(reminderFocusKey)
     }
     val settingsFocusOptions = remember(adminMode) {
         buildList {
@@ -230,7 +245,7 @@ fun SettingsScreen(
         }
         SettingsScreenFocus.Reminders -> notificationStatusSummary
         SettingsScreenFocus.Tools -> if (adminMode) {
-            "Operator tools are available for this account."
+            "Admin tools are available for this account."
         } else {
             "Review-only tools stay hidden in normal use."
         }
@@ -243,7 +258,7 @@ fun SettingsScreen(
         } else {
             scheduledWorkersSummary
         }
-        SettingsScreenFocus.Tools -> "Authenticated operator access is active on this account."
+        SettingsScreenFocus.Tools -> "Authenticated admin access is active on this account."
         SettingsScreenFocus.Account -> if (logoutActionPending) {
             "Sign-out is already in progress."
         } else {
@@ -394,14 +409,19 @@ fun SettingsScreen(
         modifier = modifier
             .fillMaxSize()
             .background(Color.White)
-            .verticalScroll(rememberScrollState())
-            .statusBarsPadding(),
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         FigmaSettingsHero(
             title = "ACCOUNT AND SETTINGS",
             subtitle = "Personalize your PCOS journey. Manage your profile, set meal reminders, and customize your app experience.",
             onBack = onBack
+        )
+        FigmaSettingsProfileBand(
+            avatarId = profile.avatarId,
+            displayName = userName,
+            email = session.currentUserEmail?.takeIf { it.isNotBlank() } ?: "Google account",
+            onAvatarClick = { showAvatarPickerDialog = true },
         )
         settingsFeedbackBanner?.let { banner ->
             AppFeedbackBanner(
@@ -411,12 +431,6 @@ fun SettingsScreen(
                     .padding(horizontal = 32.dp, vertical = 12.dp)
             )
         }
-        FigmaSettingsProfileBand(
-            avatarId = profile.avatarId,
-            displayName = profile.displayName.ifBlank { "Your name" },
-            email = userId.takeIf { it.contains("@") } ?: "Local PCOSina profile",
-            onAvatarClick = { showAvatarPickerDialog = true }
-        )
         FigmaSettingsTabs(
             selectedKey = settingsFocusKey,
             onSelect = { settingsFocusKey = it },
@@ -548,7 +562,7 @@ fun SettingsScreen(
         if (adminMode && settingsFocus == SettingsScreenFocus.Tools) {
             SettingsSection(
                 title = "Internal review tools",
-                summary = "Visible only for authenticated operator accounts."
+                summary = "Visible only for authenticated admin accounts."
             ) {
                 Column(
                     modifier = Modifier
@@ -601,6 +615,12 @@ fun SettingsScreen(
         }
 
         if (settingsFocus == SettingsScreenFocus.Reminders) {
+            FigmaSettingsReminderTabs(
+                selectedKey = reminderFocusKey,
+                onSelect = { reminderFocusKey = it }
+            )
+
+            if (reminderFocus == ReminderSettingsFocus.Control) {
             SettingsSection(
                 title = "Reminder control",
                 summary = "Choose whether PCOSINA can nudge you on this phone and keep notifications respectful."
@@ -659,7 +679,9 @@ fun SettingsScreen(
                     )
                 }
             }
+            }
 
+            if (reminderFocus == ReminderSettingsFocus.Meals) {
             SettingsSection(
                 title = "Meal reminders",
                 summary = "Pick meal nudges that fit your day instead of chasing ideal times."
@@ -709,7 +731,9 @@ fun SettingsScreen(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            }
 
+            if (reminderFocus == ReminderSettingsFocus.Week) {
             SettingsSection(
                 title = "Weekly planning nudges",
                 summary = "Keep planning reminders helpful without making them feel noisy."
@@ -772,7 +796,9 @@ fun SettingsScreen(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            }
 
+            if (reminderFocus == ReminderSettingsFocus.Routine) {
             SettingsSection(
                 title = "Gentle routine nudges",
                 summary = "Keep check-ins supportive, lightweight, and easy to ignore when you need quiet."
@@ -829,6 +855,7 @@ fun SettingsScreen(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
             }
 
             if (BuildConfig.DEBUG && adminMode) {
@@ -1172,12 +1199,14 @@ private fun FigmaSettingsHero(
                     listOf(Color(0xFFFF7188), Color(0xFFFF8FA2))
                 )
             )
+            .statusBarsPadding()
             .padding(horizontal = 34.dp, vertical = 22.dp)
     ) {
         Surface(
             modifier = Modifier
                 .size(38.dp)
                 .align(Alignment.TopStart)
+                .zIndex(1f)
                 .clickable(onClick = onBack),
             shape = CircleShape,
             color = Color.White,
@@ -1191,21 +1220,14 @@ private fun FigmaSettingsHero(
                 )
             }
         }
-        Box(
-            modifier = Modifier
-                .size(142.dp)
-                .align(Alignment.TopEnd)
-                .offset(x = 54.dp, y = 6.dp)
-                .background(Color(0xFFFFC2CB).copy(alpha = 0.78f), CircleShape)
-        )
-        PcosinaDesignIcon(
-            resId = R.drawable.pcosina_svg_44_settings,
+        Image(
+            painter = painterResource(id = R.drawable.pcosina_settings_gear),
             contentDescription = null,
-            tint = Color.White.copy(alpha = 0.42f),
             modifier = Modifier
-                .size(148.dp)
-                .align(Alignment.TopEnd)
-                .offset(x = 44.dp, y = 2.dp)
+                .size(146.dp)
+                .align(Alignment.CenterEnd)
+                .offset(x = 58.dp, y = (-2).dp),
+            contentScale = ContentScale.Fit,
         )
         Column(
             modifier = Modifier
@@ -1242,62 +1264,82 @@ private fun FigmaSettingsProfileBand(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(218.dp)
+            .height(212.dp)
             .background(Color.White)
+            .clipToBounds()
     ) {
-        SettingsFoodDoodlePattern(
-            modifier = Modifier.matchParentSize(),
-            color = Color(0xFFFFA2B3).copy(alpha = 0.36f)
+        Image(
+            painter = painterResource(id = R.drawable.pcosina_settings_burger_background),
+            contentDescription = null,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(228.dp)
+                .align(Alignment.TopCenter)
+                .offset(y = 10.dp),
+            contentScale = ContentScale.Crop,
+            alignment = Alignment.TopCenter,
+            alpha = 0.92f,
         )
         Column(
             modifier = Modifier
+                .fillMaxWidth()
                 .align(Alignment.Center)
-                .padding(top = 6.dp),
+                .padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Surface(
-                    modifier = Modifier.size(118.dp),
-                    shape = CircleShape,
-                    color = Color(0xFFFFEDF1),
-                    border = BorderStroke(3.dp, Color(0xFFFF7A92))
-                ) {}
-                PcosinaAvatar(
-                    avatarId = avatarId,
-                    modifier = Modifier.size(112.dp)
-                )
+            Box(
+                modifier = Modifier.size(96.dp),
+                contentAlignment = Alignment.Center,
+            ) {
                 Surface(
                     modifier = Modifier
+                        .size(88.dp)
+                        .clickable(onClick = onAvatarClick),
+                    shape = CircleShape,
+                    color = Color(0xFFFFEDF1),
+                    border = BorderStroke(2.dp, Color.White),
+                    shadowElevation = 6.dp,
+                ) {
+                    PcosinaAvatar(
+                        avatarId = avatarId,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(3.dp),
+                    )
+                }
+                Surface(
+                    modifier = Modifier
+                        .size(28.dp)
                         .align(Alignment.BottomEnd)
-                        .size(34.dp)
                         .clickable(onClick = onAvatarClick),
                     shape = CircleShape,
                     color = Color(0xFFFF7A92),
-                    contentColor = Color.White
+                    contentColor = Color.White,
+                    border = BorderStroke(2.dp, Color.White),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.Edit,
-                            contentDescription = "Choose avatar",
-                            modifier = Modifier.size(18.dp)
+                            contentDescription = "Edit avatar",
+                            modifier = Modifier.size(15.dp),
                         )
                     }
                 }
             }
             Text(
                 text = displayName,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    color = Color(0xFF2B1B20),
-                    fontWeight = FontWeight.ExtraBold
-                )
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                color = Color(0xFF26151A),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = email,
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color(0xFF3B3135),
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                color = Color(0xFF6F5960),
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -1311,8 +1353,8 @@ private fun FigmaSettingsTabs(
 ) {
     val tabs = buildList {
         add(SettingsScreenFocus.Profile.name to SettingsTabIcon(icon = Icons.Default.Person, label = "Profile"))
-        add(SettingsScreenFocus.Reminders.name to SettingsTabIcon(iconRes = R.drawable.pcosina_svg_45_bell, label = "Reminders"))
-        add(SettingsScreenFocus.Account.name to SettingsTabIcon(iconRes = R.drawable.pcosina_svg_44_settings, label = "Account"))
+        add(SettingsScreenFocus.Reminders.name to SettingsTabIcon(icon = Icons.Default.Notifications, label = "Reminders"))
+        add(SettingsScreenFocus.Account.name to SettingsTabIcon(icon = Icons.Default.ManageAccounts, label = "Account"))
         if (showTools) add(SettingsScreenFocus.Tools.name to SettingsTabIcon(iconRes = R.drawable.pcosina_svg_14_info, label = "Tools"))
     }
     Row(
@@ -1367,6 +1409,48 @@ private fun FigmaSettingsTabs(
 }
 
 @Composable
+private fun FigmaSettingsReminderTabs(
+    selectedKey: String,
+    onSelect: (String) -> Unit,
+) {
+    val tabs = listOf(
+        ReminderSettingsFocus.Control.name to "Control",
+        ReminderSettingsFocus.Meals.name to "Meals",
+        ReminderSettingsFocus.Week.name to "Week",
+        ReminderSettingsFocus.Routine.name to "Routine",
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        tabs.forEach { (key, label) ->
+            val selected = key == selectedKey
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 38.dp)
+                    .clickable { onSelect(key) },
+                shape = RoundedCornerShape(999.dp),
+                color = if (selected) Color(0xFFFF7A92) else Color.White,
+                border = BorderStroke(1.dp, Color(0xFFFF7A92).copy(alpha = if (selected) 0.0f else 0.22f)),
+                contentColor = if (selected) Color.White else Color(0xFFFF7A92),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = label,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun FigmaSettingsFeatureToggle(
     icon: ImageVector,
     label: String,
@@ -1408,6 +1492,7 @@ private fun FigmaSettingsFeatureToggle(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SettingsAvatarEditorDialog(
     name: String,
@@ -1592,51 +1677,6 @@ private fun SettingsReminderTimeRow(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SettingsFoodDoodlePattern(
-    modifier: Modifier = Modifier,
-    color: Color,
-) {
-    Canvas(modifier = modifier) {
-        fun sparkle(x: Float, y: Float, arm: Float) {
-            val cx = size.width * x
-            val cy = size.height * y
-            drawLine(color, Offset(cx - arm, cy), Offset(cx + arm, cy), strokeWidth = 4f, cap = StrokeCap.Round)
-            drawLine(color, Offset(cx, cy - arm), Offset(cx, cy + arm), strokeWidth = 4f, cap = StrokeCap.Round)
-        }
-
-        fun circle(x: Float, y: Float, radius: Float) {
-            drawCircle(color, radius, Offset(size.width * x, size.height * y), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4f))
-        }
-
-        fun line(x1: Float, y1: Float, x2: Float, y2: Float) {
-            drawLine(
-                color,
-                Offset(size.width * x1, size.height * y1),
-                Offset(size.width * x2, size.height * y2),
-                strokeWidth = 4f,
-                cap = StrokeCap.Round
-            )
-        }
-
-        circle(0.13f, 0.58f, 38f)
-        circle(0.86f, 0.35f, 30f)
-        circle(0.74f, 0.66f, 10f)
-        sparkle(0.31f, 0.64f, 15f)
-        sparkle(0.96f, 0.52f, 12f)
-        sparkle(0.72f, 0.47f, 12f)
-        line(0.02f, 0.24f, 0.18f, 0.10f)
-        line(0.02f, 0.24f, 0.18f, 0.37f)
-        line(0.18f, 0.10f, 0.16f, 0.37f)
-        line(0.26f, 0.33f, 0.34f, 0.18f)
-        line(0.34f, 0.18f, 0.43f, 0.33f)
-        line(0.26f, 0.33f, 0.43f, 0.33f)
-        line(0.72f, 0.22f, 0.84f, 0.13f)
-        line(0.84f, 0.13f, 0.92f, 0.23f)
-        line(0.72f, 0.22f, 0.92f, 0.23f)
     }
 }
 

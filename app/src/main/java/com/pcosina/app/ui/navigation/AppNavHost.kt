@@ -47,10 +47,18 @@ import com.pcosina.app.ui.screens.DashboardRefinedScreen
 import com.pcosina.app.ui.screens.CommunityScreen
 import com.pcosina.app.ui.screens.GoalSelectionScreen
 import com.pcosina.app.ui.screens.GroceryRefinedScreen
-import com.pcosina.app.ui.screens.IpoVisualizationScreen
 import com.pcosina.app.ui.screens.LoginScreen
 import com.pcosina.app.ui.screens.MealPlanRefinedScreen
 import com.pcosina.app.ui.screens.MoreToolsScreen
+import com.pcosina.app.ui.screens.NotificationScreen
+import com.pcosina.app.ui.screens.OperatorAdminSettingsScreen
+import com.pcosina.app.ui.screens.OperatorDashboardScreen
+import com.pcosina.app.ui.screens.OperatorGroceryPantryReviewScreen
+import com.pcosina.app.ui.screens.OperatorMethodologyPipelineScreen
+import com.pcosina.app.ui.screens.OperatorPriceManagementScreen
+import com.pcosina.app.ui.screens.OperatorRecipeDatasetScreen
+import com.pcosina.app.ui.screens.OperatorRulesScreen
+import com.pcosina.app.ui.screens.OperatorSystemInfoScreen
 import com.pcosina.app.ui.screens.ProgressRefinedScreen
 import com.pcosina.app.ui.screens.RecipeDetailsScreen
 import com.pcosina.app.ui.screens.SettingsScreen
@@ -58,6 +66,7 @@ import com.pcosina.app.ui.screens.SignUpScreen
 import com.pcosina.app.ui.screens.SplashScreen
 import com.pcosina.app.ui.screens.UserProfileScreen
 import com.pcosina.app.ui.util.hasGoalSelection
+import com.pcosina.app.ui.util.LegalAcceptance
 import com.pcosina.app.ui.util.unknownGoalTokens
 import com.pcosina.app.data.repository.FeedbackRepository
 import com.pcosina.app.BuildConfig
@@ -139,6 +148,9 @@ fun AppNavHost(
     val activeWeekStart by mealPlanViewModel.activeWeekStart.collectAsState()
     val planHistory by mealPlanViewModel.planHistory.collectAsState()
     val notificationPrefs by userViewModel.notificationPreferences.collectAsState()
+    val legalAcceptedForSession = session.currentUserUid?.let { uid ->
+        LegalAcceptance.hasAccepted(context, uid)
+    } ?: false
 
     val splashReady = remember { mutableStateOf(false) }
     val hasNavigated = remember { mutableStateOf(false) }
@@ -150,6 +162,7 @@ fun AppNavHost(
     val operatorAuthorized = remember { mutableStateOf(false) }
     val operatorAccessResolved = remember { mutableStateOf(false) }
     val operatorAccessWarning = remember { mutableStateOf<String?>(null) }
+    val goalEditMode = remember { mutableStateOf(false) }
 
     fun navigateInternal(route: String, options: (NavOptionsBuilder.() -> Unit)? = null) {
         val base = Routes.baseRoute(route).orEmpty()
@@ -176,11 +189,7 @@ fun AppNavHost(
     }
 
     fun isOperatorRoute(route: String?): Boolean {
-        return when (Routes.baseRoute(route)) {
-            Routes.MoreTools,
-            Routes.AdminMethodology -> true
-            else -> false
-        }
+        return Routes.isOperatorRoute(route)
     }
 
     // Sync session to user data loading
@@ -240,7 +249,7 @@ fun AppNavHost(
         session.currentUserUid,
         session.currentUserEmail,
         pendingOperatorAccess.value,
-        adminMode
+        legalAcceptedForSession
     ) {
         val userId = session.currentUserUid
         if (userId.isNullOrBlank()) {
@@ -249,7 +258,7 @@ fun AppNavHost(
             operatorAccessWarning.value = null
             return@LaunchedEffect
         }
-        if (!pendingOperatorAccess.value && !adminMode) {
+        if (!legalAcceptedForSession) {
             operatorAuthorized.value = false
             operatorAccessResolved.value = true
             operatorAccessWarning.value = null
@@ -257,18 +266,37 @@ fun AppNavHost(
         }
 
         operatorAccessResolved.value = false
+        if (BuildConfig.DEBUG) {
+            Log.i(
+                "PCOSINA-OperatorRoute",
+                "Starting operator access check email=${maskRouteEmail(session.currentUserEmail)} " +
+                    "uid=${maskRouteToken(userId)}"
+            )
+        }
         val operatorAccessResult = runCatching {
             authRepository.getCurrentUserOperatorAccess(forceRefresh = true)
         }
         val operatorAccess = operatorAccessResult.getOrNull()
         val operatorAccessGranted = operatorAccess?.allowed == true
         operatorAuthorized.value = operatorAccessGranted
+        if (BuildConfig.DEBUG) {
+            if (operatorAccessResult.isFailure) {
+                Log.w(
+                    "PCOSINA-OperatorRoute",
+                    "Operator access check failed; routing as normal user.",
+                    operatorAccessResult.exceptionOrNull()
+                )
+            } else {
+                Log.i(
+                    "PCOSINA-OperatorRoute",
+                    "Operator access resolved allowed=$operatorAccessGranted roles=${operatorAccess?.roles.orEmpty().sorted()}"
+                )
+            }
+        }
         operatorAccessWarning.value = when {
-            !pendingOperatorAccess.value -> null
-            operatorAccessResult.isFailure ->
-                "Couldn't verify operator access right now. Try signing in again when the connection is stable."
+            operatorAccessResult.isFailure -> null
             operatorAccessGranted -> null
-            else -> operatorAccess?.message ?: "This account can sign in, but it doesn't have operator access."
+            else -> null
         }
         operatorAccessResolved.value = true
     }
@@ -387,20 +415,28 @@ fun AppNavHost(
         pendingOperatorAccess.value,
         operatorAccessResolved.value,
         adminMode,
-        operatorAuthorized.value
+        operatorAuthorized.value,
+        legalAcceptedForSession
     ) {
         if (!splashReady.value || !profileReadyForRouting || hasNavigated.value) return@LaunchedEffect
-        if (pendingOperatorAccess.value && session.isLoggedIn && !operatorAccessResolved.value) return@LaunchedEffect
-        val activateOperatorMode = pendingOperatorAccess.value && operatorAuthorized.value
+        if (session.isLoggedIn && legalAcceptedForSession && !operatorAccessResolved.value) return@LaunchedEffect
+        val activateOperatorMode = legalAcceptedForSession && operatorAuthorized.value
         userViewModel.setAdminMode(activateOperatorMode)
         val target = when {
             !session.isLoggedIn -> Routes.Login
-            activateOperatorMode -> Routes.MoreTools
+            !legalAcceptedForSession -> Routes.Login
+            activateOperatorMode -> Routes.OperatorDashboard
             !inferredProfileCompleted -> Routes.UserProfile
             else -> Routes.Dashboard
         }
+        if (BuildConfig.DEBUG) {
+            Log.i(
+                "PCOSINA-OperatorRoute",
+                "Route chosen target=$target operator=$activateOperatorMode profileComplete=$inferredProfileCompleted"
+            )
+        }
         val warnMessage = operatorAccessWarning.value
-        val shouldWarn = pendingOperatorAccess.value && !activateOperatorMode && !warnMessage.isNullOrBlank()
+        val shouldWarn = !activateOperatorMode && !warnMessage.isNullOrBlank()
         hasNavigated.value = true
         pendingOperatorAccess.value = false
         operatorAccessWarning.value = null
@@ -419,7 +455,11 @@ fun AppNavHost(
         inferredProfileCompleted,
         userProfile.goal,
         hasPlan,
-        currentRoute?.destination?.route
+        goalEditMode.value,
+        currentRoute?.destination?.route,
+        legalAcceptedForSession,
+        operatorAuthorized.value,
+        adminMode
     ) {
         if (!session.isLoggedIn || !profileReadyForRouting) return@LaunchedEffect
         val route = currentRoute?.destination?.route ?: return@LaunchedEffect
@@ -432,20 +472,37 @@ fun AppNavHost(
             }
             return@LaunchedEffect
         }
-        if (isOperatorRoute(route) && (!operatorAuthorized.value || !adminMode)) {
-            val message = if (operatorAuthorized.value) {
-                "Use operator access from the login screen to open operator tools."
-            } else {
-                "Operator access is only available for authorized accounts."
+        if (!legalAcceptedForSession) {
+            userViewModel.setAdminMode(false)
+            navigateInternal(Routes.Login) {
+                popUpTo(navController.graph.id) { inclusive = true }
             }
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            return@LaunchedEffect
+        }
+        if (isOperatorRoute(route) && !operatorAuthorized.value) {
+            Toast.makeText(context, "Admin access is only available for authorized accounts.", Toast.LENGTH_SHORT).show()
             userViewModel.setAdminMode(false)
             navigateInternal(Routes.Dashboard) {
                 tabNavigationOptions()
             }
             return@LaunchedEffect
         }
-        if (adminMode && isOperatorRoute(route)) return@LaunchedEffect
+        if (operatorAuthorized.value && isOperatorRoute(route)) {
+            if (!adminMode) {
+                userViewModel.setAdminMode(true)
+            }
+            return@LaunchedEffect
+        }
+        if (operatorAuthorized.value && operatorAccessResolved.value && !isOperatorRoute(route)) {
+            if (!adminMode) {
+                userViewModel.setAdminMode(true)
+            }
+            navigateInternal(Routes.OperatorDashboard) {
+                launchSingleTop = true
+                popUpTo(Routes.OperatorDashboard) { inclusive = false }
+            }
+            return@LaunchedEffect
+        }
 
         when {
             !inferredProfileCompleted && !Routes.isProfileRoute(route) && !Routes.isGoalRoute(route) -> {
@@ -455,6 +512,7 @@ fun AppNavHost(
             }
             inferredProfileCompleted &&
                 hasGoalSelection(userProfile.goal) &&
+                !goalEditMode.value &&
                 (baseRoute == Routes.UserProfile || baseRoute == Routes.GoalSelection) -> {
                 navController.clearSetupFlowBackStack()
                 navigateInternal(Routes.MealPlan) {
@@ -537,6 +595,10 @@ fun AppNavHost(
                 userViewModel = userViewModel,
                 onNext = { navController.popBackStack(Routes.Settings, false) },
                 isEditMode = true,
+                onEditGoals = {
+                    goalEditMode.value = true
+                    navigateInternal(Routes.GoalSelection)
+                },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -546,9 +608,17 @@ fun AppNavHost(
                 userViewModel = userViewModel,
                 onFinish = {
                     userViewModel.setProfileCompleted(true)
-                    navController.clearSetupFlowBackStack()
-                    navigateInternal(Routes.MealPlan) {
-                        tabNavigationOptions()
+                    if (goalEditMode.value) {
+                        goalEditMode.value = false
+                        navigateInternal(Routes.UserProfileEdit) {
+                            launchSingleTop = true
+                            popUpTo(Routes.UserProfileEdit) { inclusive = false }
+                        }
+                    } else {
+                        navController.clearSetupFlowBackStack()
+                        navigateInternal(Routes.MealPlan) {
+                            tabNavigationOptions()
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -624,10 +694,26 @@ fun AppNavHost(
                     onFeedback = onFeedback,
                     avatarId = profile.avatarId,
                     onOpenSettings = { navigateInternal(Routes.Settings) },
+                    onOpenNotifications = { navigateInternal(Routes.Notifications) },
                     onOpenMealPlan = { navigateInternal(Routes.MealPlan) { tabNavigationOptions() } },
                     modifier = Modifier.padding(contentPadding),
                 )
             }
+        }
+
+        composable(Routes.Notifications) {
+            NotificationScreen(
+                userViewModel = userViewModel,
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navigateInternal(Routes.Dashboard) {
+                            tabNavigationOptions()
+                        }
+                    }
+                },
+                onOpenSettings = { navigateInternal(Routes.Settings) },
+                modifier = Modifier.fillMaxSize(),
+            )
         }
 
         composable(Routes.Settings) {
@@ -647,6 +733,120 @@ fun AppNavHost(
                 },
                 onNavigateToProfileEdit = { navigateInternal(Routes.UserProfileEdit) },
                 onOpenAdminMethodology = { navigateInternal(Routes.AdminMethodology) },
+                onOpenNotifications = { navigateInternal(Routes.Notifications) },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        composable(Routes.OperatorDashboard) {
+            OperatorDashboardScreen(
+                signedInEmail = session.currentUserEmail,
+                backendBaseUrl = BuildConfig.BASE_URL,
+                schemaVersion = BuildConfig.SCHEMA_VERSION,
+                buildType = BuildConfig.BUILD_TYPE,
+                onOpenRecipes = { navigateInternal(Routes.OperatorRecipes) },
+                onOpenPrices = { navigateInternal(Routes.OperatorPrices) },
+                onOpenGroceryPantry = { navigateInternal(Routes.OperatorGroceryPantry) },
+                onOpenRules = { navigateInternal(Routes.OperatorRules) },
+                onOpenMethodology = { navigateInternal(Routes.AdminMethodology) },
+                onOpenMoreTools = { navigateInternal(Routes.AdminMethodology) },
+                onOpenSystemInfo = { navigateInternal(Routes.OperatorSystemInfo) },
+                onOpenAdminSettings = { navigateInternal(Routes.OperatorAdminSettings) },
+                onSignOut = {
+                    authViewModel.onLogout()
+                    navigateInternal(Routes.Login) {
+                        popUpTo(navController.graph.id) { inclusive = true }
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        composable(Routes.OperatorRecipes) {
+            OperatorRecipeDatasetScreen(
+                mealPlanViewModel = mealPlanViewModel,
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navigateInternal(Routes.OperatorDashboard)
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        composable(Routes.OperatorPrices) {
+            OperatorPriceManagementScreen(
+                mealPlanViewModel = mealPlanViewModel,
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navigateInternal(Routes.OperatorDashboard)
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        composable(Routes.OperatorGroceryPantry) {
+            OperatorGroceryPantryReviewScreen(
+                mealPlanViewModel = mealPlanViewModel,
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navigateInternal(Routes.OperatorDashboard)
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        composable(Routes.OperatorRules) {
+            OperatorRulesScreen(
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navigateInternal(Routes.OperatorDashboard)
+                    }
+                },
+                onOpenMethodology = { navigateInternal(Routes.AdminMethodology) },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        composable(Routes.OperatorSystemInfo) {
+            OperatorSystemInfoScreen(
+                mealPlanViewModel = mealPlanViewModel,
+                signedInEmail = session.currentUserEmail,
+                backendBaseUrl = BuildConfig.BASE_URL,
+                schemaVersion = BuildConfig.SCHEMA_VERSION,
+                buildType = BuildConfig.BUILD_TYPE,
+                operatorVerified = operatorAuthorized.value,
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navigateInternal(Routes.OperatorDashboard)
+                    }
+                },
+                onSignOut = {
+                    authViewModel.onLogout()
+                    navigateInternal(Routes.Login) {
+                        popUpTo(navController.graph.id) { inclusive = true }
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        composable(Routes.OperatorAdminSettings) {
+            OperatorAdminSettingsScreen(
+                signedInEmail = session.currentUserEmail,
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navigateInternal(Routes.OperatorDashboard)
+                    }
+                },
+                onSignOut = {
+                    authViewModel.onLogout()
+                    navigateInternal(Routes.Login) {
+                        popUpTo(navController.graph.id) { inclusive = true }
+                    }
+                },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -669,8 +869,12 @@ fun AppNavHost(
         }
 
         composable(Routes.AdminMethodology) {
-            IpoVisualizationScreen(
-                onBackToDashboard = { navController.popBackStack() },
+            OperatorMethodologyPipelineScreen(
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navigateInternal(Routes.OperatorDashboard)
+                    }
+                },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -765,6 +969,24 @@ private fun NavOptionsBuilder.tabNavigationOptions() {
 private fun NavHostController.clearSetupFlowBackStack() {
     popBackStack(Routes.GoalSelection, inclusive = true)
     popBackStack(Routes.UserProfile, inclusive = true)
+}
+
+private fun maskRouteEmail(email: String?): String {
+    val clean = email?.trim().orEmpty()
+    if (clean.isBlank() || "@" !in clean) return "(none)"
+    val local = clean.substringBefore("@")
+    val domain = clean.substringAfter("@")
+    val localMask = when {
+        local.length <= 2 -> "${local.firstOrNull() ?: '*'}*"
+        else -> "${local.take(2)}***${local.takeLast(1)}"
+    }
+    return "$localMask@$domain"
+}
+
+private fun maskRouteToken(value: String?): String {
+    val clean = value?.trim().orEmpty()
+    if (clean.isBlank()) return "(none)"
+    return if (clean.length <= 8) "***" else "${clean.take(4)}...${clean.takeLast(4)}"
 }
 
 private fun NavHostController.navigateKnown(

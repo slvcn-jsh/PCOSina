@@ -72,7 +72,7 @@ class ProfileStepOneValidationUiTest {
         composeRule.onNodeWithTag("profile_step1_height_cm_input").performTextClearance()
         composeRule.onNodeWithTag("profile_step1_height_cm_input").performTextInput("100")
 
-        composeRule.onNodeWithText("Age must be 13–60.").assertIsDisplayed()
+        composeRule.onNodeWithText("Age must be 18–60.").assertIsDisplayed()
         composeRule.onNodeWithText("Allowed range: 35–180 kg equivalent.").assertIsDisplayed()
         composeRule.onNodeWithText("Height must be 120–200 cm.").assertIsDisplayed()
     }

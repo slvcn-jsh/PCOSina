@@ -31,11 +31,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -44,10 +46,16 @@ import androidx.compose.ui.unit.dp
 import com.pcosina.app.R
 import com.pcosina.app.ui.components.PcosinaAvatar
 import com.pcosina.app.ui.components.PcosinaDesignIcon
+import com.pcosina.app.ui.components.SharedAvatarHeader
+import com.pcosina.app.ui.components.SharedTopHeader
 import com.pcosina.app.ui.theme.PcosinaDeepRose
 import com.pcosina.app.ui.theme.PcosinaMuted
 import com.pcosina.app.ui.theme.PcosinaPink
 import com.pcosina.app.ui.theme.PcosinaSoftPink
+import com.pcosina.app.ui.util.rememberIsOnline
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun CommunityScreen(
@@ -56,8 +64,12 @@ fun CommunityScreen(
     avatarId: String,
     modifier: Modifier = Modifier,
     onOpenSettings: (() -> Unit)? = null,
+    onOpenNotifications: (() -> Unit)? = null,
     onOpenMealPlan: (() -> Unit)? = null,
 ) {
+    val context = LocalContext.current
+    val observedOnline by rememberIsOnline(context)
+    val supportDateLabel = LocalDate.now().format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH))
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -67,52 +79,21 @@ fun CommunityScreen(
         verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
         item {
-            SupportBrandHeader(
-                onBack = onBack,
-                onOpenSettings = onOpenSettings,
+            SharedTopHeader(
+                online = observedOnline,
+                onSettings = onOpenSettings ?: {},
+                onNotifications = onOpenNotifications ?: {},
+                compact = false,
             )
         }
         item {
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = PcosinaSoftPink.copy(alpha = 0.90f),
-                border = BorderStroke(1.dp, PcosinaDeepRose.copy(alpha = 0.55f)),
-                shadowElevation = 2.dp,
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    PcosinaAvatar(
-                        avatarId = avatarId,
-                        modifier = Modifier.size(56.dp),
-                    )
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        Text(
-                            text = "Support Page",
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                color = PcosinaDeepRose,
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = "Browse our support hub or send us your feedback.",
-                            style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
-                            color = PcosinaDeepRose,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            }
+            SharedAvatarHeader(
+                title = "Support Page",
+                subtitle = "Browse our support hub or send us your feedback.",
+                avatarId = avatarId,
+                dateLabel = supportDateLabel,
+                compact = false,
+            )
         }
         item {
             Row(
@@ -374,7 +355,7 @@ private fun SupportDirectoryCard() {
                         modifier = Modifier.weight(1f),
                     )
                     SupportDirectoryTile(
-                        iconRes = R.drawable.pcosina_nav_support,
+                        iconRes = R.drawable.pcosina_nav_support_clean,
                         label = "Support",
                         description = "Access learning guides and submit your feedback.",
                         modifier = Modifier.weight(1f),

@@ -89,7 +89,7 @@ fun MoreToolsScreen(
     val focusSummaryHighlights = buildList {
         add(
             if (showAdminTools) {
-                "Operator tools are available for this account."
+                "Admin tools are available for this account."
             } else {
                 "Normal accounts only see help and feedback."
             }

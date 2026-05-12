@@ -1113,7 +1113,7 @@ def _require_admin_roles(*required_roles: str):
 require_policy_admin = _require_admin_roles("admin", "policy_admin")
 require_ops_admin = _require_admin_roles("admin", "ops_admin")
 require_feedback_admin = _require_admin_roles("admin", "feedback_admin")
-require_content_admin = _require_admin_roles("admin", "content_admin")
+require_content_admin = _require_admin_roles("admin", "content_admin", "ops_admin")
 
 
 def _expected_webhook_receiver_key() -> str:
@@ -1907,6 +1907,8 @@ def admin_content_price_rules_page(
         "id": "",
         "keywords": [],
         "pricePhp": "",
+        "priceMinPhp": "",
+        "priceMaxPhp": "",
         "category": "",
         "unit": "",
         "active": True,
@@ -1917,10 +1919,16 @@ def admin_content_price_rules_page(
     for item in items:
         edit_params = {"edit_id": item.get("id"), "q": query, "category": category_value}
         edit_link = f"/admin/content/price-rules?{urlencode({k: v for k, v in edit_params.items() if v})}"
+        range_text = (
+            f"{int(item.get('priceMinPhp'))}-{int(item.get('priceMaxPhp'))}"
+            if item.get("priceMinPhp") is not None and item.get("priceMaxPhp") is not None
+            else "Exact estimate"
+        )
         rows.append(
             "<tr>"
             f"<td>{html.escape(', '.join(item.get('keywords') or []), quote=True)}</td>"
             f"<td>{int(item.get('pricePhp') or 0)}</td>"
+            f"<td>{html.escape(range_text, quote=True)}</td>"
             f"<td>{html.escape(str(item.get('category') or ''), quote=True)}</td>"
             f"<td>{html.escape(str(item.get('unit') or ''), quote=True)}</td>"
             f"<td>{'Yes' if item.get('active') else 'No'}</td>"
@@ -1936,7 +1944,7 @@ def admin_content_price_rules_page(
             "</td>"
             "</tr>"
         )
-    rows_html = "\n".join(rows) if rows else "<tr><td colspan='7'>No price rules found.</td></tr>"
+    rows_html = "\n".join(rows) if rows else "<tr><td colspan='8'>No price rules found.</td></tr>"
 
     active_checked = "checked" if current.get("active", True) else ""
     body_html = f"""
@@ -1952,7 +1960,12 @@ def admin_content_price_rules_page(
           <input type="hidden" name="csrf_token" value="{html.escape(save_csrf, quote=True)}"/>
           <input type="hidden" name="rule_id" value="{_admin_html_attr(current.get('id'))}"/>
           <label>Keywords<br/><input type="text" name="keywords" value="{_admin_html_attr(', '.join(current.get('keywords') or []))}" style="width:100%;" required/></label><br/><br/>
-          <label>Price (PHP)<br/><input type="number" name="price_php" value="{_admin_html_attr(current.get('pricePhp'))}" min="1" style="width:100%;" required/></label><br/><br/>
+          <label>Estimate / midpoint (PHP)<br/><input type="number" name="price_php" value="{_admin_html_attr(current.get('pricePhp'))}" min="1" style="width:100%;" required/></label><br/><br/>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <label>Min price (optional)<br/><input type="number" name="price_min_php" value="{_admin_html_attr(current.get('priceMinPhp'))}" min="1" style="width:100%;"/></label>
+            <label>Max price (optional)<br/><input type="number" name="price_max_php" value="{_admin_html_attr(current.get('priceMaxPhp'))}" min="1" style="width:100%;"/></label>
+          </div>
+          <p style="color:#777;margin-top:8px;">Prices are estimates and may vary by store, location, and date.</p>
           <label>Category<br/><input type="text" name="category" value="{_admin_html_attr(current.get('category'))}" style="width:100%;" required/></label><br/><br/>
           <label>Unit<br/><input type="text" name="unit" value="{_admin_html_attr(current.get('unit'))}" style="width:100%;"/></label><br/><br/>
           <label><input type="checkbox" name="active" value="true" {active_checked}/> Active</label><br/><br/>
@@ -1970,7 +1983,7 @@ def admin_content_price_rules_page(
         </form>
         <table style="width:100%;border-collapse:collapse;">
           <thead>
-            <tr><th style="text-align:left;">Keywords</th><th style="text-align:left;">Price</th><th style="text-align:left;">Category</th><th style="text-align:left;">Unit</th><th style="text-align:left;">Active</th><th style="text-align:left;">Notes</th><th style="text-align:left;">Actions</th></tr>
+            <tr><th style="text-align:left;">Keywords</th><th style="text-align:left;">Estimate</th><th style="text-align:left;">Range</th><th style="text-align:left;">Category</th><th style="text-align:left;">Unit</th><th style="text-align:left;">Active</th><th style="text-align:left;">Notes</th><th style="text-align:left;">Actions</th></tr>
           </thead>
           <tbody>{rows_html}</tbody>
         </table>
@@ -1986,6 +1999,8 @@ def admin_content_save_price_rule(
     rule_id: str = Form(default=""),
     keywords: str = Form(...),
     price_php: int = Form(...),
+    price_min_php: str = Form(default=""),
+    price_max_php: str = Form(default=""),
     category: str = Form(...),
     unit: str = Form(default=""),
     active: str | None = Form(default=None),
@@ -1993,9 +2008,20 @@ def admin_content_save_price_rule(
     principal: Any = Depends(require_content_admin),
 ):
     _verify_admin_csrf_token(principal, csrf_token, "content-price-rule-save")
+    def optional_price(value: str) -> int | None:
+        value = str(value or "").strip()
+        if not value:
+            return None
+        try:
+            return max(1, int(value))
+        except ValueError:
+            return None
+
     payload = AdminPriceRuleUpsertRequest(
         keywords=_admin_csv_items(keywords),
         pricePhp=max(1, int(price_php or 0)),
+        priceMinPhp=optional_price(price_min_php),
+        priceMaxPhp=optional_price(price_max_php),
         category=str(category or "").strip(),
         unit=str(unit or "").strip() or None,
         active=active is not None,
@@ -2747,7 +2773,13 @@ def admin_create_price_rule(payload: AdminPriceRuleUpsertRequest, principal: Any
         actor=str(principal.get("actor") or "admin"),
         resource_type="ingredient_price_rule",
         resource_id=saved.get("id"),
-        details={"keywords": saved.get("keywords"), "category": saved.get("category"), "pricePhp": saved.get("pricePhp")},
+        details={
+            "keywords": saved.get("keywords"),
+            "category": saved.get("category"),
+            "pricePhp": saved.get("pricePhp"),
+            "priceMinPhp": saved.get("priceMinPhp"),
+            "priceMaxPhp": saved.get("priceMaxPhp"),
+        },
     )
     return AdminPriceRule(**saved)
 
@@ -2771,7 +2803,13 @@ def admin_update_price_rule(
         actor=str(principal.get("actor") or "admin"),
         resource_type="ingredient_price_rule",
         resource_id=rule_id,
-        details={"keywords": saved.get("keywords"), "category": saved.get("category"), "pricePhp": saved.get("pricePhp")},
+        details={
+            "keywords": saved.get("keywords"),
+            "category": saved.get("category"),
+            "pricePhp": saved.get("pricePhp"),
+            "priceMinPhp": saved.get("priceMinPhp"),
+            "priceMaxPhp": saved.get("priceMaxPhp"),
+        },
     )
     return AdminPriceRule(**saved)
 

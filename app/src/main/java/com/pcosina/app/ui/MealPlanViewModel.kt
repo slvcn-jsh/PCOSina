@@ -5,6 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
+import com.pcosina.app.data.api.AdminPriceRuleDto
+import com.pcosina.app.data.api.AdminPriceRuleUpsertDto
+import com.pcosina.app.data.api.AdminRecipeUpsertDto
+import com.pcosina.app.data.api.RecipeDetailDto
 import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.GroceryItemSource
 import com.pcosina.app.data.model.PlanInstance
@@ -419,6 +423,30 @@ class MealPlanViewModel(
 
     suspend fun getSwapOptions(mealLabel: String, limit: Int = 30): Result<List<PlannerRecipeSummary>> {
         return repository.getRecipeSummaries(mealLabel, limit)
+    }
+
+    suspend fun getAdminRecipes(limit: Int = 250): Result<List<RecipeDetailDto>> {
+        return repository.getAdminRecipes(limit)
+    }
+
+    suspend fun getAdminPriceRules(limit: Int = 250): Result<List<AdminPriceRuleDto>> {
+        return repository.getAdminPriceRules(limit)
+    }
+
+    suspend fun saveAdminRecipe(request: AdminRecipeUpsertDto): Result<RecipeDetailDto> {
+        return repository.saveAdminRecipe(request)
+    }
+
+    suspend fun deleteAdminRecipe(recipeId: String): Result<Unit> {
+        return repository.deleteAdminRecipe(recipeId)
+    }
+
+    suspend fun saveAdminPriceRule(request: AdminPriceRuleUpsertDto): Result<AdminPriceRuleDto> {
+        return repository.saveAdminPriceRule(request)
+    }
+
+    suspend fun deleteAdminPriceRule(ruleId: String): Result<Unit> {
+        return repository.deleteAdminPriceRule(ruleId)
     }
 
     fun swapMeal(dayIndex: Int, mealIndex: Int, newRecipeId: String, newTitle: String) {

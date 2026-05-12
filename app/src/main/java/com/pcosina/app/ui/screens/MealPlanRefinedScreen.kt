@@ -72,6 +72,7 @@ import com.pcosina.app.ui.components.RefinedPrimaryButton
 import com.pcosina.app.ui.components.RefinedRingMeter
 import com.pcosina.app.ui.components.RefinedStatusPill
 import com.pcosina.app.ui.components.RefinedTabBrandHeader
+import com.pcosina.app.ui.components.SharedAvatarHeader
 import com.pcosina.app.ui.navigation.Routes
 import com.pcosina.app.ui.theme.PcosinaBlush
 import com.pcosina.app.ui.theme.PcosinaDeepRose
@@ -268,8 +269,33 @@ fun MealPlanRefinedScreen(
     var swapLoading by remember { mutableStateOf(false) }
     var swapApplying by remember { mutableStateOf(false) }
     var swapError by remember { mutableStateOf<String?>(null) }
+    var mealLogConfirmationPrompt by remember(logKey) { mutableStateOf<PlanMealCheckInPrompt?>(null) }
     var mealCheckInPrompt by remember(logKey) { mutableStateOf<PlanMealCheckInPrompt?>(null) }
     var showReplacePlanDialog by remember(activePlanId) { mutableStateOf(false) }
+
+    LaunchedEffect(uiState, currentPlan?.weekLabel) {
+        when (uiState) {
+            is MealPlanUiState.Success -> {
+                if (feedbackMessage?.contains("Generating", ignoreCase = true) == true) {
+                    feedbackMessage = "Your weekly plan is ready."
+                }
+            }
+            is MealPlanUiState.Error -> {
+                if (feedbackMessage?.contains("Generating", ignoreCase = true) == true) {
+                    feedbackMessage = null
+                }
+            }
+            else -> Unit
+        }
+    }
+
+    LaunchedEffect(currentPlan?.weekLabel, uiState) {
+        if (currentPlan != null && uiState !is MealPlanUiState.Loading &&
+            feedbackMessage?.contains("Generating", ignoreCase = true) == true
+        ) {
+            feedbackMessage = "Your weekly plan is ready."
+        }
+    }
 
     LaunchedEffect(selectedMeals.map { it.recipeId }.joinToString(",")) {
         selectedMeals.forEach { meal ->
@@ -378,7 +404,6 @@ fun MealPlanRefinedScreen(
                 message.contains("keep waiting", ignoreCase = true)
         } == true
         val compact = maxHeight < 760.dp || maxWidth < 390.dp
-        val heroDate = selectedDate.format(DateTimeFormatter.ofPattern("MMM\ndd", Locale.ENGLISH))
         val explanation = currentPlan?.explanation
         val targetCalories = explanation?.targetCalories ?: userViewModel.dailyCalorieTarget
         val targetProtein = explanation?.targetProtein?.takeIf { it > 0 } ?: planMetrics.avgProtein.coerceAtLeast(1)
@@ -392,7 +417,6 @@ fun MealPlanRefinedScreen(
             completedMealIds.contains(ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)) ||
                 completedMealIds.contains(meal.recipeId)
         }
-        val canLogSelectedDay = progressViewModel.isDateLoggable(selectedDate)
         val servingLabel = profile.householdSize.coerceAtLeast(1)
         val planEndDate = weekStart.plusDays(6)
         val lastPlanDayIndex = (currentPlan?.days?.lastIndex ?: 6).coerceAtLeast(0)
@@ -438,15 +462,17 @@ fun MealPlanRefinedScreen(
             RefinedTabBrandHeader(
                 online = isOnline,
                 onSettings = { onNavigateToRoute(Routes.Settings) },
-                onSupport = { onNavigateToRoute(Routes.Ipo) },
+                onSupport = { onNavigateToRoute(Routes.Notifications) },
                 compact = compact,
                 avatarId = profile.avatarId
             )
 
-            MealPlanHeadlineCard(
-                heroDate = heroDate,
+            SharedAvatarHeader(
+                title = "Meal Plan",
+                subtitle = "Review your week, log today's meals, and sync groceries.",
                 avatarId = profile.avatarId,
-                compact = compact
+                dateLabel = today.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)),
+                compact = compact,
             )
 
             if (isGenerating || errorState != null) {
@@ -656,36 +682,39 @@ fun MealPlanRefinedScreen(
                             selectedMeals.take(3).forEachIndexed { mealIndex, meal ->
                                 val isLogged = completedMealIds.contains(ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)) ||
                                     completedMealIds.contains(meal.recipeId)
+                                val plannedMealLabels = selectedMeals.map { it.mealLabel }
+                                val logLockReason = if (isLogged) {
+                                    ""
+                                } else {
+                                    progressViewModel.mealLoggingLockReason(
+                                        date = selectedDate,
+                                        mealLabel = meal.mealLabel,
+                                        plannedMealLabels = plannedMealLabels
+                                    )
+                                }
                                 MealPlanOutlineMealCard(
                                     meal = meal,
                                     logged = isLogged,
-                                    canLog = canLogSelectedDay,
+                                    canLog = !isLogged && logLockReason.isBlank(),
+                                    logLockReason = logLockReason,
                                     onOpen = { onRecipeClick(meal.recipeId, meal.mealLabel) },
                                     onLog = {
-                                        if (progressViewModel.markMealAsEaten(
-                                                date = selectedDate,
-                                                recipeId = meal.recipeId,
-                                                mealLabel = meal.mealLabel,
-                                                plannedMealLabels = selectedMeals.map { it.mealLabel }
-                                            )
-                                        ) {
-                                            mealCheckInPrompt = PlanMealCheckInPrompt(
+                                        if (isLogged) {
+                                            feedbackMessage = "${meal.mealLabel} is already logged."
+                                        } else if (logLockReason.isBlank()) {
+                                            mealLogConfirmationPrompt = PlanMealCheckInPrompt(
                                                 recipeId = meal.recipeId,
                                                 mealLabel = meal.mealLabel,
                                                 mealTitle = meal.title
                                             )
                                         } else {
-                                            feedbackMessage = progressViewModel.mealLoggingLockReason(
-                                                date = selectedDate,
-                                                mealLabel = meal.mealLabel,
-                                                plannedMealLabels = selectedMeals.map { it.mealLabel }
-                                            ).ifBlank {
-                                                "Meal logging is available for today only."
-                                            }
+                                            feedbackMessage = logLockReason
                                         }
                                     },
                                     onSwap = {
-                                        if (!isOnline) {
+                                        if (isLogged) {
+                                            feedbackMessage = "Logged meals are locked and cannot be swapped."
+                                        } else if (!isOnline) {
                                             feedbackMessage = "Internet required for meal swaps."
                                         } else {
                                             swapTarget = MealSwapTarget(
@@ -782,6 +811,58 @@ fun MealPlanRefinedScreen(
             )
         }
 
+        mealLogConfirmationPrompt?.let { prompt ->
+            AlertDialog(
+                onDismissRequest = { mealLogConfirmationPrompt = null },
+                title = {
+                    Text(
+                        text = "Log this meal?",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Mark ${prompt.mealLabel} • ${prompt.mealTitle} as eaten for ${selectedDate.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH))}? Logged meals cannot be swapped from this plan.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = PcosinaDeepRose
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val saved = progressViewModel.markMealAsEaten(
+                                date = selectedDate,
+                                recipeId = prompt.recipeId,
+                                mealLabel = prompt.mealLabel,
+                                plannedMealLabels = selectedMeals.map { it.mealLabel }
+                            )
+                            if (saved) {
+                                mealLogConfirmationPrompt = null
+                                mealCheckInPrompt = prompt
+                                feedbackMessage = "${prompt.mealLabel} logged."
+                            } else {
+                                feedbackMessage = progressViewModel.mealLoggingLockReason(
+                                    date = selectedDate,
+                                    mealLabel = prompt.mealLabel,
+                                    plannedMealLabels = selectedMeals.map { it.mealLabel }
+                                ).ifBlank {
+                                    "Meal logging is locked right now."
+                                }
+                                mealLogConfirmationPrompt = null
+                            }
+                        }
+                    ) {
+                        Text("Log meal")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { mealLogConfirmationPrompt = null }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
         mealCheckInPrompt?.let { prompt ->
             val existing = logs[logKey]?.mealCheckIns.orEmpty().firstOrNull { checkIn ->
                 checkIn.mealKey == ProgressViewModel.buildMealKey(prompt.mealLabel, prompt.recipeId) ||
@@ -820,78 +901,6 @@ fun MealPlanRefinedScreen(
 }
 
 @Composable
-private fun MealPlanHeadlineCard(
-    heroDate: String,
-    avatarId: String,
-    compact: Boolean,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(PcosinaBlush, RoundedCornerShape(26.dp))
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(26.dp),
-            color = PcosinaBlush,
-            border = BorderStroke(2.dp, Color(0xFF30181E).copy(alpha = 0.76f))
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = if (compact) 12.dp else 14.dp, vertical = if (compact) 12.dp else 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                PcosinaAvatarBadge(
-                    avatarId = avatarId,
-                    size = if (compact) 68.dp else 78.dp,
-                    shadowElevation = if (compact) 3.dp else 6.dp,
-                )
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "Plan Your Meals",
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF682937),
-                            shadow = androidx.compose.ui.graphics.Shadow(
-                                color = PcosinaRoseShadow.copy(alpha = 0.22f),
-                                offset = androidx.compose.ui.geometry.Offset(0f, 3f),
-                                blurRadius = 4f
-                            )
-                        )
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFF682937).copy(alpha = 0.35f))
-                            .padding(vertical = 0.5.dp)
-                    )
-                    Text(
-                        text = "Meals picked for your goal, budget, and pantry.",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF682937),
-                            fontStyle = FontStyle.Italic
-                        )
-                    )
-                }
-                Text(
-                    text = heroDate,
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF2B1B20)
-                    )
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun MealPlanDailySummaryCard(
     dayCalories: Int,
     targetCalories: Int,
@@ -908,12 +917,15 @@ private fun MealPlanDailySummaryCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(26.dp),
-        color = Color(0xFFFFE2E8),
-        border = BorderStroke(2.dp, Color(0xFF30181E).copy(alpha = 0.72f))
+        shape = RoundedCornerShape(22.dp),
+        color = Color.White,
+        border = BorderStroke(1.5.dp, PcosinaPink.copy(alpha = 0.22f))
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = if (compact) 12.dp else 14.dp, vertical = if (compact) 12.dp else 14.dp),
+            modifier = Modifier.padding(
+                horizontal = if (compact) 12.dp else 14.dp,
+                vertical = if (compact) 12.dp else 14.dp,
+            ),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
@@ -922,15 +934,15 @@ private fun MealPlanDailySummaryCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Today's Plan",
-                    style = MaterialTheme.typography.headlineSmall.copy(
+                    text = "Daily nutrition summary",
+                    style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF682937)
                     )
                 )
                 RefinedStatusPill(
-                    text = "Serving size is set for $servingLabel person${if (servingLabel == 1) "" else "s"}.",
-                    containerColor = Color.White.copy(alpha = 0.76f),
+                    text = "Serving size: $servingLabel",
+                    containerColor = PcosinaBlush.copy(alpha = 0.78f),
                     contentColor = Color(0xFF682937)
                 )
             }
@@ -952,7 +964,7 @@ private fun MealPlanDailySummaryCard(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(999.dp),
-                        color = Color(0xFFF58C9F)
+                        color = PcosinaSoftPink.copy(alpha = 0.72f)
                     ) {
                         Text(
                             text = "Macronutrients",
@@ -977,15 +989,10 @@ private fun MealPlanDailySummaryCard(
                         color = Color(0xFFD0A069)
                     )
                     RefinedMetricBar(
-                        label = "Fibers",
+                        label = "Fiber",
                         valueText = "${totalFiber}g/${targetFiber}g",
                         progress = totalFiber.toFloat() / targetFiber.coerceAtLeast(1).toFloat(),
                         color = Color(0xFFB9E7A6)
-                    )
-                    RefinedStatusPill(
-                        text = "$loggedMeals/${mealCount.coerceAtLeast(1)} meals logged",
-                        containerColor = Color.White.copy(alpha = 0.82f),
-                        contentColor = PcosinaDeepRose
                     )
                 }
             }
@@ -1062,10 +1069,11 @@ private fun MealPlanShoppingCard(
                         }
                     }
                 }
-                Text(
-                    text = "🛒",
-                    style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.padding(bottom = 6.dp)
+                Image(
+                    painter = painterResource(id = R.drawable.pcosina_ready_to_shop),
+                    contentDescription = null,
+                    modifier = Modifier.size(if (compact) 82.dp else 96.dp),
+                    contentScale = ContentScale.Fit,
                 )
             }
         }
@@ -1145,26 +1153,27 @@ private fun MealPlanOutlineMealCard(
     meal: PlannerPlannedMeal,
     logged: Boolean,
     canLog: Boolean,
+    logLockReason: String,
     onOpen: () -> Unit,
     onLog: () -> Unit,
     onSwap: () -> Unit,
     compact: Boolean,
 ) {
-    val (containerColor, accentColor, icon) = when {
+    val (containerColor, accentColor, iconRes) = when {
         meal.mealLabel.equals("Breakfast", ignoreCase = true) -> Triple(
             if (logged) Color(0xFF2D181D) else Color.White,
             Color(0xFFFFB171),
-            "🍳"
+            R.drawable.pcosina_meal_breakfast
         )
         meal.mealLabel.equals("Lunch", ignoreCase = true) -> Triple(
             if (logged) Color(0xFF2D181D) else Color.White,
             Color(0xFFFF7EA0),
-            "🍱"
+            R.drawable.pcosina_meal_lunch
         )
         else -> Triple(
             if (logged) Color(0xFF2D181D) else Color.White,
             Color(0xFF8E93FF),
-            "🥘"
+            R.drawable.pcosina_meal_dinner
         )
     }
     Surface(
@@ -1186,10 +1195,13 @@ private fun MealPlanOutlineMealCard(
                 shape = CircleShape,
                 color = accentColor.copy(alpha = 0.22f)
             ) {
-                Text(
-                    text = icon,
-                    modifier = Modifier.padding(10.dp),
-                    style = MaterialTheme.typography.titleSmall
+                Image(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(if (compact) 38.dp else 42.dp)
+                        .padding(5.dp),
+                    contentScale = ContentScale.Fit,
                 )
             }
             Column(
@@ -1222,6 +1234,7 @@ private fun MealPlanOutlineMealCard(
                     text = when {
                         logged -> "LOGGED"
                         canLog -> "LOG MEAL"
+                        logLockReason.isNotBlank() -> "LOCKED"
                         else -> "TODAY ONLY"
                     },
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
@@ -1232,7 +1245,7 @@ private fun MealPlanOutlineMealCard(
             Surface(
                 shape = RoundedCornerShape(999.dp),
                 color = if (logged) Color.White.copy(alpha = 0.12f) else Color.Transparent,
-                modifier = Modifier.clickable(onClick = onSwap)
+                modifier = Modifier.clickable(enabled = !logged, onClick = onSwap)
             ) {
                 Column(
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
@@ -1245,7 +1258,7 @@ private fun MealPlanOutlineMealCard(
                         tint = if (logged) Color.White else PcosinaPink
                     )
                     Text(
-                        text = "Swap",
+                        text = if (logged) "Locked" else "Swap",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (logged) Color.White else PcosinaPink
                     )

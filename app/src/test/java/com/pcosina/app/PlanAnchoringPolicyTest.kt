@@ -112,6 +112,17 @@ class PlanAnchoringPolicyTest {
             "MealPlan screen should steer users back to weekly progress before replacing an in-progress week.",
             mealPlan.contains("Review this week in Progress before starting a new one.")
         )
+        assertTrue(
+            "MealPlan logging should require confirmation before persistence.",
+            mealPlan.contains("mealLogConfirmationPrompt") &&
+                mealPlan.contains("Log this meal?") &&
+                mealPlan.contains("markMealAsEaten(")
+        )
+        assertTrue(
+            "MealPlan should not allow logged meals to be swapped.",
+            mealPlan.contains("Logged meals are locked and cannot be swapped.") &&
+                mealPlan.contains("modifier = Modifier.clickable(enabled = !logged, onClick = onSwap)")
+        )
     }
 
     private fun resolve(vararg parts: String): Path {

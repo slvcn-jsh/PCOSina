@@ -42,6 +42,8 @@ def test_content_admin_price_rule_crud_updates_catalog_and_audit_log():
     payload = {
         "keywords": ["dragonfruit", "pitaya"],
         "pricePhp": 999,
+        "priceMinPhp": 850,
+        "priceMaxPhp": 1150,
         "category": "Produce",
         "unit": "kg",
         "active": True,
@@ -57,6 +59,8 @@ def test_content_admin_price_rule_crud_updates_catalog_and_audit_log():
             created = create_resp.json()
             rule_id = created["id"]
             assert created["keywords"] == ["dragonfruit", "pitaya"]
+            assert created["priceMinPhp"] == 850
+            assert created["priceMaxPhp"] == 1150
 
             raised = price_catalog.estimate_price("dragonfruit")
             assert raised > baseline
@@ -72,9 +76,13 @@ def test_content_admin_price_rule_crud_updates_catalog_and_audit_log():
 
             update_payload = dict(payload)
             update_payload["pricePhp"] = 1200
+            update_payload["priceMinPhp"] = 1100
+            update_payload["priceMaxPhp"] = 1400
             update_resp = client.put(f"/admin/price-rules/{rule_id}", json=update_payload)
             assert update_resp.status_code == 200
             assert update_resp.json()["pricePhp"] == 1200
+            assert update_resp.json()["priceMinPhp"] == 1100
+            assert update_resp.json()["priceMaxPhp"] == 1400
 
             raised_again = price_catalog.estimate_price("dragonfruit")
             assert raised_again > raised
@@ -93,6 +101,64 @@ def test_content_admin_price_rule_crud_updates_catalog_and_audit_log():
 
             missing_resp = client.get(f"/admin/price-rules/{rule_id}")
             assert missing_resp.status_code == 404
+    finally:
+        price_catalog.invalidate_override_cache()
+        main.app.dependency_overrides = {}
+
+
+def test_ops_admin_principal_can_use_mobile_content_maintenance_endpoints():
+    db_path = _temp_db_path()
+    database.DATABASE_URL = ""
+    database.DB_NAME = str(db_path)
+    database.init_db()
+    price_catalog.invalidate_override_cache()
+
+    ops_admin = {
+        "uid": "ops-content-admin-1",
+        "actor": "ops-content-admin@example.com",
+        "roles": ["ops_admin"],
+    }
+    main.app.dependency_overrides[main.require_admin_config_token] = lambda: ops_admin
+
+    recipe_payload = {
+        "id": "ops-mobile-recipe-1",
+        "title": "Ops Mobile Tinola",
+        "mealType": "Dinner",
+        "calories": 420,
+        "proteinGrams": 30,
+        "carbsGrams": 18,
+        "fatsGrams": 14,
+        "fiberGrams": 5,
+        "tags": ["filipino", "pcos-friendly"],
+        "minutes": 35,
+        "ingredients": [{"name": "Chicken", "quantity": "250g"}],
+        "steps": ["Simmer", "Serve"],
+    }
+    price_payload = {
+        "id": "ops-mobile-price-1",
+        "keywords": ["tinola chicken"],
+        "pricePhp": 180,
+        "priceMinPhp": 160,
+        "priceMaxPhp": 220,
+        "category": "Protein",
+        "unit": "kg",
+        "active": True,
+        "notes": "ops mobile maintenance test",
+    }
+
+    try:
+        with TestClient(main.app) as client:
+            recipe_resp = client.post("/admin/recipes", json=recipe_payload)
+            assert recipe_resp.status_code == 200
+            assert recipe_resp.json()["id"] == "ops-mobile-recipe-1"
+
+            price_resp = client.post("/admin/price-rules", json=price_payload)
+            assert price_resp.status_code == 200
+            assert price_resp.json()["priceMinPhp"] == 160
+
+            list_resp = client.get("/admin/recipes", params={"q": "Tinola"})
+            assert list_resp.status_code == 200
+            assert any(item["id"] == "ops-mobile-recipe-1" for item in list_resp.json()["items"])
     finally:
         price_catalog.invalidate_override_cache()
         main.app.dependency_overrides = {}

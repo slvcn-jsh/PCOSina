@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
@@ -193,15 +194,31 @@ class ProgressViewModel(
         date: LocalDate,
         mealLabel: String?,
         plannedMealLabels: List<String> = emptyList(),
-        now: LocalDate = LocalDate.now()
+        now: LocalDate = LocalDate.now(),
+        currentTime: LocalTime = LocalTime.now()
     ): String {
         return mealLoggingDecision(
             date = date,
             mealLabel = mealLabel,
             plannedMealLabels = plannedMealLabels,
-            now = now
+            now = now,
+            currentTime = currentTime
         ).reason
     }
+
+    fun canLogMealNow(
+        date: LocalDate,
+        mealLabel: String?,
+        plannedMealLabels: List<String> = emptyList(),
+        now: LocalDate = LocalDate.now(),
+        currentTime: LocalTime = LocalTime.now()
+    ): Boolean = mealLoggingDecision(
+        date = date,
+        mealLabel = mealLabel,
+        plannedMealLabels = plannedMealLabels,
+        now = now,
+        currentTime = currentTime
+    ).allowed
 
     fun loadForUser(userId: String, weekStart: String, fallbackWeekStart: String? = null) {
         if (currentUserId == userId) {
@@ -394,13 +411,15 @@ class ProgressViewModel(
         date: LocalDate,
         mealLabel: String?,
         plannedMealLabels: List<String> = emptyList(),
-        now: LocalDate = LocalDate.now()
+        now: LocalDate = LocalDate.now(),
+        currentTime: LocalTime = LocalTime.now()
     ) = mealLoggingPolicyUseCase.evaluate(
         date = date,
         mealLabel = mealLabel,
         completedMealLabels = completedMealLabelsFor(date),
         plannedMealLabels = plannedMealLabels,
-        now = now
+        now = now,
+        currentTime = currentTime
     )
 
     fun toggleMeal(date: LocalDate, recipeId: String, mealLabel: String): Boolean {
@@ -411,25 +430,14 @@ class ProgressViewModel(
         val currentIds = current?.completedMealIds ?: emptyList()
         val hasKey = currentIds.contains(mealKey)
         val hasLegacy = currentIds.contains(recipeId)
+        if (hasKey || hasLegacy) return true
         if (!hasKey && !hasLegacy) {
             val decision = mealLoggingDecision(date = date, mealLabel = mealLabel)
             if (!decision.allowed) return false
         }
-        val updatedIds = if (hasKey || hasLegacy) {
-            currentIds.filterNot { it == mealKey || it == recipeId }
-        } else {
-            currentIds + mealKey
-        }
-        val updatedCheckIns = if (hasKey || hasLegacy) {
-            current?.mealCheckIns.orEmpty().filterNot { entry ->
-                matchesMealCheckIn(entry, recipeId = recipeId, mealLabel = mealLabel)
-            }
-        } else {
-            current?.mealCheckIns.orEmpty()
-        }
         val updated = (current ?: DailyLog(date = key)).copy(
-            completedMealIds = updatedIds,
-            mealCheckIns = updatedCheckIns,
+            completedMealIds = currentIds + mealKey,
+            mealCheckIns = current?.mealCheckIns.orEmpty(),
             timestamp = System.currentTimeMillis()
         )
         val newMap = _dailyLogs.value.toMutableMap()

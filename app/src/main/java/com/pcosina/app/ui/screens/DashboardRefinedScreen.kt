@@ -74,6 +74,8 @@ import com.pcosina.app.ui.components.FriendlyEmptyStateCard
 import com.pcosina.app.ui.components.LoadingActionButton
 import com.pcosina.app.ui.components.PcosinaAvatarBadge
 import com.pcosina.app.ui.components.PcosinaDesignIcon
+import com.pcosina.app.ui.components.SharedAvatarHeader
+import com.pcosina.app.ui.components.SharedTopHeader
 import com.pcosina.app.ui.navigation.Routes
 import com.pcosina.app.ui.theme.PcosinaBlush
 import com.pcosina.app.ui.theme.PcosinaDeepRose
@@ -261,7 +263,7 @@ fun DashboardRefinedScreen(
         todaySnapshot.completedCount > 0 -> "You're doing well today! Ready for your next goal?"
         else -> "Your saved plan and progress are ready when you are."
     }
-    val dualColumnCards = screenWidthDp >= 390
+    val dualColumnCards = screenWidthDp >= 360
     val primaryActionTitle = when {
         !profile.isProfileCompleted -> "Finish your profile first"
         !hasGoalSelection(profile.goal) -> "Choose the goals you want to follow"
@@ -326,10 +328,11 @@ fun DashboardRefinedScreen(
         verticalArrangement = Arrangement.spacedBy(if (compactHomeLayout) 12.dp else 14.dp)
     ) {
         item {
-            RefinedBrandHeader(
+            SharedTopHeader(
                 online = isOnline,
-                onOpenSettings = onNavigateToSettings,
-                onOpenSupport = onOpenMoreTools
+                onSettings = onNavigateToSettings,
+                onNotifications = { onNavigateToRoute(Routes.Notifications) },
+                compact = compactHomeLayout,
             )
         }
 
@@ -356,21 +359,21 @@ fun DashboardRefinedScreen(
             if (dualColumnCards) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(if (compactHomeLayout) 8.dp else 10.dp)
                 ) {
                     RefinedGoalsCard(
                         goalOptions = homeGoalOptions,
-                        modifier = Modifier.weight(1.28f),
+                        modifier = Modifier.weight(1.08f),
                         onEditGoals = {
                             onNavigateToRoute(
-                                if (profile.isProfileCompleted) Routes.GoalSelection else Routes.UserProfile
+                                if (profile.isProfileCompleted) Routes.UserProfileEdit else Routes.UserProfile
                             )
                         },
                         onOpenGoalInfo = { goalInfoState.value = it }
                     )
                     RefinedTipCard(
                         tipLines = tipLines,
-                        modifier = Modifier.weight(0.82f)
+                        modifier = Modifier.weight(0.92f)
                     )
                 }
             } else {
@@ -379,7 +382,7 @@ fun DashboardRefinedScreen(
                         goalOptions = homeGoalOptions,
                         onEditGoals = {
                             onNavigateToRoute(
-                                if (profile.isProfileCompleted) Routes.GoalSelection else Routes.UserProfile
+                                if (profile.isProfileCompleted) Routes.UserProfileEdit else Routes.UserProfile
                             )
                         },
                         onOpenGoalInfo = { goalInfoState.value = it }
@@ -496,9 +499,10 @@ fun DashboardRefinedScreen(
                             loadingMessage = "Opening next meal…",
                             successMessage = "Next meal opened."
                         ) {
+                            val nextMeal = todaySnapshot.nextMeal ?: return@runPrimaryAction
                             onRecipeClick(
-                                todaySnapshot.nextMeal!!.recipeId,
-                                todaySnapshot.nextMeal!!.mealLabel
+                                nextMeal.recipeId,
+                                nextMeal.mealLabel
                             )
                         }
                         else -> runPrimaryAction(
@@ -513,8 +517,7 @@ fun DashboardRefinedScreen(
         }
     }
 
-    if (goalInfoState.value != null) {
-        val option = goalInfoState.value!!
+    goalInfoState.value?.let { option ->
         HomeGoalInfoDialog(
             option = option,
             onDismiss = { goalInfoState.value = null }
@@ -649,59 +652,13 @@ private fun RefinedWelcomeCard(
     avatarId: String,
     compactLayout: Boolean,
 ) {
-    val welcomeShape = RoundedCornerShape(18.dp)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(welcomeShape)
-            .background(PcosinaBlush)
-            .border(1.5.dp, Color(0xFF30181E).copy(alpha = 0.78f), welcomeShape)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            if (compactLayout) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(9.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    PcosinaAvatarBadge(
-                        avatarId = avatarId,
-                        size = 64.dp,
-                        shadowElevation = 4.dp,
-                    )
-                    WelcomeCopy(
-                        displayName = displayName,
-                        welcomeSubline = welcomeSubline,
-                        modifier = Modifier.weight(1f),
-                        compact = true
-                    )
-                    WelcomeDatePill(dateHeader = dateHeader, compact = true)
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    PcosinaAvatarBadge(
-                        avatarId = avatarId,
-                        size = 72.dp,
-                        shadowElevation = 5.dp,
-                    )
-                    WelcomeCopy(
-                        displayName = displayName,
-                        welcomeSubline = welcomeSubline,
-                        modifier = Modifier.weight(1f),
-                        compact = false
-                    )
-                    WelcomeDatePill(dateHeader = dateHeader, compact = false)
-                }
-            }
-        }
-    }
+    SharedAvatarHeader(
+        title = "Welcome, $displayName!",
+        subtitle = welcomeSubline,
+        avatarId = avatarId,
+        dateLabel = dateHeader,
+        compact = compactLayout,
+    )
 }
 
 @Composable
@@ -793,7 +750,7 @@ private fun RefinedGoalsCard(
                 modifier = Modifier.clickable(onClick = onEditGoals)
             ) {
                 Text(
-                    "Edit",
+                    "Profile",
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                     color = Color(0xFF682937),
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
@@ -1026,8 +983,8 @@ private fun RefinedMealCard(
                         contentDescription = null,
                         tint = Color.Unspecified,
                         modifier = Modifier
-                            .padding(6.dp)
-                            .size(24.dp)
+                            .padding(3.dp)
+                            .size(34.dp)
                     )
                 }
                 Text(
@@ -1130,15 +1087,25 @@ private fun RefinedWeekProgressCard(
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                     color = PcosinaDeepRose
                                 )
-                                HomeWeekState.Pending -> Text(
-                                    text = entry.progressLabel,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = PcosinaMuted
-                                )
-                                HomeWeekState.Empty -> Text(
-                                    text = "--",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = PcosinaMuted
+                                HomeWeekState.Pending -> if (entry.progressLabel == "0%") {
+                                    PcosinaDesignIcon(
+                                        resId = R.drawable.pcosina_weekly_progress_lock,
+                                        contentDescription = null,
+                                        tint = Color.Unspecified,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                } else {
+                                    Text(
+                                        text = entry.progressLabel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = PcosinaMuted
+                                    )
+                                }
+                                HomeWeekState.Empty -> PcosinaDesignIcon(
+                                    resId = R.drawable.pcosina_weekly_progress_lock,
+                                    contentDescription = null,
+                                    tint = Color.Unspecified,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
@@ -1322,8 +1289,10 @@ private fun mealPalette(mealLabel: String): Pair<Color, Color> = when {
 
 @DrawableRes
 private fun mealIconRes(mealLabel: String): Int = when {
-    mealLabel.equals("Breakfast", ignoreCase = true) -> R.drawable.pcosina_svg_16_sun
-    else -> R.drawable.pcosina_svg_37_meal
+    mealLabel.equals("Breakfast", ignoreCase = true) -> R.drawable.pcosina_meal_breakfast
+    mealLabel.equals("Lunch", ignoreCase = true) -> R.drawable.pcosina_meal_lunch
+    mealLabel.equals("Dinner", ignoreCase = true) -> R.drawable.pcosina_meal_dinner
+    else -> R.drawable.pcosina_meal_breakfast
 }
 
 private fun goalInfoCopy(option: GoalOption): String = when (option) {

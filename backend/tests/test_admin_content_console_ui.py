@@ -162,6 +162,7 @@ def test_content_admin_price_rule_console_html_crud():
             page = client.get("/admin/content/price-rules")
             assert page.status_code == 200
             assert "Ingredient Price Rules" in page.text
+            assert "Prices are estimates and may vary by store, location, and date." in page.text
             assert "csrf_token" in page.text
 
             save_token = main._build_admin_csrf_token(principal, "content-price-rule-save")
@@ -171,6 +172,8 @@ def test_content_admin_price_rule_console_html_crud():
                     "csrf_token": save_token,
                     "keywords": "dragonfruit, pitaya",
                     "price_php": "980",
+                    "price_min_php": "900",
+                    "price_max_php": "1100",
                     "category": "Produce",
                     "unit": "kg",
                     "active": "true",
@@ -184,6 +187,8 @@ def test_content_admin_price_rule_console_html_crud():
             rules = database.list_admin_price_rules(q="dragonfruit")
             assert len(rules) == 1
             rule_id = rules[0]["id"]
+            assert rules[0]["priceMinPhp"] == 900
+            assert rules[0]["priceMaxPhp"] == 1100
 
             update = client.post(
                 "/admin/content/price-rules/save",
@@ -192,6 +197,8 @@ def test_content_admin_price_rule_console_html_crud():
                     "rule_id": rule_id,
                     "keywords": "dragonfruit, pitaya",
                     "price_php": "1200",
+                    "price_min_php": "1000",
+                    "price_max_php": "1300",
                     "category": "Produce",
                     "unit": "kg",
                     "active": "true",
@@ -203,6 +210,8 @@ def test_content_admin_price_rule_console_html_crud():
             saved = database.get_price_rule_by_id(rule_id)
             assert saved is not None
             assert saved["pricePhp"] == 1200
+            assert saved["priceMinPhp"] == 1000
+            assert saved["priceMaxPhp"] == 1300
 
             delete_token = main._build_admin_csrf_token(principal, "content-price-rule-delete")
             delete = client.post(

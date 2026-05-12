@@ -1,9 +1,7 @@
 package com.pcosina.app.data.repository
 
 import android.content.Context
-import com.google.firebase.FirebaseNetworkException
-import com.google.firebase.FirebaseTooManyRequestsException
-import com.google.firebase.appcheck.FirebaseAppCheck
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -11,20 +9,26 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.google.gson.Gson
-import com.pcosina.app.BuildConfig
-import com.pcosina.app.data.model.Session
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.FirebaseNetworkException
+import com.google.firebase.FirebaseTooManyRequestsException
+import com.google.firebase.appcheck.FirebaseAppCheck
+import com.google.gson.Gson
+import com.pcosina.app.BuildConfig
+import com.pcosina.app.R
+import com.pcosina.app.data.model.Session
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -193,38 +197,65 @@ class AuthRepository(private val context: Context) {
 
     suspend fun getCurrentUserOperatorAccess(forceRefresh: Boolean = true): OperatorAccessStatus = withContext(Dispatchers.IO) {
         val currentUser = firebaseAuth.currentUser ?: return@withContext OperatorAccessStatus()
+        if (BuildConfig.DEBUG) {
+            Log.i(
+                OperatorAccessLogTag,
+                "Operator access check started url=$operatorAccessUrl " +
+                    "email=${maskEmail(currentUser.email)} uid=${maskToken(currentUser.uid)}"
+            )
+        }
         val idToken = currentUser.getIdToken(forceRefresh).await().token
             ?.takeIf { it.isNotBlank() }
             ?: throw IllegalStateException("Couldn't verify operator access right now.")
-        val appCheckToken = getAppCheckToken()
-        val request = Request.Builder()
+        val appCheckToken = getOptionalAppCheckToken()
+        val requestBuilder = Request.Builder()
             .url(operatorAccessUrl)
             .addHeader("Authorization", "Bearer $idToken")
-            .addHeader("X-Firebase-AppCheck", appCheckToken)
             .addHeader("X-PCOSINA-Schema-Version", BuildConfig.SCHEMA_VERSION)
             .get()
-            .build()
+        if (!appCheckToken.isNullOrBlank()) {
+            requestBuilder.addHeader("X-Firebase-AppCheck", appCheckToken)
+        }
+        val request = requestBuilder.build()
         operatorAccessClient.newCall(request).execute().use { response ->
             val responseBody = response.body?.string().orEmpty()
             return@withContext when {
                 response.isSuccessful -> {
                     val payload = gson.fromJson(responseBody, OperatorAccessPayload::class.java)
                         ?: throw IOException("Operator access verification returned an empty payload")
-                    OperatorAccessStatus(
+                    val status = OperatorAccessStatus(
                         allowed = payload.allowed,
                         roles = payload.roles.map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet(),
                         actor = payload.actor,
                         emailVerified = payload.emailVerified,
                         mfaVerified = payload.mfaVerified
                     )
+                    if (BuildConfig.DEBUG) {
+                        Log.i(
+                            OperatorAccessLogTag,
+                            "Operator access result allowed=${status.allowed} roles=${status.roles.sorted()} " +
+                                "emailVerified=${status.emailVerified} mfaVerified=${status.mfaVerified}"
+                        )
+                    }
+                    status
                 }
                 response.code == 403 -> {
-                    OperatorAccessStatus(message = mapOperatorAccessDeniedMessage(parseErrorDetail(responseBody)))
+                    val message = mapOperatorAccessDeniedMessage(parseErrorDetail(responseBody))
+                    if (BuildConfig.DEBUG) {
+                        Log.i(OperatorAccessLogTag, "Operator access denied: $message")
+                    }
+                    OperatorAccessStatus(message = message)
                 }
                 response.code == 401 -> {
+                    if (BuildConfig.DEBUG) {
+                        Log.w(OperatorAccessLogTag, "Operator access token rejected with HTTP 401")
+                    }
                     throw IllegalStateException("Couldn't verify operator access right now.")
                 }
                 else -> {
+                    if (BuildConfig.DEBUG) {
+                        Log.w(OperatorAccessLogTag, "Operator access failed with HTTP ${response.code}")
+                    }
                     throw IOException("Operator access verification failed with HTTP ${response.code}")
                 }
             }
@@ -293,26 +324,71 @@ class AuthRepository(private val context: Context) {
     }
 
     suspend fun logout() {
-        try {
+        val firebaseCleared = runCatching {
             firebaseAuth.signOut()
+        }.onFailure { error ->
+            if (BuildConfig.DEBUG) {
+                Log.w(AuthSessionLogTag, "Firebase sign-out failed during logout; continuing local cleanup.", error)
+            }
+        }.isSuccess
+
+        val googleProviderCleared = runCatching {
+            signOutGoogleProvider()
+        }.onSuccess {
+            if (BuildConfig.DEBUG) {
+                Log.i(AuthSessionLogTag, "Google provider session cleared during logout.")
+            }
+        }.onFailure { error ->
+            if (BuildConfig.DEBUG) {
+                Log.w(AuthSessionLogTag, "Google provider sign-out failed during logout; continuing local cleanup.", error)
+            }
+        }.isSuccess
+
+        runCatching {
             context.authDataStore.edit { prefs ->
                 prefs[Keys.IS_LOGGED_IN] = false
                 prefs.remove(Keys.CURRENT_USER_EMAIL)
                 prefs.remove(Keys.CURRENT_USER_UID)
             }
-        } catch (e: Exception) {
-            // Log or handle the logout failure if necessary
+        }.onSuccess {
+            if (BuildConfig.DEBUG) {
+                Log.i(
+                    AuthSessionLogTag,
+                    "Logout cleanup completed firebaseCleared=$firebaseCleared googleProviderCleared=$googleProviderCleared"
+                )
+            }
+        }.onFailure { error ->
+            if (BuildConfig.DEBUG) {
+                Log.e(AuthSessionLogTag, "Local auth session cleanup failed during logout.", error)
+            }
         }
     }
 
-    private suspend fun getAppCheckToken(): String {
+    private suspend fun signOutGoogleProvider() {
+        val appContext = context.applicationContext
+        val googleSignInOptions = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(appContext.getString(R.string.default_web_client_id))
+            .requestEmail()
+            .build()
+        GoogleSignIn.getClient(appContext, googleSignInOptions).signOut().await()
+    }
+
+    private suspend fun getOptionalAppCheckToken(): String? {
         val warmToken = runCatching {
             firebaseAppCheck.getAppCheckToken(false).await().token
+        }.onFailure { error ->
+            if (BuildConfig.DEBUG) {
+                Log.w(OperatorAccessLogTag, "Firebase App Check warm token unavailable; continuing with Firebase ID token.", error)
+            }
         }.getOrNull()?.takeIf { it.isNotBlank() }
         if (warmToken != null) return warmToken
-        val refreshedToken = firebaseAppCheck.getAppCheckToken(true).await().token
-            ?.takeIf { it.isNotBlank() }
-        return refreshedToken ?: throw IllegalStateException("Couldn't verify operator access right now.")
+        return runCatching {
+            firebaseAppCheck.getAppCheckToken(true).await().token
+        }.onFailure { error ->
+            if (BuildConfig.DEBUG) {
+                Log.w(OperatorAccessLogTag, "Firebase App Check refresh token unavailable; continuing without App Check.", error)
+            }
+        }.getOrNull()?.takeIf { it.isNotBlank() }
     }
 
     private fun parseErrorDetail(body: String): String? = runCatching {
@@ -350,5 +426,28 @@ class AuthRepository(private val context: Context) {
             url += "/"
         }
         return url
+    }
+
+    private companion object {
+        const val AuthSessionLogTag = "PCOSINA-Auth"
+        const val OperatorAccessLogTag = "PCOSINA-OperatorAccess"
+
+        fun maskEmail(email: String?): String {
+            val clean = email?.trim().orEmpty()
+            if (clean.isBlank() || "@" !in clean) return "(none)"
+            val local = clean.substringBefore("@")
+            val domain = clean.substringAfter("@")
+            val localMask = when {
+                local.length <= 2 -> "${local.firstOrNull() ?: '*'}*"
+                else -> "${local.take(2)}***${local.takeLast(1)}"
+            }
+            return "$localMask@$domain"
+        }
+
+        fun maskToken(value: String?): String {
+            val clean = value?.trim().orEmpty()
+            if (clean.isBlank()) return "(none)"
+            return if (clean.length <= 8) "***" else "${clean.take(4)}...${clean.takeLast(4)}"
+        }
     }
 }

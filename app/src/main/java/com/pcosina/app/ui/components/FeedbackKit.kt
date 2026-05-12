@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.pcosina.app.ui.components
 
 import androidx.compose.animation.AnimatedContent

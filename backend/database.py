@@ -262,6 +262,8 @@ def _create_ingredient_price_rules_table_sql() -> str:
                 id TEXT PRIMARY KEY,
                 keywords_json TEXT NOT NULL,
                 price_php INTEGER NOT NULL,
+                price_min_php INTEGER,
+                price_max_php INTEGER,
                 category TEXT NOT NULL,
                 unit TEXT,
                 active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -275,6 +277,8 @@ def _create_ingredient_price_rules_table_sql() -> str:
             id TEXT PRIMARY KEY,
             keywords_json TEXT NOT NULL,
             price_php INTEGER NOT NULL,
+            price_min_php INTEGER,
+            price_max_php INTEGER,
             category TEXT NOT NULL,
             unit TEXT,
             active INTEGER NOT NULL DEFAULT 1,
@@ -741,8 +745,29 @@ def _migration_indexes(conn) -> None:
 def _migration_price_rule_tables(conn) -> None:
     cur = conn.cursor()
     cur.execute(_create_ingredient_price_rules_table_sql())
+    _ensure_price_rule_range_columns(conn)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_price_rules_active_updated ON ingredient_price_rules(active, updated_at DESC)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_price_rules_category ON ingredient_price_rules(category)")
+
+
+def _ensure_price_rule_range_columns(conn) -> None:
+    cur = conn.cursor()
+    if _use_postgres():
+        cur.execute("ALTER TABLE ingredient_price_rules ADD COLUMN IF NOT EXISTS price_min_php INTEGER")
+        cur.execute("ALTER TABLE ingredient_price_rules ADD COLUMN IF NOT EXISTS price_max_php INTEGER")
+        return
+    cur.execute("PRAGMA table_info(ingredient_price_rules)")
+    columns = {row[1] for row in cur.fetchall()}
+    if "price_min_php" not in columns:
+        cur.execute("ALTER TABLE ingredient_price_rules ADD COLUMN price_min_php INTEGER")
+    if "price_max_php" not in columns:
+        cur.execute("ALTER TABLE ingredient_price_rules ADD COLUMN price_max_php INTEGER")
+
+
+def _migration_price_rule_ranges(conn) -> None:
+    cur = conn.cursor()
+    cur.execute(_create_ingredient_price_rules_table_sql())
+    _ensure_price_rule_range_columns(conn)
 
 
 def _migration_recipe_nutrition_corrections(conn) -> None:
@@ -819,6 +844,7 @@ def _registered_schema_migrations():
         ("20260319_app_009_admin_sessions", "Create admin session registry and indexes", _migration_admin_sessions),
         ("20260319_app_010_operator_access_overrides", "Create operator access override registry", _migration_operator_access_overrides),
         ("20260319_app_011_market_heuristics", "Create market seasonality and volatility rules", _migration_market_heuristics),
+        ("20260319_app_012_price_rule_ranges", "Add optional ingredient price range columns", _migration_price_rule_ranges),
     ]
 
 
@@ -3264,6 +3290,8 @@ def _price_rule_row_to_dict(row: Any) -> Dict[str, Any]:
         "id": raw.get("id"),
         "keywords": [str(item).strip() for item in (keywords or []) if str(item).strip()],
         "pricePhp": int(raw.get("price_php") or 0),
+        "priceMinPhp": int(raw["price_min_php"]) if raw.get("price_min_php") is not None else None,
+        "priceMaxPhp": int(raw["price_max_php"]) if raw.get("price_max_php") is not None else None,
         "category": str(raw.get("category") or "Others"),
         "unit": raw.get("unit"),
         "active": bool(raw.get("active")),
@@ -3287,7 +3315,7 @@ def list_admin_price_rules(
             cursor = conn.cursor(row_factory=dict_row)
             cursor.execute(
                 """
-                SELECT id, keywords_json, price_php, category, unit, active, notes, updated_at
+                SELECT id, keywords_json, price_php, price_min_php, price_max_php, category, unit, active, notes, updated_at
                 FROM ingredient_price_rules
                 WHERE (%s = '' OR keywords_json ILIKE %s OR category ILIKE %s)
                   AND (%s = '' OR category ILIKE %s)
@@ -3302,7 +3330,7 @@ def list_admin_price_rules(
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT id, keywords_json, price_php, category, unit, active, notes, updated_at
+                SELECT id, keywords_json, price_php, price_min_php, price_max_php, category, unit, active, notes, updated_at
                 FROM ingredient_price_rules
                 WHERE (? = '' OR lower(keywords_json) LIKE lower(?) OR lower(category) LIKE lower(?))
                   AND (? = '' OR lower(category) LIKE lower(?))
@@ -3332,7 +3360,7 @@ def get_price_rule_by_id(rule_id: str) -> Dict[str, Any] | None:
             cursor = conn.cursor(row_factory=dict_row)
             cursor.execute(
                 """
-                SELECT id, keywords_json, price_php, category, unit, active, notes, updated_at
+                SELECT id, keywords_json, price_php, price_min_php, price_max_php, category, unit, active, notes, updated_at
                 FROM ingredient_price_rules
                 WHERE id = %s
                 """,
@@ -3343,7 +3371,7 @@ def get_price_rule_by_id(rule_id: str) -> Dict[str, Any] | None:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT id, keywords_json, price_php, category, unit, active, notes, updated_at
+                SELECT id, keywords_json, price_php, price_min_php, price_max_php, category, unit, active, notes, updated_at
                 FROM ingredient_price_rules
                 WHERE id = ?
                 """,
@@ -3357,10 +3385,27 @@ def get_price_rule_by_id(rule_id: str) -> Dict[str, Any] | None:
         conn.close()
 
 
+def _optional_positive_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        parsed = int(text)
+    except (TypeError, ValueError):
+        return None
+    return max(1, parsed)
+
+
 def upsert_price_rule(rule: Dict[str, Any]) -> Dict[str, Any]:
     rule_id = str(rule.get("id") or uuid.uuid4().hex).strip()
     keywords = [str(item).strip().lower() for item in (rule.get("keywords") or []) if str(item).strip()]
     price_php = max(1, int(rule.get("pricePhp") or 0))
+    price_min_php = _optional_positive_int(rule.get("priceMinPhp"))
+    price_max_php = _optional_positive_int(rule.get("priceMaxPhp"))
+    if price_min_php is not None and price_max_php is not None and price_max_php < price_min_php:
+        price_min_php, price_max_php = price_max_php, price_min_php
     category = str(rule.get("category") or "Others").strip() or "Others"
     unit_raw = str(rule.get("unit") or "").strip()
     unit = unit_raw or None
@@ -3375,29 +3420,31 @@ def upsert_price_rule(rule: Dict[str, Any]) -> Dict[str, Any]:
             cur.execute(
                 """
                 INSERT INTO ingredient_price_rules (
-                    id, keywords_json, price_php, category, unit, active, notes, created_at, updated_at
+                    id, keywords_json, price_php, price_min_php, price_max_php, category, unit, active, notes, created_at, updated_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE SET
                     keywords_json = EXCLUDED.keywords_json,
                     price_php = EXCLUDED.price_php,
+                    price_min_php = EXCLUDED.price_min_php,
+                    price_max_php = EXCLUDED.price_max_php,
                     category = EXCLUDED.category,
                     unit = EXCLUDED.unit,
                     active = EXCLUDED.active,
                     notes = EXCLUDED.notes,
                     updated_at = EXCLUDED.updated_at
                 """,
-                (rule_id, keywords_json, price_php, category, unit, active, notes, now, now),
+                (rule_id, keywords_json, price_php, price_min_php, price_max_php, category, unit, active, notes, now, now),
             )
         else:
             cur.execute(
                 """
                 INSERT OR REPLACE INTO ingredient_price_rules (
-                    id, keywords_json, price_php, category, unit, active, notes, created_at, updated_at
+                    id, keywords_json, price_php, price_min_php, price_max_php, category, unit, active, notes, created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM ingredient_price_rules WHERE id = ?), ?), ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM ingredient_price_rules WHERE id = ?), ?), ?)
                 """,
-                (rule_id, keywords_json, price_php, category, unit, 1 if active else 0, notes, rule_id, now, now),
+                (rule_id, keywords_json, price_php, price_min_php, price_max_php, category, unit, 1 if active else 0, notes, rule_id, now, now),
             )
         conn.commit()
     finally:
@@ -3406,6 +3453,8 @@ def upsert_price_rule(rule: Dict[str, Any]) -> Dict[str, Any]:
         "id": rule_id,
         "keywords": keywords,
         "pricePhp": price_php,
+        "priceMinPhp": price_min_php,
+        "priceMaxPhp": price_max_php,
         "category": category,
         "unit": unit,
         "active": active,

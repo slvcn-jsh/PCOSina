@@ -15,6 +15,7 @@ def test_runtime_readiness_reports_production_errors(monkeypatch):
     monkeypatch.setattr(main, "ENVIRONMENT", "production")
     monkeypatch.setattr(main, "ASYNC_MODE", "queued")
     monkeypatch.setattr(main, "sentry_dsn", "")
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "2049bafe2711ad36378531288bf4f7c2879d4f18")
     monkeypatch.setenv("PCOSINA_ADMIN_SESSION_SECRET", "")
     monkeypatch.setenv("FIREBASE_AUTH_DISABLED", "true")
     monkeypatch.setenv("DATABASE_URL", "")
@@ -31,6 +32,7 @@ def test_runtime_readiness_reports_production_errors(monkeypatch):
     report = main._runtime_readiness_report()
 
     assert report["ok"] is False
+    assert report["release"]["gitCommitShort"] == "2049baf"
     assert any("PCOSINA_ADMIN_SESSION_SECRET" in item for item in report["errors"])
     assert any("PCOSINA_REQUIRE_VERIFIED_OPERATOR_EMAIL" in item for item in report["errors"])
     assert any("PCOSINA_REQUIRE_OPERATOR_MFA" in item for item in report["errors"])

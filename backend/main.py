@@ -148,6 +148,23 @@ def _schema_readiness_report() -> Dict[str, Any]:
     }
 
 
+def _release_metadata() -> Dict[str, Any]:
+    git_commit = (
+        os.getenv("RENDER_GIT_COMMIT")
+        or os.getenv("GIT_COMMIT")
+        or os.getenv("SOURCE_VERSION")
+        or ""
+    ).strip()
+    metadata: Dict[str, Any] = {
+        "gitCommit": git_commit or None,
+        "gitCommitShort": git_commit[:7] if git_commit else None,
+        "serviceId": os.getenv("RENDER_SERVICE_ID", "").strip() or None,
+        "serviceName": os.getenv("RENDER_SERVICE_NAME", "").strip() or None,
+        "sentryRelease": os.getenv("SENTRY_RELEASE", "").strip() or None,
+    }
+    return metadata
+
+
 def _runtime_readiness_report(*, include_schema: bool = False) -> Dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -198,6 +215,7 @@ def _runtime_readiness_report(*, include_schema: bool = False) -> Dict[str, Any]
         "rateLimitBackend": RATE_LIMIT_BACKEND,
         "appCheckEnforced": _app_check_enforced(),
         "operatorMfaRequired": _operator_require_mfa_for_admin_access(),
+        "release": _release_metadata(),
         "errors": errors,
         "warnings": warnings,
     }

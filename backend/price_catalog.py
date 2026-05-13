@@ -2,7 +2,7 @@ import re
 import os
 import time
 import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, List, Dict, Optional, Tuple
 import database
 
@@ -34,6 +34,110 @@ class PriceEstimate:
     tingi_multiplier: float
     safety_buffer_multiplier: float
     matched_keywords: List[str]
+
+
+def _normalize_month_index(month_index: Optional[int]) -> int:
+    try:
+        month = int(month_index or datetime.datetime.now().month)
+    except Exception:
+        month = datetime.datetime.now().month
+    return month if 1 <= month <= 12 else datetime.datetime.now().month
+
+
+def _normalize_category_key(category: str) -> str:
+    value = str(category or "").strip()
+    if not value:
+        return "Others"
+    known_categories = globals().get("_CATEGORY_DEFAULT_UNIT", {})
+    if isinstance(known_categories, dict):
+        for known in known_categories.keys():
+            if value.casefold() == str(known).casefold():
+                return str(known)
+    return value
+
+
+@dataclass
+class PricingContext:
+    month_index: Optional[int] = None
+    _market_multiplier_cache: Dict[Tuple[str, int], float] = field(default_factory=dict)
+    _preloaded_months: set[int] = field(default_factory=set)
+    _preload_failed_months: set[int] = field(default_factory=set)
+    market_multiplier_db_calls: int = 0
+    market_multiplier_cache_hits: int = 0
+    market_multiplier_cache_misses: int = 0
+    recipe_cost_estimates: int = 0
+    ingredient_cost_estimates: int = 0
+    price_cost_estimation_ms: int = 0
+
+    def _default_market_multiplier(self, category_key: str, month: int) -> float:
+        return _DEFAULT_SEASONAL_MULTIPLIER.get(category_key, {}).get(month, 1.0)
+
+    def _preload_market_multipliers(self, month: int) -> bool:
+        if month in self._preloaded_months:
+            return True
+        if month in self._preload_failed_months:
+            return False
+        try:
+            self.market_multiplier_db_calls += 1
+            rows = database.list_market_multipliers_for_month(month)
+        except Exception:
+            self._preload_failed_months.add(month)
+            return False
+        for raw_category, raw_multiplier in (rows or {}).items():
+            category_key = _normalize_category_key(raw_category)
+            try:
+                multiplier = float(raw_multiplier or 1.0)
+            except Exception:
+                multiplier = 1.0
+            self._market_multiplier_cache[(category_key, month)] = multiplier
+        self._preloaded_months.add(month)
+        return True
+
+    def market_multiplier(self, category: str, month_index: Optional[int] = None) -> float:
+        month = _normalize_month_index(month_index or self.month_index)
+        category_key = _normalize_category_key(category)
+        cache_key = (category_key, month)
+        if cache_key in self._market_multiplier_cache:
+            self.market_multiplier_cache_hits += 1
+            return self._market_multiplier_cache[cache_key]
+
+        self.market_multiplier_cache_misses += 1
+        if self._preload_market_multipliers(month):
+            if cache_key in self._market_multiplier_cache:
+                return self._market_multiplier_cache[cache_key]
+            multiplier = self._default_market_multiplier(category_key, month)
+            self._market_multiplier_cache[cache_key] = multiplier
+            return multiplier
+
+        self.market_multiplier_db_calls += 1
+        try:
+            db_multiplier = float(database.get_market_multiplier(category_key, month))
+        except Exception:
+            db_multiplier = 1.0
+        multiplier = db_multiplier if db_multiplier != 1.0 else self._default_market_multiplier(category_key, month)
+        self._market_multiplier_cache[cache_key] = multiplier
+        return multiplier
+
+    def record_recipe_cost_elapsed(self, started_at: float) -> None:
+        self.recipe_cost_estimates += 1
+        self.price_cost_estimation_ms += max(0, int((time.time() - started_at) * 1000))
+
+    def snapshot(self) -> Dict[str, int]:
+        return {
+            "marketMultiplierDbCalls": int(self.market_multiplier_db_calls),
+            "marketMultiplierCacheHits": int(self.market_multiplier_cache_hits),
+            "marketMultiplierCacheMisses": int(self.market_multiplier_cache_misses),
+            "priceCostEstimationMs": int(self.price_cost_estimation_ms),
+            "recipeCostEstimateCount": int(self.recipe_cost_estimates),
+            "ingredientPriceEstimateCount": int(self.ingredient_cost_estimates),
+            "recipeCostEstimates": int(self.recipe_cost_estimates),
+            "ingredientCostEstimates": int(self.ingredient_cost_estimates),
+            "distinctMarketMultiplierKeys": int(len(self._market_multiplier_cache)),
+        }
+
+
+def create_pricing_context(month_index: Optional[int] = None) -> PricingContext:
+    return PricingContext(month_index=_normalize_month_index(month_index))
 
 
 _RULES = [
@@ -440,16 +544,24 @@ def _active_rules() -> List[PriceRule]:
     return overrides + _RULES
 
 
-def _market_multiplier(category: str, month_index: Optional[int]) -> float:
-    month = int(month_index or datetime.datetime.now().month)
+def _market_multiplier(
+    category: str,
+    month_index: Optional[int],
+    *,
+    pricing_context: Optional[PricingContext] = None,
+) -> float:
+    if pricing_context is not None:
+        return pricing_context.market_multiplier(category, month_index)
+    month = _normalize_month_index(month_index)
+    category_key = _normalize_category_key(category)
     db_multiplier = 1.0
     try:
-        db_multiplier = float(database.get_market_multiplier(category, month))
+        db_multiplier = float(database.get_market_multiplier(category_key, month))
     except Exception:
         db_multiplier = 1.0
     if db_multiplier != 1.0:
         return db_multiplier
-    return _DEFAULT_SEASONAL_MULTIPLIER.get(category, {}).get(month, 1.0)
+    return _DEFAULT_SEASONAL_MULTIPLIER.get(category_key, {}).get(month, 1.0)
 
 
 def _tingi_multiplier(unit: Optional[str], target_unit: str, quantity_value: Optional[float]) -> float:
@@ -473,6 +585,7 @@ def estimate_price_explained(
     *,
     month_index: Optional[int] = None,
     include_safety_buffer: bool = False,
+    pricing_context: Optional[PricingContext] = None,
 ) -> PriceEstimate:
     rule = _rule_for_name(name)
     category = rule.category if rule else infer_category(name)
@@ -484,7 +597,7 @@ def estimate_price_explained(
     factor = _quantity_factor(qty_value, qty_unit, target_unit, category)
     factor = _clamp_factor(factor, category)
 
-    seasonal_multiplier = _market_multiplier(category, month_index)
+    seasonal_multiplier = _market_multiplier(category, month_index, pricing_context=pricing_context)
     tingi = _tingi_multiplier(qty_unit, target_unit, qty_value)
     safety = 1.10 if include_safety_buffer else 1.0
 
@@ -524,21 +637,37 @@ def estimate_price(name: str) -> int:
     return price
 
 
-def estimate_recipe_cost(ingredients: List[dict]) -> int:
+def estimate_recipe_cost(
+    ingredients: List[dict],
+    *,
+    pricing_context: Optional[PricingContext] = None,
+) -> int:
     if not ingredients:
         return 0
+    started_at = time.time()
     total = 0.0
-    for ing in ingredients:
-        name = ""
-        qty = ""
-        if isinstance(ing, dict):
-            name = str(ing.get("name", ""))
-            qty = str(ing.get("quantity", "") or "")
-        else:
-            name = str(ing)
-        if name.strip():
-            estimate = estimate_price_explained(name, qty, include_safety_buffer=True)
-            total += estimate.price_php
-    total *= 0.90  # recipe-level yield/portion calibration after ingredient-level pricing
-    total = max(30.0, min(450.0, total))
-    return int(round(total))
+    try:
+        for ing in ingredients:
+            name = ""
+            qty = ""
+            if isinstance(ing, dict):
+                name = str(ing.get("name", ""))
+                qty = str(ing.get("quantity", "") or "")
+            else:
+                name = str(ing)
+            if name.strip():
+                if pricing_context is not None:
+                    pricing_context.ingredient_cost_estimates += 1
+                estimate = estimate_price_explained(
+                    name,
+                    qty,
+                    include_safety_buffer=True,
+                    pricing_context=pricing_context,
+                )
+                total += estimate.price_php
+        total *= 0.90  # recipe-level yield/portion calibration after ingredient-level pricing
+        total = max(30.0, min(450.0, total))
+        return int(round(total))
+    finally:
+        if pricing_context is not None:
+            pricing_context.record_recipe_cost_elapsed(started_at)

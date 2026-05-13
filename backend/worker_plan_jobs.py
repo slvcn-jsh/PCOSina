@@ -99,6 +99,40 @@ def _emit_planner_event(event: str, payload: dict, *, uid: str | None = None, po
     )
 
 
+def _optional_int(value):
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except Exception:
+        return None
+
+
+def _emit_planner_timing_log(
+    *,
+    request_id: str,
+    policy_version: str | None,
+    runtime_ms: int,
+    telemetry: dict | None,
+) -> None:
+    telemetry_payload = dict(telemetry or {})
+    payload = {
+        "requestId": str(request_id or "none"),
+        "policyVersion": str(policy_version or "unknown"),
+        "runtimeMs": max(0, int(runtime_ms or 0)),
+        "candidateCountPre": _optional_int(telemetry_payload.get("candidate_count_pre")),
+        "candidateCountPost": _optional_int(telemetry_payload.get("candidate_count_post")),
+        "rankingStrategy": str(telemetry_payload.get("ranking_strategy") or "unknown"),
+        "phaseTimingsMs": telemetry_payload.get("phase_timings_ms") or {},
+        "stage1Diag": telemetry_payload.get("stage1_diag") or {},
+        "pricingDiagnostics": telemetry_payload.get("pricing_diagnostics") or {},
+        "solverBudget": telemetry_payload.get("solver_budget") or {},
+        "budgetExceededStage": telemetry_payload.get("budget_exceeded_stage"),
+        "solvePairDiagnostics": telemetry_payload.get("solve_pair_diagnostics") or [],
+    }
+    print("PLANNER_TIMING", json.dumps(payload, sort_keys=True))
+
+
 def _emit_async_failure_event(
     job_id: str,
     *,
@@ -286,15 +320,25 @@ def run_once() -> bool:
     _emit_ml_event(
         event_name="stage1_candidates_scored",
         payload={
-            "candidate_count_pre": int(telemetry.get("candidate_count_pre") or 0),
-            "candidate_count_post": int(telemetry.get("candidate_count_post") or 0),
+            "candidate_count_pre": _optional_int(telemetry.get("candidate_count_pre")),
+            "candidate_count_post": _optional_int(telemetry.get("candidate_count_post")),
             "ranking_strategy": str(telemetry.get("ranking_strategy") or "stage1_heuristic_with_ml_shadow"),
             "ml_score_enabled": bool(telemetry.get("ml_score_enabled", True)),
             "ml_model_version": str(telemetry.get("ml_model_version") or "shadow_v0"),
+            "phase_timings_ms": telemetry.get("phase_timings_ms") or {},
+            "solver_budget": telemetry.get("solver_budget") or {},
+            "budget_exceeded_stage": telemetry.get("budget_exceeded_stage"),
+            "pricing_diagnostics": telemetry.get("pricing_diagnostics") or {},
         },
         uid=uid,
         request_id=job_id,
         policy_version=policy_version,
+    )
+    _emit_planner_timing_log(
+        request_id=job_id,
+        policy_version=policy_version,
+        runtime_ms=runtime_ms,
+        telemetry=telemetry,
     )
 
     if result:
@@ -307,7 +351,12 @@ def run_once() -> bool:
             requestId=job_id,
             planId=uuid.uuid4().hex,
             policyVersion=policy_version,
-            diagnosticsSummary={"reasonCodes": [], "summary": "success"},
+            diagnosticsSummary={
+                "reasonCodes": [],
+                "summary": "success",
+                "pricingDiagnostics": telemetry.get("pricing_diagnostics") or {},
+                "phaseTimingsMs": telemetry.get("phase_timings_ms") or {},
+            },
             solverMetadata={
                 "solverName": "OR-Tools CP-SAT",
                 "authorityStage": "stage2",
@@ -330,7 +379,12 @@ def run_once() -> bool:
                 "runtimeMs": runtime_ms,
                 "policyVersion": policy_version,
                 "reasonCodes": [],
+                "candidateCountPre": _optional_int(telemetry.get("candidate_count_pre")),
                 "candidateCountPost": (explanation or {}).get("candidatePoolSize"),
+                "phaseTimingsMs": telemetry.get("phase_timings_ms") or {},
+                "solverBudget": telemetry.get("solver_budget") or {},
+                "budgetExceededStage": telemetry.get("budget_exceeded_stage"),
+                "pricingDiagnostics": telemetry.get("pricing_diagnostics") or {},
             },
             uid=uid,
             policy_version=policy_version,
@@ -374,7 +428,12 @@ def run_once() -> bool:
             "runtimeMs": runtime_ms,
             "policyVersion": policy_version,
             "reasonCodes": no_safe.machineReasonCodes,
-            "candidateCountPost": None,
+            "candidateCountPre": _optional_int(telemetry.get("candidate_count_pre")),
+            "candidateCountPost": _optional_int(telemetry.get("candidate_count_post")),
+            "phaseTimingsMs": telemetry.get("phase_timings_ms") or {},
+            "solverBudget": telemetry.get("solver_budget") or {},
+            "budgetExceededStage": telemetry.get("budget_exceeded_stage"),
+            "pricingDiagnostics": telemetry.get("pricing_diagnostics") or {},
         },
         uid=uid,
         policy_version=policy_version,

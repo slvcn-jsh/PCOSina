@@ -2159,6 +2159,59 @@ def get_market_multiplier(category: str, month_index: int) -> float:
         conn.close()
 
 
+def list_market_multipliers_for_month(month_index: int) -> Dict[str, float]:
+    try:
+        month = int(month_index)
+    except Exception:
+        month = 0
+    if month < 1 or month > 12:
+        return {}
+    conn = _connect()
+    try:
+        if _use_postgres() and dict_row is not None:
+            cur = conn.cursor(row_factory=dict_row)
+            cur.execute(
+                """
+                SELECT category, multiplier
+                FROM market_seasonality_rules
+                WHERE month_index = %s
+                """,
+                (month,),
+            )
+        else:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT category, multiplier
+                FROM market_seasonality_rules
+                WHERE month_index = ?
+                """,
+                (month,),
+            )
+        rows = cur.fetchall()
+        result: Dict[str, float] = {}
+        for row in rows:
+            if isinstance(row, dict):
+                category = str(row.get("category") or "").strip()
+                multiplier = row.get("multiplier")
+            elif hasattr(row, "keys"):
+                category = str(row["category"] or "").strip()
+                multiplier = row["multiplier"]
+            else:
+                category = str(row[0] or "").strip()
+                multiplier = row[1]
+            if not category:
+                continue
+            try:
+                result[category] = float(multiplier or 1.0)
+            except Exception:
+                result[category] = 1.0
+        return result
+    finally:
+        conn.close()
+
+
 def init_db():
     conn = _connect()
     try:

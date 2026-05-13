@@ -299,7 +299,15 @@ def test_no_safe_response_captures_exclusion_and_budget_diagnostics():
             },
             "budget_exceeded_stage": "stage1_shortlist",
             "solver_budget": {"totalTimeLimitSeconds": 14.0},
-            "phase_timings_ms": {"stage1_shortlist": 4200},
+            "phase_timings_ms": {"stage1_shortlist": 4200, "stage1_price_estimation": 3900},
+            "pricing_diagnostics": {
+                "marketMultiplierDbCalls": 1,
+                "marketMultiplierCacheHits": 20,
+                "marketMultiplierCacheMisses": 3,
+                "priceCostEstimationMs": 3900,
+                "recipeCostEstimateCount": 12,
+                "ingredientPriceEstimateCount": 48,
+            },
         },
     )
 
@@ -307,7 +315,14 @@ def test_no_safe_response_captures_exclusion_and_budget_diagnostics():
     assert response.diagnosticsSummary["candidateExclusionSummary"]["allergy"] == 5
     assert response.diagnosticsSummary["candidateExclusionDetailCounts"]["allergy:fish"] == 5
     assert response.diagnosticsSummary["budgetExceededStage"] == "stage1_shortlist"
+    assert response.diagnosticsSummary["timeoutStage"] == "stage1_shortlist"
+    assert response.diagnosticsSummary["candidateCountPre"] is None
+    assert response.diagnosticsSummary["candidateCountPost"] is None
+    assert response.diagnosticsSummary["pricingDiagnostics"]["marketMultiplierDbCalls"] == 1
+    assert response.diagnosticsSummary["phaseTimingsMs"]["stage1_price_estimation"] == 3900
+    assert response.machineReasonCodes == ["PLANNER_TIMEOUT"]
     assert response.diagnosticsSummary["profileRuleEffects"]["hardFilters"]
+    assert response.humanGuidance[0].startswith("Planner timed out while pricing, filtering, or optimizing recipes")
     assert any("Allergy rules removed some candidate meals" in item for item in response.humanGuidance)
 
 

@@ -9,7 +9,7 @@ import time
 from ortools.sat.python import cp_model
 
 from domain.models import GeneratePlanRequest, PlannedMeal, DayPlan, UserProfile
-from price_catalog import estimate_recipe_cost
+from price_catalog import PricingContext, create_pricing_context, estimate_recipe_cost
 from services.ml_ranker import get_stage1_ranker
 
 
@@ -526,9 +526,14 @@ def build_plan_day_labels(num_days: int, start_date_text: Optional[str] = None) 
     ]
 
 
-def estimate_cost(recipe: Dict[str, Any], household_size: int = 1) -> int:
+def estimate_cost(
+    recipe: Dict[str, Any],
+    household_size: int = 1,
+    *,
+    pricing_context: Optional[PricingContext] = None,
+) -> int:
     ings = recipe.get("ingredients", [])
-    catalog_cost = estimate_recipe_cost(ings)
+    catalog_cost = estimate_recipe_cost(ings, pricing_context=pricing_context)
     if catalog_cost > 0:
         return int(max(1, catalog_cost * max(1, household_size)))
     cal = recipe.get("calories") or 0
@@ -874,7 +879,10 @@ def shortlist_candidates(
     recipes: List[Dict[str, Any]],
     policy: Optional[Dict[str, Any]] = None,
     stage1_diag: Optional[Dict[str, Any]] = None,
+    pricing_context: Optional[PricingContext] = None,
+    deadline_at: Optional[float] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
+    pricing_context = pricing_context or create_pricing_context()
     buckets = {"Breakfast": [], "Lunch": [], "Dinner": [], "Universal": []}
     restriction_count = len(profile.dietaryRestrictions or [])
     budget_weekly = resolve_budget_weekly(profile)
@@ -915,7 +923,18 @@ def shortlist_candidates(
     }
     exclusion_detail_counts: Dict[str, int] = {}
     phase_started_at = time.time()
+    processed_recipe_count = 0
     for r in recipes:
+        processed_recipe_count += 1
+        if deadline_at is not None and (processed_recipe_count == 1 or processed_recipe_count % 16 == 0):
+            if time.time() >= deadline_at:
+                if stage1_diag is not None:
+                    stage1_diag["preprocess_ms"] = max(0, int((time.time() - phase_started_at) * 1000))
+                    stage1_diag["pricing_diagnostics"] = pricing_context.snapshot()
+                    stage1_diag["cost_estimation_ms"] = int(pricing_context.price_cost_estimation_ms)
+                    stage1_diag["processed_recipe_count"] = processed_recipe_count
+                    stage1_diag["timeout_stage"] = "stage1_price_estimation"
+                raise _PlannerBudgetExceeded("stage1_price_estimation")
         tags = infer_tags(r)
         ing_tokens = normalize_ingredients(r.get("ingredients", []))
         restriction_failures = restriction_failure_reasons(profile, tags, ing_tokens)
@@ -943,7 +962,15 @@ def shortlist_candidates(
             prep_penalty = max(0.0, (float(minutes) - max_cook) / float(max_cook)) * prep_penalty_weight
         r["_tags"] = tags
         r["_ing_tokens"] = ing_tokens
-        r["_cost_est"] = estimate_cost(r, household_size=household_size)
+        r["_cost_est"] = estimate_cost(r, household_size=household_size, pricing_context=pricing_context)
+        if deadline_at is not None and processed_recipe_count % 8 == 0 and time.time() >= deadline_at:
+            if stage1_diag is not None:
+                stage1_diag["preprocess_ms"] = max(0, int((time.time() - phase_started_at) * 1000))
+                stage1_diag["pricing_diagnostics"] = pricing_context.snapshot()
+                stage1_diag["cost_estimation_ms"] = int(pricing_context.price_cost_estimation_ms)
+                stage1_diag["processed_recipe_count"] = processed_recipe_count
+                stage1_diag["timeout_stage"] = "stage1_price_estimation"
+            raise _PlannerBudgetExceeded("stage1_price_estimation")
         r["_protein_group"] = infer_protein_group(ing_tokens)
         r["_veg_tokens"] = infer_veg_tokens(ing_tokens)
         r["_allowed_meals"] = infer_allowed_meals(r.get("mealType"))
@@ -977,6 +1004,9 @@ def shortlist_candidates(
             buckets["Universal"].append(r)
     if stage1_diag is not None:
         stage1_diag["preprocess_ms"] = max(0, int((time.time() - phase_started_at) * 1000))
+        stage1_diag["pricing_diagnostics"] = pricing_context.snapshot()
+        stage1_diag["cost_estimation_ms"] = int(pricing_context.price_cost_estimation_ms)
+        stage1_diag["processed_recipe_count"] = processed_recipe_count
 
     if ml_scored_recipes:
         ml_started_at = time.time()
@@ -1016,6 +1046,8 @@ def shortlist_candidates(
             recipe["_stage1_bucket"] = k
     if stage1_diag is not None:
         stage1_diag["bucket_finalize_ms"] = max(0, int((time.time() - finalize_started_at) * 1000))
+        stage1_diag["pricing_diagnostics"] = pricing_context.snapshot()
+        stage1_diag["cost_estimation_ms"] = int(pricing_context.price_cost_estimation_ms)
         stage1_diag["ml_candidate_count"] = len(ml_scored_recipes)
         stage1_diag["ranker_ready"] = bool(ranker_state.ready) if ranker_state is not None else False
         stage1_diag["exclusion_summary"] = dict(exclusion_summary)
@@ -1609,23 +1641,57 @@ def solve_meal_plan(
     # Stage 1 pruning + shortlist
     shortlist_started_at = time.time()
     stage1_diag: Dict[str, Any] = {}
-    buckets = shortlist_candidates(profile, recipes, policy=policy, stage1_diag=stage1_diag)
+    pricing_context = create_pricing_context()
+    try:
+        buckets = shortlist_candidates(
+            profile,
+            recipes,
+            policy=policy,
+            stage1_diag=stage1_diag,
+            pricing_context=pricing_context,
+            deadline_at=deadline_at,
+        )
+    except _PlannerBudgetExceeded as exc:
+        _record_phase_timing(phase_timings_ms, "stage1_shortlist", shortlist_started_at)
+        phase_timings_ms["stage1_preprocess"] = int(stage1_diag.get("preprocess_ms") or 0)
+        phase_timings_ms["stage1_price_estimation"] = int(stage1_diag.get("cost_estimation_ms") or 0)
+        phase_timings_ms["price_cost_estimation"] = int(stage1_diag.get("cost_estimation_ms") or 0)
+        _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
+        pricing_diagnostics = dict(stage1_diag.get("pricing_diagnostics") or pricing_context.snapshot())
+        if telemetry_out is not None:
+            telemetry_out["budget_exceeded_stage"] = exc.stage
+            telemetry_out["selected_recipe_ids"] = []
+            telemetry_out["status"] = "no-safe-plan"
+            telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
+            telemetry_out["stage1_diag"] = dict(stage1_diag)
+            telemetry_out["pricing_diagnostics"] = pricing_diagnostics
+            telemetry_out["solve_pair_diagnostics"] = []
+        return None, "Planner timed out while pricing, filtering, or optimizing recipes.", None
     _record_phase_timing(phase_timings_ms, "stage1_shortlist", shortlist_started_at)
     if stage1_diag:
         phase_timings_ms["stage1_preprocess"] = int(stage1_diag.get("preprocess_ms") or 0)
+        phase_timings_ms["stage1_price_estimation"] = int(stage1_diag.get("cost_estimation_ms") or 0)
+        phase_timings_ms["price_cost_estimation"] = int(stage1_diag.get("cost_estimation_ms") or 0)
         phase_timings_ms["stage1_ml_score"] = int(stage1_diag.get("ml_score_ms") or 0)
         phase_timings_ms["stage1_bucket_finalize"] = int(stage1_diag.get("bucket_finalize_ms") or 0)
+    pricing_diagnostics = dict(stage1_diag.get("pricing_diagnostics") or pricing_context.snapshot())
+    if telemetry_out is not None:
+        telemetry_out["stage1_diag"] = dict(stage1_diag)
+        telemetry_out["pricing_diagnostics"] = pricing_diagnostics
+    candidates = list({r["id"]: r for r in (buckets["Breakfast"] + buckets["Lunch"] + buckets["Dinner"] + buckets["Universal"])}.values())
+    if telemetry_out is not None:
+        telemetry_out["candidate_count_pre"] = len(candidates)
     if time.time() >= deadline_at:
         if telemetry_out is not None:
             telemetry_out["budget_exceeded_stage"] = "stage1_shortlist"
+            telemetry_out["candidate_count_post"] = None
             telemetry_out["selected_recipe_ids"] = []
             telemetry_out["status"] = "no-safe-plan"
             _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
             telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
             telemetry_out["stage1_diag"] = dict(stage1_diag)
             telemetry_out["solve_pair_diagnostics"] = []
-        return None, "Timed out while searching for a safe plan.", None
-    candidates = list({r["id"]: r for r in (buckets["Breakfast"] + buckets["Lunch"] + buckets["Dinner"] + buckets["Universal"])}.values())
+        return None, "Planner timed out while pricing, filtering, or optimizing recipes.", None
     minimum_candidates_required = int(
         _policy_get(policy, "stage1.minimum_candidates_required", 10)
     )
@@ -1693,7 +1759,7 @@ def solve_meal_plan(
             telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
             telemetry_out["stage1_diag"] = dict(stage1_diag)
             telemetry_out["solve_pair_diagnostics"] = []
-        return None, "Timed out while searching for a safe plan.", None
+        return None, "Planner timed out while pricing, filtering, or optimizing recipes.", None
     budget_weekly = resolve_budget_weekly(profile)
     rule_effects = profile_rule_summary(profile, budget_weekly)
     max_per_week_list = adjust_max_per_week(
@@ -1744,8 +1810,9 @@ def solve_meal_plan(
             telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
             telemetry_out["stage1_diag"] = dict(stage1_diag)
             telemetry_out["solve_pair_diagnostics"] = []
-        return None, "Timed out while searching for a safe plan.", None
+        return None, "Planner timed out while pricing, filtering, or optimizing recipes.", None
 
+    solver_started_at = time.time()
     budget_exceeded_stage: Optional[str] = None
     for tol, max_per_week in solve_pairs:
         pair_diag: Dict[str, Any] = {
@@ -2141,6 +2208,7 @@ def solve_meal_plan(
             )
             explanation["solverStatus"] = status_name
             explanation["retryAttemptsUsed"] = attempts_used
+            _record_phase_timing(phase_timings_ms, "solver", solver_started_at)
             _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
             explanation["phaseTimingsMs"] = dict(phase_timings_ms)
             explanation["solverBudget"] = dict(solver_budget)
@@ -2161,12 +2229,14 @@ def solve_meal_plan(
         if telemetry_out is not None:
             telemetry_out["selected_recipe_ids"] = []
             telemetry_out["status"] = "no-safe-plan"
+            _record_phase_timing(phase_timings_ms, "solver", solver_started_at)
             _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
             telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
             telemetry_out["solver_budget"] = dict(solver_budget)
             telemetry_out["stage1_diag"] = dict(stage1_diag)
             telemetry_out["solve_pair_diagnostics"] = solve_pair_diagnostics[-6:]
         return None, f"Infeasible | debug={msg}", None
+    _record_phase_timing(phase_timings_ms, "solver", solver_started_at)
     _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
     if telemetry_out is not None:
         telemetry_out["selected_recipe_ids"] = []
@@ -2176,5 +2246,5 @@ def solve_meal_plan(
         telemetry_out["stage1_diag"] = dict(stage1_diag)
         telemetry_out["solve_pair_diagnostics"] = solve_pair_diagnostics[-6:]
     if budget_exceeded_stage:
-        return None, "Timed out while searching for a safe plan.", None
+        return None, "Planner timed out while pricing, filtering, or optimizing recipes.", None
     return None, "Infeasible", None

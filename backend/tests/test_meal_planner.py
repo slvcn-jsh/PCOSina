@@ -8,6 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import database
+import price_catalog
 from domain.models import UserProfile
 from services import meal_planner
 from services.ml_ranker import RankerState, Stage1MLRanker
@@ -58,6 +60,223 @@ def test_macro_ratios_moderate():
 
 def test_macro_ratios_severe():
     assert meal_planner.macro_ratios("Severe") == (0.30, 0.30, 0.40)
+
+
+def test_stage1_pricing_uses_request_scoped_market_multiplier_cache(monkeypatch):
+    price_catalog.invalidate_override_cache()
+    monkeypatch.setattr(database, "list_active_price_rules", lambda limit=500: [])
+    monkeypatch.setattr(
+        database,
+        "list_market_multipliers_for_month",
+        lambda month_index: (_ for _ in ()).throw(RuntimeError("preload unavailable")),
+    )
+    calls: list[tuple[str, int]] = []
+
+    def fake_market_multiplier(category: str, month_index: int) -> float:
+        calls.append((category, month_index))
+        return 1.0
+
+    monkeypatch.setattr(database, "get_market_multiplier", fake_market_multiplier)
+    profile = UserProfile(
+        displayName="Pricing Cache",
+        age=28,
+        heightCm=160,
+        weightKg=62,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        dietaryRestrictions=[],
+        allergies=[],
+        pantryItems=[],
+        maxCookingTimeMinutes=60,
+    )
+    recipes = [
+        _recipe(
+            f"r{i}",
+            f"Recipe {i}",
+            ["Breakfast", "Lunch", "Dinner"][i % 3],
+            ingredients=[
+                {"name": "tomato", "quantity": "1 kg"},
+                {"name": "onion", "quantity": "1 kg"},
+                {"name": "chicken", "quantity": "1 kg"},
+                {"name": "tilapia", "quantity": "1 kg"},
+            ],
+        )
+        for i in range(80)
+    ]
+    policy = {
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "max_candidates_per_slot": 80,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "minimum_candidates_required": 1,
+        }
+    }
+    diagnostics: dict = {}
+
+    buckets = meal_planner.shortlist_candidates(profile, recipes, policy=policy, stage1_diag=diagnostics)
+    selected_count = sum(len(v) for v in buckets.values())
+    pricing = diagnostics["pricing_diagnostics"]
+
+    assert selected_count > 0
+    assert pricing["ingredientPriceEstimateCount"] == 320
+    assert pricing["marketMultiplierDbCalls"] <= 3
+    assert pricing["marketMultiplierCacheHits"] >= 300
+    assert len(calls) == 2
+
+
+def test_broad_profile_generates_basic_seven_day_plan(monkeypatch):
+    price_catalog.invalidate_override_cache()
+    monkeypatch.setattr(database, "list_active_price_rules", lambda limit=500: [])
+    monkeypatch.setattr(database, "list_market_multipliers_for_month", lambda month_index: {})
+    monkeypatch.setattr(database, "get_market_multiplier", lambda category, month_index: 1.0)
+    profile = UserProfile(
+        displayName="Broad Profile",
+        age=28,
+        heightCm=162,
+        weightKg=64,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        dietaryRestrictions=[],
+        allergies=[],
+        pantryItems=[],
+        maxCookingTimeMinutes=60,
+        weeklyBudgetPhp=None,
+    )
+    request = meal_planner.GeneratePlanRequest(profile=profile, days=7, mealsPerDay=3)
+    recipes = [
+        _recipe(
+            "breakfast_base",
+            "Balanced Breakfast",
+            "Breakfast",
+            calories=500,
+            protein=28,
+            carbs=55,
+            fats=15,
+            fiber=8,
+            ingredients=[{"name": "egg", "quantity": "2 pcs"}, {"name": "tomato", "quantity": "1 pc"}],
+        ),
+        _recipe(
+            "lunch_base",
+            "Balanced Lunch",
+            "Lunch",
+            calories=600,
+            protein=35,
+            carbs=70,
+            fats=18,
+            fiber=9,
+            ingredients=[{"name": "chicken", "quantity": "120 g"}, {"name": "rice", "quantity": "1 cup"}],
+        ),
+        _recipe(
+            "dinner_base",
+            "Balanced Dinner",
+            "Dinner",
+            calories=520,
+            protein=30,
+            carbs=55,
+            fats=17,
+            fiber=8,
+            ingredients=[{"name": "tilapia", "quantity": "120 g"}, {"name": "pechay", "quantity": "1 cup"}],
+        ),
+    ]
+    policy = {
+        "planning": {
+            "planning_horizon_days": 7,
+            "meals_per_day": 3,
+            "recipe_repeat_limits": [7],
+        },
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "max_candidates_per_slot": 10,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "minimum_candidates_required": 1,
+            "pool_cap_top_share": 1.0,
+        },
+        "solver": {
+            "solver_time_limit_seconds": 1.0,
+            "solver_max_seconds": 2.0,
+            "total_solver_seconds": 5.0,
+            "timeout_ms": 5000,
+            "retry_attempts": 0,
+            "optimality_gap_target": 0.1,
+            "solver_workers": 1,
+        },
+    }
+    telemetry: dict = {}
+
+    plan, msg, explanation = meal_planner.solve_meal_plan(request, recipes, policy=policy, telemetry_out=telemetry)
+
+    assert msg == "Success"
+    assert plan is not None
+    assert len(plan) == 7
+    assert all(len(day.meals) == 3 for day in plan)
+    assert explanation is not None
+    assert telemetry.get("candidate_count_pre") == 3
+    assert telemetry.get("candidate_count_post") == 3
+    assert telemetry.get("pricing_diagnostics", {}).get("marketMultiplierDbCalls", 0) <= 5
+
+
+def test_seeded_recipe_database_broad_profile_generates_plan_with_bounded_market_calls(tmp_path, monkeypatch):
+    monkeypatch.setattr(database, "DATABASE_URL", "")
+    monkeypatch.setattr(database, "DB_NAME", str(tmp_path / "planner_seeded_smoke.db"))
+    database.init_db()
+    database.seed_recipes()
+    price_catalog.invalidate_override_cache()
+    original_market_multiplier = database.get_market_multiplier
+    market_calls: list[tuple[str, int]] = []
+
+    def counting_market_multiplier(category: str, month_index: int) -> float:
+        market_calls.append((category, month_index))
+        return original_market_multiplier(category, month_index)
+
+    monkeypatch.setattr(database, "get_market_multiplier", counting_market_multiplier)
+    profile = UserProfile(
+        displayName="Seeded Broad Profile",
+        age=28,
+        heightCm=162,
+        weightKg=64,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        dietaryRestrictions=[],
+        allergies=[],
+        pantryItems=[],
+        maxCookingTimeMinutes=60,
+        weeklyBudgetPhp=None,
+    )
+    request = meal_planner.GeneratePlanRequest(profile=profile, days=7, mealsPerDay=3)
+    recipes = database.get_all_recipes()
+    policy = {
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+        },
+        "solver": {
+            "total_solver_seconds": 14.0,
+            "timeout_ms": 120000,
+            "retry_attempts": 1,
+            "solver_workers": 1,
+        },
+    }
+    telemetry: dict = {}
+
+    plan, msg, explanation = meal_planner.solve_meal_plan(request, recipes, policy=policy, telemetry_out=telemetry)
+
+    assert msg == "Success"
+    assert plan is not None
+    assert len(plan) == 7
+    assert explanation is not None
+    assert telemetry.get("candidate_count_pre", 0) > 0
+    assert telemetry.get("candidate_count_post", 0) > 0
+    assert telemetry.get("phase_timings_ms", {}).get("stage1_preprocess", 999999) < 5000
+    assert telemetry.get("pricing_diagnostics", {}).get("marketMultiplierDbCalls", 999999) <= 12
+    assert len(market_calls) <= 12
 
 
 def test_resolve_budget_weekly_prefers_weekly_php():
@@ -664,6 +883,7 @@ def test_solve_meal_plan_emits_telemetry_snapshot():
     assert telemetry.get("ranking_strategy") == "stage1_ml_canary_plus_heuristic"
     assert isinstance(telemetry.get("phase_timings_ms"), dict)
     assert telemetry["phase_timings_ms"].get("stage1_shortlist", -1) >= 0
+    assert telemetry["phase_timings_ms"].get("stage1_price_estimation", -1) >= 0
     assert telemetry["phase_timings_ms"].get("stage1_ml_score", -1) >= 0
     assert telemetry["phase_timings_ms"].get("planner_total", -1) >= 0
     assert telemetry.get("solver_budget", {}).get("totalTimeLimitSeconds") == 3.0

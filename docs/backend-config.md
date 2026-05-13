@@ -260,6 +260,10 @@ To resolve the current rollout candidate into shell-ready env exports, use:
   - `PCOSINA_RATE_LIMIT_BACKEND=memory` is not allowed
   - `PCOSINA_REDIS_URL` is required when queueing or shared rate limiting uses Redis
 
+### Respondent Testing Exception
+
+For Firebase App Distribution respondent testing, use `PCOSINA_ENV=staging` and `PCOSINA_ENFORCE_APP_CHECK=false`. In that mode, protected mobile endpoints still require Firebase Auth, but backend App Check verification is skipped so testers do not need manual debug token registration. Return to `PCOSINA_ENV=production` and `PCOSINA_ENFORCE_APP_CHECK=true` for production or Play Store-style testing.
+
 ## Notes
 
 - Active policy is resolved per environment before runtime use.

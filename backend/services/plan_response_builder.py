@@ -2,13 +2,18 @@ from __future__ import annotations
 
 import uuid
 
+from typing import Any
+
 from domain.models import GeneratePlanRequest, GeneratePlanResponse
 from services.meal_planner import profile_rule_summary, resolve_budget_weekly, validate_profile
 
 
-def _reason_codes_from_message(msg: str) -> list[str]:
+def _reason_codes_from_message(msg: str, *, budget_exceeded_stage: str | None = None) -> list[str]:
     text = (msg or "").lower()
     codes: list[str] = []
+    if budget_exceeded_stage or "timed out" in text or "time budget" in text:
+        codes.append("PLANNER_TIMEOUT")
+        return codes
     if "no safe recipes found" in text:
         codes.append("NO_SAFE_CANDIDATES")
     if "conflicting restrictions" in text:
@@ -32,6 +37,29 @@ def _reason_codes_from_message(msg: str) -> list[str]:
     return codes
 
 
+def _optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except Exception:
+        return None
+
+
+def _timing_summary(phase_timings: dict[str, Any], pricing_diagnostics: dict[str, Any]) -> dict[str, int | None]:
+    return {
+        "stage1PreprocessMs": _optional_int(phase_timings.get("stage1_preprocess")),
+        "stage1ShortlistMs": _optional_int(phase_timings.get("stage1_shortlist")),
+        "costEstimationMs": _optional_int(
+            pricing_diagnostics.get("priceCostEstimationMs")
+            if pricing_diagnostics
+            else phase_timings.get("price_cost_estimation")
+        ),
+        "solverMs": _optional_int(phase_timings.get("solver")),
+        "totalPlannerMs": _optional_int(phase_timings.get("planner_total")),
+    }
+
+
 def _guidance_from_profile(
     request: GeneratePlanRequest,
     reason_codes: list[str],
@@ -48,6 +76,10 @@ def _guidance_from_profile(
     if conflict_message:
         guidance.append(conflict_message)
 
+    if "PLANNER_TIMEOUT" in reason_codes:
+        guidance.append(
+            "Planner timed out while pricing, filtering, or optimizing recipes. Please retry or relax non-safety constraints if this continues."
+        )
     if "CONFLICTING_RESTRICTIONS" in reason_codes:
         guidance.append("Your current restriction combination conflicts. Remove one conflicting restriction and retry.")
     if int(exclusion_summary.get("allergy") or 0) > 0:
@@ -67,7 +99,7 @@ def _guidance_from_profile(
     if profile.maxCookingTimeMinutes and profile.maxCookingTimeMinutes < 20:
         guidance.append("Very strict cooking-time limits can prevent feasible planning.")
         relaxations.append("Increase max cooking time by 10-15 minutes.")
-    if budget_exceeded_stage:
+    if budget_exceeded_stage and "PLANNER_TIMEOUT" not in reason_codes:
         guidance.append(f"Planner hit its time budget during {budget_exceeded_stage.replace('_', ' ')}.")
     if not guidance:
         guidance.append("No safe plan was found with the current hard constraints.")
@@ -86,7 +118,12 @@ def build_no_safe_plan_response(
     diagnostics_ref: str | None = None,
     telemetry: dict | None = None,
 ) -> GeneratePlanResponse:
-    reason_codes = _reason_codes_from_message(message)
+    telemetry = telemetry or {}
+    stage1_diag = dict((telemetry.get("stage1_diag") or {}))
+    phase_timings = dict(telemetry.get("phase_timings_ms") or {})
+    pricing_diagnostics = dict(telemetry.get("pricing_diagnostics") or stage1_diag.get("pricing_diagnostics") or {})
+    budget_exceeded_stage = str(telemetry.get("budget_exceeded_stage") or "").strip() or None
+    reason_codes = _reason_codes_from_message(message, budget_exceeded_stage=budget_exceeded_stage)
     profile = request.profile
     budget_weekly = resolve_budget_weekly(profile)
     diagnostics_summary = {
@@ -94,13 +131,22 @@ def build_no_safe_plan_response(
         "summary": message,
         "profileConflict": validate_profile(profile),
         "profileRuleEffects": profile_rule_summary(profile, budget_weekly),
-        "candidateExclusionSummary": dict(((telemetry or {}).get("stage1_diag") or {}).get("exclusion_summary") or {}),
+        "candidateExclusionSummary": dict(stage1_diag.get("exclusion_summary") or {}),
         "candidateExclusionDetailCounts": dict(
-            ((telemetry or {}).get("stage1_diag") or {}).get("exclusion_detail_counts") or {}
+            stage1_diag.get("exclusion_detail_counts") or {}
         ),
-        "budgetExceededStage": (telemetry or {}).get("budget_exceeded_stage"),
-        "solverBudget": (telemetry or {}).get("solver_budget") or {},
-        "phaseTimingsMs": (telemetry or {}).get("phase_timings_ms") or {},
+        "budgetExceededStage": budget_exceeded_stage,
+        "timeoutStage": budget_exceeded_stage,
+        "candidateCountPre": _optional_int(telemetry.get("candidate_count_pre")),
+        "candidateCountPost": _optional_int(telemetry.get("candidate_count_post")),
+        "candidateCountsComputed": {
+            "pre": telemetry.get("candidate_count_pre") is not None,
+            "post": telemetry.get("candidate_count_post") is not None,
+        },
+        "pricingDiagnostics": pricing_diagnostics,
+        "timingSummary": _timing_summary(phase_timings, pricing_diagnostics),
+        "solverBudget": telemetry.get("solver_budget") or {},
+        "phaseTimingsMs": phase_timings,
     }
     guidance, relaxations = _guidance_from_profile(request, reason_codes, diagnostics_summary)
     return GeneratePlanResponse(

@@ -37,6 +37,19 @@ def test_require_app_check_verifies_token(monkeypatch):
     assert captured["token"] == "app-check-token"
 
 
+def test_require_app_check_skips_invalid_token_when_not_enforced(monkeypatch):
+    monkeypatch.setenv("PCOSINA_ENFORCE_APP_CHECK", "false")
+    monkeypatch.setattr(main.firebase_admin, "_apps", [object()])
+
+    def fail_verify(_token: str):
+        raise AssertionError("App Check verifier should not run when enforcement is disabled")
+
+    monkeypatch.setattr(main.app_check, "verify_token", fail_verify)
+
+    assert main.require_app_check(None) is None
+    assert main.require_app_check("invalid-app-check-token") is None
+
+
 def test_generate_plan_requires_app_check_header(monkeypatch):
     monkeypatch.setenv("PCOSINA_ENFORCE_APP_CHECK", "true")
     monkeypatch.setattr(main.firebase_admin, "_apps", [object()])

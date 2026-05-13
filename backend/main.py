@@ -3,6 +3,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import JSONResponse, HTMLResponse, RedirectResponse
 from typing import Dict, Any, Optional
 import base64
+import datetime
 import hashlib
 import hmac
 import html
@@ -86,6 +87,7 @@ ADMIN_SESSION_COOKIE = "pcosina_admin_session"
 ADMIN_SESSION_TTL_SECONDS = int(os.getenv("PCOSINA_ADMIN_SESSION_TTL_SECONDS", "28800"))
 ADMIN_CSRF_TTL_SECONDS = int(os.getenv("PCOSINA_ADMIN_CSRF_TTL_SECONDS", "900"))
 APP_CHECK_HEADER_NAME = os.getenv("PCOSINA_APP_CHECK_HEADER", "X-Firebase-AppCheck").strip() or "X-Firebase-AppCheck"
+_APP_CHECK_MODE_LOGGED: set[str] = set()
 SUPPORTED_SCHEMA_VERSIONS = {
     item.strip()
     for item in os.getenv("PCOSINA_SUPPORTED_SCHEMA_VERSIONS", f"1.2.0,{SCHEMA_VERSION}").split(",")
@@ -121,6 +123,17 @@ def _app_check_enforced() -> bool:
     if configured in ("0", "false", "no", "off"):
         return False
     return IS_PRODUCTION
+
+
+def _log_app_check_mode(enforced: bool) -> None:
+    mode = "enforced" if enforced else "skipped"
+    if mode in _APP_CHECK_MODE_LOGGED:
+        return
+    _APP_CHECK_MODE_LOGGED.add(mode)
+    if enforced:
+        print("Firebase App Check verification is enforced for protected mobile routes.")
+    else:
+        print("Firebase App Check verification is skipped for protected mobile routes.")
 
 
 def _schema_readiness_report() -> Dict[str, Any]:
@@ -231,6 +244,7 @@ async def lifespan(app: FastAPI):
     print(f"LOCAL IP: {get_ip()}")
     print(f"URL FOR PHONE: http://{get_ip()}:8000")
     print("="*50 + "\n")
+    _log_app_check_mode(_app_check_enforced())
     _validate_runtime_readiness()
     try:
         init_firebase()
@@ -497,15 +511,16 @@ def require_firebase_auth(authorization: str = Header(None)):
 
 
 def require_app_check(x_firebase_appcheck: str | None = Header(default=None, alias=APP_CHECK_HEADER_NAME)):
+    enforced = _app_check_enforced()
+    _log_app_check_mode(enforced)
+    if not enforced:
+        return None
+
     token = str(x_firebase_appcheck or "").strip()
     if not token:
-        if _app_check_enforced():
-            raise HTTPException(status_code=401, detail="Missing Firebase App Check token")
-        return None
+        raise HTTPException(status_code=401, detail="Missing Firebase App Check token")
     if not firebase_admin._apps:
-        if _app_check_enforced():
-            raise HTTPException(status_code=503, detail="App Check unavailable")
-        return None
+        raise HTTPException(status_code=503, detail="App Check unavailable")
     try:
         return app_check.verify_token(token)
     except Exception:
@@ -3581,7 +3596,9 @@ def _emit_cache_hit_completion_events(
             "runtimeMs": runtime_ms,
             "policyVersion": policy_version,
             "reasonCodes": response.machineReasonCodes,
-            "candidateCountPost": None,
+            "candidateCountPre": _optional_int((response.diagnosticsSummary or {}).get("candidateCountPre")),
+            "candidateCountPost": _optional_int((response.diagnosticsSummary or {}).get("candidateCountPost")),
+            "pricingDiagnostics": (response.diagnosticsSummary or {}).get("pricingDiagnostics") or {},
             "cacheHit": True,
         },
         uid=uid,
@@ -3686,6 +3703,15 @@ def _emit_planner_event(event: str, payload: Dict[str, Any], *, uid: str | None 
     )
 
 
+def _optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except Exception:
+        return None
+
+
 def _emit_planner_timing_log(
     *,
     request_id: str,
@@ -3698,11 +3724,12 @@ def _emit_planner_timing_log(
         "requestId": str(request_id or "none"),
         "policyVersion": str(policy_version or "unknown"),
         "runtimeMs": max(0, int(runtime_ms or 0)),
-        "candidateCountPre": int(telemetry_payload.get("candidate_count_pre") or 0),
-        "candidateCountPost": int(telemetry_payload.get("candidate_count_post") or 0),
+        "candidateCountPre": _optional_int(telemetry_payload.get("candidate_count_pre")),
+        "candidateCountPost": _optional_int(telemetry_payload.get("candidate_count_post")),
         "rankingStrategy": str(telemetry_payload.get("ranking_strategy") or "unknown"),
         "phaseTimingsMs": telemetry_payload.get("phase_timings_ms") or {},
         "stage1Diag": telemetry_payload.get("stage1_diag") or {},
+        "pricingDiagnostics": telemetry_payload.get("pricing_diagnostics") or {},
         "solverBudget": telemetry_payload.get("solver_budget") or {},
         "budgetExceededStage": telemetry_payload.get("budget_exceeded_stage"),
         "solvePairDiagnostics": telemetry_payload.get("solve_pair_diagnostics") or [],
@@ -3878,14 +3905,15 @@ def _run_job(job_id: str, request: GeneratePlanRequest, owner_uid: str | None = 
         _emit_ml_event(
             event_name="stage1_candidates_scored",
             payload={
-                "candidate_count_pre": int(telemetry.get("candidate_count_pre") or 0),
-                "candidate_count_post": int(telemetry.get("candidate_count_post") or 0),
+                "candidate_count_pre": _optional_int(telemetry.get("candidate_count_pre")),
+                "candidate_count_post": _optional_int(telemetry.get("candidate_count_post")),
                 "ranking_strategy": str(telemetry.get("ranking_strategy") or "stage1_heuristic_with_ml_shadow"),
                 "ml_score_enabled": bool(telemetry.get("ml_score_enabled", True)),
                 "ml_model_version": str(telemetry.get("ml_model_version") or "shadow_v0"),
                 "phase_timings_ms": telemetry.get("phase_timings_ms") or {},
                 "solver_budget": telemetry.get("solver_budget") or {},
                 "budget_exceeded_stage": telemetry.get("budget_exceeded_stage"),
+                "pricing_diagnostics": telemetry.get("pricing_diagnostics") or {},
             },
             uid=uid,
             request_id=job_id,
@@ -3909,7 +3937,12 @@ def _run_job(job_id: str, request: GeneratePlanRequest, owner_uid: str | None = 
                 requestId=job_id,
                 planId=uuid.uuid4().hex,
                 policyVersion=policy_version,
-                diagnosticsSummary={"reasonCodes": [], "summary": "success"},
+                diagnosticsSummary={
+                    "reasonCodes": [],
+                    "summary": "success",
+                    "pricingDiagnostics": telemetry.get("pricing_diagnostics") or {},
+                    "phaseTimingsMs": telemetry.get("phase_timings_ms") or {},
+                },
                 solverMetadata={
                     "solverName": "OR-Tools CP-SAT",
                     "authorityStage": "stage2",
@@ -3928,10 +3961,12 @@ def _run_job(job_id: str, request: GeneratePlanRequest, owner_uid: str | None = 
                     "runtimeMs": runtime_ms,
                     "policyVersion": policy_version,
                     "reasonCodes": [],
+                    "candidateCountPre": _optional_int(telemetry.get("candidate_count_pre")),
                     "candidateCountPost": (explanation or {}).get("candidatePoolSize"),
                     "phaseTimingsMs": telemetry.get("phase_timings_ms") or {},
                     "solverBudget": telemetry.get("solver_budget") or {},
                     "budgetExceededStage": telemetry.get("budget_exceeded_stage"),
+                    "pricingDiagnostics": telemetry.get("pricing_diagnostics") or {},
                 },
                 uid=uid,
                 policy_version=policy_version,
@@ -3968,10 +4003,12 @@ def _run_job(job_id: str, request: GeneratePlanRequest, owner_uid: str | None = 
                     "runtimeMs": runtime_ms,
                     "policyVersion": policy_version,
                     "reasonCodes": response.machineReasonCodes,
-                    "candidateCountPost": None,
+                    "candidateCountPre": _optional_int(telemetry.get("candidate_count_pre")),
+                    "candidateCountPost": _optional_int(telemetry.get("candidate_count_post")),
                     "phaseTimingsMs": telemetry.get("phase_timings_ms") or {},
                     "solverBudget": telemetry.get("solver_budget") or {},
                     "budgetExceededStage": telemetry.get("budget_exceeded_stage"),
+                    "pricingDiagnostics": telemetry.get("pricing_diagnostics") or {},
                 },
                 uid=uid,
                 policy_version=policy_version,
@@ -4022,7 +4059,7 @@ async def generate_plan(
         # Generation Guard Logic: Only allow Sunday or if plan is near completion
         now = datetime.datetime.now()
         # weekday() 6 is Sunday.
-        if now.weekday() != 6:
+        if IS_PRODUCTION and now.weekday() != 6:
              raise HTTPException(status_code=403, detail="New plan generation is only available on Sundays. Stay the course and finish your week!")
 
         _emit_planner_event(
@@ -4088,14 +4125,15 @@ async def generate_plan(
         _emit_ml_event(
             event_name="stage1_candidates_scored",
             payload={
-                "candidate_count_pre": int(telemetry.get("candidate_count_pre") or 0),
-                "candidate_count_post": int(telemetry.get("candidate_count_post") or 0),
+                "candidate_count_pre": _optional_int(telemetry.get("candidate_count_pre")),
+                "candidate_count_post": _optional_int(telemetry.get("candidate_count_post")),
                 "ranking_strategy": str(telemetry.get("ranking_strategy") or "stage1_heuristic_with_ml_shadow"),
                 "ml_score_enabled": bool(telemetry.get("ml_score_enabled", True)),
                 "ml_model_version": str(telemetry.get("ml_model_version") or "shadow_v0"),
                 "phase_timings_ms": telemetry.get("phase_timings_ms") or {},
                 "solver_budget": telemetry.get("solver_budget") or {},
                 "budget_exceeded_stage": telemetry.get("budget_exceeded_stage"),
+                "pricing_diagnostics": telemetry.get("pricing_diagnostics") or {},
             },
             uid=uid,
             request_id=request_id,
@@ -4119,7 +4157,12 @@ async def generate_plan(
                 requestId=request_id,
                 planId=uuid.uuid4().hex,
                 policyVersion=policy_version,
-                diagnosticsSummary={"reasonCodes": [], "summary": "success"},
+                diagnosticsSummary={
+                    "reasonCodes": [],
+                    "summary": "success",
+                    "pricingDiagnostics": telemetry.get("pricing_diagnostics") or {},
+                    "phaseTimingsMs": telemetry.get("phase_timings_ms") or {},
+                },
                 solverMetadata={
                     "solverName": "OR-Tools CP-SAT",
                     "authorityStage": "stage2",
@@ -4140,10 +4183,12 @@ async def generate_plan(
                     "runtimeMs": runtime_ms,
                     "policyVersion": policy_version,
                     "reasonCodes": [],
+                    "candidateCountPre": _optional_int(telemetry.get("candidate_count_pre")),
                     "candidateCountPost": (explanation or {}).get("candidatePoolSize"),
                     "phaseTimingsMs": telemetry.get("phase_timings_ms") or {},
                     "solverBudget": telemetry.get("solver_budget") or {},
                     "budgetExceededStage": telemetry.get("budget_exceeded_stage"),
+                    "pricingDiagnostics": telemetry.get("pricing_diagnostics") or {},
                 },
                 uid=uid,
                 policy_version=policy_version,
@@ -4199,10 +4244,12 @@ async def generate_plan(
                 "runtimeMs": runtime_ms,
                 "policyVersion": policy_version,
                 "reasonCodes": response.machineReasonCodes,
-                "candidateCountPost": None,
+                "candidateCountPre": _optional_int(telemetry.get("candidate_count_pre")),
+                "candidateCountPost": _optional_int(telemetry.get("candidate_count_post")),
                 "phaseTimingsMs": telemetry.get("phase_timings_ms") or {},
                 "solverBudget": telemetry.get("solver_budget") or {},
                 "budgetExceededStage": telemetry.get("budget_exceeded_stage"),
+                "pricingDiagnostics": telemetry.get("pricing_diagnostics") or {},
             },
             uid=uid,
             policy_version=policy_version,

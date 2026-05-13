@@ -62,6 +62,10 @@ val releaseTaskPatterns = listOf(
         option = RegexOption.IGNORE_CASE
     ),
     Regex(
+        pattern = """(^|:)[A-Za-z0-9]*Staging[A-Za-z0-9]*$""",
+        option = RegexOption.IGNORE_CASE
+    ),
+    Regex(
         pattern = """(^|:)release$""",
         option = RegexOption.IGNORE_CASE
     )
@@ -141,8 +145,8 @@ android {
         applicationId = "com.pcosina.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 39
-        versionName = "1.10.3"
+        versionCode = 43
+        versionName = "1.10.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -156,6 +160,8 @@ android {
         buildConfigField("String", "BASE_URL", "\"$releaseBaseUrl\"")
         buildConfigField("String", "SENTRY_DSN", "\"$releaseSentryDsn\"")
         buildConfigField("String", "SCHEMA_VERSION", "\"$defaultSchemaVersion\"")
+        buildConfigField("String", "APP_ENVIRONMENT", "\"production\"")
+        buildConfigField("boolean", "PCOSINA_SEND_APP_CHECK", "true")
     }
 
     buildTypes {
@@ -171,6 +177,8 @@ android {
             }
             buildConfigField("String", "BASE_URL", "\"$releaseBaseUrl\"")
             buildConfigField("String", "SENTRY_DSN", "\"$releaseSentryDsn\"")
+            buildConfigField("String", "APP_ENVIRONMENT", "\"production\"")
+            buildConfigField("boolean", "PCOSINA_SEND_APP_CHECK", "true")
             signingConfig = signingConfigs.getByName("release")
             firebaseAppDistribution {
                 artifactType = "APK"
@@ -196,6 +204,41 @@ android {
                 }
             }
         }
+        create("staging") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            versionNameSuffix = "-staging"
+            buildConfigField("String", "BASE_URL", "\"$releaseBaseUrl\"")
+            buildConfigField("String", "SENTRY_DSN", "\"$releaseSentryDsn\"")
+            buildConfigField("String", "APP_ENVIRONMENT", "\"staging\"")
+            buildConfigField("boolean", "PCOSINA_SEND_APP_CHECK", "false")
+            signingConfig = signingConfigs.getByName("release")
+            firebaseAppDistribution {
+                artifactType = "APK"
+                releaseNotesFile = "${rootProject.projectDir}/release-notes/respondent-test-notes.txt"
+                val envAppId = System.getenv("FIREBASE_APP_ID")
+                if (!envAppId.isNullOrBlank()) {
+                    appId = envAppId
+                }
+                val envCreds = System.getenv("FIREBASE_APPDIST_CREDENTIALS_FILE")
+                    ?: System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+                if (!envCreds.isNullOrBlank()) {
+                    serviceCredentialsFile = envCreds
+                }
+                val defaultGroups = providers.gradleProperty("firebaseAppDistributionRespondentGroups").orNull
+                    ?: providers.gradleProperty("firebaseAppDistributionDefaultGroups").orNull
+                val configuredGroups = System.getenv("FIREBASE_APPDIST_GROUPS") ?: defaultGroups
+                if (!configuredGroups.isNullOrBlank()) {
+                    groups = configuredGroups
+                }
+                val defaultTesters = providers.gradleProperty("firebaseAppDistributionRespondentTesters").orNull
+                    ?: providers.gradleProperty("firebaseAppDistributionDefaultTesters").orNull
+                val configuredTesters = System.getenv("FIREBASE_APPDIST_TESTERS") ?: defaultTesters
+                if (!configuredTesters.isNullOrBlank()) {
+                    testers = configuredTesters
+                }
+            }
+        }
         debug {
             val debugBaseUrl = resolvedDebugBaseUrl
             val pattern = Regex("^https?://.+/$")
@@ -209,6 +252,8 @@ android {
             buildConfigField("String", "BASE_URL", "\"$debugBaseUrl\"")
             buildConfigField("String", "SENTRY_DSN", "\"\"")
             buildConfigField("String", "SCHEMA_VERSION", "\"$resolvedDebugSchemaVersion\"")
+            buildConfigField("String", "APP_ENVIRONMENT", "\"debug\"")
+            buildConfigField("boolean", "PCOSINA_SEND_APP_CHECK", "true")
         }
     }
 

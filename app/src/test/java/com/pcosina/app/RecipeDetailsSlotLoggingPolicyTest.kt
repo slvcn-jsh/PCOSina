@@ -33,8 +33,8 @@ class RecipeDetailsSlotLoggingPolicyTest {
             source.contains("val slotToLog = hintedRemainingSlot ?: remainingRecipeSlots.firstOrNull")
         )
         assertTrue(
-            "Recipe details should disable logging from slot completion data, not next-meal ordering.",
-            source.contains("remainingTodaySlots.none { slot ->")
+            "Recipe details should disable logging from completed slot data, while skipped slots only advance next-meal flow.",
+            source.contains("completedRemainingTodaySlots.none { slot ->")
         )
     }
 

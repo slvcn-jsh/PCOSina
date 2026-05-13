@@ -316,6 +316,7 @@ fun RecipeDetailsScreen(
             }
             val todayPlannedMeals = todayPlan?.meals.orEmpty()
             val todayCompletedIds = logs[todayKey]?.completedMealIds.orEmpty()
+            val todaySkippedIds = logs[todayKey]?.skippedMealIds.orEmpty()
             val todayMealDescriptors = remember(todayPlannedMeals) {
                 todayPlannedMeals.map { meal ->
                     TodayMealDescriptor(
@@ -325,11 +326,22 @@ fun RecipeDetailsScreen(
                     )
                 }
             }
-            val todaySnapshot = remember(todayMealDescriptors, todayCompletedIds) {
-                buildTodayLogSnapshot(todayMealDescriptors, todayCompletedIds)
+            val todaySnapshot = remember(todayMealDescriptors, todayCompletedIds, todaySkippedIds) {
+                buildTodayLogSnapshot(
+                    todayMeals = todayMealDescriptors,
+                    completedMealIds = todayCompletedIds,
+                    skippedMealIds = todaySkippedIds
+                )
             }
             val loggedTodayCount = todaySnapshot.completedCount
-            val remainingTodaySlots = remember(todayMealDescriptors, todayCompletedIds) {
+            val remainingTodaySlots = remember(todayMealDescriptors, todayCompletedIds, todaySkippedIds) {
+                remainingTodayMealSlots(
+                    todayMeals = todayMealDescriptors,
+                    completedMealIds = todayCompletedIds,
+                    skippedMealIds = todaySkippedIds
+                )
+            }
+            val completedRemainingTodaySlots = remember(todayMealDescriptors, todayCompletedIds) {
                 remainingTodayMealSlots(
                     todayMeals = todayMealDescriptors,
                     completedMealIds = todayCompletedIds
@@ -376,12 +388,12 @@ fun RecipeDetailsScreen(
             val alreadyLoggedToday = if (!isRecipeInTodayPlan) {
                 false
             } else if (mealLabelHint != null) {
-                remainingTodaySlots.none { slot ->
+                completedRemainingTodaySlots.none { slot ->
                     slot.recipeId == recipeId &&
                         normalizeMealLabel(slot.mealLabel) == normalizedHint
                 }
             } else {
-                remainingRecipeSlots.isEmpty()
+                completedRemainingTodaySlots.none { slot -> slot.recipeId == recipeId }
             }
             val recipeMinutesLabel = "${r.minutes ?: 20} min"
             val mealSlotLabel = remember(plannedTodayMeal?.mealLabel, plannedMealLabelHint, r.mealType) {
@@ -523,7 +535,13 @@ fun RecipeDetailsScreen(
                         }
                         val nextMeal = buildTodayLogSnapshot(
                             todayMeals = todayMealDescriptors,
-                            completedMealIds = completedIdsAfterLog
+                            completedMealIds = completedIdsAfterLog,
+                            skippedMealIds = todaySkippedIds.filterNot { skippedKey ->
+                                plannedTodayMeal != null &&
+                                    ProgressViewModel.extractRecipeId(skippedKey) == plannedTodayMeal.recipeId &&
+                                    ProgressViewModel.extractMealLabel(skippedKey)
+                                        .equals(plannedTodayMeal.mealLabel, ignoreCase = true)
+                            }
                         ).nextMeal?.let { next ->
                             todayPlannedMeals.firstOrNull { meal ->
                                 meal.recipeId == next.recipeId &&

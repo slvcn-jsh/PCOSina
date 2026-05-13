@@ -2,7 +2,6 @@ package com.pcosina.app.ui.screens
 
 import com.pcosina.app.data.model.DailyLog
 import com.pcosina.app.ui.util.TodayMealDescriptor
-import com.pcosina.app.ui.util.buildTodayLogSnapshot
 import com.pcosina.app.ui.util.remainingTodayMealSlots
 
 enum class TodayTimelineState(val label: String) {
@@ -20,6 +19,7 @@ data class TodayTimelineStep(
 fun buildTodayTimelineSteps(
     todayMeals: List<Pair<String, String>>,
     completedIds: List<String>,
+    skippedIds: List<String> = emptyList(),
     nextMealSlot: Pair<String, String>?
 ): List<TodayTimelineStep> {
     val canonical = listOf("Breakfast", "Lunch", "Dinner")
@@ -30,7 +30,11 @@ fun buildTodayTimelineSteps(
             recipeId = recipeId
         )
     }
-    val remaining = remainingTodayMealSlots(todayDescriptors, completedIds)
+    val remaining = remainingTodayMealSlots(
+        todayMeals = todayDescriptors,
+        completedMealIds = completedIds,
+        skippedMealIds = skippedIds
+    )
     return canonical.map { label ->
         val meal = todayMeals.firstOrNull { it.first.equals(label, ignoreCase = true) }
         val state = when {
@@ -62,9 +66,9 @@ fun isSundayCloseoutReady(
             recipeId = recipeId
         )
     }
-    val snapshot = buildTodayLogSnapshot(
+    return remainingTodayMealSlots(
         todayMeals = descriptors,
-        completedMealIds = logs[sundayKey]?.completedMealIds.orEmpty()
-    )
-    return snapshot.completedCount >= snapshot.plannedCount
+        completedMealIds = logs[sundayKey]?.completedMealIds.orEmpty(),
+        skippedMealIds = logs[sundayKey]?.skippedMealIds.orEmpty()
+    ).isEmpty()
 }

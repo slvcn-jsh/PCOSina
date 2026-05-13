@@ -1039,7 +1039,7 @@ private fun ProgressCalendarCard(
                 Text(
                     text = when {
                         selectedDay.isFuture -> "Future days are locked and cannot be edited."
-                        selectedDay.isToday -> "Today can still be updated through the existing meal logging flow when sequence rules allow it."
+                        selectedDay.isToday -> "Today can still be updated through meal logging or skipped planned meals."
                         else -> "Past days are shown for history review only. Meal logging remains today-only."
                     },
                     style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),

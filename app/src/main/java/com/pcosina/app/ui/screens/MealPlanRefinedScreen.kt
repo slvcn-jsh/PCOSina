@@ -261,6 +261,7 @@ fun MealPlanRefinedScreen(
     val selectedMeals = selectedDay?.meals.orEmpty()
     val logKey = remember(selectedDate) { selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE) }
     val completedMealIds = logs[logKey]?.completedMealIds.orEmpty()
+    val skippedMealIds = logs[logKey]?.skippedMealIds.orEmpty()
     val recipeDetails = remember { mutableStateMapOf<String, PlannerRecipeDetail?>() }
     val scope = rememberCoroutineScope()
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
@@ -425,11 +426,15 @@ fun MealPlanRefinedScreen(
         val lastPlanDayCompletedIds = logs[lastPlanDayDate.format(DateTimeFormatter.ISO_LOCAL_DATE)]
             ?.completedMealIds
             .orEmpty()
+        val lastPlanDaySkippedIds = logs[lastPlanDayDate.format(DateTimeFormatter.ISO_LOCAL_DATE)]
+            ?.skippedMealIds
+            .orEmpty()
+        val lastPlanDayHandledIds = lastPlanDayCompletedIds + lastPlanDaySkippedIds
         val lastPlanDayComplete = currentPlan != null &&
             lastPlanDayMeals.isNotEmpty() &&
             lastPlanDayMeals.all { meal ->
-                lastPlanDayCompletedIds.contains(ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)) ||
-                    lastPlanDayCompletedIds.contains(meal.recipeId)
+                lastPlanDayHandledIds.contains(ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)) ||
+                    lastPlanDayHandledIds.contains(meal.recipeId)
             }
         val planRenewalEligible = currentPlan == null ||
             today.isAfter(planEndDate) ||
@@ -680,10 +685,13 @@ fun MealPlanRefinedScreen(
                             }
                         } else {
                             selectedMeals.take(3).forEachIndexed { mealIndex, meal ->
-                                val isLogged = completedMealIds.contains(ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)) ||
+                                val mealKey = ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)
+                                val isLogged = completedMealIds.contains(mealKey) ||
                                     completedMealIds.contains(meal.recipeId)
+                                val isSkipped = skippedMealIds.contains(mealKey) ||
+                                    skippedMealIds.contains(meal.recipeId)
                                 val plannedMealLabels = selectedMeals.map { it.mealLabel }
-                                val logLockReason = if (isLogged) {
+                                val logLockReason = if (isLogged || isSkipped) {
                                     ""
                                 } else {
                                     progressViewModel.mealLoggingLockReason(
@@ -695,12 +703,16 @@ fun MealPlanRefinedScreen(
                                 MealPlanOutlineMealCard(
                                     meal = meal,
                                     logged = isLogged,
-                                    canLog = !isLogged && logLockReason.isBlank(),
+                                    skipped = isSkipped,
+                                    canLog = !isLogged && !isSkipped && logLockReason.isBlank(),
+                                    canSkip = !isLogged && (isSkipped || logLockReason.isBlank()),
                                     logLockReason = logLockReason,
                                     onOpen = { onRecipeClick(meal.recipeId, meal.mealLabel) },
                                     onLog = {
                                         if (isLogged) {
                                             feedbackMessage = "${meal.mealLabel} is already logged."
+                                        } else if (isSkipped) {
+                                            feedbackMessage = "${meal.mealLabel} was skipped. Undo skip before logging it."
                                         } else if (logLockReason.isBlank()) {
                                             mealLogConfirmationPrompt = PlanMealCheckInPrompt(
                                                 recipeId = meal.recipeId,
@@ -711,9 +723,43 @@ fun MealPlanRefinedScreen(
                                             feedbackMessage = logLockReason
                                         }
                                     },
-                                    onSwap = {
+                                    onSkip = {
                                         if (isLogged) {
-                                            feedbackMessage = "Logged meals are locked and cannot be swapped."
+                                            feedbackMessage = "${meal.mealLabel} is already logged."
+                                        } else if (isSkipped) {
+                                            val saved = progressViewModel.unskipMeal(
+                                                date = selectedDate,
+                                                recipeId = meal.recipeId,
+                                                mealLabel = meal.mealLabel
+                                            )
+                                            feedbackMessage = if (saved) {
+                                                "${meal.mealLabel} is available again."
+                                            } else {
+                                                "Could not update ${meal.mealLabel.lowercase(Locale.ENGLISH)} right now."
+                                            }
+                                        } else if (logLockReason.isBlank()) {
+                                            val saved = progressViewModel.skipMeal(
+                                                date = selectedDate,
+                                                recipeId = meal.recipeId,
+                                                mealLabel = meal.mealLabel,
+                                                plannedMealLabels = plannedMealLabels
+                                            )
+                                            feedbackMessage = if (saved) {
+                                                "${meal.mealLabel} skipped. You can continue to the next meal."
+                                            } else {
+                                                progressViewModel.mealLoggingLockReason(
+                                                    date = selectedDate,
+                                                    mealLabel = meal.mealLabel,
+                                                    plannedMealLabels = plannedMealLabels
+                                                ).ifBlank { "Could not skip this meal right now." }
+                                            }
+                                        } else {
+                                            feedbackMessage = logLockReason
+                                        }
+                                    },
+                                    onSwap = {
+                                        if (isLogged || isSkipped) {
+                                            feedbackMessage = "Handled meals are locked and cannot be swapped."
                                         } else if (!isOnline) {
                                             feedbackMessage = "Internet required for meal swaps."
                                         } else {
@@ -1152,10 +1198,13 @@ private fun MealPlanWeekStrip(
 private fun MealPlanOutlineMealCard(
     meal: PlannerPlannedMeal,
     logged: Boolean,
+    skipped: Boolean,
     canLog: Boolean,
+    canSkip: Boolean,
     logLockReason: String,
     onOpen: () -> Unit,
     onLog: () -> Unit,
+    onSkip: () -> Unit,
     onSwap: () -> Unit,
     compact: Boolean,
 ) {
@@ -1177,7 +1226,7 @@ private fun MealPlanOutlineMealCard(
         )
     }
     Surface(
-        color = containerColor,
+        color = if (skipped) PcosinaSurfaceAlt else containerColor,
         shape = RoundedCornerShape(24.dp),
         border = BorderStroke(1.dp, if (logged) Color.Transparent else PcosinaMuted.copy(alpha = 0.26f)),
         modifier = Modifier
@@ -1221,31 +1270,56 @@ private fun MealPlanOutlineMealCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = if (logged) Color.Transparent else PcosinaSoftPink.copy(alpha = if (canLog) 0.28f else 0.12f),
-                border = BorderStroke(
-                    1.dp,
-                    if (logged) Color.White.copy(alpha = 0.3f) else PcosinaPink.copy(alpha = 0.24f)
-                ),
-                modifier = Modifier.clickable(enabled = !logged && canLog, onClick = onLog)
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text(
-                    text = when {
-                        logged -> "LOGGED"
-                        canLog -> "LOG MEAL"
-                        logLockReason.isNotBlank() -> "LOCKED"
-                        else -> "TODAY ONLY"
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = if (logged) {
+                        Color.Transparent
+                    } else {
+                        PcosinaSoftPink.copy(alpha = if (canLog) 0.28f else 0.12f)
                     },
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                    color = if (logged) Color.White else if (canLog) PcosinaDeepRose else PcosinaMuted
-                )
+                    border = BorderStroke(
+                        1.dp,
+                        if (logged) Color.White.copy(alpha = 0.3f) else PcosinaPink.copy(alpha = 0.24f)
+                    ),
+                    modifier = Modifier.clickable(enabled = !logged && !skipped && canLog, onClick = onLog)
+                ) {
+                    Text(
+                        text = when {
+                            logged -> "LOGGED"
+                            skipped -> "SKIPPED"
+                            canLog -> "LOG"
+                            logLockReason.isNotBlank() -> "LOCKED"
+                            else -> "TODAY"
+                        },
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = if (logged) Color.White else if (canLog) PcosinaDeepRose else PcosinaMuted
+                    )
+                }
+                if (!logged) {
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = if (skipped) Color.White else Color.Transparent,
+                        border = BorderStroke(1.dp, PcosinaMuted.copy(alpha = 0.2f)),
+                        modifier = Modifier.clickable(enabled = canSkip, onClick = onSkip)
+                    ) {
+                        Text(
+                            text = if (skipped) "UNDO" else "SKIP",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = if (canSkip) PcosinaMuted else PcosinaMuted.copy(alpha = 0.5f)
+                        )
+                    }
+                }
             }
             Surface(
                 shape = RoundedCornerShape(999.dp),
-                color = if (logged) Color.White.copy(alpha = 0.12f) else Color.Transparent,
-                modifier = Modifier.clickable(enabled = !logged, onClick = onSwap)
+                color = if (logged || skipped) Color.White.copy(alpha = 0.12f) else Color.Transparent,
+                modifier = Modifier.clickable(enabled = !logged && !skipped, onClick = onSwap)
             ) {
                 Column(
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
@@ -1258,7 +1332,7 @@ private fun MealPlanOutlineMealCard(
                         tint = if (logged) Color.White else PcosinaPink
                     )
                     Text(
-                        text = if (logged) "Locked" else "Swap",
+                        text = if (logged || skipped) "Locked" else "Swap",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (logged) Color.White else PcosinaPink
                     )

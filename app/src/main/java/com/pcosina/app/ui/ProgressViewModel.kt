@@ -50,6 +50,7 @@ private fun sanitizeDailyLog(log: DailyLog): DailyLog? {
     return log.copy(
         date = normalizedDate,
         completedMealIds = sanitizeStringList(log.completedMealIds).distinct(),
+        skippedMealIds = sanitizeStringList(log.skippedMealIds).distinct(),
         mealCheckIns = normalizedMealCheckIns,
         weightNote = safeTrimmedText(log.weightNote),
         energyLevel = clampFeedbackLevel(log.energyLevel),
@@ -161,7 +162,8 @@ class ProgressViewModel(
 
     companion object {
         private const val MEAL_KEY_SEPARATOR = "::"
-        const val LoggingPolicySummary = "Logging is available for today only. Past and future days are read-only."
+        const val LoggingPolicySummary =
+            "Logging follows breakfast, lunch, and dinner order. Skip a planned meal if you did not eat it. Past and future days are read-only."
 
         fun buildMealKey(mealLabel: String, recipeId: String): String {
             return "$mealLabel$MEAL_KEY_SEPARATOR$recipeId"
@@ -407,6 +409,14 @@ class ProgressViewModel(
             .mapNotNull(::extractMealLabel)
     }
 
+    private fun skippedMealLabelsFor(date: LocalDate): List<String> {
+        val key = date.format(dateFmt)
+        return _dailyLogs.value[key]
+            ?.skippedMealIds
+            .orEmpty()
+            .mapNotNull(::extractMealLabel)
+    }
+
     private fun mealLoggingDecision(
         date: LocalDate,
         mealLabel: String?,
@@ -417,6 +427,7 @@ class ProgressViewModel(
         date = date,
         mealLabel = mealLabel,
         completedMealLabels = completedMealLabelsFor(date),
+        skippedMealLabels = skippedMealLabelsFor(date),
         plannedMealLabels = plannedMealLabels,
         now = now,
         currentTime = currentTime
@@ -437,6 +448,13 @@ class ProgressViewModel(
         }
         val updated = (current ?: DailyLog(date = key)).copy(
             completedMealIds = currentIds + mealKey,
+            skippedMealIds = current?.skippedMealIds.orEmpty()
+                .filterNot { skippedKey ->
+                    skippedKey == mealKey ||
+                        skippedKey == recipeId ||
+                        (extractRecipeId(skippedKey) == recipeId &&
+                            extractMealLabel(skippedKey).equals(mealLabel, ignoreCase = true))
+                },
             mealCheckIns = current?.mealCheckIns.orEmpty(),
             timestamp = System.currentTimeMillis()
         )
@@ -457,6 +475,7 @@ class ProgressViewModel(
         val key = date.format(dateFmt)
         val current = _dailyLogs.value[key]
         val currentIds = current?.completedMealIds ?: emptyList()
+        val skippedIds = current?.skippedMealIds ?: emptyList()
         val normalizedRecipeId = extractRecipeId(recipeId)
         val normalizedMealLabel = mealLabel?.trim().orEmpty()
         val mealKey = if (normalizedMealLabel.isNotBlank()) {
@@ -478,6 +497,72 @@ class ProgressViewModel(
         if (!decision.allowed) return false
         val updated = (current ?: DailyLog(date = key)).copy(
             completedMealIds = currentIds + mealKey,
+            skippedMealIds = skippedIds.filterNot { skippedKey ->
+                skippedKey == mealKey ||
+                    skippedKey == normalizedRecipeId ||
+                    (extractRecipeId(skippedKey) == normalizedRecipeId &&
+                        extractMealLabel(skippedKey).equals(normalizedMealLabel, ignoreCase = true))
+            },
+            timestamp = System.currentTimeMillis()
+        )
+        val newMap = _dailyLogs.value.toMutableMap()
+        newMap[key] = updated
+        _dailyLogs.value = newMap
+        persistLogs(newMap)
+        return true
+    }
+
+    fun skipMeal(
+        date: LocalDate,
+        recipeId: String,
+        mealLabel: String,
+        plannedMealLabels: List<String> = emptyList()
+    ): Boolean {
+        if (!isDateLoggable(date)) return false
+        val key = date.format(dateFmt)
+        val current = _dailyLogs.value[key]
+        val normalizedRecipeId = extractRecipeId(recipeId)
+        val normalizedMealLabel = mealLabel.trim().ifBlank { "Meal" }
+        val mealKey = buildMealKey(normalizedMealLabel, normalizedRecipeId)
+        val currentIds = current?.completedMealIds ?: emptyList()
+        val skippedIds = current?.skippedMealIds ?: emptyList()
+        val alreadyLogged = currentIds.contains(mealKey) ||
+            currentIds.contains(normalizedRecipeId) ||
+            currentIds.any { extractRecipeId(it) == normalizedRecipeId && extractMealLabel(it).equals(normalizedMealLabel, ignoreCase = true) }
+        if (alreadyLogged) return false
+        if (skippedIds.contains(mealKey)) return true
+        val decision = mealLoggingDecision(
+            date = date,
+            mealLabel = normalizedMealLabel,
+            plannedMealLabels = plannedMealLabels
+        )
+        if (!decision.allowed) return false
+        val updated = (current ?: DailyLog(date = key)).copy(
+            skippedMealIds = (skippedIds + mealKey).distinct(),
+            timestamp = System.currentTimeMillis()
+        )
+        val newMap = _dailyLogs.value.toMutableMap()
+        newMap[key] = updated
+        _dailyLogs.value = newMap
+        persistLogs(newMap)
+        return true
+    }
+
+    fun unskipMeal(date: LocalDate, recipeId: String, mealLabel: String): Boolean {
+        if (!isDateLoggable(date)) return false
+        val key = date.format(dateFmt)
+        val current = _dailyLogs.value[key] ?: return true
+        val normalizedRecipeId = extractRecipeId(recipeId)
+        val normalizedMealLabel = mealLabel.trim().ifBlank { "Meal" }
+        val mealKey = buildMealKey(normalizedMealLabel, normalizedRecipeId)
+        val updatedSkippedIds = current.skippedMealIds.filterNot { skippedKey ->
+            skippedKey == mealKey ||
+                (extractRecipeId(skippedKey) == normalizedRecipeId &&
+                    extractMealLabel(skippedKey).equals(normalizedMealLabel, ignoreCase = true))
+        }
+        if (updatedSkippedIds == current.skippedMealIds) return true
+        val updated = current.copy(
+            skippedMealIds = updatedSkippedIds,
             timestamp = System.currentTimeMillis()
         )
         val newMap = _dailyLogs.value.toMutableMap()

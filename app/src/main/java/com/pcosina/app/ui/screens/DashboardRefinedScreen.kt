@@ -200,6 +200,7 @@ fun DashboardRefinedScreen(
     }
     val todayMeals = todayPlan?.meals.orEmpty()
     val todayCompletedIds = logs[todayKey]?.completedMealIds.orEmpty()
+    val todaySkippedIds = logs[todayKey]?.skippedMealIds.orEmpty()
     val todayRecipeIds = remember(todayMeals) { todayMeals.map { it.recipeId }.distinct() }
     val mealCaloriesState = remember(todayRecipeIds) { mutableStateOf<Map<String, Int>>(emptyMap()) }
 
@@ -218,7 +219,7 @@ fun DashboardRefinedScreen(
     }
 
     val mealCaloriesByRecipeId = mealCaloriesState.value
-    val todaySnapshot = remember(todayMeals, todayCompletedIds) {
+    val todaySnapshot = remember(todayMeals, todayCompletedIds, todaySkippedIds) {
         buildTodayLogSnapshot(
             todayMeals = todayMeals.map { meal ->
                 TodayMealDescriptor(
@@ -227,17 +228,19 @@ fun DashboardRefinedScreen(
                     recipeId = meal.recipeId
                 )
             },
-            completedMealIds = todayCompletedIds
+            completedMealIds = todayCompletedIds,
+            skippedMealIds = todaySkippedIds
         )
     }
-    val mealCards = remember(todayMeals, todayCompletedIds, mealCaloriesByRecipeId) {
+    val mealCards = remember(todayMeals, todayCompletedIds, todaySkippedIds, mealCaloriesByRecipeId) {
         todayMeals.map { meal ->
             HomeMealCard(
                 mealLabel = meal.mealLabel,
                 title = meal.title,
                 recipeId = meal.recipeId,
                 calories = mealCaloriesByRecipeId[meal.recipeId],
-                isLogged = todayCompletedIds.contains("${meal.mealLabel}::${meal.recipeId}")
+                isLogged = todayCompletedIds.contains("${meal.mealLabel}::${meal.recipeId}") ||
+                    todaySkippedIds.contains("${meal.mealLabel}::${meal.recipeId}")
             )
         }
     }

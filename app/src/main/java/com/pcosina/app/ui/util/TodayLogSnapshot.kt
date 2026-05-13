@@ -23,10 +23,16 @@ data class TodayLogSnapshot(
 
 fun buildTodayLogSnapshot(
     todayMeals: List<TodayMealDescriptor>,
-    completedMealIds: List<String>
+    completedMealIds: List<String>,
+    skippedMealIds: List<String> = emptyList()
 ): TodayLogSnapshot {
-    val remaining = remainingTodayMealSlots(todayMeals, completedMealIds)
-    val completedCount = (todayMeals.size - remaining.size).coerceAtLeast(0)
+    val completedRemaining = remainingTodayMealSlots(todayMeals, completedMealIds)
+    val remaining = remainingTodayMealSlots(
+        todayMeals = todayMeals,
+        completedMealIds = completedMealIds,
+        skippedMealIds = skippedMealIds
+    )
+    val completedCount = (todayMeals.size - completedRemaining.size).coerceAtLeast(0)
     val nextMeal = remaining.firstOrNull()
     return TodayLogSnapshot(
         plannedCount = todayMeals.size,
@@ -37,33 +43,41 @@ fun buildTodayLogSnapshot(
 
 fun remainingTodayMealSlots(
     todayMeals: List<TodayMealDescriptor>,
-    completedMealIds: List<String>
+    completedMealIds: List<String>,
+    skippedMealIds: List<String> = emptyList()
 ): List<TodayMealDescriptor> {
     val remaining = todayMeals.toMutableList()
-    completedMealIds.forEach { loggedId ->
-        if (remaining.isEmpty()) return@forEach
-
-        val loggedRecipeId = ProgressViewModel.extractRecipeId(loggedId)
-        val loggedMealLabel = normalizeMealLabel(ProgressViewModel.extractMealLabel(loggedId))
-
-        val exactSlotIndex = if (loggedMealLabel.isNotBlank()) {
-            remaining.indexOfFirst { slot ->
-                slot.recipeId == loggedRecipeId &&
-                    normalizeMealLabel(slot.mealLabel) == loggedMealLabel
-            }
-        } else {
-            -1
-        }
-
-        val matchIndex = if (exactSlotIndex >= 0) {
-            exactSlotIndex
-        } else {
-            remaining.indexOfFirst { slot -> slot.recipeId == loggedRecipeId }
-        }
-
-        if (matchIndex >= 0) {
-            remaining.removeAt(matchIndex)
-        }
+    (completedMealIds + skippedMealIds).forEach { handledId ->
+        removeHandledMealSlot(remaining, handledId)
     }
     return remaining
+}
+
+private fun removeHandledMealSlot(
+    remaining: MutableList<TodayMealDescriptor>,
+    handledId: String
+) {
+    if (remaining.isEmpty()) return
+
+    val handledRecipeId = ProgressViewModel.extractRecipeId(handledId)
+    val handledMealLabel = normalizeMealLabel(ProgressViewModel.extractMealLabel(handledId))
+
+    val exactSlotIndex = if (handledMealLabel.isNotBlank()) {
+        remaining.indexOfFirst { slot ->
+            slot.recipeId == handledRecipeId &&
+                normalizeMealLabel(slot.mealLabel) == handledMealLabel
+        }
+    } else {
+        -1
+    }
+
+    val matchIndex = if (exactSlotIndex >= 0) {
+        exactSlotIndex
+    } else {
+        remaining.indexOfFirst { slot -> slot.recipeId == handledRecipeId }
+    }
+
+    if (matchIndex >= 0) {
+        remaining.removeAt(matchIndex)
+    }
 }

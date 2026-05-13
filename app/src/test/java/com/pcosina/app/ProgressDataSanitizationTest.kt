@@ -21,6 +21,7 @@ class ProgressDataSanitizationTest {
               {
                 "date": "2026-04-13",
                 "completedMealIds": ["Breakfast::a1", "", null],
+                "skippedMealIds": ["Lunch::a2", "", null, "Lunch::a2"],
                 "mealCheckIns": [
                   null,
                   {
@@ -47,6 +48,7 @@ class ProgressDataSanitizationTest {
         assertEquals(1, logs.size)
         assertEquals("2026-04-13", logs.first().date)
         assertEquals(listOf("Breakfast::a1"), logs.first().completedMealIds)
+        assertEquals(listOf("Lunch::a2"), logs.first().skippedMealIds)
         assertEquals(1, logs.first().mealCheckIns.size)
         assertEquals(5, logs.first().mealCheckIns.first().energyLevel)
         assertEquals(listOf("Bloating"), logs.first().symptomTags)

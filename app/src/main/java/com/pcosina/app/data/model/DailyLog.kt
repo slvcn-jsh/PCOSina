@@ -3,6 +3,7 @@ package com.pcosina.app.data.model
 data class DailyLog(
     val date: String, // YYYY-MM-DD
     val completedMealIds: List<String> = emptyList(), // mealLabel::recipeId
+    val skippedMealIds: List<String> = emptyList(), // mealLabel::recipeId
     val mealCheckIns: List<MealCheckIn> = emptyList(),
     val weightKg: Float? = null,
     val weightNote: String? = null,

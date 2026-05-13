@@ -1,0 +1,11 @@
+PCOSINA respondent testing build 1.10.7-staging
+
+- Install through Firebase App Distribution.
+- Sign in with Google, complete the profile, and generate a meal plan.
+- Review Plan, Grocery, Progress, Settings, and Support.
+- Demo meal logging uses meal order again: Breakfast, then Lunch, then Dinner.
+- If a respondent did not eat an earlier meal, tap Skip for that meal to unlock the next meal.
+- Clock/time-window locks are still disabled for respondent testing.
+- App Check debug token setup is not required for this testing build.
+- Backend planner pricing diagnostics and timeout reporting were improved for Render testing.
+- PCOSINA is wellness decision support only and is not medical advice.

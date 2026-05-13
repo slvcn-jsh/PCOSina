@@ -13,26 +13,27 @@ class MealLoggingPolicyUseCaseTest {
     private val useCase = MealLoggingPolicyUseCase()
 
     @Test
-    fun evaluate_blocksLunchWhenBreakfastIsStillLoggableAndNotLogged() {
-        val decision = useCase.evaluate(
-            date = LocalDate.of(2026, 5, 2),
-            now = LocalDate.of(2026, 5, 2),
-            currentTime = LocalTime.of(10, 45),
-            mealLabel = "Lunch",
-            completedMealLabels = emptyList(),
-            plannedMealLabels = listOf("Breakfast", "Lunch", "Dinner")
-        )
-
-        assertFalse(decision.allowed)
-        assertEquals("Log breakfast before lunch.", decision.reason)
-    }
-
-    @Test
-    fun evaluate_allowsLunchAfterBreakfast() {
+    fun evaluate_blocksLunchUntilBreakfastIsLoggedOrSkipped() {
         val decision = useCase.evaluate(
             date = LocalDate.of(2026, 5, 2),
             now = LocalDate.of(2026, 5, 2),
             currentTime = LocalTime.of(12, 0),
+            mealLabel = "Lunch",
+            completedMealLabels = emptyList(),
+            skippedMealLabels = emptyList(),
+            plannedMealLabels = listOf("Breakfast", "Lunch", "Dinner")
+        )
+
+        assertFalse(decision.allowed)
+        assertEquals("Log or skip breakfast before lunch.", decision.reason)
+    }
+
+    @Test
+    fun evaluate_allowsLunchAfterBreakfastIsLogged() {
+        val decision = useCase.evaluate(
+            date = LocalDate.of(2026, 5, 2),
+            now = LocalDate.of(2026, 5, 2),
+            currentTime = LocalTime.of(1, 0),
             mealLabel = "Lunch",
             completedMealLabels = listOf("Breakfast"),
             plannedMealLabels = listOf("Breakfast", "Lunch", "Dinner")
@@ -43,13 +44,46 @@ class MealLoggingPolicyUseCaseTest {
     }
 
     @Test
-    fun evaluate_allowsLunchWhenBreakfastWindowAlreadyClosed() {
+    fun evaluate_allowsLunchAfterBreakfastIsSkipped() {
         val decision = useCase.evaluate(
             date = LocalDate.of(2026, 5, 2),
             now = LocalDate.of(2026, 5, 2),
-            currentTime = LocalTime.of(12, 0),
+            currentTime = LocalTime.of(1, 0),
             mealLabel = "Lunch",
             completedMealLabels = emptyList(),
+            skippedMealLabels = listOf("Breakfast"),
+            plannedMealLabels = listOf("Breakfast", "Lunch", "Dinner")
+        )
+
+        assertTrue(decision.allowed)
+        assertEquals("", decision.reason)
+    }
+
+    @Test
+    fun evaluate_blocksDinnerUntilPriorMealsAreLoggedOrSkipped() {
+        val decision = useCase.evaluate(
+            date = LocalDate.of(2026, 5, 2),
+            now = LocalDate.of(2026, 5, 2),
+            currentTime = LocalTime.of(23, 0),
+            mealLabel = "Dinner",
+            completedMealLabels = listOf("Breakfast"),
+            skippedMealLabels = emptyList(),
+            plannedMealLabels = listOf("Breakfast", "Lunch", "Dinner")
+        )
+
+        assertFalse(decision.allowed)
+        assertEquals("Log or skip lunch before dinner.", decision.reason)
+    }
+
+    @Test
+    fun evaluate_allowsDinnerAfterBreakfastLoggedAndLunchSkipped() {
+        val decision = useCase.evaluate(
+            date = LocalDate.of(2026, 5, 2),
+            now = LocalDate.of(2026, 5, 2),
+            currentTime = LocalTime.of(23, 0),
+            mealLabel = "Dinner",
+            completedMealLabels = listOf("Breakfast"),
+            skippedMealLabels = listOf("Lunch"),
             plannedMealLabels = listOf("Breakfast", "Lunch", "Dinner")
         )
 
@@ -64,6 +98,7 @@ class MealLoggingPolicyUseCaseTest {
             now = LocalDate.of(2026, 5, 2),
             mealLabel = "Dinner",
             completedMealLabels = emptyList(),
+            skippedMealLabels = listOf("Breakfast", "Lunch"),
             plannedMealLabels = listOf("Breakfast", "Lunch", "Dinner")
         )
 
@@ -75,32 +110,8 @@ class MealLoggingPolicyUseCaseTest {
     }
 
     @Test
-    fun evaluate_blocksMealBeforeItsTimeWindow() {
-        val decision = useCase.evaluate(
-            date = LocalDate.of(2026, 5, 2),
-            now = LocalDate.of(2026, 5, 2),
-            currentTime = LocalTime.of(9, 0),
-            mealLabel = "Dinner",
-            completedMealLabels = listOf("Breakfast", "Lunch"),
-            plannedMealLabels = listOf("Breakfast", "Lunch", "Dinner")
-        )
-
-        assertFalse(decision.allowed)
-        assertEquals("Dinner logging opens at 4:30 PM.", decision.reason)
-    }
-
-    @Test
-    fun evaluate_blocksMealAfterItsTimeWindow() {
-        val decision = useCase.evaluate(
-            date = LocalDate.of(2026, 5, 2),
-            now = LocalDate.of(2026, 5, 2),
-            currentTime = LocalTime.of(23, 0),
-            mealLabel = "Dinner",
-            completedMealLabels = listOf("Breakfast", "Lunch"),
-            plannedMealLabels = listOf("Breakfast", "Lunch", "Dinner")
-        )
-
-        assertFalse(decision.allowed)
-        assertEquals("Dinner logging closed at 10:30 PM.", decision.reason)
+    fun timeWindowLockReason_isDisabledForRespondentDemo() {
+        assertEquals("", useCase.timeWindowLockReason("Breakfast", LocalTime.of(1, 0)))
+        assertEquals("", useCase.timeWindowLockReason("Dinner", LocalTime.of(23, 0)))
     }
 }

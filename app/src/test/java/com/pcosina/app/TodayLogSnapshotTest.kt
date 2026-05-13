@@ -55,6 +55,28 @@ class TodayLogSnapshotTest {
     }
 
     @Test
+    fun snapshot_skipsDoNotCountAsLoggedButMoveNextMealForward() {
+        val meals = listOf(
+            TodayMealDescriptor("Breakfast", "Oats", "r1"),
+            TodayMealDescriptor("Lunch", "Tinola", "r2"),
+            TodayMealDescriptor("Dinner", "Fish", "r3")
+        )
+        val skipped = listOf(
+            ProgressViewModel.buildMealKey("Breakfast", "r1")
+        )
+
+        val snapshot = buildTodayLogSnapshot(
+            todayMeals = meals,
+            completedMealIds = emptyList(),
+            skippedMealIds = skipped
+        )
+
+        assertEquals(3, snapshot.plannedCount)
+        assertEquals(0, snapshot.completedCount)
+        assertEquals("Lunch", snapshot.nextMeal?.mealLabel)
+    }
+
+    @Test
     fun snapshot_countsDuplicateRecipeSlotsIndividually() {
         val meals = listOf(
             TodayMealDescriptor("Breakfast", "Tinola", "r1"),

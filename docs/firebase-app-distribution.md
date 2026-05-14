@@ -1,6 +1,12 @@
-# Firebase App Distribution (Release APK)
+# Firebase App Distribution
 
-This project is configured to upload the release APK using Gradle task:
+This project is configured for both respondent testing and release APK uploads.
+
+Preferred respondent testing task:
+
+- `:app:appDistributionUploadStaging`
+
+Production-style release task:
 
 - `:app:appDistributionUploadRelease`
 
@@ -23,6 +29,8 @@ This repo sets a Gradle fallback:
 
 - `firebaseAppDistributionDefaultGroups=` in `gradle.properties`
 - `firebaseAppDistributionDefaultTesters=...` in `gradle.properties`
+- `firebaseAppDistributionRespondentGroups=pcosina-respondents,pcosina-team` in `gradle.properties`
+- `firebaseAppDistributionRespondentTesters=...` in `gradle.properties`
 
 Notes:
 - Group aliases must already exist in Firebase Console before Gradle upload can assign them.
@@ -34,13 +42,24 @@ Override at runtime with:
 
 ## Release notes source
 
+Staging release notes are read from:
+
+- `release-notes/respondent-test-notes.txt`
+
 Release notes are read from:
 
 - `release-notes.txt`
 
-## Typical flow
+## Respondent testing flow
+
+1. Build staging APK:
+   - `.\gradlew.bat :app:assembleStaging`
+2. Upload to Firebase App Distribution:
+   - `.\gradlew.bat :app:appDistributionUploadStaging`
+
+## Release flow
 
 1. Build release APK:
-   - `.\gradlew :app:assembleRelease`
+   - `.\gradlew.bat :app:assembleRelease`
 2. Upload to Firebase App Distribution:
-   - `.\gradlew :app:appDistributionUploadRelease`
+   - `.\gradlew.bat :app:appDistributionUploadRelease`

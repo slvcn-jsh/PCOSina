@@ -17,13 +17,13 @@ class PcosinaApp : Application() {
         } else {
             firebaseAppCheck.installAppCheckProviderFactory(PlayIntegrityAppCheckProviderFactory.getInstance())
         }
-        firebaseAppCheck.setTokenAutoRefreshEnabled(true)
+        firebaseAppCheck.setTokenAutoRefreshEnabled(BuildConfig.PCOSINA_SEND_APP_CHECK)
 
         if (BuildConfig.SENTRY_DSN.isNotBlank()) {
             SentryAndroid.init(this) { options ->
                 options.dsn = BuildConfig.SENTRY_DSN
                 options.release = "pcosina-android@${BuildConfig.VERSION_NAME}"
-                options.environment = if (BuildConfig.DEBUG) "debug" else "production"
+                options.environment = BuildConfig.APP_ENVIRONMENT
                 options.tracesSampleRate = if (BuildConfig.DEBUG) 1.0 else 0.1
             }
         }

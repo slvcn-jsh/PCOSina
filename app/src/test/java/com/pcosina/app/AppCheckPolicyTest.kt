@@ -21,7 +21,7 @@ class AppCheckPolicyTest {
         assertTrue(source.contains("FirebaseAppCheck.getInstance()"))
         assertTrue(source.contains("DebugAppCheckProviderFactory.getInstance()"))
         assertTrue(source.contains("PlayIntegrityAppCheckProviderFactory.getInstance()"))
-        assertTrue(source.contains("setTokenAutoRefreshEnabled(true)"))
+        assertTrue(source.contains("setTokenAutoRefreshEnabled(BuildConfig.PCOSINA_SEND_APP_CHECK)"))
     }
 
     @Test

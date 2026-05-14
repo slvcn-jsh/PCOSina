@@ -244,8 +244,7 @@ fun LoginScreen(
             blurRadius = 8f,
         )
 
-        Box(modifier = Modifier.fillMaxSize()) {
-            Image(
+        Box(modifier = Modifier.fillMaxSize()) { Image(
                 painter = painterResource(id = R.drawable.pcosina_auth_snacks_background),
                 contentDescription = null,
                 modifier = Modifier

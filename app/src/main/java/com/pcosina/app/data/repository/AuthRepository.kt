@@ -374,6 +374,9 @@ class AuthRepository(private val context: Context) {
     }
 
     private suspend fun getOptionalAppCheckToken(): String? {
+        if (!BuildConfig.PCOSINA_SEND_APP_CHECK) {
+            return null
+        }
         val warmToken = runCatching {
             firebaseAppCheck.getAppCheckToken(false).await().token
         }.onFailure { error ->

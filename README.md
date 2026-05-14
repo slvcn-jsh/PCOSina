@@ -84,6 +84,15 @@ Helpful repo-local wrappers:
 .\scripts\release.ps1 -AllowInsecureLocalSigning -SkipFirebaseDistribution
 ```
 
+Respondent testing should use Firebase App Distribution instead of ADB:
+
+```powershell
+.\gradlew.bat :app:assembleStaging
+.\gradlew.bat :app:appDistributionUploadStaging
+```
+
+See [docs/respondent-deployment.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\docs\respondent-deployment.md) and [docs/render-testing-env.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\docs\render-testing-env.md).
+
 ## Validation
 
 Representative backend and ML validation commands:
@@ -113,5 +122,7 @@ In this sandboxed session, Android dependency resolution is currently blocked by
 - [PRIVACY_AND_SECURITY.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\PRIVACY_AND_SECURITY.md)
 - [RISK_REGISTER.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\RISK_REGISTER.md)
 - [RELEASE_CHECKLIST.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\RELEASE_CHECKLIST.md)
+- [docs/respondent-deployment.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\docs\respondent-deployment.md)
+- [docs/pre-release-checklist.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\docs\pre-release-checklist.md)
 - [docs/roadmap/progress_ledger.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\docs\roadmap\progress_ledger.md)
 - [docs/roadmap/ml_progress_ledger.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\docs\roadmap\ml_progress_ledger.md)

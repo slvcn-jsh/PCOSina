@@ -18,7 +18,7 @@ firebaseBom = "33.7.0"
 coroutinesPlayServices = "1.8.1"
 playServicesTasks = "18.2.0"
 playServicesAuth = "21.3.0"
-sentryAndroid = "7.8.0"
+sentryAndroid = "8.41.0"
 securityCrypto = "1.1.0-alpha06"
 workRuntime = "2.10.0"
 

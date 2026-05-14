@@ -106,3 +106,6 @@ ml/offline_training/artifacts/model_v1/cohort_regression_request_confusion.csv
 ml/offline_training/artifacts/model_v1/feature_importance.csv
 ml/offline_training/artifacts/model_v1/request_confusion.csv
 ml/offline_training/artifacts/model_v1/training_config_snapshot.json
+.android-emulator-avd/
+.firebase-cli-config/
+~$*.docx

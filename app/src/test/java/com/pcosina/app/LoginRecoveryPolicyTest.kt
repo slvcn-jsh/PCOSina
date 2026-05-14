@@ -9,7 +9,7 @@ import org.junit.Test
 class LoginRecoveryPolicyTest {
 
     @Test
-    fun loginScreen_supportsForgotPassword_andPasswordVisibilityToggle() {
+    fun loginScreen_usesGoogleSignInAndLegalCopy() {
         val file = resolveMainSourceRoot().resolve(
             Paths.get(
                 "com",
@@ -21,9 +21,10 @@ class LoginRecoveryPolicyTest {
             )
         )
         val text = String(Files.readAllBytes(file))
-        assertTrue("Login should include a forgot-password action.", text.contains("Forgot password?"))
-        assertTrue("Login should support password visibility toggle.", text.contains("VisibilityOff"))
-        assertTrue("Login should trigger password reset through the view model.", text.contains("sendPasswordReset(email)"))
+        assertTrue("Login should show the Google sign-in CTA.", text.contains("Continue with Google"))
+        assertTrue("Login should configure Google Sign-In.", text.contains("GoogleSignInOptions.Builder"))
+        assertTrue("Login should hand the Google ID token to the view model.", text.contains("onGoogleLogin(account.idToken)"))
+        assertTrue("Login should keep legal acceptance copy visible.", text.contains("Terms of Use and Privacy Policy"))
     }
 
     @Test

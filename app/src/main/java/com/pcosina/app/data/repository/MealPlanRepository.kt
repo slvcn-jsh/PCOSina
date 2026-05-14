@@ -88,7 +88,9 @@ class MealPlanRepository {
             refreshAuthTokenAsync(auth.currentUser, forceRefresh = false)
         })
         refreshAuthTokenAsync(firebaseAuth.currentUser, forceRefresh = false)
-        refreshAppCheckTokenAsync(firebaseAppCheck, forceRefresh = false)
+        if (BuildConfig.PCOSINA_SEND_APP_CHECK) {
+            refreshAppCheckTokenAsync(firebaseAppCheck, forceRefresh = false)
+        }
         val normalizedBaseUrl = normalizeBaseUrl(BuildConfig.BASE_URL)
         val normalizedReleaseBaseUrl = normalizeBaseUrl(RELEASE_BACKEND_URL)
         primaryBaseUrl = normalizedBaseUrl
@@ -518,9 +520,8 @@ class MealPlanRepository {
         if (error !is HttpException) {
             val message = error.message.orEmpty()
             return when {
-                message.contains("app check", ignoreCase = true) ||
-                    message.contains("firebase", ignoreCase = true) && message.contains("token", ignoreCase = true) ->
-                    IllegalStateException("Secure planner connection is still preparing. Please wait a moment and try again.")
+                isAppCheckTokenMessage(message) ->
+                    IllegalStateException("We could not verify the planner connection. Please try again or contact the research team.")
                 message.contains("sign-in session", ignoreCase = true) ||
                     message.contains("sign in", ignoreCase = true) ->
                     IllegalStateException("Your sign-in session is still preparing. Please wait a moment and try again.")
@@ -541,13 +542,16 @@ class MealPlanRepository {
                 if (detail.isNotBlank()) detail else "App and backend schema versions do not match."
             )
             401 -> IllegalStateException(
-                if (detail.isNotBlank()) detail else "Session expired. Please sign in again."
+                when {
+                    isAppCheckTokenMessage(detail) ->
+                        "We could not verify the planner connection. Please try again or contact the research team."
+                    else -> "Session expired. Please sign in again."
+                }
             )
             403 -> IllegalStateException(
                 when {
-                    detail.contains("app check", ignoreCase = true) ||
-                        detail.contains("firebase", ignoreCase = true) && detail.contains("token", ignoreCase = true) ->
-                        "Secure planner connection is still preparing. Please wait a moment and try again."
+                    isAppCheckTokenMessage(detail) ->
+                        "We could not verify the planner connection. Please try again or contact the research team."
                     detail.isNotBlank() -> "Planner access could not be verified. Please sign in again, then retry."
                     else -> "Planner access could not be verified. Please sign in again, then retry."
                 }
@@ -592,6 +596,12 @@ class MealPlanRepository {
         } catch (_: Exception) {
             ""
         }
+    }
+
+    private fun isAppCheckTokenMessage(message: String): Boolean {
+        return message.contains("app check", ignoreCase = true) ||
+            message.contains("appcheck", ignoreCase = true) ||
+            (message.contains("firebase", ignoreCase = true) && message.contains("token", ignoreCase = true))
     }
 
     private fun backendHost(baseUrl: String? = primaryBaseUrl): String {
@@ -672,6 +682,11 @@ class MealPlanRepository {
         firebaseAppCheck: FirebaseAppCheck,
         forceRefresh: Boolean
     ) {
+        if (!BuildConfig.PCOSINA_SEND_APP_CHECK) {
+            cachedAppCheckToken = null
+            appCheckTokenRefreshInFlight.set(false)
+            return
+        }
         if (!appCheckTokenRefreshInFlight.compareAndSet(false, true)) return
         val task = if (forceRefresh) {
             firebaseAppCheck.getAppCheckToken(true)
@@ -776,13 +791,15 @@ class MealPlanRepository {
                     cachedAuthToken = null
                     throw IOException("You must sign in before using the planner.")
                 }
-                val appCheckToken = cachedAppCheckToken
-                if (!appCheckToken.isNullOrBlank()) {
-                    requestBuilder.addHeader("X-Firebase-AppCheck", appCheckToken)
-                } else {
-                    refreshAppCheckTokenAsync(firebaseAppCheck, forceRefresh = false)
-                    if (!BuildConfig.DEBUG) {
-                        throw IOException("Firebase App Check token is still preparing. Please retry in a moment.")
+                if (BuildConfig.PCOSINA_SEND_APP_CHECK) {
+                    val appCheckToken = cachedAppCheckToken
+                    if (!appCheckToken.isNullOrBlank()) {
+                        requestBuilder.addHeader("X-Firebase-AppCheck", appCheckToken)
+                    } else {
+                        refreshAppCheckTokenAsync(firebaseAppCheck, forceRefresh = false)
+                        if (!BuildConfig.DEBUG) {
+                            throw IOException("Firebase App Check token is still preparing. Please retry in a moment.")
+                        }
                     }
                 }
 
@@ -798,7 +815,7 @@ class MealPlanRepository {
                 if (response.code == 401) {
                     refreshAuthTokenAsync(currentUser, forceRefresh = true)
                 }
-                if (response.code == 401 || response.code == 403) {
+                if (BuildConfig.PCOSINA_SEND_APP_CHECK && (response.code == 401 || response.code == 403)) {
                     refreshAppCheckTokenAsync(firebaseAppCheck, forceRefresh = true)
                 }
                 response

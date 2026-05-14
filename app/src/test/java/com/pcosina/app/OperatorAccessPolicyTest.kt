@@ -10,18 +10,19 @@ import org.junit.Test
 class OperatorAccessPolicyTest {
 
     @Test
-    fun loginScreen_exposesExplicitOperatorAccessMode() {
+    fun loginScreen_usesGoogleSignInForBackendResolvedOperatorAccess() {
         val text = readScreen("LoginScreen.kt")
-        assertTrue("Login should expose an explicit operator mode entry.", text.contains("Use operator access"))
-        assertTrue("Operator mode should keep its own primary CTA copy.", text.contains("Continue to operator tools"))
+        assertTrue("Login should keep the Google sign-in CTA.", text.contains("Continue with Google"))
+        assertTrue("Login should preserve operator access intent for backend resolution.", text.contains("operatorAccessRequested = true"))
+        assertTrue("Login success should pass operator intent to navigation.", text.contains("onLoginSuccess(operatorAccessRequested)"))
     }
 
     @Test
     fun appNavHost_routesPendingOperatorAccess_toHiddenOperatorScreens() {
         val text = readNavigation("AppNavHost.kt")
         assertTrue("Navigation should remember pending operator access intent.", text.contains("pendingOperatorAccess"))
-        assertTrue("Authorized operator login should land on MoreTools.", text.contains("activateOperatorMode -> Routes.MoreTools"))
-        assertTrue("Operator-only screens should be guarded for unauthorized accounts.", text.contains("Operator access is only available for authorized accounts."))
+        assertTrue("Authorized operator login should land on the operator dashboard.", text.contains("activateOperatorMode -> Routes.OperatorDashboard"))
+        assertTrue("Operator-only screens should be guarded for unauthorized accounts.", text.contains("Admin access is only available for authorized accounts."))
         assertTrue("Operator access should be checked through the repository endpoint flow.", text.contains("getCurrentUserOperatorAccess(forceRefresh = true)"))
         assertTrue(
             "Operator access resolution should rerun when pending operator mode is requested.",

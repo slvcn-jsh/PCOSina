@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import math
 import os
+import subprocess
+import sys
 import threading
 from dataclasses import dataclass
 from typing import Dict, List, Optional
@@ -28,6 +31,32 @@ class Stage1MLRanker:
         self._model_version = "shadow_v0"
         self._error: Optional[str] = None
 
+    def _smoke_load_model(self, model_path: str) -> Optional[str]:
+        safe_load = os.getenv("PCOSINA_ML_SAFE_MODEL_LOAD", "true").strip().lower()
+        if safe_load in ("0", "false", "no", "off"):
+            return None
+        code = (
+            "import sys\n"
+            "import lightgbm as lgb\n"
+            "booster = lgb.Booster(model_file=sys.argv[1])\n"
+            "print(len(booster.feature_name()))\n"
+        )
+        try:
+            proc = subprocess.run(
+                [sys.executable, "-c", code, model_path],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=float(os.getenv("PCOSINA_ML_SAFE_MODEL_LOAD_TIMEOUT_SECONDS", "8")),
+            )
+        except Exception as exc:
+            return f"model smoke load failed: {exc}"
+        if proc.returncode != 0:
+            detail = (proc.stderr or proc.stdout or "").strip().splitlines()
+            suffix = f": {detail[-1][:180]}" if detail else ""
+            return f"model smoke load failed with exit code {proc.returncode}{suffix}"
+        return None
+
     def _load_once(self) -> None:
         if self._loaded:
             return
@@ -52,26 +81,30 @@ class Stage1MLRanker:
                     except Exception as exc:
                         error = f"lightgbm unavailable: {exc}"
                     else:
-                        try:
-                            booster = lgb.Booster(model_file=model_path)
-                        except Exception as exc:
-                            error = f"failed to load model: {exc}"
+                        smoke_error = self._smoke_load_model(model_path)
+                        if smoke_error:
+                            error = smoke_error
                         else:
-                            model_version = "lightgbm_v1_unknown"
-                            if metrics_path and os.path.exists(metrics_path):
-                                try:
-                                    payload = json.loads(open(metrics_path, "r", encoding="utf-8").read())
-                                    cols = payload.get("feature_columns") or payload.get("featureColumns") or []
-                                    if isinstance(cols, list):
-                                        feature_cols = [str(c) for c in cols if str(c).strip()]
-                                    model_version = str(payload.get("model_name") or payload.get("model") or model_version)
-                                except Exception:
-                                    pass
-                            if not feature_cols:
-                                try:
-                                    feature_cols = list(booster.feature_name())
-                                except Exception:
-                                    feature_cols = []
+                            try:
+                                booster = lgb.Booster(model_file=model_path)
+                            except Exception as exc:
+                                error = f"failed to load model: {exc}"
+                            else:
+                                model_version = "lightgbm_v1_unknown"
+                                if metrics_path and os.path.exists(metrics_path):
+                                    try:
+                                        payload = json.loads(open(metrics_path, "r", encoding="utf-8").read())
+                                        cols = payload.get("feature_columns") or payload.get("featureColumns") or []
+                                        if isinstance(cols, list):
+                                            feature_cols = [str(c) for c in cols if str(c).strip()]
+                                        model_version = str(payload.get("model_name") or payload.get("model") or model_version)
+                                    except Exception:
+                                        pass
+                                if not feature_cols:
+                                    try:
+                                        feature_cols = list(booster.feature_name())
+                                    except Exception:
+                                        feature_cols = []
                 cached = (booster, feature_cols, model_version, error)
                 with self.__class__._shared_lock:
                     self.__class__._shared_cache[cache_key] = cached
@@ -103,7 +136,10 @@ class Stage1MLRanker:
                 pred = self._model.predict([vector])
             if pred is None or len(pred) == 0:
                 return None
-            return float(pred[0])
+            value = float(pred[0])
+            if not math.isfinite(value):
+                return None
+            return value
         except Exception:
             return None
 
@@ -124,7 +160,15 @@ class Stage1MLRanker:
                 preds = self._model.predict(matrix)
             if preds is None:
                 return [None for _ in features_list]
-            return [float(pred) for pred in preds]
+            out: List[Optional[float]] = []
+            for pred in preds:
+                try:
+                    value = float(pred)
+                except Exception:
+                    out.append(None)
+                    continue
+                out.append(value if math.isfinite(value) else None)
+            return out
         except Exception:
             return [None for _ in features_list]
 

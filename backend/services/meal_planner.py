@@ -10,6 +10,7 @@ from ortools.sat.python import cp_model
 
 from domain.models import GeneratePlanRequest, PlannedMeal, DayPlan, UserProfile
 from price_catalog import PricingContext, create_pricing_context, estimate_recipe_cost
+from services.ml_features import complete_stage1_feature_vector, zero_reason_feedback_features
 from services.ml_ranker import get_stage1_ranker
 
 
@@ -620,25 +621,66 @@ def _shadow_ml_score(recipe: Dict[str, Any], profile: UserProfile) -> float:
     return max(0.0, min(1.0, blended))
 
 
-def _stage1_ml_feature_vector(recipe: Dict[str, Any], profile: UserProfile) -> Dict[str, float]:
-    budget_weekly = resolve_budget_weekly(profile) or 0.0
-    return {
+def _stage1_ml_feature_vector(
+    recipe: Dict[str, Any],
+    profile: UserProfile,
+    ml_feature_context: Optional[Dict[str, Any]] = None,
+) -> Dict[str, float]:
+    context = ml_feature_context or {}
+    budget_weekly = context.get("budget_weekly")
+    if budget_weekly is None:
+        budget_weekly = resolve_budget_weekly(profile) or 0.0
+    calories = float(recipe.get("calories") or 0.0)
+    protein = float(recipe.get("proteinGrams") or 0.0)
+    carbs = float(recipe.get("carbsGrams") or 0.0)
+    fats = float(recipe.get("fatsGrams") or 0.0)
+    target_calories = float(context.get("target_calories") or 500.0)
+    target_protein = context.get("target_protein")
+    target_carbs = context.get("target_carbs")
+    target_fats = context.get("target_fats")
+    macro_distance = 0.0
+    if target_protein is not None and target_carbs is not None and target_fats is not None:
+        macro_distance = (
+            abs(protein - float(target_protein))
+            + abs(carbs - float(target_carbs))
+            + abs(fats - float(target_fats))
+        )
+    reason_features = zero_reason_feedback_features()
+    supplied_reason_features = context.get("reason_feedback_features")
+    if isinstance(supplied_reason_features, dict):
+        for key in reason_features.keys():
+            try:
+                reason_features[key] = float(supplied_reason_features.get(key, 0.0))
+            except Exception:
+                reason_features[key] = 0.0
+
+    features = {
+        "model_score": float(_shadow_ml_score(recipe, profile)),
+        "heuristic_score": float(_base_score(recipe)),
         "restriction_count": float(len(profile.dietaryRestrictions or [])),
         "allergy_count": float(len(profile.allergies or [])),
-        "budget_weekly_norm": float(budget_weekly / 7000.0),
+        "budget_weekly_norm": float(float(budget_weekly or 0.0) / 7000.0),
         "max_cooking_time_minutes": float(profile.maxCookingTimeMinutes or 0),
-        "recipe_calories": float(recipe.get("calories") or 0.0),
-        "recipe_protein": float(recipe.get("proteinGrams") or 0.0),
-        "recipe_carbs": float(recipe.get("carbsGrams") or 0.0),
-        "recipe_fats": float(recipe.get("fatsGrams") or 0.0),
+        "recipe_calories": calories,
+        "recipe_protein": protein,
+        "recipe_carbs": carbs,
+        "recipe_fats": fats,
         "recipe_fiber": float(recipe.get("fiberGrams") or 0.0),
         "recipe_minutes": float(recipe.get("minutes") or 0.0),
         "recipe_cost_est": float(recipe.get("_cost_est") or 0.0),
         "pantry_overlap_count": float(recipe.get("_pantry_match") or 0.0),
+        "macro_distance_score": float(macro_distance),
+        "calorie_distance_score": abs(calories - target_calories),
+        "meals_per_day": float(context.get("meals_per_day") or 3),
+        "profile_activity_lightly_active": 1.0 if str(profile.activityLevel or "") == "Lightly Active" else 0.0,
+        "profile_goal_general_health": 1.0 if goal_has(profile.goal, GOAL_GENERAL_HEALTH) else 0.0,
+        "profile_goal_weightloss": 1.0 if goal_has(profile.goal, GOAL_WEIGHT_LOSS) else 0.0,
         "is_breakfast_candidate": 1.0 if "Breakfast" in (recipe.get("_allowed_meals") or []) else 0.0,
         "is_lunch_candidate": 1.0 if "Lunch" in (recipe.get("_allowed_meals") or []) else 0.0,
         "is_dinner_candidate": 1.0 if "Dinner" in (recipe.get("_allowed_meals") or []) else 0.0,
     }
+    features.update(reason_features)
+    return complete_stage1_feature_vector(features)
 
 
 def _is_profile_in_canary(profile: UserProfile, policy: Optional[Dict[str, Any]]) -> bool:
@@ -881,6 +923,7 @@ def shortlist_candidates(
     stage1_diag: Optional[Dict[str, Any]] = None,
     pricing_context: Optional[PricingContext] = None,
     deadline_at: Optional[float] = None,
+    ml_feature_context: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
     pricing_context = pricing_context or create_pricing_context()
     buckets = {"Breakfast": [], "Lunch": [], "Dinner": [], "Universal": []}
@@ -988,7 +1031,7 @@ def shortlist_candidates(
         r["_stage1_score_boost"] = symptom_boost - prep_penalty
         if ml_scoring_enabled:
             ml_scored_recipes.append(r)
-            ml_feature_vectors.append(_stage1_ml_feature_vector(r, profile))
+            ml_feature_vectors.append(_stage1_ml_feature_vector(r, profile, ml_feature_context))
         if pantry_match_threshold > 0 and pantry_tokens and r["_pantry_match"] < pantry_match_threshold:
             exclusion_summary["pantry"] += 1
             _increment_count(exclusion_detail_counts, "pantry:below_threshold")
@@ -1170,51 +1213,29 @@ def _build_stage1_feature_rows(
 ) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     budget_norm = _safe_div(float(budget_weekly or 0.0), 7000.0)
-    restriction_count = len(profile.dietaryRestrictions or [])
-    allergy_count = len(profile.allergies or [])
-    max_cook = int(profile.maxCookingTimeMinutes or 0)
+    ml_feature_context = {
+        "target_calories": float(target_calories),
+        "target_protein": float(target_protein),
+        "target_carbs": float(target_carbs),
+        "target_fats": float(target_fats),
+        "budget_weekly": float(budget_weekly or 0.0),
+        "meals_per_day": float(meals_per_day),
+    }
     for recipe in pool:
-        calories = float(recipe.get("calories") or 0.0)
-        protein = float(recipe.get("proteinGrams") or 0.0)
-        carbs = float(recipe.get("carbsGrams") or 0.0)
-        fats = float(recipe.get("fatsGrams") or 0.0)
-        fiber = float(recipe.get("fiberGrams") or 0.0)
-        allowed = set(recipe.get("_allowed_meals") or [])
-        macro_distance = (
-            abs(protein - float(target_protein))
-            + abs(carbs - float(target_carbs))
-            + abs(fats - float(target_fats))
-        )
-        features = {
-            "restriction_count": float(restriction_count),
-            "allergy_count": float(allergy_count),
-            "budget_weekly_norm": budget_norm,
-            "max_cooking_time_minutes": float(max_cook),
-            "recipe_calories": calories,
-            "recipe_protein": protein,
-            "recipe_carbs": carbs,
-            "recipe_fats": fats,
-            "recipe_fiber": fiber,
-            "recipe_minutes": float(recipe.get("minutes") or 0.0),
-            "recipe_cost_est": float(recipe.get("_cost_est") or 0.0),
-            "pantry_overlap_count": float(recipe.get("_pantry_match") or 0.0),
-            "macro_distance_score": macro_distance,
-            "calorie_distance_score": abs(calories - float(target_calories)),
-            "is_breakfast_candidate": 1.0 if "Breakfast" in allowed else 0.0,
-            "is_lunch_candidate": 1.0 if "Lunch" in allowed else 0.0,
-            "is_dinner_candidate": 1.0 if "Dinner" in allowed else 0.0,
-            "profile_goal_weightloss": 1.0 if "weight loss" in str(profile.goal or "").lower() else 0.0,
-            "profile_goal_general_health": 1.0 if "general health" in str(profile.goal or "").lower() else 0.0,
-            "profile_activity_lightly_active": 1.0 if str(profile.activityLevel or "") == "Lightly Active" else 0.0,
-            "meals_per_day": float(meals_per_day),
+        features = _stage1_ml_feature_vector(recipe, profile, ml_feature_context)
+        feature_payload = {
+            key: value
+            for key, value in features.items()
+            if key not in {"model_score", "heuristic_score"}
         }
+        feature_payload["budget_weekly_norm"] = budget_norm
         rows.append(
             {
                 "recipe_id": str(recipe.get("id") or ""),
                 "meal_bucket": str(recipe.get("_stage1_bucket") or "Universal"),
                 "model_score": float(recipe.get("_ml_shadow_score") or 0.0),
                 "heuristic_score": float(_base_score(recipe)),
-                "features": features,
+                "features": feature_payload,
             }
         )
     return rows
@@ -1509,6 +1530,7 @@ def solve_meal_plan(
     weight_set: Optional[Dict[str, int]] = None,
     policy: Optional[Dict[str, Any]] = None,
     telemetry_out: Optional[Dict[str, Any]] = None,
+    ml_feature_context: Optional[Dict[str, Any]] = None,
 ):
     profile = request.profile
     if _stage1_ml_scoring_enabled(policy):
@@ -1642,6 +1664,17 @@ def solve_meal_plan(
     shortlist_started_at = time.time()
     stage1_diag: Dict[str, Any] = {}
     pricing_context = create_pricing_context()
+    caller_ml_feature_context = ml_feature_context if isinstance(ml_feature_context, dict) else {}
+    stage1_ml_feature_context = {
+        "target_calories": float(target),
+        "target_protein": float(target_protein),
+        "target_carbs": float(target_carbs),
+        "target_fats": float(target_fats),
+        "budget_weekly": float(resolve_budget_weekly(profile) or 0.0),
+        "meals_per_day": float(configured_meals_per_day),
+    }
+    if isinstance(caller_ml_feature_context.get("reason_feedback_features"), dict):
+        stage1_ml_feature_context["reason_feedback_features"] = caller_ml_feature_context["reason_feedback_features"]
     try:
         buckets = shortlist_candidates(
             profile,
@@ -1650,6 +1683,7 @@ def solve_meal_plan(
             stage1_diag=stage1_diag,
             pricing_context=pricing_context,
             deadline_at=deadline_at,
+            ml_feature_context=stage1_ml_feature_context,
         )
     except _PlannerBudgetExceeded as exc:
         _record_phase_timing(phase_timings_ms, "stage1_shortlist", shortlist_started_at)

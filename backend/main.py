@@ -125,6 +125,11 @@ def _app_check_enforced() -> bool:
     return IS_PRODUCTION
 
 
+def _uid_hash_salt_configured_for_production() -> bool:
+    salt = os.getenv("PCOSINA_UID_HASH_SALT", "").strip()
+    return bool(salt) and salt != "pcosina-default-salt" and len(salt) >= 32
+
+
 def _log_app_check_mode(enforced: bool) -> None:
     mode = "enforced" if enforced else "skipped"
     if mode in _APP_CHECK_MODE_LOGGED:
@@ -204,6 +209,8 @@ def _runtime_readiness_report(*, include_schema: bool = False) -> Dict[str, Any]
             errors.append("PCOSINA_RATE_LIMIT_BACKEND=memory is not allowed in production")
         if RATE_LIMIT_BACKEND == "redis" and not os.getenv("PCOSINA_REDIS_URL", "").strip():
             errors.append("PCOSINA_REDIS_URL is required when PCOSINA_RATE_LIMIT_BACKEND=redis")
+        if not _uid_hash_salt_configured_for_production():
+            errors.append("PCOSINA_UID_HASH_SALT must be set to a non-default value of at least 32 characters in production")
     else:
         if not os.getenv("PCOSINA_ADMIN_SESSION_SECRET", "").strip():
             warnings.append("PCOSINA_ADMIN_SESSION_SECRET is using the development fallback secret")
@@ -1297,6 +1304,7 @@ def ingest_ml_event(
 @app.get("/mobile/operator/access", response_model=OperatorAccessStatus)
 def mobile_operator_access(
     user: Any = Depends(require_firebase_auth),
+    __: Any = Depends(require_app_check),
 ):
     return _operator_access_service().build_mobile_access_status(user, auth_type="bearer")
 
@@ -3459,8 +3467,7 @@ def ops_schema_migrations(_: Any = Depends(require_ops_admin)):
     }
 
 
-@app.post("/ops/webhooks/canary/{channel}/{receiver_key}")
-async def ingest_canary_webhook(channel: str, receiver_key: str, request: Request):
+async def _ingest_canary_webhook_event(channel: str, receiver_key: str, request: Request):
     channel_norm = str(channel or "").strip().lower()
     if channel_norm not in ("alert", "dashboard"):
         raise HTTPException(status_code=404, detail="Unknown webhook channel")
@@ -3505,6 +3512,20 @@ async def ingest_canary_webhook(channel: str, receiver_key: str, request: Reques
         "channel": channel_norm,
         "receivedAtMs": now_ms,
     }
+
+
+@app.post("/ops/webhooks/canary/{channel}")
+async def ingest_canary_webhook_with_header(
+    channel: str,
+    request: Request,
+    x_pcosina_webhook_key: str | None = Header(default=None, alias="X-PCOSINA-Webhook-Key"),
+):
+    return await _ingest_canary_webhook_event(channel, x_pcosina_webhook_key or "", request)
+
+
+@app.post("/ops/webhooks/canary/{channel}/{receiver_key}")
+async def ingest_canary_webhook(channel: str, receiver_key: str, request: Request):
+    return await _ingest_canary_webhook_event(channel, receiver_key, request)
 
 
 @app.get("/ops/webhooks/canary/recent")
@@ -3843,21 +3864,73 @@ def _dispatch_async_job(
     }
 
 
-def _solve_with_telemetry(request: GeneratePlanRequest, recipes: list[dict], policy_payload: Dict[str, Any]) -> tuple[Any, str, Any, Dict[str, Any]]:
+def _reason_feedback_features_for_uid(uid: str | None) -> Dict[str, float]:
+    uid_token = str(uid or "").strip()
+    if not uid_token:
+        return {}
+    getter = getattr(database, "get_reason_feedback_features", None)
+    if not callable(getter):
+        return {}
+    try:
+        return getter(uid_hash(uid_token))
+    except Exception:
+        return {}
+
+
+def _solve_with_telemetry(
+    request: GeneratePlanRequest,
+    recipes: list[dict],
+    policy_payload: Dict[str, Any],
+    *,
+    reason_feedback_features: Dict[str, float] | None = None,
+) -> tuple[Any, str, Any, Dict[str, Any]]:
     telemetry: Dict[str, Any] = {}
+    ml_feature_context = {
+        "reason_feedback_features": reason_feedback_features or {},
+    }
     try:
         result, msg, explanation = solve_meal_plan(
             request,
             recipes,
             policy=policy_payload,
             telemetry_out=telemetry,
+            ml_feature_context=ml_feature_context,
         )
     except TypeError as exc:
         # Backward-compatible path for monkeypatched/legacy call signatures in tests.
-        if "telemetry_out" not in str(exc):
+        if "ml_feature_context" in str(exc):
+            result, msg, explanation = solve_meal_plan(
+                request,
+                recipes,
+                policy=policy_payload,
+                telemetry_out=telemetry,
+            )
+        elif "telemetry_out" in str(exc):
+            result, msg, explanation = solve_meal_plan(request, recipes, policy=policy_payload)
+        else:
             raise
-        result, msg, explanation = solve_meal_plan(request, recipes, policy=policy_payload)
     return result, msg, explanation, telemetry
+
+
+def _solve_with_user_ml_context(
+    request: GeneratePlanRequest,
+    recipes: list[dict],
+    policy_payload: Dict[str, Any],
+    *,
+    uid: str | None,
+) -> tuple[Any, str, Any, Dict[str, Any]]:
+    reason_feedback_features = _reason_feedback_features_for_uid(uid)
+    try:
+        return _solve_with_telemetry(
+            request,
+            recipes,
+            policy_payload,
+            reason_feedback_features=reason_feedback_features,
+        )
+    except TypeError as exc:
+        if "reason_feedback_features" not in str(exc):
+            raise
+        return _solve_with_telemetry(request, recipes, policy_payload)
 
 
 def _emit_async_failure_event(
@@ -3909,7 +3982,12 @@ def _run_job(job_id: str, request: GeneratePlanRequest, owner_uid: str | None = 
             policy_version=policy_version,
         )
         all_recipes = database.get_all_recipes()
-        result, msg, explanation, telemetry = _solve_with_telemetry(request, all_recipes, policy_payload)
+        result, msg, explanation, telemetry = _solve_with_user_ml_context(
+            request,
+            all_recipes,
+            policy_payload,
+            uid=uid,
+        )
         if telemetry.get("stage1_candidates"):
             database.record_stage1_candidate_features(
                 request_id=job_id,
@@ -4129,7 +4207,12 @@ async def generate_plan(
             return response
 
         all_recipes = database.get_all_recipes()
-        result, msg, explanation, telemetry = _solve_with_telemetry(request, all_recipes, policy_payload)
+        result, msg, explanation, telemetry = _solve_with_user_ml_context(
+            request,
+            all_recipes,
+            policy_payload,
+            uid=uid,
+        )
         if telemetry.get("stage1_candidates"):
             database.record_stage1_candidate_features(
                 request_id=request_id,
@@ -4367,7 +4450,11 @@ async def generate_plan_async(
 
 
 @app.get("/plan-jobs/{job_id}")
-def get_plan_job(job_id: str, user: Any = Depends(require_firebase_auth)):
+def get_plan_job(
+    job_id: str,
+    user: Any = Depends(require_firebase_auth),
+    __: Any = Depends(require_app_check),
+):
     owner_uid = str(user.get("uid") or user.get("user_id") or "").strip() or None
     job = database.get_plan_job(job_id, owner_uid=owner_uid)
     if not job:
@@ -4442,6 +4529,8 @@ def health_ready():
 
 @app.get("/db-status")
 def db_status():
+    if IS_PRODUCTION:
+        return {"status": "restricted"}
     try:
         db_mode_fn = getattr(database, "db_mode", None)
         recipe_count_fn = getattr(database, "get_recipe_count", None)
@@ -4457,8 +4546,11 @@ def db_status():
 
 @app.post("/feedback")
 def feedback(payload: FeedbackRequest, _: Any = Depends(require_schema_version)):
+    message = str(payload.message or "").strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Feedback message is required")
     try:
-        database.save_feedback(payload.message)
+        database.save_feedback(message)
         return {"status": "ok"}
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to save feedback")

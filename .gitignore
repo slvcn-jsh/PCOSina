@@ -23,6 +23,16 @@ Thumbs.db
 
 # Secrets
 backend/secrets/
+*.jks
+*.keystore
+*.p12
+*.pem
+**/*service-account*.json
+**/serviceAccountKey.json
+app/google-services.local.json
+.env
+.env.local
+.env.*.local
 
 # Runtime / local artifacts
 **/__pycache__/

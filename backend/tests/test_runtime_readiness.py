@@ -43,6 +43,7 @@ def test_runtime_readiness_reports_production_errors(monkeypatch):
     assert any("Postgres DATABASE_URL" in item for item in report["errors"])
     assert any("wildcard" in item for item in report["errors"])
     assert any("memory is not allowed" in item for item in report["errors"])
+    assert any("PCOSINA_UID_HASH_SALT" in item for item in report["errors"])
     assert any("SENTRY_DSN" in item for item in report["warnings"])
 
 
@@ -87,3 +88,18 @@ def test_runtime_readiness_includes_schema_status_and_flags_pending(monkeypatch)
     assert report["ok"] is False
     assert report["schemaMigrations"]["pending"] == ["20260319_app_999_test"]
     assert any("Pending schema migrations detected" in item for item in report["errors"])
+
+
+def test_db_status_hides_database_details_in_production(monkeypatch):
+    monkeypatch.setattr(main, "IS_PRODUCTION", True)
+    monkeypatch.setattr(main, "_validate_runtime_readiness", lambda **_: None)
+    monkeypatch.setattr(main, "init_firebase", lambda: None)
+
+    with TestClient(main.app) as client:
+        response = client.get("/db-status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body == {"status": "restricted"}
+    assert "db_module" not in body
+    assert "sample" not in body

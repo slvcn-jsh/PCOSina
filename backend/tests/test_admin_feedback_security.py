@@ -80,3 +80,78 @@ def test_policy_admin_endpoint_rejects_legacy_admin_token_header(monkeypatch):
         response = client.get("/admin/policy/active", headers={"X-Admin-Token": "legacy-token"})
 
     assert response.status_code == 401
+
+
+def test_public_feedback_rejects_empty_message(monkeypatch):
+    saved = []
+    monkeypatch.setattr(main.database, "save_feedback", lambda message: saved.append(message))
+
+    with TestClient(main.app) as client:
+        response = client.post(
+            "/feedback",
+            json={"message": "   "},
+            headers={"X-PCOSINA-Schema-Version": "1.2.0"},
+        )
+
+    assert response.status_code == 400
+    assert saved == []
+
+
+def test_public_feedback_rejects_oversized_message(monkeypatch):
+    saved = []
+    monkeypatch.setattr(main.database, "save_feedback", lambda message: saved.append(message))
+
+    with TestClient(main.app) as client:
+        response = client.post(
+            "/feedback",
+            json={"message": "x" * 2001},
+            headers={"X-PCOSINA-Schema-Version": "1.2.0"},
+        )
+
+    assert response.status_code == 422
+    assert saved == []
+
+
+def test_public_feedback_rejects_malformed_payload(monkeypatch):
+    saved = []
+    monkeypatch.setattr(main.database, "save_feedback", lambda message: saved.append(message))
+
+    with TestClient(main.app) as client:
+        response = client.post(
+            "/feedback",
+            json={"body": "missing message field"},
+            headers={"X-PCOSINA-Schema-Version": "1.2.0"},
+        )
+
+    assert response.status_code == 422
+    assert saved == []
+
+
+def test_public_feedback_rejects_extra_fields(monkeypatch):
+    saved = []
+    monkeypatch.setattr(main.database, "save_feedback", lambda message: saved.append(message))
+
+    with TestClient(main.app) as client:
+        response = client.post(
+            "/feedback",
+            json={"message": "valid", "uid": "leaked-user-id"},
+            headers={"X-PCOSINA-Schema-Version": "1.2.0"},
+        )
+
+    assert response.status_code == 422
+    assert saved == []
+
+
+def test_public_feedback_strips_message_before_save(monkeypatch):
+    saved = []
+    monkeypatch.setattr(main.database, "save_feedback", lambda message: saved.append(message))
+
+    with TestClient(main.app) as client:
+        response = client.post(
+            "/feedback",
+            json={"message": "  Helpful note  "},
+            headers={"X-PCOSINA-Schema-Version": "1.2.0"},
+        )
+
+    assert response.status_code == 200
+    assert saved == ["Helpful note"]

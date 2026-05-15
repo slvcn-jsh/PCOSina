@@ -52,6 +52,8 @@ services:
         value: "300"
       - key: PCOSINA_ADMIN_SESSION_SECRET
         generateValue: true
+      - key: PCOSINA_UID_HASH_SALT
+        sync: false
       - key: PCOSINA_WEBHOOK_RECEIVER_KEY
         generateValue: true
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
@@ -84,6 +86,8 @@ services:
         value: redis
       - key: PCOSINA_ENFORCE_APP_CHECK
         value: "true"
+      - key: PCOSINA_UID_HASH_SALT
+        sync: false
       - key: PCOSINA_WORKER_RUN_FOREVER
         value: "true"
       - key: FIREBASE_SERVICE_ACCOUNT_JSON

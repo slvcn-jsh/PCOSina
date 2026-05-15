@@ -8,7 +8,8 @@ if str(ROOT) not in sys.path:
 from fastapi.testclient import TestClient
 
 import main
-from ml_events import EVENT_DEFINITIONS, build_event, validate_event
+import database
+from ml_events import EVENT_DEFINITIONS, build_event, uid_hash, validate_event
 
 
 def test_required_behavior_events_exist():
@@ -114,3 +115,41 @@ def test_ml_events_endpoint_normalizes_reason_payload(monkeypatch):
     assert isinstance(event.get("reason_tags"), list)
     assert event.get("reason_has_free_text") is True
     assert "reason_text" not in event
+
+
+def test_database_reason_feedback_features_hydrate_from_ml_events(tmp_path):
+    original_db_name = database.DB_NAME
+    original_database_url = database.DATABASE_URL
+    database.DB_NAME = str(tmp_path / "reason_feedback.db")
+    database.DATABASE_URL = ""
+    try:
+        database.init_db()
+        user_hash = uid_hash("reason-user")
+        database.record_ml_event(
+            {
+                "event_name": "why_replaced_submitted",
+                "uid_hash": user_hash,
+                "request_id": "req-rf-1",
+                "event_time_ms": 1_800_000_000_000,
+                "reason_tags": ["cost_too_high", "ingredient_unavailable"],
+            }
+        )
+        database.record_ml_event(
+            {
+                "event_name": "why_skipped_submitted",
+                "uid_hash": user_hash,
+                "request_id": "req-rf-2",
+                "event_time_ms": 1_800_000_000_001,
+                "reason_primary_tag": "schedule_conflict",
+            }
+        )
+
+        features = database.get_reason_feedback_features(user_hash, lookback_days=3650)
+
+        assert features["reason_events_total"] == 2.0
+        assert features["replace_reason_tag_hist_cost_too_high"] == 1.0
+        assert features["replace_reason_tag_hist_ingredient_unavailable"] == 1.0
+        assert features["skip_reason_tag_hist_schedule_conflict"] == 1.0
+    finally:
+        database.DB_NAME = original_db_name
+        database.DATABASE_URL = original_database_url

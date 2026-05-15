@@ -44,19 +44,50 @@ def _policy_value(policy: dict, path: str, default):
     return default if current is None else current
 
 
-def _solve_with_telemetry(request: GeneratePlanRequest, recipes: list[dict], policy_payload: dict):
+def _reason_feedback_features_for_uid(uid: str | None) -> dict:
+    uid_token = str(uid or "").strip()
+    if not uid_token:
+        return {}
+    getter = getattr(database, "get_reason_feedback_features", None)
+    if not callable(getter):
+        return {}
+    try:
+        return getter(uid_hash(uid_token))
+    except Exception:
+        return {}
+
+
+def _solve_with_telemetry(
+    request: GeneratePlanRequest,
+    recipes: list[dict],
+    policy_payload: dict,
+    *,
+    reason_feedback_features: dict | None = None,
+):
     telemetry: dict = {}
+    ml_feature_context = {
+        "reason_feedback_features": reason_feedback_features or {},
+    }
     try:
         result, msg, explanation = solve_meal_plan(
             request,
             recipes,
             policy=policy_payload,
             telemetry_out=telemetry,
+            ml_feature_context=ml_feature_context,
         )
     except TypeError as exc:
-        if "telemetry_out" not in str(exc):
+        if "ml_feature_context" in str(exc):
+            result, msg, explanation = solve_meal_plan(
+                request,
+                recipes,
+                policy=policy_payload,
+                telemetry_out=telemetry,
+            )
+        elif "telemetry_out" in str(exc):
+            result, msg, explanation = solve_meal_plan(request, recipes, policy=policy_payload)
+        else:
             raise
-        result, msg, explanation = solve_meal_plan(request, recipes, policy=policy_payload)
     return result, msg, explanation, telemetry
 
 
@@ -279,7 +310,12 @@ def run_once() -> bool:
             uid=uid,
             policy_version=policy_version,
         )
-        result, msg, explanation, telemetry = _solve_with_telemetry(req, recipes, policy_payload)
+        result, msg, explanation, telemetry = _solve_with_telemetry(
+            req,
+            recipes,
+            policy_payload,
+            reason_feedback_features=_reason_feedback_features_for_uid(uid),
+        )
     except Exception as exc:
         _inc_diag("queue_worker_failures_total")
         _inc_diag("queue_worker_dead_letter_total" if failure_status == "dead-letter" else "queue_worker_retry_queued_total")

@@ -85,3 +85,37 @@ def test_generate_plan_requires_app_check_header(monkeypatch):
         assert allowed.status_code == 200
     finally:
         main.app.dependency_overrides = {}
+
+
+def test_plan_job_requires_app_check_when_enforced(monkeypatch):
+    monkeypatch.setenv("PCOSINA_ENFORCE_APP_CHECK", "true")
+    monkeypatch.setattr(main.firebase_admin, "_apps", [object()])
+    main.app.dependency_overrides[main.require_firebase_auth] = lambda: {"uid": "test"}
+
+    try:
+        with TestClient(main.app) as client:
+            missing = client.get("/plan-jobs/job-1")
+            invalid = client.get("/plan-jobs/job-1", headers={"X-Firebase-AppCheck": "bad-token"})
+        assert missing.status_code == 401
+        assert invalid.status_code == 401
+    finally:
+        main.app.dependency_overrides = {}
+
+
+def test_mobile_operator_access_requires_app_check_when_enforced(monkeypatch):
+    monkeypatch.setenv("PCOSINA_ENFORCE_APP_CHECK", "true")
+    monkeypatch.setattr(main.firebase_admin, "_apps", [object()])
+    main.app.dependency_overrides[main.require_firebase_auth] = lambda: {
+        "uid": "ops-mobile-1",
+        "email": "ops-mobile@example.com",
+        "email_verified": True,
+    }
+
+    try:
+        with TestClient(main.app) as client:
+            missing = client.get("/mobile/operator/access")
+            invalid = client.get("/mobile/operator/access", headers={"X-Firebase-AppCheck": "bad-token"})
+        assert missing.status_code == 401
+        assert invalid.status_code == 401
+    finally:
+        main.app.dependency_overrides = {}

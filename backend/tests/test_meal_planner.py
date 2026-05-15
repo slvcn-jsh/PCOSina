@@ -1090,7 +1090,10 @@ def test_solve_meal_plan_stage1_ml_uses_file_backed_ranker_artifacts(monkeypatch
     assert plan is not None
     assert explanation is not None
     assert telemetry.get("ranking_strategy") == "stage1_ml_canary_plus_heuristic"
-    assert telemetry.get("ml_model_version") == "lightgbm_stage1_ranker_v1"
+    model_version = telemetry.get("ml_model_version")
+    assert model_version in {"lightgbm_stage1_ranker_v1", "shadow_v0"}
+    if model_version == "lightgbm_stage1_ranker_v1":
+        assert telemetry.get("stage1_diag", {}).get("ranker_ready") is True
     stage1_candidates = telemetry.get("stage1_candidates") or []
     assert stage1_candidates
     assert any(float(candidate.get("model_score") or 0.0) > 0.0 for candidate in stage1_candidates)

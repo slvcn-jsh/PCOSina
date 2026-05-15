@@ -28,10 +28,14 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,7 +64,7 @@ import java.util.Locale
 @Composable
 fun CommunityScreen(
     onBack: (() -> Unit)? = null,
-    onFeedback: () -> Unit,
+    onFeedback: (String, Boolean) -> Unit,
     avatarId: String,
     modifier: Modifier = Modifier,
     onOpenSettings: (() -> Unit)? = null,
@@ -111,7 +115,10 @@ fun CommunityScreen(
             }
         }
         item {
-            SupportFeedbackCard(onFeedback = onFeedback)
+            SupportFeedbackCard(
+                isOnline = observedOnline,
+                onFeedback = onFeedback,
+            )
         }
         item {
             SupportDirectoryCard()
@@ -244,7 +251,14 @@ private fun SupportVideoCard(
 }
 
 @Composable
-private fun SupportFeedbackCard(onFeedback: () -> Unit) {
+private fun SupportFeedbackCard(
+    isOnline: Boolean,
+    onFeedback: (String, Boolean) -> Unit,
+) {
+    var feedbackText by remember { mutableStateOf("") }
+    var feedbackStatus by remember { mutableStateOf<String?>(null) }
+    val trimmedFeedback = feedbackText.trim()
+    val isTooLong = feedbackText.length > 2000
     Surface(
         shape = RoundedCornerShape(14.dp),
         color = Color(0xFFFFE2E5),
@@ -283,13 +297,52 @@ private fun SupportFeedbackCard(onFeedback: () -> Unit) {
                     )
                 }
             }
+            OutlinedTextField(
+                value = feedbackText,
+                onValueChange = {
+                    feedbackText = it
+                    feedbackStatus = null
+                },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3,
+                maxLines = 4,
+                isError = isTooLong,
+                placeholder = {
+                    Text("Share the screen, step, or issue.")
+                },
+                supportingText = {
+                    Text(
+                        text = if (isTooLong) {
+                            "Keep feedback under 2,000 characters."
+                        } else {
+                            "${feedbackText.length}/2000"
+                        },
+                    )
+                },
+            )
             Button(
-                onClick = onFeedback,
+                onClick = {
+                    onFeedback(trimmedFeedback, isOnline)
+                    feedbackText = ""
+                    feedbackStatus = if (isOnline) {
+                        "Feedback queued for sending."
+                    } else {
+                        "Feedback saved and will send when online."
+                    }
+                },
+                enabled = trimmedFeedback.isNotBlank() && !isTooLong,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(999.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PcosinaPink),
             ) {
                 Text("Send feedback now", fontWeight = FontWeight.Bold)
+            }
+            feedbackStatus?.let { status ->
+                Text(
+                    text = status,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = PcosinaDeepRose,
+                )
             }
         }
     }

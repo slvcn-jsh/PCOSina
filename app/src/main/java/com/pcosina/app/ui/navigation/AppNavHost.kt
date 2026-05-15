@@ -1,7 +1,5 @@
 package com.pcosina.app.ui.navigation
 
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -89,22 +87,6 @@ fun AppNavHost(
 ) {
     val context = LocalContext.current
     val analytics = FirebaseAnalytics.getInstance(context)
-    val feedbackEmail = "salvacion.jsh@gmail.com"
-    val feedbackSubject = "PCOSINA Feedback"
-    val feedbackBody = "Tell us what happened (steps, screen, and any errors):\n\n"
-    val onFeedback: () -> Unit = {
-        analytics.logEvent("feedback_tap", null)
-        val intent = Intent(Intent.ACTION_SENDTO).apply {
-            data = Uri.parse("mailto:$feedbackEmail")
-            putExtra(Intent.EXTRA_SUBJECT, feedbackSubject)
-            putExtra(Intent.EXTRA_TEXT, feedbackBody)
-        }
-        if (intent.resolveActivity(context.packageManager) != null) {
-            context.startActivity(intent)
-        } else {
-            Toast.makeText(context, "No email app found. Use Support > Send feedback.", Toast.LENGTH_LONG).show()
-        }
-    }
     
     // Repositories
     val userPrefsRepository = remember { UserPreferencesRepository(context) }
@@ -134,6 +116,11 @@ fun AppNavHost(
     val progressViewModel: ProgressViewModel = viewModel(
         factory = ProgressViewModel.Factory(progressLocalRepository, reflectionStore, feedbackRepository)
     )
+    val onSupportFeedback: (String, Boolean) -> Unit = { message, isOnline ->
+        analytics.logEvent("feedback_submit", null)
+        progressViewModel.queueFeedback(message)
+        progressViewModel.trySendQueuedFeedback(isOnline)
+    }
     // FIXED: Use Factory to prevent RuntimeException (NoSuchMethodException)
     val groceryViewModel: GroceryViewModel = viewModel(
         factory = GroceryViewModel.Factory(groceryLocalRepository)
@@ -691,7 +678,7 @@ fun AppNavHost(
             TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
                 val profile by userViewModel.userProfile.collectAsState()
                 CommunityScreen(
-                    onFeedback = onFeedback,
+                    onFeedback = onSupportFeedback,
                     avatarId = profile.avatarId,
                     onOpenSettings = { navigateInternal(Routes.Settings) },
                     onOpenNotifications = { navigateInternal(Routes.Notifications) },
@@ -862,7 +849,11 @@ fun AppNavHost(
                 onOpenMethodology = {
                     navigateInternal(Routes.AdminMethodology)
                 },
-                onFeedback = onFeedback,
+                onFeedback = {
+                    navigateInternal(Routes.Ipo) {
+                        tabNavigationOptions()
+                    }
+                },
                 showAdminTools = adminMode,
                 modifier = Modifier.fillMaxSize(),
             )

@@ -123,9 +123,158 @@ def test_stage1_pricing_uses_request_scoped_market_multiplier_cache(monkeypatch)
 
     assert selected_count > 0
     assert pricing["ingredientPriceEstimateCount"] == 320
+    assert pricing["ingredientPriceCacheHits"] >= 300
+    assert pricing["distinctIngredientPriceKeys"] == 4
     assert pricing["marketMultiplierDbCalls"] <= 3
-    assert pricing["marketMultiplierCacheHits"] >= 300
+    assert pricing["marketMultiplierCacheHits"] >= 2
     assert len(calls) == 2
+
+
+def test_estimate_cost_uses_request_local_recipe_cache(monkeypatch):
+    calls = 0
+
+    def fake_estimate_recipe_cost(ingredients, pricing_context=None):
+        nonlocal calls
+        calls += 1
+        return 123
+
+    monkeypatch.setattr(meal_planner, "estimate_recipe_cost", fake_estimate_recipe_cost)
+    recipe = _recipe("cached_recipe", "Cached Recipe", "Lunch")
+    cost_cache = {}
+    cost_cache_stats = {"recipeCostCacheHits": 0, "recipeCostCacheMisses": 0}
+    pricing_context = price_catalog.create_pricing_context(month_index=5)
+
+    first = meal_planner.estimate_cost(
+        recipe,
+        household_size=2,
+        pricing_context=pricing_context,
+        cost_cache=cost_cache,
+        cost_cache_stats=cost_cache_stats,
+    )
+    second = meal_planner.estimate_cost(
+        recipe,
+        household_size=2,
+        pricing_context=pricing_context,
+        cost_cache=cost_cache,
+        cost_cache_stats=cost_cache_stats,
+    )
+
+    assert first == second == 246
+    assert calls == 1
+    assert cost_cache_stats["recipeCostCacheMisses"] == 1
+    assert cost_cache_stats["recipeCostCacheHits"] == 1
+
+
+def test_pre_pricing_prunes_broad_profile_before_cost_estimation(monkeypatch):
+    cost_calls = 0
+
+    def fake_estimate_recipe_cost(ingredients, pricing_context=None):
+        nonlocal cost_calls
+        cost_calls += 1
+        if pricing_context is not None:
+            pricing_context.recipe_cost_estimates += 1
+        return 100
+
+    monkeypatch.setattr(meal_planner, "estimate_recipe_cost", fake_estimate_recipe_cost)
+    profile = UserProfile(
+        displayName="Broad Prepricing",
+        age=28,
+        heightCm=162,
+        weightKg=64,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        dietaryRestrictions=[],
+        allergies=[],
+        pantryItems=[],
+        maxCookingTimeMinutes=60,
+        weeklyBudgetPhp=None,
+    )
+    recipes = [
+        _recipe(
+            f"broad_{i}",
+            f"Broad Recipe {i}",
+            ["Breakfast", "Lunch", "Dinner"][i % 3],
+            calories=470 + (i % 80),
+            protein=20 + (i % 16),
+            fiber=4 + (i % 8),
+            ingredients=[{"name": f"ingredient_{i}", "quantity": "1 cup"}],
+        )
+        for i in range(500)
+    ]
+    diagnostics: dict = {}
+    policy = {
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "max_candidates_per_slot": 64,
+            "pre_pricing_candidate_cap": 120,
+            "pre_pricing_bucket_reserve": 20,
+            "similarity_threshold": 1.0,
+            "minimum_candidates_required": 1,
+        }
+    }
+
+    buckets = meal_planner.shortlist_candidates(profile, recipes, policy=policy, stage1_diag=diagnostics)
+
+    assert sum(len(v) for v in buckets.values()) > 0
+    assert diagnostics["safe_recipe_count_pre_pricing"] == 500
+    assert diagnostics["pre_pricing_pruned"] is True
+    assert diagnostics["pre_pricing_retained_count"] == 120
+    assert diagnostics["cost_estimated_recipe_count"] == 120
+    assert cost_calls == 120
+
+
+def test_pre_pricing_keeps_allergy_filter_before_pricing(monkeypatch):
+    priced_ingredient_names: list[str] = []
+
+    def fake_estimate_recipe_cost(ingredients, pricing_context=None):
+        for item in ingredients:
+            priced_ingredient_names.append(str(item.get("name") if isinstance(item, dict) else item))
+        if pricing_context is not None:
+            pricing_context.recipe_cost_estimates += 1
+        return 100
+
+    monkeypatch.setattr(meal_planner, "estimate_recipe_cost", fake_estimate_recipe_cost)
+    profile = UserProfile(
+        displayName="Allergy Prepricing",
+        allergies=["peanut"],
+        maxCookingTimeMinutes=60,
+    )
+    recipes = [
+        _recipe(
+            f"unsafe_{i}",
+            f"Unsafe {i}",
+            "Lunch",
+            ingredients=[{"name": "peanut sauce", "quantity": "1 tbsp"}],
+        )
+        for i in range(20)
+    ] + [
+        _recipe(
+            f"safe_{i}",
+            f"Safe {i}",
+            "Lunch",
+            ingredients=[{"name": f"safe ingredient {i}", "quantity": "1 cup"}],
+        )
+        for i in range(20)
+    ]
+    diagnostics: dict = {}
+    policy = {
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "pre_pricing_candidate_cap": 5,
+            "pre_pricing_restricted_enabled": True,
+            "similarity_threshold": 1.0,
+            "minimum_candidates_required": 1,
+        }
+    }
+
+    meal_planner.shortlist_candidates(profile, recipes, policy=policy, stage1_diag=diagnostics)
+
+    assert diagnostics["exclusion_summary"]["allergy"] == 20
+    assert diagnostics["safe_recipe_count_pre_pricing"] == 20
+    assert diagnostics["pre_pricing_pruned"] is True
+    assert all("peanut" not in name.lower() for name in priced_ingredient_names)
 
 
 def test_broad_profile_generates_basic_seven_day_plan(monkeypatch):

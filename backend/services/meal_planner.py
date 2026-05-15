@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from datetime import date, timedelta
 import json
 import hashlib
@@ -532,14 +532,43 @@ def estimate_cost(
     household_size: int = 1,
     *,
     pricing_context: Optional[PricingContext] = None,
+    cost_cache: Optional[Dict[Tuple[str, int, int], int]] = None,
+    cost_cache_stats: Optional[Dict[str, int]] = None,
 ) -> int:
+    normalized_household = max(1, int(household_size or 1))
+    cache_key: Optional[Tuple[str, int, int]] = None
+    if cost_cache is not None:
+        recipe_id = str(recipe.get("id") or "").strip()
+        if not recipe_id:
+            try:
+                recipe_id = hashlib.sha256(
+                    json.dumps(recipe.get("ingredients", []), sort_keys=True, separators=(",", ":")).encode("utf-8")
+                ).hexdigest()
+            except Exception:
+                recipe_id = hashlib.sha256(str(recipe.get("ingredients", [])).encode("utf-8")).hexdigest()
+        month_index = int(getattr(pricing_context, "month_index", 0) or 0)
+        cache_key = (recipe_id, normalized_household, month_index)
+        cached = cost_cache.get(cache_key)
+        if cached is not None:
+            if cost_cache_stats is not None:
+                cost_cache_stats["recipeCostCacheHits"] = int(cost_cache_stats.get("recipeCostCacheHits", 0)) + 1
+            return int(cached)
+        if cost_cache_stats is not None:
+            cost_cache_stats["recipeCostCacheMisses"] = int(cost_cache_stats.get("recipeCostCacheMisses", 0)) + 1
+
     ings = recipe.get("ingredients", [])
     catalog_cost = estimate_recipe_cost(ings, pricing_context=pricing_context)
     if catalog_cost > 0:
-        return int(max(1, catalog_cost * max(1, household_size)))
+        resolved = int(max(1, catalog_cost * normalized_household))
+        if cost_cache is not None and cache_key is not None:
+            cost_cache[cache_key] = resolved
+        return resolved
     cal = recipe.get("calories") or 0
     rough = (len(ings) * 6) + (cal * 0.15)
-    return int(max(30, min(450, rough)) * max(1, household_size))
+    resolved = int(max(30, min(450, rough)) * normalized_household)
+    if cost_cache is not None and cache_key is not None:
+        cost_cache[cache_key] = resolved
+    return resolved
 
 
 def _base_score(recipe: Dict[str, Any]) -> float:
@@ -916,6 +945,80 @@ def _should_optimize_cost(profile: UserProfile) -> bool:
     return "budget" in str(profile.planningPriority or "").strip().lower()
 
 
+def _cheap_pre_price_score(recipe: Dict[str, Any]) -> float:
+    protein = float(recipe.get("proteinGrams") or 0.0)
+    calories = float(recipe.get("calories") or 0.0)
+    fiber = float(recipe.get("fiberGrams") or 0.0)
+    minutes = float(recipe.get("minutes") or 0.0)
+    pantry_bonus = float(recipe.get("_pantry_match") or 0.0) * 1.5
+    stage1_boost = float(recipe.get("_stage1_score_boost") or 0.0)
+    prep_nudge = max(0.0, minutes - 30.0) * 0.03
+    return (protein * 2.0) + (fiber * 1.2) - (abs(calories - 500.0) * 0.10) + pantry_bonus + stage1_boost - prep_nudge
+
+
+def _pre_pricing_bucket_key(recipe: Dict[str, Any]) -> str:
+    allowed = [str(label) for label in (recipe.get("_allowed_meals") or []) if str(label) in MEAL_LABELS]
+    if len(allowed) == 1:
+        return allowed[0]
+    return "Universal"
+
+
+def _apply_pre_pricing_prune(
+    candidates: List[Dict[str, Any]],
+    *,
+    cap: int,
+    bucket_reserve: int,
+) -> Tuple[List[Dict[str, Any]], bool]:
+    normalized_cap = max(1, int(cap or 1))
+    if len(candidates) <= normalized_cap:
+        return candidates, False
+    reserve = max(0, int(bucket_reserve or 0))
+    ranked = sorted(
+        candidates,
+        key=lambda r: (
+            float(r.get("_pre_price_score") or 0.0),
+            float(r.get("proteinGrams") or 0.0),
+            float(r.get("fiberGrams") or 0.0),
+        ),
+        reverse=True,
+    )
+    selected: List[Dict[str, Any]] = []
+    selected_ids: set[str] = set()
+
+    def add_recipe(recipe: Dict[str, Any]) -> None:
+        if len(selected) >= normalized_cap:
+            return
+        recipe_key = str(recipe.get("id") or id(recipe))
+        if recipe_key in selected_ids:
+            return
+        selected_ids.add(recipe_key)
+        selected.append(recipe)
+
+    top_count = max(1, int(normalized_cap * 0.70))
+    for recipe in ranked[:top_count]:
+        add_recipe(recipe)
+
+    if reserve > 0:
+        for bucket in [*MEAL_LABELS, "Universal"]:
+            added = 0
+            for recipe in ranked:
+                if _pre_pricing_bucket_key(recipe) != bucket:
+                    continue
+                before = len(selected)
+                add_recipe(recipe)
+                if len(selected) > before:
+                    added += 1
+                if added >= reserve or len(selected) >= normalized_cap:
+                    break
+
+    for recipe in ranked:
+        add_recipe(recipe)
+        if len(selected) >= normalized_cap:
+            break
+
+    return selected, True
+
+
 def shortlist_candidates(
     profile: UserProfile,
     recipes: List[Dict[str, Any]],
@@ -928,6 +1031,7 @@ def shortlist_candidates(
     pricing_context = pricing_context or create_pricing_context()
     buckets = {"Breakfast": [], "Lunch": [], "Dinner": [], "Universal": []}
     restriction_count = len(profile.dietaryRestrictions or [])
+    allergy_count = len(profile.allergies or [])
     budget_weekly = resolve_budget_weekly(profile)
     max_cook = profile.maxCookingTimeMinutes if profile.maxCookingTimeMinutes and profile.maxCookingTimeMinutes > 0 else None
     pantry_tokens = set(normalize_pantry(profile.pantryItems or []))
@@ -946,6 +1050,15 @@ def shortlist_candidates(
     budget_keep_min_count = int(_policy_get(policy, "stage1.budget_keep_min_count", 10))
     budget_keep_min_ratio = float(_policy_get(policy, "stage1.budget_keep_min_ratio", 0.25))
     pantry_match_threshold = int(_policy_get(policy, "stage1.pantry_match_threshold", 0))
+    pre_pricing_enabled = bool(_policy_get(policy, "stage1.pre_pricing_pruning_enabled", True))
+    pre_pricing_multiplier = float(_policy_get(policy, "stage1.pre_pricing_candidate_multiplier", 5.0))
+    pre_pricing_cap_config = _policy_get(policy, "stage1.pre_pricing_candidate_cap", None)
+    if pre_pricing_cap_config is None:
+        pre_pricing_cap = max(240, int(stage1_max * max(1.0, pre_pricing_multiplier)))
+    else:
+        pre_pricing_cap = max(1, int(pre_pricing_cap_config))
+    pre_pricing_bucket_reserve = int(_policy_get(policy, "stage1.pre_pricing_bucket_reserve", 32))
+    pre_pricing_restricted_enabled = bool(_policy_get(policy, "stage1.pre_pricing_restricted_enabled", False))
     household_size = household_size_multiplier(profile)
     symptom_state = symptom_adjustments(profile, profile.goal)
     ml_scoring_enabled = _stage1_ml_scoring_enabled(policy)
@@ -967,6 +1080,7 @@ def shortlist_candidates(
     exclusion_detail_counts: Dict[str, int] = {}
     phase_started_at = time.time()
     processed_recipe_count = 0
+    safe_candidates: List[Dict[str, Any]] = []
     for r in recipes:
         processed_recipe_count += 1
         if deadline_at is not None and (processed_recipe_count == 1 or processed_recipe_count % 16 == 0):
@@ -1005,15 +1119,6 @@ def shortlist_candidates(
             prep_penalty = max(0.0, (float(minutes) - max_cook) / float(max_cook)) * prep_penalty_weight
         r["_tags"] = tags
         r["_ing_tokens"] = ing_tokens
-        r["_cost_est"] = estimate_cost(r, household_size=household_size, pricing_context=pricing_context)
-        if deadline_at is not None and processed_recipe_count % 8 == 0 and time.time() >= deadline_at:
-            if stage1_diag is not None:
-                stage1_diag["preprocess_ms"] = max(0, int((time.time() - phase_started_at) * 1000))
-                stage1_diag["pricing_diagnostics"] = pricing_context.snapshot()
-                stage1_diag["cost_estimation_ms"] = int(pricing_context.price_cost_estimation_ms)
-                stage1_diag["processed_recipe_count"] = processed_recipe_count
-                stage1_diag["timeout_stage"] = "stage1_price_estimation"
-            raise _PlannerBudgetExceeded("stage1_price_estimation")
         r["_protein_group"] = infer_protein_group(ing_tokens)
         r["_veg_tokens"] = infer_veg_tokens(ing_tokens)
         r["_allowed_meals"] = infer_allowed_meals(r.get("mealType"))
@@ -1029,13 +1134,61 @@ def shortlist_candidates(
         r["_symptom_goal_boost"] = symptom_boost
         r["_selection_reasons"] = symptom_reasons
         r["_stage1_score_boost"] = symptom_boost - prep_penalty
-        if ml_scoring_enabled:
-            ml_scored_recipes.append(r)
-            ml_feature_vectors.append(_stage1_ml_feature_vector(r, profile, ml_feature_context))
         if pantry_match_threshold > 0 and pantry_tokens and r["_pantry_match"] < pantry_match_threshold:
             exclusion_summary["pantry"] += 1
             _increment_count(exclusion_detail_counts, "pantry:below_threshold")
             continue
+        r["_pre_price_score"] = _cheap_pre_price_score(r)
+        safe_candidates.append(r)
+
+    safe_candidates_count = len(safe_candidates)
+    hard_filter_count = restriction_count + allergy_count
+    budget_sensitive_profile = bool(budget_weekly and (_should_optimize_cost(profile) or float(budget_weekly) < 2500.0))
+    should_pre_prune = (
+        pre_pricing_enabled
+        and safe_candidates_count > pre_pricing_cap
+        and (pre_pricing_restricted_enabled or hard_filter_count == 0)
+        and not budget_sensitive_profile
+    )
+    if should_pre_prune:
+        safe_candidates, pre_pruned = _apply_pre_pricing_prune(
+            safe_candidates,
+            cap=pre_pricing_cap,
+            bucket_reserve=pre_pricing_bucket_reserve,
+        )
+    else:
+        pre_pruned = False
+
+    cost_cache: Dict[Tuple[str, int, int], int] = {}
+    cost_cache_stats: Dict[str, int] = {"recipeCostCacheHits": 0, "recipeCostCacheMisses": 0}
+    cost_estimated_recipe_count = 0
+    for r in safe_candidates:
+        cost_estimated_recipe_count += 1
+        r["_cost_est"] = estimate_cost(
+            r,
+            household_size=household_size,
+            pricing_context=pricing_context,
+            cost_cache=cost_cache,
+            cost_cache_stats=cost_cache_stats,
+        )
+        if deadline_at is not None and cost_estimated_recipe_count % 8 == 0 and time.time() >= deadline_at:
+            if stage1_diag is not None:
+                stage1_diag["preprocess_ms"] = max(0, int((time.time() - phase_started_at) * 1000))
+                stage1_diag["pricing_diagnostics"] = pricing_context.snapshot()
+                stage1_diag["cost_estimation_ms"] = int(pricing_context.price_cost_estimation_ms)
+                stage1_diag["processed_recipe_count"] = processed_recipe_count
+                stage1_diag["safe_recipe_count_pre_pricing"] = safe_candidates_count
+                stage1_diag["pre_pricing_budget_sensitive"] = bool(budget_sensitive_profile)
+                stage1_diag["pre_pricing_pruned"] = bool(pre_pruned)
+                stage1_diag["pre_pricing_candidate_cap"] = int(pre_pricing_cap)
+                stage1_diag["pre_pricing_retained_count"] = len(safe_candidates)
+                stage1_diag["cost_estimated_recipe_count"] = cost_estimated_recipe_count
+                stage1_diag["recipe_cost_cache"] = dict(cost_cache_stats)
+                stage1_diag["timeout_stage"] = "stage1_price_estimation"
+            raise _PlannerBudgetExceeded("stage1_price_estimation")
+        if ml_scoring_enabled:
+            ml_scored_recipes.append(r)
+            ml_feature_vectors.append(_stage1_ml_feature_vector(r, profile, ml_feature_context))
         meal_type = (r.get("mealType") or "Universal").lower()
         if "break" in meal_type:
             buckets["Breakfast"].append(r)
@@ -1050,6 +1203,15 @@ def shortlist_candidates(
         stage1_diag["pricing_diagnostics"] = pricing_context.snapshot()
         stage1_diag["cost_estimation_ms"] = int(pricing_context.price_cost_estimation_ms)
         stage1_diag["processed_recipe_count"] = processed_recipe_count
+        stage1_diag["safe_recipe_count_pre_pricing"] = safe_candidates_count
+        stage1_diag["pre_pricing_pruning_enabled"] = bool(pre_pricing_enabled)
+        stage1_diag["pre_pricing_restricted_enabled"] = bool(pre_pricing_restricted_enabled)
+        stage1_diag["pre_pricing_budget_sensitive"] = bool(budget_sensitive_profile)
+        stage1_diag["pre_pricing_pruned"] = bool(pre_pruned)
+        stage1_diag["pre_pricing_candidate_cap"] = int(pre_pricing_cap)
+        stage1_diag["pre_pricing_retained_count"] = len(safe_candidates)
+        stage1_diag["cost_estimated_recipe_count"] = int(cost_estimated_recipe_count)
+        stage1_diag["recipe_cost_cache"] = dict(cost_cache_stats)
 
     if ml_scored_recipes:
         ml_started_at = time.time()

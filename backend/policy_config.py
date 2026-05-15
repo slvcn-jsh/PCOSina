@@ -142,6 +142,11 @@ class Stage1Policy(BaseModel):
     pantry_match_threshold: int = Field(default=0, ge=0, le=50)
     minimum_candidates_required: int = Field(default=10, ge=1, le=200)
     pool_cap_top_share: float = Field(default=0.60, ge=0.05, le=0.95)
+    pre_pricing_pruning_enabled: bool = True
+    pre_pricing_candidate_cap: Optional[int] = Field(default=None, ge=50, le=5000)
+    pre_pricing_candidate_multiplier: float = Field(default=5.0, ge=1.0, le=20.0)
+    pre_pricing_bucket_reserve: int = Field(default=32, ge=0, le=500)
+    pre_pricing_restricted_enabled: bool = False
     exclusion_penalty_weights: Dict[str, float] = Field(
         default_factory=lambda: {
             "allergy": 1000.0,

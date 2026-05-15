@@ -60,11 +60,14 @@ def _normalize_category_key(category: str) -> str:
 class PricingContext:
     month_index: Optional[int] = None
     _market_multiplier_cache: Dict[Tuple[str, int], float] = field(default_factory=dict)
+    _ingredient_price_cache: Dict[Tuple[str, str, bool, int], PriceEstimate] = field(default_factory=dict)
     _preloaded_months: set[int] = field(default_factory=set)
     _preload_failed_months: set[int] = field(default_factory=set)
     market_multiplier_db_calls: int = 0
     market_multiplier_cache_hits: int = 0
     market_multiplier_cache_misses: int = 0
+    ingredient_price_cache_hits: int = 0
+    ingredient_price_cache_misses: int = 0
     recipe_cost_estimates: int = 0
     ingredient_cost_estimates: int = 0
     price_cost_estimation_ms: int = 0
@@ -127,12 +130,15 @@ class PricingContext:
             "marketMultiplierDbCalls": int(self.market_multiplier_db_calls),
             "marketMultiplierCacheHits": int(self.market_multiplier_cache_hits),
             "marketMultiplierCacheMisses": int(self.market_multiplier_cache_misses),
+            "ingredientPriceCacheHits": int(self.ingredient_price_cache_hits),
+            "ingredientPriceCacheMisses": int(self.ingredient_price_cache_misses),
             "priceCostEstimationMs": int(self.price_cost_estimation_ms),
             "recipeCostEstimateCount": int(self.recipe_cost_estimates),
             "ingredientPriceEstimateCount": int(self.ingredient_cost_estimates),
             "recipeCostEstimates": int(self.recipe_cost_estimates),
             "ingredientCostEstimates": int(self.ingredient_cost_estimates),
             "distinctMarketMultiplierKeys": int(len(self._market_multiplier_cache)),
+            "distinctIngredientPriceKeys": int(len(self._ingredient_price_cache)),
         }
 
 
@@ -658,12 +664,32 @@ def estimate_recipe_cost(
             if name.strip():
                 if pricing_context is not None:
                     pricing_context.ingredient_cost_estimates += 1
-                estimate = estimate_price_explained(
-                    name,
-                    qty,
-                    include_safety_buffer=True,
-                    pricing_context=pricing_context,
-                )
+                    month = _normalize_month_index(pricing_context.month_index)
+                    cache_key = (
+                        str(name).strip().casefold(),
+                        str(qty).strip().casefold(),
+                        True,
+                        month,
+                    )
+                    estimate = pricing_context._ingredient_price_cache.get(cache_key)
+                    if estimate is not None:
+                        pricing_context.ingredient_price_cache_hits += 1
+                    else:
+                        pricing_context.ingredient_price_cache_misses += 1
+                        estimate = estimate_price_explained(
+                            name,
+                            qty,
+                            include_safety_buffer=True,
+                            pricing_context=pricing_context,
+                        )
+                        pricing_context._ingredient_price_cache[cache_key] = estimate
+                else:
+                    estimate = estimate_price_explained(
+                        name,
+                        qty,
+                        include_safety_buffer=True,
+                        pricing_context=pricing_context,
+                    )
                 total += estimate.price_php
         total *= 0.90  # recipe-level yield/portion calibration after ingredient-level pricing
         total = max(30.0, min(450.0, total))

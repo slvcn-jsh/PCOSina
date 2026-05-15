@@ -81,6 +81,62 @@ def test_ensure_default_policy_bootstraps_production_canary(monkeypatch):
     assert resolved["solver"]["total_solver_seconds"] == policy_store.PRODUCTION_TOTAL_SOLVER_SECONDS
     assert resolved["solver"]["retry_attempts"] == policy_store.PRODUCTION_SOLVER_RETRY_ATTEMPTS
     assert resolved["solver"]["solver_workers"] == policy_store.PRODUCTION_SOLVER_WORKERS
+    staging = load_policy(active["policy"]).to_runtime_dict(environment="staging")
+    assert staging["stage1"]["max_candidates_per_slot"] == policy_store.PRODUCTION_STAGE1_MAX_CANDIDATES
+    assert staging["solver"]["solver_time_limit_seconds"] == policy_store.PRODUCTION_SOLVER_TIME_LIMIT_SECONDS
+    assert staging["solver"]["solver_max_seconds"] == policy_store.PRODUCTION_SOLVER_MAX_SECONDS
+    assert staging["solver"]["total_solver_seconds"] == policy_store.PRODUCTION_TOTAL_SOLVER_SECONDS
+    assert staging["solver"]["retry_attempts"] == policy_store.PRODUCTION_SOLVER_RETRY_ATTEMPTS
+    assert staging["solver"]["solver_workers"] == policy_store.PRODUCTION_SOLVER_WORKERS
+
+
+def test_ensure_default_policy_upgrades_default_staging_performance(monkeypatch):
+    tmp_root = ROOT / "tests" / ".tmp_policy_store"
+    tmp_root.mkdir(parents=True, exist_ok=True)
+    test_db = tmp_root / f"policy_store_staging_perf_{uuid.uuid4().hex}.db"
+    monkeypatch.setattr(policy_store, "DATABASE_URL", "")
+    monkeypatch.setattr(policy_store, "DB_NAME", str(test_db))
+
+    policy_store.init_policy_store()
+    created = policy_store.create_policy_version(
+        policy_input={
+            "schema_version": "2.0.0",
+            "policy_name": "default",
+            "environment_profile": "production",
+            "environment_overrides": {
+                "production": {
+                    "stage1": {
+                        "ML_shadow_enabled": True,
+                        "ML_canary_enabled": True,
+                        "max_candidates_per_slot": policy_store.PRODUCTION_STAGE1_MAX_CANDIDATES,
+                        "restricted_shortlist_multiplier": policy_store.PRODUCTION_STAGE1_RESTRICTED_MULTIPLIER,
+                        "pool_cap_top_share": policy_store.PRODUCTION_STAGE1_POOL_CAP_TOP_SHARE,
+                    },
+                    "solver": {
+                        "solver_time_limit_seconds": policy_store.PRODUCTION_SOLVER_TIME_LIMIT_SECONDS,
+                        "solver_max_seconds": policy_store.PRODUCTION_SOLVER_MAX_SECONDS,
+                        "total_solver_seconds": policy_store.PRODUCTION_TOTAL_SOLVER_SECONDS,
+                        "retry_attempts": policy_store.PRODUCTION_SOLVER_RETRY_ATTEMPTS,
+                        "solver_workers": policy_store.PRODUCTION_SOLVER_WORKERS,
+                    },
+                    "sre": {
+                        "canary_cohort_percent": policy_store.PRODUCTION_CANARY_BOOTSTRAP_PERCENT,
+                    },
+                }
+            },
+        },
+        actor="test",
+        activate=True,
+    )
+
+    upgraded = policy_store.ensure_default_policy(actor="test")
+
+    assert upgraded["id"] != created["id"]
+    assert upgraded["rollback_of"] == created["id"]
+    staging = load_policy(upgraded["policy"]).to_runtime_dict(environment="staging")
+    assert staging["stage1"]["max_candidates_per_slot"] == policy_store.PRODUCTION_STAGE1_MAX_CANDIDATES
+    assert staging["solver"]["total_solver_seconds"] == policy_store.PRODUCTION_TOTAL_SOLVER_SECONDS
+    assert staging["solver"]["retry_attempts"] == policy_store.PRODUCTION_SOLVER_RETRY_ATTEMPTS
 
 
 def test_ensure_default_policy_upgrades_existing_policy_for_production_canary(monkeypatch):
@@ -119,6 +175,114 @@ def test_ensure_default_policy_upgrades_existing_policy_for_production_canary(mo
     assert resolved["stage1"]["max_candidates_per_slot"] == policy_store.PRODUCTION_STAGE1_MAX_CANDIDATES
     assert resolved["solver"]["solver_time_limit_seconds"] == policy_store.PRODUCTION_SOLVER_TIME_LIMIT_SECONDS
     assert resolved["solver"]["retry_attempts"] == policy_store.PRODUCTION_SOLVER_RETRY_ATTEMPTS
+
+
+def test_ensure_default_policy_adds_staging_performance_when_missing(monkeypatch):
+    tmp_root = ROOT / "tests" / ".tmp_policy_store"
+    tmp_root.mkdir(parents=True, exist_ok=True)
+    test_db = tmp_root / f"policy_store_missing_staging_{uuid.uuid4().hex}.db"
+    monkeypatch.setattr(policy_store, "DATABASE_URL", "")
+    monkeypatch.setattr(policy_store, "DB_NAME", str(test_db))
+
+    policy_store.init_policy_store()
+    created = policy_store.create_policy_version(
+        policy_input={
+            "schema_version": "2.0.0",
+            "policy_name": "ops-production-only",
+            "environment_profile": "production",
+            "environment_overrides": {
+                "production": {
+                    "stage1": {
+                        "ML_shadow_enabled": True,
+                        "ML_canary_enabled": True,
+                        "max_candidates_per_slot": 80,
+                        "restricted_shortlist_multiplier": 1.2,
+                        "pool_cap_top_share": 0.5,
+                    },
+                    "solver": {
+                        "solver_time_limit_seconds": 5.0,
+                        "solver_max_seconds": 9.0,
+                        "total_solver_seconds": 18.0,
+                        "retry_attempts": 1,
+                        "solver_workers": 2,
+                    },
+                    "sre": {
+                        "canary_cohort_percent": 5.0,
+                    },
+                }
+            },
+        },
+        actor="test",
+        activate=True,
+    )
+
+    upgraded = policy_store.ensure_default_policy(actor="test")
+
+    assert upgraded["id"] != created["id"]
+    staging = load_policy(upgraded["policy"]).to_runtime_dict(environment="staging")
+    assert staging["stage1"]["max_candidates_per_slot"] == policy_store.PRODUCTION_STAGE1_MAX_CANDIDATES
+    assert staging["solver"]["total_solver_seconds"] == policy_store.PRODUCTION_TOTAL_SOLVER_SECONDS
+    assert staging["solver"]["retry_attempts"] == policy_store.PRODUCTION_SOLVER_RETRY_ATTEMPTS
+    production = load_policy(upgraded["policy"]).to_runtime_dict(environment="production")
+    assert production["stage1"]["max_candidates_per_slot"] == 80
+    assert production["solver"]["total_solver_seconds"] == 18.0
+
+
+def test_ensure_default_policy_preserves_explicit_staging_latency_tuning(monkeypatch):
+    tmp_root = ROOT / "tests" / ".tmp_policy_store"
+    tmp_root.mkdir(parents=True, exist_ok=True)
+    test_db = tmp_root / f"policy_store_custom_staging_{uuid.uuid4().hex}.db"
+    monkeypatch.setattr(policy_store, "DATABASE_URL", "")
+    monkeypatch.setattr(policy_store, "DB_NAME", str(test_db))
+
+    policy_store.init_policy_store()
+    created = policy_store.create_policy_version(
+        policy_input={
+            "schema_version": "2.0.0",
+            "policy_name": "ops-staging-custom",
+            "environment_profile": "production",
+            "environment_overrides": {
+                "production": {
+                    "stage1": {
+                        "ML_shadow_enabled": True,
+                        "ML_canary_enabled": True,
+                        "max_candidates_per_slot": policy_store.PRODUCTION_STAGE1_MAX_CANDIDATES,
+                        "restricted_shortlist_multiplier": policy_store.PRODUCTION_STAGE1_RESTRICTED_MULTIPLIER,
+                        "pool_cap_top_share": policy_store.PRODUCTION_STAGE1_POOL_CAP_TOP_SHARE,
+                    },
+                    "solver": {
+                        "solver_time_limit_seconds": policy_store.PRODUCTION_SOLVER_TIME_LIMIT_SECONDS,
+                        "solver_max_seconds": policy_store.PRODUCTION_SOLVER_MAX_SECONDS,
+                        "total_solver_seconds": policy_store.PRODUCTION_TOTAL_SOLVER_SECONDS,
+                        "retry_attempts": policy_store.PRODUCTION_SOLVER_RETRY_ATTEMPTS,
+                        "solver_workers": policy_store.PRODUCTION_SOLVER_WORKERS,
+                    },
+                    "sre": {
+                        "canary_cohort_percent": 5.0,
+                    },
+                },
+                "staging": {
+                    "stage1": {
+                        "max_candidates_per_slot": 96,
+                    },
+                    "solver": {
+                        "total_solver_seconds": 20.0,
+                        "retry_attempts": 2,
+                    },
+                },
+            },
+        },
+        actor="test",
+        activate=True,
+    )
+
+    active = policy_store.ensure_default_policy(actor="test")
+    staging = load_policy(active["policy"]).to_runtime_dict(environment="staging")
+
+    assert active["id"] == created["id"]
+    assert staging["stage1"]["max_candidates_per_slot"] == 96
+    assert staging["solver"]["total_solver_seconds"] == 20.0
+    assert staging["solver"]["retry_attempts"] == 2
 
 
 def test_ensure_default_policy_does_not_override_custom_latency_tuning(monkeypatch):
@@ -164,7 +328,7 @@ def test_ensure_default_policy_does_not_override_custom_latency_tuning(monkeypat
     active = policy_store.ensure_default_policy(actor="test")
     resolved_after = load_policy(active["policy"]).to_runtime_dict(environment="production")
 
-    assert active["id"] == created["id"]
+    assert active["rollback_of"] == created["id"]
     assert resolved_after["stage1"]["max_candidates_per_slot"] == resolved_before["stage1"]["max_candidates_per_slot"]
     assert resolved_after["solver"]["total_solver_seconds"] == resolved_before["solver"]["total_solver_seconds"]
 

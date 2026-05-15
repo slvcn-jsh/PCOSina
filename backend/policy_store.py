@@ -184,6 +184,27 @@ def _production_canary_bootstrap_overlay() -> Dict[str, Any]:
     }
 
 
+def _staging_performance_bootstrap_overlay() -> Dict[str, Any]:
+    return {
+        "environment_overrides": {
+            "staging": {
+                "stage1": {
+                    "max_candidates_per_slot": int(PRODUCTION_STAGE1_MAX_CANDIDATES),
+                    "restricted_shortlist_multiplier": float(PRODUCTION_STAGE1_RESTRICTED_MULTIPLIER),
+                    "pool_cap_top_share": float(PRODUCTION_STAGE1_POOL_CAP_TOP_SHARE),
+                },
+                "solver": {
+                    "solver_time_limit_seconds": float(PRODUCTION_SOLVER_TIME_LIMIT_SECONDS),
+                    "solver_max_seconds": float(PRODUCTION_SOLVER_MAX_SECONDS),
+                    "total_solver_seconds": float(PRODUCTION_TOTAL_SOLVER_SECONDS),
+                    "retry_attempts": int(PRODUCTION_SOLVER_RETRY_ATTEMPTS),
+                    "solver_workers": int(PRODUCTION_SOLVER_WORKERS),
+                },
+            }
+        }
+    }
+
+
 def _requires_production_canary_bootstrap(policy_payload: Dict[str, Any]) -> bool:
     validated = load_policy(policy_payload)
     resolved = validated.to_runtime_dict(environment="production")
@@ -236,9 +257,44 @@ def _requires_production_canary_bootstrap(policy_payload: Dict[str, Any]) -> boo
         return True
  
 
+def _requires_staging_performance_bootstrap(policy_payload: Dict[str, Any]) -> bool:
+    validated = load_policy(policy_payload)
+    resolved = validated.to_runtime_dict(environment="staging")
+    raw_overrides = (policy_payload or {}).get("environment_overrides")
+    staging_override = raw_overrides.get("staging") if isinstance(raw_overrides, dict) else None
+    stage1 = resolved.get("stage1") if isinstance(resolved.get("stage1"), dict) else {}
+    solver = resolved.get("solver") if isinstance(resolved.get("solver"), dict) else {}
+    # Staging should be realistic for respondent testing, but explicit staging
+    # overrides must remain under operator control.
+    if isinstance(staging_override, dict) and staging_override:
+        return False
+    try:
+        return not (
+            int(stage1.get("max_candidates_per_slot")) == int(PRODUCTION_STAGE1_MAX_CANDIDATES)
+            and float(stage1.get("restricted_shortlist_multiplier")) == float(PRODUCTION_STAGE1_RESTRICTED_MULTIPLIER)
+            and float(stage1.get("pool_cap_top_share")) == float(PRODUCTION_STAGE1_POOL_CAP_TOP_SHARE)
+            and float(solver.get("solver_time_limit_seconds")) == float(PRODUCTION_SOLVER_TIME_LIMIT_SECONDS)
+            and float(solver.get("solver_max_seconds")) == float(PRODUCTION_SOLVER_MAX_SECONDS)
+            and float(solver.get("total_solver_seconds")) == float(PRODUCTION_TOTAL_SOLVER_SECONDS)
+            and int(solver.get("retry_attempts")) == int(PRODUCTION_SOLVER_RETRY_ATTEMPTS)
+            and int(solver.get("solver_workers")) == int(PRODUCTION_SOLVER_WORKERS)
+        )
+    except Exception:
+        return True
+
+
 def _apply_production_canary_bootstrap(policy_payload: Dict[str, Any]) -> Dict[str, Any]:
     upgraded = deepcopy(load_policy(policy_payload).to_runtime_dict())
     _deep_merge(upgraded, _production_canary_bootstrap_overlay())
+    return load_policy(upgraded).to_runtime_dict()
+
+
+def _apply_runtime_bootstrap(policy_payload: Dict[str, Any]) -> Dict[str, Any]:
+    upgraded = deepcopy(load_policy(policy_payload).to_runtime_dict())
+    if _requires_production_canary_bootstrap(policy_payload):
+        _deep_merge(upgraded, _production_canary_bootstrap_overlay())
+    if _requires_staging_performance_bootstrap(policy_payload):
+        _deep_merge(upgraded, _staging_performance_bootstrap_overlay())
     return load_policy(upgraded).to_runtime_dict()
 
 
@@ -417,20 +473,20 @@ def ensure_default_policy(actor: str = "system") -> Dict[str, Any]:
     active = get_active_policy()
     if active:
         active_payload = active.get("policy") if isinstance(active.get("policy"), dict) else {}
-        if _requires_production_canary_bootstrap(active_payload):
-            upgraded_payload = _apply_production_canary_bootstrap(active_payload)
+        if _requires_production_canary_bootstrap(active_payload) or _requires_staging_performance_bootstrap(active_payload):
+            upgraded_payload = _apply_runtime_bootstrap(active_payload)
             upgraded_hash = _policy_hash(upgraded_payload)
             if upgraded_hash != str(active.get("policy_hash") or ""):
                 return create_policy_version(
                     upgraded_payload,
                     actor=actor,
-                    notes="bootstrap-production-canary-defaults",
+                    notes="bootstrap-runtime-performance-defaults",
                     activate=True,
                     rollback_of=str(active.get("id") or "") or None,
                 )
         return active
     created = create_policy_version(
-        _apply_production_canary_bootstrap(default_policy().to_runtime_dict()),
+        _apply_runtime_bootstrap(default_policy().to_runtime_dict()),
         actor=actor,
         notes="bootstrap-default-policy",
         activate=True,
@@ -455,7 +511,7 @@ def create_policy_version(
     conn = _connect()
     try:
         with _policy_write_lock(conn):
-            if activate and (notes in {"bootstrap-default-policy", "bootstrap-production-canary-defaults"} or actor == "system-bootstrap"):
+            if activate and (notes in {"bootstrap-default-policy", "bootstrap-production-canary-defaults", "bootstrap-runtime-performance-defaults"} or actor == "system-bootstrap"):
                 active = get_active_policy()
                 if active and str(active.get("policy_hash") or "") == p_hash:
                     return active

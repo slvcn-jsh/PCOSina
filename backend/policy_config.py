@@ -20,6 +20,20 @@ PRODUCTION_SOLVER_WORKERS = 2
 
 def _default_environment_overrides() -> Dict[str, Dict[str, Any]]:
     return {
+        "staging": {
+            "stage1": {
+                "max_candidates_per_slot": PRODUCTION_STAGE1_MAX_CANDIDATES,
+                "restricted_shortlist_multiplier": PRODUCTION_STAGE1_RESTRICTED_MULTIPLIER,
+                "pool_cap_top_share": PRODUCTION_STAGE1_POOL_CAP_TOP_SHARE,
+            },
+            "solver": {
+                "solver_time_limit_seconds": PRODUCTION_SOLVER_TIME_LIMIT_SECONDS,
+                "solver_max_seconds": PRODUCTION_SOLVER_MAX_SECONDS,
+                "total_solver_seconds": PRODUCTION_TOTAL_SOLVER_SECONDS,
+                "retry_attempts": PRODUCTION_SOLVER_RETRY_ATTEMPTS,
+                "solver_workers": PRODUCTION_SOLVER_WORKERS,
+            },
+        },
         "production": {
             "stage1": {
                 "ML_shadow_enabled": True,

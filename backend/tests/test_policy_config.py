@@ -7,7 +7,16 @@ if str(ROOT) not in sys.path:
 
 import pytest
 
-from policy_config import PlannerPolicyConfig, load_policy
+from policy_config import (
+    PRODUCTION_SOLVER_MAX_SECONDS,
+    PRODUCTION_SOLVER_RETRY_ATTEMPTS,
+    PRODUCTION_SOLVER_TIME_LIMIT_SECONDS,
+    PRODUCTION_SOLVER_WORKERS,
+    PRODUCTION_STAGE1_MAX_CANDIDATES,
+    PRODUCTION_TOTAL_SOLVER_SECONDS,
+    PlannerPolicyConfig,
+    load_policy,
+)
 
 
 def test_default_policy_is_strict_and_valid():
@@ -20,6 +29,13 @@ def test_default_policy_is_strict_and_valid():
     production = policy.to_runtime_dict(environment="production")
     assert production["stage1"]["max_candidates_per_slot"] <= policy.stage1.max_candidates_per_slot
     assert production["solver"]["total_solver_seconds"] <= policy.solver.total_solver_seconds
+    staging = policy.to_runtime_dict(environment="staging")
+    assert staging["stage1"]["max_candidates_per_slot"] == PRODUCTION_STAGE1_MAX_CANDIDATES
+    assert staging["solver"]["solver_time_limit_seconds"] == PRODUCTION_SOLVER_TIME_LIMIT_SECONDS
+    assert staging["solver"]["solver_max_seconds"] == PRODUCTION_SOLVER_MAX_SECONDS
+    assert staging["solver"]["total_solver_seconds"] == PRODUCTION_TOTAL_SOLVER_SECONDS
+    assert staging["solver"]["retry_attempts"] == PRODUCTION_SOLVER_RETRY_ATTEMPTS
+    assert staging["solver"]["solver_workers"] == PRODUCTION_SOLVER_WORKERS
 
 
 def test_policy_rejects_unsafe_override_flag():

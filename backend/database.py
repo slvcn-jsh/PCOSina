@@ -995,6 +995,70 @@ def record_ml_event(event: Dict[str, Any]) -> None:
         conn.close()
 
 
+def get_reason_feedback_features(
+    uid_hash_value: str,
+    *,
+    limit: int = 500,
+    lookback_days: int = 180,
+) -> Dict[str, float]:
+    uid_token = str(uid_hash_value or "").strip()
+    if not uid_token:
+        return {}
+    try:
+        row_limit = max(1, min(int(limit or 500), 5000))
+    except Exception:
+        row_limit = 500
+    try:
+        days = max(1, min(int(lookback_days or 180), 3650))
+    except Exception:
+        days = 180
+    start_time_ms = int(time.time() * 1000) - days * 24 * 60 * 60 * 1000
+
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        if _use_postgres():
+            cur.execute(
+                """
+                SELECT payload_json
+                FROM ml_events
+                WHERE uid_hash = %s
+                  AND event_name IN (%s, %s)
+                  AND event_time_ms >= %s
+                ORDER BY event_time_ms DESC
+                LIMIT %s
+                """,
+                (uid_token, "why_replaced_submitted", "why_skipped_submitted", start_time_ms, row_limit),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT payload_json
+                FROM ml_events
+                WHERE uid_hash = ?
+                  AND event_name IN (?, ?)
+                  AND event_time_ms >= ?
+                ORDER BY event_time_ms DESC
+                LIMIT ?
+                """,
+                (uid_token, "why_replaced_submitted", "why_skipped_submitted", start_time_ms, row_limit),
+            )
+        events: list[Dict[str, Any]] = []
+        for row in cur.fetchall():
+            payload_json = row[0] if not isinstance(row, dict) else row.get("payload_json")
+            try:
+                payload = json.loads(payload_json or "{}")
+            except Exception:
+                continue
+            if isinstance(payload, dict):
+                events.append(payload)
+        from services.ml_features import reason_feedback_features_from_events
+
+        return reason_feedback_features_from_events(events)
+    finally:
+        conn.close()
+
+
 def record_stage1_candidate_features(
     request_id: str,
     uid_hash: str,

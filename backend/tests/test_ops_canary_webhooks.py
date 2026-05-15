@@ -33,6 +33,23 @@ def test_canary_webhook_receiver_accepts_valid_key(monkeypatch):
     assert main._canary_webhook_events[0]["channel"] == "alert"
 
 
+def test_canary_webhook_receiver_accepts_header_key(monkeypatch):
+    monkeypatch.setenv("PCOSINA_WEBHOOK_RECEIVER_KEY", "test-webhook-key")
+    main._canary_webhook_events.clear()
+
+    with TestClient(main.app) as client:
+        response = client.post(
+            "/ops/webhooks/canary/alert",
+            headers={"X-PCOSINA-Webhook-Key": "test-webhook-key"},
+            json={"source": "unit-test", "status": "ok"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "accepted"
+    assert len(main._canary_webhook_events) == 1
+    assert main._canary_webhook_events[0]["channel"] == "alert"
+
+
 def test_canary_webhook_receiver_rejects_invalid_key(monkeypatch):
     monkeypatch.setenv("PCOSINA_WEBHOOK_RECEIVER_KEY", "test-webhook-key")
     main._canary_webhook_events.clear()

@@ -218,6 +218,8 @@ Core environment switches (non-policy):
 - `PCOSINA_ML_MODEL_PATH`, `PCOSINA_ML_METRICS_PATH`
 - `PCOSINA_UID_HASH_SALT`
 
+Operational webhook canary calls should send `PCOSINA_WEBHOOK_RECEIVER_KEY` through the `X-PCOSINA-Webhook-Key` header. The legacy path-key route is retained for compatibility, but header-based delivery avoids placing receiver secrets in access logs.
+
 To resolve the current rollout candidate into shell-ready env exports, use:
 - `python scripts/prepare_ml_rollout_env.py --phase shadow`
 - `python scripts/prepare_ml_rollout_env.py --phase canary --canary-percent 5`
@@ -255,6 +257,7 @@ To resolve the current rollout candidate into shell-ready env exports, use:
   - `PCOSINA_ADMIN_MAX_ACTIVE_SESSIONS_PER_UID` must remain enabled
   - `DATABASE_URL` must be a Postgres connection string
   - `PCOSINA_ADMIN_SESSION_SECRET` must be set
+  - `PCOSINA_UID_HASH_SALT` must be set to the same non-default value on the web service and worker
   - Firebase credentials must be configured
   - `PCOSINA_QUEUE_BACKEND=memory` is not allowed for queued mode
   - `PCOSINA_RATE_LIMIT_BACKEND=memory` is not allowed

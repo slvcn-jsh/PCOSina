@@ -15,6 +15,14 @@ def test_schema_version_matches():
     assert data.get("schemaVersion") == schema_contract.SCHEMA_VERSION
 
 
+def test_feedback_request_contract_caps_message_length():
+    path = Path(__file__).parents[1] / "schema" / "pcosina_contract.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    message = data["properties"]["FeedbackRequest"]["properties"]["message"]
+
+    assert message["maxLength"] == 2000
+
+
 def test_plan_explanation_contract_includes_extended_diagnostics_fields():
     path = Path(__file__).parents[1] / "schema" / "pcosina_contract.json"
     data = json.loads(path.read_text(encoding="utf-8"))

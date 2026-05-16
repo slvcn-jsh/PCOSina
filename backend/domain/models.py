@@ -1,32 +1,40 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
+ProfileName = Annotated[str, Field(max_length=80)]
+ProfileCode = Annotated[str, Field(max_length=40)]
+ProfileText = Annotated[str, Field(max_length=200)]
+ProfileToken = Annotated[str, Field(max_length=80)]
+PantryToken = Annotated[str, Field(max_length=120)]
+IsoDateText = Annotated[str, Field(max_length=10)]
+
+
 class UserProfile(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
-    displayName: str = "User"
-    age: int = 25
-    heightCm: int = 160
-    weightKg: int = 65
-    heightUnit: str = "cm"
-    weightUnit: str = "kg"
-    activityLevel: str = "Lightly Active"
-    goal: str = "General Health"
-    insulinResistanceLevel: str = "Mild"
-    symptoms: List[str] = []
-    comorbidities: List[str] = []
-    dietaryRestrictions: List[str] = []
-    allergies: List[str] = []
-    weeklyBudgetPhp: Optional[int] = Field(default=None, alias="weeklyBudgetPhp")
+    displayName: ProfileName = "User"
+    age: int = Field(default=25, ge=0, le=120)
+    heightCm: int = Field(default=160, ge=0, le=260)
+    weightKg: int = Field(default=65, ge=0, le=350)
+    heightUnit: ProfileCode = "cm"
+    weightUnit: ProfileCode = "kg"
+    activityLevel: ProfileToken = "Lightly Active"
+    goal: ProfileText = "General Health"
+    insulinResistanceLevel: ProfileToken = "Mild"
+    symptoms: List[ProfileToken] = Field(default_factory=list, max_length=20)
+    comorbidities: List[ProfileToken] = Field(default_factory=list, max_length=20)
+    dietaryRestrictions: List[ProfileToken] = Field(default_factory=list, max_length=20)
+    allergies: List[ProfileToken] = Field(default_factory=list, max_length=30)
+    weeklyBudgetPhp: Optional[int] = Field(default=None, ge=0, le=1_000_000, alias="weeklyBudgetPhp")
     householdSize: int = Field(default=1, ge=1, le=6)
-    budgetWeekly: Optional[float] = None
-    budgetMonthly: Optional[float] = None
-    maxCookingTimeMinutes: int = 45
-    varietyPreference: str = "Balanced"
-    planningPriority: str = "Balanced"
-    preferredMarketType: str = "Supermarket"
-    pantryItems: List[str] = []
+    budgetWeekly: Optional[float] = Field(default=None, ge=0, le=1_000_000)
+    budgetMonthly: Optional[float] = Field(default=None, ge=0, le=5_000_000)
+    maxCookingTimeMinutes: int = Field(default=45, ge=0, le=240)
+    varietyPreference: ProfileToken = "Balanced"
+    planningPriority: ProfileToken = "Balanced"
+    preferredMarketType: ProfileToken = "Supermarket"
+    pantryItems: List[PantryToken] = Field(default_factory=list, max_length=100)
     isProfileCompleted: bool = False
 
 
@@ -236,9 +244,9 @@ class OperatorAccessStatus(BaseModel):
 
 class GeneratePlanRequest(BaseModel):
     profile: UserProfile
-    days: int = 7
-    mealsPerDay: int = 3
-    startDate: Optional[str] = None
+    days: int = Field(default=7, ge=1, le=31)
+    mealsPerDay: int = Field(default=3, ge=1, le=6)
+    startDate: Optional[IsoDateText] = None
 
 
 class SwapOptionsRequest(BaseModel):

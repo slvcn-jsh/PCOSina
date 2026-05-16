@@ -7658,7 +7658,7 @@ parameters:
 [num_iterations: 400]
 [learning_rate: 0.05]
 [num_leaves: 31]
-[num_threads: 12]
+[num_threads: 6]
 [seed: 2026]
 [deterministic: 0]
 [force_col_wise: 0]

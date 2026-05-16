@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-03-29",
+  "updatedAt": "2026-05-16",
   "owner": "pcosina-ml-team",
   "items": [
     {
@@ -98,12 +98,12 @@
         "python ml/offline_training/train_lightgbm_v1.py --dataset-dir ml/offline_training/artifacts/dataset_v1 --output-dir ml/offline_training/artifacts/model_v1 --seed 2026",
         "python scripts/check_ml_readiness.py --mode canary"
       ],
-      "risk": "Latest 2026-03-29 retrain passed canary with 74,112 rows / 360 requests / 60 users, but live drift still depends on guarded rollout evidence",
+      "risk": "Latest 2026-05-16 retrain passed canary with 74,112 rows / 360 requests / 60 users; additional retrains should wait for new telemetry or feature/label changes",
       "nextStep": "Keep request-level regression exports in the retraining loop and review them before widening live canary traffic"
     },
     {
-      "roadmapItem": "Phase 6 shadow integration",
-      "status": "in_progress",
+      "roadmapItem": "Phase 6 shadow/canary integration",
+      "status": "done",
       "evidence": [
         "backend/services/ml_ranker.py",
         "backend/services/meal_planner.py",
@@ -112,15 +112,17 @@
         "backend/tests/test_meal_planner.py",
         "backend/tests/test_ci_ops_scripts.py",
         ".github/workflows/ci.yml",
-        "benchmarks/reports/ml_rollout_prep.canary.local.json"
+        "benchmarks/reports/ml_rollout_prep.canary.local.json",
+        "docs/ml/live_ml_canary_traffic_2026-05-16.md"
       ],
       "verification": [
         "Backend tests: python -m pytest backend/tests/test_ml_ranker.py backend/tests/test_meal_planner.py backend/tests/test_ci_ops_scripts.py -q",
         "python scripts/check_ml_readiness.py --mode shadow",
-        ":app:compileDebugKotlin successful with local JDK + sandbox-safe env overrides"
+        ":app:compileDebugKotlin successful with local JDK + sandbox-safe env overrides",
+        "Live backend log shows stage1_candidates_scored with ml_score_enabled=true, ranking_strategy=stage1_ml_canary_plus_heuristic, and ml_model_version=lightgbm_stage1_ranker_v1"
       ],
-      "risk": "Shadow inference, readiness gates, and candidate pinning are covered locally/CI, but the first traffic-backed production ML telemetry snapshot is still pending",
-      "nextStep": "Archive the first live production shadow/canary telemetry snapshot and confirm the pinned candidate artifact is the one serving live requests"
+      "risk": "First live canary request is observed, but sustained production drift, fallback-rate, and cohort evidence are still needed before widening",
+      "nextStep": "Hold live canary, monitor aggregate telemetry/guardrails, and archive the first sustained production canary snapshot before widening"
     },
     {
       "roadmapItem": "Phase 7 canary rollback guard",
@@ -147,7 +149,8 @@
         "benchmarks/reports/canary_webhook_secrets_check.production.local.json",
         "benchmarks/reports/canary_drill_receipt.production.live.json",
         "benchmarks/reports/canary_drill_receipt_check.production.live.json",
-        "benchmarks/reports/canary_guard_report.production.json"
+        "benchmarks/reports/canary_guard_report.production.json",
+        "docs/ml/live_ml_canary_traffic_2026-05-16.md"
       ],
       "verification": [
         "python scripts/prepare_ml_rollout_env.py --phase canary --canary-percent 5",
@@ -160,8 +163,8 @@
         "python scripts/check_canary_drill_receipt.py --receipt benchmarks/reports/canary_drill_receipt.production.live.json --environment production --require-webhook-delivery --output benchmarks/reports/canary_drill_receipt_check.production.live.json",
         "python -m pytest backend/tests/test_canary_guard.py backend/tests/test_canary_guard_alert.py backend/tests/test_ci_ops_scripts.py backend/tests/test_ml_rollout_prep_script.py -q"
       ],
-      "risk": "Real-user widening still depends on post-launch drift review, but the rollback/drill stack and environment wiring are now proven end to end",
-      "nextStep": "Keep the 5% canary under observation and require a fresh guard/drift review before widening traffic"
+      "risk": "Canary is live-observed, but broad real-user widening still depends on post-launch drift review and aggregate guardrail evidence",
+      "nextStep": "Keep the live canary under observation and require a fresh guard/drift review before widening traffic"
     },
     {
       "roadmapItem": "Phase 8 open-ended feedback pipeline",

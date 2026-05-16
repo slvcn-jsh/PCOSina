@@ -52,6 +52,17 @@ import java.util.Locale
 private const val ProfileMinAge = 18
 private const val ProfileMaxAge = 60
 
+private fun hasSavedProfileToken(values: List<String>, vararg aliases: String): Boolean {
+    val normalizedAliases = aliases.map { it.lowercase(Locale.ENGLISH) }.toSet()
+    return values.any { value -> value.trim().lowercase(Locale.ENGLISH) in normalizedAliases }
+}
+
+private fun parseDelimitedProfileItems(text: String): List<String> =
+    text.split(',', ';', '\n')
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .distinctBy { it.lowercase(Locale.ENGLISH) }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserProfileScreen(
@@ -85,16 +96,36 @@ fun UserProfileScreen(
     var activityLevel by rememberSaveable { mutableStateOf(profile.activityLevel) }
     var insulinLevel by rememberSaveable { mutableStateOf("None") } // Default to a safe value
 
-    var symptomIrregularPeriods by rememberSaveable { mutableStateOf(false) }
-    var symptomWeightGain by rememberSaveable { mutableStateOf(false) }
-    var symptomAcne by rememberSaveable { mutableStateOf(false) }
-    var symptomHairLoss by rememberSaveable { mutableStateOf(false) }
+    val savedSymptomKey = profile.symptoms.joinToString("|")
+    var symptomIrregularPeriods by rememberSaveable(savedSymptomKey) {
+        mutableStateOf(hasSavedProfileToken(profile.symptoms, "Irregular periods"))
+    }
+    var symptomWeightGain by rememberSaveable(savedSymptomKey) {
+        mutableStateOf(hasSavedProfileToken(profile.symptoms, "Weight gain"))
+    }
+    var symptomAcne by rememberSaveable(savedSymptomKey) {
+        mutableStateOf(hasSavedProfileToken(profile.symptoms, "Acne"))
+    }
+    var symptomHairLoss by rememberSaveable(savedSymptomKey) {
+        mutableStateOf(hasSavedProfileToken(profile.symptoms, "Hair loss"))
+    }
 
-    var lacto by rememberSaveable { mutableStateOf(false) }
-    var vegetarian by rememberSaveable { mutableStateOf(false) }
-    var pescatarian by rememberSaveable { mutableStateOf(false) }
-    var noPork by rememberSaveable { mutableStateOf(false) }
-    var noBeef by rememberSaveable { mutableStateOf(false) }
+    val savedRestrictionKey = profile.dietaryRestrictions.joinToString("|")
+    var lacto by rememberSaveable(savedRestrictionKey) {
+        mutableStateOf(hasSavedProfileToken(profile.dietaryRestrictions, "Lactose Intolerant"))
+    }
+    var vegetarian by rememberSaveable(savedRestrictionKey) {
+        mutableStateOf(hasSavedProfileToken(profile.dietaryRestrictions, "Vegetarian"))
+    }
+    var pescatarian by rememberSaveable(savedRestrictionKey) {
+        mutableStateOf(hasSavedProfileToken(profile.dietaryRestrictions, "Pescatarian"))
+    }
+    var noPork by rememberSaveable(savedRestrictionKey) {
+        mutableStateOf(hasSavedProfileToken(profile.dietaryRestrictions, "No Pork", "Exclude Pork"))
+    }
+    var noBeef by rememberSaveable(savedRestrictionKey) {
+        mutableStateOf(hasSavedProfileToken(profile.dietaryRestrictions, "No Beef", "Exclude Beef"))
+    }
     var budget by rememberSaveable {
         mutableStateOf(if (profile.weeklyBudgetPhp > 0) profile.weeklyBudgetPhp.toString() else "")
     }
@@ -326,13 +357,9 @@ fun UserProfileScreen(
             val maxCookSafe = maxCookingValue?.coerceIn(10, 240) ?: 45
             userViewModel.updateCookingPreferences(maxCookSafe, varietyPref.ifBlank { "Balanced" })
             userViewModel.updatePlanningPriority(planningPriority.ifBlank { "Balanced" })
-            val pantryItems = pantryText.split(",")
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
+            val pantryItems = parseDelimitedProfileItems(pantryText)
             userViewModel.updatePantryItems(pantryItems)
-            val allergyItems = allergiesText.split(",")
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
+            val allergyItems = parseDelimitedProfileItems(allergiesText)
             userViewModel.updateAllergies(allergyItems)
         }
         userViewModel.setProfileCompleted(markComplete || isEditMode)
@@ -1198,9 +1225,8 @@ fun StepThreeDiet(
         "Fish" to "fish",
         "Shellfish" to "shellfish"
     )
-    val allergyTokens = allergiesText.split(",")
-        .map { it.trim().lowercase(Locale.getDefault()) }
-        .filter { it.isNotBlank() }
+    val allergyTokens = parseDelimitedProfileItems(allergiesText)
+        .map { it.lowercase(Locale.getDefault()) }
         .toMutableList()
     val screenWidthDp = LocalConfiguration.current.screenWidthDp
     val householdChipMaxWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 108.dp, medium = 132.dp)

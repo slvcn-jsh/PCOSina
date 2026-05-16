@@ -491,9 +491,14 @@ def test_allergy_filter_blocks_recipe():
         ("fish", "tuna steak"),
         ("shellfish", "shrimp"),
         ("shellfish", "crab"),
+        ("shellfish", "squid"),
         ("dairy", "cheese"),
         ("dairy", "milk"),
         ("egg", "egg"),
+        ("egg", "eggs"),
+        ("peanut", "peanuts"),
+        ("soy", "tofu"),
+        ("gluten", "wheat flour"),
     ],
 )
 def test_allergy_filter_blocks_descendant_ingredients(allergy, ingredient_name):
@@ -515,6 +520,96 @@ def test_allergy_filter_blocks_descendant_ingredients(allergy, ingredient_name):
     assert all(len(v) == 0 for v in buckets.values())
     assert stage1_diag["exclusion_summary"]["allergy"] == 1
     assert stage1_diag["exclusion_detail_counts"][f"allergy:{allergy}"] == 1
+
+
+def test_custom_allergy_filter_blocks_direct_ingredient_token():
+    profile = UserProfile(allergies=["chicken"], maxCookingTimeMinutes=45)
+    stage1_diag = {}
+    recipes = [
+        _recipe(
+            "unsafe",
+            "Chicken Adobo",
+            "Lunch",
+            ingredients=[{"name": "chicken breast", "quantity": "200 g"}],
+        ),
+        _recipe(
+            "safe",
+            "Rice Bowl",
+            "Lunch",
+            ingredients=[{"name": "brown rice", "quantity": "1 cup"}],
+        ),
+    ]
+
+    buckets = meal_planner.shortlist_candidates(profile, recipes, stage1_diag=stage1_diag)
+
+    assert [recipe["id"] for recipe in buckets["Lunch"]] == ["safe"]
+    assert stage1_diag["exclusion_summary"]["allergy"] == 1
+    assert stage1_diag["exclusion_detail_counts"]["allergy:chicken"] == 1
+
+
+def test_custom_allergy_filter_uses_filipino_ingredient_synonyms():
+    profile = UserProfile(allergies=["manok"], maxCookingTimeMinutes=45)
+    stage1_diag = {}
+    recipes = [
+        _recipe(
+            "unsafe",
+            "Tinola",
+            "Dinner",
+            ingredients=[{"name": "manok", "quantity": "200 g"}],
+        ),
+    ]
+
+    buckets = meal_planner.shortlist_candidates(profile, recipes, stage1_diag=stage1_diag)
+
+    assert all(len(v) == 0 for v in buckets.values())
+    assert stage1_diag["exclusion_detail_counts"]["allergy:chicken"] == 1
+
+
+def test_known_allergy_phrase_does_not_promote_generic_descriptor_to_custom_allergy():
+    profile = UserProfile(allergies=["soy sauce"], maxCookingTimeMinutes=45)
+
+    buckets = meal_planner.shortlist_candidates(
+        profile,
+        [
+            _recipe(
+                "tomato_sauce",
+                "Tomato Sauce Bowl",
+                "Lunch",
+                ingredients=[{"name": "tomato sauce", "quantity": "2 tbsp"}],
+            )
+        ],
+    )
+
+    assert [recipe["id"] for recipe in buckets["Lunch"]] == ["tomato_sauce"]
+
+
+def test_seafood_allergy_blocks_fish_and_shellfish_families():
+    profile = UserProfile(allergies=["seafood"], maxCookingTimeMinutes=45)
+    stage1_diag = {}
+
+    buckets = meal_planner.shortlist_candidates(
+        profile,
+        [
+            _recipe(
+                "fish",
+                "Bangus",
+                "Lunch",
+                ingredients=[{"name": "bangus", "quantity": "1 fillet"}],
+            ),
+            _recipe(
+                "shellfish",
+                "Shrimp",
+                "Dinner",
+                ingredients=[{"name": "shrimp", "quantity": "1 cup"}],
+            ),
+        ],
+        stage1_diag=stage1_diag,
+    )
+
+    assert all(len(v) == 0 for v in buckets.values())
+    assert stage1_diag["exclusion_summary"]["allergy"] == 2
+    assert stage1_diag["exclusion_detail_counts"]["allergy:fish"] == 1
+    assert stage1_diag["exclusion_detail_counts"]["allergy:shellfish"] == 1
 
 
 def test_build_swap_candidates_blocks_descendant_allergy_matches():

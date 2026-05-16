@@ -132,11 +132,17 @@ ING_SYNONYMS = {
     "gatas": "dairy",
     "keso": "cheese",
     "itlog": "egg",
+    "eggs": "egg",
     "patis": "fish",
     "pechay": "bok_choy",
     "sitaw": "string_beans",
     "tokwa": "tofu",
     "mani": "peanut",
+    "peanuts": "peanut",
+    "soybeans": "soy",
+    "soybean": "soy",
+    "soya": "soy",
+    "tahong": "mussel",
 }
 
 ALLERGEN_SYNONYMS = {
@@ -144,11 +150,20 @@ ALLERGEN_SYNONYMS = {
     "peanuts": "peanut",
     "mani": "peanut",
     "nuts": "nuts",
+    "nut": "nuts",
     "tree_nut": "nuts",
     "almond": "nuts",
+    "almonds": "nuts",
     "cashew": "nuts",
+    "cashews": "nuts",
     "walnut": "nuts",
+    "walnuts": "nuts",
     "hazelnut": "nuts",
+    "hazelnuts": "nuts",
+    "pistachio": "nuts",
+    "pistachios": "nuts",
+    "pecan": "nuts",
+    "pecans": "nuts",
     "dairy": "dairy",
     "milk": "dairy",
     "gatas": "dairy",
@@ -158,19 +173,34 @@ ALLERGEN_SYNONYMS = {
     "butter": "dairy",
     "cream": "dairy",
     "egg": "egg",
+    "eggs": "egg",
     "itlog": "egg",
     "fish": "fish",
     "isda": "fish",
     "shellfish": "shellfish",
+    "seafood": "fish",
     "shrimp": "shellfish",
     "hipon": "shellfish",
     "crab": "shellfish",
     "alimango": "shellfish",
     "alimasag": "shellfish",
+    "squid": "shellfish",
+    "pusit": "shellfish",
+    "mussel": "shellfish",
+    "mussels": "shellfish",
+    "tahong": "shellfish",
+    "clam": "shellfish",
+    "clams": "shellfish",
+    "oyster": "shellfish",
+    "oysters": "shellfish",
+    "lobster": "shellfish",
     "soy": "soy",
+    "soya": "soy",
+    "soybean": "soy",
+    "soybeans": "soy",
     "toyo": "soy",
     "tofu": "soy",
-    "wheat": "wheat",
+    "wheat": "gluten",
     "gluten": "gluten",
     "sesame": "sesame",
 }
@@ -183,11 +213,19 @@ FISH_FAMILY_TOKENS = {
 SHELLFISH_FAMILY_TOKENS = {"shellfish", "shrimp", "hipon", "crab", "alimango", "alimasag"}
 DAIRY_FAMILY_TOKENS = {"dairy", "milk", "gatas", "cheese", "keso", "yogurt", "butter", "cream"}
 EGG_FAMILY_TOKENS = {"egg", "itlog"}
-NUTS_FAMILY_TOKENS = {"nuts", "almond", "cashew", "walnut", "hazelnut", "pistachio", "pecan"}
-PEANUT_FAMILY_TOKENS = {"peanut", "mani"}
-SOY_FAMILY_TOKENS = {"soy", "soya", "toyo", "tofu"}
+NUTS_FAMILY_TOKENS = {
+    "nuts", "nut", "almond", "almonds", "cashew", "cashews",
+    "walnut", "walnuts", "hazelnut", "hazelnuts",
+    "pistachio", "pistachios", "pecan", "pecans",
+}
+PEANUT_FAMILY_TOKENS = {"peanut", "peanuts", "mani"}
+SOY_FAMILY_TOKENS = {"soy", "soya", "soybean", "soybeans", "toyo", "tofu"}
 GLUTEN_FAMILY_TOKENS = {"gluten", "wheat", "flour", "bread", "pasta", "noodle", "bihon", "miki", "pancit"}
-SEAFOOD_TOKENS = FISH_FAMILY_TOKENS | {"shrimp", "squid", "crab"} | SHELLFISH_FAMILY_TOKENS
+SHELLFISH_FAMILY_TOKENS = SHELLFISH_FAMILY_TOKENS | {
+    "squid", "pusit", "mussel", "mussels", "tahong",
+    "clam", "clams", "oyster", "oysters", "lobster", "seafood",
+}
+SEAFOOD_TOKENS = FISH_FAMILY_TOKENS | SHELLFISH_FAMILY_TOKENS
 DAIRY_TOKENS = {"dairy", "milk", "cheese", "yogurt", "cream", "butter"}
 EGG_TOKENS = {"egg"}
 ALLERGEN_FAMILY_TOKENS = {
@@ -199,7 +237,6 @@ ALLERGEN_FAMILY_TOKENS = {
     "peanut": PEANUT_FAMILY_TOKENS,
     "soy": SOY_FAMILY_TOKENS,
     "gluten": GLUTEN_FAMILY_TOKENS,
-    "wheat": GLUTEN_FAMILY_TOKENS,
 }
 ALLERGEN_TOKEN_TO_FAMILY = {
     token: family
@@ -271,14 +308,40 @@ def normalize_pantry(pantry: List[str]) -> List[str]:
 
 
 def normalize_allergies(allergies: List[str]) -> List[str]:
-    tokens = []
+    families, custom_tokens = normalize_allergy_constraints(allergies)
+    return sorted(families | custom_tokens)
+
+
+def normalize_allergy_constraints(allergies: List[str]) -> tuple[set[str], set[str]]:
+    families: set[str] = set()
+    custom_tokens: set[str] = set()
     for item in allergies or []:
-        for raw in str(item).replace("/", " ").replace("-", " ").split():
-            tok = _normalize_token(raw)
-            if tok:
-                normalized = ALLERGEN_SYNONYMS.get(tok, tok)
-                tokens.append(ALLERGEN_TOKEN_TO_FAMILY.get(normalized, normalized))
-    return sorted(set(tokens))
+        raw_tokens = [
+            _normalize_token(raw)
+            for raw in str(item).replace("/", " ").replace("-", " ").split()
+        ]
+        raw_tokens = [token for token in raw_tokens if token]
+        if not raw_tokens:
+            continue
+
+        item_families: set[str] = set()
+        item_custom_tokens: set[str] = set()
+        for token in raw_tokens:
+            if token == "seafood":
+                item_families.update({"fish", "shellfish"})
+                continue
+            normalized = ALLERGEN_SYNONYMS.get(token, token)
+            family = ALLERGEN_TOKEN_TO_FAMILY.get(normalized)
+            if family is not None:
+                item_families.add(family)
+            else:
+                item_custom_tokens.add(normalized)
+
+        families.update(item_families)
+        if item_families:
+            continue
+        custom_tokens.update(item_custom_tokens)
+    return families, custom_tokens
 
 
 def normalize_goal_tokens(goal: str | None) -> List[str]:
@@ -806,12 +869,15 @@ def restriction_failure_reasons(profile: UserProfile, tags: List[str], ing_token
     restrictions = set(profile.dietaryRestrictions or [])
     tagset = set(tags)
     toks = set(ing_tokens)
-    allergy_tokens = set(normalize_allergies(profile.allergies or []))
+    allergy_families, custom_allergy_tokens = normalize_allergy_constraints(profile.allergies or [])
     allergen_exposures = derive_allergen_exposures(tags, ing_tokens)
     failures: List[str] = []
-    matched_allergies = sorted(allergy_tokens & allergen_exposures)
+    matched_allergies = sorted(allergy_families & allergen_exposures)
     if matched_allergies:
         failures.extend(f"allergy:{token}" for token in matched_allergies)
+    matched_custom_allergies = sorted(custom_allergy_tokens & toks)
+    if matched_custom_allergies:
+        failures.extend(f"allergy:{token}" for token in matched_custom_allergies)
     if "No Pork" in restrictions and "pork" in toks:
         failures.append("restriction:no_pork")
     if "No Beef" in restrictions and "beef" in toks:

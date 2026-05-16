@@ -55,6 +55,17 @@ class ProfileConstraintSemanticsTest {
                 budgetPhp = 1500
             )
         )
+        assertEquals(
+            "Pescatarian cannot be combined with both fish and shellfish allergies.",
+            profileConstraintConflictMessage(
+                vegetarian = false,
+                pescatarian = true,
+                planningPriority = "Balanced",
+                varietyPreference = "Balanced",
+                allergiesText = "tilapia; pusit",
+                budgetPhp = 1500
+            )
+        )
         assertNull(
             profileConstraintConflictMessage(
                 vegetarian = false,

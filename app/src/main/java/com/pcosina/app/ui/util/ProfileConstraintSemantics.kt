@@ -9,13 +9,15 @@ private val fishAllergyTokens = setOf(
 )
 
 private val shellfishAllergyTokens = setOf(
-    "shellfish", "shrimp", "hipon", "crab", "alimango", "alimasag"
+    "shellfish", "shrimp", "hipon", "crab", "alimango", "alimasag",
+    "squid", "pusit", "mussel", "mussels", "tahong", "clam", "clams",
+    "oyster", "oysters", "lobster", "seafood"
 )
 
 private fun normalizeAllergyFamilies(allergiesText: String): Set<String> =
     allergiesText
-        .split(",")
-        .map { it.trim().lowercase(Locale.getDefault()) }
+        .split(',', ';', '\n')
+        .flatMap { it.trim().lowercase(Locale.ENGLISH).split(Regex("\\s+")) }
         .filter { it.isNotBlank() }
         .mapNotNull { token ->
             when {

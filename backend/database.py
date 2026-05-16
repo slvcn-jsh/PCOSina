@@ -17,6 +17,7 @@ DB_NAME = os.getenv("PCOSINA_DB_NAME", "pcosina.db").strip() or "pcosina.db"
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 SCHEMA_MIGRATION_SCOPE = "app"
 SCHEMA_BOOTSTRAP_LOCK_KEY = 2026032901
+FEEDBACK_MESSAGE_MAX_CHARS = 2000
 
 
 def _is_production_env() -> bool:
@@ -377,17 +378,47 @@ def _create_feedback_table_sql() -> str:
         return """
             CREATE TABLE IF NOT EXISTS feedback (
                 id SERIAL PRIMARY KEY,
-                message TEXT NOT NULL,
+                message TEXT NOT NULL CHECK (char_length(message) <= 2000),
                 created_at TIMESTAMP NOT NULL DEFAULT NOW()
             )
         """
     return """
         CREATE TABLE IF NOT EXISTS feedback (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            message TEXT NOT NULL,
+            message TEXT NOT NULL CHECK (length(message) <= 2000),
             created_at INTEGER NOT NULL
         )
     """
+
+
+def _normalize_feedback_message(message: str) -> str:
+    text = str(message or "").strip()
+    if not text:
+        raise ValueError("Feedback message is required")
+    if len(text) > FEEDBACK_MESSAGE_MAX_CHARS:
+        raise ValueError(f"Feedback message exceeds {FEEDBACK_MESSAGE_MAX_CHARS} characters")
+    return text
+
+
+def _ensure_feedback_constraints(conn) -> None:
+    cur = conn.cursor()
+    cur.execute(_create_feedback_table_sql())
+    if _use_postgres():
+        cur.execute(
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'feedback_message_length_check'
+                ) THEN
+                    ALTER TABLE feedback
+                    ADD CONSTRAINT feedback_message_length_check
+                    CHECK (char_length(message) <= 2000);
+                END IF;
+            END $$;
+            """
+        )
 
 
 def _create_admin_action_logs_table_sql() -> str:
@@ -770,6 +801,10 @@ def _migration_price_rule_ranges(conn) -> None:
     _ensure_price_rule_range_columns(conn)
 
 
+def _migration_feedback_constraints(conn) -> None:
+    _ensure_feedback_constraints(conn)
+
+
 def _migration_recipe_nutrition_corrections(conn) -> None:
     cur = conn.cursor()
     cur.execute(_create_recipe_nutrition_corrections_table_sql())
@@ -845,6 +880,7 @@ def _registered_schema_migrations():
         ("20260319_app_010_operator_access_overrides", "Create operator access override registry", _migration_operator_access_overrides),
         ("20260319_app_011_market_heuristics", "Create market seasonality and volatility rules", _migration_market_heuristics),
         ("20260319_app_012_price_rule_ranges", "Add optional ingredient price range columns", _migration_price_rule_ranges),
+        ("20260319_app_013_feedback_constraints", "Ensure feedback message length constraints", _migration_feedback_constraints),
     ]
 
 
@@ -890,6 +926,7 @@ def get_schema_migration_status() -> Dict[str, Any]:
         conn.close()
 
 def save_feedback(message: str):
+    message = _normalize_feedback_message(message)
     conn = _connect()
     try:
         cur = conn.cursor()
@@ -901,6 +938,28 @@ def save_feedback(message: str):
                 (message, int(time.time() * 1000))
             )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def cleanup_feedback(retention_days: int = 365) -> int:
+    retention_days = max(1, int(retention_days or 365))
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        if _use_postgres():
+            cur.execute(
+                """
+                DELETE FROM feedback
+                WHERE created_at < NOW() - (%s::int * INTERVAL '1 day')
+                """,
+                (retention_days,),
+            )
+        else:
+            cutoff_ms = int(time.time() * 1000) - (retention_days * 24 * 60 * 60 * 1000)
+            cur.execute("DELETE FROM feedback WHERE created_at < ?", (cutoff_ms,))
+        conn.commit()
+        return cur.rowcount or 0
     finally:
         conn.close()
 
@@ -3836,6 +3895,7 @@ def get_recipe_summaries(meal_type: str | None = None, limit: int = 50):
         conn.close()
 
 def save_feedback(message: str):
+    message = _normalize_feedback_message(message)
     conn = _connect()
     try:
         cur = conn.cursor()

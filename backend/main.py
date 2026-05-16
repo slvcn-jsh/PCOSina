@@ -78,6 +78,9 @@ PLAN_CACHE_TTL_SECONDS = int(_DEFAULT_POLICY_BOOT.get("sync_offline", {}).get("l
 PLAN_CACHE_MAX_SIZE = int(_DEFAULT_POLICY_BOOT.get("sync_offline", {}).get("local_cache_max_entries", PLAN_CACHE_MAX_SIZE))
 IDEMPOTENCY_TTL_SECONDS = int(_DEFAULT_POLICY_BOOT.get("security", {}).get("token_ttl", 3600))
 _idempotency_cache: Dict[str, tuple[float, Dict[str, Any]]] = {}
+FEEDBACK_RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("PCOSINA_FEEDBACK_RATE_LIMIT_WINDOW_SECONDS", "3600"))
+FEEDBACK_RATE_LIMIT_MAX = int(os.getenv("PCOSINA_FEEDBACK_RATE_LIMIT_MAX", "20"))
+FEEDBACK_RETENTION_DAYS = int(os.getenv("PCOSINA_FEEDBACK_RETENTION_DAYS", "365"))
 POLICY_CACHE_TTL_SECONDS = int(os.getenv("PCOSINA_POLICY_CACHE_TTL_SECONDS", "30"))
 _policy_cache: Dict[str, Any] = {"loaded_at": 0.0, "value": None}
 _planner_circuit_state: Dict[str, Any] = {"opened_at": 0.0, "consecutive_failures": 0}
@@ -424,6 +427,17 @@ def _rate_limit_bucket_key(request: Request) -> str:
         return f"{route}|uid:{bearer_uid}|ip:{ip}"
     return f"{route}|ip:{ip}"
 
+
+def _feedback_rate_limit_allowed(request: Request, now: float | None = None) -> bool:
+    key = f"feedback|{_rate_limit_bucket_key(request)}"
+    return RATE_LIMIT_STORE.allow(
+        key,
+        window_seconds=FEEDBACK_RATE_LIMIT_WINDOW_SECONDS,
+        max_requests=FEEDBACK_RATE_LIMIT_MAX,
+        now=now,
+    )
+
+
 @app.middleware("http")
 async def limit_request_size(request: Request, call_next):
     content_length = request.headers.get("content-length")
@@ -439,6 +453,30 @@ async def limit_request_size(request: Request, call_next):
                 status_code=400,
                 content={"detail": "Invalid Content-Length"},
             )
+    received = 0
+    body_parts: list[bytes] = []
+    async for chunk in request.stream():
+        received += len(chunk or b"")
+        if received > MAX_REQUEST_BYTES:
+            return JSONResponse(
+                status_code=413,
+                content={"detail": "Request too large"},
+            )
+        if chunk:
+            body_parts.append(chunk)
+
+    body = b"".join(body_parts)
+    request._body = body
+    replayed = False
+
+    async def receive_replay():
+        nonlocal replayed
+        if replayed:
+            return {"type": "http.request", "body": b"", "more_body": False}
+        replayed = True
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    request._receive = receive_replay
     return await call_next(request)
 
 @app.middleware("http")
@@ -3557,7 +3595,8 @@ def _cache_key(request: GeneratePlanRequest) -> str:
         }
     if "profile" in payload:
         payload["profile"] = normalize_profile(request.profile)
-    return json.dumps(payload, sort_keys=True)
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
 
 def _cache_get(key: str, ttl_seconds: int = PLAN_CACHE_TTL_SECONDS):
     item = _plan_cache.get(key)
@@ -4545,12 +4584,25 @@ def db_status():
         raise HTTPException(status_code=500, detail=f"DB status failed: {e}")
 
 @app.post("/feedback")
-def feedback(payload: FeedbackRequest, _: Any = Depends(require_schema_version)):
+def feedback(
+    request: Request,
+    payload: FeedbackRequest,
+    __: Any = Depends(require_app_check),
+    _: Any = Depends(require_schema_version),
+):
+    if not _feedback_rate_limit_allowed(request):
+        raise HTTPException(status_code=429, detail="Too many feedback submissions")
     message = str(payload.message or "").strip()
     if not message:
         raise HTTPException(status_code=400, detail="Feedback message is required")
     try:
         database.save_feedback(message)
+        cleanup_fn = getattr(database, "cleanup_feedback", None)
+        if callable(cleanup_fn) and FEEDBACK_RETENTION_DAYS > 0:
+            try:
+                cleanup_fn(retention_days=FEEDBACK_RETENTION_DAYS)
+            except Exception:
+                pass
         return {"status": "ok"}
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to save feedback")

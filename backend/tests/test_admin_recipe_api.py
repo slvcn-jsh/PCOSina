@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 from uuid import uuid4
@@ -16,6 +17,72 @@ def _temp_db_path() -> Path:
     base = Path(__file__).resolve().parent / ".tmp_admin_recipe_api"
     base.mkdir(parents=True, exist_ok=True)
     return base / f"admin_recipe_api_{uuid4().hex}.db"
+
+
+def test_seed_recipes_imports_missing_rows_without_overwriting_existing(tmp_path):
+    db_path = _temp_db_path()
+    database.DATABASE_URL = ""
+    database.DB_NAME = str(db_path)
+    database.init_db()
+
+    seed_path = tmp_path / "recipes.json"
+    seed_path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "seed-recipe-1",
+                    "name": "Seed Tinola",
+                    "mealType": "Dinner",
+                    "nutrition": {"calories": 410, "protein_g": 31, "carbs_g": 14, "fat_g": 11, "fiber_g": 5},
+                    "tags": ["filipino"],
+                    "minutes": 35,
+                    "ingredients": [{"name": "Chicken", "quantity": "250g"}],
+                    "instructions": ["Simmer", "Serve"],
+                },
+                {
+                    "id": "seed-recipe-2",
+                    "name": "Seed Mongo",
+                    "mealType": "Lunch",
+                    "nutrition": {"calories": 380, "protein_g": 22, "carbs_g": 42, "fat_g": 8, "fiber_g": 10},
+                    "tags": ["high_fiber"],
+                    "minutes": 30,
+                    "ingredients": [{"name": "Mongo", "quantity": "1 cup"}],
+                    "instructions": ["Boil", "Season"],
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    database.upsert_recipe(
+        {
+            "id": "seed-recipe-1",
+            "title": "Admin Edited Tinola",
+            "mealType": "Dinner",
+            "calories": 420,
+            "proteinGrams": 30,
+            "carbsGrams": 18,
+            "fatsGrams": 14,
+            "fiberGrams": 5,
+            "tags": ["admin"],
+            "minutes": 28,
+            "ingredients": [{"name": "Chicken", "quantity": "220g"}],
+            "steps": ["Admin edit"],
+        }
+    )
+
+    summary = database.seed_recipes(source_path=str(seed_path), force_reseed=False)
+
+    assert summary["insertedCount"] == 1
+    assert summary["updatedCount"] == 0
+    assert summary["skippedExistingCount"] == 1
+    assert database.get_recipe_by_id("seed-recipe-1")["title"] == "Admin Edited Tinola"
+    assert database.get_recipe_by_id("seed-recipe-2")["title"] == "Seed Mongo"
+
+    forced = database.seed_recipes(source_path=str(seed_path), force_reseed=True)
+
+    assert forced["updatedCount"] == 2
+    assert database.get_recipe_by_id("seed-recipe-1")["title"] == "Seed Tinola"
 
 
 def test_content_admin_recipe_crud_and_audit_log():

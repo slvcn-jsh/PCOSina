@@ -1532,6 +1532,7 @@ def _admin_notice_html(status: str | None, error: str | None) -> str:
         "admin_session_revoked": "Admin session revoked.",
         "admin_sessions_cleaned": "Admin sessions cleanup completed.",
         "operator_access_saved": "Operator access override saved.",
+        "recipe_seeded": "Recipe seed import completed.",
     }
     message = status_messages.get(str(status or "").strip())
     if not message:
@@ -1818,9 +1819,11 @@ def admin_content_recipes_page(
     edit_item = database.get_recipe_by_id(edit_token) if edit_token else None
     if edit_token and not edit_item and not error:
         error = f"Recipe not found: {edit_token}"
+    catalog_status = database.get_recipe_catalog_status()
 
     save_csrf = _build_admin_csrf_token(principal, "content-recipe-save")
     delete_csrf = _build_admin_csrf_token(principal, "content-recipe-delete")
+    seed_csrf = _build_admin_csrf_token(principal, "content-recipe-seed")
 
     current = edit_item or {
         "id": "",
@@ -1860,9 +1863,33 @@ def admin_content_recipes_page(
             "</tr>"
         )
     rows_html = "\n".join(rows) if rows else "<tr><td colspan='6'>No recipes found.</td></tr>"
+    seed_source_count = int(catalog_status.get("seedSourceCount") or 0)
+    missing_seed_count = int(catalog_status.get("missingSeedCount") or 0)
+    database_count = int(catalog_status.get("databaseCount") or 0)
+    seed_source_label = html.escape(str(catalog_status.get("seedSourcePath") or "not found"), quote=True)
 
     body_html = f"""
     {_admin_notice_html(status, error)}
+    <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;margin-bottom:18px;">
+      <div style="display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap;">
+        <div>
+          <h2 style="margin:0 0 8px;">Catalog Status</h2>
+          <div style="color:#595959;line-height:1.6;">
+            Database recipes: <strong>{database_count}</strong> |
+            Bundled seed recipes: <strong>{seed_source_count}</strong> |
+            Missing from database: <strong>{missing_seed_count}</strong><br/>
+            Seed source: <code>{seed_source_label}</code>
+          </div>
+        </div>
+        <form method="post" action="/admin/content/recipes/seed" style="margin:0;">
+          <input type="hidden" name="csrf_token" value="{html.escape(seed_csrf, quote=True)}"/>
+          <input type="hidden" name="q" value="{html.escape(query, quote=True)}"/>
+          <input type="hidden" name="meal_type" value="{html.escape(meal, quote=True)}"/>
+          <input type="hidden" name="limit" value="{limit}"/>
+          <button type="submit">Import missing seed recipes</button>
+        </form>
+      </div>
+    </section>
     <div style="display:grid;grid-template-columns:minmax(340px,420px) minmax(0,1fr);gap:18px;align-items:start;">
       <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
         <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
@@ -1961,6 +1988,22 @@ def admin_content_delete_recipe(
         return _admin_redirect("/admin/content/recipes", q=q, meal_type=meal_type, status="recipe_deleted")
     except HTTPException as exc:
         return _admin_redirect("/admin/content/recipes", q=q, meal_type=meal_type, error=str(exc.detail or "Recipe delete failed"))
+
+
+@app.post("/admin/content/recipes/seed")
+def admin_content_seed_recipes(
+    csrf_token: str = Form(...),
+    q: str | None = Form(default=None),
+    meal_type: str | None = Form(default=None),
+    limit: int = Form(default=50),
+    principal: Any = Depends(require_content_admin),
+):
+    _verify_admin_csrf_token(principal, csrf_token, "content-recipe-seed")
+    try:
+        admin_seed_recipes(force=False, principal=principal)
+        return _admin_redirect("/admin/content/recipes", q=q, meal_type=meal_type, limit=limit, status="recipe_seeded")
+    except Exception as exc:
+        return _admin_redirect("/admin/content/recipes", q=q, meal_type=meal_type, limit=limit, error=f"Recipe seed import failed: {exc}")
 
 
 @app.get("/admin/content/price-rules", response_class=HTMLResponse)
@@ -2761,6 +2804,25 @@ def admin_list_recipes(
 ):
     items = database.list_admin_recipes(q=q, meal_type=meal_type, limit=limit)
     return {"items": items, "count": len(items)}
+
+
+@app.get("/admin/recipes/status")
+def admin_recipe_catalog_status(_: Any = Depends(require_content_admin)):
+    return database.get_recipe_catalog_status()
+
+
+@app.post("/admin/recipes/seed")
+def admin_seed_recipes(force: bool = False, principal: Any = Depends(require_content_admin)):
+    summary = database.seed_recipes(force_reseed=force)
+    _invalidate_plan_cache()
+    database.log_admin_action(
+        "recipe.seed",
+        actor=str(principal.get("actor") or "admin"),
+        resource_type="recipe_catalog",
+        resource_id=str(summary.get("sourcePath") or "recipes.json"),
+        details=summary,
+    )
+    return {"status": "ok", **summary}
 
 
 @app.get("/admin/recipes/{recipe_id}", response_model=RecipeDetail)

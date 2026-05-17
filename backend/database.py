@@ -165,6 +165,9 @@ def _schema_bootstrap_lock(conn):
     cur.execute("SELECT pg_advisory_lock(%s)", (SCHEMA_BOOTSTRAP_LOCK_KEY,))
     try:
         yield
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         cur.execute("SELECT pg_advisory_unlock(%s)", (SCHEMA_BOOTSTRAP_LOCK_KEY,))
 
@@ -399,9 +402,32 @@ def _normalize_feedback_message(message: str) -> str:
     return text
 
 
+def _trim_oversized_feedback_messages(conn) -> None:
+    cur = conn.cursor()
+    if _use_postgres():
+        cur.execute(
+            """
+            UPDATE feedback
+            SET message = LEFT(message, %s)
+            WHERE char_length(message) > %s
+            """,
+            (FEEDBACK_MESSAGE_MAX_CHARS, FEEDBACK_MESSAGE_MAX_CHARS),
+        )
+        return
+    cur.execute(
+        """
+        UPDATE feedback
+        SET message = substr(message, 1, ?)
+        WHERE length(message) > ?
+        """,
+        (FEEDBACK_MESSAGE_MAX_CHARS, FEEDBACK_MESSAGE_MAX_CHARS),
+    )
+
+
 def _ensure_feedback_constraints(conn) -> None:
     cur = conn.cursor()
     cur.execute(_create_feedback_table_sql())
+    _trim_oversized_feedback_messages(conn)
     if _use_postgres():
         cur.execute(
             """
@@ -3059,84 +3085,171 @@ def get_sample_recipes(limit: int = 3):
     finally:
         conn.close()
 
-def seed_recipes():
-    recipes_path = "recipes.json"
-    if not os.path.exists(recipes_path):
-        alt_path = os.path.join(os.path.dirname(__file__), "recipes.json")
-        if os.path.exists(alt_path):
-            recipes_path = alt_path
-        else:
-            return
 
-    force_reseed = os.getenv("PCOSINA_FORCE_RESEED", "").strip().lower() in ("1", "true", "yes")
+def _resolve_recipe_seed_path(source_path: str | None = None) -> str | None:
+    candidates = []
+    if source_path:
+        candidates.append(source_path)
+    else:
+        candidates.extend([
+            "recipes.json",
+            os.path.join(os.path.dirname(__file__), "recipes.json"),
+        ])
+    for candidate in candidates:
+        if candidate and os.path.exists(candidate):
+            return candidate
+    return None
 
+
+def _load_seed_recipes(source_path: str | None = None) -> tuple[str | None, list[dict]]:
+    recipes_path = _resolve_recipe_seed_path(source_path)
+    if not recipes_path:
+        return None, []
     with open(recipes_path, "r", encoding="utf-8") as f:
         recipes = json.load(f)
+    if not isinstance(recipes, list):
+        raise ValueError("Recipe seed file must contain a JSON array")
+    return recipes_path, recipes
+
+
+def _recipe_id_set(conn) -> set[str]:
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM recipes")
+    rows = cur.fetchall()
+    ids: set[str] = set()
+    for row in rows:
+        raw_id = row.get("id") if isinstance(row, dict) else row[0]
+        if raw_id:
+            ids.add(str(raw_id))
+    return ids
+
+
+def get_recipe_catalog_status(source_path: str | None = None) -> Dict[str, Any]:
+    recipes_path, seed_recipes_raw = _load_seed_recipes(source_path)
+    seed_ids = {str(r.get("id") or "").strip() for r in seed_recipes_raw if str(r.get("id") or "").strip()}
+    conn = _connect()
+    try:
+        db_ids = _recipe_id_set(conn)
+        return {
+            "databaseCount": len(db_ids),
+            "seedSourcePath": recipes_path,
+            "seedSourceCount": len(seed_recipes_raw),
+            "seedSourceIdCount": len(seed_ids),
+            "missingSeedCount": len(seed_ids - db_ids),
+            "extraDatabaseCount": len(db_ids - seed_ids) if seed_ids else len(db_ids),
+        }
+    finally:
+        conn.close()
+
+
+def seed_recipes(source_path: str | None = None, force_reseed: bool | None = None) -> Dict[str, Any]:
+    recipes_path, recipes = _load_seed_recipes(source_path)
+    if not recipes_path:
+        return {
+            "sourcePath": None,
+            "sourceCount": 0,
+            "beforeCount": get_recipe_count(),
+            "afterCount": get_recipe_count(),
+            "insertedCount": 0,
+            "updatedCount": 0,
+            "skippedExistingCount": 0,
+            "forceReseed": bool(force_reseed),
+        }
+
+    if force_reseed is None:
+        force_reseed = os.getenv("PCOSINA_FORCE_RESEED", "").strip().lower() in ("1", "true", "yes")
+
     medians = _compute_nutrition_medians(recipes)
 
     conn = _connect()
-    cursor = conn.cursor()
-    if _use_postgres() and dict_row is not None:
-        cursor = conn.cursor(row_factory=dict_row)
-    if _use_postgres():
-        insert_sql = '''
-            INSERT INTO recipes (
-                id, title, meal_type, calories, protein, carbs, fats, fiber, 
-                tags, minutes, ingredients_json, steps_json
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (id) DO UPDATE SET
-                title = EXCLUDED.title,
-                meal_type = EXCLUDED.meal_type,
-                calories = EXCLUDED.calories,
-                protein = EXCLUDED.protein,
-                carbs = EXCLUDED.carbs,
-                fats = EXCLUDED.fats,
-                fiber = EXCLUDED.fiber,
-                tags = EXCLUDED.tags,
-                minutes = EXCLUDED.minutes,
-                ingredients_json = EXCLUDED.ingredients_json,
-                steps_json = EXCLUDED.steps_json
-        '''
-    else:
-        insert_sql = '''
-            INSERT OR REPLACE INTO recipes (
-                id, title, meal_type, calories, protein, carbs, fats, fiber, 
-                tags, minutes, ingredients_json, steps_json
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        '''
-
-    # For Postgres, avoid full reseed only when counts are already up-to-date.
-    # This keeps startup fast while still syncing new recipes added to recipes.json.
+    inserted_count = 0
+    updated_count = 0
+    skipped_existing_count = 0
     try:
-        if _use_postgres() and not force_reseed:
-            existing_count = _recipe_count(conn)
-            if existing_count >= len(recipes):
-                return
-            print(f"DATABASE SYNC NEEDED: db={existing_count}, file={len(recipes)}")
-    except Exception:
-        pass
+        before_count = _recipe_count(conn)
+        existing_ids = _recipe_id_set(conn)
+        cursor = conn.cursor()
+        if _use_postgres():
+            conflict_sql = """
+                DO UPDATE SET
+                    title = EXCLUDED.title,
+                    meal_type = EXCLUDED.meal_type,
+                    calories = EXCLUDED.calories,
+                    protein = EXCLUDED.protein,
+                    carbs = EXCLUDED.carbs,
+                    fats = EXCLUDED.fats,
+                    fiber = EXCLUDED.fiber,
+                    tags = EXCLUDED.tags,
+                    minutes = EXCLUDED.minutes,
+                    ingredients_json = EXCLUDED.ingredients_json,
+                    steps_json = EXCLUDED.steps_json
+            """ if force_reseed else "DO NOTHING"
+            insert_sql = f'''
+                INSERT INTO recipes (
+                    id, title, meal_type, calories, protein, carbs, fats, fiber,
+                    tags, minutes, ingredients_json, steps_json
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) {conflict_sql}
+            '''
+        else:
+            insert_sql = f'''
+                INSERT {"OR REPLACE" if force_reseed else "OR IGNORE"} INTO recipes (
+                    id, title, meal_type, calories, protein, carbs, fats, fiber,
+                    tags, minutes, ingredients_json, steps_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            '''
 
-    for r in recipes:
-        nut = r.get("nutrition", {})
-        cal, prot, carb, fat, fiber = _normalize_nutrition(nut, medians)
+        for r in recipes:
+            recipe_id = str(r.get("id") or "").strip()
+            if not recipe_id:
+                continue
+            already_exists = recipe_id in existing_ids
+            if already_exists and not force_reseed:
+                skipped_existing_count += 1
+                continue
 
-        tags = _infer_tags(r)
-        cursor.execute(insert_sql, (
-            r.get("id"),
-            r.get("name") or r.get("title") or "Unnamed",
-            r.get("mealType", "Universal"),
-            cal, prot, carb, fat, fiber,
-            ",".join(tags),
-            r.get("minutes", 25),
-            json.dumps(r.get("ingredients", [])),
-            json.dumps(r.get("instructions", []) or r.get("steps", []))
-        ))
+            nut = r.get("nutrition", {})
+            cal, prot, carb, fat, fiber = _normalize_nutrition(nut, medians)
 
-    conn.commit()
-    conn.close()
-    print(f"DATABASE SYNCED: {len(recipes)} recipes ready for MILP Brain.")
+            tags = _infer_tags(r)
+            cursor.execute(insert_sql, (
+                recipe_id,
+                r.get("name") or r.get("title") or "Unnamed",
+                r.get("mealType", "Universal"),
+                cal, prot, carb, fat, fiber,
+                ",".join(tags),
+                r.get("minutes", 25),
+                json.dumps(r.get("ingredients", [])),
+                json.dumps(r.get("instructions", []) or r.get("steps", []))
+            ))
+            if already_exists:
+                updated_count += 1
+            else:
+                inserted_count += 1
+                existing_ids.add(recipe_id)
+
+        conn.commit()
+        after_count = _recipe_count(conn)
+        summary = {
+            "sourcePath": recipes_path,
+            "sourceCount": len(recipes),
+            "beforeCount": before_count,
+            "afterCount": after_count,
+            "insertedCount": inserted_count,
+            "updatedCount": updated_count,
+            "skippedExistingCount": skipped_existing_count,
+            "forceReseed": bool(force_reseed),
+        }
+        print(
+            "DATABASE SYNCED: "
+            f"{after_count} recipes ready for MILP Brain "
+            f"({inserted_count} inserted, {updated_count} updated, {skipped_existing_count} kept)."
+        )
+        return summary
+    finally:
+        conn.close()
 
 
 def _nutrition_correction_row_to_dict(row: Any) -> Dict[str, Any]:

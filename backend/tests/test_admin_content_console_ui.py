@@ -80,6 +80,8 @@ def test_content_admin_recipe_console_html_crud():
             page = client.get("/admin/content/recipes")
             assert page.status_code == 200
             assert "Recipe Operations" in page.text
+            assert "Catalog Status" in page.text
+            assert "Import missing seed recipes" in page.text
             assert "csrf_token" in page.text
 
             save_token = main._build_admin_csrf_token(principal, "content-recipe-save")
@@ -143,6 +145,48 @@ def test_content_admin_recipe_console_html_crud():
             )
             assert delete.status_code == 303
             assert database.get_recipe_by_id(recipe_id) is None
+    finally:
+        main.app.dependency_overrides = {}
+
+
+def test_content_admin_recipe_console_seed_import(monkeypatch):
+    db_path = _temp_db_path()
+    database.DATABASE_URL = ""
+    database.DB_NAME = str(db_path)
+    database.init_db()
+
+    principal = _content_admin_principal()
+    main.app.dependency_overrides[main.require_content_admin] = lambda: principal
+    calls = []
+
+    def fake_seed_recipes(*, force_reseed=False):
+        calls.append(force_reseed)
+        return {
+            "sourcePath": "backend/recipes.json",
+            "sourceCount": 1114,
+            "beforeCount": 0,
+            "afterCount": 1114,
+            "insertedCount": 1114,
+            "updatedCount": 0,
+            "skippedExistingCount": 0,
+            "forceReseed": force_reseed,
+        }
+
+    monkeypatch.setattr(main.database, "seed_recipes", fake_seed_recipes)
+
+    try:
+        with TestClient(main.app) as client:
+            calls.clear()
+            token = main._build_admin_csrf_token(principal, "content-recipe-seed")
+            response = client.post(
+                "/admin/content/recipes/seed",
+                data={"csrf_token": token, "q": "tinola", "meal_type": "Dinner", "limit": "50"},
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 303
+        assert "status=recipe_seeded" in response.headers["location"]
+        assert calls == [False]
     finally:
         main.app.dependency_overrides = {}
 

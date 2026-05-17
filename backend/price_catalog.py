@@ -674,6 +674,7 @@ def estimate_recipe_cost(
                     estimate = pricing_context._ingredient_price_cache.get(cache_key)
                     if estimate is not None:
                         pricing_context.ingredient_price_cache_hits += 1
+                        pricing_context.market_multiplier_cache_hits += 1
                     else:
                         pricing_context.ingredient_price_cache_misses += 1
                         estimate = estimate_price_explained(

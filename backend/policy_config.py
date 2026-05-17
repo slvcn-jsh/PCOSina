@@ -116,8 +116,6 @@ class PlanningPolicy(BaseModel):
         default_factory=lambda: [
             "daily_tolerance_percent",
             "recipe_repeat_limits",
-            "budget_constraint",
-            "prep_time_preference",
         ]
     )
 

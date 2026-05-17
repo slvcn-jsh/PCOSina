@@ -451,6 +451,7 @@ fun AppNavHost(
         if (!session.isLoggedIn || !profileReadyForRouting) return@LaunchedEffect
         val route = currentRoute?.destination?.route ?: return@LaunchedEffect
         val baseRoute = Routes.baseRoute(route)
+        val isSharedMethodologyRoute = baseRoute == Routes.AdminMethodology
         if (Routes.isAuthRoute(route)) return@LaunchedEffect
         if (!Routes.isKnownRoute(route)) {
             val base = Routes.baseRoute(route).orEmpty()
@@ -480,7 +481,7 @@ fun AppNavHost(
             }
             return@LaunchedEffect
         }
-        if (operatorAuthorized.value && operatorAccessResolved.value && !isOperatorRoute(route)) {
+        if (operatorAuthorized.value && operatorAccessResolved.value && !isOperatorRoute(route) && !isSharedMethodologyRoute) {
             if (!adminMode) {
                 userViewModel.setAdminMode(true)
             }
@@ -754,7 +755,7 @@ fun AppNavHost(
                 mealPlanViewModel = mealPlanViewModel,
                 onBack = {
                     if (!navController.popBackStack()) {
-                        navigateInternal(Routes.OperatorDashboard)
+                        navigateInternal(if (adminMode) Routes.OperatorDashboard else Routes.Dashboard)
                     }
                 },
                 modifier = Modifier.fillMaxSize(),

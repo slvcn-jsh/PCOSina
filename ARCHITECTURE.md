@@ -27,6 +27,8 @@ Local persistence today is primarily preference and artifact oriented rather tha
 - `AuthRepository.kt` uses DataStore for session persistence
 - `ReflectionStore.kt` uses encrypted shared preferences for on-device reflection content
 
+Android does not currently use Room or SQLite as its mobile database. For thesis and defense wording, describe the mobile side as an offline-first local persistence layer: Jetpack DataStore, encrypted shared preferences, and local artifacts.
+
 ### Backend authority
 
 Primary module: `backend/`
@@ -46,6 +48,8 @@ Key areas:
   schema, migrations, data access, and environment-specific database mode
 - `backend/worker_plan_jobs.py`
   async planning worker path
+
+Production backend persistence is PostgreSQL. The Render blueprint provisions a managed Postgres database and injects `DATABASE_URL` into both the web service and worker. SQLite remains only a local development and automated testing fallback; production startup/readiness fails closed without a valid Postgres connection string.
 
 ### ML and training
 

@@ -180,6 +180,15 @@ Support cases carry operator handoff metadata:
 - schema status cannot be evaluated, or
 - any tracked application or policy migration remains pending after bootstrap
 
+## Database Stance
+
+PCOSINA uses two persistence layers:
+
+- Android local persistence: Jetpack DataStore, encrypted shared preferences, and local artifact storage for offline-first app state. The Android client is not Room/SQLite based.
+- Backend production database: PostgreSQL through `DATABASE_URL`. `render.yaml` provisions managed Postgres and passes the connection string to both the FastAPI web service and the worker.
+
+SQLite is retained only for local development and automated tests through `PCOSINA_DB_NAME`. In production, the backend and policy store refuse the SQLite fallback and readiness reports fail unless `DATABASE_URL` uses a valid `postgres://` or `postgresql://` scheme.
+
 ## Environment Variables
 
 Core environment switches (non-policy):

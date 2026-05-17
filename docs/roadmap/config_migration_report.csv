@@ -23,7 +23,7 @@ N/A (new explicit policy control),planning.grocery_cost_weight,1,0..100,medium,a
 N/A (new explicit policy control),planning.prep_time_weight,1,0..100,medium,admin_only,externalized into typed policy schema
 N/A (new explicit policy control),planning.acceptance_score_weight,1,0..100,medium,admin_only,externalized into typed policy schema
 N/A (new explicit policy control),planning.substitution_penalty,2,0..100,medium,admin_only,externalized into typed policy schema
-N/A (new explicit policy control),planning.infeasibility_relaxation_order,"['daily_tolerance_percent', 'recipe_repeat_limits', 'budget_constraint', 'prep_time_preference']",non-empty string[],medium,admin_only,externalized into typed policy schema
+N/A (new explicit policy control),planning.infeasibility_relaxation_order,"['daily_tolerance_percent', 'recipe_repeat_limits']",supported retry dimensions only,medium,admin_only,externalized into typed policy schema
 backend/services/meal_planner.py: shortlist limit constants,stage1.max_candidates_per_slot,120,10..5000,high,admin_only_guarded,controls stage-1 tractability
 backend/services/meal_planner.py: shortlist_keep_ratio,stage1.ranking_cutoff,0.8,0.01..1.0,medium,admin_only,budget-aware shortlist retain ratio
 N/A (new explicit policy control),stage1.similarity_threshold,0.85,0..1.0,medium,admin_only,externalized into typed policy schema

@@ -47,7 +47,7 @@ Close with what we built, why it matters, and next steps. Reiterate decision-sup
 - **Q:** How do you ensure plans are culturally relevant?
   **A:** We use Filipino recipes and align nutrition guidance with local dietary practices, so recommended meals reflect familiar foods and portioning.
 - **Q:** What happens when constraints are too strict?
-  **A:** The system reports infeasibility and suggests adjustments, and a heuristic fallback can be used to still provide a plan.
+  **A:** The system reports `no-safe-plan`, explains likely blockers, and suggests safe non-safety relaxations. It does not force a greedy or partial plan as authoritative output.
 - **Q:** How is nutritional accuracy validated?
   **A:** We perform computation precision testing using absolute and percent error versus manual calculations and dietitian reference values.
 - **Q:** What ISO/IEC 25010 criteria were used?

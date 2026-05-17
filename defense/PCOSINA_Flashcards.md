@@ -34,7 +34,7 @@ A: /generate-plan, /recipe/{id}, /recipes/summary, /health, /feedback.
 
 Card 09
 Q: What happens if the plan is infeasible?
-A: Backend returns 422; user relaxes constraints.
+A: Backend returns `status=no-safe-plan` with reason codes, diagnostics, and safe relaxation guidance.
 
 Card 10
 Q: How is variety enforced?

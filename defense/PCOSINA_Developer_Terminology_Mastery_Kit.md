@@ -90,7 +90,7 @@ This kit is grounded in the current PCOSINA codebase. If a term is not directly 
 | HTTP 404 | Not found error. | `backend/main.py` | Missing recipes. | When do you return 404? | Recipe ID not found. |
 | HTTP 409 | Conflict error. | `backend/main.py` | Schema mismatch. | When do you return 409? | Client schema version mismatch. |
 | HTTP 413 | Payload too large. | `backend/main.py` | Prevents large requests. | Why 413? | Request size exceeds `MAX_REQUEST_BYTES`. |
-| HTTP 422 | Unprocessable entity. | `backend/main.py` | Infeasible plan. | When do you return 422? | No feasible meal plan found. |
+| No-safe-plan status | Explicit response status. | `backend/main.py` | Infeasible or timed-out plan generation. | What if no feasible plan exists? | Response stays structured with `status=no-safe-plan`. |
 | HTTP 500 | Internal error. | `backend/main.py` | Unexpected server errors. | When do you return 500? | Unhandled exceptions in API logic. |
 | Firebase Admin SDK | Server-side auth verification. | `backend/main.py` | Validates client tokens. | How are tokens verified? | `auth.verify_id_token` in Firebase Admin. |
 | ID Token | Firebase identity token. | `backend/main.py` | Authenticates API requests. | What is sent to backend? | Bearer token from Firebase client. |
@@ -107,12 +107,12 @@ This kit is grounded in the current PCOSINA codebase. If a term is not directly 
 | Integer Variable | Bounded integer variable. | `meal_planner.py` | Tracks penalties and slack. | Why integer vars? | For overuse and deviation penalties. |
 | Objective Function | Minimization target. | `meal_planner.py` | Balances nutrition, cost, diversity. | What is optimized? | Deviations plus penalties minus rewards. |
 | Constraint | Rule that must hold. | `meal_planner.py` | Enforces one meal per slot. | Give a hard constraint. | Each slot selects exactly one recipe. |
-| Hard Constraint | Must be satisfied. | `meal_planner.py` | Enforces slot selection and repeats. | Which constraints are hard? | Slot assignment and max repeats. |
-| Soft Constraint | Allowed violation with penalty. | `meal_planner.py` | Diversity and budget allow slack. | Which constraints are soft? | Diversity and budget are penalized. |
+| Hard Constraint | Must be satisfied. | `meal_planner.py` | Enforces slot selection, repeats, and configured budget caps. | Which constraints are hard? | Slot assignment, max repeats, and weekly budget caps when configured. |
+| Soft Constraint | Allowed deviation with penalty or reward. | `meal_planner.py` | Guides nutrition, diversity, prep-time, and pantry tradeoffs. | Which constraints are soft? | Nutrition deviations, diversity, prep-time, and pantry rewards/penalties. |
 | Penalty | Added cost for violations. | `meal_planner.py` | Guides solver tradeoffs. | Why penalties? | They allow feasible plans when strict rules fail. |
 | Reward | Negative cost for desired traits. | `meal_planner.py` | Encourages pantry and diversity. | How do you promote pantry use? | Rewards pantry matches in the objective. |
 | Tolerance Levels | Relaxation bounds for macros. | `meal_planner.py` | Improves feasibility. | Why multiple tolerances? | Wider bounds if strict bounds fail. |
-| Feasible Solution | Satisfies all hard constraints. | `meal_planner.py` | Minimum acceptable result. | What if no feasible plan? | Return 422 or fallback if enabled. |
+| Feasible Solution | Satisfies all hard constraints. | `meal_planner.py` | Minimum acceptable result. | What if no feasible plan? | Return structured no-safe-plan guidance and diagnostics. |
 | Optimal Solution | Best objective value. | `meal_planner.py` | Produces best tradeoff plan. | Do you always get optimal? | It returns feasible or optimal within time. |
 | Solver Time Limit | Max solve time. | `meal_planner.py` | Keeps response time bounded. | How do you limit solver time? | `max_time_in_seconds` parameter. |
 | Search Workers | Parallel solver threads. | `meal_planner.py` | Speeds up solving. | How do you scale solver? | Set `num_search_workers` based on CPU. |
@@ -120,7 +120,7 @@ This kit is grounded in the current PCOSINA codebase. If a term is not directly 
 | Diversity Constraint | Ensures ingredient variety. | `meal_planner.py` | Avoids repeated vegetables. | How do you enforce variety? | Soft constraints on veg token coverage. |
 | Protein Group Limit | Soft cap by protein group. | `meal_planner.py` | Avoids too much of one protein. | How do you prevent monotony? | Penalties when group count exceeds limit. |
 | Pantry Match | Count of matched pantry items. | `meal_planner.py` | Reduces waste. | How is pantry used? | Ingredient tokens matched and rewarded. |
-| Budget Penalty | Cost overrun penalty. | `meal_planner.py` | Controls total spend. | How do you handle budget? | Penalize total cost beyond weekly budget. |
+| Budget Cap | Hard weekly cost ceiling when budget exists. | `meal_planner.py` | Prevents plans from exceeding configured budget estimates. | How do you handle budget? | Enforce `total_cost <= weeklyBudget` and optionally optimize cost for budget priority. |
 ### Data, Deployment, Monitoring, Evaluation (101-126)
 | Term | Definition | Where In PCOSINA | Why It Matters | Common Panel Question | Strong Sample Answer |
 |---|---|---|---|---|---|
@@ -176,17 +176,17 @@ Relationship highlights:
 | Decision variable | A yes or no choice for each meal slot. | `meal_planner.py` variables `x[s,i]`. |
 | Objective function | The score the solver tries to minimize. | `meal_planner.py` `model.Minimize`. |
 | Hard constraint | A rule that cannot be broken. | One recipe per slot, repeat cap. |
-| Soft constraint | A rule that can break with a penalty. | Diversity, budget, pantry. |
-| Penalty | Extra cost added when rules are violated. | `budget_over`, `group_over`, `repeat_over`. |
+| Soft constraint | A preference or target that can deviate with a penalty or reward. | Diversity, nutrition deviations, pantry. |
+| Penalty | Extra cost added when soft targets deviate. | `group_over`, `repeat_over`, nutrition deviation variables. |
 | Reward | Negative cost for desired traits. | Pantry matches and veg coverage. |
 | Tolerance | Acceptable range for nutrition targets. | `PCOSINA_TOLERANCE_LEVELS`. |
 | Feasibility | All hard constraints satisfied. | `cp_model.FEASIBLE`. |
 | Optimality | Best possible score found. | `cp_model.OPTIMAL`. |
 | Solver timeout | Max time the solver can run. | `PCOSINA_SOLVER_TIME_SECONDS`. |
-| Fallback heuristic | Simple plan if solver fails. | `_greedy_fallback_plan`. |
+| Fallback heuristic | Deprecated helper retained for benchmark baselines, not production authority. | `_greedy_fallback_plan`. |
 | Warm-start hint | Suggests good initial picks. | `model.AddHint`. |
 | Diversity constraint | Encourages variety in ingredients. | `veg_cov` and `diversity_slack`. |
-| Budget penalty | Penalizes cost beyond budget. | `budget_over` term. |
+| Budget cap | Enforces estimated weekly cost ceiling when budget exists. | `model.Add(total_cost <= int(budget_weekly))`. |
 
 ### Defense-level explanation
 | Term | Defense-level Explanation | Where To Point |
@@ -194,14 +194,14 @@ Relationship highlights:
 | Decision variable | Binary variables `x[s,i]` encode selection of recipe i for slot s. | `meal_planner.py`. |
 | Objective function | Minimize total deviation from calorie and macro targets plus penalties for repeats and cost, minus pantry and diversity rewards. | `model.Minimize` block. |
 | Hard constraint | Slot assignment equalities and max-per-week ensure valid plan structure. | `model.Add(sum(...) == 1)`, `<= max_per_week`. |
-| Soft constraint | Diversity and budget are modeled with slack variables to avoid infeasibility. | `diversity_slack`, `budget_over`. |
+| Soft constraint | Diversity, nutrition deviations, prep-time burden, and pantry use are modeled with penalties or rewards; the weekly budget cap remains hard. | `diversity_slack`, `pantry_min_slack`, nutrition deviation variables. |
 | Penalty weights | Weights scale priorities such as repeats and protein group balance. | `repeat_weight`, `group_weight`. |
 | Tolerance relaxation | Iterates tolerances and repeat caps to widen feasible region when strict constraints fail. | `tolerance_levels`, `PCOSINA_MAX_PER_WEEK`. |
 | Feasible vs optimal | Solver may return feasible when time-limited; both are accepted. | `cp_model.FEASIBLE` handling. |
 | Timeout strategy | `total_time_limit` bounds overall solve to keep API responsive. | `PCOSINA_TOTAL_SOLVER_SECONDS`. |
-| Fallback logic | Optional greedy plan used if solver is infeasible or timed out. | `_greedy_fallback_plan` and `PCOSINA_ALLOW_FALLBACK`. |
+| Fallback logic | Production returns structured no-safe-plan diagnostics if CP-SAT cannot form a safe complete plan. | `build_no_safe_plan_response`. |
 | Diversity constraints | Soft caps on protein groups plus vegetable token coverage for variety. | `group_over`, `veg_cov`. |
-| Budget handling | Estimates per-recipe cost and penalizes weekly total overshoot. | `estimate_cost`, `budget_over`. |
+| Budget handling | Estimates per-recipe cost, enforces a hard weekly cap when configured, and only optimizes cost directly for budget-priority profiles. | `estimate_cost`, `model.Add(total_cost <= int(budget_weekly))`. |
 
 ## 4) If Panel Asks: Defense Simulation (50 questions)
 
@@ -209,7 +209,7 @@ Relationship highlights:
 |---|---|---|---|
 | Why use CP-SAT over greedy only? | It guarantees feasibility under constraints. | CP-SAT handles hard and soft constraints with penalties, unlike greedy which can violate targets. | Greedy is always enough. |
 | Is this a machine learning model? | No, it is constraint optimization. | We use OR-Tools CP-SAT with binary variables and penalties, not ML. | Yes, MILP is machine learning. |
-| What happens when no feasible plan exists? | The API returns 422. | We return 422 with infeasibility, or fallback if enabled. | It always finds a plan. |
+| What happens when no feasible plan exists? | The API returns `status=no-safe-plan`. | We return structured reason codes, diagnostics, and safe relaxation guidance instead of forcing a plan. | It always finds a plan. |
 | How do you handle offline use? | DataStore stores plans and logs locally. | Plans, grocery list, and journals persist locally via DataStore and encrypted prefs. | Offline is not supported. |
 | Where is authentication enforced? | Backend verifies Firebase ID tokens. | App sends bearer token; backend verifies with Firebase Admin. | We just trust the client. |
 | How do you version the API contract? | Header `X-PCOSINA-Schema-Version`. | Client sends header, server returns version and rejects mismatches. | No versioning. |
@@ -220,7 +220,7 @@ Relationship highlights:
 | How do you prevent repeated meals? | Max-per-week and adjacency constraints. | `max_per_week` and consecutive slot constraints reduce repetition. | We ignore repeats. |
 | How is calorie target computed? | Mifflin-St Jeor formula. | Uses weight, height, age, activity, and goal adjustment. | We guess calories. |
 | Where is this calculation? | `HealthMetrics.kt` and `meal_planner.py`. | App has BMR utilities; backend uses similar formula. | Only in UI. |
-| How do you handle budget? | Penalize cost overrun. | Estimated cost per recipe summed and penalized beyond weekly budget. | We do not use budget. |
+| How do you handle budget? | Enforce a hard cap when configured. | Estimated cost per recipe is summed and constrained by weekly budget; budget priority can also optimize cost. | We do not use budget. |
 | What is the pantry feature? | Reward recipes that match pantry items. | Ingredient tokens matched against pantry and rewarded in objective. | Pantry is ignored. |
 | How do you reduce food waste? | Pantry rewards and grocery consolidation. | Pantry match reward plus consolidated grocery list by categories. | We do not target waste. |
 | How are recipes stored? | In backend DB. | `recipes.json` seeds SQLite or Postgres. | Only in the app. |
@@ -241,7 +241,7 @@ Relationship highlights:
 | Is it explainable? | Yes, through constraints and scores. | Explanation includes targets, deviations, and confidence. | It is a black box. |
 | How do you handle missing nutrients? | Use placeholders on seed. | Seeding logic fills missing values to keep planning possible. | We do nothing. |
 | What is the plan cache? | Cache for identical requests. | `_plan_cache` with TTL and size limit. | No cache exists. |
-| Why do you allow fallback? | To avoid total failure in demos. | Optional heuristic plan if MILP times out. | Fallback is always used. |
+| Why do you have fallback handling? | To explain infeasibility safely. | The production fallback path returns no-safe-plan diagnostics and guidance without forcing a plan. | Fallback is always used. |
 | How is auth session persisted? | DataStore in `AuthRepository`. | Session stored under `auth_prefs`. | We rely on memory only. |
 | Where is grocery consolidation stored? | DataStore keys under user ID. | `UserPreferencesRepository.kt` grocery JSON. | Only on server. |
 | What is the base URL? | Backend endpoint address. | BuildConfig `BASE_URL`. | It is hardcoded in code. |
@@ -253,7 +253,7 @@ Relationship highlights:
 | What is role of `PlanInstance`? | Identifies plan history locally. | `app/src/main/java/com/pcosina/app/data/model/PlanInstance.kt`. | Unused. |
 | What is the app main flow? | Login -> onboarding -> dashboard -> plan. | `AppNavHost.kt` guards flow. | Starts on dashboard always. |
 | What are evaluation criteria? | ISO/IEC 25010 categories. | Chapter docs. | We did not evaluate. |
-| What does 422 mean? | Valid request but no feasible plan. | Used for infeasible optimization. | Server crash. |
+| What does no-safe-plan mean? | Valid request but no complete safe plan. | Used for infeasible or timed-out optimization with reason codes and guidance. | Server crash. |
 | What is the daily target? | Calories per day after goal adjustment. | `meal_planner.py` daily targets. | Fixed 2000 calories. |
 | How is variety enforced? | Soft diversity and protein group caps. | `group_over`, `veg_cov`. | We pick random recipes. |
 
@@ -281,7 +281,7 @@ Relationship highlights:
 - State stack: MVVM, ViewModel, StateFlow, collectAsState, LaunchedEffect.
 - Data stack: DataStore, EncryptedSharedPreferences, Session, Repository.
 - Network stack: Retrofit, OkHttp, DTO, schema header, auth header.
-- Backend stack: FastAPI, Pydantic, endpoints, 422, 409.
+- Backend stack: FastAPI, Pydantic, endpoints, no-safe-plan, 409.
 - Optimizer stack: CP-SAT, decision variable, constraint, objective, penalty, tolerance, fallback.
 - Ops stack: Render, Sentry, GitHub Actions.
 
@@ -289,13 +289,13 @@ Relationship highlights:
 - Q: What is CP-SAT? A: OR-Tools solver used for constraint optimization.
 - Q: What is `x[s,i]`? A: Binary decision variable for recipe i in slot s.
 - Q: What is a hard constraint? A: A rule that must always be satisfied.
-- Q: What is a soft constraint? A: A rule allowed to break with penalty.
+- Q: What is a soft constraint? A: A target or preference handled through penalties or rewards.
 - Q: Why DataStore? A: Offline-first key-value persistence.
 - Q: Where is navigation defined? A: `AppNavHost.kt`.
-- Q: What does 422 mean here? A: Infeasible plan.
+- Q: What does no-safe-plan mean here? A: No complete safe plan was found, so guidance is returned.
 - Q: How is auth enforced? A: Firebase ID tokens verified on backend.
 - Q: What is the plan cache? A: TTL cache for identical plan requests.
-- Q: What is the fallback? A: Greedy heuristic plan if solver fails.
+- Q: What is the fallback? A: Structured no-safe-plan guidance if CP-SAT fails.
 - Q: What is schema versioning? A: Header check for API compatibility.
 - Q: Where are recipes stored? A: `recipes.json` seeded into DB.
 - Q: What is a DTO? A: API data class for network calls.
@@ -344,7 +344,7 @@ Relationship highlights:
 17. Routes
 18. FastAPI
 19. Pydantic
-20. HTTP 422
+20. No-safe-plan status
 21. `GeneratePlanResponse`
 22. Pantry reward
 23. Diversity constraint

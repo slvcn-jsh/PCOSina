@@ -8,7 +8,7 @@ The architecture separates the user interface, optimization logic, and data stor
 ## Technical Summary (1 page)
 PCOSINA uses Kotlin and Jetpack Compose with ViewModels for state management. DataStore stores profiles, plans, groceries, and feedback queues. EncryptedSharedPreferences stores reflections and weekly journals. The backend is FastAPI with a CP-SAT solver that implements a two-stage MILP optimization pipeline. Recipes are seeded from `backend/recipes.json` into SQLite by default, with optional Postgres via `DATABASE_URL`. Deployment uses Render for the backend, and Firebase for authentication and analytics on the Android client.
 
-The algorithm filters recipes by restrictions, pantry match, and estimated cost, then optimizes a weekly plan across daily meal slots using macro deviation penalties, budget penalties, repeat limits, and diversity incentives. An optional greedy fallback exists but is disabled unless explicitly enabled. Offline-first behavior means users can view saved plans, groceries, and logs without connectivity; generating a new plan still requires the backend. Security uses Firebase ID tokens, schema version validation, request size limits, and admin token gating for feedback access. Performance relies on candidate shortlisting, pool caps, solver time limits, and caching.
+The algorithm filters recipes by restrictions, pantry match, and estimated cost, then optimizes a weekly plan across daily meal slots using macro deviation penalties, hard budget caps when configured, repeat limits, and diversity incentives. If no complete safe plan can be solved, production returns structured `no-safe-plan` diagnostics and guidance instead of a greedy authoritative fallback. Offline-first behavior means users can view saved plans, groceries, and logs without connectivity; generating a new plan still requires the backend. Security uses Firebase ID tokens, schema version validation, request size limits, and admin token gating for feedback access. Performance relies on candidate shortlisting, pool caps, solver time limits, and caching.
 
 ## 1) End-to-End Architecture
 ### Components and Roles
@@ -64,10 +64,10 @@ Evidence: `backend/main.py`, `backend/domain/models.py`, `backend/schema/pcosina
 
 ## 4) Full Optimization Explanation (MILP/CP-SAT)
 - Decision variables: binary `x[s,i]` for selecting recipe `i` in slot `s`.
-- Objective: minimize calorie deviation, macro deviation, repeat penalties, group penalties, budget overrun; reward pantry matches and diversity.
-- Hard constraints: one recipe per slot; no consecutive repeats; max repeats per week.
-- Soft constraints: macro tolerance, budget penalty, protein group diversity, ingredient diversity.
-- Fallback: greedy heuristic exists but is disabled unless `PCOSINA_ALLOW_FALLBACK=true`.
+- Objective: minimize calorie deviation, macro deviation, repeat penalties, group penalties, optional cost-priority terms; reward pantry matches and diversity.
+- Hard constraints: one recipe per slot; no consecutive repeats; max repeats per week; weekly budget cap when configured.
+- Soft constraints: nutrition deviations, protein group diversity, ingredient diversity, pantry rewards.
+- Fallback: production returns structured `no-safe-plan` diagnostics instead of an authoritative greedy plan.
 
 Evidence: `backend/services/meal_planner.py`.
 
@@ -122,8 +122,8 @@ Evidence: Chapter 1 Sec 1.7.4; `backend/database.py`.
 2. Why MILP not ML? MILP enforces constraints and remains explainable.
 3. What is the two-stage approach? Filter recipes then optimize weekly plan.
 4. What constraints are enforced? Calories, macros, budget, repeats, pantry, variety.
-5. How do you handle infeasible plans? Return 422 and prompt adjustments.
-6. Is there a fallback? Optional greedy fallback exists but is off by default.
+5. How do you handle infeasible plans? Return `status=no-safe-plan` with reason codes, diagnostics, and safe relaxation guidance.
+6. Is there a fallback? Yes: a structured no-safe-plan guidance path, not an authoritative greedy meal plan.
 7. What is offline-first in your app? Local storage of plans and logs; plan generation needs backend.
 8. What screens exist? Splash, Login, SignUp, Onboarding, Profile, Goal, Dashboard, MealPlan, Grocery, Progress, Settings.
 9. What are backend endpoints? `/generate-plan`, `/recipe/{id}`, `/recipes/summary`, `/feedback`, `/health`.

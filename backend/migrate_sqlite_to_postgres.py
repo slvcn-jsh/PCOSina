@@ -2,6 +2,8 @@ import os
 import json
 import sqlite3
 
+from db_url import is_postgres_database_url
+
 try:
     import psycopg
 except Exception as e:
@@ -51,7 +53,7 @@ ON CONFLICT (id) DO UPDATE SET
 def main():
     if not os.path.exists(SQLITE_DB):
         raise SystemExit(f"SQLite DB not found: {SQLITE_DB}")
-    if not DATABASE_URL.startswith("postgres"):
+    if not is_postgres_database_url(DATABASE_URL):
         raise SystemExit("DATABASE_URL must be set to a Postgres connection string")
     if psycopg is None:
         raise SystemExit("psycopg is not installed. Add psycopg[binary] to requirements.")

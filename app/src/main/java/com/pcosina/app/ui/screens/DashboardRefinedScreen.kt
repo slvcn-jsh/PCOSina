@@ -75,7 +75,6 @@ import com.pcosina.app.ui.components.LoadingActionButton
 import com.pcosina.app.ui.components.PcosinaAvatarBadge
 import com.pcosina.app.ui.components.PcosinaDesignIcon
 import com.pcosina.app.ui.components.SharedAvatarHeader
-import com.pcosina.app.ui.components.SharedTopHeader
 import com.pcosina.app.ui.navigation.Routes
 import com.pcosina.app.ui.theme.PcosinaBlush
 import com.pcosina.app.ui.theme.PcosinaDeepRose
@@ -331,11 +330,10 @@ fun DashboardRefinedScreen(
         verticalArrangement = Arrangement.spacedBy(if (compactHomeLayout) 12.dp else 14.dp)
     ) {
         item {
-            SharedTopHeader(
+            RefinedBrandHeader(
                 online = isOnline,
-                onSettings = onNavigateToSettings,
-                onNotifications = { onNavigateToRoute(Routes.Notifications) },
-                compact = compactHomeLayout,
+                onOpenSettings = onNavigateToSettings,
+                onOpenSupport = onOpenMoreTools,
             )
         }
 
@@ -594,7 +592,7 @@ private fun RefinedBrandHeader(
             )
             Spacer(Modifier.width(8.dp))
             RefinedIconAction(
-                iconRes = R.drawable.pcosina_svg_45_bell,
+                iconRes = R.drawable.pcosina_nav_support_clean,
                 contentDescription = "Support",
                 onClick = onOpenSupport
             )

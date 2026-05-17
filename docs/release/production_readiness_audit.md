@@ -242,6 +242,8 @@ Required implementation:
 
 Severity: P0
 
+Current status: remediated in the current repository. Production runtime/readiness checks now require a valid Postgres `DATABASE_URL`, and `backend/database.py` plus `backend/policy_store.py` refuse the SQLite fallback when `PCOSINA_ENV` is production.
+
 Evidence:
 
 - `backend/database.py:16`

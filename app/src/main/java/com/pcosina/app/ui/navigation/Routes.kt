@@ -46,7 +46,7 @@ object Routes {
     val OperatorRules = defineRoute("operator_rules", RouteAccess.Operator)
     val OperatorSystemInfo = defineRoute("operator_system_info", RouteAccess.Operator)
     val OperatorAdminSettings = defineRoute("operator_admin_settings", RouteAccess.Operator)
-    val AdminMethodology = defineRoute("admin_methodology", RouteAccess.Operator)
+    val AdminMethodology = defineRoute("admin_methodology", RouteAccess.GuidedCore)
 
     // Bottom tabs
     val MealPlan = defineRoute("meal_plan", RouteAccess.GuidedCore)

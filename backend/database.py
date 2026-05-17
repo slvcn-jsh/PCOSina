@@ -6,6 +6,8 @@ import uuid
 from contextlib import contextmanager
 from typing import Any, Dict, Iterable, List, Optional
 
+from db_url import is_postgres_database_url
+
 try:
     import psycopg
     from psycopg.rows import dict_row
@@ -139,10 +141,7 @@ def _normalize_nutrition(nut: dict, medians: dict) -> tuple[int, int, int, int, 
     return cal, prot, carb, fat, fiber
 
 def _use_postgres() -> bool:
-    return DATABASE_URL.startswith("postgres")
-
-def db_mode() -> str:
-    return "postgres" if _use_postgres() else "sqlite"
+    return is_postgres_database_url(DATABASE_URL)
 
 def db_mode() -> str:
     return "postgres" if _use_postgres() else "sqlite"

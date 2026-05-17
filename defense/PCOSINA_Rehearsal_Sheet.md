@@ -25,9 +25,9 @@ Time 6:30-9:30 Algorithm and optimization
 - Two-stage: filter recipes then MILP optimization.
 - Variables: x[s,i] selects recipe i for slot s.
 - Constraints: one meal per slot, no consecutive repeats, weekly repeat caps.
-- Objective: minimize calorie/macro deviation, repeats, budget overrun; reward pantry and diversity.
+- Objective: minimize calorie/macro deviation, repeats, optional cost-priority terms; reward pantry and diversity.
 - Tolerance relaxation: try 0.2, 0.3, 0.4 and increasing repeat limits.
-- Fallback: infeasible reported; optional greedy fallback if enabled.
+- Fallback: infeasible cases return structured no-safe-plan guidance; production does not force a greedy plan.
 
 Time 9:30-11:30 Evaluation approach
 - ISO/IEC 25010: functional suitability, usability, reliability, performance.

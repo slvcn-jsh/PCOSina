@@ -19,6 +19,7 @@ import database
 import policy_store
 import queue_broker
 import firebase_admin
+from db_url import is_postgres_database_url
 from firebase_admin import credentials, auth, app_check
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -196,7 +197,7 @@ def _runtime_readiness_report(*, include_schema: bool = False) -> Dict[str, Any]
             errors.append("PCOSINA_ADMIN_SESSION_SECRET is required in production")
         if os.getenv("FIREBASE_AUTH_DISABLED", "").strip().lower() == "true":
             errors.append("FIREBASE_AUTH_DISABLED cannot be enabled in production")
-        if not os.getenv("DATABASE_URL", "").strip().startswith("postgres"):
+        if not is_postgres_database_url(os.getenv("DATABASE_URL", "")):
             errors.append("Production requires a Postgres DATABASE_URL")
         if not _firebase_credentials_configured() and not firebase_admin._apps:
             errors.append("Firebase credentials are required in production")

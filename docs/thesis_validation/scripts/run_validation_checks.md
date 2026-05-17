@@ -31,7 +31,7 @@ python -m pytest backend/tests/test_meal_planner.py -q
 In the environment used to generate this pack, importing `backend/services/meal_planner.py` was blocked:
 
 ```text
-OSError: [WinError 4551] An Application Control policy has blocked this file
+ModuleNotFoundError: No module named 'domain'
 ```
 
 If that same application-control block exists on the validation machine, planner tests that import OR-Tools-backed code may fail before test execution. In that case, run the full planner tests on a machine where OR-Tools can load correctly.

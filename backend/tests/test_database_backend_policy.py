@@ -133,6 +133,62 @@ def test_sqlite_admin_content_schema_enforces_bounds(tmp_path, monkeypatch):
         conn.close()
 
 
+def test_postgres_check_constraint_helper_uses_typed_catalog_query():
+    class FakeCursor:
+        def __init__(self):
+            self.executed = []
+
+        def execute(self, sql, params=None):
+            self.executed.append((str(sql).strip(), params))
+
+        def fetchone(self):
+            return None
+
+    cur = FakeCursor()
+
+    database._add_postgres_check_constraint(
+        cur,
+        table_name="recipes",
+        constraint_name="recipes_calories_bounds",
+        expression="calories BETWEEN 1 AND 3000",
+    )
+
+    assert len(cur.executed) == 2
+    lookup_sql, lookup_params = cur.executed[0]
+    assert "DO $$" not in lookup_sql
+    assert "conname = %s::name" in lookup_sql
+    assert "conrelid = %s::regclass" in lookup_sql
+    assert lookup_params == ("recipes_calories_bounds", "recipes")
+    alter_sql, alter_params = cur.executed[1]
+    assert 'ALTER TABLE "recipes"' in alter_sql
+    assert 'ADD CONSTRAINT "recipes_calories_bounds"' in alter_sql
+    assert "CHECK (calories BETWEEN 1 AND 3000) NOT VALID" in alter_sql
+    assert alter_params is None
+
+
+def test_postgres_check_constraint_helper_skips_existing_constraint():
+    class FakeCursor:
+        def __init__(self):
+            self.executed = []
+
+        def execute(self, sql, params=None):
+            self.executed.append((str(sql).strip(), params))
+
+        def fetchone(self):
+            return (1,)
+
+    cur = FakeCursor()
+
+    database._add_postgres_check_constraint(
+        cur,
+        table_name="recipes",
+        constraint_name="recipes_calories_bounds",
+        expression="calories BETWEEN 1 AND 3000",
+    )
+
+    assert len(cur.executed) == 1
+
+
 def test_runtime_readiness_rejects_invalid_database_url_scheme(monkeypatch):
     monkeypatch.setattr(main, "IS_PRODUCTION", True)
     monkeypatch.setattr(main, "ENVIRONMENT", "production")

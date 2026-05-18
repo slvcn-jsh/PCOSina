@@ -1,6 +1,7 @@
 import sqlite3
 import json
 import os
+import re
 import time
 import uuid
 from contextlib import contextmanager
@@ -27,6 +28,7 @@ SCHEMA_BOOTSTRAP_LOCK_KEY = 2026032901
 FEEDBACK_MESSAGE_MAX_CHARS = 2000
 _POSTGRES_POOL = None
 _POSTGRES_POOL_SIGNATURE: tuple[str, int, int, float] | None = None
+_POSTGRES_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def _is_production_env() -> bool:
@@ -1014,24 +1016,35 @@ def _migration_recipe_catalog_metadata(conn) -> None:
     _ensure_recipe_catalog_indexes(conn)
 
 
+def _quote_postgres_identifier(identifier: str) -> str:
+    parts = str(identifier or "").split(".")
+    if not parts or any(not _POSTGRES_IDENTIFIER_RE.fullmatch(part) for part in parts):
+        raise ValueError(f"Unsafe PostgreSQL identifier: {identifier!r}")
+    return ".".join(f'"{part}"' for part in parts)
+
+
 def _add_postgres_check_constraint(cur, table_name: str, constraint_name: str, expression: str) -> None:
     cur.execute(
-        f"""
-        DO $$
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1
-                FROM pg_constraint
-                WHERE conname = %s
-                  AND conrelid = '{table_name}'::regclass
-            ) THEN
-                ALTER TABLE {table_name}
-                ADD CONSTRAINT {constraint_name}
-                CHECK ({expression}) NOT VALID;
-            END IF;
-        END $$;
+        """
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = %s::name
+          AND conrelid = %s::regclass
+        LIMIT 1
         """,
-        (constraint_name,),
+        (constraint_name, table_name),
+    )
+    if cur.fetchone():
+        return
+
+    table_identifier = _quote_postgres_identifier(table_name)
+    constraint_identifier = _quote_postgres_identifier(constraint_name)
+    cur.execute(
+        f"""
+        ALTER TABLE {table_identifier}
+        ADD CONSTRAINT {constraint_identifier}
+        CHECK ({expression}) NOT VALID
+        """
     )
 
 

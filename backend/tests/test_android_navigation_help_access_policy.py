@@ -26,11 +26,14 @@ def test_bottom_nav_keeps_methodology_tab_available_before_first_plan() -> None:
     assert "base.remove(Routes.Ipo)" not in nav_source
 
 
-def test_dashboard_keeps_support_entry_visible_with_early_help_copy() -> None:
+def test_dashboard_uses_shared_header_for_settings_and_notifications() -> None:
     dashboard_source = _read(DASHBOARD_SCREEN)
-    assert "contentDescription = \"Support\"" in dashboard_source
-    assert "onOpenSupport = onOpenMoreTools" in dashboard_source
-    assert "RefinedIconAction(" in dashboard_source
+    nav_source = _read(APP_NAV_HOST)
+
+    assert "SharedTopHeader(" in dashboard_source
+    assert "onNotifications = onOpenNotifications" in dashboard_source
+    assert "RefinedIconAction(" not in dashboard_source
+    assert "onOpenNotifications = { navigateInternal(Routes.Notifications) }" in nav_source
 
 
 def test_bottom_navigation_uses_product_facing_support_label() -> None:

@@ -770,21 +770,21 @@ def test_budget_aware_pool_limit_shrinks_for_tight_solver_budgets():
         slot_count=21,
         total_time_limit=14.0,
         minimum_candidates_required=10,
-    ) == 60
+    ) == 40
 
     assert meal_planner._budget_aware_pool_limit(
         max_pool_size=192,
         slot_count=21,
         total_time_limit=25.0,
         minimum_candidates_required=10,
-    ) == 107
+    ) == 71
 
     assert meal_planner._budget_aware_pool_limit(
         max_pool_size=192,
         slot_count=21,
         total_time_limit=45.0,
         minimum_candidates_required=10,
-    ) == 192
+    ) == 128
 
 
 def test_low_variety_repeat_sequence_starts_with_relaxed_repeat_limit():

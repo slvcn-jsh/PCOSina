@@ -1995,11 +1995,12 @@ def _budget_aware_pool_limit(
     normalized_slots = max(1, int(slot_count or 1))
     minimum_candidates = max(1, int(minimum_candidates_required or 1))
     minimum_assignments = normalized_slots * minimum_candidates
-    # Tight solver budgets cannot afford unbounded slot x recipe assignment growth.
-    # The previous 180 assignments/second budget admitted 120 candidates for a
-    # 21-slot, 14-second production solve. With real per-recipe nutrition that
-    # model is too large for CP-SAT to reach a useful status before the deadline.
-    assignment_budget = max(minimum_assignments, int(max(1.0, float(total_time_limit or 0.0)) * 90.0))
+    # Tight hosted-worker budgets cannot afford unbounded slot x recipe assignment
+    # growth. For a 21-slot, 14-second production solve, 60 candidates still
+    # leaves CP-SAT spending the whole deadline in UNKNOWN on Render starter.
+    # About 40 candidates keeps enough nutrition anchors while giving the solver
+    # a model it can actually prove feasible in the production time box.
+    assignment_budget = max(minimum_assignments, int(max(1.0, float(total_time_limit or 0.0)) * 60.0))
     budget_limited_pool = max(minimum_candidates, assignment_budget // normalized_slots)
     return min(normalized_max_pool, budget_limited_pool)
 

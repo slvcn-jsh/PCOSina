@@ -28,6 +28,8 @@ It keeps MILP/CP-SAT authoritative, but reduces search pressure before and durin
 - `solver.retry_attempts = 1`
 - `solver.solver_workers = 2`
 
+The planner also applies a wall-clock pool cap before CP-SAT. With the 14-second production budget, the effective solve pool is about 40 recipes even when the policy shortlist is larger; this keeps the hosted Render worker from timing out on 21-slot weekly plans.
+
 These values are bootstrap defaults for production-like environments, not a replacement for explicit operator tuning.
 Customized active policies should keep their explicit values.
 

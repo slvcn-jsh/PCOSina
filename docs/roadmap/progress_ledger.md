@@ -28,4 +28,5 @@ Updated: 2026-05-18
 - Local replay of Budget First, Low variety, `weeklyBudgetPhp=4000`, no allergies, and no restrictions now returns `Success` with 96 candidates, no pre-solver nutrition gaps, and an estimated weekly cost of 2,639 PHP.
 - Sodium and sugar remain in backend diagnostics/scoring as advisory limits, but they no longer block plan generation because they are not part of the current user-facing recipe nutrition contract.
 - Budget First planning now starts with repeat-friendly limits in production-shaped solves, matching the budget/reliability intent instead of spending the Render deadline on strict variety attempts first.
+- Production-shaped CP-SAT pools are now capped more aggressively by the wall-clock solver budget; the 14-second Render profile uses about 40 candidates instead of 60 so the hosted worker can prove a feasible plan before the deadline.
 - Remaining blocker: 937/1,114 active recipes still need reviewed nutrition provenance before claiming unrestricted nutrition-data maturity, even though the readiness gate is green for local planner feasibility.

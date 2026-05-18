@@ -255,6 +255,24 @@ def _runtime_readiness_report(*, include_schema: bool = False) -> Dict[str, Any]
             if not schema_status["ok"]:
                 errors.append("Pending schema migrations detected")
         report["schemaMigrations"] = schema_status
+        try:
+            catalog_nutrition_status = database.get_recipe_catalog_nutrition_status()
+        except Exception as exc:
+            catalog_nutrition_status = {
+                "ok": False,
+                "errors": [str(exc)],
+                "warnings": [],
+            }
+            errors.append(f"Recipe catalog nutrition readiness check failed: {exc}")
+        else:
+            if not catalog_nutrition_status.get("ok"):
+                messages = list(catalog_nutrition_status.get("errors") or [])
+                if IS_PRODUCTION:
+                    errors.extend(messages or ["Recipe catalog nutrition readiness failed"])
+                else:
+                    warnings.extend(messages or ["Recipe catalog nutrition readiness has gaps"])
+            warnings.extend(list(catalog_nutrition_status.get("warnings") or []))
+        report["recipeCatalogNutrition"] = catalog_nutrition_status
     report["ok"] = len(errors) == 0
     return report
 

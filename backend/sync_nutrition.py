@@ -142,6 +142,14 @@ def write_missing_report(path: Path, recipe_file: Path = DEFAULT_RECIPE_FILE) ->
     return missing
 
 
+def write_readiness_report(path: Path, recipe_file: Path = DEFAULT_RECIPE_FILE) -> dict[str, Any]:
+    database.init_db()
+    status = database.get_recipe_catalog_nutrition_status(str(recipe_file))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(status, indent=2, sort_keys=True), encoding="utf-8")
+    return status
+
+
 def _metadata_notes(source: str, confidence: str, review_status: str, notes: str) -> str:
     chunks = [
         f"source={source}",
@@ -195,6 +203,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Audit or import PCOSina nutrition corrections.")
     parser.add_argument("--recipes", type=Path, default=DEFAULT_RECIPE_FILE, help="Path to recipes.json.")
     parser.add_argument("--report-missing", type=Path, help="Write CSV report of recipes with missing raw nutrition.")
+    parser.add_argument("--report-readiness", type=Path, help="Write JSON nutrition readiness report for the active DB catalog.")
+    parser.add_argument("--fail-on-readiness-gap", action="store_true", help="Exit non-zero when --report-readiness finds catalog gaps.")
     parser.add_argument("--input", type=Path, help="CSV/JSON nutrition correction file to validate or import.")
     parser.add_argument("--apply", action="store_true", help="Write imported corrections to the database.")
     parser.add_argument(
@@ -207,11 +217,19 @@ def main() -> int:
     if args.report_missing:
         missing = write_missing_report(args.report_missing, args.recipes)
         print(f"Wrote {len(missing)} missing-nutrition row(s) to {args.report_missing}")
+    if args.report_readiness:
+        status = write_readiness_report(args.report_readiness, args.recipes)
+        outcome = "passed" if status.get("ok") else "failed"
+        print(f"Catalog nutrition readiness {outcome}; wrote report to {args.report_readiness}")
+        if args.fail_on_readiness_gap and not status.get("ok"):
+            for error in status.get("errors") or []:
+                print(f"ERROR: {error}")
+            return 2
     if args.input:
         saved = import_corrections(args.input, apply=args.apply, require_reviewed=not args.allow_pending)
         action = "Imported" if args.apply else "Validated"
         print(f"{action} {len(saved)} nutrition correction row(s).")
-    if not args.report_missing and not args.input:
+    if not args.report_missing and not args.report_readiness and not args.input:
         missing_count = len(missing_nutrition_recipes(load_recipes(args.recipes)))
         print(f"{missing_count} recipe(s) have incomplete raw nutrition. Use --report-missing or --input.")
     return 0

@@ -1528,6 +1528,96 @@ def _cap_pool(pool: List[Dict[str, Any]], max_pool: int, top_share: float = 0.6)
     return selected
 
 
+def _nutrition_coverage_gap(
+    pool: List[Dict[str, Any]],
+    meal_to_allowed: Dict[str, set],
+    slot_labels: List[str],
+    *,
+    calorie_min: int,
+    protein_min: int,
+    carb_min: int,
+    fat_min: int,
+    fiber_min: int,
+    sodium_max: int,
+    sugar_max: int,
+) -> Dict[str, Any]:
+    nutrient_fields = {
+        "calories": "calories",
+        "proteinGrams": "protein",
+        "carbsGrams": "carbs",
+        "fatsGrams": "fats",
+        "fiberGrams": "fiber",
+        "sodiumMg": "sodium",
+        "sugarGrams": "sugar",
+    }
+    required_min = {
+        "calories": int(calorie_min),
+        "proteinGrams": int(protein_min),
+        "carbsGrams": int(carb_min),
+        "fatsGrams": int(fat_min),
+        "fiberGrams": int(fiber_min),
+    }
+    required_max = {
+        "sodiumMg": int(sodium_max),
+        "sugarGrams": int(sugar_max),
+    }
+    slot_best: Dict[str, Dict[str, int]] = {}
+    slot_floor: Dict[str, Dict[str, int]] = {}
+    possible_daily_max = {field: 0 for field in nutrient_fields}
+    possible_daily_min = {field: 0 for field in nutrient_fields}
+    for label in slot_labels:
+        allowed = list(meal_to_allowed.get(label, set(range(len(pool)))))
+        if not allowed:
+            return {
+                "ok": False,
+                "gaps": [{"nutrient": "meal_slot", "slot": label, "reason": "no_allowed_candidates"}],
+                "slotBest": slot_best,
+                "slotFloor": slot_floor,
+            }
+        best_for_slot: Dict[str, int] = {}
+        floor_for_slot: Dict[str, int] = {}
+        for field in nutrient_fields:
+            values = [int(pool[idx].get(field) or 0) for idx in allowed]
+            best_for_slot[field] = max(values)
+            floor_for_slot[field] = min(values)
+            possible_daily_max[field] += best_for_slot[field]
+            possible_daily_min[field] += floor_for_slot[field]
+        slot_best[label] = best_for_slot
+        slot_floor[label] = floor_for_slot
+
+    gaps: List[Dict[str, Any]] = []
+    for field, minimum in required_min.items():
+        possible = int(possible_daily_max.get(field) or 0)
+        if possible < minimum:
+            gaps.append(
+                {
+                    "nutrient": nutrient_fields[field],
+                    "requiredMin": int(minimum),
+                    "possibleDailyMax": possible,
+                }
+            )
+    for field, maximum in required_max.items():
+        possible = int(possible_daily_min.get(field) or 0)
+        if possible > maximum:
+            gaps.append(
+                {
+                    "nutrient": nutrient_fields[field],
+                    "requiredMax": int(maximum),
+                    "possibleDailyMin": possible,
+                }
+            )
+    return {
+        "ok": len(gaps) == 0,
+        "gaps": gaps,
+        "requiredMin": required_min,
+        "requiredMax": required_max,
+        "possibleDailyMax": possible_daily_max,
+        "possibleDailyMin": possible_daily_min,
+        "slotBest": slot_best,
+        "slotFloor": slot_floor,
+    }
+
+
 def _default_weight_set() -> Optional[Dict[str, int]]:
     raw = os.getenv("PCOSINA_MILP_WEIGHTS")
     if not raw:
@@ -2025,6 +2115,34 @@ def solve_meal_plan(
             telemetry_out["stage1_diag"] = dict(stage1_diag)
             telemetry_out["solve_pair_diagnostics"] = []
         return None, "Planner timed out while pricing, filtering, or optimizing recipes.", None
+    fiber_min_target = int(_policy_get_legacy_aware(policy, ["nutrition.fiber_min", "fiber_min"], 20))
+    sodium_max_target = int(_policy_get_legacy_aware(policy, ["nutrition.sodium_max", "sodium_max"], 2300))
+    sugar_max_target = int(_policy_get_legacy_aware(policy, ["nutrition.sugar_max", "sugar_max"], 50))
+    fiber_min_target = max(0, fiber_min_target + int(symptom_state.get("fiberMinBonus") or 0))
+    sugar_max_target = max(5, sugar_max_target + int(symptom_state.get("sugarMaxDelta") or 0))
+    nutrition_feasibility = _nutrition_coverage_gap(
+        pool,
+        meal_to_allowed,
+        slot_labels,
+        calorie_min=calorie_min,
+        protein_min=protein_min,
+        carb_min=carb_min,
+        fat_min=fat_min,
+        fiber_min=fiber_min_target,
+        sodium_max=sodium_max_target,
+        sugar_max=sugar_max_target,
+    )
+    stage1_diag["nutrition_feasibility"] = nutrition_feasibility
+    if not nutrition_feasibility.get("ok"):
+        if telemetry_out is not None:
+            telemetry_out["selected_recipe_ids"] = []
+            telemetry_out["status"] = "no-safe-plan"
+            _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
+            telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
+            telemetry_out["solver_budget"] = dict(solver_budget)
+            telemetry_out["stage1_diag"] = dict(stage1_diag)
+            telemetry_out["solve_pair_diagnostics"] = []
+        return None, "Catalog nutrition coverage is insufficient for this profile.", None
     budget_weekly = resolve_budget_weekly(profile)
     rule_effects = profile_rule_summary(profile, budget_weekly)
     max_per_week_list = adjust_max_per_week(
@@ -2226,11 +2344,6 @@ def solve_meal_plan(
         sodium_over_vars = []
         sugar_over_vars = []
         meal_err_vars = []
-        fiber_min_target = int(_policy_get_legacy_aware(policy, ["nutrition.fiber_min", "fiber_min"], 20))
-        sodium_max_target = int(_policy_get_legacy_aware(policy, ["nutrition.sodium_max", "sodium_max"], 2300))
-        sugar_max_target = int(_policy_get_legacy_aware(policy, ["nutrition.sugar_max", "sugar_max"], 50))
-        fiber_min_target = max(0, fiber_min_target + int(symptom_state.get("fiberMinBonus") or 0))
-        sugar_max_target = max(5, sugar_max_target + int(symptom_state.get("sugarMaxDelta") or 0))
         meal_distribution = _policy_get(policy, "nutrition.meal_distribution_targets", None)
         if not isinstance(meal_distribution, list) or len(meal_distribution) < configured_meals_per_day:
             meal_distribution = [1.0 / configured_meals_per_day for _ in range(configured_meals_per_day)]

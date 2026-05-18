@@ -67,6 +67,43 @@ def test_missing_report_does_not_create_fake_corrections():
     assert database.list_admin_nutrition_corrections() == []
 
 
+def test_seeded_recipes_preserve_nutrition_provenance():
+    folder = _temp_dir()
+    _use_temp_db(folder)
+    recipes_path = folder / "recipes.json"
+    _write_recipes(recipes_path)
+
+    database.seed_recipes(source_path=str(recipes_path), force_reseed=True)
+    recipes = {recipe["id"]: recipe for recipe in database.get_all_recipes()}
+
+    assert recipes["missing-1"]["nutritionConfidence"] == "imputed"
+    assert recipes["missing-1"]["nutritionDataSource"] == "seed_imputed_median"
+    assert recipes["complete-1"]["nutritionConfidence"] == "estimated"
+    assert recipes["complete-1"]["nutritionDataSource"] == "seed_file"
+
+
+def test_readiness_report_surfaces_imputed_catalog_nutrition():
+    folder = _temp_dir()
+    _use_temp_db(folder)
+    recipes_path = folder / "recipes.json"
+    report_path = folder / "catalog_nutrition_readiness.json"
+    _write_recipes(recipes_path)
+    database.seed_recipes(source_path=str(recipes_path), force_reseed=True)
+
+    status = sync_nutrition.write_readiness_report(report_path, recipes_path)
+    saved = json.loads(report_path.read_text(encoding="utf-8"))
+
+    assert status["activeRecipeCount"] == 2
+    assert status["rawSeedCompleteNutritionCount"] == 1
+    assert status["rawSeedMissingNutritionCount"] == 1
+    assert status["imputedNutritionCount"] == 1
+    assert status["confidenceCounts"]["imputed"] == 1
+    assert status["trustedStrongMealAvailableBySlot"]["Breakfast"] == 0
+    assert any("reviewed full-meal nutrition coverage" in item for item in status["errors"])
+    assert saved["imputedNutritionCount"] == 1
+    assert report_path.exists()
+
+
 def test_correction_import_is_dry_run_until_apply():
     folder = _temp_dir()
     _use_temp_db(folder)

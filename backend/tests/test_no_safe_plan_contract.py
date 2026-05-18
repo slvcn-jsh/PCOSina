@@ -326,6 +326,55 @@ def test_no_safe_response_captures_exclusion_and_budget_diagnostics():
     assert any("Allergy rules removed some candidate meals" in item for item in response.humanGuidance)
 
 
+def test_no_safe_response_captures_catalog_nutrition_gap():
+    request = main.GeneratePlanRequest.model_validate(
+        {
+            "profile": {
+                "displayName": "Nutrition Gap User",
+                "age": 30,
+                "heightCm": 160,
+                "weightKg": 65,
+                "activityLevel": "Lightly Active",
+                "goal": "General Health",
+                "dietaryRestrictions": [],
+                "allergies": [],
+                "pantryItems": [],
+            },
+            "days": 7,
+            "mealsPerDay": 3,
+        }
+    )
+    nutrition_feasibility = {
+        "ok": False,
+        "gaps": [
+            {
+                "nutrient": "protein",
+                "kind": "minimum",
+                "required": 55,
+                "possible": 42,
+            }
+        ],
+    }
+
+    response = main._build_no_safe_plan_response(
+        request=request,
+        request_id="nutrition-gap-request",
+        message="Catalog nutrition coverage is insufficient for this profile.",
+        policy_version="policy-v1:test",
+        started_ms=1000,
+        completed_ms=1500,
+        telemetry={"stage1_diag": {"nutrition_feasibility": nutrition_feasibility}},
+    )
+
+    assert response.status == "no-safe-plan"
+    assert response.machineReasonCodes == ["CATALOG_NUTRITION_GAP"]
+    assert response.diagnosticsSummary["nutritionFeasibility"] == nutrition_feasibility
+    assert any("source-backed meals" in item for item in response.humanGuidance)
+    assert response.suggestedRelaxations == [
+        "Use reviewed nutrition corrections or add validated recipes before retrying this profile."
+    ]
+
+
 def test_generate_plan_no_safe_cache_hit_emits_completion_events_for_new_request(monkeypatch):
     planner_events = []
     ml_events = []

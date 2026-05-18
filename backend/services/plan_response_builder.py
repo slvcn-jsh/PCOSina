@@ -16,6 +16,8 @@ def _reason_codes_from_message(msg: str, *, budget_exceeded_stage: str | None = 
         return codes
     if "no safe recipes found" in text:
         codes.append("NO_SAFE_CANDIDATES")
+    if "catalog nutrition coverage" in text or "nutrition coverage is insufficient" in text:
+        codes.append("CATALOG_NUTRITION_GAP")
     if "conflicting restrictions" in text:
         codes.append("CONFLICTING_RESTRICTIONS")
     if "conflicting profile" in text:
@@ -82,6 +84,11 @@ def _guidance_from_profile(
         )
     if "CONFLICTING_RESTRICTIONS" in reason_codes:
         guidance.append("Your current restriction combination conflicts. Remove one conflicting restriction and retry.")
+    if "CATALOG_NUTRITION_GAP" in reason_codes:
+        guidance.append(
+            "The recipe catalog does not currently have enough source-backed meals to satisfy the nutrition bounds for this profile."
+        )
+        relaxations.append("Use reviewed nutrition corrections or add validated recipes before retrying this profile.")
     if int(exclusion_summary.get("allergy") or 0) > 0:
         guidance.append("Allergy rules removed some candidate meals before optimization.")
     if int(exclusion_summary.get("restriction") or 0) > 0:
@@ -135,6 +142,7 @@ def build_no_safe_plan_response(
         "candidateExclusionDetailCounts": dict(
             stage1_diag.get("exclusion_detail_counts") or {}
         ),
+        "nutritionFeasibility": dict(stage1_diag.get("nutrition_feasibility") or {}),
         "budgetExceededStage": budget_exceeded_stage,
         "timeoutStage": budget_exceeded_stage,
         "candidateCountPre": _optional_int(telemetry.get("candidate_count_pre")),

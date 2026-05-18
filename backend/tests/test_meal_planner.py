@@ -489,11 +489,17 @@ def test_solver_returns_no_safe_plan_when_required_nutrition_bounds_are_impossib
         },
     }
 
-    plan, msg, explanation = meal_planner.solve_meal_plan(request, recipes, policy=policy, telemetry_out={})
+    telemetry = {}
+    plan, msg, explanation = meal_planner.solve_meal_plan(request, recipes, policy=policy, telemetry_out=telemetry)
 
     assert plan is None
-    assert msg == "Infeasible"
+    assert msg == "Catalog nutrition coverage is insufficient for this profile."
     assert explanation is None
+    assert telemetry["stage1_diag"]["nutrition_feasibility"]["ok"] is False
+    assert any(
+        gap["nutrient"] in {"protein", "fiber", "sugar"}
+        for gap in telemetry["stage1_diag"]["nutrition_feasibility"]["gaps"]
+    )
 
 
 def test_resolve_budget_weekly_prefers_weekly_php():

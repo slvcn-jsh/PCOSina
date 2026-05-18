@@ -1114,6 +1114,21 @@ def _nutrition_anchor_score(recipe: Dict[str, Any]) -> float:
     )
 
 
+def _is_restricted_nutrition_anchor(recipe: Dict[str, Any]) -> bool:
+    calories = int(recipe.get("calories") or 0)
+    protein = int(recipe.get("proteinGrams") or 0)
+    carbs = int(recipe.get("carbsGrams") or 0)
+    fats = int(recipe.get("fatsGrams") or 0)
+    fiber = int(recipe.get("fiberGrams") or 0)
+    return (
+        400 <= calories <= 650
+        and 18 <= protein <= 30
+        and 45 <= carbs <= 90
+        and 8 <= fats <= 25
+        and fiber >= 8
+    )
+
+
 def _add_unique_recipe(selected: List[Dict[str, Any]], selected_ids: set[str], recipe: Dict[str, Any], limit: int) -> bool:
     if len(selected) >= max(1, int(limit or 1)):
         return False
@@ -1123,6 +1138,33 @@ def _add_unique_recipe(selected: List[Dict[str, Any]], selected_ids: set[str], r
     selected_ids.add(recipe_key)
     selected.append(recipe)
     return True
+
+
+def _apply_restricted_nutrition_trim(bucket: List[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
+    normalized_limit = max(1, int(limit or 1))
+    if len(bucket) <= normalized_limit:
+        return bucket
+    selected: List[Dict[str, Any]] = []
+    selected_ids: set[str] = set()
+    anchors = sorted(
+        [recipe for recipe in bucket if _is_restricted_nutrition_anchor(recipe)],
+        key=lambda r: (
+            _nutrition_anchor_score(r),
+            float(r.get("proteinGrams") or 0.0),
+            float(r.get("fiberGrams") or 0.0),
+            -float(r.get("_cost_est") or 0.0),
+            str(r.get("id") or ""),
+        ),
+        reverse=True,
+    )
+    anchor_reserve = min(normalized_limit, max(6, int(normalized_limit * 0.75)))
+    for recipe in anchors[:anchor_reserve]:
+        _add_unique_recipe(selected, selected_ids, recipe, normalized_limit)
+    for recipe in sorted(bucket, key=_base_score, reverse=True):
+        if len(selected) >= normalized_limit:
+            break
+        _add_unique_recipe(selected, selected_ids, recipe, normalized_limit)
+    return selected
 
 
 def _pre_pricing_bucket_key(recipe: Dict[str, Any]) -> str:
@@ -1475,12 +1517,16 @@ def shortlist_candidates(
             stage1_diag["ml_score_ms"] = max(0, int((time.time() - ml_started_at) * 1000))
 
     finalize_started_at = time.time()
+    restricted_catalog = hard_filter_count >= 6 or safe_candidates_count <= 96
     for k in buckets:
         buckets[k].sort(key=_base_score, reverse=True)
         buckets[k] = _apply_similarity_dedup(buckets[k], similarity_threshold)
         limit = stage1_max if restriction_count < 2 else int(stage1_max * max(1.0, restricted_shortlist_multiplier))
-        buckets[k] = buckets[k][:limit]
-        if budget_weekly:
+        if restricted_catalog:
+            buckets[k] = _apply_restricted_nutrition_trim(buckets[k], limit)
+        else:
+            buckets[k] = buckets[k][:limit]
+        if budget_weekly and not restricted_catalog:
             keep_min = max(max(1, budget_keep_min_count), int(len(buckets[k]) * max(0.0, budget_keep_min_ratio)))
             keep = int(max(keep_min, len(buckets[k]) * ranking_cutoff))
             buckets[k] = _apply_budget_nutrition_trim(buckets[k], keep)
@@ -1494,6 +1540,7 @@ def shortlist_candidates(
         stage1_diag["ranker_ready"] = bool(ranker_state.ready) if ranker_state is not None else False
         stage1_diag["exclusion_summary"] = dict(exclusion_summary)
         stage1_diag["exclusion_detail_counts"] = dict(exclusion_detail_counts)
+        stage1_diag["restricted_nutrition_anchor_reserve"] = bool(restricted_catalog)
         stage1_diag["goal_symptom_strategy"] = list(symptom_state.get("notes") or [])
     return buckets
 
@@ -1659,8 +1706,25 @@ def _cap_pool(pool: List[Dict[str, Any]], max_pool: int, top_share: float = 0.6)
         scored.append((_base_score(r), rid, r))
     scored.sort(key=lambda item: (-item[0], item[1]))
     bounded_top_share = min(0.95, max(0.05, float(top_share)))
+    selected: List[Dict[str, Any]] = []
+    selected_ids: set[str] = set()
+    anchor_limit = min(max_pool, max(8, int(max_pool * 0.40)))
+    anchors = sorted(
+        [r for _, _, r in scored if _is_restricted_nutrition_anchor(r)],
+        key=lambda r: (
+            _nutrition_anchor_score(r),
+            float(r.get("proteinGrams") or 0.0),
+            float(r.get("fiberGrams") or 0.0),
+            -float(r.get("_cost_est") or 0.0),
+            str(r.get("id") or ""),
+        ),
+        reverse=True,
+    )
+    for recipe in anchors[:anchor_limit]:
+        _add_unique_recipe(selected, selected_ids, recipe, max_pool)
     top_k = max(1, int(max_pool * bounded_top_share))
-    selected = [r for _, _, r in scored[:top_k]]
+    for _, _, recipe in scored[:top_k]:
+        _add_unique_recipe(selected, selected_ids, recipe, max_pool)
     selected_ids = {str(r.get("id", "")) for r in selected}
     groups: Dict[str, List[tuple]] = {}
     for score, rid, r in scored[top_k:]:

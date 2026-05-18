@@ -198,7 +198,7 @@ def test_bundled_catalog_nutrition_seed_has_no_fixed_placeholder_profiles():
             "max_candidates_per_slot": 64,
             "restricted_shortlist_multiplier": 1.15,
             "minimum_candidates_required": 10,
-            "ML_shadow_enabled": False,
+            "ML_shadow_enabled": True,
             "ML_canary_enabled": False,
         },
         "solver": {
@@ -221,6 +221,9 @@ def test_bundled_catalog_nutrition_seed_has_no_fixed_placeholder_profiles():
     assert msg == "Success"
     assert plan is not None
     assert telemetry["status"] == "success"
+    assert telemetry["stage1_diag"]["restricted_nutrition_anchor_reserve"] is True
+    assert telemetry["stage1_diag"]["repeat_sequence"] == [6, 8, 10]
+    assert set(telemetry["selected_recipe_ids"]) & {f"ph_qk_{idx:03d}" for idx in range(61, 77)}
 
 
 def test_review_queue_exports_missing_nutrition_with_source_metadata():

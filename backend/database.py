@@ -1,9 +1,11 @@
 import sqlite3
+import csv
 import json
 import os
 import re
 import time
 import uuid
+from collections import Counter
 from contextlib import contextmanager
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -29,6 +31,15 @@ FEEDBACK_MESSAGE_MAX_CHARS = 2000
 _POSTGRES_POOL = None
 _POSTGRES_POOL_SIGNATURE: tuple[str, int, int, float] | None = None
 _POSTGRES_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+NUTRITION_CORRECTION_SEED_FILES = [
+    os.path.join(os.path.dirname(__file__), "seed_data", "panlasang_pinoy_nutrition_corrections.csv"),
+    os.path.join(os.path.dirname(__file__), "seed_data", "local_reference_nutrition_estimates.csv"),
+]
+PLACEHOLDER_NUTRITION_PROFILE = (350, 20, 40, 12, 5)
+PLACEHOLDER_NUTRITION_PROFILES = {
+    PLACEHOLDER_NUTRITION_PROFILE,
+    (357, 10, 49, 8, 7),
+}
 
 
 def _is_production_env() -> bool:
@@ -3518,11 +3529,29 @@ def _recipe_is_strong_meal_candidate(recipe: Dict[str, Any]) -> bool:
 def _recipe_has_trusted_nutrition(recipe: Dict[str, Any]) -> bool:
     confidence = str(recipe.get("nutritionConfidence") or "").strip().lower()
     review_status = str(recipe.get("nutritionReviewStatus") or "").strip().lower()
-    return review_status in {"reviewed", "nutritionist_reviewed", "dietitian_reviewed", "verified"} or confidence in {
+    return review_status in {"reviewed", "nutritionist_reviewed", "dietitian_reviewed", "verified", "source_verified"} or confidence in {
         "high",
         "reviewed",
         "validated",
     }
+
+
+def _recipe_complete_nutrition_profile(recipe: Dict[str, Any]) -> tuple[int, int, int, int, int] | None:
+    values = []
+    for key in ("calories", "proteinGrams", "carbsGrams", "fatsGrams", "fiberGrams"):
+        raw = recipe.get(key)
+        if raw is None:
+            return None
+        try:
+            parsed = int(float(str(raw).strip()))
+        except Exception:
+            return None
+        if key == "calories" and parsed <= 0:
+            return None
+        if key != "calories" and parsed < 0:
+            return None
+        values.append(parsed)
+    return (values[0], values[1], values[2], values[3], values[4])
 
 
 def get_recipe_catalog_nutrition_status(source_path: str | None = None) -> Dict[str, Any]:
@@ -3544,6 +3573,12 @@ def get_recipe_catalog_nutrition_status(source_path: str | None = None) -> Dict[
     imputed_count = 0
     unknown_count = 0
     trusted_count = 0
+    active_profile_counts: Counter[tuple[int, int, int, int, int]] = Counter()
+    trusted_profile_counts: Counter[tuple[int, int, int, int, int]] = Counter()
+    placeholder_profile_counts: Dict[str, int] = {
+        f"{profile[0]}/{profile[1]}/{profile[2]}/{profile[3]}/{profile[4]}": 0
+        for profile in PLACEHOLDER_NUTRITION_PROFILES
+    }
     for recipe in active_recipes:
         source = str(recipe.get("nutritionDataSource") or "unknown").strip().lower() or "unknown"
         confidence = str(recipe.get("nutritionConfidence") or "unknown").strip().lower() or "unknown"
@@ -3558,9 +3593,20 @@ def get_recipe_catalog_nutrition_status(source_path: str | None = None) -> Dict[
             imputed_count += 1
         if confidence == "unknown":
             unknown_count += 1
+        nutrition_profile = _recipe_complete_nutrition_profile(recipe)
+        if nutrition_profile is not None:
+            active_profile_counts[nutrition_profile] += 1
+            if nutrition_profile in PLACEHOLDER_NUTRITION_PROFILES:
+                key = (
+                    f"{nutrition_profile[0]}/{nutrition_profile[1]}/{nutrition_profile[2]}/"
+                    f"{nutrition_profile[3]}/{nutrition_profile[4]}"
+                )
+                placeholder_profile_counts[key] = int(placeholder_profile_counts.get(key, 0)) + 1
         trusted = _recipe_has_trusted_nutrition(recipe)
         if trusted:
             trusted_count += 1
+            if nutrition_profile is not None:
+                trusted_profile_counts[nutrition_profile] += 1
         if _recipe_is_strong_meal_candidate(recipe):
             strong_by_meal_type[meal_type] += 1
             if trusted:
@@ -3578,12 +3624,40 @@ def get_recipe_catalog_nutrition_status(source_path: str | None = None) -> Dict[
         for label in ("Breakfast", "Lunch", "Dinner")
     }
     max_imputed_fraction = _nutrition_status_threshold("PCOSINA_CATALOG_MAX_IMPUTED_FRACTION", 0.50)
+    max_identical_trusted_profile_fraction = _nutrition_status_threshold(
+        "PCOSINA_CATALOG_MAX_IDENTICAL_TRUSTED_PROFILE_FRACTION",
+        0.20,
+    )
+    max_identical_active_profile_fraction = _nutrition_status_threshold(
+        "PCOSINA_CATALOG_MAX_IDENTICAL_ACTIVE_PROFILE_FRACTION",
+        0.20,
+    )
+    min_identical_trusted_profile_count = _nutrition_status_int_threshold(
+        "PCOSINA_CATALOG_MIN_IDENTICAL_TRUSTED_PROFILE_COUNT",
+        20,
+    )
+    min_identical_active_profile_count = _nutrition_status_int_threshold(
+        "PCOSINA_CATALOG_MIN_IDENTICAL_ACTIVE_PROFILE_COUNT",
+        20,
+    )
     min_strong_per_slot = _nutrition_status_int_threshold("PCOSINA_CATALOG_MIN_STRONG_PER_SLOT", 7)
     min_trusted_strong_per_slot = _nutrition_status_int_threshold(
         "PCOSINA_CATALOG_MIN_TRUSTED_STRONG_PER_SLOT",
         min_strong_per_slot,
     )
     imputed_fraction = (imputed_count / active_count) if active_count else 1.0
+    dominant_profile: tuple[int, int, int, int, int] | None = None
+    dominant_profile_count = 0
+    dominant_active_profile: tuple[int, int, int, int, int] | None = None
+    dominant_active_profile_count = 0
+    if active_profile_counts:
+        dominant_active_profile, dominant_active_profile_count = active_profile_counts.most_common(1)[0]
+    if trusted_profile_counts:
+        dominant_profile, dominant_profile_count = trusted_profile_counts.most_common(1)[0]
+    dominant_active_profile_fraction = (
+        dominant_active_profile_count / active_count
+    ) if active_count else 0.0
+    dominant_profile_fraction = (dominant_profile_count / trusted_count) if trusted_count else 0.0
     errors: list[str] = []
     warnings: list[str] = []
     if active_count <= 0:
@@ -3592,6 +3666,35 @@ def get_recipe_catalog_nutrition_status(source_path: str | None = None) -> Dict[
         errors.append(
             f"Recipe catalog has {imputed_count}/{active_count} active recipes with imputed nutrition "
             f"({imputed_fraction:.1%}, limit {max_imputed_fraction:.1%})"
+        )
+    if len(active_profile_counts) < active_count:
+        warnings.append(
+            f"Recipe catalog has {len(active_profile_counts)}/{active_count} unique active nutrition profiles"
+        )
+    placeholder_total = sum(placeholder_profile_counts.values())
+    if placeholder_total:
+        errors.append(f"Recipe catalog still contains {placeholder_total} active old placeholder nutrition profiles")
+    if (
+        dominant_active_profile is not None
+        and dominant_active_profile_count >= min_identical_active_profile_count
+        and dominant_active_profile_fraction > max_identical_active_profile_fraction
+    ):
+        calories, protein, carbs, fats, fiber = dominant_active_profile
+        errors.append(
+            f"Recipe catalog has {dominant_active_profile_count}/{active_count} active recipes sharing one nutrition profile "
+            f"({calories} kcal, {protein}g protein, {carbs}g carbs, {fats}g fat, {fiber}g fiber; "
+            f"limit {max_identical_active_profile_fraction:.1%})"
+        )
+    if (
+        dominant_profile is not None
+        and dominant_profile_count >= min_identical_trusted_profile_count
+        and dominant_profile_fraction > max_identical_trusted_profile_fraction
+    ):
+        calories, protein, carbs, fats, fiber = dominant_profile
+        errors.append(
+            f"Recipe catalog has {dominant_profile_count}/{trusted_count} trusted recipes sharing one nutrition profile "
+            f"({calories} kcal, {protein}g protein, {carbs}g carbs, {fats}g fat, {fiber}g fiber; "
+            f"limit {max_identical_trusted_profile_fraction:.1%})"
         )
     weak_slots = [
         f"{label}={count}"
@@ -3630,7 +3733,37 @@ def get_recipe_catalog_nutrition_status(source_path: str | None = None) -> Dict[
         "rawSeedMissingNutritionCount": len(raw_missing_ids & active_ids),
         "imputedNutritionCount": imputed_count,
         "imputedNutritionFraction": round(float(imputed_fraction), 4),
+        "completeNutritionProfileCount": sum(active_profile_counts.values()),
+        "activeNutritionProfileUniqueCount": len(active_profile_counts),
+        "placeholderNutritionProfileCounts": placeholder_profile_counts,
+        "dominantActiveNutritionProfile": (
+            {
+                "calories": dominant_active_profile[0],
+                "proteinGrams": dominant_active_profile[1],
+                "carbsGrams": dominant_active_profile[2],
+                "fatsGrams": dominant_active_profile[3],
+                "fiberGrams": dominant_active_profile[4],
+                "count": dominant_active_profile_count,
+                "fraction": round(float(dominant_active_profile_fraction), 4),
+            }
+            if dominant_active_profile is not None
+            else None
+        ),
         "trustedNutritionCount": trusted_count,
+        "trustedNutritionProfileUniqueCount": len(trusted_profile_counts),
+        "dominantTrustedNutritionProfile": (
+            {
+                "calories": dominant_profile[0],
+                "proteinGrams": dominant_profile[1],
+                "carbsGrams": dominant_profile[2],
+                "fatsGrams": dominant_profile[3],
+                "fiberGrams": dominant_profile[4],
+                "count": dominant_profile_count,
+                "fraction": round(float(dominant_profile_fraction), 4),
+            }
+            if dominant_profile is not None
+            else None
+        ),
         "confidenceCounts": confidence_counts,
         "sourceCounts": source_counts,
         "reviewStatusCounts": review_counts,
@@ -3641,6 +3774,10 @@ def get_recipe_catalog_nutrition_status(source_path: str | None = None) -> Dict[
             "fiberGramsMin": 6,
             "minStrongPerSlot": min_strong_per_slot,
             "minTrustedStrongPerSlot": min_trusted_strong_per_slot,
+            "maxIdenticalActiveNutritionProfileFraction": max_identical_active_profile_fraction,
+            "minIdenticalActiveNutritionProfileCount": min_identical_active_profile_count,
+            "maxIdenticalTrustedNutritionProfileFraction": max_identical_trusted_profile_fraction,
+            "minIdenticalTrustedNutritionProfileCount": min_identical_trusted_profile_count,
         },
         "strongMealCountsByMealType": strong_by_meal_type,
         "strongMealAvailableBySlot": strong_available_by_slot,
@@ -3787,6 +3924,131 @@ def seed_recipes(source_path: str | None = None, force_reseed: bool | None = Non
         return summary
     finally:
         conn.close()
+
+
+def seed_nutrition_corrections(source_paths: Optional[Iterable[str]] = None) -> Dict[str, Any]:
+    paths = list(source_paths) if source_paths is not None else list(NUTRITION_CORRECTION_SEED_FILES)
+    inserted_count = 0
+    updated_count = 0
+    skipped_existing_count = 0
+    source_count = 0
+    loaded_files: list[str] = []
+    missing_files: list[str] = []
+    for raw_path in paths:
+        path = str(raw_path or "").strip()
+        if not path:
+            continue
+        if not os.path.exists(path):
+            missing_files.append(path)
+            continue
+        loaded_files.append(path)
+        with open(path, "r", encoding="utf-8-sig", newline="") as handle:
+            for row in csv.DictReader(handle):
+                recipe_id = str(row.get("recipe_id") or row.get("recipeId") or "").strip()
+                if not recipe_id:
+                    continue
+                correction = _nutrition_seed_row_to_correction(row)
+                if correction is None:
+                    continue
+                source_count += 1
+                existing = get_nutrition_correction_by_recipe_id(recipe_id)
+                if existing and not _should_replace_seed_nutrition_correction(existing, correction):
+                    skipped_existing_count += 1
+                    continue
+                upsert_nutrition_correction(recipe_id, correction)
+                if existing:
+                    updated_count += 1
+                else:
+                    inserted_count += 1
+    if source_count:
+        print(
+            "NUTRITION CORRECTIONS SYNCED: "
+            f"{inserted_count} inserted, {updated_count} updated, {skipped_existing_count} kept."
+        )
+    return {
+        "sourceFiles": loaded_files,
+        "missingFiles": missing_files,
+        "sourceCount": source_count,
+        "insertedCount": inserted_count,
+        "updatedCount": updated_count,
+        "skippedExistingCount": skipped_existing_count,
+    }
+
+
+def _nutrition_seed_row_to_correction(row: Dict[str, Any]) -> Dict[str, Any] | None:
+    values = {
+        "calories": _non_negative_int(row.get("calories")),
+        "proteinGrams": _non_negative_int(row.get("protein_grams") or row.get("proteinGrams")),
+        "carbsGrams": _non_negative_int(row.get("carbs_grams") or row.get("carbsGrams")),
+        "fatsGrams": _non_negative_int(row.get("fats_grams") or row.get("fatsGrams")),
+        "fiberGrams": _non_negative_int(row.get("fiber_grams") or row.get("fiberGrams")),
+        "sodiumMg": _non_negative_int(row.get("sodium_mg") or row.get("sodiumMg")),
+        "sugarGrams": _non_negative_int(row.get("sugar_grams") or row.get("sugarGrams")),
+    }
+    if all(value is None for value in values.values()):
+        return None
+    source = str(row.get("source") or "seed_nutrition_correction").strip()
+    confidence = str(row.get("confidence") or "api_estimate").strip().lower()
+    review_status = str(row.get("review_status") or row.get("reviewStatus") or "pending_review").strip().lower()
+    notes = str(row.get("notes") or "").strip()
+    return {
+        **values,
+        "active": True,
+        "notes": _nutrition_seed_metadata_notes(
+            source=source,
+            confidence=confidence,
+            review_status=review_status,
+            notes=notes,
+        ),
+    }
+
+
+def _nutrition_seed_metadata_notes(*, source: str, confidence: str, review_status: str, notes: str) -> str:
+    parts = [
+        f"source={source}",
+        f"confidence={confidence}",
+        f"review_status={review_status}",
+    ]
+    if notes:
+        parts.append(f"notes={notes}")
+    return "; ".join(parts)
+
+
+def _non_negative_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        parsed = int(float(str(value).strip()))
+    except Exception:
+        return None
+    return max(0, parsed)
+
+
+def _should_replace_seed_nutrition_correction(existing: Dict[str, Any], incoming: Dict[str, Any]) -> bool:
+    if _nutrition_correction_profile(existing) in PLACEHOLDER_NUTRITION_PROFILES:
+        return True
+    existing_status = _parse_nutrition_correction_notes(existing.get("notes")).get("review_status", "").lower()
+    incoming_status = _parse_nutrition_correction_notes(incoming.get("notes")).get("review_status", "").lower()
+    trusted_statuses = {"reviewed", "nutritionist_reviewed", "dietitian_reviewed", "verified", "source_verified"}
+    if incoming_status == "source_verified" and existing_status not in trusted_statuses:
+        return True
+    return False
+
+
+def _nutrition_correction_profile(correction: Dict[str, Any]) -> tuple[int, int, int, int, int] | None:
+    values: list[int] = []
+    for key in ("calories", "proteinGrams", "carbsGrams", "fatsGrams", "fiberGrams"):
+        value = correction.get(key)
+        if value is None:
+            return None
+        try:
+            parsed = int(float(str(value).strip()))
+        except Exception:
+            return None
+        if parsed <= 0:
+            return None
+        values.append(parsed)
+    return (values[0], values[1], values[2], values[3], values[4])
 
 
 def _nutrition_correction_row_to_dict(row: Any) -> Dict[str, Any]:
@@ -4416,7 +4678,7 @@ def delete_price_rule(rule_id: str) -> int:
 
 
 def list_admin_nutrition_corrections(q: str | None = None, limit: int = 100) -> List[Dict[str, Any]]:
-    limit = max(1, min(int(limit or 100), 500))
+    limit = max(1, min(int(limit or 100), 5000))
     query = (q or "").strip()
     conn = _connect()
     try:

@@ -19,6 +19,7 @@ import argparse
 import csv
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -40,8 +41,41 @@ NUTRITION_FIELDS = {
 }
 
 DEFAULT_RECIPE_FILE = BACKEND_ROOT / "recipes.json"
-TRUSTED_REVIEW_STATUSES = {"reviewed", "nutritionist_reviewed", "dietitian_reviewed", "verified"}
+TRUSTED_REVIEW_STATUSES = {"reviewed", "nutritionist_reviewed", "dietitian_reviewed", "verified", "source_verified"}
 ACCEPTED_CONFIDENCE = {"high", "medium", "api_estimate", "reviewed"}
+MAX_IDENTICAL_PROFILE_FRACTION = 0.20
+MIN_IDENTICAL_PROFILE_COUNT = 20
+REVIEW_QUEUE_FIELDS = [
+    "priority",
+    "recipe_id",
+    "title",
+    "meal_type",
+    "source_servings",
+    "minutes",
+    "source_prep_time",
+    "source_cook_time",
+    "source_total_time",
+    "source_ingredient_names",
+    "ingredient_count",
+    "ingredients",
+    "instructions_excerpt",
+    "current_calories",
+    "current_protein_grams",
+    "current_carbs_grams",
+    "current_fats_grams",
+    "current_fiber_grams",
+    "calories",
+    "protein_grams",
+    "carbs_grams",
+    "fats_grams",
+    "fiber_grams",
+    "sodium_mg",
+    "sugar_grams",
+    "source",
+    "confidence",
+    "review_status",
+    "notes",
+]
 
 
 def load_recipes(recipe_file: Path = DEFAULT_RECIPE_FILE) -> list[dict[str, Any]]:
@@ -121,6 +155,7 @@ def import_corrections(path: Path, *, apply: bool, require_reviewed: bool = True
     database.init_db()
     rows = load_corrections(path)
     normalized = [normalize_correction(row, require_reviewed=require_reviewed) for row in rows]
+    validate_batch_diversity(normalized)
     if not apply:
         return [
             {"recipeId": recipe_id, **correction}
@@ -132,6 +167,55 @@ def import_corrections(path: Path, *, apply: bool, require_reviewed: bool = True
     return saved
 
 
+def validate_batch_diversity(normalized: list[tuple[str, dict[str, Any]]]) -> None:
+    profile_counts: Counter[tuple[int, int, int, int, int]] = Counter()
+    for _recipe_id, correction in normalized:
+        profile = _complete_macro_profile(correction)
+        if profile is not None:
+            profile_counts[profile] += 1
+    if not profile_counts:
+        return
+    profile, count = profile_counts.most_common(1)[0]
+    total_complete_profiles = sum(profile_counts.values())
+    fraction = count / total_complete_profiles if total_complete_profiles else 0.0
+    if count >= MIN_IDENTICAL_PROFILE_COUNT and fraction > MAX_IDENTICAL_PROFILE_FRACTION:
+        calories, protein, carbs, fats, fiber = profile
+        raise ValueError(
+            f"Refusing nutrition correction batch: {count}/{total_complete_profiles} rows share one complete "
+            f"nutrition profile ({calories} kcal, {protein}g protein, {carbs}g carbs, {fats}g fat, {fiber}g fiber). "
+            "This looks like placeholder nutrition, not per-recipe reviewed data."
+        )
+
+
+def purge_repeated_trusted_profile(*, apply: bool, recipe_file: Path = DEFAULT_RECIPE_FILE) -> list[dict[str, Any]]:
+    database.init_db()
+    status = database.get_recipe_catalog_nutrition_status(str(recipe_file))
+    dominant = status.get("dominantTrustedNutritionProfile") or {}
+    target = _profile_from_status(dominant)
+    if target is None:
+        return []
+    corrections = database.list_admin_nutrition_corrections(limit=5000)
+    purged: list[dict[str, Any]] = []
+    for correction in corrections:
+        if not correction.get("active", True):
+            continue
+        profile = _complete_macro_profile(correction)
+        if profile != target:
+            continue
+        item = {
+            "recipeId": correction.get("recipeId"),
+            "calories": target[0],
+            "proteinGrams": target[1],
+            "carbsGrams": target[2],
+            "fatsGrams": target[3],
+            "fiberGrams": target[4],
+        }
+        purged.append(item)
+        if apply:
+            database.delete_nutrition_correction(str(correction.get("recipeId") or ""))
+    return purged
+
+
 def write_missing_report(path: Path, recipe_file: Path = DEFAULT_RECIPE_FILE) -> list[dict[str, str]]:
     missing = missing_nutrition_recipes(load_recipes(recipe_file))
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -140,6 +224,72 @@ def write_missing_report(path: Path, recipe_file: Path = DEFAULT_RECIPE_FILE) ->
         writer.writeheader()
         writer.writerows(missing)
     return missing
+
+
+def write_review_queue(path: Path, recipe_file: Path = DEFAULT_RECIPE_FILE) -> list[dict[str, Any]]:
+    rows = nutrition_review_queue_rows(load_recipes(recipe_file))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=REVIEW_QUEUE_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+    return rows
+
+
+def nutrition_review_queue_rows(recipes: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    slot_counts: dict[str, int] = {"Breakfast": 0, "Lunch": 0, "Dinner": 0}
+    for recipe in recipes:
+        if has_complete_nutrition(recipe):
+            continue
+        recipe_id = str(recipe.get("id") or "").strip()
+        if not recipe_id:
+            continue
+        meal_type = str(recipe.get("mealType") or "Universal").strip().title() or "Universal"
+        priority = "P2"
+        if meal_type in slot_counts:
+            slot_counts[meal_type] += 1
+            if slot_counts[meal_type] <= 10:
+                priority = "P0"
+            elif slot_counts[meal_type] <= 30:
+                priority = "P1"
+        ingredients = recipe.get("ingredients") or []
+        instructions = recipe.get("instructions") or recipe.get("steps") or []
+        nutrition = recipe.get("nutrition") or {}
+        rows.append(
+            {
+                "priority": priority,
+                "recipe_id": recipe_id,
+                "title": str(recipe.get("name") or recipe.get("title") or "Untitled").strip(),
+                "meal_type": meal_type,
+                "source_servings": str(recipe.get("sourceServings") or "").strip(),
+                "minutes": recipe.get("minutes") or "",
+                "source_prep_time": str(recipe.get("sourcePrepTime") or "").strip(),
+                "source_cook_time": str(recipe.get("sourceCookTime") or "").strip(),
+                "source_total_time": str(recipe.get("sourceTotalTime") or "").strip(),
+                "source_ingredient_names": str(recipe.get("sourceIngredientNames") or "").strip(),
+                "ingredient_count": len(ingredients),
+                "ingredients": _join_ingredients(ingredients),
+                "instructions_excerpt": " ".join(str(step or "").strip() for step in instructions[:3])[:600],
+                "current_calories": nutrition.get("calories") or "",
+                "current_protein_grams": nutrition.get("protein_g") or "",
+                "current_carbs_grams": nutrition.get("carbs_g") or "",
+                "current_fats_grams": nutrition.get("fat_g") or "",
+                "current_fiber_grams": nutrition.get("fiber_g") or "",
+                "calories": "",
+                "protein_grams": "",
+                "carbs_grams": "",
+                "fats_grams": "",
+                "fiber_grams": "",
+                "sodium_mg": "",
+                "sugar_grams": "",
+                "source": "",
+                "confidence": "",
+                "review_status": "",
+                "notes": "Fill nutrition per serving. Do not mark reviewed until values are source-backed and checked.",
+            }
+        )
+    return rows
 
 
 def write_readiness_report(path: Path, recipe_file: Path = DEFAULT_RECIPE_FILE) -> dict[str, Any]:
@@ -159,6 +309,53 @@ def _metadata_notes(source: str, confidence: str, review_status: str, notes: str
     if notes:
         chunks.append(f"notes={notes}")
     return "; ".join(chunks)
+
+
+def _join_ingredients(ingredients: Iterable[Any]) -> str:
+    parts = []
+    for ingredient in ingredients:
+        if isinstance(ingredient, dict):
+            name = str(ingredient.get("name") or "").strip()
+            quantity = str(ingredient.get("quantity") or "").strip()
+            if name and quantity:
+                parts.append(f"{quantity} {name}")
+            elif name:
+                parts.append(name)
+        else:
+            text = str(ingredient or "").strip()
+            if text:
+                parts.append(text)
+    return " | ".join(parts)
+
+
+def _complete_macro_profile(correction: dict[str, Any]) -> tuple[int, int, int, int, int] | None:
+    values: list[int] = []
+    for key in ("calories", "proteinGrams", "carbsGrams", "fatsGrams", "fiberGrams"):
+        value = correction.get(key)
+        if value is None:
+            return None
+        try:
+            parsed = int(value)
+        except Exception:
+            return None
+        if parsed <= 0:
+            return None
+        values.append(parsed)
+    return (values[0], values[1], values[2], values[3], values[4])
+
+
+def _profile_from_status(profile: dict[str, Any]) -> tuple[int, int, int, int, int] | None:
+    if not profile:
+        return None
+    return _complete_macro_profile(
+        {
+            "calories": profile.get("calories"),
+            "proteinGrams": profile.get("proteinGrams"),
+            "carbsGrams": profile.get("carbsGrams"),
+            "fatsGrams": profile.get("fatsGrams"),
+            "fiberGrams": profile.get("fiberGrams"),
+        }
+    )
 
 
 def _positive_int(value: Any) -> int | None:
@@ -203,9 +400,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Audit or import PCOSina nutrition corrections.")
     parser.add_argument("--recipes", type=Path, default=DEFAULT_RECIPE_FILE, help="Path to recipes.json.")
     parser.add_argument("--report-missing", type=Path, help="Write CSV report of recipes with missing raw nutrition.")
+    parser.add_argument("--report-review-queue", type=Path, help="Write CSV queue for reviewed per-serving nutrition work.")
     parser.add_argument("--report-readiness", type=Path, help="Write JSON nutrition readiness report for the active DB catalog.")
     parser.add_argument("--fail-on-readiness-gap", action="store_true", help="Exit non-zero when --report-readiness finds catalog gaps.")
     parser.add_argument("--input", type=Path, help="CSV/JSON nutrition correction file to validate or import.")
+    parser.add_argument(
+        "--purge-repeated-trusted-profile",
+        action="store_true",
+        help="Delete the dominant repeated trusted correction profile. Requires --apply to mutate.",
+    )
     parser.add_argument("--apply", action="store_true", help="Write imported corrections to the database.")
     parser.add_argument(
         "--allow-pending",
@@ -217,6 +420,9 @@ def main() -> int:
     if args.report_missing:
         missing = write_missing_report(args.report_missing, args.recipes)
         print(f"Wrote {len(missing)} missing-nutrition row(s) to {args.report_missing}")
+    if args.report_review_queue:
+        rows = write_review_queue(args.report_review_queue, args.recipes)
+        print(f"Wrote {len(rows)} nutrition review queue row(s) to {args.report_review_queue}")
     if args.report_readiness:
         status = write_readiness_report(args.report_readiness, args.recipes)
         outcome = "passed" if status.get("ok") else "failed"
@@ -225,11 +431,15 @@ def main() -> int:
             for error in status.get("errors") or []:
                 print(f"ERROR: {error}")
             return 2
+    if args.purge_repeated_trusted_profile:
+        purged = purge_repeated_trusted_profile(apply=args.apply, recipe_file=args.recipes)
+        action = "Deleted" if args.apply else "Would delete"
+        print(f"{action} {len(purged)} repeated trusted nutrition correction row(s).")
     if args.input:
         saved = import_corrections(args.input, apply=args.apply, require_reviewed=not args.allow_pending)
         action = "Imported" if args.apply else "Validated"
         print(f"{action} {len(saved)} nutrition correction row(s).")
-    if not args.report_missing and not args.report_readiness and not args.input:
+    if not args.report_missing and not args.report_review_queue and not args.report_readiness and not args.input:
         missing_count = len(missing_nutrition_recipes(load_recipes(args.recipes)))
         print(f"{missing_count} recipe(s) have incomplete raw nutrition. Use --report-missing or --input.")
     return 0

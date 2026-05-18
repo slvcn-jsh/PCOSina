@@ -134,6 +134,13 @@ def _uid_hash_salt_configured_for_production() -> bool:
     return bool(salt) and salt != "pcosina-default-salt" and len(salt) >= 32
 
 
+def _seed_nutrition_corrections_on_startup() -> bool:
+    configured = os.getenv("PCOSINA_SEED_NUTRITION_CORRECTIONS", "").strip().lower()
+    if configured:
+        return configured in ("1", "true", "yes", "on")
+    return IS_PRODUCTION
+
+
 def _log_app_check_mode(enforced: bool) -> None:
     mode = "enforced" if enforced else "skipped"
     if mode in _APP_CHECK_MODE_LOGGED:
@@ -312,6 +319,8 @@ async def lifespan(app: FastAPI):
     
     database.init_db()
     database.seed_recipes()
+    if _seed_nutrition_corrections_on_startup():
+        database.seed_nutrition_corrections()
     policy_store.init_policy_store()
     policy_store.ensure_default_policy(actor="system-bootstrap")
     _validate_runtime_readiness(include_schema=True)

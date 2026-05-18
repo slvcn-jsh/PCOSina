@@ -1219,6 +1219,27 @@ def _apply_anchor_preserving_similarity_dedup(
     return selected
 
 
+def _reinsert_restricted_nutrition_anchors(
+    buckets: Dict[str, List[Dict[str, Any]]],
+    anchors: List[Dict[str, Any]],
+) -> None:
+    present_ids = {
+        str(recipe.get("id") or "")
+        for bucket in buckets.values()
+        for recipe in bucket
+        if str(recipe.get("id") or "")
+    }
+    for recipe in anchors:
+        recipe_id = str(recipe.get("id") or "")
+        if not recipe_id or recipe_id in present_ids:
+            continue
+        bucket_key = _pre_pricing_bucket_key(recipe)
+        if bucket_key not in buckets:
+            bucket_key = "Universal"
+        buckets[bucket_key].append(recipe)
+        present_ids.add(recipe_id)
+
+
 def _pre_pricing_bucket_key(recipe: Dict[str, Any]) -> str:
     allowed = [str(label) for label in (recipe.get("_allowed_meals") or []) if str(label) in MEAL_LABELS]
     if len(allowed) == 1:
@@ -1529,15 +1550,14 @@ def shortlist_candidates(
             buckets["Dinner"].append(r)
         else:
             buckets["Universal"].append(r)
+    restricted_anchor_recipes = [recipe for recipe in safe_candidates if _is_restricted_nutrition_anchor(recipe)]
     if stage1_diag is not None:
         stage1_diag["preprocess_ms"] = max(0, int((time.time() - phase_started_at) * 1000))
         stage1_diag["pricing_diagnostics"] = pricing_context.snapshot()
         stage1_diag["cost_estimation_ms"] = int(pricing_context.price_cost_estimation_ms)
         stage1_diag["processed_recipe_count"] = processed_recipe_count
         stage1_diag["safe_recipe_count_pre_pricing"] = safe_candidates_count
-        stage1_diag["restricted_nutrition_anchor_count_safe"] = sum(
-            1 for recipe in safe_candidates if _is_restricted_nutrition_anchor(recipe)
-        )
+        stage1_diag["restricted_nutrition_anchor_count_safe"] = len(restricted_anchor_recipes)
         stage1_diag["pre_pricing_pruning_enabled"] = bool(pre_pricing_enabled)
         stage1_diag["pre_pricing_restricted_enabled"] = bool(pre_pricing_restricted_enabled)
         stage1_diag["pre_pricing_budget_sensitive"] = bool(budget_sensitive_profile)
@@ -1590,6 +1610,11 @@ def shortlist_candidates(
             buckets[k] = _apply_budget_nutrition_trim(buckets[k], keep)
         for recipe in buckets[k]:
             recipe["_stage1_bucket"] = k
+    if restricted_catalog and restricted_anchor_recipes:
+        _reinsert_restricted_nutrition_anchors(buckets, restricted_anchor_recipes)
+        for k in buckets:
+            for recipe in buckets[k]:
+                recipe["_stage1_bucket"] = k
     restricted_anchor_count_post_trim = sum(
         1 for recipe in (buckets["Breakfast"] + buckets["Lunch"] + buckets["Dinner"] + buckets["Universal"])
         if _is_restricted_nutrition_anchor(recipe)
@@ -1824,6 +1849,23 @@ def _cap_pool(pool: List[Dict[str, Any]], max_pool: int, top_share: float = 0.6)
             selected.append(r)
             selected_ids.add(rid)
     return selected
+
+
+def _restricted_solver_anchor_core(pool: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    anchors = [recipe for recipe in pool if _is_restricted_nutrition_anchor(recipe)]
+    if len(anchors) < 3:
+        return pool
+    return sorted(
+        anchors,
+        key=lambda recipe: (
+            _nutrition_anchor_score(recipe),
+            float(recipe.get("proteinGrams") or 0.0),
+            float(recipe.get("fiberGrams") or 0.0),
+            -float(recipe.get("_cost_est") or 0.0),
+            str(recipe.get("id") or ""),
+        ),
+        reverse=True,
+    )
 
 
 def _nutrition_coverage_gap(
@@ -2381,6 +2423,16 @@ def solve_meal_plan(
         return None, "No safe recipes found.", None
 
     pool = candidates
+    restricted_solver_catalog = int(len(profile.dietaryRestrictions or []) + len(profile.allergies or [])) >= 6 or (
+        int(stage1_diag.get("safe_recipe_count_pre_pricing") or 0) <= 96
+    )
+    if restricted_solver_catalog:
+        anchor_core_pool = _restricted_solver_anchor_core(pool)
+        if len(anchor_core_pool) < len(pool):
+            pool = anchor_core_pool
+            stage1_diag["restricted_solver_anchor_core"] = True
+            stage1_diag["restricted_solver_anchor_core_count"] = len(pool)
+            stage1_diag["restricted_solver_anchor_core_ids"] = [str(recipe.get("id") or "") for recipe in pool]
     if telemetry_out is not None:
         telemetry_out["candidate_count_pre"] = len(candidates)
         telemetry_out["ranking_strategy"] = "stage1_heuristic_with_ml_shadow"
@@ -2487,9 +2539,6 @@ def solve_meal_plan(
         safe_candidate_count=int(stage1_diag.get("safe_recipe_count_pre_pricing") or 0),
     )
     stage1_diag["repeat_sequence"] = list(max_per_week_list)
-    restricted_solver_catalog = int(len(profile.dietaryRestrictions or []) + len(profile.allergies or [])) >= 6 or (
-        int(stage1_diag.get("safe_recipe_count_pre_pricing") or 0) <= 96
-    )
     relaxation_order = _policy_get(
         policy,
         "planning.infeasibility_relaxation_order",

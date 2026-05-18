@@ -852,6 +852,34 @@ def test_anchor_preserving_similarity_keeps_restricted_nutrition_anchors():
     ]
 
 
+def test_restricted_solver_anchor_core_uses_only_strong_anchors():
+    weak = {
+        "id": "weak",
+        "title": "Low Protein Side",
+        "calories": 220,
+        "proteinGrams": 4,
+        "carbsGrams": 25,
+        "fatsGrams": 4,
+        "fiberGrams": 2,
+    }
+    anchors = [
+        {
+            "id": f"anchor-{idx}",
+            "title": f"Anchor {idx}",
+            "calories": 500 + idx,
+            "proteinGrams": 22,
+            "carbsGrams": 70,
+            "fatsGrams": 12,
+            "fiberGrams": 12,
+        }
+        for idx in range(3)
+    ]
+
+    core = meal_planner._restricted_solver_anchor_core([weak, *anchors])
+
+    assert {item["id"] for item in core} == {item["id"] for item in anchors}
+
+
 def test_allergy_filter_blocks_recipe():
     profile = UserProfile(allergies=["peanut"])
     recipes = [

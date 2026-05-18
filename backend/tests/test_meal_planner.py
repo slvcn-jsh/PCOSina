@@ -526,12 +526,19 @@ def test_budget_aware_pool_limit_shrinks_for_tight_solver_budgets():
         slot_count=21,
         total_time_limit=14.0,
         minimum_candidates_required=10,
-    ) == 120
+    ) == 60
 
     assert meal_planner._budget_aware_pool_limit(
         max_pool_size=192,
         slot_count=21,
         total_time_limit=25.0,
+        minimum_candidates_required=10,
+    ) == 107
+
+    assert meal_planner._budget_aware_pool_limit(
+        max_pool_size=192,
+        slot_count=21,
+        total_time_limit=45.0,
         minimum_candidates_required=10,
     ) == 192
 

@@ -1209,12 +1209,13 @@ def shortlist_candidates(
 
     safe_candidates_count = len(safe_candidates)
     hard_filter_count = restriction_count + allergy_count
-    budget_sensitive_profile = bool(budget_weekly and (_should_optimize_cost(profile) or float(budget_weekly) < 2500.0))
+    tight_budget_profile = bool(budget_weekly and float(budget_weekly) < 2500.0)
+    budget_sensitive_profile = bool(budget_weekly and (_should_optimize_cost(profile) or tight_budget_profile))
     should_pre_prune = (
         pre_pricing_enabled
         and safe_candidates_count > pre_pricing_cap
         and (pre_pricing_restricted_enabled or hard_filter_count == 0)
-        and not budget_sensitive_profile
+        and not tight_budget_profile
     )
     if should_pre_prune:
         safe_candidates, pre_pruned = _apply_pre_pricing_prune(
@@ -1273,6 +1274,7 @@ def shortlist_candidates(
         stage1_diag["pre_pricing_pruning_enabled"] = bool(pre_pricing_enabled)
         stage1_diag["pre_pricing_restricted_enabled"] = bool(pre_pricing_restricted_enabled)
         stage1_diag["pre_pricing_budget_sensitive"] = bool(budget_sensitive_profile)
+        stage1_diag["pre_pricing_tight_budget"] = bool(tight_budget_profile)
         stage1_diag["pre_pricing_pruned"] = bool(pre_pruned)
         stage1_diag["pre_pricing_candidate_cap"] = int(pre_pricing_cap)
         stage1_diag["pre_pricing_retained_count"] = len(safe_candidates)
@@ -1837,7 +1839,10 @@ def _budget_aware_pool_limit(
     minimum_candidates = max(1, int(minimum_candidates_required or 1))
     minimum_assignments = normalized_slots * minimum_candidates
     # Tight solver budgets cannot afford unbounded slot x recipe assignment growth.
-    assignment_budget = max(minimum_assignments, int(max(1.0, float(total_time_limit or 0.0)) * 180.0))
+    # The previous 180 assignments/second budget admitted 120 candidates for a
+    # 21-slot, 14-second production solve. With real per-recipe nutrition that
+    # model is too large for CP-SAT to reach a useful status before the deadline.
+    assignment_budget = max(minimum_assignments, int(max(1.0, float(total_time_limit or 0.0)) * 90.0))
     budget_limited_pool = max(minimum_candidates, assignment_budget // normalized_slots)
     return min(normalized_max_pool, budget_limited_pool)
 
@@ -1996,11 +2001,37 @@ def solve_meal_plan(
     }
     if isinstance(caller_ml_feature_context.get("reason_feedback_features"), dict):
         stage1_ml_feature_context["reason_feedback_features"] = caller_ml_feature_context["reason_feedback_features"]
+    minimum_candidates_required = int(
+        _policy_get(policy, "stage1.minimum_candidates_required", 10)
+    )
+    configured_stage1_max = int(
+        _policy_get_legacy_aware(
+            policy,
+            ["stage1.max_candidates_per_slot", "max_pool_size", "shortlist_limit_restricted"],
+            300,
+        )
+    )
+    budget_pool_limit = _budget_aware_pool_limit(
+        max_pool_size=configured_stage1_max * max(1, configured_meals_per_day),
+        slot_count=slot_count,
+        total_time_limit=total_time_limit,
+        minimum_candidates_required=minimum_candidates_required,
+    )
+    budget_stage1_max = max(
+        1,
+        (int(budget_pool_limit) + max(1, configured_meals_per_day) - 1) // max(1, configured_meals_per_day),
+    )
+    stage1_policy = policy
+    if budget_stage1_max < configured_stage1_max:
+        stage1_policy = dict(policy or {})
+        stage1_settings = dict(stage1_policy.get("stage1") or {})
+        stage1_settings["max_candidates_per_slot"] = int(budget_stage1_max)
+        stage1_policy["stage1"] = stage1_settings
     try:
         buckets = shortlist_candidates(
             profile,
             recipes,
-            policy=policy,
+            policy=stage1_policy,
             stage1_diag=stage1_diag,
             pricing_context=pricing_context,
             deadline_at=deadline_at,
@@ -2047,9 +2078,6 @@ def solve_meal_plan(
             telemetry_out["stage1_diag"] = dict(stage1_diag)
             telemetry_out["solve_pair_diagnostics"] = []
         return None, "Planner timed out while pricing, filtering, or optimizing recipes.", None
-    minimum_candidates_required = int(
-        _policy_get(policy, "stage1.minimum_candidates_required", 10)
-    )
     if len(candidates) < max(1, minimum_candidates_required):
         return None, "No safe recipes found.", None
 
@@ -2611,6 +2639,10 @@ def solve_meal_plan(
                 telemetry_out["solve_pair_diagnostics"] = solve_pair_diagnostics[-6:]
             return res_plan, "Success", explanation
         if (time.time() - planner_started_at) >= total_time_limit:
+            if status == cp_model.UNKNOWN:
+                budget_exceeded_stage = "solver_search"
+                if telemetry_out is not None:
+                    telemetry_out["budget_exceeded_stage"] = budget_exceeded_stage
             break
     if debug_solver:
         print("MILP_DEBUG", json.dumps(debug_summary))

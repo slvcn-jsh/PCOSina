@@ -10,6 +10,8 @@ if str(ROOT) not in sys.path:
 
 import database
 import sync_nutrition
+from domain.models import UserProfile
+from services import meal_planner
 
 
 def _temp_dir() -> Path:
@@ -135,8 +137,8 @@ def test_bundled_catalog_nutrition_seed_has_no_fixed_placeholder_profiles():
     status = database.get_recipe_catalog_nutrition_status(str(ROOT / "recipes.json"))
 
     assert status["ok"] is True
-    assert status["activeRecipeCount"] == 1114
-    assert status["completeNutritionProfileCount"] == 1114
+    assert status["activeRecipeCount"] == 1130
+    assert status["completeNutritionProfileCount"] == 1130
     assert status["imputedNutritionCount"] == 0
     assert status["placeholderNutritionProfileCounts"] == {
         "350/20/40/12/5": 0,
@@ -147,6 +149,78 @@ def test_bundled_catalog_nutrition_seed_has_no_fixed_placeholder_profiles():
     assert status["sourceCounts"]["local_reference_missing_quantity_draft"] == 1
     assert status["sourceCounts"]["panlasang_pinoy_recipe_card_per_serving"] == 141
     assert status["sourceCounts"]["panlasang_pinoy_recipe_card_yield_normalized"] == 36
+
+    profile = UserProfile(
+        dietaryRestrictions=["Vegetarian", "No Pork", "No Beef", "Lactose Intolerant"],
+        allergies=["dairy", "egg", "fish", "gluten", "nuts", "peanut", "shellfish", "soy"],
+        maxCookingTimeMinutes=45,
+    )
+    restricted_safe_strong = []
+    for recipe in database.get_all_recipes():
+        tags = meal_planner.infer_tags(recipe)
+        ing_tokens = meal_planner.normalize_ingredients(recipe.get("ingredients", []))
+        if meal_planner.restriction_failure_reasons(profile, tags, ing_tokens):
+            continue
+        if int(recipe.get("minutes") or 0) > 45:
+            continue
+        if (
+            400 <= int(recipe.get("calories") or 0) <= 650
+            and 18 <= int(recipe.get("proteinGrams") or 0) <= 28
+            and 45 <= int(recipe.get("carbsGrams") or 0) <= 85
+            and 8 <= int(recipe.get("fatsGrams") or 0) <= 22
+            and 8 <= int(recipe.get("fiberGrams") or 0) <= 14
+        ):
+            restricted_safe_strong.append(recipe)
+
+    assert len(restricted_safe_strong) >= 16
+
+    solve_profile = UserProfile(
+        displayName="HardRestricted",
+        age=27,
+        heightCm=160,
+        weightKg=60,
+        activityLevel="Lightly Active",
+        goal="Symptom Management",
+        weeklyBudgetPhp=5000,
+        maxCookingTimeMinutes=45,
+        planningPriority="Budget First",
+        varietyPreference="Balanced",
+        dietaryRestrictions=["Vegetarian", "No Pork", "No Beef", "Lactose Intolerant"],
+        allergies=["dairy", "egg", "fish", "gluten", "nuts", "peanut", "shellfish", "soy"],
+        symptoms=["Weight gain", "Irregular periods", "Acne", "Hair loss"],
+    )
+    policy = {
+        "planning": {
+            "recipe_repeat_limits": [2, 3, 4, 10],
+            "infeasibility_relaxation_order": ["daily_tolerance_percent", "recipe_repeat_limits"],
+        },
+        "stage1": {
+            "max_candidates_per_slot": 64,
+            "restricted_shortlist_multiplier": 1.15,
+            "minimum_candidates_required": 10,
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+        },
+        "solver": {
+            "solver_time_limit_seconds": 6.0,
+            "solver_max_seconds": 12.0,
+            "total_solver_seconds": 14.0,
+            "retry_attempts": 1,
+            "optimality_gap_target": 0.05,
+            "solver_workers": 1,
+        },
+    }
+    telemetry = {}
+    plan, msg, _explanation = meal_planner.solve_meal_plan(
+        meal_planner.GeneratePlanRequest(profile=solve_profile, days=7, mealsPerDay=3),
+        database.get_all_recipes(),
+        policy=policy,
+        telemetry_out=telemetry,
+    )
+
+    assert msg == "Success"
+    assert plan is not None
+    assert telemetry["status"] == "success"
 
 
 def test_review_queue_exports_missing_nutrition_with_source_metadata():

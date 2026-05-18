@@ -87062,5 +87062,845 @@
       "Serve with warm rice."
     ],
     "minutes": 24
+  },
+  {
+    "id": "ph_qk_061",
+    "name": "Monggo Pea Malunggay Rice Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_fiber",
+      "high_protein",
+      "vegan",
+      "soy_free"
+    ],
+    "nutrition": {
+      "calories": 510,
+      "protein_g": 21,
+      "carbs_g": 78,
+      "fat_g": 12,
+      "fiber_g": 14
+    },
+    "ingredients": [
+      {
+        "name": "cooked monggo",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "green peas",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "malunggay leaves",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "2 tsp"
+      },
+      {
+        "name": "calamansi juice",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic in oil until fragrant.",
+      "Add cooked monggo, green peas, and malunggay until hot.",
+      "Serve over brown rice and finish with calamansi."
+    ],
+    "minutes": 18
+  },
+  {
+    "id": "ph_qk_062",
+    "name": "Garbanzo Sitaw Tomato Red Rice Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_fiber",
+      "high_protein",
+      "vegan",
+      "soy_free"
+    ],
+    "nutrition": {
+      "calories": 535,
+      "protein_g": 20,
+      "carbs_g": 82,
+      "fat_g": 13,
+      "fiber_g": 13
+    },
+    "ingredients": [
+      {
+        "name": "cooked garbanzos",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "sitaw cut short",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "red rice cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "tomato diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "2 tbsp"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "2 tsp"
+      },
+      {
+        "name": "calamansi juice",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute onion and tomato in oil.",
+      "Add garbanzos and sitaw, cooking until the beans are crisp-tender.",
+      "Serve with red rice and calamansi."
+    ],
+    "minutes": 20
+  },
+  {
+    "id": "ph_qk_063",
+    "name": "Lentil Kalabasa Kangkong Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_fiber",
+      "high_protein",
+      "vegan",
+      "soy_free"
+    ],
+    "nutrition": {
+      "calories": 500,
+      "protein_g": 22,
+      "carbs_g": 76,
+      "fat_g": 11,
+      "fiber_g": 14
+    },
+    "ingredients": [
+      {
+        "name": "cooked lentils",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "kalabasa cubed small",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "kangkong chopped",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "1/3 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "2 tsp"
+      }
+    ],
+    "instructions": [
+      "Cook garlic in oil, then add kalabasa with a splash of water.",
+      "Fold in lentils and kangkong until heated through.",
+      "Serve with brown rice."
+    ],
+    "minutes": 22
+  },
+  {
+    "id": "ph_qk_064",
+    "name": "Monggo Adlai Pechay Plate",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_fiber",
+      "high_protein",
+      "vegan",
+      "soy_free"
+    ],
+    "nutrition": {
+      "calories": 520,
+      "protein_g": 22,
+      "carbs_g": 73,
+      "fat_g": 14,
+      "fiber_g": 13
+    },
+    "ingredients": [
+      {
+        "name": "cooked monggo",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "adlai cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "pechay chopped",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "tomato diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "2 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and tomato in oil.",
+      "Add monggo and pechay until warm and tender.",
+      "Serve beside cooked adlai."
+    ],
+    "minutes": 19
+  },
+  {
+    "id": "ph_qk_065",
+    "name": "Garbanzo Ampalaya Garlic Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_fiber",
+      "high_protein",
+      "vegan",
+      "soy_free"
+    ],
+    "nutrition": {
+      "calories": 485,
+      "protein_g": 19,
+      "carbs_g": 66,
+      "fat_g": 15,
+      "fiber_g": 12
+    },
+    "ingredients": [
+      {
+        "name": "cooked garbanzos",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "ampalaya sliced thin",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "green peas",
+        "quantity": "1/3 cup"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "1/3 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "2 tsp"
+      },
+      {
+        "name": "calamansi juice",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and ampalaya in oil.",
+      "Add garbanzos and peas until hot.",
+      "Serve with brown rice and calamansi."
+    ],
+    "minutes": 18
+  },
+  {
+    "id": "ph_qk_066",
+    "name": "Lentil Sayote Malunggay Rice",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_fiber",
+      "high_protein",
+      "vegan",
+      "soy_free"
+    ],
+    "nutrition": {
+      "calories": 505,
+      "protein_g": 23,
+      "carbs_g": 78,
+      "fat_g": 10,
+      "fiber_g": 14
+    },
+    "ingredients": [
+      {
+        "name": "cooked lentils",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "sayote sliced",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "malunggay leaves",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "red rice cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "ginger minced",
+        "quantity": "1 tsp"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "2 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute ginger in oil.",
+      "Add sayote, lentils, and malunggay until tender.",
+      "Serve with red rice."
+    ],
+    "minutes": 21
+  },
+  {
+    "id": "ph_qk_067",
+    "name": "Monggo Mushroom Tomato Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_fiber",
+      "high_protein",
+      "vegan",
+      "soy_free"
+    ],
+    "nutrition": {
+      "calories": 475,
+      "protein_g": 20,
+      "carbs_g": 68,
+      "fat_g": 12,
+      "fiber_g": 13
+    },
+    "ingredients": [
+      {
+        "name": "cooked monggo",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "mushroom sliced",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "tomato diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "1/3 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "2 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and mushroom in oil.",
+      "Add monggo and tomato until warmed through.",
+      "Serve over brown rice."
+    ],
+    "minutes": 18
+  },
+  {
+    "id": "ph_qk_068",
+    "name": "Garbanzo Pea Pinakbet Bowl No Bagoong",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_fiber",
+      "high_protein",
+      "vegan",
+      "soy_free"
+    ],
+    "nutrition": {
+      "calories": 540,
+      "protein_g": 22,
+      "carbs_g": 80,
+      "fat_g": 14,
+      "fiber_g": 14
+    },
+    "ingredients": [
+      {
+        "name": "cooked garbanzos",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "green peas",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "kalabasa cubed small",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "okra sliced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "red rice cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "2 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic, kalabasa, and okra in oil.",
+      "Add garbanzos and peas until hot.",
+      "Serve with red rice."
+    ],
+    "minutes": 24
+  },
+  {
+    "id": "ph_qk_069",
+    "name": "Lentil Okra Tomato Stew Rice",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_fiber",
+      "high_protein",
+      "vegan",
+      "soy_free"
+    ],
+    "nutrition": {
+      "calories": 495,
+      "protein_g": 21,
+      "carbs_g": 74,
+      "fat_g": 11,
+      "fiber_g": 14
+    },
+    "ingredients": [
+      {
+        "name": "cooked lentils",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "okra sliced",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "tomato diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "2 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and tomato in oil.",
+      "Add lentils and okra with a splash of water.",
+      "Simmer briefly and serve with brown rice."
+    ],
+    "minutes": 21
+  },
+  {
+    "id": "ph_qk_070",
+    "name": "Monggo Kamote Tops Adlai Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_fiber",
+      "high_protein",
+      "vegan",
+      "soy_free"
+    ],
+    "nutrition": {
+      "calories": 525,
+      "protein_g": 23,
+      "carbs_g": 76,
+      "fat_g": 13,
+      "fiber_g": 14
+    },
+    "ingredients": [
+      {
+        "name": "cooked monggo",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "kamote tops",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "adlai cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "green peas",
+        "quantity": "1/3 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "2 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic in oil.",
+      "Add monggo, peas, and kamote tops until hot.",
+      "Serve over adlai."
+    ],
+    "minutes": 19
+  },
+  {
+    "id": "ph_qk_071",
+    "name": "Garbanzo Cabbage Carrot Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_fiber",
+      "high_protein",
+      "vegan",
+      "soy_free"
+    ],
+    "nutrition": {
+      "calories": 500,
+      "protein_g": 20,
+      "carbs_g": 75,
+      "fat_g": 12,
+      "fiber_g": 12
+    },
+    "ingredients": [
+      {
+        "name": "cooked garbanzos",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "cabbage shredded",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "carrot sliced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "red rice cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "2 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic, cabbage, and carrot in oil.",
+      "Add garbanzos and cook until hot.",
+      "Serve with red rice."
+    ],
+    "minutes": 17
+  },
+  {
+    "id": "ph_qk_072",
+    "name": "Lentil Pechay Calamansi Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_fiber",
+      "high_protein",
+      "vegan",
+      "soy_free"
+    ],
+    "nutrition": {
+      "calories": 470,
+      "protein_g": 22,
+      "carbs_g": 68,
+      "fat_g": 10,
+      "fiber_g": 13
+    },
+    "ingredients": [
+      {
+        "name": "cooked lentils",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "pechay chopped",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "1/3 cup"
+      },
+      {
+        "name": "tomato diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "2 tsp"
+      },
+      {
+        "name": "calamansi juice",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic and tomato in oil.",
+      "Add lentils and pechay until warmed and wilted.",
+      "Finish with calamansi and serve with brown rice."
+    ],
+    "minutes": 18
+  },
+  {
+    "id": "ph_qk_073",
+    "name": "Monggo Green Pea Breakfast Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_fiber",
+      "high_protein",
+      "vegan",
+      "soy_free"
+    ],
+    "nutrition": {
+      "calories": 520,
+      "protein_g": 22,
+      "carbs_g": 81,
+      "fat_g": 12,
+      "fiber_g": 14
+    },
+    "ingredients": [
+      {
+        "name": "cooked monggo",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "green peas",
+        "quantity": "2/3 cup"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "tomato diced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "onion chopped",
+        "quantity": "2 tbsp"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "2 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute onion and tomato in oil.",
+      "Add monggo and green peas until hot.",
+      "Serve with brown rice."
+    ],
+    "minutes": 18
+  },
+  {
+    "id": "ph_qk_074",
+    "name": "Red Rice Lentil Veggie Plate",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_fiber",
+      "high_protein",
+      "vegan",
+      "soy_free"
+    ],
+    "nutrition": {
+      "calories": 515,
+      "protein_g": 23,
+      "carbs_g": 83,
+      "fat_g": 11,
+      "fiber_g": 13
+    },
+    "ingredients": [
+      {
+        "name": "cooked lentils",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "red rice cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "sitaw cut short",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "carrot sliced",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "2 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic, sitaw, and carrot in oil.",
+      "Add lentils until warm.",
+      "Serve with red rice."
+    ],
+    "minutes": 19
+  },
+  {
+    "id": "ph_qk_075",
+    "name": "Garbanzo Malunggay Power Plate",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_fiber",
+      "high_protein",
+      "vegan",
+      "soy_free"
+    ],
+    "nutrition": {
+      "calories": 545,
+      "protein_g": 21,
+      "carbs_g": 78,
+      "fat_g": 16,
+      "fiber_g": 13
+    },
+    "ingredients": [
+      {
+        "name": "cooked garbanzos",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "malunggay leaves",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "green peas",
+        "quantity": "1/3 cup"
+      },
+      {
+        "name": "adlai cooked",
+        "quantity": "1/2 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "canola oil",
+        "quantity": "2 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic in oil.",
+      "Add garbanzos, peas, and malunggay until warmed through.",
+      "Serve with adlai."
+    ],
+    "minutes": 18
+  },
+  {
+    "id": "ph_qk_076",
+    "name": "Monggo Lentil Split Bowl",
+    "mealType": "Universal",
+    "tags": [
+      "quick",
+      "high_fiber",
+      "high_protein",
+      "vegan",
+      "soy_free"
+    ],
+    "nutrition": {
+      "calories": 550,
+      "protein_g": 27,
+      "carbs_g": 80,
+      "fat_g": 10,
+      "fiber_g": 14
+    },
+    "ingredients": [
+      {
+        "name": "cooked monggo",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "cooked lentils",
+        "quantity": "3/4 cup"
+      },
+      {
+        "name": "pechay chopped",
+        "quantity": "1 cup"
+      },
+      {
+        "name": "brown rice cooked",
+        "quantity": "1/3 cup"
+      },
+      {
+        "name": "garlic minced",
+        "quantity": "2 cloves"
+      },
+      {
+        "name": "olive oil",
+        "quantity": "2 tsp"
+      },
+      {
+        "name": "calamansi juice",
+        "quantity": "1 tsp"
+      }
+    ],
+    "instructions": [
+      "Saute garlic in oil.",
+      "Add monggo, lentils, and pechay until hot.",
+      "Serve with brown rice and calamansi."
+    ],
+    "minutes": 20
   }
 ]

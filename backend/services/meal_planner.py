@@ -210,6 +210,8 @@ MEAT_TOKENS = {"pork", "beef", "chicken", "meat", "lamb", "goat", "duck"}
 FISH_FAMILY_TOKENS = {
     "fish", "isda", "bangus", "milkfish", "tilapia", "galunggong",
     "salmon", "tuna", "tambakol", "tulingan", "tanigue", "seafood",
+    "sardine", "sardines", "sardinas", "dilis", "dulong", "tinapa",
+    "tuyo", "daing", "lapu", "maya",
 }
 SHELLFISH_FAMILY_TOKENS = {"shellfish", "shrimp", "hipon", "crab", "alimango", "alimasag"}
 DAIRY_FAMILY_TOKENS = {"dairy", "milk", "gatas", "cheese", "keso", "yogurt", "butter", "cream"}

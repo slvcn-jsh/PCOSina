@@ -140,20 +140,21 @@
 
 ## Table 13: Actual Recipe Dataset Summary
 
-- Total bundled recipes found in `backend/recipes.json`: `1114`
-- Average calories: `357.55`
-- Average protein: `10.33`
-- Average minutes: `24.58`
-- Minimum calories: `280`
-- Maximum calories: `460`
-- Average ingredient count: `11.12`
+- Total bundled recipes found in `backend/recipes.json`: `1130`
+- Raw bundled recipes with complete nutrition: `76`
+- Average calories among raw complete nutrition rows: `397.63`
+- Average protein among raw complete nutrition rows: `17.25`
+- Average minutes across bundled recipes: `77.81`
+- Minimum calories among raw complete nutrition rows: `280`
+- Maximum calories among raw complete nutrition rows: `550`
+- Average ingredient count across bundled recipes: `11.05`
 
 | Meal Type | Recipe Count |
 | --- | --- |
 | Breakfast | 357 |
 | Dinner | 369 |
 | Lunch | 358 |
-| Universal | 30 |
+| Universal | 46 |
 
 ## Table 14: Actual Backend Test Coverage
 

@@ -1027,10 +1027,22 @@ def adjust_max_per_week(base: List[int], preference: str | None) -> List[int]:
     return base
 
 
-def repeat_sequence_for_profile(base: List[int], preference: str | None, priority: str | None) -> List[int]:
+def repeat_sequence_for_profile(
+    base: List[int],
+    preference: str | None,
+    priority: str | None,
+    *,
+    hard_filter_count: int = 0,
+    safe_candidate_count: Optional[int] = None,
+) -> List[int]:
     sequence = adjust_max_per_week(base, preference)
     raw_preference = str(preference or "").strip().lower()
     raw_priority = str(priority or "").strip().lower()
+    restricted_catalog = int(hard_filter_count or 0) >= 6 or (
+        safe_candidate_count is not None and int(safe_candidate_count or 0) <= 96
+    )
+    if restricted_catalog:
+        return sorted(set([value for value in sequence if value >= 6] + [6, 8, 10]))
     if "budget" in raw_priority and "high" not in raw_preference:
         return sorted(set([value for value in sequence if value >= 6] + [6, 8, 10]))
     return sequence
@@ -2344,7 +2356,10 @@ def solve_meal_plan(
         ],
         profile.varietyPreference,
         profile.planningPriority,
+        hard_filter_count=len(profile.dietaryRestrictions or []) + len(profile.allergies or []),
+        safe_candidate_count=int(stage1_diag.get("safe_recipe_count_pre_pricing") or 0),
     )
+    stage1_diag["repeat_sequence"] = list(max_per_week_list)
     relaxation_order = _policy_get(
         policy,
         "planning.infeasibility_relaxation_order",

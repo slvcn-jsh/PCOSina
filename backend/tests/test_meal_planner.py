@@ -797,6 +797,16 @@ def test_budget_first_repeat_sequence_prefers_reliable_repeat_limits():
     assert meal_planner.repeat_sequence_for_profile([2, 3, 4, 10], "High", "Budget First") == [2, 3, 4]
 
 
+def test_restricted_profile_repeat_sequence_prefers_reliable_repeat_limits():
+    assert meal_planner.repeat_sequence_for_profile(
+        [2, 3, 4, 10],
+        "Balanced",
+        "Nutrition First",
+        hard_filter_count=12,
+        safe_candidate_count=72,
+    ) == [6, 8, 10]
+
+
 def test_allergy_filter_blocks_recipe():
     profile = UserProfile(allergies=["peanut"])
     recipes = [

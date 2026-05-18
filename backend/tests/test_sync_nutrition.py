@@ -183,7 +183,7 @@ def test_bundled_catalog_nutrition_seed_has_no_fixed_placeholder_profiles():
         goal="Symptom Management",
         weeklyBudgetPhp=5000,
         maxCookingTimeMinutes=45,
-        planningPriority="Budget First",
+        planningPriority="Nutrition First",
         varietyPreference="Balanced",
         dietaryRestrictions=["Vegetarian", "No Pork", "No Beef", "Lactose Intolerant"],
         allergies=["dairy", "egg", "fish", "gluten", "nuts", "peanut", "shellfish", "soy"],

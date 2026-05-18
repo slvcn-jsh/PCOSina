@@ -33,4 +33,5 @@ Updated: 2026-05-18
 - The restricted-profile catalog repair added 16 soy-free, gluten-free, dairy-free, egg-free, fish-free, shellfish-free, peanut/nut-free vegan quick meals in the 400-650 kcal, 18-28g protein target band, and a production-shaped replay of the hardest profile now returns `Success`.
 - Highly restricted profiles now use the repeat-reliable solver ladder even outside Budget First, so the Render 14-second cap reaches the `maxPerWeek=6` attempt needed by the hardest safe catalog profile.
 - Highly restricted Stage 1 pools now reserve strong nutrition anchors before the 40-candidate Render cap, preventing ML/shadow ranking and budget shortlist trimming from dropping the new feasible vegan protein/fiber meals.
+- Restricted-profile Stage 1 dedup now preserves all strong nutrition anchors before similarity pruning, and the solver tries the reliable `tol=0.4/maxPerWeek=8` path first under the existing 14-second cap.
 - Remaining blocker: 953/1,130 active recipes still need reviewed nutrition provenance before claiming unrestricted nutrition-data maturity, even though the readiness gate is green for local planner feasibility.

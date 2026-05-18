@@ -807,6 +807,51 @@ def test_restricted_profile_repeat_sequence_prefers_reliable_repeat_limits():
     ) == [6, 8, 10]
 
 
+def test_restricted_profile_solve_pairs_try_reliable_middle_path_first():
+    pairs = meal_planner.solve_pair_sequence_for_profile(
+        [0.2, 0.3, 0.4, 0.6000000000000001, 0.8],
+        [6, 8, 10],
+        ["daily_tolerance_percent", "recipe_repeat_limits"],
+        restricted_catalog=True,
+    )
+
+    assert pairs[:3] == [(0.4, 8), (0.4, 10), (0.4, 6)]
+    assert len(pairs) == 15
+    assert len(set(pairs)) == 15
+
+
+def test_anchor_preserving_similarity_keeps_restricted_nutrition_anchors():
+    anchor_one = {
+        "id": "anchor-1",
+        "title": "Monggo Fiber Bowl",
+        "calories": 520,
+        "proteinGrams": 22,
+        "carbsGrams": 73,
+        "fatsGrams": 14,
+        "fiberGrams": 13,
+    }
+    anchor_two = {
+        "id": "anchor-2",
+        "title": "Monggo Fiber Bowl",
+        "calories": 550,
+        "proteinGrams": 27,
+        "carbsGrams": 80,
+        "fatsGrams": 10,
+        "fiberGrams": 14,
+    }
+
+    assert [item["id"] for item in meal_planner._apply_similarity_dedup([anchor_one, anchor_two], 0.85)] == [
+        "anchor-1"
+    ]
+    assert [
+        item["id"]
+        for item in meal_planner._apply_anchor_preserving_similarity_dedup([anchor_one, anchor_two], 0.85)
+    ] == [
+        "anchor-1",
+        "anchor-2",
+    ]
+
+
 def test_allergy_filter_blocks_recipe():
     profile = UserProfile(allergies=["peanut"])
     recipes = [

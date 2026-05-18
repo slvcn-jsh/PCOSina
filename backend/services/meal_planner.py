@@ -1048,6 +1048,44 @@ def repeat_sequence_for_profile(
     return sequence
 
 
+def _ordered_values_by_preference(values: List[Any], preferred: List[Any]) -> List[Any]:
+    ordered: List[Any] = []
+    for target in preferred:
+        for value in values:
+            if value in ordered:
+                continue
+            try:
+                matches = abs(float(value) - float(target)) < 0.0001
+            except Exception:
+                matches = value == target
+            if matches:
+                ordered.append(value)
+    for value in values:
+        if value not in ordered:
+            ordered.append(value)
+    return ordered
+
+
+def solve_pair_sequence_for_profile(
+    tolerance_levels: List[float],
+    max_per_week_list: List[int],
+    relaxation_order: List[Any],
+    *,
+    restricted_catalog: bool = False,
+) -> List[Tuple[float, int]]:
+    tol_sequence = [float(v) for v in tolerance_levels]
+    repeat_sequence = [int(v) for v in max_per_week_list]
+    if restricted_catalog:
+        tol_sequence = _ordered_values_by_preference(tol_sequence, [0.4, 0.6, 0.8, 0.3, 0.2])
+        repeat_sequence = _ordered_values_by_preference(repeat_sequence, [8, 10, 6])
+        return [(tol, max_repeat) for tol in tol_sequence for max_repeat in repeat_sequence]
+
+    outer_key = (str(relaxation_order[0]).strip().lower() if relaxation_order else "daily_tolerance_percent")
+    if "recipe_repeat_limits" in outer_key:
+        return [(tol, max_repeat) for max_repeat in repeat_sequence for tol in tol_sequence]
+    return [(tol, max_repeat) for tol in tol_sequence for max_repeat in repeat_sequence]
+
+
 def priority_overrides(priority: str | None) -> Dict[str, int]:
     raw = (priority or "").lower()
     if "budget" in raw:
@@ -1164,6 +1202,20 @@ def _apply_restricted_nutrition_trim(bucket: List[Dict[str, Any]], limit: int) -
         if len(selected) >= normalized_limit:
             break
         _add_unique_recipe(selected, selected_ids, recipe, normalized_limit)
+    return selected
+
+
+def _apply_anchor_preserving_similarity_dedup(
+    bucket: List[Dict[str, Any]],
+    threshold: float,
+) -> List[Dict[str, Any]]:
+    selected: List[Dict[str, Any]] = []
+    selected_ids: set[str] = set()
+    for recipe in bucket:
+        if _is_restricted_nutrition_anchor(recipe):
+            _add_unique_recipe(selected, selected_ids, recipe, len(bucket))
+    for recipe in _apply_similarity_dedup(bucket, threshold):
+        _add_unique_recipe(selected, selected_ids, recipe, len(bucket))
     return selected
 
 
@@ -1483,6 +1535,9 @@ def shortlist_candidates(
         stage1_diag["cost_estimation_ms"] = int(pricing_context.price_cost_estimation_ms)
         stage1_diag["processed_recipe_count"] = processed_recipe_count
         stage1_diag["safe_recipe_count_pre_pricing"] = safe_candidates_count
+        stage1_diag["restricted_nutrition_anchor_count_safe"] = sum(
+            1 for recipe in safe_candidates if _is_restricted_nutrition_anchor(recipe)
+        )
         stage1_diag["pre_pricing_pruning_enabled"] = bool(pre_pricing_enabled)
         stage1_diag["pre_pricing_restricted_enabled"] = bool(pre_pricing_restricted_enabled)
         stage1_diag["pre_pricing_budget_sensitive"] = bool(budget_sensitive_profile)
@@ -1520,7 +1575,10 @@ def shortlist_candidates(
     restricted_catalog = hard_filter_count >= 6 or safe_candidates_count <= 96
     for k in buckets:
         buckets[k].sort(key=_base_score, reverse=True)
-        buckets[k] = _apply_similarity_dedup(buckets[k], similarity_threshold)
+        if restricted_catalog:
+            buckets[k] = _apply_anchor_preserving_similarity_dedup(buckets[k], similarity_threshold)
+        else:
+            buckets[k] = _apply_similarity_dedup(buckets[k], similarity_threshold)
         limit = stage1_max if restriction_count < 2 else int(stage1_max * max(1.0, restricted_shortlist_multiplier))
         if restricted_catalog:
             buckets[k] = _apply_restricted_nutrition_trim(buckets[k], limit)
@@ -1532,6 +1590,10 @@ def shortlist_candidates(
             buckets[k] = _apply_budget_nutrition_trim(buckets[k], keep)
         for recipe in buckets[k]:
             recipe["_stage1_bucket"] = k
+    restricted_anchor_count_post_trim = sum(
+        1 for recipe in (buckets["Breakfast"] + buckets["Lunch"] + buckets["Dinner"] + buckets["Universal"])
+        if _is_restricted_nutrition_anchor(recipe)
+    )
     if stage1_diag is not None:
         stage1_diag["bucket_finalize_ms"] = max(0, int((time.time() - finalize_started_at) * 1000))
         stage1_diag["pricing_diagnostics"] = pricing_context.snapshot()
@@ -1541,6 +1603,7 @@ def shortlist_candidates(
         stage1_diag["exclusion_summary"] = dict(exclusion_summary)
         stage1_diag["exclusion_detail_counts"] = dict(exclusion_detail_counts)
         stage1_diag["restricted_nutrition_anchor_reserve"] = bool(restricted_catalog)
+        stage1_diag["restricted_nutrition_anchor_count_post_trim"] = int(restricted_anchor_count_post_trim)
         stage1_diag["goal_symptom_strategy"] = list(symptom_state.get("notes") or [])
     return buckets
 
@@ -2424,6 +2487,9 @@ def solve_meal_plan(
         safe_candidate_count=int(stage1_diag.get("safe_recipe_count_pre_pricing") or 0),
     )
     stage1_diag["repeat_sequence"] = list(max_per_week_list)
+    restricted_solver_catalog = int(len(profile.dietaryRestrictions or []) + len(profile.allergies or [])) >= 6 or (
+        int(stage1_diag.get("safe_recipe_count_pre_pricing") or 0) <= 96
+    )
     relaxation_order = _policy_get(
         policy,
         "planning.infeasibility_relaxation_order",
@@ -2431,13 +2497,14 @@ def solve_meal_plan(
     )
     if not isinstance(relaxation_order, list):
         relaxation_order = ["daily_tolerance_percent", "recipe_repeat_limits"]
-    outer_key = (str(relaxation_order[0]).strip().lower() if relaxation_order else "daily_tolerance_percent")
-    if "recipe_repeat_limits" in outer_key:
-        tol_sequence: List[float] = [float(v) for v in tolerance_levels for _ in (0,)]
-        repeat_sequence: List[int] = [int(v) for v in max_per_week_list for _ in (0,)]
-        solve_pairs = [(tol, max_repeat) for max_repeat in repeat_sequence for tol in tol_sequence]
-    else:
-        solve_pairs = [(tol, max_repeat) for tol in tolerance_levels for max_repeat in max_per_week_list]
+    solve_pairs = solve_pair_sequence_for_profile(
+        tolerance_levels,
+        max_per_week_list,
+        relaxation_order,
+        restricted_catalog=bool(restricted_solver_catalog),
+    )
+    if restricted_solver_catalog:
+        stage1_diag["restricted_solver_pair_priority"] = True
 
     feature_rows_started_at = time.time()
     if telemetry_out is not None:

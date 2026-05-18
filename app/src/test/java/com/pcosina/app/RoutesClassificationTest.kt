@@ -104,4 +104,12 @@ class RoutesClassificationTest {
     fun baseRoute_extractsRecipeBase() {
         assertEquals(Routes.RecipeDetails, Routes.baseRoute(Routes.recipeDetailsRoute("xyz")))
     }
+
+    @Test
+    fun recipeDetailsRoute_encodesDynamicSegments() {
+        val route = Routes.recipeDetailsRoute("admin/recipe 1", "Lunch / Dinner")
+
+        assertEquals("recipe_details/admin%2Frecipe+1?mealLabel=Lunch+%2F+Dinner", route)
+        assertEquals(Routes.RecipeDetails, Routes.baseRoute(route))
+    }
 }

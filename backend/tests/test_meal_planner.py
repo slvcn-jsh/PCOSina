@@ -33,7 +33,7 @@ def _recipe(
     protein: int = 24,
     carbs: int = 40,
     fats: int = 15,
-    fiber: int = 6,
+    fiber: int = 7,
     minutes: int = 20,
     ingredients: list[dict] | None = None,
     sugar: int | None = None,
@@ -428,6 +428,74 @@ def test_seeded_recipe_database_broad_profile_generates_plan_with_bounded_market
     assert len(market_calls) <= 12
 
 
+def test_solver_returns_no_safe_plan_when_required_nutrition_bounds_are_impossible():
+    profile = UserProfile(
+        displayName="Hard Nutrition User",
+        age=30,
+        heightCm=160,
+        weightKg=65,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        dietaryRestrictions=[],
+        allergies=[],
+        pantryItems=[],
+        maxCookingTimeMinutes=60,
+    )
+    request = meal_planner.GeneratePlanRequest(profile=profile, days=1, mealsPerDay=3)
+    recipes = [
+        _recipe("low_b", "Low Breakfast", "Breakfast", protein=10, carbs=40, fats=15, fiber=2, sugar=30),
+        _recipe("low_l", "Low Lunch", "Lunch", protein=10, carbs=40, fats=15, fiber=2, sugar=30),
+        _recipe("low_d", "Low Dinner", "Dinner", protein=10, carbs=40, fats=15, fiber=2, sugar=30),
+    ]
+    policy = {
+        "planning": {
+            "planning_horizon_days": 1,
+            "meals_per_day": 3,
+            "recipe_repeat_limits": [3],
+        },
+        "nutrition": {
+            "calorie_min": 1000,
+            "calorie_max": 2200,
+            "protein_min": 80,
+            "protein_max": 200,
+            "carb_min": 0,
+            "carb_max": 500,
+            "fat_min": 0,
+            "fat_max": 250,
+            "fiber_min": 20,
+            "sodium_max": 2300,
+            "sugar_max": 20,
+            "daily_tolerance_percent": 0.2,
+        },
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "max_candidates_per_slot": 10,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "minimum_candidates_required": 1,
+            "pool_cap_top_share": 1.0,
+        },
+        "solver": {
+            "solver_time_limit_seconds": 1.0,
+            "solver_max_seconds": 2.0,
+            "total_solver_seconds": 3.0,
+            "timeout_ms": 3000,
+            "retry_attempts": 0,
+            "optimality_gap_target": 0.1,
+            "solver_workers": 1,
+        },
+    }
+
+    plan, msg, explanation = meal_planner.solve_meal_plan(request, recipes, policy=policy, telemetry_out={})
+
+    assert plan is None
+    assert msg == "Infeasible"
+    assert explanation is None
+
+
 def test_resolve_budget_weekly_prefers_weekly_php():
     profile = UserProfile(weeklyBudgetPhp=3000, budgetWeekly=2000, budgetMonthly=8000)
     assert meal_planner.resolve_budget_weekly(profile) == 3000.0
@@ -658,7 +726,7 @@ def test_build_swap_candidates_blocks_current_recipe_and_repetition_overflow():
             "proteinGrams": 24,
             "carbsGrams": 36,
             "fatsGrams": 12,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 10,
             "ingredients": [{"name": "egg", "quantity": "2 pcs"}],
             "tags": [],
@@ -737,7 +805,7 @@ def test_build_swap_candidates_respects_budget_and_restrictions():
             "proteinGrams": 28,
             "carbsGrams": 44,
             "fatsGrams": 20,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 25,
             "ingredients": [{"name": "pork", "quantity": "200 g"}],
             "tags": [],
@@ -750,7 +818,7 @@ def test_build_swap_candidates_respects_budget_and_restrictions():
             "proteinGrams": 30,
             "carbsGrams": 42,
             "fatsGrams": 18,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 25,
             "ingredients": [{"name": "shrimp", "quantity": "2 kg"}],
             "tags": [],
@@ -977,7 +1045,7 @@ def test_build_swap_candidates_allows_repeats_up_to_policy_limit():
             "proteinGrams": 24,
             "carbsGrams": 36,
             "fatsGrams": 12,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 10,
             "ingredients": [{"name": "egg", "quantity": "2 pcs"}],
             "tags": [],
@@ -1053,7 +1121,7 @@ def test_solve_meal_plan_emits_telemetry_snapshot():
             "proteinGrams": 30,
             "carbsGrams": 45,
             "fatsGrams": 16,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 20,
             "ingredients": [{"name": "egg", "quantity": "2 pcs"}],
             "tags": [],
@@ -1079,7 +1147,7 @@ def test_solve_meal_plan_emits_telemetry_snapshot():
             "proteinGrams": 27,
             "carbsGrams": 48,
             "fatsGrams": 17,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 30,
             "ingredients": [{"name": "tomato", "quantity": "1 pc"}],
             "tags": [],
@@ -1160,7 +1228,7 @@ def test_solve_meal_plan_canary_applies_ml_ranking_strategy():
             "proteinGrams": 30,
             "carbsGrams": 45,
             "fatsGrams": 16,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 20,
             "ingredients": [{"name": "egg", "quantity": "2 pcs"}],
             "tags": [],
@@ -1186,7 +1254,7 @@ def test_solve_meal_plan_canary_applies_ml_ranking_strategy():
             "proteinGrams": 27,
             "carbsGrams": 48,
             "fatsGrams": 17,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 30,
             "ingredients": [{"name": "tomato", "quantity": "1 pc"}],
             "tags": [],
@@ -1264,7 +1332,7 @@ def test_solve_meal_plan_stage1_ml_uses_file_backed_ranker_artifacts(monkeypatch
             "proteinGrams": 24,
             "carbsGrams": 41,
             "fatsGrams": 14,
-            "fiberGrams": 5,
+            "fiberGrams": 7,
             "minutes": 15,
             "ingredients": [{"name": "egg", "quantity": "2 pcs"}],
             "tags": [],
@@ -1290,7 +1358,7 @@ def test_solve_meal_plan_stage1_ml_uses_file_backed_ranker_artifacts(monkeypatch
             "proteinGrams": 27,
             "carbsGrams": 45,
             "fatsGrams": 16,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 30,
             "ingredients": [{"name": "fish", "quantity": "1 fillet"}],
             "tags": [],
@@ -1394,9 +1462,9 @@ def test_symptoms_create_deterministic_planner_adjustments():
 
 def test_goal_and_symptoms_are_reflected_in_planner_explanation():
     recipes = [
-        _recipe("b1", "Breakfast", "Breakfast", ingredients=[{"name": "egg", "quantity": "2 pcs"}], sugar=4),
-        _recipe("l1", "Lunch", "Lunch", ingredients=[{"name": "rice", "quantity": "1 cup"}], sugar=6),
-        _recipe("d1", "Dinner", "Dinner", ingredients=[{"name": "chicken", "quantity": "200 g"}], sugar=5),
+        _recipe("b1", "Breakfast", "Breakfast", ingredients=[{"name": "egg", "quantity": "2 pcs"}], fiber=10, sugar=4),
+        _recipe("l1", "Lunch", "Lunch", ingredients=[{"name": "rice", "quantity": "1 cup"}], fiber=10, sugar=6),
+        _recipe("d1", "Dinner", "Dinner", ingredients=[{"name": "chicken", "quantity": "200 g"}], fiber=10, sugar=5),
     ]
     policy = {
         "planning": {"planning_horizon_days": 1, "meals_per_day": 3, "recipe_repeat_limits": [3]},

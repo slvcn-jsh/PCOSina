@@ -380,6 +380,19 @@ fun MealPlanRefinedScreen(
                             groceryViewModel.replaceMealItems(mealId, newSources)
                         }
                         feedbackMessage = "${target.meal.mealLabel} swapped to ${option.title}."
+                        val planIdForEvent = activePlanId ?: currentPlan?.planId ?: currentPlan?.weekLabel ?: "current"
+                        mealPlanViewModel.trackMlEvent(
+                            eventName = "why_replaced_submitted",
+                            requestId = currentPlan?.requestId,
+                            payload = mapOf(
+                                "plan_id" to planIdForEvent,
+                                "slot_index" to ((target.dayIndex * 3) + target.mealIndex),
+                                "old_recipe_id" to target.meal.recipeId,
+                                "new_recipe_id" to option.id,
+                                "reason_tags" to listOf("user_preference"),
+                                "reason_source" to "swap_option_select"
+                            )
+                        )
                         swapTarget = null
                     }.onFailure { error ->
                         swapError = error.message ?: "Unable to apply swap."
@@ -398,6 +411,7 @@ fun MealPlanRefinedScreen(
     ) {
         val scrollState = rememberScrollState()
         val noSafePlanNotice = generationNotice as? MealPlanGenerationNotice.NoSafePlan
+        val continuityNotice = generationNotice as? MealPlanGenerationNotice.ContinuityFallback
         val errorState = uiState as? MealPlanUiState.Error
         val isGenerating = uiState is MealPlanUiState.Loading
         val waitingOnSameRequest = errorState?.message?.let { message ->
@@ -609,6 +623,25 @@ fun MealPlanRefinedScreen(
                 }
             }
 
+            if (continuityNotice != null) {
+                RefinedOverviewCard(
+                    containerColor = Color(0xFFFFFBF0),
+                    borderColor = PcosinaPink.copy(alpha = 0.18f),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp)
+                ) {
+                    Text(
+                        text = "Latest saved plan is still available",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = PcosinaDeepRose
+                    )
+                    Text(
+                        text = continuityNotice.message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PcosinaMuted
+                    )
+                }
+            }
+
             if (!feedbackMessage.isNullOrBlank()) {
                 RefinedOverviewCard(
                     containerColor = Color(0xFFF3FFF7),
@@ -753,14 +786,59 @@ fun MealPlanRefinedScreen(
                                                     plannedMealLabels = plannedMealLabels
                                                 ).ifBlank { "Could not skip this meal right now." }
                                             }
+                                            if (saved) {
+                                                val planIdForEvent = activePlanId ?: currentPlan?.planId ?: currentPlan?.weekLabel ?: "current"
+                                                val slotIndex = (selectedDayIndex * 3) + mealIndex
+                                                mealPlanViewModel.trackMlEvent(
+                                                    eventName = "meal_skipped",
+                                                    requestId = currentPlan?.requestId,
+                                                    payload = mapOf(
+                                                        "plan_id" to planIdForEvent,
+                                                        "slot_index" to slotIndex,
+                                                        "recipe_id" to meal.recipeId,
+                                                        "meal_label" to meal.mealLabel
+                                                    )
+                                                )
+                                                mealPlanViewModel.trackMlEvent(
+                                                    eventName = "why_skipped_submitted",
+                                                    requestId = currentPlan?.requestId,
+                                                    payload = mapOf(
+                                                        "plan_id" to planIdForEvent,
+                                                        "slot_index" to slotIndex,
+                                                        "recipe_id" to meal.recipeId,
+                                                        "reason_tags" to listOf("skipped_by_user"),
+                                                        "reason_source" to "quick_skip"
+                                                    )
+                                                )
+                                            }
                                         } else {
                                             feedbackMessage = logLockReason
                                         }
                                     },
                                     onSwap = {
                                         if (isLogged || isSkipped) {
+                                            mealPlanViewModel.trackMlEvent(
+                                                eventName = "manual_override_attempted",
+                                                requestId = currentPlan?.requestId,
+                                                payload = mapOf(
+                                                    "override_type" to "locked_meal_swap",
+                                                    "plan_id" to (activePlanId ?: currentPlan?.planId ?: currentPlan?.weekLabel ?: "current"),
+                                                    "slot_index" to ((selectedDayIndex * 3) + mealIndex),
+                                                    "recipe_id" to meal.recipeId
+                                                )
+                                            )
                                             feedbackMessage = "Handled meals are locked and cannot be swapped."
                                         } else if (!isOnline) {
+                                            mealPlanViewModel.trackMlEvent(
+                                                eventName = "manual_override_attempted",
+                                                requestId = currentPlan?.requestId,
+                                                payload = mapOf(
+                                                    "override_type" to "offline_meal_swap",
+                                                    "plan_id" to (activePlanId ?: currentPlan?.planId ?: currentPlan?.weekLabel ?: "current"),
+                                                    "slot_index" to ((selectedDayIndex * 3) + mealIndex),
+                                                    "recipe_id" to meal.recipeId
+                                                )
+                                            )
                                             feedbackMessage = "Internet required for meal swaps."
                                         } else {
                                             swapTarget = MealSwapTarget(

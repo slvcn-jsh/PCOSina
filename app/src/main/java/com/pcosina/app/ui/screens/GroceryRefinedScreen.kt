@@ -158,17 +158,40 @@ fun GroceryRefinedScreen(
     var groceryFilterScope by rememberSaveable { mutableStateOf(GroceryFilterScope.AllItems.name) }
     var selectedFilterCategories by rememberSaveable { mutableStateOf(setOf<String>()) }
     var selectedCategoryKey by rememberSaveable(activePlanId) { mutableStateOf("") }
+    var expiredPantryEventKeys by rememberSaveable { mutableStateOf(setOf<String>()) }
+    val today = remember { LocalDate.now() }
 
     val effectiveChecked = remember(checkedNames, pantryMatches, pantryOptOut) {
         checkedNames + pantryMatches.filter { it !in pantryOptOut }
     }
     val hasPlan = planHistory.isNotEmpty() || planState is MealPlanUiState.Success
+    val expiredPantryEntries = remember(effectivePantryEntries, today) {
+        effectivePantryEntries.filter { entry ->
+            val expiry = parsePantryExpiryDate(entry.expiryDate)
+            expiry != null && expiry.isBefore(today)
+        }
+    }
 
     LaunchedEffect(hasPlan, groupedEntries.isEmpty(), mealSources.isEmpty()) {
         if (hasPlan && groupedEntries.isEmpty() && mealSources.isEmpty()) {
             mealPlanViewModel.extractGrocerySourcesForPlan { sources ->
                 groceryViewModel.setPlanSources(sources)
             }
+        }
+    }
+
+    LaunchedEffect(expiredPantryEntries) {
+        val newExpiredKeys = expiredPantryEntries
+            .map { refinedPantryKey(it.name) }
+            .filter { it.isNotBlank() && it !in expiredPantryEventKeys }
+        newExpiredKeys.forEach { token ->
+            mealPlanViewModel.trackMlEvent(
+                eventName = "pantry_item_expired",
+                payload = mapOf("item_token" to token, "source" to "grocery_pantry_review")
+            )
+        }
+        if (newExpiredKeys.isNotEmpty()) {
+            expiredPantryEventKeys = expiredPantryEventKeys + newExpiredKeys
         }
     }
 
@@ -218,7 +241,7 @@ fun GroceryRefinedScreen(
     val selectedCategoryIndex = categoryEntries.indexOfFirst { it.first == selectedCategoryKey }.let { index ->
         if (index >= 0) index else 0
     }
-    val todayLabel = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("MMM dd", Locale.ENGLISH)) }
+    val todayLabel = remember(today) { today.format(DateTimeFormatter.ofPattern("MMM dd", Locale.ENGLISH)) }
     val totalCount = groupedEntries.size
     val coveredCount = groupedEntries.count { it.name in effectiveChecked }
     val remainingCount = (totalCount - coveredCount).coerceAtLeast(0)
@@ -253,6 +276,13 @@ fun GroceryRefinedScreen(
                         refinedPantryKey(it.name) == refinedPantryKey(entry.name)
                     }
                 )
+                mealPlanViewModel.trackMlEvent(
+                    eventName = "pantry_item_removed",
+                    payload = mapOf(
+                        "item_name" to entry.name,
+                        "source" to "grocery_pantry_dialog"
+                    )
+                )
                 feedbackMessage = "${entry.name} removed from pantry."
             }
         )
@@ -275,6 +305,13 @@ fun GroceryRefinedScreen(
                             name = trimmed,
                             quantity = pantryQty.trim().takeIf { it.isNotBlank() },
                             expiryDate = pantryExpiry.trim().takeIf { it.isNotBlank() }
+                        )
+                    )
+                    mealPlanViewModel.trackMlEvent(
+                        eventName = "pantry_item_added",
+                        payload = mapOf(
+                            "item_name" to trimmed,
+                            "source" to "grocery_pantry_dialog"
                         )
                     )
                     feedbackMessage = "$trimmed added to pantry."
@@ -429,10 +466,28 @@ fun GroceryRefinedScreen(
                     }
                 },
                 onToggleItem = { item ->
+                    val wasComplete = totalCount > 0 && coveredCount >= totalCount
+                    val nextPantryOptOut: Set<String>
+                    val nextCheckedNames: Set<String>
                     if (item.name in pantryMatches) {
-                        pantryOptOut = if (item.name in pantryOptOut) pantryOptOut - item.name else pantryOptOut + item.name
+                        nextPantryOptOut = if (item.name in pantryOptOut) pantryOptOut - item.name else pantryOptOut + item.name
+                        nextCheckedNames = checkedNames
                     } else {
-                        checkedNames = if (item.name in checkedNames) checkedNames - item.name else checkedNames + item.name
+                        nextPantryOptOut = pantryOptOut
+                        nextCheckedNames = if (item.name in checkedNames) checkedNames - item.name else checkedNames + item.name
+                    }
+                    pantryOptOut = nextPantryOptOut
+                    checkedNames = nextCheckedNames
+                    val nextEffectiveChecked = nextCheckedNames + pantryMatches.filter { it !in nextPantryOptOut }
+                    val isComplete = totalCount > 0 && groupedEntries.all { it.name in nextEffectiveChecked }
+                    if (!wasComplete && isComplete) {
+                        mealPlanViewModel.trackMlEvent(
+                            eventName = "grocery_completed",
+                            payload = mapOf(
+                                "plan_id" to (activePlanId ?: "current"),
+                                "item_count" to totalCount
+                            )
+                        )
                     }
                 },
                 onSyncIngredients = {
@@ -1816,6 +1871,13 @@ private fun formatPhp(value: Int): String = "₱%,d".format(Locale.ENGLISH, valu
 
 private fun refinedPantryKey(raw: String): String =
     canonicalGroceryKey(raw)
+
+private fun parsePantryExpiryDate(raw: String?): LocalDate? =
+    raw?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?.let { value ->
+            runCatching { LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
+        }
 
 private fun refinedPantryTokens(raw: String): Set<String> =
     refinedPantryKey(raw)

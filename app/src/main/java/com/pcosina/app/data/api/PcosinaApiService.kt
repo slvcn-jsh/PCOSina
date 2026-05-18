@@ -217,6 +217,11 @@ interface PcosinaApiService {
         @Query("limit") limit: Int = 50
     ): List<RecipeSummaryDto>
 
+    @GET("recipes/catalog")
+    suspend fun getRecipeCatalog(
+        @Query("limit") limit: Int = 2000
+    ): List<RecipeDetailDto>
+
     @POST("recipes/swap-options")
     suspend fun getSwapOptions(@Body request: SwapOptionsRequestDto): List<RecipeSummaryDto>
 

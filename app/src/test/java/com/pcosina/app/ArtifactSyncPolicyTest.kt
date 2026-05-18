@@ -61,7 +61,7 @@ class ArtifactSyncPolicyTest {
     }
 
     @Test
-    fun localOnlyHistoriesStopUsingCloudArtifactSync() {
+    fun localOnlyHistoriesAvoidLegacyCloudPayloads() {
         val source = read(
             resolve(
                 "app", "src", "main", "java", "com", "pcosina", "app",
@@ -69,9 +69,14 @@ class ArtifactSyncPolicyTest {
             )
         )
         assertTrue(
-            "Daily logs, weekly journals, plan history, and notification logs should stay local-only until they have dedicated remote storage.",
-            source.contains("context.dataStore.edit { preferences ->\n            preferences.remove(Keys.planHistoryJson(userId))") &&
-                source.contains("context.dataStore.edit { it.remove(Keys.dailyLogsJson(userId)) }") &&
+            "Plan history should remain a secure local artifact while still refreshing the Plan artifact timestamp for sync ordering.",
+            source.contains("writeSecureArtifact(userId, SecureArtifacts.planHistoryJson, json)") &&
+                source.contains("editArtifactDomainsAndSync(userId, ArtifactDomain.Plan) { preferences ->\n            preferences.remove(Keys.planHistoryJson(userId))") &&
+                !source.contains("payload[Cloud.planHistoryJson]")
+        )
+        assertTrue(
+            "Daily logs, weekly journals, and notification logs should stay local-only until they have dedicated remote storage.",
+            source.contains("context.dataStore.edit { it.remove(Keys.dailyLogsJson(userId)) }") &&
                 source.contains("context.dataStore.edit { it.remove(Keys.weeklyJournal(userId, weekStart)) }") &&
                 source.contains("context.dataStore.edit { prefs ->\n            val current = prefs[Keys.notificationLogs(userId)]")
         )

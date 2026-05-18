@@ -179,6 +179,7 @@ def _runtime_readiness_report(*, include_schema: bool = False) -> Dict[str, Any]
     warnings: list[str] = []
     queue_backend = str(getattr(QUEUE_BROKER, "backend", "db") or "db")
     allowed_hosts_raw = os.getenv("PCOSINA_ALLOWED_HOSTS", "").strip()
+    db_pool_status = database.get_database_connection_pool_status(os.getenv("DATABASE_URL", ""))
 
     if IS_PRODUCTION:
         if not _app_check_enforced():
@@ -199,6 +200,10 @@ def _runtime_readiness_report(*, include_schema: bool = False) -> Dict[str, Any]
             errors.append("FIREBASE_AUTH_DISABLED cannot be enabled in production")
         if not is_postgres_database_url(os.getenv("DATABASE_URL", "")):
             errors.append("Production requires a Postgres DATABASE_URL")
+        elif not db_pool_status.get("enabled"):
+            errors.append("PCOSINA_DB_POOL_ENABLED must remain enabled in production")
+        elif not db_pool_status.get("driverAvailable"):
+            errors.append("psycopg-pool is required for production Postgres connection pooling")
         if not _firebase_credentials_configured() and not firebase_admin._apps:
             errors.append("Firebase credentials are required in production")
         if not sentry_dsn:
@@ -227,6 +232,10 @@ def _runtime_readiness_report(*, include_schema: bool = False) -> Dict[str, Any]
         "appCheckEnforced": _app_check_enforced(),
         "operatorMfaRequired": _operator_require_mfa_for_admin_access(),
         "release": _release_metadata(),
+        "database": {
+            "mode": db_pool_status.get("mode"),
+            "pool": db_pool_status,
+        },
         "errors": errors,
         "warnings": warnings,
     }
@@ -1866,6 +1875,8 @@ def admin_content_recipes_page(
     seed_source_count = int(catalog_status.get("seedSourceCount") or 0)
     missing_seed_count = int(catalog_status.get("missingSeedCount") or 0)
     database_count = int(catalog_status.get("databaseCount") or 0)
+    database_total_count = int(catalog_status.get("databaseTotalCount") or database_count)
+    database_inactive_count = int(catalog_status.get("databaseInactiveCount") or 0)
     seed_source_label = html.escape(str(catalog_status.get("seedSourcePath") or "not found"), quote=True)
 
     body_html = f"""
@@ -1875,7 +1886,9 @@ def admin_content_recipes_page(
         <div>
           <h2 style="margin:0 0 8px;">Catalog Status</h2>
           <div style="color:#595959;line-height:1.6;">
-            Database recipes: <strong>{database_count}</strong> |
+            Active database recipes: <strong>{database_count}</strong> |
+            Total rows: <strong>{database_total_count}</strong> |
+            Inactive rows: <strong>{database_inactive_count}</strong> |
             Bundled seed recipes: <strong>{seed_source_count}</strong> |
             Missing from database: <strong>{missing_seed_count}</strong><br/>
             Seed source: <code>{seed_source_label}</code>
@@ -4585,6 +4598,19 @@ def recipe_summaries(
         return [RecipeSummary(**r) for r in rows]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Recipe summaries failed: {e}")
+
+
+@app.get("/recipes/catalog", response_model=list[RecipeDetail])
+def recipe_catalog(
+    limit: int = 2000,
+    _: Any = Depends(require_firebase_auth),
+    __: Any = Depends(require_app_check),
+):
+    try:
+        capped_limit = max(1, min(int(limit or 2000), 5000))
+        return [RecipeDetail(**recipe) for recipe in database.get_all_recipes()[:capped_limit]]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Recipe catalog failed: {e}")
 
 
 @app.post("/recipes/swap-options", response_model=list[RecipeSummary])

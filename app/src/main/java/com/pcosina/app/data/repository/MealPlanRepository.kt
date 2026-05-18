@@ -44,7 +44,9 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
-class MealPlanRepository {
+class MealPlanRepository(
+    private val recipeSnapshotStore: RecipeSnapshotStore = NoOpRecipeSnapshotStore
+) {
 
     data class GeneratePlanAttempt(
         val startDate: String,
@@ -139,9 +141,23 @@ class MealPlanRepository {
             executeWithBackendFallback("planner warmup") { service ->
                 service.health()
             }
+            syncRecipeCatalogSnapshot()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(mapGeneratePlanException(e))
+        }
+    }
+
+    private suspend fun syncRecipeCatalogSnapshot(limit: Int = 2_000) {
+        runCatching {
+            val catalog = executeWithBackendFallback("recipe catalog sync") { service ->
+                service.getRecipeCatalog(limit = limit)
+            }
+            if (catalog.isNotEmpty()) {
+                recipeSnapshotStore.replaceAll(catalog)
+            }
+        }.onFailure { error ->
+            android.util.Log.w("MealPlanRepository", "Recipe catalog snapshot sync skipped: ${error.message}")
         }
     }
 
@@ -302,15 +318,25 @@ class MealPlanRepository {
             synchronized(recipeCache) {
                 recipeCache[recipeId]?.let { return Result.success(it) }
             }
-            val response = executeWithBackendFallback("recipe details") { service ->
+            val dto = executeWithBackendFallback("recipe details") { service ->
                 service.getRecipe(recipeId)
-            }.toPlannerRecipeDetail()
+            }
+            recipeSnapshotStore.upsert(dto)
+            val response = dto.toPlannerRecipeDetail()
             synchronized(recipeCache) {
                 recipeCache[recipeId] = response
             }
             Result.success(response)
         } catch (e: Exception) {
-            Result.failure(e)
+            val cached = recipeSnapshotStore.getRecipe(recipeId)?.toPlannerRecipeDetail()
+            if (cached != null) {
+                synchronized(recipeCache) {
+                    recipeCache[recipeId] = cached
+                }
+                Result.success(cached)
+            } else {
+                Result.failure(e)
+            }
         }
     }
 
@@ -328,7 +354,13 @@ class MealPlanRepository {
             }
             Result.success(response)
         } catch (e: Exception) {
-            Result.failure(e)
+            val cached = recipeSnapshotStore.getSummaries(mealType = mealType, limit = limit)
+                .map { it.toPlannerRecipeSummary() }
+            if (cached.isNotEmpty()) {
+                Result.success(cached)
+            } else {
+                Result.failure(e)
+            }
         }
     }
 
@@ -359,6 +391,7 @@ class MealPlanRepository {
             synchronized(summaryCache) {
                 summaryCache.clear()
             }
+            recipeSnapshotStore.upsert(saved)
             Result.success(saved)
         } catch (e: Exception) {
             Result.failure(mapAdminException(e, "recipe dataset"))
@@ -378,6 +411,7 @@ class MealPlanRepository {
             synchronized(summaryCache) {
                 summaryCache.clear()
             }
+            recipeSnapshotStore.remove(normalized)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(mapAdminException(e, "recipe dataset"))

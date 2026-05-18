@@ -1887,7 +1887,10 @@ def solve_meal_plan(
         daily_tolerance,
         min(0.8, daily_tolerance + max(0.05, weekly_tolerance)),
         min(0.8, daily_tolerance + max(0.10, weekly_tolerance * 2.0)),
+        min(0.8, daily_tolerance + max(0.20, weekly_tolerance * 4.0)),
+        min(0.8, daily_tolerance + max(0.40, weekly_tolerance * 6.0)),
     ]
+    tolerance_levels = list(dict.fromkeys(float(level) for level in tolerance_levels))
     # Stage 1 pruning + shortlist
     shortlist_started_at = time.time()
     stage1_diag: Dict[str, Any] = {}
@@ -2237,6 +2240,8 @@ def solve_meal_plan(
             day_slots = range(d * configured_meals_per_day, d * configured_meals_per_day + configured_meals_per_day)
             day_cals = sum(x[s, i] * int(pool[i].get("calories", 0)) for s in day_slots for i in range(len(pool)))
             err = model.NewIntVar(0, 1500, f"err_{d}")
+            model.Add(day_cals >= calorie_min)
+            model.Add(day_cals <= calorie_max)
             model.Add(err >= day_cals - daily_targets[d])
             model.Add(err >= daily_targets[d] - day_cals)
             err_vars.append(err)
@@ -2258,6 +2263,15 @@ def solve_meal_plan(
             fiber_slack_vars.append(fiber_slack)
             sodium_over_vars.append(sodium_over)
             sugar_over_vars.append(sugar_over)
+            model.Add(day_pro >= protein_bounds[0])
+            model.Add(day_pro <= protein_bounds[1])
+            model.Add(day_carb >= carbs_bounds[0])
+            model.Add(day_carb <= carbs_bounds[1])
+            model.Add(day_fat >= fats_bounds[0])
+            model.Add(day_fat <= fats_bounds[1])
+            model.Add(day_fiber >= fiber_min_target)
+            model.Add(day_sodium <= sodium_max_target)
+            model.Add(day_sugar <= sugar_max_target)
             model.Add(day_pro - protein_bounds[1] <= dev_pro)
             model.Add(protein_bounds[0] - day_pro <= dev_pro)
             model.Add(day_carb - carbs_bounds[1] <= dev_carb)

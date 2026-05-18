@@ -121,3 +121,49 @@ def test_content_admin_nutrition_correction_overrides_recipe_reads_and_audit_log
             assert missing_resp.status_code == 404
     finally:
         main.app.dependency_overrides = {}
+
+
+def test_admin_nutrition_correction_rejects_missing_and_out_of_range_values():
+    db_path = _temp_db_path()
+    database.DATABASE_URL = ""
+    database.DB_NAME = str(db_path)
+    database.init_db()
+
+    database.upsert_recipe(
+        {
+            "id": "recipe-invalid-correction-1",
+            "title": "Invalid Correction Tinola",
+            "mealType": "Dinner",
+            "calories": 420,
+            "proteinGrams": 30,
+            "carbsGrams": 18,
+            "fatsGrams": 14,
+            "fiberGrams": 5,
+            "tags": ["high_protein"],
+            "minutes": 35,
+            "ingredients": [{"name": "Chicken", "quantity": "250g"}],
+            "steps": ["Simmer chicken", "Serve warm"],
+        }
+    )
+    content_admin = {
+        "uid": "content-admin-1",
+        "actor": "content-admin@example.com",
+        "roles": ["content_admin"],
+    }
+    main.app.dependency_overrides[main.require_content_admin] = lambda: content_admin
+
+    try:
+        with TestClient(main.app) as client:
+            missing_resp = client.put(
+                "/admin/nutrition-corrections/recipe-invalid-correction-1",
+                json={"active": True},
+            )
+            invalid_resp = client.put(
+                "/admin/nutrition-corrections/recipe-invalid-correction-1",
+                json={"calories": 5000, "notes": "x" * 2100},
+            )
+
+        assert missing_resp.status_code == 422
+        assert invalid_resp.status_code == 422
+    finally:
+        main.app.dependency_overrides = {}

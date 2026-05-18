@@ -1112,7 +1112,7 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun savePlanHistoryJson(userId: String, json: String) {
         writeSecureArtifact(userId, SecureArtifacts.planHistoryJson, json)
-        context.dataStore.edit { preferences ->
+        editArtifactDomainsAndSync(userId, ArtifactDomain.Plan) { preferences ->
             preferences.remove(Keys.planHistoryJson(userId))
         }
     }

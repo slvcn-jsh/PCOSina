@@ -1,4 +1,5 @@
 import sys
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,102 @@ def test_database_modules_disable_sqlite_fallback_in_production(monkeypatch):
         database._connect()
     with pytest.raises(RuntimeError, match="Production requires a Postgres DATABASE_URL"):
         policy_store._connect()
+
+
+def test_postgres_connect_uses_connection_pool_when_available(monkeypatch):
+    class FakeRawConnection:
+        closed = False
+
+        def __init__(self):
+            self.rollbacks = 0
+
+        def rollback(self):
+            self.rollbacks += 1
+
+    class FakePool:
+        instances = []
+
+        def __init__(self, conninfo, min_size, max_size, timeout, open):
+            self.conninfo = conninfo
+            self.min_size = min_size
+            self.max_size = max_size
+            self.timeout = timeout
+            self.open = open
+            self.raw = FakeRawConnection()
+            self.returned = []
+            self.closed = False
+            FakePool.instances.append(self)
+
+        def getconn(self):
+            return self.raw
+
+        def putconn(self, conn):
+            self.returned.append(conn)
+
+        def close(self):
+            self.closed = True
+
+    monkeypatch.setattr(database, "DATABASE_URL", "postgresql://db.example/pcosina")
+    monkeypatch.setattr(database, "psycopg", object())
+    monkeypatch.setattr(database, "ConnectionPool", FakePool)
+    monkeypatch.setenv("PCOSINA_DB_POOL_ENABLED", "true")
+    monkeypatch.setenv("PCOSINA_DB_POOL_MIN_SIZE", "2")
+    monkeypatch.setenv("PCOSINA_DB_POOL_MAX_SIZE", "4")
+    monkeypatch.setenv("PCOSINA_DB_POOL_TIMEOUT_SECONDS", "9")
+    database._close_postgres_pool()
+
+    conn = database._connect()
+    conn.close()
+
+    pool = FakePool.instances[-1]
+    assert pool.conninfo == "postgresql://db.example/pcosina"
+    assert pool.min_size == 2
+    assert pool.max_size == 4
+    assert pool.timeout == 9
+    assert pool.returned == [pool.raw]
+    assert pool.raw.rollbacks == 1
+    status = database.get_database_connection_pool_status()
+    assert status["enabled"] is True
+    assert status["driverAvailable"] is True
+    assert status["open"] is True
+
+    database._close_postgres_pool()
+    assert pool.closed is True
+
+
+def test_sqlite_admin_content_schema_enforces_bounds(tmp_path, monkeypatch):
+    monkeypatch.setattr(database, "DATABASE_URL", "")
+    monkeypatch.setattr(database, "DB_NAME", str(tmp_path / "constraints.db"))
+    database.init_db()
+    conn = database._connect()
+    try:
+        cur = conn.cursor()
+        with pytest.raises(sqlite3.IntegrityError):
+            cur.execute(
+                """
+                INSERT INTO recipes (id, title, meal_type, calories, protein, carbs, fats, fiber, minutes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                ("bad_recipe", "Bad Recipe", "Breakfast", -1, 10, 20, 5, 3, 15),
+            )
+        with pytest.raises(sqlite3.IntegrityError):
+            cur.execute(
+                """
+                INSERT INTO ingredient_price_rules (id, keywords_json, price_php, category, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                ("bad_price", '["rice"]', 0, "Dry Goods", 1, 1),
+            )
+        with pytest.raises(sqlite3.IntegrityError):
+            cur.execute(
+                """
+                INSERT INTO recipe_nutrition_corrections (id, recipe_id, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                ("bad_correction", "recipe_1", 1, 1),
+            )
+    finally:
+        conn.close()
 
 
 def test_runtime_readiness_rejects_invalid_database_url_scheme(monkeypatch):

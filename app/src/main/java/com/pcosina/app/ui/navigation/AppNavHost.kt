@@ -24,6 +24,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pcosina.app.data.repository.AuthRepository
 import com.pcosina.app.data.repository.UserPreferencesGroceryLocalRepository
+import com.pcosina.app.data.repository.FileRecipeSnapshotStore
 import com.pcosina.app.data.repository.MealPlanRepository
 import com.pcosina.app.data.repository.CloudProfileSyncResult
 import com.pcosina.app.data.repository.UserPreferencesNotificationLocalRepository
@@ -96,7 +97,7 @@ fun AppNavHost(
     val progressLocalRepository = remember { UserPreferencesProgressLocalRepository(userPrefsRepository) }
     val notificationLocalRepository = remember { UserPreferencesNotificationLocalRepository(userPrefsRepository) }
     val authRepository = remember { AuthRepository(context) }
-    val mealPlanRepository = remember { MealPlanRepository() }
+    val mealPlanRepository = remember { MealPlanRepository(FileRecipeSnapshotStore(context)) }
     val feedbackRepository = remember { FeedbackRepository(BuildConfig.BASE_URL) }
     val reflectionStore = remember { ReflectionStore(context) }
     
@@ -624,8 +625,8 @@ fun AppNavHost(
                     progressViewModel = progressViewModel,
                     onRecipeClick = { id, mealLabel -> navigateInternal(Routes.recipeDetailsRoute(id, mealLabel)) },
                     onViewPlan = { navigateInternal(Routes.MealPlan) { tabNavigationOptions() } },
-                    onOpenMoreTools = { navigateInternal(Routes.Ipo) { tabNavigationOptions() } },
                     onNavigateToSettings = { navigateInternal(Routes.Settings) },
+                    onOpenNotifications = { navigateInternal(Routes.Notifications) },
                     onNavigateToRoute = ::navigateFromRefinedShell,
                     modifier = Modifier.padding(contentPadding),
                 )

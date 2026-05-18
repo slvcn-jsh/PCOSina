@@ -15,11 +15,18 @@ except Exception:
     psycopg = None
     dict_row = None
 
+try:
+    from psycopg_pool import ConnectionPool
+except Exception:
+    ConnectionPool = None
+
 DB_NAME = os.getenv("PCOSINA_DB_NAME", "pcosina.db").strip() or "pcosina.db"
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 SCHEMA_MIGRATION_SCOPE = "app"
 SCHEMA_BOOTSTRAP_LOCK_KEY = 2026032901
 FEEDBACK_MESSAGE_MAX_CHARS = 2000
+_POSTGRES_POOL = None
+_POSTGRES_POOL_SIGNATURE: tuple[str, int, int, float] | None = None
 
 
 def _is_production_env() -> bool:
@@ -146,10 +153,103 @@ def _use_postgres() -> bool:
 def db_mode() -> str:
     return "postgres" if _use_postgres() else "sqlite"
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name, "").strip().lower()
+    if raw in ("1", "true", "yes", "on"):
+        return True
+    if raw in ("0", "false", "no", "off"):
+        return False
+    return default
+
+
+def _postgres_pool_enabled() -> bool:
+    return _env_bool("PCOSINA_DB_POOL_ENABLED", True)
+
+
+def _postgres_pool_config() -> tuple[int, int, float]:
+    min_size = max(0, int(os.getenv("PCOSINA_DB_POOL_MIN_SIZE", "1") or 1))
+    max_size = max(1, int(os.getenv("PCOSINA_DB_POOL_MAX_SIZE", "5") or 5))
+    if min_size > max_size:
+        min_size = max_size
+    timeout = max(1.0, float(os.getenv("PCOSINA_DB_POOL_TIMEOUT_SECONDS", "10") or 10))
+    return min_size, max_size, timeout
+
+
+class _PooledPostgresConnection:
+    def __init__(self, pool, conn):
+        self._pool = pool
+        self._conn = conn
+        self._returned = False
+
+    def __getattr__(self, name: str):
+        return getattr(self._conn, name)
+
+    def close(self) -> None:
+        if self._returned:
+            return
+        self._returned = True
+        try:
+            if not getattr(self._conn, "closed", False):
+                self._conn.rollback()
+        except Exception:
+            pass
+        self._pool.putconn(self._conn)
+
+
+def _close_postgres_pool() -> None:
+    global _POSTGRES_POOL, _POSTGRES_POOL_SIGNATURE
+    if _POSTGRES_POOL is not None:
+        try:
+            _POSTGRES_POOL.close()
+        except Exception:
+            pass
+    _POSTGRES_POOL = None
+    _POSTGRES_POOL_SIGNATURE = None
+
+
+def _get_postgres_pool():
+    global _POSTGRES_POOL, _POSTGRES_POOL_SIGNATURE
+    if ConnectionPool is None:
+        return None
+    min_size, max_size, timeout = _postgres_pool_config()
+    signature = (DATABASE_URL, min_size, max_size, timeout)
+    if _POSTGRES_POOL is not None and _POSTGRES_POOL_SIGNATURE == signature:
+        return _POSTGRES_POOL
+    _close_postgres_pool()
+    _POSTGRES_POOL = ConnectionPool(
+        conninfo=DATABASE_URL,
+        min_size=min_size,
+        max_size=max_size,
+        timeout=timeout,
+        open=True,
+    )
+    _POSTGRES_POOL_SIGNATURE = signature
+    return _POSTGRES_POOL
+
+
+def get_database_connection_pool_status(database_url: str | None = None) -> Dict[str, Any]:
+    effective_url = DATABASE_URL if database_url is None else str(database_url or "").strip()
+    mode = "postgres" if is_postgres_database_url(effective_url) else "sqlite"
+    min_size, max_size, timeout = _postgres_pool_config()
+    return {
+        "mode": mode,
+        "enabled": bool(mode == "postgres" and _postgres_pool_enabled()),
+        "driverAvailable": bool(ConnectionPool is not None),
+        "minSize": min_size,
+        "maxSize": max_size,
+        "timeoutSeconds": timeout,
+        "open": bool(_POSTGRES_POOL is not None),
+    }
+
+
 def _connect():
     if _use_postgres():
         if psycopg is None:
             raise RuntimeError("psycopg is not installed. Add psycopg[binary] to requirements.")
+        if _postgres_pool_enabled():
+            pool = _get_postgres_pool()
+            if pool is not None:
+                return _PooledPostgresConnection(pool, pool.getconn())
         return psycopg.connect(DATABASE_URL)
     if _is_production_env():
         raise RuntimeError("Production requires a Postgres DATABASE_URL; SQLite fallback is disabled.")
@@ -240,20 +340,49 @@ def _record_applied_migration(conn, migration_id: str, description: str, scope: 
         )
 
 def _create_table_sql() -> str:
+    if _use_postgres():
+        return """
+            CREATE TABLE IF NOT EXISTS recipes (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL CHECK (char_length(btrim(title)) BETWEEN 1 AND 160),
+                meal_type TEXT NOT NULL CHECK (char_length(btrim(meal_type)) BETWEEN 1 AND 80),
+                calories INTEGER CHECK (calories BETWEEN 1 AND 3000),
+                protein INTEGER CHECK (protein BETWEEN 0 AND 300),
+                carbs INTEGER CHECK (carbs BETWEEN 0 AND 500),
+                fats INTEGER CHECK (fats BETWEEN 0 AND 250),
+                fiber INTEGER CHECK (fiber BETWEEN 0 AND 120),
+                tags TEXT CHECK (tags IS NULL OR char_length(tags) <= 4000),
+                minutes INTEGER CHECK (minutes BETWEEN 1 AND 480),
+                ingredients_json TEXT CHECK (ingredients_json IS NULL OR char_length(ingredients_json) <= 200000),
+                steps_json TEXT CHECK (steps_json IS NULL OR char_length(steps_json) <= 200000),
+                active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+                source TEXT NOT NULL DEFAULT 'seed' CHECK (char_length(source) <= 40),
+                source_version TEXT CHECK (source_version IS NULL OR char_length(source_version) <= 120),
+                created_at BIGINT NOT NULL DEFAULT 0 CHECK (created_at >= 0),
+                updated_at BIGINT NOT NULL DEFAULT 0 CHECK (updated_at >= 0),
+                deleted_at BIGINT NOT NULL DEFAULT 0 CHECK (deleted_at >= 0)
+            )
+        """
     return """
         CREATE TABLE IF NOT EXISTS recipes (
             id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            meal_type TEXT NOT NULL,
-            calories INTEGER,
-            protein INTEGER,
-            carbs INTEGER,
-            fats INTEGER,
-            fiber INTEGER,
-            tags TEXT,
-            minutes INTEGER,
-            ingredients_json TEXT,
-            steps_json TEXT
+            title TEXT NOT NULL CHECK (length(trim(title)) BETWEEN 1 AND 160),
+            meal_type TEXT NOT NULL CHECK (length(trim(meal_type)) BETWEEN 1 AND 80),
+            calories INTEGER CHECK (calories BETWEEN 1 AND 3000),
+            protein INTEGER CHECK (protein BETWEEN 0 AND 300),
+            carbs INTEGER CHECK (carbs BETWEEN 0 AND 500),
+            fats INTEGER CHECK (fats BETWEEN 0 AND 250),
+            fiber INTEGER CHECK (fiber BETWEEN 0 AND 120),
+            tags TEXT CHECK (tags IS NULL OR length(tags) <= 4000),
+            minutes INTEGER CHECK (minutes BETWEEN 1 AND 480),
+            ingredients_json TEXT CHECK (ingredients_json IS NULL OR length(ingredients_json) <= 200000),
+            steps_json TEXT CHECK (steps_json IS NULL OR length(steps_json) <= 200000),
+            active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+            source TEXT NOT NULL DEFAULT 'seed' CHECK (length(source) <= 40),
+            source_version TEXT CHECK (source_version IS NULL OR length(source_version) <= 120),
+            created_at INTEGER NOT NULL DEFAULT 0 CHECK (created_at >= 0),
+            updated_at INTEGER NOT NULL DEFAULT 0 CHECK (updated_at >= 0),
+            deleted_at INTEGER NOT NULL DEFAULT 0 CHECK (deleted_at >= 0)
         )
     """
 
@@ -264,32 +393,38 @@ def _create_ingredient_price_rules_table_sql() -> str:
             CREATE TABLE IF NOT EXISTS ingredient_price_rules (
                 id TEXT PRIMARY KEY,
                 keywords_json TEXT NOT NULL,
-                price_php INTEGER NOT NULL,
-                price_min_php INTEGER,
-                price_max_php INTEGER,
-                category TEXT NOT NULL,
-                unit TEXT,
+                price_php INTEGER NOT NULL CHECK (price_php BETWEEN 1 AND 1000000),
+                price_min_php INTEGER CHECK (price_min_php IS NULL OR price_min_php BETWEEN 0 AND 1000000),
+                price_max_php INTEGER CHECK (price_max_php IS NULL OR price_max_php BETWEEN 0 AND 1000000),
+                category TEXT NOT NULL CHECK (char_length(btrim(category)) BETWEEN 1 AND 80),
+                unit TEXT CHECK (unit IS NULL OR char_length(unit) <= 80),
                 active BOOLEAN NOT NULL DEFAULT TRUE,
-                notes TEXT,
+                notes TEXT CHECK (notes IS NULL OR char_length(notes) <= 2000),
                 created_at BIGINT NOT NULL,
-                updated_at BIGINT NOT NULL
+                updated_at BIGINT NOT NULL,
+                CHECK (price_min_php IS NULL OR price_max_php IS NULL OR price_min_php <= price_max_php),
+                CHECK (price_min_php IS NULL OR price_php >= price_min_php),
+                CHECK (price_max_php IS NULL OR price_php <= price_max_php)
             )
         """
     return """
-        CREATE TABLE IF NOT EXISTS ingredient_price_rules (
-            id TEXT PRIMARY KEY,
-            keywords_json TEXT NOT NULL,
-            price_php INTEGER NOT NULL,
-            price_min_php INTEGER,
-            price_max_php INTEGER,
-            category TEXT NOT NULL,
-            unit TEXT,
-            active INTEGER NOT NULL DEFAULT 1,
-            notes TEXT,
-            created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL
-        )
-    """
+            CREATE TABLE IF NOT EXISTS ingredient_price_rules (
+                id TEXT PRIMARY KEY,
+                keywords_json TEXT NOT NULL,
+                price_php INTEGER NOT NULL CHECK (price_php BETWEEN 1 AND 1000000),
+                price_min_php INTEGER CHECK (price_min_php IS NULL OR price_min_php BETWEEN 0 AND 1000000),
+                price_max_php INTEGER CHECK (price_max_php IS NULL OR price_max_php BETWEEN 0 AND 1000000),
+                category TEXT NOT NULL CHECK (length(trim(category)) BETWEEN 1 AND 80),
+                unit TEXT CHECK (unit IS NULL OR length(unit) <= 80),
+                active INTEGER NOT NULL DEFAULT 1,
+                notes TEXT CHECK (notes IS NULL OR length(notes) <= 2000),
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                CHECK (price_min_php IS NULL OR price_max_php IS NULL OR price_min_php <= price_max_php),
+                CHECK (price_min_php IS NULL OR price_php >= price_min_php),
+                CHECK (price_max_php IS NULL OR price_php <= price_max_php)
+            )
+        """
 
 
 def _create_recipe_nutrition_corrections_table_sql() -> str:
@@ -298,36 +433,44 @@ def _create_recipe_nutrition_corrections_table_sql() -> str:
             CREATE TABLE IF NOT EXISTS recipe_nutrition_corrections (
                 id TEXT PRIMARY KEY,
                 recipe_id TEXT NOT NULL UNIQUE,
-                calories INTEGER,
-                protein INTEGER,
-                carbs INTEGER,
-                fats INTEGER,
-                fiber INTEGER,
-                sodium_mg INTEGER,
-                sugar_grams INTEGER,
+                calories INTEGER CHECK (calories IS NULL OR calories BETWEEN 1 AND 3000),
+                protein INTEGER CHECK (protein IS NULL OR protein BETWEEN 0 AND 300),
+                carbs INTEGER CHECK (carbs IS NULL OR carbs BETWEEN 0 AND 500),
+                fats INTEGER CHECK (fats IS NULL OR fats BETWEEN 0 AND 250),
+                fiber INTEGER CHECK (fiber IS NULL OR fiber BETWEEN 0 AND 120),
+                sodium_mg INTEGER CHECK (sodium_mg IS NULL OR sodium_mg BETWEEN 0 AND 10000),
+                sugar_grams INTEGER CHECK (sugar_grams IS NULL OR sugar_grams BETWEEN 0 AND 250),
                 active BOOLEAN NOT NULL DEFAULT TRUE,
-                notes TEXT,
+                notes TEXT CHECK (notes IS NULL OR char_length(notes) <= 2000),
                 created_at BIGINT NOT NULL,
-                updated_at BIGINT NOT NULL
+                updated_at BIGINT NOT NULL,
+                CHECK (
+                    calories IS NOT NULL OR protein IS NOT NULL OR carbs IS NOT NULL OR
+                    fats IS NOT NULL OR fiber IS NOT NULL OR sodium_mg IS NOT NULL OR sugar_grams IS NOT NULL
+                )
             )
         """
     return """
         CREATE TABLE IF NOT EXISTS recipe_nutrition_corrections (
-            id TEXT PRIMARY KEY,
-            recipe_id TEXT NOT NULL UNIQUE,
-            calories INTEGER,
-            protein INTEGER,
-            carbs INTEGER,
-            fats INTEGER,
-            fiber INTEGER,
-            sodium_mg INTEGER,
-            sugar_grams INTEGER,
-            active INTEGER NOT NULL DEFAULT 1,
-            notes TEXT,
-            created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL
-        )
-    """
+                id TEXT PRIMARY KEY,
+                recipe_id TEXT NOT NULL UNIQUE,
+                calories INTEGER CHECK (calories IS NULL OR calories BETWEEN 1 AND 3000),
+                protein INTEGER CHECK (protein IS NULL OR protein BETWEEN 0 AND 300),
+                carbs INTEGER CHECK (carbs IS NULL OR carbs BETWEEN 0 AND 500),
+                fats INTEGER CHECK (fats IS NULL OR fats BETWEEN 0 AND 250),
+                fiber INTEGER CHECK (fiber IS NULL OR fiber BETWEEN 0 AND 120),
+                sodium_mg INTEGER CHECK (sodium_mg IS NULL OR sodium_mg BETWEEN 0 AND 10000),
+                sugar_grams INTEGER CHECK (sugar_grams IS NULL OR sugar_grams BETWEEN 0 AND 250),
+                active INTEGER NOT NULL DEFAULT 1,
+                notes TEXT CHECK (notes IS NULL OR length(notes) <= 2000),
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                CHECK (
+                    calories IS NOT NULL OR protein IS NOT NULL OR carbs IS NOT NULL OR
+                    fats IS NOT NULL OR fiber IS NOT NULL OR sodium_mg IS NOT NULL OR sugar_grams IS NOT NULL
+                )
+            )
+        """
 
 def _ensure_recipe_columns(conn):
     cur = conn.cursor()
@@ -335,6 +478,12 @@ def _ensure_recipe_columns(conn):
         cur.execute("ALTER TABLE recipes ADD COLUMN IF NOT EXISTS minutes INTEGER")
         cur.execute("ALTER TABLE recipes ADD COLUMN IF NOT EXISTS ingredients_json TEXT")
         cur.execute("ALTER TABLE recipes ADD COLUMN IF NOT EXISTS steps_json TEXT")
+        cur.execute("ALTER TABLE recipes ADD COLUMN IF NOT EXISTS active INTEGER NOT NULL DEFAULT 1")
+        cur.execute("ALTER TABLE recipes ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'legacy'")
+        cur.execute("ALTER TABLE recipes ADD COLUMN IF NOT EXISTS source_version TEXT")
+        cur.execute("ALTER TABLE recipes ADD COLUMN IF NOT EXISTS created_at BIGINT NOT NULL DEFAULT 0")
+        cur.execute("ALTER TABLE recipes ADD COLUMN IF NOT EXISTS updated_at BIGINT NOT NULL DEFAULT 0")
+        cur.execute("ALTER TABLE recipes ADD COLUMN IF NOT EXISTS deleted_at BIGINT NOT NULL DEFAULT 0")
     else:
         cur.execute("PRAGMA table_info(recipes)")
         cols = {row[1] for row in cur.fetchall()}
@@ -344,9 +493,32 @@ def _ensure_recipe_columns(conn):
             cur.execute("ALTER TABLE recipes ADD COLUMN ingredients_json TEXT")
         if "steps_json" not in cols:
             cur.execute("ALTER TABLE recipes ADD COLUMN steps_json TEXT")
+        if "active" not in cols:
+            cur.execute("ALTER TABLE recipes ADD COLUMN active INTEGER NOT NULL DEFAULT 1")
+        if "source" not in cols:
+            cur.execute("ALTER TABLE recipes ADD COLUMN source TEXT NOT NULL DEFAULT 'legacy'")
+        if "source_version" not in cols:
+            cur.execute("ALTER TABLE recipes ADD COLUMN source_version TEXT")
+        if "created_at" not in cols:
+            cur.execute("ALTER TABLE recipes ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0")
+        if "updated_at" not in cols:
+            cur.execute("ALTER TABLE recipes ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0")
+        if "deleted_at" not in cols:
+            cur.execute("ALTER TABLE recipes ADD COLUMN deleted_at INTEGER NOT NULL DEFAULT 0")
     cur.execute("UPDATE recipes SET minutes = COALESCE(minutes, 25)")
+    cur.execute("UPDATE recipes SET minutes = 25 WHERE minutes < 1 OR minutes > 480")
+    cur.execute("UPDATE recipes SET calories = 500 WHERE calories IS NULL OR calories < 1 OR calories > 3000")
+    cur.execute("UPDATE recipes SET protein = 25 WHERE protein IS NULL OR protein < 0 OR protein > 300")
+    cur.execute("UPDATE recipes SET carbs = 45 WHERE carbs IS NULL OR carbs < 0 OR carbs > 500")
+    cur.execute("UPDATE recipes SET fats = 15 WHERE fats IS NULL OR fats < 0 OR fats > 250")
+    cur.execute("UPDATE recipes SET fiber = 6 WHERE fiber IS NULL OR fiber < 0 OR fiber > 120")
     cur.execute("UPDATE recipes SET ingredients_json = COALESCE(ingredients_json, '[]')")
     cur.execute("UPDATE recipes SET steps_json = COALESCE(steps_json, '[]')")
+    cur.execute("UPDATE recipes SET active = COALESCE(active, 1)")
+    cur.execute("UPDATE recipes SET source = COALESCE(source, 'legacy')")
+    cur.execute("UPDATE recipes SET created_at = COALESCE(created_at, 0)")
+    cur.execute("UPDATE recipes SET updated_at = COALESCE(NULLIF(updated_at, 0), created_at, 0)")
+    cur.execute("UPDATE recipes SET deleted_at = COALESCE(deleted_at, 0)")
 
 
 def _ensure_plan_jobs_columns(conn):
@@ -754,6 +926,12 @@ def _ensure_support_case_indexes(conn) -> None:
     cur.execute("CREATE INDEX IF NOT EXISTS idx_support_cases_assignee_status ON support_cases(assignee, status, updated_at DESC)")
 
 
+def _ensure_recipe_catalog_indexes(conn) -> None:
+    cur = conn.cursor()
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_recipes_active_meal_type ON recipes(active, meal_type)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_recipes_updated_at ON recipes(updated_at)")
+
+
 def _ensure_support_case_columns(conn) -> None:
     cur = conn.cursor()
     if _use_postgres():
@@ -784,6 +962,7 @@ def _migration_create_core_tables(conn) -> None:
 
 def _migration_recipe_columns(conn) -> None:
     _ensure_recipe_columns(conn)
+    _ensure_recipe_catalog_indexes(conn)
 
 
 def _migration_plan_job_columns(conn) -> None:
@@ -828,6 +1007,63 @@ def _migration_price_rule_ranges(conn) -> None:
 
 def _migration_feedback_constraints(conn) -> None:
     _ensure_feedback_constraints(conn)
+
+
+def _migration_recipe_catalog_metadata(conn) -> None:
+    _ensure_recipe_columns(conn)
+    _ensure_recipe_catalog_indexes(conn)
+
+
+def _add_postgres_check_constraint(cur, table_name: str, constraint_name: str, expression: str) -> None:
+    cur.execute(
+        f"""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint
+                WHERE conname = %s
+                  AND conrelid = '{table_name}'::regclass
+            ) THEN
+                ALTER TABLE {table_name}
+                ADD CONSTRAINT {constraint_name}
+                CHECK ({expression}) NOT VALID;
+            END IF;
+        END $$;
+        """,
+        (constraint_name,),
+    )
+
+
+def _migration_admin_content_constraints(conn) -> None:
+    if not _use_postgres():
+        return
+    cur = conn.cursor()
+    cur.execute("UPDATE recipes SET minutes = 25 WHERE minutes IS NULL OR minutes < 1 OR minutes > 480")
+    cur.execute("UPDATE recipes SET calories = 500 WHERE calories IS NULL OR calories < 1 OR calories > 3000")
+    cur.execute("UPDATE recipes SET protein = 25 WHERE protein IS NULL OR protein < 0 OR protein > 300")
+    cur.execute("UPDATE recipes SET carbs = 45 WHERE carbs IS NULL OR carbs < 0 OR carbs > 500")
+    cur.execute("UPDATE recipes SET fats = 15 WHERE fats IS NULL OR fats < 0 OR fats > 250")
+    cur.execute("UPDATE recipes SET fiber = 6 WHERE fiber IS NULL OR fiber < 0 OR fiber > 120")
+    for table_name, constraint_name, expression in [
+        ("recipes", "recipes_title_bounds", "char_length(btrim(title)) BETWEEN 1 AND 160"),
+        ("recipes", "recipes_meal_type_bounds", "char_length(btrim(meal_type)) BETWEEN 1 AND 80"),
+        ("recipes", "recipes_calories_bounds", "calories BETWEEN 1 AND 3000"),
+        ("recipes", "recipes_macro_bounds", "protein BETWEEN 0 AND 300 AND carbs BETWEEN 0 AND 500 AND fats BETWEEN 0 AND 250 AND fiber BETWEEN 0 AND 120"),
+        ("recipes", "recipes_minutes_bounds", "minutes BETWEEN 1 AND 480"),
+        ("recipes", "recipes_active_bool_int", "active IN (0, 1)"),
+        ("ingredient_price_rules", "price_rules_price_bounds", "price_php BETWEEN 1 AND 1000000"),
+        ("ingredient_price_rules", "price_rules_optional_range_bounds", "(price_min_php IS NULL OR price_min_php BETWEEN 0 AND 1000000) AND (price_max_php IS NULL OR price_max_php BETWEEN 0 AND 1000000)"),
+        ("ingredient_price_rules", "price_rules_range_order", "price_min_php IS NULL OR price_max_php IS NULL OR price_min_php <= price_max_php"),
+        ("ingredient_price_rules", "price_rules_price_in_range", "(price_min_php IS NULL OR price_php >= price_min_php) AND (price_max_php IS NULL OR price_php <= price_max_php)"),
+        ("ingredient_price_rules", "price_rules_content_bounds", "char_length(btrim(category)) BETWEEN 1 AND 80 AND (unit IS NULL OR char_length(unit) <= 80) AND (notes IS NULL OR char_length(notes) <= 2000)"),
+        ("recipe_nutrition_corrections", "nutrition_corrections_calorie_bounds", "calories IS NULL OR calories BETWEEN 1 AND 3000"),
+        ("recipe_nutrition_corrections", "nutrition_corrections_macro_bounds", "(protein IS NULL OR protein BETWEEN 0 AND 300) AND (carbs IS NULL OR carbs BETWEEN 0 AND 500) AND (fats IS NULL OR fats BETWEEN 0 AND 250) AND (fiber IS NULL OR fiber BETWEEN 0 AND 120)"),
+        ("recipe_nutrition_corrections", "nutrition_corrections_sodium_sugar_bounds", "(sodium_mg IS NULL OR sodium_mg BETWEEN 0 AND 10000) AND (sugar_grams IS NULL OR sugar_grams BETWEEN 0 AND 250)"),
+        ("recipe_nutrition_corrections", "nutrition_corrections_notes_bounds", "notes IS NULL OR char_length(notes) <= 2000"),
+        ("recipe_nutrition_corrections", "nutrition_corrections_has_value", "calories IS NOT NULL OR protein IS NOT NULL OR carbs IS NOT NULL OR fats IS NOT NULL OR fiber IS NOT NULL OR sodium_mg IS NOT NULL OR sugar_grams IS NOT NULL"),
+    ]:
+        _add_postgres_check_constraint(cur, table_name, constraint_name, expression)
 
 
 def _migration_recipe_nutrition_corrections(conn) -> None:
@@ -906,6 +1142,8 @@ def _registered_schema_migrations():
         ("20260319_app_011_market_heuristics", "Create market seasonality and volatility rules", _migration_market_heuristics),
         ("20260319_app_012_price_rule_ranges", "Add optional ingredient price range columns", _migration_price_rule_ranges),
         ("20260319_app_013_feedback_constraints", "Ensure feedback message length constraints", _migration_feedback_constraints),
+        ("20260319_app_014_recipe_catalog_metadata", "Add recipe catalog metadata and soft-delete columns", _migration_recipe_catalog_metadata),
+        ("20260319_app_015_admin_content_constraints", "Enforce admin content bounds for planner data", _migration_admin_content_constraints),
     ]
 
 
@@ -950,23 +1188,6 @@ def get_schema_migration_status() -> Dict[str, Any]:
     finally:
         conn.close()
 
-def save_feedback(message: str):
-    message = _normalize_feedback_message(message)
-    conn = _connect()
-    try:
-        cur = conn.cursor()
-        if _use_postgres():
-            cur.execute("INSERT INTO feedback (message) VALUES (%s)", (message,))
-        else:
-            cur.execute(
-                "INSERT INTO feedback (message, created_at) VALUES (?, ?)",
-                (message, int(time.time() * 1000))
-            )
-        conn.commit()
-    finally:
-        conn.close()
-
-
 def cleanup_feedback(retention_days: int = 365) -> int:
     retention_days = max(1, int(retention_days or 365))
     conn = _connect()
@@ -987,23 +1208,6 @@ def cleanup_feedback(retention_days: int = 365) -> int:
         return cur.rowcount or 0
     finally:
         conn.close()
-
-def get_recent_feedback(limit: int = 50, order: str = "desc"):
-    conn = _connect()
-    try:
-        cur = conn.cursor()
-        order_dir = "ASC" if str(order).lower() == "asc" else "DESC"
-        if _use_postgres():
-            cur.execute(f"SELECT id, message, created_at FROM feedback ORDER BY id {order_dir} LIMIT %s", (limit,))
-            rows = cur.fetchall()
-            return [{"id": r[0], "message": r[1], "created_at": str(r[2])} for r in rows]
-        else:
-            cur.execute(f"SELECT id, message, created_at FROM feedback ORDER BY id {order_dir} LIMIT ?", (limit,))
-            rows = cur.fetchall()
-            return [{"id": r[0], "message": r[1], "created_at": r[2]} for r in rows]
-    finally:
-        conn.close()
-
 
 def record_ml_event(event: Dict[str, Any]) -> None:
     event_id = str(event.get("event_id") or uuid.uuid4().hex)
@@ -3048,9 +3252,12 @@ def get_plan_job_diagnostics() -> Dict[str, Any]:
     finally:
         conn.close()
 
-def _recipe_count(conn) -> int:
+def _recipe_count(conn, active_only: bool = True) -> int:
     cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM recipes")
+    if active_only:
+        cur.execute("SELECT COUNT(*) FROM recipes WHERE COALESCE(active, 1) = 1")
+    else:
+        cur.execute("SELECT COUNT(*) FROM recipes")
     row = cur.fetchone()
     if isinstance(row, dict):
         return int(list(row.values())[0])
@@ -3071,8 +3278,12 @@ def get_sample_recipes(limit: int = 3):
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
     try:
-        cursor.execute("SELECT id, title FROM recipes ORDER BY id LIMIT ?", (limit,)) if not _use_postgres() else cursor.execute(
-            "SELECT id, title FROM recipes ORDER BY id LIMIT %s", (limit,)
+        cursor.execute(
+            "SELECT id, title FROM recipes WHERE COALESCE(active, 1) = 1 ORDER BY id LIMIT ?",
+            (limit,),
+        ) if not _use_postgres() else cursor.execute(
+            "SELECT id, title FROM recipes WHERE COALESCE(active, 1) = 1 ORDER BY id LIMIT %s",
+            (limit,)
         )
         rows = cursor.fetchall()
         samples = []
@@ -3112,9 +3323,12 @@ def _load_seed_recipes(source_path: str | None = None) -> tuple[str | None, list
     return recipes_path, recipes
 
 
-def _recipe_id_set(conn) -> set[str]:
+def _recipe_id_set(conn, active_only: bool = False) -> set[str]:
     cur = conn.cursor()
-    cur.execute("SELECT id FROM recipes")
+    if active_only:
+        cur.execute("SELECT id FROM recipes WHERE COALESCE(active, 1) = 1")
+    else:
+        cur.execute("SELECT id FROM recipes")
     rows = cur.fetchall()
     ids: set[str] = set()
     for row in rows:
@@ -3130,8 +3344,12 @@ def get_recipe_catalog_status(source_path: str | None = None) -> Dict[str, Any]:
     conn = _connect()
     try:
         db_ids = _recipe_id_set(conn)
+        active_db_ids = _recipe_id_set(conn, active_only=True)
         return {
-            "databaseCount": len(db_ids),
+            "databaseCount": len(active_db_ids),
+            "databaseActiveCount": len(active_db_ids),
+            "databaseTotalCount": len(db_ids),
+            "databaseInactiveCount": max(0, len(db_ids) - len(active_db_ids)),
             "seedSourcePath": recipes_path,
             "seedSourceCount": len(seed_recipes_raw),
             "seedSourceIdCount": len(seed_ids),
@@ -3145,11 +3363,12 @@ def get_recipe_catalog_status(source_path: str | None = None) -> Dict[str, Any]:
 def seed_recipes(source_path: str | None = None, force_reseed: bool | None = None) -> Dict[str, Any]:
     recipes_path, recipes = _load_seed_recipes(source_path)
     if not recipes_path:
+        before_count = get_recipe_count()
         return {
             "sourcePath": None,
             "sourceCount": 0,
-            "beforeCount": get_recipe_count(),
-            "afterCount": get_recipe_count(),
+            "beforeCount": before_count,
+            "afterCount": before_count,
             "insertedCount": 0,
             "updatedCount": 0,
             "skippedExistingCount": 0,
@@ -3169,6 +3388,9 @@ def seed_recipes(source_path: str | None = None, force_reseed: bool | None = Non
         before_count = _recipe_count(conn)
         existing_ids = _recipe_id_set(conn)
         cursor = conn.cursor()
+        now_ms = int(time.time() * 1000)
+        source_label = "seed"
+        source_version = os.path.basename(recipes_path)
         if _use_postgres():
             conflict_sql = """
                 DO UPDATE SET
@@ -3182,23 +3404,30 @@ def seed_recipes(source_path: str | None = None, force_reseed: bool | None = Non
                     tags = EXCLUDED.tags,
                     minutes = EXCLUDED.minutes,
                     ingredients_json = EXCLUDED.ingredients_json,
-                    steps_json = EXCLUDED.steps_json
+                    steps_json = EXCLUDED.steps_json,
+                    active = 1,
+                    source = EXCLUDED.source,
+                    source_version = EXCLUDED.source_version,
+                    updated_at = EXCLUDED.updated_at,
+                    deleted_at = 0
             """ if force_reseed else "DO NOTHING"
             insert_sql = f'''
                 INSERT INTO recipes (
                     id, title, meal_type, calories, protein, carbs, fats, fiber,
-                    tags, minutes, ingredients_json, steps_json
+                    tags, minutes, ingredients_json, steps_json,
+                    active, source, source_version, created_at, updated_at, deleted_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id) {conflict_sql}
             '''
         else:
             insert_sql = f'''
                 INSERT {"OR REPLACE" if force_reseed else "OR IGNORE"} INTO recipes (
                     id, title, meal_type, calories, protein, carbs, fats, fiber,
-                    tags, minutes, ingredients_json, steps_json
+                    tags, minutes, ingredients_json, steps_json,
+                    active, source, source_version, created_at, updated_at, deleted_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             '''
 
         for r in recipes:
@@ -3212,6 +3441,7 @@ def seed_recipes(source_path: str | None = None, force_reseed: bool | None = Non
 
             nut = r.get("nutrition", {})
             cal, prot, carb, fat, fiber = _normalize_nutrition(nut, medians)
+            minutes = max(1, min(int(r.get("minutes") or 25), 480))
 
             tags = _infer_tags(r)
             cursor.execute(insert_sql, (
@@ -3220,9 +3450,15 @@ def seed_recipes(source_path: str | None = None, force_reseed: bool | None = Non
                 r.get("mealType", "Universal"),
                 cal, prot, carb, fat, fiber,
                 ",".join(tags),
-                r.get("minutes", 25),
+                minutes,
                 json.dumps(r.get("ingredients", [])),
-                json.dumps(r.get("instructions", []) or r.get("steps", []))
+                json.dumps(r.get("instructions", []) or r.get("steps", [])),
+                1,
+                source_label,
+                source_version,
+                now_ms,
+                now_ms,
+                0,
             ))
             if already_exists:
                 updated_count += 1
@@ -3366,7 +3602,7 @@ def get_all_recipes():
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
     try:
-        cursor.execute("SELECT * FROM recipes")
+        cursor.execute("SELECT * FROM recipes WHERE COALESCE(active, 1) = 1")
         rows = cursor.fetchall()
         correction_map = _list_active_nutrition_corrections_map(conn)
         recipes = []
@@ -3395,11 +3631,11 @@ def get_recipe_by_id(recipe_id: str) -> Dict[str, Any] | None:
     try:
         if _use_postgres() and dict_row is not None:
             cursor = conn.cursor(row_factory=dict_row)
-            cursor.execute("SELECT * FROM recipes WHERE id = %s", (token,))
+            cursor.execute("SELECT * FROM recipes WHERE id = %s AND COALESCE(active, 1) = 1", (token,))
         else:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM recipes WHERE id = ?", (token,))
+            cursor.execute("SELECT * FROM recipes WHERE id = ? AND COALESCE(active, 1) = 1", (token,))
         row = cursor.fetchone()
         if not row:
             return None
@@ -3433,9 +3669,11 @@ def list_admin_recipes(q: str | None = None, meal_type: str | None = None, limit
             cursor = conn.cursor(row_factory=dict_row)
             cursor.execute(
                 """
-                SELECT id, title, meal_type, calories, protein, carbs, fats, fiber, tags, minutes
+                SELECT id, title, meal_type, calories, protein, carbs, fats, fiber, tags, minutes,
+                       active, source, source_version, created_at, updated_at, deleted_at
                 FROM recipes
-                WHERE (%s = '' OR title ILIKE %s)
+                WHERE COALESCE(active, 1) = 1
+                  AND (%s = '' OR title ILIKE %s)
                   AND (%s = '' OR meal_type ILIKE %s)
                 ORDER BY title ASC, id ASC
                 LIMIT %s
@@ -3447,9 +3685,11 @@ def list_admin_recipes(q: str | None = None, meal_type: str | None = None, limit
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT id, title, meal_type, calories, protein, carbs, fats, fiber, tags, minutes
+                SELECT id, title, meal_type, calories, protein, carbs, fats, fiber, tags, minutes,
+                       active, source, source_version, created_at, updated_at, deleted_at
                 FROM recipes
-                WHERE (? = '' OR lower(title) LIKE lower(?))
+                WHERE COALESCE(active, 1) = 1
+                  AND (? = '' OR lower(title) LIKE lower(?))
                   AND (? = '' OR lower(meal_type) LIKE lower(?))
                 ORDER BY title ASC, id ASC
                 LIMIT ?
@@ -3476,6 +3716,12 @@ def list_admin_recipes(q: str | None = None, meal_type: str | None = None, limit
                 "fiberGrams": raw.get("fiber"),
                 "tags": str(raw.get("tags") or "").split(",") if raw.get("tags") else [],
                 "minutes": raw.get("minutes"),
+                "active": bool(raw.get("active", 1)),
+                "source": raw.get("source"),
+                "sourceVersion": raw.get("source_version"),
+                "createdAt": int(raw.get("created_at") or 0),
+                "updatedAt": int(raw.get("updated_at") or 0),
+                "deletedAt": int(raw.get("deleted_at") or 0),
             }
             items.append(_apply_nutrition_correction(item, correction_map.get(str(raw.get("id") or ""))))
         return items
@@ -3496,6 +3742,9 @@ def upsert_recipe(recipe: Dict[str, Any]) -> Dict[str, Any]:
     tags = [str(tag).strip() for tag in (recipe.get("tags") or []) if str(tag).strip()]
     ingredients_json = json.dumps(recipe.get("ingredients") or [], ensure_ascii=True)
     steps_json = json.dumps(recipe.get("steps") or [], ensure_ascii=True)
+    source = str(recipe.get("source") or "admin").strip() or "admin"
+    source_version = str(recipe.get("sourceVersion") or recipe.get("source_version") or "").strip() or None
+    now_ms = int(time.time() * 1000)
     conn = _connect()
     try:
         cur = conn.cursor()
@@ -3503,9 +3752,10 @@ def upsert_recipe(recipe: Dict[str, Any]) -> Dict[str, Any]:
             cur.execute(
                 """
                 INSERT INTO recipes (
-                    id, title, meal_type, calories, protein, carbs, fats, fiber, tags, minutes, ingredients_json, steps_json
+                    id, title, meal_type, calories, protein, carbs, fats, fiber, tags, minutes,
+                    ingredients_json, steps_json, active, source, source_version, created_at, updated_at, deleted_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE SET
                     title = EXCLUDED.title,
                     meal_type = EXCLUDED.meal_type,
@@ -3517,19 +3767,48 @@ def upsert_recipe(recipe: Dict[str, Any]) -> Dict[str, Any]:
                     tags = EXCLUDED.tags,
                     minutes = EXCLUDED.minutes,
                     ingredients_json = EXCLUDED.ingredients_json,
-                    steps_json = EXCLUDED.steps_json
+                    steps_json = EXCLUDED.steps_json,
+                    active = 1,
+                    source = EXCLUDED.source,
+                    source_version = EXCLUDED.source_version,
+                    updated_at = EXCLUDED.updated_at,
+                    deleted_at = 0
                 """,
-                (recipe_id, title, meal_type, calories, protein, carbs, fats, fiber, ",".join(tags), minutes, ingredients_json, steps_json),
+                (
+                    recipe_id, title, meal_type, calories, protein, carbs, fats, fiber, ",".join(tags), minutes,
+                    ingredients_json, steps_json, 1, source, source_version, now_ms, now_ms, 0,
+                ),
             )
         else:
             cur.execute(
                 """
-                INSERT OR REPLACE INTO recipes (
-                    id, title, meal_type, calories, protein, carbs, fats, fiber, tags, minutes, ingredients_json, steps_json
+                INSERT INTO recipes (
+                    id, title, meal_type, calories, protein, carbs, fats, fiber, tags, minutes,
+                    ingredients_json, steps_json, active, source, source_version, created_at, updated_at, deleted_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    title = excluded.title,
+                    meal_type = excluded.meal_type,
+                    calories = excluded.calories,
+                    protein = excluded.protein,
+                    carbs = excluded.carbs,
+                    fats = excluded.fats,
+                    fiber = excluded.fiber,
+                    tags = excluded.tags,
+                    minutes = excluded.minutes,
+                    ingredients_json = excluded.ingredients_json,
+                    steps_json = excluded.steps_json,
+                    active = 1,
+                    source = excluded.source,
+                    source_version = excluded.source_version,
+                    updated_at = excluded.updated_at,
+                    deleted_at = 0
                 """,
-                (recipe_id, title, meal_type, calories, protein, carbs, fats, fiber, ",".join(tags), minutes, ingredients_json, steps_json),
+                (
+                    recipe_id, title, meal_type, calories, protein, carbs, fats, fiber, ",".join(tags), minutes,
+                    ingredients_json, steps_json, 1, source, source_version, now_ms, now_ms, 0,
+                ),
             )
         conn.commit()
     finally:
@@ -3547,6 +3826,12 @@ def upsert_recipe(recipe: Dict[str, Any]) -> Dict[str, Any]:
         "minutes": minutes,
         "ingredients": recipe.get("ingredients") or [],
         "steps": recipe.get("steps") or [],
+        "active": True,
+        "source": source,
+        "sourceVersion": source_version,
+        "createdAt": now_ms,
+        "updatedAt": now_ms,
+        "deletedAt": 0,
     }
 
 
@@ -3557,10 +3842,25 @@ def delete_recipe(recipe_id: str) -> int:
     conn = _connect()
     try:
         cur = conn.cursor()
+        now_ms = int(time.time() * 1000)
         if _use_postgres():
-            cur.execute("DELETE FROM recipes WHERE id = %s", (token,))
+            cur.execute(
+                """
+                UPDATE recipes
+                SET active = 0, deleted_at = %s, updated_at = %s
+                WHERE id = %s AND COALESCE(active, 1) = 1
+                """,
+                (now_ms, now_ms, token),
+            )
         else:
-            cur.execute("DELETE FROM recipes WHERE id = ?", (token,))
+            cur.execute(
+                """
+                UPDATE recipes
+                SET active = 0, deleted_at = ?, updated_at = ?
+                WHERE id = ? AND COALESCE(active, 1) = 1
+                """,
+                (now_ms, now_ms, token),
+            )
         conn.commit()
         return int(cur.rowcount or 0)
     finally:
@@ -3960,7 +4260,8 @@ def get_recipe_summaries(meal_type: str | None = None, limit: int = 50):
                     """
                     SELECT id, title, meal_type, minutes
                     FROM recipes
-                    WHERE meal_type ILIKE %s OR meal_type ILIKE '%%universal%%'
+                    WHERE COALESCE(active, 1) = 1
+                      AND (meal_type ILIKE %s OR meal_type ILIKE '%%universal%%')
                     ORDER BY id
                     LIMIT %s
                     """,
@@ -3971,7 +4272,8 @@ def get_recipe_summaries(meal_type: str | None = None, limit: int = 50):
                     """
                     SELECT id, title, meal_type, minutes
                     FROM recipes
-                    WHERE lower(meal_type) LIKE lower(?) OR lower(meal_type) LIKE '%universal%'
+                    WHERE COALESCE(active, 1) = 1
+                      AND (lower(meal_type) LIKE lower(?) OR lower(meal_type) LIKE '%universal%')
                     ORDER BY id
                     LIMIT ?
                     """,
@@ -3979,10 +4281,10 @@ def get_recipe_summaries(meal_type: str | None = None, limit: int = 50):
                 )
         else:
             cursor.execute(
-                "SELECT id, title, meal_type, minutes FROM recipes ORDER BY id LIMIT ?",
+                "SELECT id, title, meal_type, minutes FROM recipes WHERE COALESCE(active, 1) = 1 ORDER BY id LIMIT ?",
                 (limit,)
             ) if not _use_postgres() else cursor.execute(
-                "SELECT id, title, meal_type, minutes FROM recipes ORDER BY id LIMIT %s",
+                "SELECT id, title, meal_type, minutes FROM recipes WHERE COALESCE(active, 1) = 1 ORDER BY id LIMIT %s",
                 (limit,)
             )
         rows = cursor.fetchall()

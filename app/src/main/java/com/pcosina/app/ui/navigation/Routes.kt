@@ -61,13 +61,14 @@ object Routes {
     val RecipeDetailsRoutePattern: String
         get() = "$RecipeDetails/{$RecipeIdArg}?$MealLabelArg={$MealLabelArg}"
     fun recipeDetailsRoute(recipeId: String, mealLabel: String? = null): String {
+        val encodedRecipeId = URLEncoder.encode(recipeId, StandardCharsets.UTF_8.toString())
         val encodedMealLabel = mealLabel?.takeIf { it.isNotBlank() }?.let {
             URLEncoder.encode(it, StandardCharsets.UTF_8.toString())
         }
         return if (encodedMealLabel == null) {
-            "$RecipeDetails/$recipeId"
+            "$RecipeDetails/$encodedRecipeId"
         } else {
-            "$RecipeDetails/$recipeId?$MealLabelArg=$encodedMealLabel"
+            "$RecipeDetails/$encodedRecipeId?$MealLabelArg=$encodedMealLabel"
         }
     }
 

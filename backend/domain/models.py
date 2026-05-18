@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any, Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 ProfileName = Annotated[str, Field(max_length=80)]
@@ -9,6 +9,14 @@ ProfileText = Annotated[str, Field(max_length=200)]
 ProfileToken = Annotated[str, Field(max_length=80)]
 PantryToken = Annotated[str, Field(max_length=120)]
 IsoDateText = Annotated[str, Field(max_length=10)]
+AdminId = Annotated[str, Field(min_length=1, max_length=120, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,119}$")]
+AdminShortText = Annotated[str, Field(min_length=1, max_length=80)]
+AdminTitle = Annotated[str, Field(min_length=1, max_length=160)]
+AdminLongText = Annotated[str, Field(min_length=1, max_length=500)]
+AdminNote = Annotated[str, Field(max_length=2000)]
+AdminOptionalShortText = Annotated[str, Field(max_length=80)]
+IngredientName = Annotated[str, Field(min_length=1, max_length=500)]
+IngredientQuantity = Annotated[str, Field(max_length=200)]
 
 
 class UserProfile(BaseModel):
@@ -39,8 +47,10 @@ class UserProfile(BaseModel):
 
 
 class Ingredient(BaseModel):
-    name: str
-    quantity: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: IngredientName
+    quantity: IngredientQuantity
 
 
 class RecipeDetail(BaseModel):
@@ -72,18 +82,20 @@ class RecipeSummary(BaseModel):
 
 
 class AdminRecipeUpsertRequest(BaseModel):
-    id: Optional[str] = None
-    title: str
-    mealType: str
-    calories: int
-    proteinGrams: int
-    carbsGrams: int
-    fatsGrams: int
-    fiberGrams: int
-    tags: List[str] = []
-    minutes: int = 25
-    ingredients: List[Ingredient] = []
-    steps: List[str] = []
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    id: Optional[AdminId] = None
+    title: AdminTitle
+    mealType: AdminShortText
+    calories: int = Field(ge=1, le=3000)
+    proteinGrams: int = Field(ge=0, le=300)
+    carbsGrams: int = Field(ge=0, le=500)
+    fatsGrams: int = Field(ge=0, le=250)
+    fiberGrams: int = Field(ge=0, le=120)
+    tags: List[AdminShortText] = Field(default_factory=list, max_length=30)
+    minutes: int = Field(default=25, ge=1, le=480)
+    ingredients: List[Ingredient] = Field(default_factory=list, min_length=1, max_length=80)
+    steps: List[AdminLongText] = Field(default_factory=list, min_length=1, max_length=80)
 
 
 class AdminPriceRule(BaseModel):
@@ -100,15 +112,27 @@ class AdminPriceRule(BaseModel):
 
 
 class AdminPriceRuleUpsertRequest(BaseModel):
-    id: Optional[str] = None
-    keywords: List[str] = []
-    pricePhp: int
-    priceMinPhp: Optional[int] = None
-    priceMaxPhp: Optional[int] = None
-    category: str
-    unit: Optional[str] = None
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    id: Optional[AdminId] = None
+    keywords: List[AdminShortText] = Field(default_factory=list, min_length=1, max_length=30)
+    pricePhp: int = Field(ge=1, le=1_000_000)
+    priceMinPhp: Optional[int] = Field(default=None, ge=1, le=1_000_000)
+    priceMaxPhp: Optional[int] = Field(default=None, ge=1, le=1_000_000)
+    category: AdminShortText
+    unit: Optional[AdminOptionalShortText] = None
     active: bool = True
-    notes: Optional[str] = None
+    notes: Optional[AdminNote] = None
+
+    @model_validator(mode="after")
+    def validate_price_range(self) -> "AdminPriceRuleUpsertRequest":
+        if self.priceMinPhp is not None and self.priceMaxPhp is not None and self.priceMinPhp > self.priceMaxPhp:
+            raise ValueError("priceMinPhp must be <= priceMaxPhp")
+        if self.priceMinPhp is not None and self.pricePhp < self.priceMinPhp:
+            raise ValueError("pricePhp must be >= priceMinPhp")
+        if self.priceMaxPhp is not None and self.pricePhp > self.priceMaxPhp:
+            raise ValueError("pricePhp must be <= priceMaxPhp")
+        return self
 
 
 class AdminNutritionCorrection(BaseModel):
@@ -127,15 +151,32 @@ class AdminNutritionCorrection(BaseModel):
 
 
 class AdminNutritionCorrectionUpsertRequest(BaseModel):
-    calories: Optional[int] = None
-    proteinGrams: Optional[int] = None
-    carbsGrams: Optional[int] = None
-    fatsGrams: Optional[int] = None
-    fiberGrams: Optional[int] = None
-    sodiumMg: Optional[int] = None
-    sugarGrams: Optional[int] = None
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    calories: Optional[int] = Field(default=None, ge=1, le=3000)
+    proteinGrams: Optional[int] = Field(default=None, ge=0, le=300)
+    carbsGrams: Optional[int] = Field(default=None, ge=0, le=500)
+    fatsGrams: Optional[int] = Field(default=None, ge=0, le=250)
+    fiberGrams: Optional[int] = Field(default=None, ge=0, le=120)
+    sodiumMg: Optional[int] = Field(default=None, ge=0, le=10000)
+    sugarGrams: Optional[int] = Field(default=None, ge=0, le=250)
     active: bool = True
-    notes: Optional[str] = None
+    notes: Optional[AdminNote] = None
+
+    @model_validator(mode="after")
+    def require_at_least_one_correction_value(self) -> "AdminNutritionCorrectionUpsertRequest":
+        fields = (
+            self.calories,
+            self.proteinGrams,
+            self.carbsGrams,
+            self.fatsGrams,
+            self.fiberGrams,
+            self.sodiumMg,
+            self.sugarGrams,
+        )
+        if all(value is None for value in fields):
+            raise ValueError("At least one nutrition correction value is required")
+        return self
 
 
 class AdminSupportCaseNote(BaseModel):

@@ -4,6 +4,7 @@ import json
 import hashlib
 import os
 import random
+import re
 import time
 
 from ortools.sat.python import cp_model
@@ -573,6 +574,50 @@ def household_size_multiplier(profile: UserProfile) -> int:
     return max(1, min(raw, 6))
 
 
+def parse_serving_count(value: Any) -> Optional[float]:
+    if value in (None, ""):
+        return None
+    if isinstance(value, (int, float)):
+        parsed = float(value)
+        return parsed if parsed > 0 else None
+    text = str(value or "").strip().lower()
+    if not text:
+        return None
+    range_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:-|to)\s*(\d+(?:\.\d+)?)", text)
+    if range_match:
+        low = float(range_match.group(1))
+        high = float(range_match.group(2))
+        if low > 0 and high > 0:
+            return (low + high) / 2.0
+    match = re.search(r"\d+(?:\.\d+)?", text)
+    if not match:
+        return None
+    parsed = float(match.group(0))
+    return parsed if parsed > 0 else None
+
+
+def recipe_serving_count(recipe: Dict[str, Any]) -> Optional[float]:
+    for key in ("sourceServings", "servings", "recipeYield"):
+        parsed = parse_serving_count(recipe.get(key))
+        if parsed is not None:
+            return parsed
+    notes = str(recipe.get("nutritionNotes") or "").strip()
+    for key in ("source_servings", "source_recipe_yield", "sourceServings"):
+        match = re.search(rf"{re.escape(key)}\s*=\s*([^;]+)", notes, flags=re.IGNORECASE)
+        if match:
+            parsed = parse_serving_count(match.group(1))
+            if parsed is not None:
+                return parsed
+    return None
+
+
+def serving_cost_multiplier(recipe: Dict[str, Any], household_size: int) -> float:
+    servings = recipe_serving_count(recipe)
+    if servings is None or servings <= 0:
+        return float(max(1, int(household_size or 1)))
+    return max(1.0, float(household_size or 1)) / max(1.0, float(servings))
+
+
 def build_plan_day_labels(num_days: int, start_date_text: Optional[str] = None) -> List[str]:
     fallback = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     normalized_days = max(1, int(num_days or 0))
@@ -595,11 +640,11 @@ def estimate_cost(
     household_size: int = 1,
     *,
     pricing_context: Optional[PricingContext] = None,
-    cost_cache: Optional[Dict[Tuple[str, int, int], int]] = None,
+    cost_cache: Optional[Dict[Tuple[str, int, int, int], int]] = None,
     cost_cache_stats: Optional[Dict[str, int]] = None,
 ) -> int:
     normalized_household = max(1, int(household_size or 1))
-    cache_key: Optional[Tuple[str, int, int]] = None
+    cache_key: Optional[Tuple[str, int, int, int]] = None
     if cost_cache is not None:
         recipe_id = str(recipe.get("id") or "").strip()
         if not recipe_id:
@@ -610,7 +655,8 @@ def estimate_cost(
             except Exception:
                 recipe_id = hashlib.sha256(str(recipe.get("ingredients", [])).encode("utf-8")).hexdigest()
         month_index = int(getattr(pricing_context, "month_index", 0) or 0)
-        cache_key = (recipe_id, normalized_household, month_index)
+        serving_key = int(round(float(recipe_serving_count(recipe) or 1.0) * 100))
+        cache_key = (recipe_id, normalized_household, month_index, serving_key)
         cached = cost_cache.get(cache_key)
         if cached is not None:
             if cost_cache_stats is not None:
@@ -621,14 +667,15 @@ def estimate_cost(
 
     ings = recipe.get("ingredients", [])
     catalog_cost = estimate_recipe_cost(ings, pricing_context=pricing_context)
+    serving_multiplier = serving_cost_multiplier(recipe, normalized_household)
     if catalog_cost > 0:
-        resolved = int(max(1, catalog_cost * normalized_household))
+        resolved = int(max(1, round(float(catalog_cost) * serving_multiplier)))
         if cost_cache is not None and cache_key is not None:
             cost_cache[cache_key] = resolved
         return resolved
     cal = recipe.get("calories") or 0
     rough = (len(ings) * 6) + (cal * 0.15)
-    resolved = int(max(30, min(450, rough)) * normalized_household)
+    resolved = int(max(1, round(max(30, min(450, rough)) * serving_multiplier)))
     if cost_cache is not None and cache_key is not None:
         cost_cache[cache_key] = resolved
     return resolved
@@ -1022,6 +1069,39 @@ def _cheap_pre_price_score(recipe: Dict[str, Any]) -> float:
     return (protein * 2.0) + (fiber * 1.2) - (abs(calories - 500.0) * 0.10) + pantry_bonus + stage1_boost - prep_nudge
 
 
+def _nutrition_anchor_score(recipe: Dict[str, Any]) -> float:
+    fiber = float(recipe.get("fiberGrams") or 0.0)
+    carbs = float(recipe.get("carbsGrams") or 0.0)
+    protein = float(recipe.get("proteinGrams") or 0.0)
+    calories = float(recipe.get("calories") or 0.0)
+    sodium = float(recipe.get("sodiumMg") or 0.0)
+    sugar = float(recipe.get("sugarGrams") or 0.0)
+    cost = float(recipe.get("_cost_est") or 0.0)
+    excess_sodium = max(0.0, sodium - 1800.0)
+    excess_sugar = max(0.0, sugar - 35.0)
+    excess_calories = max(0.0, calories - 900.0)
+    return (
+        (fiber * 8.0)
+        + (min(carbs, 90.0) * 0.35)
+        + (min(protein, 55.0) * 0.20)
+        - (excess_sodium * 0.004)
+        - (excess_sugar * 0.35)
+        - (excess_calories * 0.03)
+        - (cost * 0.01)
+    )
+
+
+def _add_unique_recipe(selected: List[Dict[str, Any]], selected_ids: set[str], recipe: Dict[str, Any], limit: int) -> bool:
+    if len(selected) >= max(1, int(limit or 1)):
+        return False
+    recipe_key = str(recipe.get("id") or id(recipe))
+    if recipe_key in selected_ids:
+        return False
+    selected_ids.add(recipe_key)
+    selected.append(recipe)
+    return True
+
+
 def _pre_pricing_bucket_key(recipe: Dict[str, Any]) -> str:
     allowed = [str(label) for label in (recipe.get("_allowed_meals") or []) if str(label) in MEAL_LABELS]
     if len(allowed) == 1:
@@ -1052,17 +1132,35 @@ def _apply_pre_pricing_prune(
     selected_ids: set[str] = set()
 
     def add_recipe(recipe: Dict[str, Any]) -> None:
-        if len(selected) >= normalized_cap:
-            return
-        recipe_key = str(recipe.get("id") or id(recipe))
-        if recipe_key in selected_ids:
-            return
-        selected_ids.add(recipe_key)
-        selected.append(recipe)
+        _add_unique_recipe(selected, selected_ids, recipe, normalized_cap)
 
-    top_count = max(1, int(normalized_cap * 0.70))
+    top_count = max(1, int(normalized_cap * 0.55))
     for recipe in ranked[:top_count]:
         add_recipe(recipe)
+
+    nutrition_anchor_reserve = max(4, int(normalized_cap * 0.25))
+    nutrition_anchor_per_bucket = max(1, nutrition_anchor_reserve // max(1, len(MEAL_LABELS) + 1))
+    nutrition_ranked = sorted(
+        candidates,
+        key=lambda r: (
+            _nutrition_anchor_score(r),
+            float(r.get("fiberGrams") or 0.0),
+            float(r.get("carbsGrams") or 0.0),
+            float(r.get("proteinGrams") or 0.0),
+        ),
+        reverse=True,
+    )
+    for bucket in [*MEAL_LABELS, "Universal"]:
+        added = 0
+        for recipe in nutrition_ranked:
+            if _pre_pricing_bucket_key(recipe) != bucket:
+                continue
+            before = len(selected)
+            add_recipe(recipe)
+            if len(selected) > before:
+                added += 1
+            if added >= nutrition_anchor_per_bucket or len(selected) >= normalized_cap:
+                break
 
     if reserve > 0:
         for bucket in [*MEAL_LABELS, "Universal"]:
@@ -1083,6 +1181,55 @@ def _apply_pre_pricing_prune(
             break
 
     return selected, True
+
+
+def _apply_budget_nutrition_trim(bucket: List[Dict[str, Any]], keep: int) -> List[Dict[str, Any]]:
+    normalized_keep = max(1, int(keep or 1))
+    if len(bucket) <= normalized_keep:
+        return bucket
+
+    by_cost = sorted(
+        bucket,
+        key=lambda r: (
+            int(r.get("_cost_est") or 0),
+            -_base_score(r),
+            str(r.get("id") or ""),
+        ),
+    )
+    by_nutrition = sorted(
+        bucket,
+        key=lambda r: (
+            _nutrition_anchor_score(r),
+            float(r.get("fiberGrams") or 0.0),
+            float(r.get("carbsGrams") or 0.0),
+            float(r.get("proteinGrams") or 0.0),
+            -float(r.get("sodiumMg") or 0.0),
+            -float(r.get("sugarGrams") or 0.0),
+        ),
+        reverse=True,
+    )
+    nutrition_reserve = min(max(2, normalized_keep // 4), max(2, normalized_keep - 1))
+    budget_count = max(1, normalized_keep - nutrition_reserve)
+    selected: List[Dict[str, Any]] = []
+    selected_ids: set[str] = set()
+    for recipe in by_cost[:budget_count]:
+        _add_unique_recipe(selected, selected_ids, recipe, normalized_keep)
+    for recipe in by_nutrition:
+        if len(selected) >= normalized_keep:
+            break
+        _add_unique_recipe(selected, selected_ids, recipe, normalized_keep)
+    for recipe in by_cost:
+        if len(selected) >= normalized_keep:
+            break
+        _add_unique_recipe(selected, selected_ids, recipe, normalized_keep)
+    return sorted(
+        selected,
+        key=lambda r: (
+            int(r.get("_cost_est") or 0),
+            -_nutrition_anchor_score(r),
+            str(r.get("id") or ""),
+        ),
+    )
 
 
 def shortlist_candidates(
@@ -1226,7 +1373,7 @@ def shortlist_candidates(
     else:
         pre_pruned = False
 
-    cost_cache: Dict[Tuple[str, int, int], int] = {}
+    cost_cache: Dict[Tuple[str, int, int, int], int] = {}
     cost_cache_stats: Dict[str, int] = {"recipeCostCacheHits": 0, "recipeCostCacheMisses": 0}
     cost_estimated_recipe_count = 0
     for r in safe_candidates:
@@ -1311,10 +1458,9 @@ def shortlist_candidates(
         limit = stage1_max if restriction_count < 2 else int(stage1_max * max(1.0, restricted_shortlist_multiplier))
         buckets[k] = buckets[k][:limit]
         if budget_weekly:
-            buckets[k].sort(key=lambda r: r.get("_cost_est", 0))
             keep_min = max(max(1, budget_keep_min_count), int(len(buckets[k]) * max(0.0, budget_keep_min_ratio)))
             keep = int(max(keep_min, len(buckets[k]) * ranking_cutoff))
-            buckets[k] = buckets[k][:keep]
+            buckets[k] = _apply_budget_nutrition_trim(buckets[k], keep)
         for recipe in buckets[k]:
             recipe["_stage1_bucket"] = k
     if stage1_diag is not None:

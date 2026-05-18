@@ -1,0 +1,86 @@
+{
+  "activeNutritionProfileUniqueCount": 1019,
+  "activeRecipeCount": 1114,
+  "completeNutritionProfileCount": 1114,
+  "confidenceCounts": {
+    "api_estimate": 877,
+    "estimated": 60,
+    "high": 177
+  },
+  "dominantActiveNutritionProfile": {
+    "calories": 364,
+    "carbsGrams": 13,
+    "count": 5,
+    "fatsGrams": 21,
+    "fiberGrams": 3,
+    "fraction": 0.0045,
+    "proteinGrams": 30
+  },
+  "dominantTrustedNutritionProfile": {
+    "calories": 364,
+    "carbsGrams": 13,
+    "count": 5,
+    "fatsGrams": 21,
+    "fiberGrams": 3,
+    "fraction": 0.0282,
+    "proteinGrams": 30
+  },
+  "errors": [],
+  "imputedNutritionCount": 0,
+  "imputedNutritionFraction": 0.0,
+  "ok": true,
+  "placeholderNutritionProfileCounts": {
+    "350/20/40/12/5": 0,
+    "357/10/49/8/7": 0
+  },
+  "rawSeedCompleteNutritionCount": 60,
+  "rawSeedMissingNutritionCount": 1054,
+  "reviewStatusCounts": {
+    "needs_review": 60,
+    "pending_review": 877,
+    "source_verified": 177
+  },
+  "seedSourceCount": 1114,
+  "sourceCounts": {
+    "local_reference_ingredient_sum_draft": 876,
+    "local_reference_missing_quantity_draft": 1,
+    "panlasang_pinoy_recipe_card_per_serving": 141,
+    "panlasang_pinoy_recipe_card_yield_normalized": 36,
+    "seed_file": 60
+  },
+  "sourcePath": "C:\\Users\\salva\\AndroidStudioProjects\\PCOSINA2\\backend\\recipes.json",
+  "strongMealAvailableBySlot": {
+    "Breakfast": 14,
+    "Dinner": 25,
+    "Lunch": 17
+  },
+  "strongMealCountsByMealType": {
+    "Breakfast": 13,
+    "Dinner": 24,
+    "Lunch": 16,
+    "Universal": 1
+  },
+  "strongMealThresholds": {
+    "caloriesMin": 400,
+    "fatsGramsMin": 10,
+    "fiberGramsMin": 6,
+    "maxIdenticalActiveNutritionProfileFraction": 0.2,
+    "maxIdenticalTrustedNutritionProfileFraction": 0.2,
+    "minIdenticalActiveNutritionProfileCount": 20,
+    "minIdenticalTrustedNutritionProfileCount": 20,
+    "minStrongPerSlot": 7,
+    "minTrustedStrongPerSlot": 7,
+    "proteinGramsMin": 18
+  },
+  "trustedNutritionCount": 177,
+  "trustedNutritionProfileUniqueCount": 109,
+  "trustedStrongMealAvailableBySlot": {
+    "Breakfast": 9,
+    "Dinner": 11,
+    "Lunch": 7
+  },
+  "warnings": [
+    "Recipe catalog has 1019/1114 unique active nutrition profiles",
+    "937/1114 active recipes still need reviewed nutrition provenance"
+  ]
+}

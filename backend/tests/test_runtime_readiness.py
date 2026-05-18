@@ -10,6 +10,24 @@ from fastapi.testclient import TestClient
 import main
 
 
+def test_seed_nutrition_corrections_on_startup_defaults_on_outside_pytest(monkeypatch):
+    monkeypatch.delenv("PCOSINA_SEED_NUTRITION_CORRECTIONS", raising=False)
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    assert main._seed_nutrition_corrections_on_startup() is True
+
+
+def test_seed_nutrition_corrections_on_startup_skips_pytest_by_default(monkeypatch):
+    monkeypatch.delenv("PCOSINA_SEED_NUTRITION_CORRECTIONS", raising=False)
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "backend/tests/test_runtime_readiness.py::test")
+
+    assert main._seed_nutrition_corrections_on_startup() is False
+
+    monkeypatch.setenv("PCOSINA_SEED_NUTRITION_CORRECTIONS", "true")
+
+    assert main._seed_nutrition_corrections_on_startup() is True
+
+
 def test_runtime_readiness_reports_production_errors(monkeypatch):
     monkeypatch.setattr(main, "IS_PRODUCTION", True)
     monkeypatch.setattr(main, "ENVIRONMENT", "production")

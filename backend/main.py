@@ -138,7 +138,9 @@ def _seed_nutrition_corrections_on_startup() -> bool:
     configured = os.getenv("PCOSINA_SEED_NUTRITION_CORRECTIONS", "").strip().lower()
     if configured:
         return configured in ("1", "true", "yes", "on")
-    return IS_PRODUCTION
+    if os.getenv("PYTEST_CURRENT_TEST", "").strip():
+        return False
+    return True
 
 
 def _log_app_check_mode(enforced: bool) -> None:

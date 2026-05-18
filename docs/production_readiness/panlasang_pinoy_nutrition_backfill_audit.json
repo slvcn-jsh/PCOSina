@@ -1,0 +1,913 @@
+{
+  "source": "Panlasang Pinoy structured recipe NutritionInformation",
+  "outputCsv": "backend\\seed_data\\panlasang_pinoy_nutrition_corrections.csv",
+  "summary": {
+    "offsetRows": 910,
+    "consideredRows": 144,
+    "matchedRows": 18,
+    "unmatchedRows": 126,
+    "auditRows": [
+      {
+        "recipe_id": "ph_911",
+        "title": "Beef Ribs Adobo sa Gata Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_912",
+        "title": "Hipon at Kalabasa sa Pinausukang Gata Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_913",
+        "title": "Adobong Sitaw (Adobo-style String Beans) Recipe",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/adobong-sitaw/",
+        "sourceBasis": "source_published_per_serving",
+        "sourceRecipeYield": 4.0
+      },
+      {
+        "recipe_id": "ph_914",
+        "title": "Pinoy Nachos",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_915",
+        "title": "Kinilaw na Tuna",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_916",
+        "title": "Pulled Pork Adobo Sandwich",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_917",
+        "title": "Stir-Fried Seafood on Crispy Pancit Canton Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_918",
+        "title": "Salmon Head Kare-Kare",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_919",
+        "title": "Grilled Malunggay Stuffed Squid",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_920",
+        "title": "Grilled Tilapia with Tamarind Sauce",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_921",
+        "title": "Tamarind Beef Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_922",
+        "title": "Vietnamese Chicken Barbecue Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_923",
+        "title": "Pocherong Bisaya Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_924",
+        "title": "Fresh Lumpiang Ubod",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_925",
+        "title": "Ginataang Halo-Halo Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_926",
+        "title": "Smoked Bangus Eggplant Torta",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_927",
+        "title": "Krispy Palabok",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_928",
+        "title": "Krispy Pata Sisig",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_929",
+        "title": "Chicken Bicol Express",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/chicken-bicol-express/",
+        "sourceBasis": "source_published_per_serving",
+        "sourceRecipeYield": 4.0
+      },
+      {
+        "recipe_id": "ph_930",
+        "title": "Chicken Inasal Rolls",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_931",
+        "title": "Misua Seafood Noodles",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_932",
+        "title": "Crispy Pata",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_933",
+        "title": "Lechon Kawali Binagoongan sa Gata Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_934",
+        "title": "Menudo",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/menudo/",
+        "sourceBasis": "normalized_by_source_recipe_yield",
+        "sourceRecipeYield": 4.0
+      },
+      {
+        "recipe_id": "ph_935",
+        "title": "Mechado",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_936",
+        "title": "Kare-Kare",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_937",
+        "title": "Pork Afritada Recipe",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/pork-afritada-recipe/",
+        "sourceBasis": "source_published_per_serving",
+        "sourceRecipeYield": 4.0
+      },
+      {
+        "recipe_id": "ph_938",
+        "title": "Chicken Adobo Recipe",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/chicken-adobo/",
+        "sourceBasis": "source_published_per_serving",
+        "sourceRecipeYield": 4.0
+      },
+      {
+        "recipe_id": "ph_939",
+        "title": "Roasted Tamarind Chicken Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_940",
+        "title": "Rosemary and Balsamic Adobo Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_941",
+        "title": "Thai Chicken Coconut Green Curry Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_942",
+        "title": "Chicken Satay with Nasi Goreng Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_943",
+        "title": "Tamarind Fish on Bagoong Rice Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_944",
+        "title": "Banh Xeo (Vietnamese Pancake) Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_945",
+        "title": "Thai-Style Grilled Chicken Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_946",
+        "title": "Ginataang Tilapia Recipe (Fish Cooked in Coconut Milk)",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/ginataang-tilapia/",
+        "sourceBasis": "source_published_per_serving",
+        "sourceRecipeYield": 3.0
+      },
+      {
+        "recipe_id": "ph_947",
+        "title": "Seafood Bagoong Rice Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_948",
+        "title": "Pork Binagoongan Recipe",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/pork-binagoongan-recipe/",
+        "sourceBasis": "normalized_by_source_recipe_yield",
+        "sourceRecipeYield": 4.0
+      },
+      {
+        "recipe_id": "ph_949",
+        "title": "Sinigang na Panga ng Tuna Recipe (Tuna Jaw in Sour Broth)",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_950",
+        "title": "Ginataang Hipon, Sitaw at Kalabasa Recipe (Shrimp in Coconut Milk)",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/ginataang-hipon-sitaw-at-kalabasa/",
+        "sourceBasis": "source_published_per_serving",
+        "sourceRecipeYield": 4.0
+      },
+      {
+        "recipe_id": "ph_951",
+        "title": "Adobong Hipon sa Gata Recipe (Shrimp Adobo in Coconut Milk)",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_952",
+        "title": "Pork Adobo Patacones Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_953",
+        "title": "Fish Paksiw Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_954",
+        "title": "Lechon Kawali Recipe",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/lechon-kawali/",
+        "sourceBasis": "normalized_by_source_recipe_yield",
+        "sourceRecipeYield": 6.0
+      },
+      {
+        "recipe_id": "ph_955",
+        "title": "Beef Mechado Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_956",
+        "title": "Adobong Pusit Recipe (Squid Adobo)",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_957",
+        "title": "Chicken Inasal Sisig Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_958",
+        "title": "Sizzling Tokwa't Baboy Sisig Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_959",
+        "title": "Grilled Vietnamese Pork Steaks Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_960",
+        "title": "Shrimp Ceviche Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_961",
+        "title": "Munggo Rice Recipe (Mung Bean Fried Rice)",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_962",
+        "title": "Seafood Pancit Sotanghon Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_963",
+        "title": "Green Curry Gising Gising Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_964",
+        "title": "Pork Adobo Paksiw Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_965",
+        "title": "Pinoy-style Pork Barbecue Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_966",
+        "title": "Adobo-style Dulong Recipe (Anchovy Fry Spread)",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_967",
+        "title": "Pancit Luglog Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_968",
+        "title": "Poqui Poqui Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_969",
+        "title": "Pochero Recipe",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/pochero/",
+        "sourceBasis": "source_published_per_serving",
+        "sourceRecipeYield": 4.0
+      },
+      {
+        "recipe_id": "ph_970",
+        "title": "Pancit Palabok Recipe",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/pancit-palabok-recipe/",
+        "sourceBasis": "source_published_per_serving",
+        "sourceRecipeYield": 6.0
+      },
+      {
+        "recipe_id": "ph_971",
+        "title": "Sinigang na Bangus sa Bayabas Recipe (Stewed Milkfish in Guava Soup)",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_972",
+        "title": "Ginataang Alimasag Recipe (Crabs Cooked in Coconut Milk)",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_973",
+        "title": "Sinigang na Salmon sa Miso Recipe (Salmon in Tamarind Miso Soup)",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_974",
+        "title": "Chicken Afritada Recipe",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/chicken-afritada-recipe/",
+        "sourceBasis": "source_published_per_serving",
+        "sourceRecipeYield": 4.0
+      },
+      {
+        "recipe_id": "ph_975",
+        "title": "Tofu Sisig Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_976",
+        "title": "Kung Pao Spaghetti Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_977",
+        "title": "Pata Sisig Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_978",
+        "title": "Mini Meatballs and Eggs Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_979",
+        "title": "Saucy Shrimp Sinigang",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_980",
+        "title": "Tortang Talong Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_981",
+        "title": "Bagoong Rice Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_982",
+        "title": "Grilled Chicken Adobo Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_983",
+        "title": "Spanish Adobo Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_984",
+        "title": "Ginataang Saging at Sago Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_985",
+        "title": "Sinigang Sa Miso Recipe",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/sinigang-sa-miso/",
+        "sourceBasis": "source_published_per_serving",
+        "sourceRecipeYield": 4.0
+      },
+      {
+        "recipe_id": "ph_986",
+        "title": "Pinoy Bistek Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_987",
+        "title": "Tinolang Manok Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_988",
+        "title": "Spicy Crispy Pata Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_989",
+        "title": "Special Pancit Canton",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_990",
+        "title": "Coconut Shrimp Noodles",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_991",
+        "title": "Garlic Shrimp Lo Mein",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_992",
+        "title": "Ginisang Monggo",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/ginisang-monggo/",
+        "sourceBasis": "source_published_per_serving",
+        "sourceRecipeYield": 3.0
+      },
+      {
+        "recipe_id": "ph_993",
+        "title": "Bopis Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_994",
+        "title": "Pinakbet Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_995",
+        "title": "Pork Sisig Recipe",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/pork-sisig/",
+        "sourceBasis": "normalized_by_source_recipe_yield",
+        "sourceRecipeYield": 5.0
+      },
+      {
+        "recipe_id": "ph_996",
+        "title": "Sour and Spicy Soup",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_997",
+        "title": "Fried Lumpia Adobo",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_998",
+        "title": "Easy Pancit Canton with Chicken Barbecue",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_999",
+        "title": "Adobo Flakes with Sinangag and Spicy Eggs",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1000",
+        "title": "Pork Barbecue Java Rice",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1001",
+        "title": "Fried Lumpiang Adobo",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1002",
+        "title": "Adobong Malunggay at Tahong",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1003",
+        "title": "Sinigang na Hipon Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1004",
+        "title": "Beef Papaitan Recipe",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/beef-papaitan/",
+        "sourceBasis": "source_published_per_serving",
+        "sourceRecipeYield": 6.0
+      },
+      {
+        "recipe_id": "ph_1005",
+        "title": "Manok sa Gata at Kalabasa",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1006",
+        "title": "Pork Adobo Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1007",
+        "title": "Japanese Wings Adobo",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1008",
+        "title": "Adobong Manok sa Gata with Chili and Ginger",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1009",
+        "title": "Pancit Canton Recipe",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/pancit-canton-recipe/",
+        "sourceBasis": "source_published_per_serving",
+        "sourceRecipeYield": 6.0
+      },
+      {
+        "recipe_id": "ph_1010",
+        "title": "Chicken Inasal",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1011",
+        "title": "Sinigang na Hipon sa Kamias",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1012",
+        "title": "Sisig Pasta",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1013",
+        "title": "La Paz-Style Batchoy Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1014",
+        "title": "Bangus Belly Sinigang",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1015",
+        "title": "Bangus Belly Bistek",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1016",
+        "title": "Tinutungan na Dinuguan Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1017",
+        "title": "Shrimp and Coconut Soup",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1018",
+        "title": "Marketman's Chicken Inasal",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1019",
+        "title": "Chili-Honey Glazed Lechon Kawali",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1020",
+        "title": "Congee",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1021",
+        "title": "Pork and Beans",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1022",
+        "title": "Two-way Adobo Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1023",
+        "title": "Sisig Saud",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1024",
+        "title": "Chicken Adobo Congee",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1025",
+        "title": "Adobo sa Buko",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1026",
+        "title": "Sinigang na Baboy sa Sampalok",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1027",
+        "title": "Sinigang na Bangus sa Bayabas",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1028",
+        "title": "Maria Clara",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1029",
+        "title": "Lechon Kawali Kare-Kare Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1030",
+        "title": "Peppery Spicy Beef Adobo",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1031",
+        "title": "Lemon Balm Lamb Adobo",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1032",
+        "title": "Sinigang na Sugpo sa Kamias",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1033",
+        "title": "Adobo de Campesino",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1034",
+        "title": "Adobong Pusit Balsamico",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1035",
+        "title": "Maria Clara Exposed",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1036",
+        "title": "Adobo sa Dilaw",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1037",
+        "title": "Bagoong-Sauteed Beans with Mangoes",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1038",
+        "title": "Adobong Manok at Baboy",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1039",
+        "title": "Mercedita Uy De Baron's Paksiw Na Pata",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1040",
+        "title": "Yellow Shrimp Curry Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1041",
+        "title": "Spinach and Sili Leaves Laing Pasta",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1042",
+        "title": "Sisig and Corn Tortilla Wraps",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1043",
+        "title": "Classic Chicken and Pork Adobo",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1044",
+        "title": "Parsley-Pork Balls in Curry Sauce",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1045",
+        "title": "Sinigang",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1046",
+        "title": "Lumpia Recipe",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1047",
+        "title": "Sisig Triangles",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1048",
+        "title": "Lamb Tapa with Salsa Pina",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1049",
+        "title": "Sinigang na Sugpo (Prawns in Sour Broth Soup)",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1050",
+        "title": "Pinakbet Rice with Lechon Kawali Bits",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1051",
+        "title": "Bagoong Fried Rice",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1052",
+        "title": "Pork Binagoongan sa Gata Recipe",
+        "status": "matched",
+        "url": "https://panlasangpinoy.com/pork-binagoongan-sa-gata/",
+        "sourceBasis": "normalized_by_source_recipe_yield",
+        "sourceRecipeYield": 6.0
+      },
+      {
+        "recipe_id": "ph_1053",
+        "title": "Garlic Adobo Flakes Benedict",
+        "status": "unmatched",
+        "url": ""
+      },
+      {
+        "recipe_id": "ph_1054",
+        "title": "Adobo sa Puti Recipe",
+        "status": "unmatched",
+        "url": ""
+      }
+    ],
+    "outputRows": 177
+  }
+}

@@ -165,6 +165,37 @@ def test_estimate_cost_uses_request_local_recipe_cache(monkeypatch):
     assert cost_cache_stats["recipeCostCacheHits"] == 1
 
 
+def test_estimate_cost_uses_source_servings_for_meal_budget(monkeypatch):
+    monkeypatch.setattr(meal_planner, "estimate_recipe_cost", lambda ingredients, pricing_context=None: 600)
+    recipe = {
+        "id": "served-1",
+        "title": "Served Recipe",
+        "sourceServings": "6",
+        "ingredients": [{"name": "fish", "quantity": "1 kg"}],
+        "calories": 500,
+    }
+
+    assert meal_planner.estimate_cost(recipe, household_size=1) == 100
+    assert meal_planner.estimate_cost(recipe, household_size=3) == 300
+
+
+def test_estimate_cost_parses_servings_from_nutrition_notes(monkeypatch):
+    monkeypatch.setattr(meal_planner, "estimate_recipe_cost", lambda ingredients, pricing_context=None: 500)
+    recipe = {
+        "id": "notes-served-1",
+        "title": "Notes Served Recipe",
+        "nutritionNotes": (
+            "title=Recipe; source_url=https://example.test; source_servings=4; "
+            "source_basis=source_published_per_serving"
+        ),
+        "ingredients": [{"name": "chicken", "quantity": "1 kg"}],
+        "calories": 500,
+    }
+
+    assert meal_planner.recipe_serving_count(recipe) == 4
+    assert meal_planner.estimate_cost(recipe, household_size=1) == 125
+
+
 def test_pre_pricing_prunes_broad_profile_before_cost_estimation(monkeypatch):
     cost_calls = 0
 
@@ -275,6 +306,111 @@ def test_pre_pricing_keeps_allergy_filter_before_pricing(monkeypatch):
     assert diagnostics["safe_recipe_count_pre_pricing"] == 20
     assert diagnostics["pre_pricing_pruned"] is True
     assert all("peanut" not in name.lower() for name in priced_ingredient_names)
+
+
+def test_budget_shortlist_preserves_nutrition_anchors_after_pruning(monkeypatch):
+    def fake_estimate_recipe_cost(ingredients, pricing_context=None):
+        if pricing_context is not None:
+            pricing_context.recipe_cost_estimates += 1
+        names = [
+            str(item.get("name") if isinstance(item, dict) else item).lower()
+            for item in ingredients
+        ]
+        return 240 if any("anchor" in name for name in names) else 45
+
+    monkeypatch.setattr(meal_planner, "estimate_recipe_cost", fake_estimate_recipe_cost)
+    profile = UserProfile(
+        displayName="Budget Anchor Profile",
+        age=28,
+        heightCm=162,
+        weightKg=64,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        dietaryRestrictions=[],
+        allergies=[],
+        pantryItems=[],
+        maxCookingTimeMinutes=60,
+        weeklyBudgetPhp=4000,
+        planningPriority="Budget First",
+        varietyPreference="Low",
+    )
+    recipes = [
+        _recipe(
+            f"cheap_low_fiber_{i}",
+            f"Cheap Low Fiber {i}",
+            ["Breakfast", "Lunch", "Dinner"][i % 3],
+            calories=520,
+            protein=50,
+            carbs=35,
+            fats=16,
+            fiber=2,
+            ingredients=[{"name": f"cheap ingredient {i}", "quantity": "1 cup"}],
+        )
+        for i in range(120)
+    ] + [
+        _recipe(
+            f"fiber_anchor_{i}",
+            f"Fiber Anchor {i}",
+            "Universal",
+            calories=390,
+            protein=10,
+            carbs=70,
+            fats=10,
+            fiber=12,
+            ingredients=[{"name": f"anchor monggo {i}", "quantity": "1 cup"}],
+        )
+        for i in range(16)
+    ]
+    diagnostics: dict = {}
+    policy = {
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "max_candidates_per_slot": 10,
+            "pre_pricing_candidate_cap": 60,
+            "pre_pricing_bucket_reserve": 4,
+            "ranking_cutoff": 0.8,
+            "similarity_threshold": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 0.25,
+            "minimum_candidates_required": 1,
+        }
+    }
+
+    buckets = meal_planner.shortlist_candidates(profile, recipes, policy=policy, stage1_diag=diagnostics)
+    pool = list({
+        recipe["id"]: recipe
+        for recipe in (
+            buckets["Breakfast"]
+            + buckets["Lunch"]
+            + buckets["Dinner"]
+            + buckets["Universal"]
+        )
+    }.values())
+    meal_to_allowed = {
+        label: {
+            index
+            for index, recipe in enumerate(pool)
+            if label in (recipe.get("_allowed_meals") or meal_planner.MEAL_LABELS)
+        }
+        for label in meal_planner.MEAL_LABELS
+    }
+    coverage = meal_planner._nutrition_coverage_gap(
+        pool,
+        meal_to_allowed,
+        meal_planner.MEAL_LABELS,
+        calorie_min=1200,
+        protein_min=45,
+        carb_min=120,
+        fat_min=35,
+        fiber_min=20,
+        sodium_max=2300,
+        sugar_max=50,
+    )
+
+    assert diagnostics["pre_pricing_pruned"] is True
+    assert any(str(recipe.get("id", "")).startswith("fiber_anchor_") for recipe in pool)
+    assert coverage["ok"] is True
 
 
 def test_broad_profile_generates_basic_seven_day_plan(monkeypatch):

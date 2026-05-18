@@ -17,7 +17,7 @@ Updated: 2026-05-18
 
 - Recipe seed nutrition provenance is now tracked in the database. Seed rows with complete bundled nutrition are marked `estimated`; seed rows missing nutrition are marked `imputed` instead of being silently treated as validated facts.
 - `/health/ready?include_schema=true` now includes `recipeCatalogNutrition`; production readiness fails when the active catalog has too much imputed nutrition, insufficient strong meal coverage per slot, or too many reviewed recipes sharing one identical nutrition profile.
-- The planner now performs a deterministic pre-solver nutrition coverage check and returns `CATALOG_NUTRITION_GAP` when the active recipe pool cannot mathematically satisfy required daily nutrition bounds.
+- The planner now performs a deterministic pre-solver nutrition coverage check and returns `CATALOG_NUTRITION_GAP` when the active recipe pool cannot mathematically satisfy required visible nutrition bounds: calories, protein, carbs, fats, and fiber.
 - The upstream Filipino recipe source metadata was restored into `backend/recipes.json`, including source servings and prep/cook/total minutes, and `docs/production_readiness/nutrition_review_queue.csv` now gives reviewers a per-serving correction queue for the 1,054 recipes with missing raw nutrition.
 - `backend/draft_nutrition_from_fdc.py` can produce USDA FoodData Central draft estimates with match/audit trails, but generated rows remain `pending_review`; the local DEMO_KEY run was rate-limited and produced no importable reviewed nutrition values.
 - `backend/backfill_nutrition_from_panlasang.py` imported 177 source-backed Panlasang Pinoy nutrition corrections, using source-published per-serving values where plausible and source-yield normalization where source cards exposed whole-recipe totals.
@@ -26,4 +26,6 @@ Updated: 2026-05-18
 - Backend startup now seeds bundled nutrition corrections by default outside pytest, so local and deployed runtimes do not keep serving stale placeholder nutrition after a code/data update.
 - Budget planning now uses source serving counts when estimating meal cost, and Budget First shortlist pruning preserves nutrition anchors instead of removing the high-fiber/high-carb recipes needed for hard nutrition feasibility.
 - Local replay of Budget First, Low variety, `weeklyBudgetPhp=4000`, no allergies, and no restrictions now returns `Success` with 96 candidates, no pre-solver nutrition gaps, and an estimated weekly cost of 2,639 PHP.
+- Sodium and sugar remain in backend diagnostics/scoring as advisory limits, but they no longer block plan generation because they are not part of the current user-facing recipe nutrition contract.
+- Budget First planning now starts with repeat-friendly limits in production-shaped solves, matching the budget/reliability intent instead of spending the Render deadline on strict variety attempts first.
 - Remaining blocker: 937/1,114 active recipes still need reviewed nutrition provenance before claiming unrestricted nutrition-data maturity, even though the readiness gate is green for local planner feasibility.

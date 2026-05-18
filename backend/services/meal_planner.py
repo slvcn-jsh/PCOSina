@@ -1025,6 +1025,15 @@ def adjust_max_per_week(base: List[int], preference: str | None) -> List[int]:
     return base
 
 
+def repeat_sequence_for_profile(base: List[int], preference: str | None, priority: str | None) -> List[int]:
+    sequence = adjust_max_per_week(base, preference)
+    raw_preference = str(preference or "").strip().lower()
+    raw_priority = str(priority or "").strip().lower()
+    if "budget" in raw_priority and "high" not in raw_preference:
+        return sorted(set([value for value in sequence if value >= 6] + [6, 8, 10]))
+    return sequence
+
+
 def priority_overrides(priority: str | None) -> Dict[str, int]:
     raw = (priority or "").lower()
     if "budget" in raw:
@@ -1734,6 +1743,7 @@ def _nutrition_coverage_gap(
         slot_floor[label] = floor_for_slot
 
     gaps: List[Dict[str, Any]] = []
+    advisory_gaps: List[Dict[str, Any]] = []
     for field, minimum in required_min.items():
         possible = int(possible_daily_max.get(field) or 0)
         if possible < minimum:
@@ -1747,18 +1757,19 @@ def _nutrition_coverage_gap(
     for field, maximum in required_max.items():
         possible = int(possible_daily_min.get(field) or 0)
         if possible > maximum:
-            gaps.append(
+            advisory_gaps.append(
                 {
                     "nutrient": nutrient_fields[field],
-                    "requiredMax": int(maximum),
+                    "advisoryMax": int(maximum),
                     "possibleDailyMin": possible,
                 }
             )
     return {
         "ok": len(gaps) == 0,
         "gaps": gaps,
+        "advisoryGaps": advisory_gaps,
         "requiredMin": required_min,
-        "requiredMax": required_max,
+        "advisoryMax": required_max,
         "possibleDailyMax": possible_daily_max,
         "possibleDailyMin": possible_daily_min,
         "slotBest": slot_best,
@@ -2319,7 +2330,7 @@ def solve_meal_plan(
         return None, "Catalog nutrition coverage is insufficient for this profile.", None
     budget_weekly = resolve_budget_weekly(profile)
     rule_effects = profile_rule_summary(profile, budget_weekly)
-    max_per_week_list = adjust_max_per_week(
+    max_per_week_list = repeat_sequence_for_profile(
         [
             int(v)
             for v in _policy_get_legacy_aware(
@@ -2328,7 +2339,8 @@ def solve_meal_plan(
                 _env_int_list("PCOSINA_MAX_PER_WEEK", [2, 3, 4, 10]),
             )
         ],
-        profile.varietyPreference
+        profile.varietyPreference,
+        profile.planningPriority,
     )
     relaxation_order = _policy_get(
         policy,
@@ -2542,8 +2554,8 @@ def solve_meal_plan(
             dev_carb = model.NewIntVar(0, 300, f"dev_carb_{d}")
             dev_fat = model.NewIntVar(0, 200, f"dev_fat_{d}")
             fiber_slack = model.NewIntVar(0, 300, f"fiber_slack_{d}")
-            sodium_over = model.NewIntVar(0, 10000, f"sodium_over_{d}")
-            sugar_over = model.NewIntVar(0, 1000, f"sugar_over_{d}")
+            sodium_over = model.NewIntVar(0, 200000, f"sodium_over_{d}")
+            sugar_over = model.NewIntVar(0, 10000, f"sugar_over_{d}")
             dev_pro_vars.append(dev_pro)
             dev_carb_vars.append(dev_carb)
             dev_fat_vars.append(dev_fat)
@@ -2557,8 +2569,6 @@ def solve_meal_plan(
             model.Add(day_fat >= fats_bounds[0])
             model.Add(day_fat <= fats_bounds[1])
             model.Add(day_fiber >= fiber_min_target)
-            model.Add(day_sodium <= sodium_max_target)
-            model.Add(day_sugar <= sugar_max_target)
             model.Add(day_pro - protein_bounds[1] <= dev_pro)
             model.Add(protein_bounds[0] - day_pro <= dev_pro)
             model.Add(day_carb - carbs_bounds[1] <= dev_carb)

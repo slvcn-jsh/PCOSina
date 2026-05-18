@@ -37,6 +37,7 @@ def _recipe(
     minutes: int = 20,
     ingredients: list[dict] | None = None,
     sugar: int | None = None,
+    sodium: int | None = None,
 ) -> dict:
     return {
         "id": recipe_id,
@@ -51,6 +52,7 @@ def _recipe(
         "ingredients": ingredients or [{"name": "egg", "quantity": "2 pcs"}],
         "tags": [],
         "sugarGrams": sugar,
+        "sodiumMg": sodium,
     }
 
 
@@ -633,9 +635,115 @@ def test_solver_returns_no_safe_plan_when_required_nutrition_bounds_are_impossib
     assert explanation is None
     assert telemetry["stage1_diag"]["nutrition_feasibility"]["ok"] is False
     assert any(
-        gap["nutrient"] in {"protein", "fiber", "sugar"}
+        gap["nutrient"] in {"protein", "fiber"}
         for gap in telemetry["stage1_diag"]["nutrition_feasibility"]["gaps"]
     )
+
+
+def test_solver_treats_sodium_and_sugar_as_advisory_not_hard_blockers():
+    profile = UserProfile(
+        displayName="Advisory Sodium Sugar",
+        age=30,
+        heightCm=160,
+        weightKg=65,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        dietaryRestrictions=[],
+        allergies=[],
+        pantryItems=[],
+        maxCookingTimeMinutes=60,
+    )
+    request = meal_planner.GeneratePlanRequest(profile=profile, days=1, mealsPerDay=3)
+    recipes = [
+        _recipe(
+            "high_sodium_sugar_b",
+            "High Sodium Sugar Breakfast",
+            "Breakfast",
+            calories=500,
+            protein=25,
+            carbs=55,
+            fats=15,
+            fiber=8,
+            sugar=100,
+            sodium=5000,
+        ),
+        _recipe(
+            "high_sodium_sugar_l",
+            "High Sodium Sugar Lunch",
+            "Lunch",
+            calories=600,
+            protein=35,
+            carbs=70,
+            fats=18,
+            fiber=9,
+            sugar=100,
+            sodium=5000,
+        ),
+        _recipe(
+            "high_sodium_sugar_d",
+            "High Sodium Sugar Dinner",
+            "Dinner",
+            calories=520,
+            protein=30,
+            carbs=55,
+            fats=17,
+            fiber=8,
+            sugar=100,
+            sodium=5000,
+        ),
+    ]
+    policy = {
+        "planning": {
+            "planning_horizon_days": 1,
+            "meals_per_day": 3,
+            "recipe_repeat_limits": [3],
+        },
+        "nutrition": {
+            "calorie_min": 1000,
+            "calorie_max": 2200,
+            "protein_min": 45,
+            "protein_max": 200,
+            "carb_min": 100,
+            "carb_max": 500,
+            "fat_min": 30,
+            "fat_max": 250,
+            "fiber_min": 20,
+            "sodium_max": 10,
+            "sugar_max": 1,
+            "daily_tolerance_percent": 0.2,
+        },
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "max_candidates_per_slot": 10,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "minimum_candidates_required": 1,
+            "pool_cap_top_share": 1.0,
+        },
+        "solver": {
+            "solver_time_limit_seconds": 1.0,
+            "solver_max_seconds": 2.0,
+            "total_solver_seconds": 3.0,
+            "timeout_ms": 3000,
+            "retry_attempts": 0,
+            "optimality_gap_target": 0.1,
+            "solver_workers": 1,
+        },
+    }
+
+    telemetry: dict = {}
+    plan, msg, explanation = meal_planner.solve_meal_plan(request, recipes, policy=policy, telemetry_out=telemetry)
+
+    assert msg == "Success"
+    assert plan is not None
+    assert explanation is not None
+    feasibility = telemetry["stage1_diag"]["nutrition_feasibility"]
+    assert feasibility["ok"] is True
+    assert feasibility["gaps"] == []
+    assert {gap["nutrient"] for gap in feasibility["advisoryGaps"]} == {"sodium", "sugar"}
 
 
 def test_resolve_budget_weekly_prefers_weekly_php():
@@ -681,6 +789,12 @@ def test_budget_aware_pool_limit_shrinks_for_tight_solver_budgets():
 
 def test_low_variety_repeat_sequence_starts_with_relaxed_repeat_limit():
     assert meal_planner.adjust_max_per_week([2, 3, 4, 10], "Low") == [3, 4, 6, 8, 10]
+
+
+def test_budget_first_repeat_sequence_prefers_reliable_repeat_limits():
+    assert meal_planner.repeat_sequence_for_profile([2, 3, 4, 10], "Balanced", "Budget First") == [6, 8, 10]
+    assert meal_planner.repeat_sequence_for_profile([2, 3, 4, 10], "Low", "Budget First") == [6, 8, 10]
+    assert meal_planner.repeat_sequence_for_profile([2, 3, 4, 10], "High", "Budget First") == [2, 3, 4]
 
 
 def test_allergy_filter_blocks_recipe():

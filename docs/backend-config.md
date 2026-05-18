@@ -44,6 +44,7 @@ Top-level policy namespaces:
 
 1. `nutrition`
 - `calorie_min`, `calorie_max`, `carb_min`, `carb_max`, `protein_min`, `protein_max`, `fat_min`, `fat_max`, `fiber_min`, `sodium_max`, `sugar_max`, `meal_distribution_targets`, `daily_tolerance_percent`, `weekly_tolerance_percent`
+- Runtime planning treats calories, protein, carbs, fats, and fiber as the visible nutrition contract. `sodium_max` and `sugar_max` remain advisory scoring/diagnostic targets until those values become first-class user-facing nutrition fields.
 
 2. `planning`
 - `planning_horizon_days`, `meals_per_day`, `snack_rules`, `recipe_repeat_limits`, `cuisine_diversity_weight`, `pantry_utilization_weight`, `grocery_cost_weight`, `prep_time_weight`, `acceptance_score_weight`, `substitution_penalty`, `infeasibility_relaxation_order`

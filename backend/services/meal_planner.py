@@ -2413,13 +2413,6 @@ def solve_meal_plan(
                     x[s, i] = model.NewBoolVar(f"x_{s}_{i}")
                     if (i & 31) == 0:
                         _check_planner_budget(deadline_at, "solver_model_x_vars", telemetry_out=telemetry_out)
-            y = {}
-            for i in range(len(pool)):
-                if (i & 15) == 0:
-                    _check_planner_budget(deadline_at, "solver_model_y_vars", telemetry_out=telemetry_out)
-                y[i] = model.NewBoolVar(f"y_{i}")
-                for s in range(slot_count):
-                    model.Add(x[s, i] <= y[i])
             for s in range(slot_count):
                 _check_planner_budget(deadline_at, "solver_model_allowed", telemetry_out=telemetry_out)
                 meal_label = slot_labels[s % configured_meals_per_day]
@@ -2524,10 +2517,6 @@ def solve_meal_plan(
             model.Add(total_cost <= int(budget_weekly))
 
         err_vars = []
-        dev_pro_vars = []
-        dev_carb_vars = []
-        dev_fat_vars = []
-        fiber_slack_vars = []
         sodium_over_vars = []
         sugar_over_vars = []
         meal_err_vars = []
@@ -2551,16 +2540,8 @@ def solve_meal_plan(
             day_fiber = sum(x[s, i] * int(pool[i].get("fiberGrams", 0)) for s in day_slots for i in range(len(pool)))
             day_sodium = sum(x[s, i] * int(pool[i].get("sodiumMg", 0) or 0) for s in day_slots for i in range(len(pool)))
             day_sugar = sum(x[s, i] * int(pool[i].get("sugarGrams", 0) or 0) for s in day_slots for i in range(len(pool)))
-            dev_pro = model.NewIntVar(0, 300, f"dev_pro_{d}")
-            dev_carb = model.NewIntVar(0, 300, f"dev_carb_{d}")
-            dev_fat = model.NewIntVar(0, 200, f"dev_fat_{d}")
-            fiber_slack = model.NewIntVar(0, 300, f"fiber_slack_{d}")
             sodium_over = model.NewIntVar(0, 200000, f"sodium_over_{d}")
             sugar_over = model.NewIntVar(0, 10000, f"sugar_over_{d}")
-            dev_pro_vars.append(dev_pro)
-            dev_carb_vars.append(dev_carb)
-            dev_fat_vars.append(dev_fat)
-            fiber_slack_vars.append(fiber_slack)
             sodium_over_vars.append(sodium_over)
             sugar_over_vars.append(sugar_over)
             model.Add(day_pro >= protein_bounds[0])
@@ -2570,13 +2551,6 @@ def solve_meal_plan(
             model.Add(day_fat >= fats_bounds[0])
             model.Add(day_fat <= fats_bounds[1])
             model.Add(day_fiber >= fiber_min_target)
-            model.Add(day_pro - protein_bounds[1] <= dev_pro)
-            model.Add(protein_bounds[0] - day_pro <= dev_pro)
-            model.Add(day_carb - carbs_bounds[1] <= dev_carb)
-            model.Add(carbs_bounds[0] - day_carb <= dev_carb)
-            model.Add(day_fat - fats_bounds[1] <= dev_fat)
-            model.Add(fats_bounds[0] - day_fat <= dev_fat)
-            model.Add(fiber_min_target - day_fiber <= fiber_slack)
             model.Add(day_sodium - sodium_max_target <= sodium_over)
             model.Add(day_sugar - sugar_max_target <= sugar_over)
 
@@ -2590,10 +2564,6 @@ def solve_meal_plan(
                 meal_err_vars.append(meal_err)
 
         total_err = sum(err_vars)
-        total_dev_pro = sum(dev_pro_vars)
-        total_dev_carb = sum(dev_carb_vars)
-        total_dev_fat = sum(dev_fat_vars)
-        total_fiber_slack = sum(fiber_slack_vars) if fiber_slack_vars else 0
         total_sodium_over = sum(sodium_over_vars) if sodium_over_vars else 0
         total_sugar_over = sum(sugar_over_vars) if sugar_over_vars else 0
         total_meal_err = sum(meal_err_vars) if meal_err_vars else 0
@@ -2637,8 +2607,7 @@ def solve_meal_plan(
         prep_time_penalty = sum(x[s, i] * int(pool[i].get("minutes", 0)) for s in range(slot_count) for i in range(len(pool)))
         model.Minimize(
             (macro_mult * total_err) + (macro_mult * total_meal_err) +
-            (macro_mult * 2 * total_dev_pro) + (macro_mult * total_dev_carb) + (macro_mult * total_dev_fat) +
-            (macro_mult * total_fiber_slack) + (macro_mult * total_sodium_over) + (macro_mult * total_sugar_over) +
+            (macro_mult * total_sodium_over) + (macro_mult * total_sugar_over) +
             (budget_mult * cost_w * cost_objective) + (budget_mult * cost_w * budget_penalty) + (prep_time_w * prep_time_penalty) +
             (repeat_w * total_repeat_over) + (group_w * total_group_over) + (acceptance_w * total_meal_err) +
             diversity_penalty - (pantry_w * pantry_reward) - (diversity_w * diversity_reward)
@@ -2671,7 +2640,8 @@ def solve_meal_plan(
         )
         size_factor = max(0.0, (len(pool) - 60) / 40.0)
         restriction_factor = min(4.0, len(profile.dietaryRestrictions or []) / 2.0)
-        adaptive_time = min(max_time, base_time + size_factor + restriction_factor)
+        budget_factor = 2.0 if budget_weekly and _should_optimize_cost(profile) else 0.0
+        adaptive_time = min(max_time, base_time + size_factor + restriction_factor + budget_factor)
         solver.parameters.relative_gap_limit = float(
             _policy_get_legacy_aware(policy, ["solver.optimality_gap_target", "optimality_gap_target"], 0.05)
         )

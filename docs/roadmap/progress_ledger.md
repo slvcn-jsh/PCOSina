@@ -29,4 +29,5 @@ Updated: 2026-05-18
 - Sodium and sugar remain in backend diagnostics/scoring as advisory limits, but they no longer block plan generation because they are not part of the current user-facing recipe nutrition contract.
 - Budget First planning now starts with repeat-friendly limits in production-shaped solves, matching the budget/reliability intent instead of spending the Render deadline on strict variety attempts first.
 - Production-shaped CP-SAT pools are now capped more aggressively by the wall-clock solver budget; the 14-second Render profile uses about 40 candidates instead of 60 so the hosted worker can prove a feasible plan before the deadline.
+- The CP-SAT model now removes unused recipe-selection helper variables and redundant visible-nutrition deviation variables, and Budget First receives a longer first-attempt search window inside the same 14-second production cap.
 - Remaining blocker: 937/1,114 active recipes still need reviewed nutrition provenance before claiming unrestricted nutrition-data maturity, even though the readiness gate is green for local planner feasibility.

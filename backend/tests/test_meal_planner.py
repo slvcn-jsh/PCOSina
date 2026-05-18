@@ -679,6 +679,10 @@ def test_budget_aware_pool_limit_shrinks_for_tight_solver_budgets():
     ) == 192
 
 
+def test_low_variety_repeat_sequence_starts_with_relaxed_repeat_limit():
+    assert meal_planner.adjust_max_per_week([2, 3, 4, 10], "Low") == [3, 4, 6, 8, 10]
+
+
 def test_allergy_filter_blocks_recipe():
     profile = UserProfile(allergies=["peanut"])
     recipes = [

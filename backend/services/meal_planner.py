@@ -1020,7 +1020,7 @@ def adjust_max_per_week(base: List[int], preference: str | None) -> List[int]:
     if "high" in raw:
         return [v for v in base if v <= 4] or [2, 3, 4]
     if "low" in raw:
-        extended = sorted(set(base + [6, 8, 10]))
+        extended = sorted(set([v for v in base if v >= 3] + [3, 4, 6, 8, 10]))
         return extended
     return base
 
@@ -2371,7 +2371,7 @@ def solve_meal_plan(
 
     solver_started_at = time.time()
     budget_exceeded_stage: Optional[str] = None
-    for tol, max_per_week in solve_pairs:
+    for pair_index, (tol, max_per_week) in enumerate(solve_pairs):
         pair_diag: Dict[str, Any] = {
             "tol": round(float(tol), 4),
             "maxPerWeek": int(max_per_week),
@@ -2724,6 +2724,10 @@ def solve_meal_plan(
                     debug_summary["attempts"] = debug_summary["attempts"][-diag_depth:]
 
             if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                break
+            if status == cp_model.INFEASIBLE:
+                break
+            if status == cp_model.UNKNOWN and pair_index < len(solve_pairs) - 1:
                 break
         pair_diag["solveMs"] = max(0, int((time.time() - solve_started_at) * 1000))
         pair_diag["attemptsUsed"] = attempts_used

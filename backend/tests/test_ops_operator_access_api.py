@@ -148,7 +148,7 @@ def test_blocked_operator_existing_cookie_is_revoked_on_next_request(monkeypatch
         response = client.get("/admin/login")
 
     assert response.status_code == 200
-    assert "Create admin session" in response.text
+    assert "Sign in with Google" in response.text
     blocked_record = database.get_admin_session(session_principal["sessionId"], include_revoked=True)
     assert blocked_record is not None
     assert blocked_record["revokeReason"] == "operator_access_blocked"

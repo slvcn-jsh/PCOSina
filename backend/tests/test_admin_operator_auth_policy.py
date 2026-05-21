@@ -95,6 +95,24 @@ def test_admin_session_accepts_recent_firebase_auth(monkeypatch):
     assert any(item["action"] == "admin_session.create" for item in actions)
 
 
+def test_admin_login_page_uses_google_sign_in(monkeypatch):
+    monkeypatch.setattr(main, "_principal_from_session_token", lambda token: None)
+    monkeypatch.setenv("PCOSINA_FIREBASE_WEB_API_KEY", "web-api-key")
+    monkeypatch.setenv("PCOSINA_FIREBASE_WEB_AUTH_DOMAIN", "pcosina.firebaseapp.com")
+    monkeypatch.setenv("PCOSINA_FIREBASE_WEB_PROJECT_ID", "pcosina")
+    monkeypatch.setenv("PCOSINA_FIREBASE_WEB_APP_ID", "1:web:pcosina")
+
+    with TestClient(main.app) as client:
+        response = client.get("/admin/login")
+
+    assert response.status_code == 200
+    assert "Sign in with Google" in response.text
+    assert "signInWithPopup" in response.text
+    assert 'name="id_token"' in response.text
+    assert "Paste a Firebase ID token" not in response.text
+    assert "<textarea" not in response.text
+
+
 def test_bearer_admin_access_rejects_missing_mfa_when_required(monkeypatch):
     db_path = _temp_db_path()
     database.DATABASE_URL = ""
@@ -180,7 +198,7 @@ def test_revoked_admin_session_cookie_no_longer_authenticates(monkeypatch):
         page_response = client.get("/admin/login")
 
     assert page_response.status_code == 200
-    assert "Create admin session" in page_response.text
+    assert "Sign in with Google" in page_response.text
 
 
 def test_idle_timed_out_admin_session_cookie_no_longer_authenticates(monkeypatch):
@@ -219,7 +237,7 @@ def test_idle_timed_out_admin_session_cookie_no_longer_authenticates(monkeypatch
             database.time.time = original_db_time
 
     assert page_response.status_code == 200
-    assert "Create admin session" in page_response.text
+    assert "Sign in with Google" in page_response.text
     stale_record = database.get_admin_session(session_record["id"], include_revoked=True)
     assert stale_record is not None
     assert stale_record["revokeReason"] == "idle_timeout"

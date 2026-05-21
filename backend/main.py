@@ -1386,6 +1386,202 @@ def mobile_operator_access(
     return _operator_access_service().build_mobile_access_status(user, auth_type="bearer")
 
 
+def _env_first(*names: str) -> str:
+    for name in names:
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _firebase_web_sign_in_config() -> tuple[Dict[str, str], list[str]]:
+    project_id = _env_first("PCOSINA_FIREBASE_WEB_PROJECT_ID", "FIREBASE_WEB_PROJECT_ID")
+    auth_domain = _env_first("PCOSINA_FIREBASE_WEB_AUTH_DOMAIN", "FIREBASE_WEB_AUTH_DOMAIN")
+    if not auth_domain and project_id:
+        auth_domain = f"{project_id}.firebaseapp.com"
+    config: Dict[str, str] = {
+        "apiKey": _env_first("PCOSINA_FIREBASE_WEB_API_KEY", "FIREBASE_WEB_API_KEY"),
+        "authDomain": auth_domain,
+        "projectId": project_id,
+        "appId": _env_first("PCOSINA_FIREBASE_WEB_APP_ID", "FIREBASE_WEB_APP_ID"),
+    }
+    optional_values = {
+        "messagingSenderId": _env_first(
+            "PCOSINA_FIREBASE_WEB_MESSAGING_SENDER_ID",
+            "FIREBASE_WEB_MESSAGING_SENDER_ID",
+        ),
+        "measurementId": _env_first("PCOSINA_FIREBASE_WEB_MEASUREMENT_ID", "FIREBASE_WEB_MEASUREMENT_ID"),
+    }
+    for key, value in optional_values.items():
+        if value:
+            config[key] = value
+    missing = [key for key in ("apiKey", "authDomain", "projectId", "appId") if not config.get(key)]
+    return config, missing
+
+
+def _admin_google_login_html() -> str:
+    firebase_config, missing = _firebase_web_sign_in_config()
+    firebase_config_json = json.dumps(firebase_config, sort_keys=True)
+    configured_json = json.dumps(not missing)
+    missing_json = json.dumps(missing)
+    return """
+        <!doctype html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>PCOSINA Admin Login</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              max-width: 720px;
+              margin: 32px auto;
+              padding: 0 16px;
+              color: #17202a;
+              background: #f7f9fb;
+            }
+            .panel {
+              background: #fff;
+              border: 1px solid #d9e2ec;
+              border-radius: 8px;
+              padding: 24px;
+              box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+            }
+            h1 { margin-top: 0; }
+            .muted { color: #5f6f82; line-height: 1.5; }
+            .status {
+              margin-top: 16px;
+              padding: 12px;
+              border-radius: 6px;
+              background: #eef5ff;
+              color: #173b69;
+              min-height: 20px;
+            }
+            .status.error {
+              background: #fff0f0;
+              color: #8a1f1f;
+            }
+            button {
+              display: inline-flex;
+              align-items: center;
+              gap: 10px;
+              border: 0;
+              border-radius: 6px;
+              padding: 12px 16px;
+              font-size: 15px;
+              font-weight: 700;
+              cursor: pointer;
+              color: #fff;
+              background: #1a73e8;
+            }
+            button:disabled {
+              cursor: not-allowed;
+              background: #93a4b7;
+            }
+            .small {
+              margin-top: 14px;
+              font-size: 13px;
+              color: #6b7785;
+            }
+            code {
+              background: #f1f5f9;
+              padding: 2px 4px;
+              border-radius: 4px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="panel">
+            <h1>PCOSINA Admin Login</h1>
+            <p class="muted">
+              Sign in with the Google account registered as a PCOSINA operator. The browser will request a Firebase
+              ID token and the backend will verify admin claims or allowlisted operator email before creating a session.
+            </p>
+            <button id="google-sign-in" type="button">Sign in with Google</button>
+            <div id="login-status" class="status" role="status">Ready for Google sign-in.</div>
+            <p class="small">
+              Access requires a Firebase operator account with verified admin role/allowlist settings.
+            </p>
+            <form id="admin-session-form" method="post" action="/admin/session" style="display:none;">
+              <input type="hidden" name="next_path" value="/admin/login">
+              <input type="hidden" id="id_token" name="id_token" required>
+            </form>
+          </div>
+          <script type="module">
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+            import {
+              getAuth,
+              GoogleAuthProvider,
+              getRedirectResult,
+              signInWithPopup,
+              signInWithRedirect
+            } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
+            const firebaseConfig = __FIREBASE_CONFIG_JSON__;
+            const isConfigured = __CONFIGURED_JSON__;
+            const missingConfig = __MISSING_JSON__;
+            const button = document.getElementById("google-sign-in");
+            const statusBox = document.getElementById("login-status");
+            const form = document.getElementById("admin-session-form");
+            const tokenInput = document.getElementById("id_token");
+
+            function setStatus(message, isError = false) {
+              statusBox.textContent = message;
+              statusBox.classList.toggle("error", isError);
+            }
+
+            if (!isConfigured) {
+              button.disabled = true;
+              setStatus(
+                "Google sign-in is not configured for this deployment. Missing Firebase web config: " +
+                  missingConfig.join(", "),
+                true
+              );
+            } else {
+              const app = initializeApp(firebaseConfig);
+              const auth = getAuth(app);
+              const provider = new GoogleAuthProvider();
+              provider.setCustomParameters({ prompt: "select_account" });
+
+              async function submitCredential(result) {
+                if (!result || !result.user) {
+                  return;
+                }
+                setStatus("Verifying Firebase session...");
+                tokenInput.value = await result.user.getIdToken(true);
+                form.submit();
+              }
+
+              getRedirectResult(auth)
+                .then(submitCredential)
+                .catch((error) => setStatus(error.message || "Google sign-in failed.", true));
+
+              button.addEventListener("click", async () => {
+                button.disabled = true;
+                setStatus("Opening Google sign-in...");
+                try {
+                  await submitCredential(await signInWithPopup(auth, provider));
+                } catch (error) {
+                  const code = String(error && error.code || "");
+                  if (code.includes("popup") || code.includes("cancelled")) {
+                    setStatus("Popup was blocked. Redirecting to Google sign-in...");
+                    await signInWithRedirect(auth, provider);
+                    return;
+                  }
+                  button.disabled = false;
+                  setStatus(error.message || "Google sign-in failed.", true);
+                }
+              });
+            }
+          </script>
+        </body>
+        </html>
+    """.replace("__FIREBASE_CONFIG_JSON__", firebase_config_json).replace(
+        "__CONFIGURED_JSON__",
+        configured_json,
+    ).replace("__MISSING_JSON__", missing_json)
+
+
 @app.get("/admin/login", response_class=HTMLResponse)
 def admin_login_page(request: Request):
     principal = _principal_from_session_token(request.cookies.get(ADMIN_SESSION_COOKIE))
@@ -1424,24 +1620,7 @@ def admin_login_page(request: Request):
             </html>
             """
         )
-    return HTMLResponse(
-        content="""
-        <!doctype html>
-        <html>
-        <head><meta charset="utf-8"><title>PCOSINA Admin Login</title></head>
-        <body style="font-family:Arial,sans-serif;max-width:720px;margin:32px auto;padding:0 16px;">
-          <h1>PCOSINA Admin Login</h1>
-          <p>Paste a Firebase ID token for an operator account with admin claims or an allowlisted admin email.</p>
-          <form method="post" action="/admin/session">
-            <input type="hidden" name="next_path" value="/admin/login" />
-            <label for="id_token">Firebase ID Token</label><br/>
-            <textarea id="id_token" name="id_token" rows="12" style="width:100%;font-family:monospace;" required></textarea><br/><br/>
-            <button type="submit">Create admin session</button>
-          </form>
-        </body>
-        </html>
-        """
-    )
+    return HTMLResponse(content=_admin_google_login_html())
 
 
 @app.post("/admin/session")

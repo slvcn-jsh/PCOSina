@@ -58,7 +58,7 @@ def test_admin_login_page_links_to_ops_console(monkeypatch):
 
     assert response.status_code == 200
     assert "/admin/ops" in response.text
-    assert "Ops Console" in response.text
+    assert "Fix App Issues" in response.text
 
 
 def test_ops_console_shows_switch_console_links_for_multi_role_admin():
@@ -78,7 +78,7 @@ def test_ops_console_shows_switch_console_links_for_multi_role_admin():
             response = client.get("/admin/ops")
 
         assert response.status_code == 200
-        assert "Switch console" in response.text
+        assert "Tools" in response.text
         assert "/admin/content" in response.text
         assert "/admin/feedback" in response.text
         assert "/admin/ops" in response.text
@@ -106,11 +106,11 @@ def test_ops_console_renders_panel_health_when_one_dataset_fails(monkeypatch):
             response = client.get("/admin/ops")
 
         assert response.status_code == 200
-        assert "Ops Workflow" in response.text
-        assert "Some Ops data could not be loaded." in response.text
-        assert "Support cases is temporarily unavailable" in response.text
+        assert "What do you need to do?" in response.text
+        assert "Some information could not be loaded." in response.text
+        assert "Support cases could not be loaded right now." in response.text
         assert "/admin/ops/admin-sessions" in response.text
-        assert "Panel Health" in response.text
+        assert "At a Glance" in response.text
     finally:
         main.app.dependency_overrides = {}
 
@@ -134,9 +134,9 @@ def test_ops_support_case_console_stays_usable_when_queue_query_fails(monkeypatc
             response = client.get("/admin/ops/support-cases")
 
         assert response.status_code == 200
-        assert "Support Case Console" in response.text
-        assert "Support case queue is temporarily unavailable" in response.text
-        assert "Create Support Case" in response.text
+        assert "User Issues" in response.text
+        assert "Support case queue could not be loaded right now." in response.text
+        assert "New Issue" in response.text
         assert "<select name=\"status\">" in response.text
     finally:
         main.app.dependency_overrides = {}
@@ -157,8 +157,8 @@ def test_ops_support_case_console_html_crud_and_escapes_summary():
         with TestClient(main.app) as client:
             page = client.get("/admin/ops/support-cases")
             assert page.status_code == 200
-            assert "Support Case Console" in page.text
-            assert "Create Support Case" in page.text
+            assert "User Issues" in page.text
+            assert "New Issue" in page.text
 
             create_token = main._build_admin_csrf_token(principal, "ops-support-case-create")
             create = client.post(
@@ -218,7 +218,7 @@ def test_ops_support_case_console_html_crud_and_escapes_summary():
 
             selected = client.get("/admin/ops/support-cases", params={"edit_case_id": case_id})
             assert selected.status_code == 200
-            assert "Support Case Queue" in selected.text
+            assert "User Issues" in selected.text
             assert "<b>planner</b>" not in selected.text
             assert "&lt;b&gt;planner&lt;/b&gt;" in selected.text
             assert "<script>alert(2)</script>" not in selected.text
@@ -278,8 +278,8 @@ def test_ops_admin_sessions_console_html_revoke_and_cleanup(monkeypatch):
         with TestClient(main.app) as client:
             page = client.get("/admin/ops/admin-sessions")
             assert page.status_code == 200
-            assert "Admin Session Console" in page.text
-            assert "Admin Session Maintenance" in page.text
+            assert "Admin Sign-ins" in page.text
+            assert "Clean Up Old Sign-ins" in page.text
 
             revoke_token = main._build_admin_csrf_token(principal, "ops-admin-session-revoke")
             revoke = client.post(
@@ -350,8 +350,8 @@ def test_ops_operator_access_console_html_save_revokes_sessions_and_escapes_reas
         with TestClient(main.app) as client:
             page = client.get("/admin/ops/operator-access")
             assert page.status_code == 200
-            assert "Operator Access Console" in page.text
-            assert "Operator Access Override" in page.text
+            assert "Admin Access" in page.text
+            assert "Block or Restore Admin" in page.text
 
             save_token = main._build_admin_csrf_token(principal, "ops-operator-access-save")
             save = client.post(
@@ -415,8 +415,8 @@ def test_ops_audit_log_console_filters_events():
             page = client.get("/admin/ops/audit-logs", params={"resource_type": "operator_access"})
 
         assert page.status_code == 200
-        assert "Audit Log Console" in page.text
-        assert "Audit Log Filters" in page.text
+        assert "Change History" in page.text
+        assert "Find Changes" in page.text
         assert "operator_access.upsert" in page.text
         assert "blocked-ui-1" in page.text
         assert "recipe-ui-1" not in page.text

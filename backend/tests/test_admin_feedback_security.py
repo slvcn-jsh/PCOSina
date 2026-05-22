@@ -71,7 +71,7 @@ def test_admin_feedback_shows_cross_console_links_for_multi_role_admin(monkeypat
             response = client.get("/admin/feedback")
 
         assert response.status_code == 200
-        assert "Switch console" in response.text
+        assert "Tools" in response.text
         assert "/admin/feedback" in response.text
         assert "/admin/content" in response.text
         assert "/admin/ops" in response.text

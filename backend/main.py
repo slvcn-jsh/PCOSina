@@ -1162,7 +1162,7 @@ def _clear_admin_session_cookie(response) -> None:
 def _build_admin_csrf_token(principal: Dict[str, Any], purpose: str) -> str:
     nonce = str(principal.get("nonce") or "").strip()
     if not nonce:
-        raise HTTPException(status_code=403, detail="Admin session required for browser mutations")
+        raise HTTPException(status_code=403, detail="Admin session required to save changes")
     now = int(time.time())
     payload = {
         "uid": principal.get("uid"),
@@ -1439,13 +1439,13 @@ def _admin_google_login_html(error_message: str | None = None) -> str:
           <div class="admin-login-panel">
             <h1>PCOSINA Admin Login</h1>
             <p style="color:var(--admin-muted);line-height:1.55;">
-              Continue with the Google account registered as a PCOSINA operator. The backend verifies the Firebase
-              session, role claims, and allowlisted email before opening the dashboard.
+              Continue with the Google account registered for PCOSINA admin access. After sign-in,
+              you will only see the tools your account is allowed to use.
             </p>
             <button id="google-sign-in" type="button">Continue with Google</button>
             <div id="login-status" class="__STATUS_CLASS__" role="status">__STATUS_MESSAGE__</div>
             <p style="margin-top:14px;font-size:13px;color:var(--admin-muted);">
-              Access requires a Firebase operator account with verified admin role/allowlist settings.
+              Use the same admin email configured for the PCOSINA backend.
             </p>
             <form id="admin-session-form" method="post" action="/admin/session" style="display:none;">
               <input type="hidden" name="next_path" value="/admin/login">
@@ -1539,74 +1539,74 @@ def admin_login_page(request: Request):
         cards: list[tuple[str, str, str]] = []
         snapshot_cards: list[tuple[str, str, str, int]] = []
         if "feedback_admin" in role_list or "admin" in role_list:
-            cards.append(("Feedback Console", "/admin/feedback", "Review user feedback, export records, and remove resolved entries."))
+            cards.append(("Read Feedback", "/admin/feedback", "See messages users sent from the mobile app."))
             snapshot_cards.append((
-                "Feedback Inbox",
+                "Feedback",
                 "/admin/feedback",
-                "Submitted app feedback visible to operators.",
+                "Messages waiting in the feedback list.",
                 _admin_safe_count(lambda: database.get_recent_feedback(500)),
             ))
         if "policy_admin" in role_list or "admin" in role_list:
-            cards.append(("Policy Console", "/admin/policy", "Inspect active planner policy and manage immutable policy versions."))
+            cards.append(("Planner Settings", "/admin/policy", "Review or change the planner rules used by the backend."))
             active_policy = policy_store.get_active_policy()
             snapshot_cards.append((
-                "Active Policy",
+                "Planner Version",
                 "/admin/policy",
-                "Current backend planner policy version.",
+                "Current saved planner setting version.",
                 int((active_policy or {}).get("version_number") or 0),
             ))
         if "content_admin" in role_list or "admin" in role_list:
-            cards.append(("Content Console", "/admin/content", "Maintain recipes, price rules, and reviewed nutrition corrections."))
+            cards.append(("Manage Meals", "/admin/content", "Edit recipes, prices, and nutrition corrections."))
             snapshot_cards.extend([
                 (
-                    "Recipe Catalog",
+                    "Recipes",
                     "/admin/content/recipes",
-                    "Planner recipes currently visible to content admins.",
+                    "Meals currently available to the planner.",
                     _admin_safe_count(lambda: database.list_admin_recipes(limit=500)),
                 ),
                 (
                     "Price Rules",
                     "/admin/content/price-rules",
-                    "Ingredient cost rules used by grocery guidance.",
+                    "Saved ingredient cost rules.",
                     _admin_safe_count(lambda: database.list_admin_price_rules(limit=500)),
                 ),
             ])
         if "ops_admin" in role_list or "admin" in role_list:
-            cards.append(("Ops Console", "/admin/ops", "Review support cases, admin sessions, access overrides, and audit data."))
+            cards.append(("Fix App Issues", "/admin/ops", "Handle support cases, sign-ins, access, and change history."))
             snapshot_cards.extend([
                 (
-                    "Support Cases",
+                    "Open Issues",
                     "/admin/ops/support-cases",
-                    "Recent operational support records.",
+                    "Recent support cases and app issues.",
                     _admin_safe_count(lambda: database.list_support_cases(limit=500)),
                 ),
                 (
-                    "Audit Events",
+                    "Change History",
                     "/admin/ops/audit-logs",
-                    "Recent privileged admin actions.",
+                    "Recent admin changes.",
                     _admin_safe_count(lambda: database.list_admin_action_logs(limit=500)),
                 ),
             ])
         body_html = (
             "<section class='admin-card' style='margin-bottom:16px;'>"
-            f"{_admin_section_header('Operational Snapshot', 'Start here to see the current maintenance surface across the consoles your role can access.')}"
-            f"{_admin_metric_cards_html(snapshot_cards) if snapshot_cards else '<p class=\"admin-copy\">No admin workspaces are available for this account.</p>'}"
+            f"{_admin_section_header('What do you need to do?', 'Choose the task first. Each card opens the right tool for that job.')}"
+            f"{_admin_workspace_cards_html(cards) if cards else '<p class=\"admin-copy\">No admin tools are available for this account.</p>'}"
             "</section>"
-            "<section class='admin-card' style='margin:16px 0;'>"
-            f"{_admin_section_header('Recommended Maintenance Flow', 'A consistent path keeps admin work traceable and easier to defend during review.')}"
-            f"{_admin_timeline_html([('Review signals', 'Check feedback, support cases, and audit logs before changing data.'), ('Edit the source of truth', 'Update recipes, price rules, nutrition corrections, or policy through the correct console.'), ('Verify the effect', 'Review counts, audit events, and app behavior after changes.')])}"
-            "</section>"
-            "<section class='admin-card' style='margin-bottom:16px;'>"
-            f"{_admin_section_header('Available Workspaces', 'Choose the console that matches the maintenance task. Access is role-based and every mutation uses the existing admin session and CSRF controls.')}"
-            "</section>"
-            f"{_admin_workspace_cards_html(cards)}"
+            + (
+                "<section class='admin-card'>"
+                f"{_admin_section_header('Quick Counts', 'A short summary of what is currently in the admin tools.')}"
+                f"{_admin_metric_cards_html(snapshot_cards)}"
+                "</section>"
+                if snapshot_cards
+                else ""
+            )
         )
         return _admin_shell(
-            "Admin Command Center",
+            "Admin Home",
             principal,
             body_html,
             current_console="",
-            description="Central entry point for PCOSina browser-based operations.",
+            description="Choose a maintenance task for PCOSina.",
             max_width=1180,
         )
     return HTMLResponse(content=_admin_google_login_html())
@@ -1747,7 +1747,7 @@ def _admin_notice_html(status: str | None, error: str | None) -> str:
         "support_case_noted": "Support case note added.",
         "admin_session_revoked": "Admin session revoked.",
         "admin_sessions_cleaned": "Admin sessions cleanup completed.",
-        "operator_access_saved": "Operator access override saved.",
+        "operator_access_saved": "Admin access saved.",
         "recipe_seeded": "Recipe seed import completed.",
     }
     message = status_messages.get(str(status or "").strip())
@@ -1790,9 +1790,9 @@ def _admin_visible_consoles(principal: Dict[str, Any]) -> list[tuple[str, str, s
     role_set = _admin_role_set(principal)
     console_items = [
         ("feedback", "Feedback", "/admin/feedback", "feedback_admin"),
-        ("content", "Content", "/admin/content", "content_admin"),
-        ("ops", "Ops", "/admin/ops", "ops_admin"),
-        ("policy", "Policy", "/admin/policy", "policy_admin"),
+        ("content", "Meals", "/admin/content", "content_admin"),
+        ("ops", "Issues", "/admin/ops", "ops_admin"),
+        ("policy", "Settings", "/admin/policy", "policy_admin"),
     ]
     return [item for item in console_items if item[3] in role_set]
 
@@ -1813,7 +1813,7 @@ def _admin_console_switcher_html(principal: Dict[str, Any], *, current: str) -> 
     )
     return (
         "<nav class='admin-console-switcher' aria-label='Admin consoles'>"
-        "<span class='admin-switcher-label'>Switch console</span>"
+        "<span class='admin-switcher-label'>Tools</span>"
         f"{pills}</nav>"
     )
 
@@ -1902,6 +1902,21 @@ def _admin_base_css() -> str:
       .admin-brand small {
         color: var(--admin-muted);
         font-size: 12px;
+      }
+      .admin-home-link {
+        text-decoration: none;
+        border: 1px solid var(--admin-line);
+        background: var(--admin-surface);
+        color: var(--admin-green-dark);
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+      .admin-home-link:hover {
+        border-color: var(--admin-green);
+        background: var(--admin-surface-muted);
       }
       .admin-console-switcher,
       .admin-section-nav {
@@ -2415,33 +2430,6 @@ def _admin_base_css() -> str:
         font-size: 12px;
         font-weight: 800;
       }
-      .admin-health-list {
-        display: grid;
-        gap: 10px;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-      }
-      .admin-health-list li {
-        display: flex;
-        gap: 10px;
-        align-items: flex-start;
-        padding: 12px;
-        border: 1px solid #e8efec;
-        border-radius: 8px;
-        background: #fbfdfc;
-      }
-      .admin-health-list div {
-        display: grid;
-        gap: 3px;
-      }
-      .admin-health-list strong {
-        color: var(--admin-strong);
-      }
-      .admin-health-list span {
-        color: var(--admin-muted);
-        line-height: 1.4;
-      }
       @media (max-width: 760px) {
         .admin-topbar-inner,
         .admin-hero,
@@ -2507,8 +2495,9 @@ def _admin_shell(
               <div class="admin-topbar-inner">
                 <div class="admin-brand">
                   <a href="/admin/login">PCOSina Admin</a>
-                  <small>Operator dashboard</small>
+                  <small>Simple maintenance tools</small>
                 </div>
+                <a href="/admin/login" class="admin-home-link">Home</a>
                 {_admin_console_switcher_html(principal, current=current_console)}
                 <div class="admin-user">
                   <span class="admin-user-chip">{actor}</span>
@@ -2567,7 +2556,7 @@ def _admin_metric_cards_html(cards: list[tuple[str, str, str, int]]) -> str:
         <a href="{href}" class="admin-metric">
           <div class="admin-metric-title">{html.escape(label, quote=True)}</div>
           <div class="admin-metric-copy">{html.escape(description, quote=True)}</div>
-          <div class="admin-metric-value">Count: {int(count)}</div>
+          <div class="admin-metric-value">Total: {int(count)}</div>
         </a>
         """
         for label, href, description, count in cards
@@ -2601,7 +2590,7 @@ def _admin_safe_load(label: str, loader, default: Any):
         return loader(), ""
     except Exception as exc:
         traceback.print_exc()
-        return default, f"{label} is temporarily unavailable ({type(exc).__name__})."
+        return default, f"{label} could not be loaded right now."
 
 
 def _admin_alert_list_html(messages: list[str]) -> str:
@@ -2611,7 +2600,7 @@ def _admin_alert_list_html(messages: list[str]) -> str:
     items = "".join(f"<li>{html.escape(item, quote=True)}</li>" for item in cleaned)
     return (
         "<div class='admin-alert danger' role='status'>"
-        "<strong>Some Ops data could not be loaded.</strong>"
+        "<strong>Some information could not be loaded.</strong>"
         f"<ul>{items}</ul>"
         "</div>"
     )
@@ -2629,18 +2618,6 @@ def _admin_task_cards_html(cards: list[tuple[str, str, str, str]]) -> str:
         for step, title, href, description in cards
     )
     return f"<div class='admin-task-grid'>{card_html}</div>"
-
-
-def _admin_health_list_html(items: list[tuple[str, str, str]]) -> str:
-    rows = "".join(
-        "<li>"
-        f"{_admin_badge(status, 'danger' if status.lower() == 'attention' else 'ok')}"
-        f"<div><strong>{html.escape(title, quote=True)}</strong>"
-        f"<span>{html.escape(description, quote=True)}</span></div>"
-        "</li>"
-        for title, status, description in items
-    )
-    return f"<ul class='admin-health-list'>{rows}</ul>"
 
 
 def _admin_select_options(options: list[tuple[str, str]], current: Any) -> str:
@@ -2712,7 +2689,7 @@ def _admin_content_layout(
         body_html,
         current_console="content",
         section_nav_html=_admin_section_nav_html(nav_items, active=active),
-        description="Maintain recipe content, pricing rules, and nutrition corrections used by the planner.",
+        description="Edit meals, prices, and nutrition corrections used by PCOSina.",
         max_width=1240,
     )
 
@@ -2725,11 +2702,11 @@ def _admin_ops_layout(
     active: str,
 ) -> HTMLResponse:
     nav_items = [
-        ("Overview", "/admin/ops", "overview"),
-        ("Support Cases", "/admin/ops/support-cases", "support-cases"),
-        ("Admin Sessions", "/admin/ops/admin-sessions", "admin-sessions"),
-        ("Operator Access", "/admin/ops/operator-access", "operator-access"),
-        ("Audit Logs", "/admin/ops/audit-logs", "audit-logs"),
+        ("Start", "/admin/ops", "overview"),
+        ("Support", "/admin/ops/support-cases", "support-cases"),
+        ("Sign-ins", "/admin/ops/admin-sessions", "admin-sessions"),
+        ("Access", "/admin/ops/operator-access", "operator-access"),
+        ("History", "/admin/ops/audit-logs", "audit-logs"),
     ]
     return _admin_shell(
         title,
@@ -2737,7 +2714,7 @@ def _admin_ops_layout(
         body_html,
         current_console="ops",
         section_nav_html=_admin_section_nav_html(nav_items, active=active),
-        description="Review support cases, privileged sessions, access overrides, and operational safety controls.",
+        description="Handle app issues, admin sign-ins, access, and change history.",
         max_width=1280,
     )
 
@@ -2752,7 +2729,7 @@ def _admin_policy_layout(
         principal,
         body_html,
         current_console="policy",
-        description="Inspect, create, activate, and roll back planner runtime policy versions.",
+        description="Review and update the planner settings used by the backend.",
         max_width=1320,
     )
 
@@ -2784,8 +2761,8 @@ def admin_content_home(principal: Any = Depends(require_content_admin)):
     ]
     body_html = (
         "<section class='admin-card' style='margin-bottom:16px;'>"
-        "<p style='margin:0;line-height:1.6;'>This operator console sits on top of the existing audited content-admin endpoints. "
-        "Use it for browser-based content operations without dropping down to raw JSON APIs.</p>"
+        "<p style='margin:0;line-height:1.6;'>Use this area to keep the meal planner data updated. "
+        "Start with recipes, then review price rules and nutrition corrections when needed.</p>"
         "</section>"
         f"{_admin_metric_cards_html(cards)}"
     )
@@ -3321,66 +3298,40 @@ def admin_content_delete_nutrition_correction(
 def admin_ops_home(principal: Any = Depends(require_ops_admin)):
     support_cases, support_error = _admin_safe_load("Support cases", lambda: database.list_support_cases(limit=50), [])
     open_cases = sum(1 for item in support_cases if str(item.get("status") or "").lower() not in {"resolved", "closed"})
-    escalated_cases = sum(1 for item in support_cases if bool(item.get("escalated")))
     sessions, sessions_error = _admin_safe_load("Admin sessions", lambda: database.list_admin_sessions(active_only=True, limit=100), [])
     blocked_overrides, access_error = _admin_safe_load(
-        "Operator access overrides",
+        "Admin access rules",
         lambda: database.list_operator_access_overrides(blocked_only=True, limit=100),
         [],
     )
-    audit_events, audit_error = _admin_safe_load("Audit events", lambda: database.list_admin_action_logs(limit=50), [])
+    audit_events, audit_error = _admin_safe_load("Change history", lambda: database.list_admin_action_logs(limit=50), [])
     load_errors = [support_error, sessions_error, access_error, audit_error]
+    urgent_cases = sum(1 for item in support_cases if str(item.get("priority") or "").lower() in {"urgent", "high"} or bool(item.get("escalated")))
     cards = [
-        ("Support Cases", "/admin/ops/support-cases", "Operational records for planner or user issues.", len(support_cases)),
-        ("Open or Escalated", "/admin/ops/support-cases", "Cases that still need ownership or follow-up.", open_cases + escalated_cases),
-        ("Active Admin Sessions", "/admin/ops/admin-sessions", "Currently valid privileged browser sessions.", len(sessions)),
-        ("Blocked Operators", "/admin/ops/operator-access", "Server-side access overrides currently blocking operators.", len(blocked_overrides)),
-        ("Audit Events", "/admin/ops/audit-logs", "Recent privileged admin actions.", len(audit_events)),
+        ("Open Issues", "/admin/ops/support-cases", "Support cases that are not closed yet.", open_cases),
+        ("Urgent Issues", "/admin/ops/support-cases", "Cases marked high, urgent, or escalated.", urgent_cases),
+        ("Active Sign-ins", "/admin/ops/admin-sessions", "Admin accounts currently signed in.", len(sessions)),
+        ("Blocked Accounts", "/admin/ops/operator-access", "Admin accounts blocked from access.", len(blocked_overrides)),
+        ("Recent Changes", "/admin/ops/audit-logs", "Latest admin actions saved by the system.", len(audit_events)),
     ]
     tasks = [
-        ("1", "Triage Support", "/admin/ops/support-cases", "Open cases, assign ownership, update status, and add notes."),
-        ("2", "Review Sessions", "/admin/ops/admin-sessions", "Check active admin sessions and revoke anything suspicious."),
-        ("3", "Control Access", "/admin/ops/operator-access", "Block or restore an operator without changing code."),
-        ("4", "Trace Changes", "/admin/ops/audit-logs", "Verify who changed what before and after maintenance work."),
-    ]
-    health_items = [
-        (
-            "Support queue",
-            "Attention" if support_error else "OK",
-            support_error or f"{len(support_cases)} recent cases loaded.",
-        ),
-        (
-            "Admin sessions",
-            "Attention" if sessions_error else "OK",
-            sessions_error or f"{len(sessions)} active sessions loaded.",
-        ),
-        (
-            "Operator access",
-            "Attention" if access_error else "OK",
-            access_error or f"{len(blocked_overrides)} blocked overrides loaded.",
-        ),
-        (
-            "Audit trail",
-            "Attention" if audit_error else "OK",
-            audit_error or f"{len(audit_events)} recent audit events loaded.",
-        ),
+        ("Help", "User Issues", "/admin/ops/support-cases", "Create or update a case when a user reports a problem."),
+        ("Check", "Admin Sign-ins", "/admin/ops/admin-sessions", "Review who is signed in and revoke suspicious sessions."),
+        ("Control", "Admin Access", "/admin/ops/operator-access", "Block or restore an admin account."),
+        ("Review", "Change History", "/admin/ops/audit-logs", "See recent admin changes for traceability."),
     ]
     body_html = (
         f"{_admin_alert_list_html(load_errors)}"
         "<section class='admin-card' style='margin-bottom:16px;'>"
-        f"{_admin_section_header('Ops Workflow', 'Use this order during maintenance or defense demo so the page tells a clear operational story.')}"
+        f"{_admin_section_header('What do you need to do?', 'Choose the task. The technical checks stay in the background unless something needs attention.')}"
         f"{_admin_task_cards_html(tasks)}"
         "</section>"
-        "<section class='admin-card' style='margin-bottom:16px;'>"
-        f"{_admin_section_header('Current Signals', 'Counts are loaded from the same backend stores used by the admin APIs.')}"
+        "<section class='admin-card'>"
+        f"{_admin_section_header('At a Glance', 'Simple counts for the admin work that may need follow-up.')}"
         f"{_admin_metric_cards_html(cards)}"
         "</section>"
-        "<section class='admin-card'>"
-        f"{_admin_section_header('Panel Health', 'If one store fails, the rest of the Ops console remains available.')}"
-        f"{_admin_health_list_html(health_items)}"
-        "</section>"
     )
-    return _admin_ops_layout("Ops Console", principal, body_html, active="overview")
+    return _admin_ops_layout("Ops Home", principal, body_html, active="overview")
 
 
 @app.get("/admin/ops/support-cases", response_class=HTMLResponse)
@@ -3444,7 +3395,7 @@ def admin_ops_support_cases_page(
             f"<td>{html.escape(str(item.get('assignee') or '—'), quote=True)}</td>"
             f"<td>{_admin_badge('Escalated' if item.get('escalated') else 'Normal', 'danger' if item.get('escalated') else 'ok')}</td>"
             f"<td>{html.escape(_admin_format_epoch_ms(item.get('updatedAt')), quote=True)}</td>"
-            f"<td><div class='admin-actions'><a href='{edit_link}' class='admin-link-button'>Edit</a><a href='{export_link}' class='admin-link-button'>Export JSON</a></div></td>"
+            f"<td><div class='admin-actions'><a href='{edit_link}' class='admin-link-button'>Open</a><a href='{export_link}' class='admin-link-button'>Download</a></div></td>"
             "</tr>"
         )
     rows_html = "\n".join(rows) if rows else _admin_empty_row(8, "No support cases match the current filters.")
@@ -3484,7 +3435,7 @@ def admin_ops_support_cases_page(
     body_html = f"""
     {_admin_notice_html(notice, error)}
     <section class="admin-card" style="margin-bottom:18px;">
-      {_admin_section_header("Support Case Queue", "Filter active support work first, then open a case to update ownership, status, and notes.")}
+      {_admin_section_header("User Issues", "Search, open, and update reported app problems.")}
       <form method="get" action="/admin/ops/support-cases" class="admin-toolbar">
         <input type="text" name="q" value="{html.escape(query, quote=True)}" placeholder="Search summary or job text"/>
         <select name="status">{status_filter_options}</select>
@@ -3504,11 +3455,11 @@ def admin_ops_support_cases_page(
     </section>
     <div class="admin-page-grid">
       <section class="admin-card">
-        {_admin_section_header("Create Support Case", "Open a tracked operational case for a user, job, or planner issue.")}
+        {_admin_section_header("New Issue", "Create a case when a user reports a problem or a meal plan job needs review.")}
         <form method="post" action="/admin/ops/support-cases/create">
           <input type="hidden" name="csrf_token" value="{html.escape(create_csrf, quote=True)}"/>
-          <label class="admin-field"><span>User UID</span><input type="text" name="user_uid" required/></label>
-          <label class="admin-field"><span>Related job ID</span><input type="text" name="related_job_id"/></label>
+          <label class="admin-field"><span>User ID</span><input type="text" name="user_uid" required/></label>
+          <label class="admin-field"><span>Meal plan job ID</span><input type="text" name="related_job_id"/></label>
           <label class="admin-field"><span>Summary</span><textarea name="summary" rows="4" required></textarea></label>
           <div class="admin-field-grid">
             <label class="admin-field"><span>Priority</span>
@@ -3527,7 +3478,7 @@ def admin_ops_support_cases_page(
         </form>
       </section>
       <section class="admin-card">
-        {_admin_section_header("Case Detail", str(current.get('id') or 'Select a case from the queue to edit it or add notes.'), _admin_new_link("/admin/ops/support-cases", "Clear selection"))}
+        {_admin_section_header("Issue Details", str(current.get('id') or 'Select an issue from the list to edit it or add notes.'), _admin_new_link("/admin/ops/support-cases", "Clear selection"))}
         <form method="post" action="/admin/ops/support-cases/{html.escape(str(current.get('id') or ''), quote=True)}/update">
           <input type="hidden" name="csrf_token" value="{html.escape(update_csrf, quote=True)}"/>
           <label class="admin-field"><span>Summary</span><textarea name="summary" rows="4" {'required' if current.get('id') else 'disabled'}>{html.escape(str(current.get('summary') or ''), quote=True)}</textarea></label>
@@ -3566,7 +3517,7 @@ def admin_ops_support_cases_page(
       </section>
     </div>
     """
-    return _admin_ops_layout("Support Case Console", principal, body_html, active="support-cases")
+    return _admin_ops_layout("User Issues", principal, body_html, active="support-cases")
 
 
 @app.post("/admin/ops/support-cases/create")
@@ -3703,9 +3654,9 @@ def admin_ops_admin_sessions_page(
     {_admin_notice_html(notice, error)}
     <div class="admin-page-grid">
       <section class="admin-card">
-        {_admin_section_header("Admin Session Maintenance", "Filter privileged sessions and run cleanup for stale session records.")}
+        {_admin_section_header("Clean Up Old Sign-ins", "Remove old expired or revoked admin sign-in records.")}
         <form method="get" action="/admin/ops/admin-sessions" class="admin-toolbar">
-          <input type="text" name="uid" value="{html.escape(uid_filter, quote=True)}" placeholder="Filter by UID"/>
+          <input type="text" name="uid" value="{html.escape(uid_filter, quote=True)}" placeholder="Filter by user ID"/>
           <select name="active_only">
             <option value="true" {'selected' if active_only_flag else ''}>Active only</option>
             <option value="false" {'selected' if not active_only_flag else ''}>Include revoked</option>
@@ -3722,15 +3673,15 @@ def admin_ops_admin_sessions_page(
         </form>
       </section>
       <section class="admin-card">
-        {_admin_section_header("Admin Sessions", "Review current privileged browser sessions and revoke anything suspicious.")}
+        {_admin_section_header("Signed-in Admins", "Review active admin sign-ins and revoke anything suspicious.")}
         <table>
-          <thead><tr><th>Actor</th><th>UID</th><th>Roles</th><th>Auth</th><th>Created</th><th>Expires</th><th>State</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Admin</th><th>User ID</th><th>Role</th><th>Sign-in</th><th>Created</th><th>Expires</th><th>State</th><th>Actions</th></tr></thead>
           <tbody>{rows_html}</tbody>
         </table>
       </section>
     </div>
     """
-    return _admin_ops_layout("Admin Session Console", principal, body_html, active="admin-sessions")
+    return _admin_ops_layout("Admin Sign-ins", principal, body_html, active="admin-sessions")
 
 
 @app.post("/admin/ops/admin-sessions/{session_id}/revoke")
@@ -3797,7 +3748,7 @@ def admin_ops_operator_access_page(
         [],
     )
     edit_item, edit_error = _admin_safe_load(
-        "Selected operator access override",
+        "Selected admin access rule",
         lambda: database.get_operator_access_override(edit_token),
         None,
     ) if edit_token else (None, "")
@@ -3824,16 +3775,16 @@ def admin_ops_operator_access_page(
             f"<td><a href='{edit_link}' class='admin-link-button'>Edit</a></td>"
             "</tr>"
         )
-    rows_html = "\n".join(rows) if rows else _admin_empty_row(7, "No operator access overrides match the current filter.")
+    rows_html = "\n".join(rows) if rows else _admin_empty_row(7, "No admin access rules match the current filter.")
 
     body_html = f"""
     {_admin_notice_html(notice, error)}
     <div class="admin-page-grid">
       <section class="admin-card">
-        {_admin_section_header("Operator Access Override", "Block or restore a privileged operator without changing source code.", _admin_new_link("/admin/ops/operator-access", "New override"))}
+        {_admin_section_header("Block or Restore Admin", "Control admin access without changing code.", _admin_new_link("/admin/ops/operator-access", "New rule"))}
         <form method="post" action="/admin/ops/operator-access/save">
           <input type="hidden" name="csrf_token" value="{html.escape(save_csrf, quote=True)}"/>
-          <label class="admin-field"><span>Operator UID</span><input type="text" name="uid" value="{_admin_html_attr(current.get('uid'))}" required/></label>
+          <label class="admin-field"><span>Admin user ID</span><input type="text" name="uid" value="{_admin_html_attr(current.get('uid'))}" required/></label>
           <label class="admin-field"><span>Email</span><input type="text" name="email" value="{_admin_html_attr(current.get('email'))}"/></label>
           <label class="admin-field"><span>Access state</span>
             <select name="blocked">
@@ -3843,27 +3794,27 @@ def admin_ops_operator_access_page(
           </label>
           <label class="admin-field"><span>Reason</span><textarea name="reason" rows="4">{html.escape(str(current.get('reason') or ''), quote=True)}</textarea></label>
           <label class="admin-field"><span><input type="checkbox" name="revoke_active_sessions" value="true" checked/> Revoke active sessions when blocking</span></label>
-          <button type="submit">Save override</button>
+          <button type="submit">Save access</button>
         </form>
       </section>
       <section class="admin-card">
-        {_admin_section_header("Operator Access Overrides", "Review current allow/block decisions affecting admin access.")}
+        {_admin_section_header("Saved Access Rules", "Review current allow/block decisions for admin accounts.")}
         <form method="get" action="/admin/ops/operator-access" class="admin-toolbar">
           <select name="blocked_only">
-            <option value="false" {'selected' if not blocked_only_flag else ''}>All overrides</option>
+            <option value="false" {'selected' if not blocked_only_flag else ''}>All rules</option>
             <option value="true" {'selected' if blocked_only_flag else ''}>Blocked only</option>
           </select>
           <button type="submit">Filter</button>
           <a href="/admin/ops/operator-access" class="admin-link-button">Clear</a>
         </form>
         <table>
-          <thead><tr><th>UID</th><th>Email</th><th>State</th><th>Reason</th><th>Updated by</th><th>Updated</th><th>Actions</th></tr></thead>
+          <thead><tr><th>User ID</th><th>Email</th><th>State</th><th>Reason</th><th>Updated by</th><th>Updated</th><th>Actions</th></tr></thead>
           <tbody>{rows_html}</tbody>
         </table>
       </section>
     </div>
     """
-    return _admin_ops_layout("Operator Access Console", principal, body_html, active="operator-access")
+    return _admin_ops_layout("Admin Access", principal, body_html, active="operator-access")
 
 
 @app.post("/admin/ops/operator-access/save")
@@ -3912,7 +3863,7 @@ def admin_ops_audit_logs_page(
     actor_filter = str(actor or "").strip()
     limit_value = max(10, min(int(limit or 100), 500))
     items, list_error = _admin_safe_load(
-        "Audit events",
+        "Change history",
         lambda: database.list_admin_action_logs(
             limit=limit_value,
             resource_type=resource_type_filter or None,
@@ -3945,17 +3896,17 @@ def admin_ops_audit_logs_page(
             "</td>"
             "</tr>"
         )
-    rows_html = "\n".join(rows) if rows else _admin_empty_row(6, "No audit events match the current filters.")
+    rows_html = "\n".join(rows) if rows else _admin_empty_row(6, "No changes match the current filters.")
 
     body_html = f"""
     {_admin_notice_html(None, error)}
     <section class="admin-card" style="margin-bottom:18px;">
-      {_admin_section_header("Audit Log Filters", "Trace privileged mutations across content, policy, sessions, and operator access.")}
+      {_admin_section_header("Find Changes", "Search recent admin activity by area, action, item, or admin account.")}
       <form method="get" action="/admin/ops/audit-logs" class="admin-toolbar">
-        <input type="text" name="resource_type" value="{html.escape(resource_type_filter, quote=True)}" placeholder="Resource type"/>
+        <input type="text" name="resource_type" value="{html.escape(resource_type_filter, quote=True)}" placeholder="Area"/>
         <input type="text" name="action" value="{html.escape(action_filter, quote=True)}" placeholder="Action"/>
-        <input type="text" name="resource_id" value="{html.escape(resource_id_filter, quote=True)}" placeholder="Resource ID"/>
-        <input type="text" name="actor" value="{html.escape(actor_filter, quote=True)}" placeholder="Actor"/>
+        <input type="text" name="resource_id" value="{html.escape(resource_id_filter, quote=True)}" placeholder="Item ID"/>
+        <input type="text" name="actor" value="{html.escape(actor_filter, quote=True)}" placeholder="Admin"/>
         <select name="limit">
           <option value="50" {'selected' if limit_value == 50 else ''}>50 events</option>
           <option value="100" {'selected' if limit_value == 100 else ''}>100 events</option>
@@ -3967,14 +3918,14 @@ def admin_ops_audit_logs_page(
       </form>
     </section>
     <section class="admin-card">
-      {_admin_section_header("Audit Events", "Every row is generated from the same backend audit table used by admin APIs.")}
+      {_admin_section_header("Saved Changes", "A readable history of recent admin actions.")}
       <table>
-        <thead><tr><th>Time</th><th>Action</th><th>Actor</th><th>Resource</th><th>Resource ID</th><th>Details</th></tr></thead>
+        <thead><tr><th>Time</th><th>Action</th><th>Admin</th><th>Area</th><th>Item ID</th><th>Details</th></tr></thead>
         <tbody>{rows_html}</tbody>
       </table>
     </section>
     """
-    return _admin_ops_layout("Audit Log Console", principal, body_html, active="audit-logs")
+    return _admin_ops_layout("Change History", principal, body_html, active="audit-logs")
 
 
 @app.get("/admin/recipes")

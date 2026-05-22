@@ -58,7 +58,7 @@ def test_admin_login_page_links_to_ops_console(monkeypatch):
 
     assert response.status_code == 200
     assert "/admin/ops" in response.text
-    assert "Ops console" in response.text
+    assert "Ops Console" in response.text
 
 
 def test_ops_console_shows_switch_console_links_for_multi_role_admin():
@@ -82,6 +82,7 @@ def test_ops_console_shows_switch_console_links_for_multi_role_admin():
         assert "/admin/content" in response.text
         assert "/admin/feedback" in response.text
         assert "/admin/ops" in response.text
+        assert "/admin/ops/audit-logs" in response.text
     finally:
         main.app.dependency_overrides = {}
 
@@ -327,5 +328,42 @@ def test_ops_operator_access_console_html_save_revokes_sessions_and_escapes_reas
             assert selected.status_code == 200
             assert "<b>offboarded</b>" not in selected.text
             assert "&lt;b&gt;offboarded&lt;/b&gt;" in selected.text
+    finally:
+        main.app.dependency_overrides = {}
+
+
+def test_ops_audit_log_console_filters_events():
+    db_path = _temp_db_path()
+    database.DATABASE_URL = ""
+    database.DB_NAME = str(db_path)
+    database.init_db()
+    database.log_admin_action(
+        "recipe.create",
+        actor="content-admin-ui@example.com",
+        resource_type="recipe",
+        resource_id="recipe-ui-1",
+        details={"title": "Audit Tinola"},
+    )
+    database.log_admin_action(
+        "operator_access.upsert",
+        actor="ops-admin-ui@example.com",
+        resource_type="operator_access",
+        resource_id="blocked-ui-1",
+        details={"blocked": True},
+    )
+
+    principal = _ops_admin_principal()
+    main.app.dependency_overrides[main.require_ops_admin] = lambda: principal
+
+    try:
+        with TestClient(main.app) as client:
+            page = client.get("/admin/ops/audit-logs", params={"resource_type": "operator_access"})
+
+        assert page.status_code == 200
+        assert "Audit Log Console" in page.text
+        assert "Audit Log Filters" in page.text
+        assert "operator_access.upsert" in page.text
+        assert "blocked-ui-1" in page.text
+        assert "recipe-ui-1" not in page.text
     finally:
         main.app.dependency_overrides = {}

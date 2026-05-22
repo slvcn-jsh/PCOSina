@@ -58,6 +58,14 @@ services:
         generateValue: true
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false
+      - key: PCOSINA_FIREBASE_WEB_API_KEY
+        sync: false
+      - key: PCOSINA_FIREBASE_WEB_AUTH_DOMAIN
+        sync: false
+      - key: PCOSINA_FIREBASE_WEB_PROJECT_ID
+        sync: false
+      - key: PCOSINA_FIREBASE_WEB_APP_ID
+        sync: false
       - key: SENTRY_DSN
         sync: false
 

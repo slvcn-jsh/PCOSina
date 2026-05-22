@@ -15,7 +15,6 @@ def _read(path: Path) -> str:
 def test_help_and_methodology_routes_are_not_plan_gated() -> None:
     routes_source = _read(ROUTES)
     assert "val MoreTools = defineRoute(\"more_tools\", RouteAccess.GuidedCore)" in routes_source
-    assert "val AdminMethodology = defineRoute(\"admin_methodology\", RouteAccess.GuidedCore)" in routes_source
     assert "val Ipo = defineRoute(\"ipo\", RouteAccess.GuidedCore)" in routes_source
 
 

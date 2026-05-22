@@ -37,7 +37,7 @@ def test_admin_login_page_links_to_policy_console(monkeypatch):
 
     assert response.status_code == 200
     assert "/admin/policy" in response.text
-    assert "Policy console" in response.text
+    assert "Policy Console" in response.text
 
 
 def test_policy_console_shows_switch_console_links_for_multi_role_admin(monkeypatch):

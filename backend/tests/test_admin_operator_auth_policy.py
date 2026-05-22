@@ -63,6 +63,34 @@ def test_admin_session_rejects_missing_mfa_when_required(monkeypatch):
     assert "MFA-verified" in response.json()["detail"]
 
 
+def test_admin_interactive_session_error_renders_login_page(monkeypatch):
+    monkeypatch.setenv("PCOSINA_REQUIRE_RECENT_ADMIN_AUTH", "false")
+    monkeypatch.setenv("PCOSINA_REQUIRE_OPERATOR_MFA", "true")
+    monkeypatch.setenv("PCOSINA_FIREBASE_WEB_API_KEY", "web-api-key")
+    monkeypatch.setenv("PCOSINA_FIREBASE_WEB_AUTH_DOMAIN", "pcosina.firebaseapp.com")
+    monkeypatch.setenv("PCOSINA_FIREBASE_WEB_PROJECT_ID", "pcosina")
+    monkeypatch.setenv("PCOSINA_FIREBASE_WEB_APP_ID", "1:web:pcosina")
+    monkeypatch.setattr(
+        main,
+        "_verify_firebase_id_token",
+        lambda token: {
+            "uid": "ops-admin-mfa-ui-1",
+            "email": "ops-admin-mfa-ui@example.com",
+            "email_verified": True,
+            "pcosina_roles": ["ops_admin"],
+            "auth_time": int(time.time()) - 30,
+        },
+    )
+
+    with TestClient(main.app) as client:
+        response = client.post("/admin/session", data={"id_token": "no-mfa-token", "interactive": "true"})
+
+    assert response.status_code == 403
+    assert "PCOSINA Admin Login" in response.text
+    assert "Continue with Google" in response.text
+    assert "MFA-verified" in response.text
+
+
 def test_admin_session_accepts_recent_firebase_auth(monkeypatch):
     db_path = _temp_db_path()
     database.DATABASE_URL = ""
@@ -106,11 +134,45 @@ def test_admin_login_page_uses_google_sign_in(monkeypatch):
         response = client.get("/admin/login")
 
     assert response.status_code == 200
-    assert "Sign in with Google" in response.text
+    assert "Continue with Google" in response.text
+    assert "--admin-bg" in response.text
+    assert "{_admin_base_css()}" not in response.text
     assert "signInWithPopup" in response.text
     assert 'name="id_token"' in response.text
+    assert 'name="interactive" value="true"' in response.text
     assert "Paste a Firebase ID token" not in response.text
     assert "<textarea" not in response.text
+
+
+def test_admin_entry_redirects_to_login():
+    with TestClient(main.app) as client:
+        response = client.get("/admin", follow_redirects=False)
+
+    assert response.status_code == 307
+    assert response.headers["location"] == "/admin/login"
+
+
+def test_admin_login_page_hides_firebase_web_config_details_when_missing(monkeypatch):
+    monkeypatch.setattr(main, "_principal_from_session_token", lambda token: None)
+    for name in (
+        "PCOSINA_FIREBASE_WEB_API_KEY",
+        "PCOSINA_FIREBASE_WEB_AUTH_DOMAIN",
+        "PCOSINA_FIREBASE_WEB_PROJECT_ID",
+        "PCOSINA_FIREBASE_WEB_APP_ID",
+        "FIREBASE_WEB_API_KEY",
+        "FIREBASE_WEB_AUTH_DOMAIN",
+        "FIREBASE_WEB_PROJECT_ID",
+        "FIREBASE_WEB_APP_ID",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    with TestClient(main.app) as client:
+        response = client.get("/admin/login")
+
+    assert response.status_code == 200
+    assert "Admin Google sign-in needs Firebase web setup before it can be used here." in response.text
+    assert "Missing Firebase web config" not in response.text
+    assert "apiKey, authDomain, projectId, appId" not in response.text
 
 
 def test_bearer_admin_access_rejects_missing_mfa_when_required(monkeypatch):
@@ -198,7 +260,7 @@ def test_revoked_admin_session_cookie_no_longer_authenticates(monkeypatch):
         page_response = client.get("/admin/login")
 
     assert page_response.status_code == 200
-    assert "Sign in with Google" in page_response.text
+    assert "Continue with Google" in page_response.text
 
 
 def test_idle_timed_out_admin_session_cookie_no_longer_authenticates(monkeypatch):
@@ -237,7 +299,7 @@ def test_idle_timed_out_admin_session_cookie_no_longer_authenticates(monkeypatch
             database.time.time = original_db_time
 
     assert page_response.status_code == 200
-    assert "Sign in with Google" in page_response.text
+    assert "Continue with Google" in page_response.text
     stale_record = database.get_admin_session(session_record["id"], include_revoked=True)
     assert stale_record is not None
     assert stale_record["revokeReason"] == "idle_timeout"

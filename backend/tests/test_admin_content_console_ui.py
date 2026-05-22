@@ -38,7 +38,7 @@ def test_admin_login_page_links_to_content_console(monkeypatch):
 
     assert response.status_code == 200
     assert "/admin/content" in response.text
-    assert "Content console" in response.text
+    assert "Content Console" in response.text
 
 
 def test_content_console_shows_switch_console_links_for_multi_role_admin():

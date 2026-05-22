@@ -2343,6 +2343,105 @@ def _admin_base_css() -> str:
         background: var(--admin-red-bg);
         color: var(--admin-red);
       }
+      .admin-alert {
+        margin: 0 0 16px;
+        padding: 12px 14px;
+        border-radius: 8px;
+        border: 1px solid var(--admin-line);
+        background: var(--admin-surface-muted);
+        color: var(--admin-muted);
+        line-height: 1.45;
+      }
+      .admin-alert strong {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--admin-strong);
+      }
+      .admin-alert ul {
+        margin: 6px 0 0;
+        padding-left: 18px;
+      }
+      .admin-alert.danger {
+        background: var(--admin-red-bg);
+        border-color: #f1b4ae;
+        color: var(--admin-red);
+      }
+      .admin-alert.warn {
+        background: #fff8e6;
+        border-color: #f0d58c;
+        color: #7a4f00;
+      }
+      .admin-alert.ok {
+        background: var(--admin-ok-bg);
+        border-color: #b7ebc9;
+        color: #146c43;
+      }
+      .admin-task-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 14px;
+      }
+      .admin-task-card {
+        display: grid;
+        gap: 8px;
+        min-height: 150px;
+        padding: 16px;
+        text-decoration: none;
+        color: inherit;
+        border: 1px solid var(--admin-line);
+        border-radius: 8px;
+        background: #fff;
+        transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+      }
+      .admin-task-card:hover {
+        border-color: var(--admin-green);
+        transform: translateY(-1px);
+        box-shadow: 0 14px 32px rgba(15, 45, 35, 0.12);
+      }
+      .admin-task-card strong {
+        color: var(--admin-strong);
+        font-size: 16px;
+      }
+      .admin-task-card span {
+        color: var(--admin-muted);
+        line-height: 1.45;
+      }
+      .admin-task-step {
+        width: fit-content;
+        border-radius: 999px;
+        padding: 4px 8px;
+        background: #e9f6ef;
+        color: var(--admin-green-dark) !important;
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .admin-health-list {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .admin-health-list li {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 12px;
+        border: 1px solid #e8efec;
+        border-radius: 8px;
+        background: #fbfdfc;
+      }
+      .admin-health-list div {
+        display: grid;
+        gap: 3px;
+      }
+      .admin-health-list strong {
+        color: var(--admin-strong);
+      }
+      .admin-health-list span {
+        color: var(--admin-muted);
+        line-height: 1.4;
+      }
       @media (max-width: 760px) {
         .admin-topbar-inner,
         .admin-hero,
@@ -2495,6 +2594,65 @@ def _admin_safe_count(loader) -> int:
         return len(loader())
     except Exception:
         return 0
+
+
+def _admin_safe_load(label: str, loader, default: Any):
+    try:
+        return loader(), ""
+    except Exception as exc:
+        traceback.print_exc()
+        return default, f"{label} is temporarily unavailable ({type(exc).__name__})."
+
+
+def _admin_alert_list_html(messages: list[str]) -> str:
+    cleaned = [str(item or "").strip() for item in messages if str(item or "").strip()]
+    if not cleaned:
+        return ""
+    items = "".join(f"<li>{html.escape(item, quote=True)}</li>" for item in cleaned)
+    return (
+        "<div class='admin-alert danger' role='status'>"
+        "<strong>Some Ops data could not be loaded.</strong>"
+        f"<ul>{items}</ul>"
+        "</div>"
+    )
+
+
+def _admin_task_cards_html(cards: list[tuple[str, str, str, str]]) -> str:
+    card_html = "".join(
+        f"""
+        <a href="{href}" class="admin-task-card">
+          <span class="admin-task-step">{html.escape(step, quote=True)}</span>
+          <strong>{html.escape(title, quote=True)}</strong>
+          <span>{html.escape(description, quote=True)}</span>
+        </a>
+        """
+        for step, title, href, description in cards
+    )
+    return f"<div class='admin-task-grid'>{card_html}</div>"
+
+
+def _admin_health_list_html(items: list[tuple[str, str, str]]) -> str:
+    rows = "".join(
+        "<li>"
+        f"{_admin_badge(status, 'danger' if status.lower() == 'attention' else 'ok')}"
+        f"<div><strong>{html.escape(title, quote=True)}</strong>"
+        f"<span>{html.escape(description, quote=True)}</span></div>"
+        "</li>"
+        for title, status, description in items
+    )
+    return f"<ul class='admin-health-list'>{rows}</ul>"
+
+
+def _admin_select_options(options: list[tuple[str, str]], current: Any) -> str:
+    current_value = str(current or "").strip().lower()
+    return "".join(
+        "<option value='{value}' {selected}>{label}</option>".format(
+            value=html.escape(str(value), quote=True),
+            label=html.escape(str(label), quote=True),
+            selected="selected" if str(value).strip().lower() == current_value else "",
+        )
+        for value, label in options
+    )
 
 
 def _admin_timeline_html(items: list[tuple[str, str]]) -> str:
@@ -3161,25 +3319,66 @@ def admin_content_delete_nutrition_correction(
 
 @app.get("/admin/ops", response_class=HTMLResponse)
 def admin_ops_home(principal: Any = Depends(require_ops_admin)):
-    support_cases = database.list_support_cases(limit=50)
+    support_cases, support_error = _admin_safe_load("Support cases", lambda: database.list_support_cases(limit=50), [])
     open_cases = sum(1 for item in support_cases if str(item.get("status") or "").lower() not in {"resolved", "closed"})
     escalated_cases = sum(1 for item in support_cases if bool(item.get("escalated")))
-    sessions = database.list_admin_sessions(active_only=True, limit=100)
-    blocked_overrides = database.list_operator_access_overrides(blocked_only=True, limit=100)
-    audit_events = database.list_admin_action_logs(limit=50)
+    sessions, sessions_error = _admin_safe_load("Admin sessions", lambda: database.list_admin_sessions(active_only=True, limit=100), [])
+    blocked_overrides, access_error = _admin_safe_load(
+        "Operator access overrides",
+        lambda: database.list_operator_access_overrides(blocked_only=True, limit=100),
+        [],
+    )
+    audit_events, audit_error = _admin_safe_load("Audit events", lambda: database.list_admin_action_logs(limit=50), [])
+    load_errors = [support_error, sessions_error, access_error, audit_error]
     cards = [
-        ("Support Cases", "/admin/ops/support-cases", "Triage planner failures and user-facing issues.", len(support_cases)),
-        ("Open or escalated", "/admin/ops/support-cases", "Open cases need active ownership and escalation tracking.", open_cases + escalated_cases),
-        ("Active Admin Sessions", "/admin/ops/admin-sessions", "Review current privileged browser sessions.", len(sessions)),
-        ("Blocked Operators", "/admin/ops/operator-access", "Track immediate access overrides and operator offboarding.", len(blocked_overrides)),
-        ("Audit Events", "/admin/ops/audit-logs", "Inspect admin mutations and operational traceability.", len(audit_events)),
+        ("Support Cases", "/admin/ops/support-cases", "Operational records for planner or user issues.", len(support_cases)),
+        ("Open or Escalated", "/admin/ops/support-cases", "Cases that still need ownership or follow-up.", open_cases + escalated_cases),
+        ("Active Admin Sessions", "/admin/ops/admin-sessions", "Currently valid privileged browser sessions.", len(sessions)),
+        ("Blocked Operators", "/admin/ops/operator-access", "Server-side access overrides currently blocking operators.", len(blocked_overrides)),
+        ("Audit Events", "/admin/ops/audit-logs", "Recent privileged admin actions.", len(audit_events)),
+    ]
+    tasks = [
+        ("1", "Triage Support", "/admin/ops/support-cases", "Open cases, assign ownership, update status, and add notes."),
+        ("2", "Review Sessions", "/admin/ops/admin-sessions", "Check active admin sessions and revoke anything suspicious."),
+        ("3", "Control Access", "/admin/ops/operator-access", "Block or restore an operator without changing code."),
+        ("4", "Trace Changes", "/admin/ops/audit-logs", "Verify who changed what before and after maintenance work."),
+    ]
+    health_items = [
+        (
+            "Support queue",
+            "Attention" if support_error else "OK",
+            support_error or f"{len(support_cases)} recent cases loaded.",
+        ),
+        (
+            "Admin sessions",
+            "Attention" if sessions_error else "OK",
+            sessions_error or f"{len(sessions)} active sessions loaded.",
+        ),
+        (
+            "Operator access",
+            "Attention" if access_error else "OK",
+            access_error or f"{len(blocked_overrides)} blocked overrides loaded.",
+        ),
+        (
+            "Audit trail",
+            "Attention" if audit_error else "OK",
+            audit_error or f"{len(audit_events)} recent audit events loaded.",
+        ),
     ]
     body_html = (
+        f"{_admin_alert_list_html(load_errors)}"
         "<section class='admin-card' style='margin-bottom:16px;'>"
-        "<p style='margin:0;line-height:1.6;'>The ops console layers browser workflows on top of the existing audited ops endpoints. "
-        "Use it for support-case coordination, session revocation, and operator access overrides.</p>"
+        f"{_admin_section_header('Ops Workflow', 'Use this order during maintenance or defense demo so the page tells a clear operational story.')}"
+        f"{_admin_task_cards_html(tasks)}"
         "</section>"
+        "<section class='admin-card' style='margin-bottom:16px;'>"
+        f"{_admin_section_header('Current Signals', 'Counts are loaded from the same backend stores used by the admin APIs.')}"
         f"{_admin_metric_cards_html(cards)}"
+        "</section>"
+        "<section class='admin-card'>"
+        f"{_admin_section_header('Panel Health', 'If one store fails, the rest of the Ops console remains available.')}"
+        f"{_admin_health_list_html(health_items)}"
+        "</section>"
     )
     return _admin_ops_layout("Ops Console", principal, body_html, active="overview")
 
@@ -3201,17 +3400,27 @@ def admin_ops_support_cases_page(
     assignee_filter = str(assignee or "").strip()
     edit_token = str(edit_case_id or "").strip()
     escalated_filter = None if escalated in (None, "", "all") else str(escalated).lower() == "true"
-    items = database.list_support_cases(
-        user_uid=None,
-        status=status_filter or None,
-        assignee=assignee_filter or None,
-        escalated=escalated_filter,
-        q=query or None,
-        limit=limit,
+    items, list_error = _admin_safe_load(
+        "Support case queue",
+        lambda: database.list_support_cases(
+            user_uid=None,
+            status=status_filter or None,
+            assignee=assignee_filter or None,
+            escalated=escalated_filter,
+            q=query or None,
+            limit=limit,
+        ),
+        [],
     )
-    edit_item = database.get_support_case(edit_token) if edit_token else None
+    edit_item, edit_error = _admin_safe_load(
+        "Selected support case",
+        lambda: database.get_support_case(edit_token),
+        None,
+    ) if edit_token else (None, "")
     if edit_token and not edit_item and not error:
         error = f"Support case not found: {edit_token}"
+    if not error:
+        error = list_error or edit_error or None
 
     create_csrf = _build_admin_csrf_token(principal, "ops-support-case-create")
     update_csrf = _build_admin_csrf_token(principal, "ops-support-case-update")
@@ -3252,6 +3461,18 @@ def admin_ops_support_cases_page(
         "notes": [],
     }
     note_items = current.get("notes") or []
+    current_status_options = _admin_select_options(
+        [("open", "Open"), ("investigating", "Investigating"), ("resolved", "Resolved"), ("closed", "Closed")],
+        current.get("status") or "open",
+    )
+    current_priority_options = _admin_select_options(
+        [("normal", "Normal"), ("low", "Low"), ("high", "High"), ("urgent", "Urgent")],
+        current.get("priority") or "normal",
+    )
+    status_filter_options = _admin_select_options(
+        [("", "All statuses"), ("open", "Open"), ("investigating", "Investigating"), ("resolved", "Resolved"), ("closed", "Closed")],
+        status_filter,
+    )
     notes_html = "".join(
         f"<li><strong>{html.escape(str(note.get('author') or ''), quote=True)}</strong> • "
         f"{html.escape(_admin_format_epoch_ms(note.get('createdAtMs')), quote=True)}<br/>"
@@ -3266,7 +3487,7 @@ def admin_ops_support_cases_page(
       {_admin_section_header("Support Case Queue", "Filter active support work first, then open a case to update ownership, status, and notes.")}
       <form method="get" action="/admin/ops/support-cases" class="admin-toolbar">
         <input type="text" name="q" value="{html.escape(query, quote=True)}" placeholder="Search summary or job text"/>
-        <input type="text" name="status" value="{html.escape(status_filter, quote=True)}" placeholder="Status"/>
+        <select name="status">{status_filter_options}</select>
         <input type="text" name="assignee" value="{html.escape(assignee_filter, quote=True)}" placeholder="Assignee"/>
         <select name="escalated">
           <option value="all" {'selected' if (escalated or 'all') == 'all' else ''}>All escalation states</option>
@@ -3290,7 +3511,14 @@ def admin_ops_support_cases_page(
           <label class="admin-field"><span>Related job ID</span><input type="text" name="related_job_id"/></label>
           <label class="admin-field"><span>Summary</span><textarea name="summary" rows="4" required></textarea></label>
           <div class="admin-field-grid">
-            <label class="admin-field"><span>Priority</span><input type="text" name="priority" value="normal"/></label>
+            <label class="admin-field"><span>Priority</span>
+              <select name="priority">
+                <option value="normal" selected>Normal</option>
+                <option value="low">Low</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </label>
             <label class="admin-field"><span>Assignee</span><input type="text" name="assignee"/></label>
           </div>
           <label class="admin-field"><span><input type="checkbox" name="escalated" value="true"/> Escalated</span></label>
@@ -3304,8 +3532,16 @@ def admin_ops_support_cases_page(
           <input type="hidden" name="csrf_token" value="{html.escape(update_csrf, quote=True)}"/>
           <label class="admin-field"><span>Summary</span><textarea name="summary" rows="4" {'required' if current.get('id') else 'disabled'}>{html.escape(str(current.get('summary') or ''), quote=True)}</textarea></label>
           <div class="admin-field-grid">
-            <label class="admin-field"><span>Status</span><input type="text" name="status" value="{_admin_html_attr(current.get('status'))}" {'required' if current.get('id') else 'disabled'}/></label>
-            <label class="admin-field"><span>Priority</span><input type="text" name="priority" value="{_admin_html_attr(current.get('priority'))}" {'required' if current.get('id') else 'disabled'}/></label>
+            <label class="admin-field"><span>Status</span>
+              <select name="status" {'required' if current.get('id') else 'disabled'}>
+                {current_status_options}
+              </select>
+            </label>
+            <label class="admin-field"><span>Priority</span>
+              <select name="priority" {'required' if current.get('id') else 'disabled'}>
+                {current_priority_options}
+              </select>
+            </label>
           </div>
           <label class="admin-field"><span>Assignee</span><input type="text" name="assignee" value="{_admin_html_attr(current.get('assignee'))}" {'disabled' if not current.get('id') else ''}/></label>
           <label class="admin-field"><span>Escalated</span>
@@ -3361,6 +3597,9 @@ def admin_ops_support_case_create(
         return _admin_redirect("/admin/ops/support-cases", edit_case_id=case_id, notice="support_case_created")
     except HTTPException as exc:
         return _admin_redirect("/admin/ops/support-cases", error=str(exc.detail or "Support case create failed"))
+    except Exception as exc:
+        traceback.print_exc()
+        return _admin_redirect("/admin/ops/support-cases", error=f"Support case create failed ({type(exc).__name__})")
 
 
 @app.post("/admin/ops/support-cases/{case_id}/update")
@@ -3389,6 +3628,9 @@ def admin_ops_support_case_update(
         return _admin_redirect("/admin/ops/support-cases", edit_case_id=case_id, notice="support_case_updated")
     except HTTPException as exc:
         return _admin_redirect("/admin/ops/support-cases", edit_case_id=case_id, error=str(exc.detail or "Support case update failed"))
+    except Exception as exc:
+        traceback.print_exc()
+        return _admin_redirect("/admin/ops/support-cases", edit_case_id=case_id, error=f"Support case update failed ({type(exc).__name__})")
 
 
 @app.post("/admin/ops/support-cases/{case_id}/notes")
@@ -3404,6 +3646,9 @@ def admin_ops_support_case_note(
         return _admin_redirect("/admin/ops/support-cases", edit_case_id=case_id, notice="support_case_noted")
     except HTTPException as exc:
         return _admin_redirect("/admin/ops/support-cases", edit_case_id=case_id, error=str(exc.detail or "Support case note failed"))
+    except Exception as exc:
+        traceback.print_exc()
+        return _admin_redirect("/admin/ops/support-cases", edit_case_id=case_id, error=f"Support case note failed ({type(exc).__name__})")
 
 
 @app.get("/admin/ops/admin-sessions", response_class=HTMLResponse)
@@ -3417,7 +3662,13 @@ def admin_ops_admin_sessions_page(
 ):
     uid_filter = str(uid or "").strip()
     active_only_flag = str(active_only or "true").lower() != "false"
-    items = database.list_admin_sessions(uid=uid_filter or None, active_only=active_only_flag, limit=limit)
+    items, list_error = _admin_safe_load(
+        "Admin sessions",
+        lambda: database.list_admin_sessions(uid=uid_filter or None, active_only=active_only_flag, limit=limit),
+        [],
+    )
+    if not error:
+        error = list_error or None
     revoke_csrf = _build_admin_csrf_token(principal, "ops-admin-session-revoke")
     cleanup_csrf = _build_admin_csrf_token(principal, "ops-admin-session-cleanup")
 
@@ -3497,6 +3748,9 @@ def admin_ops_revoke_admin_session(
         return _admin_redirect("/admin/ops/admin-sessions", uid=uid, active_only=active_only, notice="admin_session_revoked")
     except HTTPException as exc:
         return _admin_redirect("/admin/ops/admin-sessions", uid=uid, active_only=active_only, error=str(exc.detail or "Admin session revoke failed"))
+    except Exception as exc:
+        traceback.print_exc()
+        return _admin_redirect("/admin/ops/admin-sessions", uid=uid, active_only=active_only, error=f"Admin session revoke failed ({type(exc).__name__})")
 
 
 @app.post("/admin/ops/admin-sessions/cleanup")
@@ -3508,15 +3762,22 @@ def admin_ops_cleanup_admin_sessions(
     principal: Any = Depends(require_ops_admin),
 ):
     _verify_admin_csrf_token(principal, csrf_token, "ops-admin-session-cleanup")
-    ops_cleanup_admin_sessions(
-        AdminSessionCleanupRequest(
-            retentionDays=max(1, int(retention_days or 1)),
-            includeRevoked=include_revoked is not None,
-            includeExpired=include_expired is not None,
-        ),
-        principal=principal,
-    )
-    return _admin_redirect("/admin/ops/admin-sessions", active_only="false", notice="admin_sessions_cleaned")
+    try:
+        ops_cleanup_admin_sessions(
+            AdminSessionCleanupRequest(
+                retentionDays=max(1, int(retention_days or 1)),
+                includeRevoked=include_revoked is not None,
+                includeExpired=include_expired is not None,
+            ),
+            principal=principal,
+        )
+        return _admin_redirect("/admin/ops/admin-sessions", active_only="false", notice="admin_sessions_cleaned")
+    except (HTTPException, ValueError) as exc:
+        detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
+        return _admin_redirect("/admin/ops/admin-sessions", active_only="false", error=str(detail or "Admin sessions cleanup failed"))
+    except Exception as exc:
+        traceback.print_exc()
+        return _admin_redirect("/admin/ops/admin-sessions", active_only="false", error=f"Admin sessions cleanup failed ({type(exc).__name__})")
 
 
 @app.get("/admin/ops/operator-access", response_class=HTMLResponse)
@@ -3530,10 +3791,20 @@ def admin_ops_operator_access_page(
 ):
     blocked_only_flag = str(blocked_only or "false").lower() == "true"
     edit_token = str(edit_uid or "").strip()
-    items = database.list_operator_access_overrides(blocked_only=blocked_only_flag, limit=limit)
-    edit_item = database.get_operator_access_override(edit_token) if edit_token else None
+    items, list_error = _admin_safe_load(
+        "Operator access overrides",
+        lambda: database.list_operator_access_overrides(blocked_only=blocked_only_flag, limit=limit),
+        [],
+    )
+    edit_item, edit_error = _admin_safe_load(
+        "Selected operator access override",
+        lambda: database.get_operator_access_override(edit_token),
+        None,
+    ) if edit_token else (None, "")
     if edit_token and not edit_item and not error:
         error = f"Operator access override not found: {edit_token}"
+    if not error:
+        error = list_error or edit_error or None
 
     save_csrf = _build_admin_csrf_token(principal, "ops-operator-access-save")
     current = edit_item or {"uid": "", "email": "", "blocked": True, "reason": ""}
@@ -3620,6 +3891,9 @@ def admin_ops_operator_access_save(
         return _admin_redirect("/admin/ops/operator-access", edit_uid=uid, notice="operator_access_saved")
     except HTTPException as exc:
         return _admin_redirect("/admin/ops/operator-access", edit_uid=uid, error=str(exc.detail or "Operator access save failed"))
+    except Exception as exc:
+        traceback.print_exc()
+        return _admin_redirect("/admin/ops/operator-access", edit_uid=uid, error=f"Operator access save failed ({type(exc).__name__})")
 
 
 @app.get("/admin/ops/audit-logs", response_class=HTMLResponse)
@@ -3629,6 +3903,7 @@ def admin_ops_audit_logs_page(
     resource_id: str | None = None,
     actor: str | None = None,
     limit: int = 100,
+    error: str | None = None,
     principal: Any = Depends(require_ops_admin),
 ):
     resource_type_filter = str(resource_type or "").strip()
@@ -3636,13 +3911,19 @@ def admin_ops_audit_logs_page(
     resource_id_filter = str(resource_id or "").strip()
     actor_filter = str(actor or "").strip()
     limit_value = max(10, min(int(limit or 100), 500))
-    items = database.list_admin_action_logs(
-        limit=limit_value,
-        resource_type=resource_type_filter or None,
-        action=action_filter or None,
-        resource_id=resource_id_filter or None,
-        actor=actor_filter or None,
+    items, list_error = _admin_safe_load(
+        "Audit events",
+        lambda: database.list_admin_action_logs(
+            limit=limit_value,
+            resource_type=resource_type_filter or None,
+            action=action_filter or None,
+            resource_id=resource_id_filter or None,
+            actor=actor_filter or None,
+        ),
+        [],
     )
+    if not error:
+        error = list_error or None
 
     rows = []
     for item in items:
@@ -3667,6 +3948,7 @@ def admin_ops_audit_logs_page(
     rows_html = "\n".join(rows) if rows else _admin_empty_row(6, "No audit events match the current filters.")
 
     body_html = f"""
+    {_admin_notice_html(None, error)}
     <section class="admin-card" style="margin-bottom:18px;">
       {_admin_section_header("Audit Log Filters", "Trace privileged mutations across content, policy, sessions, and operator access.")}
       <form method="get" action="/admin/ops/audit-logs" class="admin-toolbar">

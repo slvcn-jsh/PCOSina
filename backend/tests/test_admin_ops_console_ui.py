@@ -87,6 +87,61 @@ def test_ops_console_shows_switch_console_links_for_multi_role_admin():
         main.app.dependency_overrides = {}
 
 
+def test_ops_console_renders_panel_health_when_one_dataset_fails(monkeypatch):
+    db_path = _temp_db_path()
+    database.DATABASE_URL = ""
+    database.DB_NAME = str(db_path)
+    database.init_db()
+
+    principal = _ops_admin_principal()
+    main.app.dependency_overrides[main.require_ops_admin] = lambda: principal
+
+    def fail_support_cases(*_args, **_kwargs):
+        raise RuntimeError("support table unavailable")
+
+    monkeypatch.setattr(database, "list_support_cases", fail_support_cases)
+
+    try:
+        with TestClient(main.app) as client:
+            response = client.get("/admin/ops")
+
+        assert response.status_code == 200
+        assert "Ops Workflow" in response.text
+        assert "Some Ops data could not be loaded." in response.text
+        assert "Support cases is temporarily unavailable" in response.text
+        assert "/admin/ops/admin-sessions" in response.text
+        assert "Panel Health" in response.text
+    finally:
+        main.app.dependency_overrides = {}
+
+
+def test_ops_support_case_console_stays_usable_when_queue_query_fails(monkeypatch):
+    db_path = _temp_db_path()
+    database.DATABASE_URL = ""
+    database.DB_NAME = str(db_path)
+    database.init_db()
+
+    principal = _ops_admin_principal()
+    main.app.dependency_overrides[main.require_ops_admin] = lambda: principal
+
+    def fail_support_cases(*_args, **_kwargs):
+        raise RuntimeError("support table unavailable")
+
+    monkeypatch.setattr(database, "list_support_cases", fail_support_cases)
+
+    try:
+        with TestClient(main.app) as client:
+            response = client.get("/admin/ops/support-cases")
+
+        assert response.status_code == 200
+        assert "Support Case Console" in response.text
+        assert "Support case queue is temporarily unavailable" in response.text
+        assert "Create Support Case" in response.text
+        assert "<select name=\"status\">" in response.text
+    finally:
+        main.app.dependency_overrides = {}
+
+
 def test_ops_support_case_console_html_crud_and_escapes_summary():
     db_path = _temp_db_path()
     database.DATABASE_URL = ""

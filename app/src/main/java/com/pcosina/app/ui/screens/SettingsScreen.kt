@@ -54,6 +54,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.pcosina.app.R
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.pcosina.app.BuildConfig
+import com.pcosina.app.data.model.UserProfile
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanViewModel
@@ -63,17 +64,12 @@ import com.pcosina.app.ui.components.AppFeedbackBanner
 import com.pcosina.app.ui.components.ExpandableSection
 import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
-import com.pcosina.app.ui.components.FocusSummaryCard
-import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.components.PcosinaAvatar
 import com.pcosina.app.ui.components.PcosinaAvatarOptions
 import com.pcosina.app.ui.components.PcosinaDesignIcon
 import com.pcosina.app.ui.components.RefinedFeatureCard
-import com.pcosina.app.ui.components.ScreenFocusOption
-import com.pcosina.app.ui.components.ScreenFocusStrip
 import com.pcosina.app.data.model.NotificationPreferences
 import com.pcosina.app.notifications.NotificationScheduler
-import com.pcosina.app.ui.theme.UiSpacingTokens
 import com.pcosina.app.ui.util.primaryGoalLabel
 import android.Manifest
 import android.os.Build
@@ -101,10 +97,20 @@ private enum class ReminderSettingsFocus {
     Routine,
 }
 
+private const val SettingsProfileMinAge = 18
+private const val SettingsProfileMaxAge = 60
+
 private data class SettingsTabIcon(
     val icon: ImageVector? = null,
     @DrawableRes val iconRes: Int? = null,
     val label: String,
+)
+
+private data class SettingsProfileStepState(
+    val stepNumber: Int,
+    val title: String,
+    val detail: String,
+    val complete: Boolean,
 )
 
 @Composable
@@ -141,40 +147,6 @@ fun SettingsScreen(
     val reminderFocus = remember(reminderFocusKey) {
         ReminderSettingsFocus.valueOf(reminderFocusKey)
     }
-    val settingsFocusOptions = remember(adminMode) {
-        buildList {
-            add(
-                ScreenFocusOption(
-                    key = SettingsScreenFocus.Profile.name,
-                    label = "Profile",
-                    summary = "See the details that shape your plans, groceries, and reminders."
-                )
-            )
-            add(
-                ScreenFocusOption(
-                    key = SettingsScreenFocus.Reminders.name,
-                    label = "Reminders",
-                    summary = "Choose the nudges that help on this phone."
-                )
-            )
-            add(
-                ScreenFocusOption(
-                    key = SettingsScreenFocus.Account.name,
-                    label = "Account",
-                    summary = "Handle sign-out and saved data for this phone."
-                )
-            )
-            if (adminMode) {
-                add(
-                    ScreenFocusOption(
-                        key = SettingsScreenFocus.Tools.name,
-                        label = "Tools",
-                        summary = "Open hidden review links and local testing tools."
-                    )
-                )
-            }
-        }
-    }
     var showClearDialog by rememberSaveable { mutableStateOf(false) }
     var showLogoutDialog by rememberSaveable { mutableStateOf(false) }
     var clearActionMessage by rememberSaveable { mutableStateOf<String?>(null) }
@@ -206,13 +178,6 @@ fun SettingsScreen(
         runtimeNotificationPermissionGranted -> "Reminders are ready for meals and plan updates."
         else -> "Reminder permission still needs approval."
     }
-    val scheduledWorkersSummary = if (scheduledWorkSummaries.isEmpty()) {
-        "No reminder times lined up yet."
-    } else {
-        "${scheduledWorkSummaries.size} reminder time(s) lined up"
-    }
-    val nextReminderSummary = nextReminderSummaries.firstOrNull()?.let { "Next reminder: $it" }
-        ?: "No reminder time saved yet."
     val reminderOverviewLabel = if (notificationPrefs.masterEnabled) {
         "Reminders on"
     } else {
@@ -235,6 +200,7 @@ fun SettingsScreen(
     } else {
         "${profile.pantryItems.size} saved"
     }
+    val profileStepStates = remember(profile) { buildSettingsProfileSteps(profile) }
     val planningPriorityLabel = profile.planningPriority.ifBlank { "Balanced" }
     val maxCookTimeLabel = "${profile.maxCookingTimeMinutes} min max"
     val settingsStatusLabel = when (settingsFocus) {
@@ -250,55 +216,6 @@ fun SettingsScreen(
             "Review-only tools stay hidden in normal use."
         }
         SettingsScreenFocus.Account -> "Account actions stay local to this device."
-    }
-    val settingsSyncLabel = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> "Saved food rules: ${profile.dietaryRestrictions.size + profile.allergies.size}"
-        SettingsScreenFocus.Reminders -> if (notificationPrefs.masterEnabled) {
-            nextReminderSummary
-        } else {
-            scheduledWorkersSummary
-        }
-        SettingsScreenFocus.Tools -> "Authenticated admin access is active on this account."
-        SettingsScreenFocus.Account -> if (logoutActionPending) {
-            "Sign-out is already in progress."
-        } else {
-            "You stay in control of what stays on this phone."
-        }
-    }
-    val settingsPlanRangeLabel = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> "Main goal: $mainGoalLabel"
-        SettingsScreenFocus.Reminders -> "Phone permission: $permissionStateLabel"
-        SettingsScreenFocus.Tools -> "Review tools stay tucked away from everyday settings."
-        SettingsScreenFocus.Account -> "Clearing data only affects this phone unless you confirm it."
-    }
-    val settingsNextLabel = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> "Next focus: review the details that affect budget, time, and food rules."
-        SettingsScreenFocus.Reminders -> nextReminderSummary
-        SettingsScreenFocus.Tools -> "Next focus: open the guide or local test tools only when you are reviewing the build."
-        SettingsScreenFocus.Account -> "Next focus: confirm before clearing data or signing out."
-    }
-    val settingsSummaryBadge = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> "Profile setup"
-        SettingsScreenFocus.Reminders -> "Reminder controls"
-        SettingsScreenFocus.Tools -> "Review tools"
-        SettingsScreenFocus.Account -> "Account actions"
-    }
-    val settingsSummaryTitle = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> "Profile details shape your week."
-        SettingsScreenFocus.Reminders -> "Keep reminders helpful, not noisy."
-        SettingsScreenFocus.Tools -> "Internal tools stay out of normal use."
-        SettingsScreenFocus.Account -> "Account controls should stay clear and deliberate."
-    }
-    val settingsSummaryAccent = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> colorScheme.primary
-        SettingsScreenFocus.Reminders -> colorScheme.secondary
-        SettingsScreenFocus.Tools -> colorScheme.tertiary
-        SettingsScreenFocus.Account -> colorScheme.error
-    }
-    val settingsSummaryHighlights = buildList {
-        add(settingsPlanRangeLabel)
-        add(settingsSyncLabel)
-        add(settingsNextLabel)
     }
     val lastFiredByType = remember(notificationLogs) {
         notificationLogs
@@ -409,7 +326,9 @@ fun SettingsScreen(
         modifier = modifier
             .fillMaxSize()
             .background(Color.White)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .navigationBarsPadding()
+            .imePadding(),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         FigmaSettingsHero(
@@ -449,6 +368,11 @@ fun SettingsScreen(
                 title = "Profile",
                 summary = settingsStatusLabel
             ) {
+                SettingsProfileProgressLine(
+                    steps = profileStepStates,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                SettingsDivider()
                 FigmaSettingsFeatureToggle(
                     icon = Icons.Default.Warning,
                     label = "Symptom Management",
@@ -1184,6 +1108,153 @@ fun SettingsScreen(
 
 }
 
+private fun buildSettingsProfileSteps(profile: UserProfile): List<SettingsProfileStepState> {
+    val hasPersonalDetails = profile.isProfileCompleted || (
+        profile.age in SettingsProfileMinAge..SettingsProfileMaxAge &&
+            profile.weightKg in 35..180 &&
+            profile.heightCm in 120..200 &&
+            profile.activityLevel.isNotBlank()
+        )
+    val hasMedicalDetails = profile.isProfileCompleted ||
+        profile.insulinResistanceLevel.isNotBlank()
+    val hasPlanningRules = profile.isProfileCompleted ||
+        profile.maxCookingTimeMinutes in 10..240
+
+    return listOf(
+        SettingsProfileStepState(
+            stepNumber = 1,
+            title = "Personal",
+            detail = "Body metrics & activity",
+            complete = hasPersonalDetails,
+        ),
+        SettingsProfileStepState(
+            stepNumber = 2,
+            title = "Medical",
+            detail = "Insulin & symptoms",
+            complete = hasMedicalDetails,
+        ),
+        SettingsProfileStepState(
+            stepNumber = 3,
+            title = "Preferences",
+            detail = "Food rules & budget",
+            complete = hasPlanningRules,
+        ),
+    )
+}
+
+@Composable
+private fun SettingsProfileProgressLine(
+    steps: List<SettingsProfileStepState>,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val completedCount = steps.count { it.complete }
+    val activeStep = steps.firstOrNull { !it.complete }?.stepNumber ?: steps.lastOrNull()?.stepNumber ?: 1
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Profile setup progress",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                color = colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = colorScheme.primary.copy(alpha = 0.10f),
+                contentColor = colorScheme.primary
+            ) {
+                Text(
+                    text = "$completedCount of ${steps.size} ready",
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    maxLines = 1
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            steps.forEach { step ->
+                val highlighted = step.complete || step.stepNumber == activeStep
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(7.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(
+                            if (highlighted) {
+                                colorScheme.primary
+                            } else {
+                                colorScheme.surfaceVariant
+                            }
+                        )
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            steps.forEach { step ->
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.Start,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = if (step.complete) colorScheme.primary else colorScheme.surfaceVariant,
+                        contentColor = if (step.complete) Color.White else colorScheme.onSurfaceVariant
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (step.complete) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                            Text(
+                                text = "Step ${step.stepNumber}",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                maxLines = 1
+                            )
+                        }
+                    }
+                    Text(
+                        text = step.title,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold),
+                        color = colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = step.detail,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun FigmaSettingsHero(
     title: String,
@@ -1503,6 +1574,9 @@ private fun SettingsAvatarEditorDialog(
     onSave: () -> Unit,
 ) {
     AlertDialog(
+        modifier = Modifier
+            .navigationBarsPadding()
+            .imePadding(),
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(

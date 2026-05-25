@@ -60,7 +60,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -159,7 +161,7 @@ fun LoginScreen(
                 GoogleSignInStatusCodes.SIGN_IN_CANCELLED -> "Google sign-in cancelled."
                 GoogleSignInStatusCodes.NETWORK_ERROR -> "Network issue during Google sign-in. Please try again."
                 GoogleSignInStatusCodes.DEVELOPER_ERROR ->
-                    "Google sign-in is not available on this build yet. Check the Firebase Google client configuration."
+                    "This build is not registered for Google sign-in yet. Add its signing certificate to Firebase, refresh google-services.json, then reinstall."
                 GoogleSignInStatusCodes.SIGN_IN_FAILED -> "Google sign-in failed. Please try again."
                 else -> "Google sign-in failed (code ${e.statusCode})."
             }
@@ -474,6 +476,7 @@ private fun TermsOfServiceOverlay(
         val outerArcSize = screenWidth * if (compact) 1.48f else 1.64f
         val innerArcSize = screenWidth * if (compact) 1.32f else 1.46f
         val scrollMaxHeight = screenHeight * if (compact) 0.43f else 0.47f
+        val density = LocalDensity.current
 
         Image(
             painter = painterResource(id = R.drawable.pcosina_auth_snacks_background),
@@ -555,12 +558,33 @@ private fun TermsOfServiceOverlay(
                         color = PcosinaMuted
                     )
 
+                    val legalScrollState = rememberScrollState()
+                    var legalTrackHeightPx by remember { mutableStateOf(0) }
+                    val minThumbHeightPx = with(density) { 42.dp.toPx() }
+                    val thumbHeightPx = if (legalScrollState.maxValue > 0 && legalTrackHeightPx > 0) {
+                        val contentHeightPx = legalTrackHeightPx + legalScrollState.maxValue
+                        (legalTrackHeightPx * (legalTrackHeightPx / contentHeightPx.toFloat()))
+                            .coerceIn(minThumbHeightPx, legalTrackHeightPx.toFloat())
+                    } else {
+                        legalTrackHeightPx.toFloat()
+                    }
+                    val thumbOffsetPx = if (
+                        legalScrollState.maxValue > 0 &&
+                        legalTrackHeightPx > thumbHeightPx
+                    ) {
+                        (legalScrollState.value / legalScrollState.maxValue.toFloat()) *
+                            (legalTrackHeightPx - thumbHeightPx)
+                    } else {
+                        0f
+                    }
+                    val thumbHeight = with(density) { thumbHeightPx.toDp() }
+                    val thumbOffset = with(density) { thumbOffsetPx.toDp() }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = scrollMaxHeight),
+                            .heightIn(max = scrollMaxHeight)
+                            .onSizeChanged { legalTrackHeightPx = it.height },
                     ) {
-                        val legalScrollState = rememberScrollState()
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -616,7 +640,8 @@ private fun TermsOfServiceOverlay(
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .height(if (compact) 88.dp else 108.dp)
+                                .offset(y = thumbOffset)
+                                .height(thumbHeight)
                                 .widthIn(min = 5.dp, max = 5.dp)
                                 .background(PcosinaBlushStrong, RoundedCornerShape(50)),
                         )

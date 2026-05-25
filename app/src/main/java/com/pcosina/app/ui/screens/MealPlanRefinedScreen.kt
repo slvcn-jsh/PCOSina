@@ -980,7 +980,7 @@ private fun MealPlanDailySummaryCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Daily nutrition summary",
+                    text = "Estimated daily intake",
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF682937)
@@ -999,7 +999,7 @@ private fun MealPlanDailySummaryCard(
             ) {
                 RefinedRingMeter(
                     valueText = "$dayCalories",
-                    subtitle = "planned of ${targetCalories.coerceAtLeast(1)} kcal",
+                    subtitle = "KCAL",
                     progress = if (targetCalories > 0) dayCalories.toFloat() / targetCalories.toFloat() else 0f,
                     color = PcosinaPink,
                     compact = compact
@@ -1024,19 +1024,19 @@ private fun MealPlanDailySummaryCard(
                     }
                     RefinedMetricBar(
                         label = "Protein",
-                        valueText = "${totalProtein}g/${targetProtein}g",
+                        valueText = "${totalProtein}g",
                         progress = totalProtein.toFloat() / targetProtein.coerceAtLeast(1).toFloat(),
                         color = Color(0xFFFF9BAA)
                     )
                     RefinedMetricBar(
                         label = "Carbs",
-                        valueText = "${totalCarbs}g/${targetCarbs}g",
+                        valueText = "${totalCarbs}g",
                         progress = totalCarbs.toFloat() / targetCarbs.coerceAtLeast(1).toFloat(),
                         color = Color(0xFFD0A069)
                     )
                     RefinedMetricBar(
                         label = "Fiber",
-                        valueText = "${totalFiber}g/${targetFiber}g",
+                        valueText = "${totalFiber}g",
                         progress = totalFiber.toFloat() / targetFiber.coerceAtLeast(1).toFloat(),
                         color = Color(0xFFB9E7A6)
                     )

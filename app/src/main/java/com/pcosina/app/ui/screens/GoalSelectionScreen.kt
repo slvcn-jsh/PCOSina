@@ -62,6 +62,8 @@ import com.pcosina.app.ui.util.parseGoalOptions
 @Composable
 fun GoalSelectionScreen(
     userViewModel: UserViewModel,
+
+
     onFinish: () -> Unit,
     modifier: Modifier = Modifier,
 ) {

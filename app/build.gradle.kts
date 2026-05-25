@@ -1,4 +1,6 @@
 import com.google.firebase.appdistribution.gradle.firebaseAppDistribution
+import groovy.json.JsonSlurper
+import java.io.ByteArrayOutputStream
 
 plugins {
     alias(libs.plugins.android.application)
@@ -115,6 +117,118 @@ if (releaseTasksRequested && !hasManagedReleaseSigning && !allowInsecureReleaseS
             "PCOSINA_RELEASE_KEY_ALIAS / PCOSINA_RELEASE_KEY_PASSWORD, " +
             "or explicitly allow insecure local signing with PCOSINA_ALLOW_INSECURE_RELEASE_SIGNING=true."
     )
+}
+
+fun googleServicesClient(): Map<*, *> {
+    if (!canLoadGoogleServicesConfig) {
+        throw GradleException("google-services.json is missing or unreadable.")
+    }
+    val parsed = JsonSlurper().parse(googleServicesConfig) as Map<*, *>
+    val clients = parsed["client"] as? List<*> ?: emptyList<Any>()
+    return clients
+        .filterIsInstance<Map<*, *>>()
+        .firstOrNull { client ->
+            val info = client["client_info"] as? Map<*, *>
+            val androidInfo = info?.get("android_client_info") as? Map<*, *>
+            androidInfo?.get("package_name") == "com.pcosina.app"
+        }
+        ?: throw GradleException("google-services.json has no Android client for com.pcosina.app.")
+}
+
+fun googleServicesAndroidSha1s(): Set<String> {
+    val client = googleServicesClient()
+    val oauthClients = client["oauth_client"] as? List<*> ?: emptyList<Any>()
+    return oauthClients
+        .filterIsInstance<Map<*, *>>()
+        .mapNotNull { oauth ->
+            val androidInfo = oauth["android_info"] as? Map<*, *>
+            androidInfo?.get("certificate_hash")?.toString()
+        }
+        .map { it.replace(":", "").lowercase() }
+        .filter { it.isNotBlank() }
+        .toSet()
+}
+
+fun defaultDebugKeystore(): File {
+    val androidUserHome = System.getenv("ANDROID_USER_HOME")
+        ?: "${System.getProperty("user.home")}/.android"
+    return file("$androidUserHome/debug.keystore")
+}
+
+fun debugKeystoreSha1(): String? {
+    val keystore = defaultDebugKeystore()
+    if (!keystore.exists()) return null
+    val output = ByteArrayOutputStream()
+    val result = exec {
+        isIgnoreExitValue = true
+        commandLine(
+            "keytool",
+            "-list",
+            "-v",
+            "-keystore",
+            keystore.absolutePath,
+            "-alias",
+            "androiddebugkey",
+            "-storepass",
+            "android",
+            "-keypass",
+            "android"
+        )
+        standardOutput = output
+        errorOutput = output
+    }
+    if (result.exitValue != 0) return null
+    return Regex("""SHA1:\s*([0-9A-Fa-f:]+)""")
+        .find(output.toString())
+        ?.groupValues
+        ?.get(1)
+        ?.replace(":", "")
+        ?.lowercase()
+}
+
+tasks.register("printGoogleSignInConfig") {
+    group = "verification"
+    description = "Prints the Firebase Google Sign-In client IDs and local debug signing SHA-1."
+    doLast {
+        val client = googleServicesClient()
+        val oauthClients = client["oauth_client"] as? List<*> ?: emptyList<Any>()
+        val webClientId = oauthClients
+            .filterIsInstance<Map<*, *>>()
+            .firstOrNull { it["client_type"]?.toString() == "3" }
+            ?.get("client_id")
+            ?.toString()
+            .orEmpty()
+        val androidSha1s = googleServicesAndroidSha1s()
+        val localDebugSha1 = debugKeystoreSha1().orEmpty()
+        logger.lifecycle("Firebase project: pcosina")
+        logger.lifecycle("Android package: com.pcosina.app")
+        logger.lifecycle("Web client ID: $webClientId")
+        logger.lifecycle("Configured Android SHA-1 fingerprints:")
+        androidSha1s.sorted().forEach { logger.lifecycle("  $it") }
+        logger.lifecycle("Local debug keystore SHA-1: ${localDebugSha1.ifBlank { "not found" }}")
+        if (localDebugSha1.isNotBlank() && localDebugSha1 !in androidSha1s) {
+            logger.lifecycle(
+                "Missing Firebase fingerprint. Add $localDebugSha1 to Firebase app " +
+                    "1:950408114415:android:0b3c55b663b7638c20ab1a, then download a fresh google-services.json."
+            )
+        }
+    }
+}
+
+tasks.register("verifyGoogleSignInDebugSha") {
+    group = "verification"
+    description = "Fails when the local debug keystore SHA-1 is not registered in google-services.json."
+    doLast {
+        val localDebugSha1 = debugKeystoreSha1()
+            ?: throw GradleException("Could not read the local Android debug keystore SHA-1.")
+        val configuredSha1s = googleServicesAndroidSha1s()
+        if (localDebugSha1 !in configuredSha1s) {
+            throw GradleException(
+                "Local debug SHA-1 $localDebugSha1 is missing from app/google-services.json. " +
+                    "Register this SHA-1 in Firebase for com.pcosina.app and download a fresh google-services.json."
+            )
+        }
+    }
 }
 
 

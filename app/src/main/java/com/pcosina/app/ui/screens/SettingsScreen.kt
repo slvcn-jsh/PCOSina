@@ -901,7 +901,7 @@ private fun buildSettingsProfileSteps(profile: UserProfile): List<SettingsProfil
         SettingsProfileStepState(
             stepNumber = 2,
             title = "Medical",
-            detail = "Insulin & symptoms",
+            detail = "Symptoms",
             complete = hasMedicalDetails,
         ),
         SettingsProfileStepState(

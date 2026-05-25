@@ -450,6 +450,7 @@ fun AppNavHost(
                 userViewModel = userViewModel,
                 onNext = { navigateInternal(Routes.GoalSelection) },
                 isEditMode = false,
+                onBack = { navController.popBackStack() },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -463,6 +464,7 @@ fun AppNavHost(
                     goalEditMode.value = true
                     navigateInternal(Routes.GoalSelection)
                 },
+                onBack = { navController.popBackStack() },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -485,6 +487,7 @@ fun AppNavHost(
                         }
                     }
                 },
+                onBack = { navController.popBackStack() },
                 modifier = Modifier.fillMaxSize(),
             )
         }

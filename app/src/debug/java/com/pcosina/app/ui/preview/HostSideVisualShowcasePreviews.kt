@@ -943,8 +943,6 @@ fun ProfilePlanningHostPreview() {
             onR5 = {},
             budget = "2500",
             onBudget = {},
-            householdSize = 3,
-            onHouseholdSize = {},
             maxCookingTime = "35",
             onMaxCookingTime = {},
             varietyPreference = "Balanced",

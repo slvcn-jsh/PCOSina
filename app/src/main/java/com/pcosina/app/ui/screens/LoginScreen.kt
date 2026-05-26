@@ -46,7 +46,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -286,6 +285,23 @@ fun LoginScreen(
                     .background(PcosinaBlush),
             )
 
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(headerHeight)
+                    .statusBarsPadding(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.login_ownership_watermark),
+                    contentDescription = "Developed by Quadrant",
+                    modifier = Modifier
+                        .widthIn(max = if (compact) 252.dp else 286.dp)
+                        .fillMaxWidth(if (compact) 0.76f else 0.82f),
+                    contentScale = ContentScale.Fit,
+                )
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -296,115 +312,55 @@ fun LoginScreen(
                     .padding(bottom = bottomPadding),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Box(
+                Spacer(modifier = Modifier.height(headerHeight + if (compact) 18.dp else 24.dp))
+
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-HEAD
-                        .widthIn(max = if (compact) 322.dp else 348.dp),
-                    contentScale = ContentScale.Fit,
-                )
-
-                Text(
-                    text = "A wellness decision support tool",
-                    modifier = Modifier.testTag("login_wellness_label"),
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = if (compact) 20.sp else 22.sp,
-                        shadow = taglineShadow,
-                    ),
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                )
-
-                bannerData?.let { banner ->
-                    AppFeedbackBanner(
-                        data = banner,
-
-                        .height(headerHeight)
-                        .statusBarsPadding(),
-                    contentAlignment = Alignment.Center,
+                        .fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.login_ownership_watermark),
-                        contentDescription = "Developed by Quadrant",
-251f8bb (Update UI changes 5-26-2026)
-                        modifier = Modifier
-                            .widthIn(max = if (compact) 252.dp else 286.dp)
-                            .fillMaxWidth(if (compact) 0.76f else 0.82f),
-                        contentScale = ContentScale.Fit,
+                    Box(
+                        modifier = Modifier.size(illustrationSize),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(illustrationHaloSize)
+                                .shadow(
+                                    elevation = if (compact) 26.dp else 32.dp,
+                                    shape = CircleShape,
+                                    spotColor = Color.White.copy(alpha = 0.78f),
+                                    ambientColor = Color.White.copy(alpha = 0.58f),
+                                )
+                                .background(brush = logoHaloBrush, shape = CircleShape),
+                        )
+
+                        Image(
+                            painter = painterResource(id = R.drawable.login_heart_hands),
+                            contentDescription = "PCOSina",
+                            modifier = Modifier
+                                .size(illustrationSize)
+                                .aspectRatio(1f),
+                            contentScale = ContentScale.Fit,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(subtitleGap))
+
+                    Text(
+                        text = "A wellness decision support tool",
+                        modifier = Modifier.testTag("login_wellness_label"),
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = if (compact) 20.sp else 22.sp,
+                            shadow = taglineShadow,
+                        ),
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
                     )
                 }
 
- HEAD
-                Button(
-                    onClick = {
-                        legalNotice = null
-                        loginCompletionHandled = false
-                        analytics.logEvent("google_login_attempt", null)
-                        googleLauncher.launch(googleSignInClient.signInIntent)
-                    },
-                    enabled = !isLoading,
-                    shape = RoundedCornerShape(24.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        disabledContainerColor = Color.White.copy(alpha = 0.72f),
-                        contentColor = PcosinaBlushStrong,
-                        disabledContentColor = PcosinaBlushStrong.copy(alpha = 0.72f),
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
-
-                Box(
- 251f8bb (Update UI changes 5-26-2026)
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = if (compact) 18.dp else 24.dp),
-                    contentAlignment = Alignment.TopCenter,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(
-                            modifier = Modifier.size(illustrationSize),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(illustrationHaloSize)
-                                    .shadow(
-                                        elevation = if (compact) 26.dp else 32.dp,
-                                        shape = CircleShape,
-                                        spotColor = Color.White.copy(alpha = 0.78f),
-                                        ambientColor = Color.White.copy(alpha = 0.58f),
-                                    )
-                                    .background(brush = logoHaloBrush, shape = CircleShape),
-                            )
-
-                            Image(
-                                painter = painterResource(id = R.drawable.login_heart_hands),
-                                contentDescription = "PCOSina",
-                                modifier = Modifier
-                                    .size(illustrationSize)
-                                    .aspectRatio(1f),
-                                contentScale = ContentScale.Fit,
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(subtitleGap))
-
-                        Text(
-                            text = "A wellness decision support tool",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = if (compact) 20.sp else 22.sp,
-                                shadow = taglineShadow,
-                            ),
-                            color = Color.White,
-                            textAlign = TextAlign.Center,
-                        )
-                    }
-                }
-
                 Spacer(modifier = Modifier.weight(1f))
-
- HEAD
 
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -423,7 +379,6 @@ HEAD
                     Button(
                         onClick = {
                             legalNotice = null
-                            operatorAccessRequested = true
                             loginCompletionHandled = false
                             analytics.logEvent("google_login_attempt", null)
                             googleLauncher.launch(googleSignInClient.signInIntent)
@@ -484,19 +439,7 @@ HEAD
                         color = PcosinaDeepRose.copy(alpha = 0.75f),
                         textAlign = TextAlign.Center,
                     )
-
-                    if (BuildConfig.DEBUG && onDebugFirstWinContinue != null) {
-                        TextButton(
-                            onClick = onDebugFirstWinContinue,
-                            modifier = Modifier.testTag("login_debug_continue_first_win"),
-                            enabled = !isLoading,
-                            colors = ButtonDefaults.textButtonColors(contentColor = Color.White),
-                        ) {
-                            Text("Debug: Continue First-Win Flow")
-                        }
-                    }
                 }
- 251f8bb (Update UI changes 5-26-2026)
             }
         }
 

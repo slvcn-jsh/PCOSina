@@ -1402,11 +1402,8 @@ fun StepThreeDiet(
     onR5: (Boolean) -> Unit,
     budget: String,
     onBudget: (String) -> Unit,
-HEAD
     householdSize: Int = 1,
     onHouseholdSize: (Int) -> Unit = {},
-
-    761cd7a (Update UI changes)
     maxCookingTime: String,
     onMaxCookingTime: (String) -> Unit,
     varietyPreference: String,

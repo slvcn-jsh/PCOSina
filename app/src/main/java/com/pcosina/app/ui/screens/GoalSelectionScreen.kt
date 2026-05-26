@@ -38,7 +38,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -84,13 +83,6 @@ fun GoalSelectionScreen(
     }
 
     val hasSelection = weightLoss || symptomMgmt || generalHealth
-    val selectedGoals = remember(weightLoss, symptomMgmt, generalHealth) {
-        buildList {
-            if (weightLoss) add(GoalOption.WeightLoss)
-            if (symptomMgmt) add(GoalOption.SymptomManagement)
-            if (generalHealth) add(GoalOption.GeneralHealth)
-        }
-    }
     val primaryActionLabel = "Save goals and build your week"
 
     Box(
@@ -107,79 +99,6 @@ fun GoalSelectionScreen(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-<<<<<<< HEAD
-                .testTag("goal_status_center_card"),
-        )
-
-        GoalCard(
-            title = "Weight Loss",
-            description = "Prioritizes calorie balance, satisfying meals, and realistic weekly adherence.",
-            emphasisLabel = "Calorie balance",
-            supportLabel = "Best when body-weight change is your main weekly goal.",
-            selected = weightLoss,
-            onToggle = { weightLoss = !weightLoss },
-            testTag = "goal_option_weight_loss",
-        )
-
-        GoalCard(
-            title = "PCOS Symptom Management",
-            description = "Prioritizes symptom-aware nudges, steadier meals, and metabolic support.",
-            emphasisLabel = "Symptom-aware nudges",
-            supportLabel = "Best when cravings, energy swings, or symptom support matter most.",
-            selected = symptomMgmt,
-            onToggle = { symptomMgmt = !symptomMgmt },
-            testTag = "goal_option_symptom_management",
-        )
-
-        GoalCard(
-            title = "General Health Improvement",
-            description = "Balances overall nutrition quality, consistency, and everyday wellness.",
-            emphasisLabel = "Balanced nutrition",
-            supportLabel = "Best when you want a broad, sustainable weekly reset.",
-            selected = generalHealth,
-            onToggle = { generalHealth = !generalHealth },
-            testTag = "goal_option_general_health",
-        )
-
-        if (!hasSelection) {
-            Text(
-                text = "Please select at least one goal before building your first week.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-
-        GoalPrimaryActionButton(
-            primaryActionLabel = primaryActionLabel,
-            hasSelection = hasSelection,
-            onClick = {
-                if (hasSelection) {
-                    val goals = linkedSetOf<GoalOption>()
-                    if (weightLoss) goals.add(GoalOption.WeightLoss)
-                    if (symptomMgmt) goals.add(GoalOption.SymptomManagement)
-                    if (generalHealth) goals.add(GoalOption.GeneralHealth)
-                    userViewModel.updateGoal(goalTextFromOptions(goals))
-                    onFinish()
-                }
-            },
-            modifier = Modifier.testTag("goal_save_continue_cta"),
-        )
-
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = PcosinaBlushSurface,
-            border = BorderStroke(1.dp, PcosinaBlushBorder),
-        ) {
-            Text(
-                text = "You can change these focus areas later in Settings if your priorities shift.",
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
-=======
                 .align(Alignment.BottomCenter)
                 .fillMaxHeight(0.76f),
             shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
@@ -293,89 +212,14 @@ fun GoalSelectionScreen(
                 }
             }
         }
->>>>>>> 761cd7a (Update UI changes)
     }
 }
 
 @Composable
-<<<<<<< HEAD
-private fun GoalPrimaryActionButton(
-    primaryActionLabel: String,
-    hasSelection: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier
-            .fillMaxWidth()
-            .height(58.dp)
-            .shadow(
-                elevation = 14.dp,
-                shape = RoundedCornerShape(24.dp),
-                spotColor = PcosinaRoseShadow.copy(alpha = 0.24f),
-                ambientColor = PcosinaRoseShadow.copy(alpha = 0.18f),
-            ),
-        enabled = hasSelection,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color.Transparent,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        ),
-        contentPadding = PaddingValues(0.dp),
-        shape = RoundedCornerShape(24.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    if (hasSelection) {
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                PcosinaBlushStrong,
-                                MaterialTheme.colorScheme.secondary,
-                            ),
-                        )
-                    } else {
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.surfaceVariant,
-                                MaterialTheme.colorScheme.surfaceVariant,
-                            ),
-                        )
-                    },
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(primaryActionLabel, fontWeight = FontWeight.Bold)
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun GoalSetupSummaryCard(
-    goalStatusSummary: String,
-    goalStorageSummary: String,
-    goalNextFocusLabel: String,
-    whyCopy: String,
-    hasSelection: Boolean,
-    selectedGoalCount: Int,
-=======
 private fun GoalHeader(
     title: String,
     subtitle: String,
     onBack: (() -> Unit)?,
->>>>>>> 761cd7a (Update UI changes)
     modifier: Modifier = Modifier,
 ) {
     Box(

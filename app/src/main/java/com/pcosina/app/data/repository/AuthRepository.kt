@@ -19,24 +19,16 @@ import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.FirebaseTooManyRequestsException
-import com.google.firebase.appcheck.FirebaseAppCheck
-import com.google.gson.Gson
 import com.pcosina.app.BuildConfig
 import com.pcosina.app.R
 import com.pcosina.app.data.model.Session
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.json.JSONObject
 import java.io.IOException
 import java.net.UnknownHostException
-import java.util.concurrent.TimeUnit
 
 val Context.authDataStore: DataStore<Preferences> by preferencesDataStore(name = "auth_prefs")
 
@@ -126,30 +118,7 @@ internal fun mapAuthExceptionToMessage(action: AuthMessageAction, error: Excepti
 }
 
 class AuthRepository(private val context: Context) {
-    data class OperatorAccessStatus(
-        val allowed: Boolean = false,
-        val roles: Set<String> = emptySet(),
-        val message: String? = null,
-        val actor: String? = null,
-        val emailVerified: Boolean = false,
-        val mfaVerified: Boolean = false
-    )
-
-    private data class OperatorAccessPayload(
-        val allowed: Boolean = false,
-        val roles: List<String> = emptyList(),
-        val actor: String? = null,
-        val emailVerified: Boolean = false,
-        val mfaVerified: Boolean = false
-    )
-
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val firebaseAppCheck: FirebaseAppCheck = FirebaseAppCheck.getInstance()
-    private val operatorAccessClient: OkHttpClient = OkHttpClient.Builder()
-        .callTimeout(15, TimeUnit.SECONDS)
-        .build()
-    private val gson = Gson()
-    private val operatorAccessUrl = normalizeBaseUrl(BuildConfig.BASE_URL).trimEnd('/') + "/mobile/operator/access"
 
     private object Keys {
         val IS_LOGGED_IN = booleanPreferencesKey("is_logged_in")
@@ -191,73 +160,6 @@ class AuthRepository(private val context: Context) {
                 prefs[Keys.IS_LOGGED_IN] = false
                 prefs.remove(Keys.CURRENT_USER_EMAIL)
                 prefs.remove(Keys.CURRENT_USER_UID)
-            }
-        }
-    }
-
-    suspend fun getCurrentUserOperatorAccess(forceRefresh: Boolean = true): OperatorAccessStatus = withContext(Dispatchers.IO) {
-        val currentUser = firebaseAuth.currentUser ?: return@withContext OperatorAccessStatus()
-        if (BuildConfig.DEBUG) {
-            Log.i(
-                OperatorAccessLogTag,
-                "Operator access check started url=$operatorAccessUrl " +
-                    "email=${maskEmail(currentUser.email)} uid=${maskToken(currentUser.uid)}"
-            )
-        }
-        val idToken = currentUser.getIdToken(forceRefresh).await().token
-            ?.takeIf { it.isNotBlank() }
-            ?: throw IllegalStateException("Couldn't verify operator access right now.")
-        val appCheckToken = getOptionalAppCheckToken()
-        val requestBuilder = Request.Builder()
-            .url(operatorAccessUrl)
-            .addHeader("Authorization", "Bearer $idToken")
-            .addHeader("X-PCOSINA-Schema-Version", BuildConfig.SCHEMA_VERSION)
-            .get()
-        if (!appCheckToken.isNullOrBlank()) {
-            requestBuilder.addHeader("X-Firebase-AppCheck", appCheckToken)
-        }
-        val request = requestBuilder.build()
-        operatorAccessClient.newCall(request).execute().use { response ->
-            val responseBody = response.body?.string().orEmpty()
-            return@withContext when {
-                response.isSuccessful -> {
-                    val payload = gson.fromJson(responseBody, OperatorAccessPayload::class.java)
-                        ?: throw IOException("Operator access verification returned an empty payload")
-                    val status = OperatorAccessStatus(
-                        allowed = payload.allowed,
-                        roles = payload.roles.map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet(),
-                        actor = payload.actor,
-                        emailVerified = payload.emailVerified,
-                        mfaVerified = payload.mfaVerified
-                    )
-                    if (BuildConfig.DEBUG) {
-                        Log.i(
-                            OperatorAccessLogTag,
-                            "Operator access result allowed=${status.allowed} roles=${status.roles.sorted()} " +
-                                "emailVerified=${status.emailVerified} mfaVerified=${status.mfaVerified}"
-                        )
-                    }
-                    status
-                }
-                response.code == 403 -> {
-                    val message = mapOperatorAccessDeniedMessage(parseErrorDetail(responseBody))
-                    if (BuildConfig.DEBUG) {
-                        Log.i(OperatorAccessLogTag, "Operator access denied: $message")
-                    }
-                    OperatorAccessStatus(message = message)
-                }
-                response.code == 401 -> {
-                    if (BuildConfig.DEBUG) {
-                        Log.w(OperatorAccessLogTag, "Operator access token rejected with HTTP 401")
-                    }
-                    throw IllegalStateException("Couldn't verify operator access right now.")
-                }
-                else -> {
-                    if (BuildConfig.DEBUG) {
-                        Log.w(OperatorAccessLogTag, "Operator access failed with HTTP ${response.code}")
-                    }
-                    throw IOException("Operator access verification failed with HTTP ${response.code}")
-                }
             }
         }
     }
@@ -373,84 +275,7 @@ class AuthRepository(private val context: Context) {
         GoogleSignIn.getClient(appContext, googleSignInOptions).signOut().await()
     }
 
-    private suspend fun getOptionalAppCheckToken(): String? {
-        if (!BuildConfig.PCOSINA_SEND_APP_CHECK) {
-            return null
-        }
-        val warmToken = runCatching {
-            firebaseAppCheck.getAppCheckToken(false).await().token
-        }.onFailure { error ->
-            if (BuildConfig.DEBUG) {
-                Log.w(OperatorAccessLogTag, "Firebase App Check warm token unavailable; continuing with Firebase ID token.", error)
-            }
-        }.getOrNull()?.takeIf { it.isNotBlank() }
-        if (warmToken != null) return warmToken
-        return runCatching {
-            firebaseAppCheck.getAppCheckToken(true).await().token
-        }.onFailure { error ->
-            if (BuildConfig.DEBUG) {
-                Log.w(OperatorAccessLogTag, "Firebase App Check refresh token unavailable; continuing without App Check.", error)
-            }
-        }.getOrNull()?.takeIf { it.isNotBlank() }
-    }
-
-    private fun parseErrorDetail(body: String): String? = runCatching {
-        JSONObject(body).optString("detail").takeIf { it.isNotBlank() }
-    }.getOrNull()
-
-    private fun mapOperatorAccessDeniedMessage(detail: String?): String {
-        val normalized = detail.orEmpty()
-        return when {
-            normalized.contains("MFA", ignoreCase = true) ->
-                "This operator account needs MFA-verified sign-in before opening operator tools."
-            normalized.contains("Verified operator email", ignoreCase = true) ->
-                "Verify this operator email before opening operator tools."
-            normalized.contains("override", ignoreCase = true) || normalized.contains("blocked", ignoreCase = true) ->
-                "Operator access for this account is currently blocked."
-            normalized.isNotBlank() && !normalized.contains("Admin role required", ignoreCase = true) ->
-                normalized
-            else -> "This account can sign in, but it doesn't have operator access."
-        }
-    }
-
-    private fun normalizeBaseUrl(raw: String): String {
-        var url = raw.trim()
-        url = url.trim('"', '\'')
-        if (url.startsWith(":")) {
-            url = url.removePrefix(":")
-        }
-        if (url.startsWith("//")) {
-            url = "https:$url"
-        }
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            url = "https://$url"
-        }
-        if (!url.endsWith("/")) {
-            url += "/"
-        }
-        return url
-    }
-
     private companion object {
         const val AuthSessionLogTag = "PCOSINA-Auth"
-        const val OperatorAccessLogTag = "PCOSINA-OperatorAccess"
-
-        fun maskEmail(email: String?): String {
-            val clean = email?.trim().orEmpty()
-            if (clean.isBlank() || "@" !in clean) return "(none)"
-            val local = clean.substringBefore("@")
-            val domain = clean.substringAfter("@")
-            val localMask = when {
-                local.length <= 2 -> "${local.firstOrNull() ?: '*'}*"
-                else -> "${local.take(2)}***${local.takeLast(1)}"
-            }
-            return "$localMask@$domain"
-        }
-
-        fun maskToken(value: String?): String {
-            val clean = value?.trim().orEmpty()
-            if (clean.isBlank()) return "(none)"
-            return if (clean.length <= 8) "***" else "${clean.take(4)}...${clean.takeLast(4)}"
-        }
     }
 }

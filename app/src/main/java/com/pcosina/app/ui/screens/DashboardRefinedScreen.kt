@@ -52,7 +52,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.TextStyle
@@ -82,7 +81,6 @@ import com.pcosina.app.ui.theme.PcosinaDeepRose
 import com.pcosina.app.ui.theme.PcosinaLightPink
 import com.pcosina.app.ui.theme.PcosinaMuted
 import com.pcosina.app.ui.theme.PcosinaPink
-import com.pcosina.app.ui.theme.PcosinaRoseShadow
 import com.pcosina.app.ui.theme.PcosinaSoftPink
 import com.pcosina.app.ui.theme.PcosinaSurface
 import com.pcosina.app.ui.theme.PcosinaSurfaceAlt
@@ -136,6 +134,7 @@ fun DashboardRefinedScreen(
     onViewPlan: () -> Unit = {},
     onOpenMoreTools: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
+    onOpenNotifications: () -> Unit = onOpenMoreTools,
     onNavigateToRoute: (String) -> Unit = {},
     onlineStateOverride: Boolean? = null,
     modifier: Modifier = Modifier,
@@ -334,7 +333,7 @@ fun DashboardRefinedScreen(
             SharedTopHeader(
                 online = isOnline,
                 onSettings = onNavigateToSettings,
-                onNotifications = { onNavigateToRoute(Routes.Notifications) },
+                onNotifications = onOpenNotifications,
                 compact = compactHomeLayout,
             )
         }
@@ -527,124 +526,6 @@ fun DashboardRefinedScreen(
         )
     }
 
-}
-
-@Composable
-private fun RefinedBrandHeader(
-    online: Boolean,
-    onOpenSettings: () -> Unit,
-    onOpenSupport: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = Color.White,
-                    border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.24f)),
-                    shadowElevation = 5.dp
-                ) {
-                    PcosinaDesignIcon(
-                        resId = R.drawable.pcosina_svg_24_logo,
-                        contentDescription = null,
-                        tint = Color.Unspecified,
-                        modifier = Modifier
-                            .padding(6.dp)
-                            .size(28.dp)
-                    )
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = "PCOSina",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            color = PcosinaPink,
-                            fontWeight = FontWeight.ExtraBold,
-                            shadow = androidx.compose.ui.graphics.Shadow(
-                                color = PcosinaRoseShadow.copy(alpha = 0.3f),
-                                offset = androidx.compose.ui.geometry.Offset(0f, 4f),
-                                blurRadius = 6f
-                            )
-                        )
-                    )
-                    Text(
-                        text = "“Take the first step toward smarter PCOS nutrition.”",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontStyle = FontStyle.Italic,
-                        color = PcosinaMuted,
-                        maxLines = 2
-                    )
-                }
-            }
-            RefinedIconAction(
-                iconRes = R.drawable.pcosina_svg_44_settings,
-                contentDescription = "Settings",
-                onClick = onOpenSettings
-            )
-            Spacer(Modifier.width(8.dp))
-            RefinedIconAction(
-                iconRes = R.drawable.pcosina_svg_45_bell,
-                contentDescription = "Support",
-                onClick = onOpenSupport
-            )
-        }
-        if (!online) {
-            Surface(
-                color = PcosinaSurfaceAlt,
-                contentColor = PcosinaMuted,
-                shape = RoundedCornerShape(999.dp)
-            ) {
-                Text(
-                    text = "Offline-safe mode: using saved local data.",
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.labelMedium
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun RefinedIconAction(
-    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
-    @DrawableRes iconRes: Int? = null,
-    contentDescription: String,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        shape = CircleShape,
-        color = Color.White,
-        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.28f)),
-        shadowElevation = 6.dp
-    ) {
-        if (iconRes != null) {
-            PcosinaDesignIcon(
-                resId = iconRes,
-                contentDescription = contentDescription,
-                tint = PcosinaPink,
-                modifier = Modifier.padding(12.dp)
-            )
-        } else if (icon != null) {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                tint = PcosinaPink,
-                modifier = Modifier.padding(12.dp)
-            )
-        }
-    }
 }
 
 @Composable

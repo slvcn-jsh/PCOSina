@@ -1,0 +1,16 @@
+{
+  "summary": {
+    "draftCount": 1054,
+    "statusCounts": {
+      "draft_partial_match": 1046,
+      "draft_ready_for_review": 7,
+      "needs_manual_nutrition_review": 1
+    },
+    "unmatchedIngredientCount": 4491,
+    "consideredRows": 1054
+  },
+  "outputCsv": "docs\\production_readiness\\nutrition_draft_local_estimates.csv",
+  "cachePath": "C:\\Users\\salva\\AndroidStudioProjects\\PCOSINA2\\backend\\seed_data\\fdc_food_matches_cache.json",
+  "source": "local_reference_ingredient_sum_draft",
+  "reviewPolicy": "Draft values remain pending_review until verified by a human reviewer."
+}

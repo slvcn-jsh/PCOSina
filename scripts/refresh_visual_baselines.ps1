@@ -16,10 +16,7 @@ $baselineFiles = @(
     "compact_chip_row.png",
     "compact_dashboard_today_outcome.png",
     "compact_progress_top_section.png",
-    "compact_mealplan_top_section.png",
-    "compact_login_first_win_card.png",
-    "compact_profile_first_win_card.png",
-    "compact_goal_handoff_card.png"
+    "compact_mealplan_top_section.png"
 )
 
 if (-not (Test-Path $gradle)) {
@@ -38,7 +35,7 @@ New-Item -ItemType Directory -Force $baselineDir, $tmpDir | Out-Null
 Push-Location $root
 try {
     $testArgs = @(
-        ":$Module:connectedDebugAndroidTest",
+        ":${Module}:connectedDebugAndroidTest",
         "-Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest",
         "-Pandroid.testInstrumentationRunnerArguments.refresh_visual_baseline=true"
     )
@@ -75,7 +72,7 @@ try {
 
     if ($VerifyAfterRefresh) {
         $verifyArgs = @(
-            ":$Module:connectedDebugAndroidTest",
+            ":${Module}:connectedDebugAndroidTest",
             "-Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest",
             "-Pandroid.testInstrumentationRunnerArguments.require_visual_baseline=true",
             "-Pandroid.testInstrumentationRunnerArguments.visual_delta_threshold=6.0"

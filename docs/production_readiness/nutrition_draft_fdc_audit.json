@@ -1,0 +1,16 @@
+{
+  "summary": {
+    "draftCount": 10,
+    "statusCounts": {
+      "needs_manual_nutrition_review": 10
+    },
+    "unmatchedIngredientCount": 96,
+    "consideredRows": 10,
+    "rateLimited": true,
+    "rateLimitNote": "USDA FDC returned HTTP 429; rerun with FDC_API_KEY or after the DEMO_KEY window resets."
+  },
+  "outputCsv": "docs\\production_readiness\\nutrition_draft_fdc_estimates.csv",
+  "cachePath": "backend\\seed_data\\fdc_food_matches_cache.json",
+  "source": "USDA FoodData Central API ingredient-level draft calculations",
+  "reviewPolicy": "Draft values remain pending_review until verified by a human reviewer."
+}

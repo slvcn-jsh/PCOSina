@@ -37,7 +37,7 @@ More detail: [ARCHITECTURE.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\ARC
 - Android SDK / emulator tooling for mobile builds and instrumentation tests
 - Python 3.12+ for backend, scripts, and ML tooling
 - Optional Firebase config for release packaging and distribution
-- Optional Postgres and Redis for production-like backend runs
+- Postgres and Redis for production-like backend runs; optional only for local development
 
 ## Local Development
 
@@ -51,8 +51,8 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Notes:
-- Dev and test can use local SQLite.
-- Production is expected to fail closed without Postgres and required security controls.
+- Dev and test can use local SQLite through `PCOSINA_DB_NAME`.
+- Production uses PostgreSQL through `DATABASE_URL` and fails closed without Postgres and required security controls.
 
 ### Android
 

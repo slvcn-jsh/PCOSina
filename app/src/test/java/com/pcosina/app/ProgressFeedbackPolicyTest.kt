@@ -30,7 +30,7 @@ class ProgressFeedbackPolicyTest {
         )
         assertTrue(
             "Progress screen should confirm saved daily check-ins.",
-            source.contains("Today's check-in was saved.")
+            source.contains("Reflection saved for today.")
         )
         assertTrue(
             "Progress screen should validate weekly spend with inline feedback.",

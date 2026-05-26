@@ -54,20 +54,20 @@ Auth is Firebase. Every API request may include Firebase ID token at schema vers
 Users log in, the app sends a secure token to the server, and the server checks it before giving a plan.
 
 **Technical depth version**
-Auth is enforced using Authorization: Bearer ID tokens in `MealPlanRepository.kt` and verified in `backend/main.py`. The backend includes request size limits and schema version checks, returns 422 on infeasible plans, and exposes `/schema` for contract compatibility.
+Auth is enforced using Authorization: Bearer ID tokens in `MealPlanRepository.kt` and verified in `backend/main.py`. The backend includes request size limits and schema version checks, returns `status=no-safe-plan` for infeasible plans, and exposes `/schema` for contract compatibility.
 
 ### Optimization and MILP/CP-SAT Explanation
 **Formal English version**
-We use a two-stage approach: first, rule-based filtering ensures recipes meet restrictions and pantry criteria. Second, CP-SAT optimization assigns recipes to meal slots while minimizing nutritional deviations and penalizing repeats and budget overruns, with rewards for pantry usage and diversity.
+We use a two-stage approach: first, rule-based filtering ensures recipes meet restrictions and pantry criteria. Second, CP-SAT optimization assigns recipes to meal slots while minimizing nutritional deviations, penalizing repeats, enforcing budget caps when configured, and rewarding pantry usage and diversity.
 
 **Natural Taglish version**
-Two-stage siya: una, filtering based on restrictions and pantry; pangalawa, CP-SAT optimization ang nag-aassign ng recipes sa meal slots. Minimize ang deviations sa calories at macros, may penalties for repeats at budget overrun, at rewards for pantry matches at diversity.
+Two-stage siya: una, filtering based on restrictions and pantry; pangalawa, CP-SAT optimization ang nag-aassign ng recipes sa meal slots. Minimize ang deviations sa calories at macros, may penalties for repeats, hard cap ang budget kapag configured, at rewards for pantry matches at diversity.
 
 **Simple explanation version**
 We first remove recipes the user cannot eat. Then we pick the best set of meals that fits nutrition targets and variety rules.
 
 **Technical depth version**
-Binary decision variables `x[s,i]` select recipe i for slot s. Hard constraints ensure one recipe per slot and max usage per week. Soft constraints model diversity and budget via slack variables. Objective minimizes calorie and macro deviations plus penalties, minus pantry and diversity rewards.
+Binary decision variables `x[s,i]` select recipe i for slot s. Hard constraints ensure one recipe per slot, max usage per week, and the weekly budget cap when configured. Soft constraints model nutrition deviations, diversity, prep-time burden, and pantry tradeoffs. Objective minimizes deviations plus penalties, minus pantry and diversity rewards.
 
 ### Testing, Security, Deployment
 **Formal English version**
@@ -123,11 +123,11 @@ The system integrates MVVM mobile architecture, Firebase Auth, FastAPI backend s
 | Offline-first meaning? | Data stays on device; only new plan needs backend. | Plans, grocery lists, and reflections are stored in DataStore and encrypted prefs. | DataStore, encrypted | Avoid: “No backend needed.” |
 | How is auth handled? | Firebase Auth on app, Firebase Admin on backend. | The app sends a Bearer token; backend verifies with Firebase Admin before planning. | Firebase ID token | Avoid: “No auth checks.” |
 | What is schema versioning? | A header check for client-server compatibility. | Client sends X-PCOSINA-Schema-Version; server returns version and checks mismatch. | schema contract | Avoid: “We ignore versions.” |
-| What if plan is infeasible? | Server returns 422; user can relax inputs. | We return infeasible status; optional fallback exists if enabled. | 422, infeasible | Avoid: “It never fails.” |
-| How is budget handled? | Penalized in objective, not a hard cap. | Budget overrun adds penalty so solver prefers cheaper options when possible. | budget penalty | Avoid: “We ignore budget.” |
+| What if plan is infeasible? | Server returns `status=no-safe-plan`; user can relax safe inputs. | We return reason codes, diagnostics, and guidance without forcing a greedy or unsafe plan. | no-safe-plan, diagnostics | Avoid: “It never fails.” |
+| How is budget handled? | Hard cap when configured. | Estimated weekly cost must stay within budget; cost is optimized directly only for budget-priority profiles. | budget cap | Avoid: “We ignore budget.” |
 | How do you ensure diversity? | Soft diversity constraints and protein group caps. | We penalize repeats and limit protein group overuse; also reward vegetable coverage. | diversity, penalties | Avoid: “Random variety.” |
 | What is a decision variable? | Binary choice of recipe per slot. | `x[s,i]` indicates whether recipe i is selected for slot s. | decision variable | Avoid: “A user choice.” |
-| What is the objective function? | Minimize deviations and penalties, reward pantry and diversity. | It sums calorie and macro deviations plus repeat and budget penalties minus pantry and diversity rewards. | objective, penalties | Avoid: “Maximize calories.” |
+| What is the objective function? | Minimize deviations and penalties, reward pantry and diversity. | It sums calorie and macro deviations plus repeat, prep-time, diversity, and optional cost-priority terms minus pantry and diversity rewards. | objective, penalties | Avoid: “Maximize calories.” |
 | What is CP-SAT? | OR-Tools constraint solver using SAT-based techniques. | CP-SAT solves binary decision problems efficiently with constraints and penalties. | OR-Tools, CP-SAT | Avoid: “It’s ML.” |
 | Why not greedy only? | Greedy can violate constraints; CP-SAT enforces them. | Greedy may pick good local meals but fail global feasibility, so CP-SAT is safer. | feasibility | Avoid: “Greedy is enough.” |
 | What is the backend stack? | FastAPI with Pydantic, SQLite/Postgres. | FastAPI validates schemas, reads recipes, and runs the solver. | FastAPI, Pydantic | Avoid: “Just a script.” |
@@ -146,7 +146,7 @@ The system integrates MVVM mobile architecture, Firebase Auth, FastAPI backend s
 | What’s the difference between auth and authorization? | Auth is login; authorization is token verification. | Firebase Auth issues tokens; backend checks them for API access. | auth, authorization | Avoid: “Same thing.” |
 | What is a schema contract? | A shared API structure definition. | It defines request/response fields and versioning. | schema contract | Avoid: “Just a doc.” |
 | Why do you cap repeats? | To improve variety and adherence. | Max-per-week constraint prevents monotony and improves diet quality. | repeat cap | Avoid: “Randomly chosen.” |
-| What does 422 mean? | Valid request but no feasible plan. | It indicates infeasibility with current constraints and targets. | 422, infeasible | Avoid: “Server error.” |
+| What does no-safe-plan mean? | Valid request, but no complete safe plan was found. | It indicates infeasibility or timeout under current constraints and returns guidance instead of a plan. | no-safe-plan, infeasible | Avoid: “Server error.” |
 | How do you handle errors in app? | Result wrappers and UI error states. | Repositories return Result and ViewModels map to UI state. | Result, UI state | Avoid: “We don’t.” |
 | What is the plan explanation? | Metadata about targets and deviations. | It includes averages, tolerance used, pantry matches, and confidence score. | explanation, confidence | Avoid: “No explanation.” |
 | What is the pantry reward? | Positive scoring for recipes matching pantry items. | It reduces waste by prioritizing available ingredients. | pantry reward | Avoid: “Pantry is forced.” |
@@ -175,10 +175,10 @@ The system integrates MVVM mobile architecture, Firebase Auth, FastAPI backend s
 | Do you store user profile on server? | No, profile stays local. | Only plan request payload is sent during generation. | privacy | Avoid: “Yes, all data is on server.” |
 | What is the role of feedback? | Collects user reports. | Feedback is stored in backend DB for review. | feedback | Avoid: “No feedback system.” |
 | How do you handle schema mismatch? | 409 conflict or log warning. | The backend can return 409 if schema version differs. | 409, schema | Avoid: “Ignore it.” |
-| What is the fallback? | Optional greedy plan if solver fails. | If enabled, heuristic plan is built to avoid total failure. | fallback | Avoid: “Always fallback.” |
+| What is the fallback? | Structured no-safe-plan guidance. | If CP-SAT cannot build a safe complete plan, the app preserves saved local plans and shows reason codes, diagnostics, and safe adjustment guidance. | no-safe-plan, cached plan | Avoid: “Always fallback.” |
 | Why keep docs enabled? | Convenience for testing. | For production, docs should be restricted. | dev vs prod | Avoid: “Always open.” |
 | How do you justify CP-SAT vs MILP? | CP-SAT solves binary constraint formulation effectively. | Our formulation is MILP-style, but we use CP-SAT for efficiency. | CP-SAT, MILP-style | Avoid: “They’re identical.” |
-| What are the key constraints? | Slot assignment, repeat cap, macro bounds. | Hard constraints ensure structure; soft constraints handle diversity and budget. | hard vs soft | Avoid: “We only have macros.” |
+| What are the key constraints? | Slot assignment, repeat cap, macro bounds, and budget cap. | Hard constraints ensure structure and configured budget; soft terms handle diversity, pantry use, prep-time, and nutrition deviations. | hard vs soft | Avoid: “We only have macros.” |
 | Why is evaluation important? | It validates usability and quality. | We use ISO/IEC 25010 criteria to assess system quality. | ISO/IEC 25010 | Avoid: “Evaluation is optional.” |
 | How do you handle app crashes? | Crashlytics and optional Sentry. | If configured, crashes are reported for debugging. | Crashlytics, Sentry | Avoid: “We don’t track crashes.” |
 
@@ -250,7 +250,7 @@ The system integrates MVVM mobile architecture, Firebase Auth, FastAPI backend s
 | Schema version | Client-server compatibility marker. |
 | Pantry reward | Objective bonus for pantry matches. |
 | Diversity penalty | Penalty for low variety. |
-| Budget penalty | Penalty for cost overrun. |
+| Budget cap | Hard estimated weekly cost ceiling when configured. |
 
 ### 10 recovery lines
 1. “Let me answer that based on the codebase.”
@@ -261,7 +261,7 @@ The system integrates MVVM mobile architecture, Firebase Auth, FastAPI backend s
 6. “That’s a good point; here’s the tradeoff we made.”
 7. “From an optimization view, the objective is…”
 8. “We intentionally scoped it as decision-support.”
-9. “If a plan is infeasible, we return 422.”
+9. “If a plan is infeasible, we return `status=no-safe-plan` with guidance.”
 10. “For production, we would harden that setting.”
 
 ### 7-day rehearsal plan
@@ -283,7 +283,7 @@ For architecture, the Android app is built with Jetpack Compose and MVVM. The sc
 
 On the backend, we use FastAPI with Pydantic schemas to validate inputs. Authentication uses Firebase: the app sends a Firebase ID token in the Authorization header, and the backend verifies it using Firebase Admin. We also send a schema version header to detect client-server mismatches. Core endpoints are generate-plan, recipe detail retrieval, recipe summary retrieval, feedback submission, and health check.
 
-For the algorithm, we use a two-stage approach. First is rule-based filtering: we remove recipes that violate restrictions such as No Pork or Vegetarian. We also infer tags and pantry matches. Second is CP-SAT optimization using OR-Tools. We define binary decision variables for whether a recipe is selected for a meal slot. Hard constraints ensure exactly one meal per slot and limit how often a recipe can repeat. Soft constraints penalize low diversity and budget overrun, while rewards encourage pantry usage and vegetable variety. The objective minimizes deviations from daily calorie and macro targets, plus penalties, minus rewards. This gives us a feasible and explainable plan.
+For the algorithm, we use a two-stage approach. First is rule-based filtering: we remove recipes that violate restrictions such as No Pork or Vegetarian. We also infer tags and pantry matches. Second is CP-SAT optimization using OR-Tools. We define binary decision variables for whether a recipe is selected for a meal slot. Hard constraints ensure exactly one meal per slot, limit how often a recipe can repeat, and enforce the weekly budget cap when configured. Soft terms handle nutrition deviations, diversity, prep-time, and pantry rewards. The objective minimizes deviations from daily calorie and macro targets, plus penalties, minus rewards. This gives us a feasible and explainable plan when one exists; otherwise the system returns no-safe-plan guidance.
 
 Testing and reliability are handled through validation and CI. The backend validates requests with Pydantic and uses middleware for size limits and schema headers. The Android app uses retries and timeouts for network calls. Our CI pipeline builds the Android release and runs a backend dependency smoke test. Deployment for the backend is configured on Render. Monitoring is possible through Sentry if configured.
 

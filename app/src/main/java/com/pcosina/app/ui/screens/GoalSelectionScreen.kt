@@ -176,7 +176,9 @@ fun GoalSelectionScreen(
             )
         }
 
-        Button(
+        GoalPrimaryActionButton(
+            primaryActionLabel = primaryActionLabel,
+            hasSelection = hasSelection,
             onClick = {
                 if (hasSelection) {
                     val goals = linkedSetOf<GoalOption>()
@@ -187,60 +189,8 @@ fun GoalSelectionScreen(
                     onFinish()
                 }
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(58.dp)
-                .shadow(
-                    elevation = 14.dp,
-                    shape = RoundedCornerShape(24.dp),
-                    spotColor = PcosinaRoseShadow.copy(alpha = 0.24f),
-                    ambientColor = PcosinaRoseShadow.copy(alpha = 0.18f),
-                )
-                .testTag("goal_save_continue_cta"),
-            enabled = hasSelection,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Transparent,
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            ),
-            contentPadding = PaddingValues(0.dp),
-            shape = RoundedCornerShape(24.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        if (hasSelection) {
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    PcosinaBlushStrong,
-                                    MaterialTheme.colorScheme.secondary,
-                                ),
-                            )
-                        } else {
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.surfaceVariant,
-                                    MaterialTheme.colorScheme.surfaceVariant,
-                                ),
-                            )
-                        },
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(primaryActionLabel, fontWeight = FontWeight.Bold)
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                    )
-                }
-            }
-        }
+            modifier = Modifier.testTag("goal_save_continue_cta"),
+        )
 
         Surface(
             shape = RoundedCornerShape(20.dp),
@@ -256,6 +206,70 @@ fun GoalSelectionScreen(
         }
 
         Spacer(modifier = Modifier.height(4.dp))
+    }
+}
+
+@Composable
+private fun GoalPrimaryActionButton(
+    primaryActionLabel: String,
+    hasSelection: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(58.dp)
+            .shadow(
+                elevation = 14.dp,
+                shape = RoundedCornerShape(24.dp),
+                spotColor = PcosinaRoseShadow.copy(alpha = 0.24f),
+                ambientColor = PcosinaRoseShadow.copy(alpha = 0.18f),
+            ),
+        enabled = hasSelection,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+        contentPadding = PaddingValues(0.dp),
+        shape = RoundedCornerShape(24.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    if (hasSelection) {
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                PcosinaBlushStrong,
+                                MaterialTheme.colorScheme.secondary,
+                            ),
+                        )
+                    } else {
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.surfaceVariant,
+                                MaterialTheme.colorScheme.surfaceVariant,
+                            ),
+                        )
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(primaryActionLabel, fontWeight = FontWeight.Bold)
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                )
+            }
+        }
     }
 }
 

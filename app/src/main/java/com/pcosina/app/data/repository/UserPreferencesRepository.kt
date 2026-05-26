@@ -104,7 +104,6 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     private object Keys {
-        val adminMode = booleanPreferencesKey("admin_mode")
         val profileCompletionMigrationDone = booleanPreferencesKey("profile_completion_key_migration_done_v1")
         fun profileUpdatedAt(userId: String) = longPreferencesKey("profile_updated_at_$userId")
         fun name(userId: String) = stringPreferencesKey("name_$userId")
@@ -1087,14 +1086,6 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
-    fun getAdminMode(): Flow<Boolean> = context.dataStore.data.map { it[Keys.adminMode] ?: false }
-
-    suspend fun setAdminMode(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[Keys.adminMode] = enabled
-        }
-    }
-
     fun getSavedPlanJson(userId: String): Flow<String?> =
         context.dataStore.data.map { secureArtifactOrLegacy(userId, SecureArtifacts.lastPlanJson, it[Keys.lastPlanJson(userId)]) }
     fun getSavedPlanTimestamp(userId: String): Flow<Long> = context.dataStore.data.map { it[Keys.lastPlanTimestamp(userId)] ?: 0L }
@@ -1112,7 +1103,7 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun savePlanHistoryJson(userId: String, json: String) {
         writeSecureArtifact(userId, SecureArtifacts.planHistoryJson, json)
-        context.dataStore.edit { preferences ->
+        editArtifactDomainsAndSync(userId, ArtifactDomain.Plan) { preferences ->
             preferences.remove(Keys.planHistoryJson(userId))
         }
     }

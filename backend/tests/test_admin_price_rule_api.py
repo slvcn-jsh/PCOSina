@@ -106,6 +106,39 @@ def test_content_admin_price_rule_crud_updates_catalog_and_audit_log():
         main.app.dependency_overrides = {}
 
 
+def test_admin_price_rule_rejects_invalid_ranges_and_empty_keywords():
+    db_path = _temp_db_path()
+    database.DATABASE_URL = ""
+    database.DB_NAME = str(db_path)
+    database.init_db()
+
+    content_admin = {
+        "uid": "content-admin-1",
+        "actor": "content-admin@example.com",
+        "roles": ["content_admin"],
+    }
+    main.app.dependency_overrides[main.require_content_admin] = lambda: content_admin
+
+    payload = {
+        "keywords": [],
+        "pricePhp": 90,
+        "priceMinPhp": 100,
+        "priceMaxPhp": 80,
+        "category": "Produce",
+        "unit": "kg",
+        "active": True,
+        "notes": "x" * 2100,
+    }
+
+    try:
+        with TestClient(main.app) as client:
+            response = client.post("/admin/price-rules", json=payload)
+
+        assert response.status_code == 422
+    finally:
+        main.app.dependency_overrides = {}
+
+
 def test_ops_admin_principal_can_use_mobile_content_maintenance_endpoints():
     db_path = _temp_db_path()
     database.DATABASE_URL = ""

@@ -121,7 +121,7 @@ class PlanAnchoringPolicyTest {
         assertTrue(
             "MealPlan should not allow logged or skipped meals to be swapped.",
             mealPlan.contains("Handled meals are locked and cannot be swapped.") &&
-                mealPlan.contains("modifier = Modifier.clickable(enabled = !logged && !skipped, onClick = onSwap)")
+                mealPlan.contains(".clickable(enabled = !logged && !skipped, onClick = onSwap)")
         )
     }
 

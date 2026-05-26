@@ -3,8 +3,8 @@ package com.pcosina.app.data.model
 import androidx.compose.runtime.Immutable
 
 /**
- * Clean data model synced with the live SQLite database.
- * Redundant legacy hardcoded data removed to ensure single-source-of-truth from backend.
+ * Clean fallback data model for previews and empty local states.
+ * Production meal data comes from the backend planner and local persistence repositories.
  */
 object DummyData {
     val userProfile: UserProfile = UserProfile(

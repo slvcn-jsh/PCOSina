@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
@@ -46,14 +45,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.app.TimePickerDialog
 import android.content.Intent
-import android.net.Uri
 import android.provider.Settings
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
 import com.pcosina.app.R
-import com.google.firebase.crashlytics.FirebaseCrashlytics
-import com.pcosina.app.BuildConfig
 import com.pcosina.app.data.model.UserProfile
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.GroceryViewModel
@@ -61,21 +57,17 @@ import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.AppFeedbackBanner
-import com.pcosina.app.ui.components.ExpandableSection
 import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
 import com.pcosina.app.ui.components.PcosinaAvatar
 import com.pcosina.app.ui.components.PcosinaAvatarOptions
 import com.pcosina.app.ui.components.PcosinaDesignIcon
-import com.pcosina.app.ui.components.RefinedFeatureCard
 import com.pcosina.app.data.model.NotificationPreferences
 import com.pcosina.app.notifications.NotificationScheduler
 import com.pcosina.app.ui.util.primaryGoalLabel
 import android.Manifest
 import android.os.Build
 import java.time.LocalDate
-import java.time.Instant
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
@@ -86,7 +78,6 @@ import kotlinx.coroutines.launch
 private enum class SettingsScreenFocus {
     Profile,
     Reminders,
-    Tools,
     Account,
 }
 
@@ -123,25 +114,21 @@ fun SettingsScreen(
     userId: String,
     onBack: () -> Unit,
     onNavigateToProfileEdit: () -> Unit,
-    onOpenAdminMethodology: () -> Unit = {},
     onOpenNotifications: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val profile by userViewModel.userProfile.collectAsState()
     val session by authViewModel.session.collectAsState()
-    val adminMode by userViewModel.adminMode.collectAsState()
     val notificationPrefs by userViewModel.notificationPreferences.collectAsState()
-    val notificationLogs by userViewModel.notificationLogs.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
     val userName = profile.displayName.ifBlank { "Your account" }
-    val baseUrl = BuildConfig.BASE_URL.trim().trim('"').trim('\'').trimEnd('/')
-    val schemaUrl = "$baseUrl/schema"
     var settingsFocusKey by rememberSaveable { mutableStateOf(SettingsScreenFocus.Profile.name) }
     val settingsFocus = remember(settingsFocusKey) {
-        SettingsScreenFocus.valueOf(settingsFocusKey)
+        runCatching { SettingsScreenFocus.valueOf(settingsFocusKey) }
+            .getOrDefault(SettingsScreenFocus.Profile)
     }
     var reminderFocusKey by rememberSaveable { mutableStateOf(ReminderSettingsFocus.Control.name) }
     val reminderFocus = remember(reminderFocusKey) {
@@ -178,6 +165,13 @@ fun SettingsScreen(
         runtimeNotificationPermissionGranted -> "Reminders are ready for meals and plan updates."
         else -> "Reminder permission still needs approval."
     }
+    val scheduledWorkersSummary = if (scheduledWorkSummaries.isEmpty()) {
+        "No reminder times lined up yet."
+    } else {
+        "${scheduledWorkSummaries.size} reminder time(s) lined up"
+    }
+    val nextReminderSummary = nextReminderSummaries.firstOrNull()?.let { "Next reminder: $it" }
+        ?: "No reminder time saved yet."
     val reminderOverviewLabel = if (notificationPrefs.masterEnabled) {
         "Reminders on"
     } else {
@@ -210,32 +204,57 @@ fun SettingsScreen(
             "Finish your profile so planning feels more personal."
         }
         SettingsScreenFocus.Reminders -> notificationStatusSummary
-        SettingsScreenFocus.Tools -> if (adminMode) {
-            "Admin tools are available for this account."
-        } else {
-            "Review-only tools stay hidden in normal use."
-        }
         SettingsScreenFocus.Account -> "Account actions stay local to this device."
     }
-    val lastFiredByType = remember(notificationLogs) {
-        notificationLogs
-            .groupBy { it.type }
-            .mapValues { (_, logs) -> logs.maxOfOrNull { it.deliveredAt } ?: 0L }
-            .toList()
-            .sortedByDescending { it.second }
+    val settingsSyncLabel = when (settingsFocus) {
+        SettingsScreenFocus.Profile -> "Saved food rules: ${profile.dietaryRestrictions.size + profile.allergies.size}"
+        SettingsScreenFocus.Reminders -> if (notificationPrefs.masterEnabled) {
+            nextReminderSummary
+        } else {
+            scheduledWorkersSummary
+        }
+        SettingsScreenFocus.Account -> if (logoutActionPending) {
+            "Sign-out is already in progress."
+        } else {
+            "You stay in control of what stays on this phone."
+        }
     }
-
+    val settingsPlanRangeLabel = when (settingsFocus) {
+        SettingsScreenFocus.Profile -> "Main goal: $mainGoalLabel"
+        SettingsScreenFocus.Reminders -> "Phone permission: $permissionStateLabel"
+        SettingsScreenFocus.Account -> "Clearing data only affects this phone unless you confirm it."
+    }
+    val settingsNextLabel = when (settingsFocus) {
+        SettingsScreenFocus.Profile -> "Next focus: review the details that affect budget, time, and food rules."
+        SettingsScreenFocus.Reminders -> nextReminderSummary
+        SettingsScreenFocus.Account -> "Next focus: confirm before clearing data or signing out."
+    }
+    val settingsSummaryBadge = when (settingsFocus) {
+        SettingsScreenFocus.Profile -> "Profile setup"
+        SettingsScreenFocus.Reminders -> "Reminder controls"
+        SettingsScreenFocus.Account -> "Account actions"
+    }
+    val settingsSummaryTitle = when (settingsFocus) {
+        SettingsScreenFocus.Profile -> "Profile details shape your week."
+        SettingsScreenFocus.Reminders -> "Keep reminders helpful, not noisy."
+        SettingsScreenFocus.Account -> "Account controls should stay clear and deliberate."
+    }
+    val settingsSummaryAccent = when (settingsFocus) {
+        SettingsScreenFocus.Profile -> colorScheme.primary
+        SettingsScreenFocus.Reminders -> colorScheme.secondary
+        SettingsScreenFocus.Account -> colorScheme.error
+    }
+    val settingsSummaryHighlights = buildList {
+        add(settingsPlanRangeLabel)
+        add(settingsSyncLabel)
+        add(settingsNextLabel)
+    }
     LaunchedEffect(userId, notificationPrefs) {
         nextReminderSummaries = NotificationScheduler.nextScheduledTimes(notificationPrefs)
         if (userId.isBlank()) {
             scheduledWorkSummaries = emptyList()
         } else {
             scheduledWorkSummaries = NotificationScheduler.getScheduledWorkSummaries(context)
-        }
-    }
-    LaunchedEffect(adminMode, settingsFocusKey) {
-        if (!adminMode && settingsFocusKey == SettingsScreenFocus.Tools.name) {
-            settingsFocusKey = SettingsScreenFocus.Profile.name
         }
     }
     LaunchedEffect(showAvatarPickerDialog) {
@@ -353,7 +372,6 @@ fun SettingsScreen(
         FigmaSettingsTabs(
             selectedKey = settingsFocusKey,
             onSelect = { settingsFocusKey = it },
-            showTools = adminMode
         )
 
         Column(
@@ -464,76 +482,6 @@ fun SettingsScreen(
                         message = "Signing out…",
                         isError = false
                     )
-                }
-            }
-        }
-
-
-        if (adminMode && settingsFocus == SettingsScreenFocus.Tools) {
-            RefinedFeatureCard(
-                icon = Icons.Default.Info,
-                accentColor = colorScheme.primary,
-                statusLabel = "Review mode",
-                title = "Team tools are hidden away from the everyday settings flow",
-                body = "Use these only when you are testing the build, reviewing internal behavior, or preparing demo data.",
-                highlights = listOf(
-                    "Open the planner guide or data contract only when you need internal context.",
-                    "Testing actions stay here so personal settings remain calm and user-facing."
-                )
-            )
-        }
-
-        if (adminMode && settingsFocus == SettingsScreenFocus.Tools) {
-            SettingsSection(
-                title = "Internal review tools",
-                summary = "Visible only for authenticated admin accounts."
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 2.dp),
-                    verticalArrangement = Arrangement.spacedBy(0.dp)
-                ) {
-                    SettingsItem(
-                        icon = Icons.Default.Info,
-                        label = "App data version",
-                        value = BuildConfig.SCHEMA_VERSION
-                    )
-                    SettingsItem(
-                        icon = Icons.Default.History,
-                        label = "Server address",
-                        value = baseUrl
-                    )
-                    SettingsActionItem(
-                        icon = Icons.Default.Link,
-                        label = "Open data contract",
-                        description = "Open the current schema for this build",
-                        color = colorScheme.primary
-                    ) {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(schemaUrl))
-                        context.startActivity(intent)
-                    }
-                    SettingsActionItem(
-                        icon = Icons.Default.Info,
-                        label = "Open planner guide",
-                        description = "Open the team guide for how the planner builds a week",
-                        color = colorScheme.primary
-                    ) {
-                        onOpenAdminMethodology()
-                    }
-                    if (BuildConfig.DEBUG) {
-                        SettingsDivider()
-                        SettingsActionItem(
-                            icon = Icons.Default.Warning,
-                            label = "Test crash report",
-                            description = "Send a manual test crash to Crashlytics",
-                            color = MaterialTheme.colorScheme.error,
-                            destructive = true
-                        ) {
-                            FirebaseCrashlytics.getInstance().log("Manual test crash from Settings")
-                            throw RuntimeException("Crashlytics test crash")
-                        }
-                    }
                 }
             }
         }
@@ -780,183 +728,6 @@ fun SettingsScreen(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            }
-
-            if (BuildConfig.DEBUG && adminMode) {
-                ExpandableSection(
-                    title = "Reminder testing",
-                    subtitle = "For review builds only",
-                    defaultExpanded = false
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(0.dp)
-                    ) {
-                        SettingsActionItem(
-                            icon = Icons.Default.Info,
-                            label = "Send sample reminder",
-                            description = "Send a sample reminder on this phone",
-                            color = colorScheme.primary
-                        ) {
-                            if (userId.isBlank()) {
-                                postSettingsFeedback(
-                                    tone = FeedbackBannerTone.Error,
-                                    message = "No change: sign in first before sending a sample reminder."
-                                )
-                                return@SettingsActionItem
-                            }
-                            scope.launch {
-                                NotificationScheduler.notifyDebugTest(context, userId)
-                                postSettingsFeedback(
-                                    tone = FeedbackBannerTone.Success,
-                                    message = "Sample reminder sent. The reminder list was refreshed."
-                                )
-                                scheduledWorkSummaries = NotificationScheduler.getScheduledWorkSummaries(context)
-                            }
-                        }
-                        SettingsActionItem(
-                            icon = Icons.Default.History,
-                            label = "Send meal reminder now",
-                            description = "Try the meal reminder right now",
-                            color = colorScheme.primary
-                        ) {
-                            if (userId.isBlank()) {
-                                postSettingsFeedback(
-                                    tone = FeedbackBannerTone.Error,
-                                    message = "No change: sign in first before sending meal reminders."
-                                )
-                                return@SettingsActionItem
-                            }
-                            scope.launch {
-                                val delivered = NotificationScheduler.notifyMealReminderNow(context, userId)
-                                postSettingsFeedback(
-                                    tone = if (delivered) FeedbackBannerTone.Success else FeedbackBannerTone.Error,
-                                    message = if (delivered) {
-                                        "Meal reminder sent. The reminder list was refreshed."
-                                    } else {
-                                        "No reminder was sent right now because of quiet hours, limits, permission, or sign-in."
-                                    }
-                                )
-                                scheduledWorkSummaries = NotificationScheduler.getScheduledWorkSummaries(context)
-                            }
-                        }
-                        SettingsActionItem(
-                            icon = Icons.Default.History,
-                            label = "Send new week reminder now",
-                            description = "Try the new-week reminder right now",
-                            color = colorScheme.primary
-                        ) {
-                            if (userId.isBlank()) {
-                                postSettingsFeedback(
-                                    tone = FeedbackBannerTone.Error,
-                                    message = "No change: sign in first before sending the new-week reminder."
-                                )
-                                return@SettingsActionItem
-                            }
-                            scope.launch {
-                                val delivered = NotificationScheduler.notifyWeeklyResetNow(context, userId)
-                                postSettingsFeedback(
-                                    tone = if (delivered) FeedbackBannerTone.Success else FeedbackBannerTone.Error,
-                                    message = if (delivered) {
-                                        "New-week reminder sent. The reminder list was refreshed."
-                                    } else {
-                                        "No reminder was sent right now because of quiet hours, limits, permission, or sign-in."
-                                    }
-                                )
-                                scheduledWorkSummaries = NotificationScheduler.getScheduledWorkSummaries(context)
-                            }
-                        }
-                        if (nextReminderSummaries.isNotEmpty()) {
-                            SettingsDivider()
-                        }
-                        Text(
-                            text = "Upcoming reminders",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = colorScheme.onSurface
-                        )
-                        nextReminderSummaries.forEach { summary ->
-                            Text(
-                                text = "• $summary",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colorScheme.onSurfaceVariant,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        if (nextReminderSummaries.isNotEmpty()) {
-                            SettingsDivider()
-                        }
-                        if (scheduledWorkSummaries.isEmpty()) {
-                            Text(
-                                text = "No reminder times lined up yet.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colorScheme.onSurfaceVariant
-                            )
-                        } else {
-                            scheduledWorkSummaries.take(6).forEach { summary ->
-                                Text(
-                                    text = "• $summary",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                        SettingsDivider()
-                        Text(
-                            text = "Recent reminder types",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = colorScheme.onSurface
-                        )
-                        if (lastFiredByType.isEmpty()) {
-                            Text(
-                                text = "No reminders fired yet.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colorScheme.onSurfaceVariant
-                            )
-                        } else {
-                            lastFiredByType.take(8).forEach { (type, timestamp) ->
-                                val stamp = Instant.ofEpochMilli(timestamp)
-                                    .atZone(ZoneId.systemDefault())
-                                    .toLocalDateTime()
-                                    .format(DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.ENGLISH))
-                                Text(
-                                    text = "• $type -> $stamp",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                        SettingsDivider()
-                        Text(
-                            text = "Recent reminders sent",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = colorScheme.onSurface
-                        )
-                        if (notificationLogs.isEmpty()) {
-                            Text(
-                                text = "No notifications delivered yet.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colorScheme.onSurfaceVariant
-                            )
-                        } else {
-                            notificationLogs.take(5).forEach { log ->
-                                Text(
-                                    text = "• ${log.type}: ${log.title}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                    }
-                }
             }
         }
 
@@ -1420,13 +1191,11 @@ private fun FigmaSettingsProfileBand(
 private fun FigmaSettingsTabs(
     selectedKey: String,
     onSelect: (String) -> Unit,
-    showTools: Boolean,
 ) {
     val tabs = buildList {
         add(SettingsScreenFocus.Profile.name to SettingsTabIcon(icon = Icons.Default.Person, label = "Profile"))
         add(SettingsScreenFocus.Reminders.name to SettingsTabIcon(icon = Icons.Default.Notifications, label = "Reminders"))
         add(SettingsScreenFocus.Account.name to SettingsTabIcon(icon = Icons.Default.ManageAccounts, label = "Account"))
-        if (showTools) add(SettingsScreenFocus.Tools.name to SettingsTabIcon(iconRes = R.drawable.pcosina_svg_14_info, label = "Tools"))
     }
     Row(
         modifier = Modifier

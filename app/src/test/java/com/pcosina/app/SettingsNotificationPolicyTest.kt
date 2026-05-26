@@ -3,6 +3,7 @@ package com.pcosina.app
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -40,8 +41,8 @@ class SettingsNotificationPolicyTest {
             "Weekly time selection should update NotificationPreferences weekly reset time fields.",
             source.contains("weeklyResetHour = h") && source.contains("weeklyResetMinute = m")
         )
-        assertTrue(
-            "Debug quick trigger should call scheduler weekly reset path.",
+        assertFalse(
+            "Settings should not expose admin-only debug quick reminder triggers in the user app.",
             source.contains("NotificationScheduler.notifyWeeklyResetNow(context, userId)")
         )
     }

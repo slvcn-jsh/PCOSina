@@ -16,7 +16,7 @@ flowchart TD
     G -- No --> H[Proceed to Stage 1 candidate shaping]
 ```
 
-- Source files used: `app/src/main/java/com/pcosina/app/data/repository/MealPlanRepository.kt:34`, `backend/services/meal_planner.py:762`
+- Source files used: `app/src/main/java/com/pcosina/app/data/repository/MealPlanRepository.kt:47`, `backend/services/meal_planner.py:904`
 - Input variables: age, heightCm, weightKg, activityLevel, goal, householdSize, maxCookingTimeMinutes, dietaryRestrictions, allergies, planningPriority, weeklyBudgetPhp
 - Output variables: valid request or failure message
 - Validation approach: manual invalid-profile cases plus backend unit tests for conflicting restrictions
@@ -35,7 +35,7 @@ flowchart TD
     G --> H[Backend derives macro targets and tolerances]
 ```
 
-- Source files used: `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:29`, `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:63`, `backend/services/meal_planner.py:800`, `backend/services/meal_planner.py:1474`
+- Source files used: `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:29`, `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:63`, `backend/services/meal_planner.py:942`, `backend/services/meal_planner.py:1755`
 - Input variables: age, heightCm, weightKg, activityLevel, goal, insulinResistanceLevel, symptoms
 - Output variables: BMI, BMI category, calorie target preview, backend macro targets
 - Validation approach: manual step-by-step math with one shared sample profile
@@ -56,7 +56,7 @@ flowchart TD
     G --> H[Send recipe into shortlist buckets]
 ```
 
-- Source files used: `backend/services/meal_planner.py:243`, `backend/services/meal_planner.py:729`, `backend/services/meal_planner.py:872`
+- Source files used: `backend/services/meal_planner.py:281`, `backend/services/meal_planner.py:868`, `backend/services/meal_planner.py:1088`
 - Input variables: recipe ingredients, tags, allergies, dietaryRestrictions, maxCookingTimeMinutes, householdSize, budget
 - Output variables: kept/excluded recipe and shortlist diagnostics
 - Validation approach: allergy/restriction test cases using actual recipes from `backend/recipes.json`
@@ -75,7 +75,7 @@ flowchart TD
     F -- No --> G[Recipe remains eligible]
 ```
 
-- Source files used: `backend/services/meal_planner.py:272`, `backend/services/meal_planner.py:307`, `backend/services/meal_planner.py:729`
+- Source files used: `backend/services/meal_planner.py:310`, `backend/services/meal_planner.py:371`, `backend/services/meal_planner.py:868`
 - Input variables: allergies, dietaryRestrictions, recipe tokens, recipe tags
 - Output variables: exclusion reason or pass-through
 - Validation approach: fish/shellfish/dairy/egg/no-pork cases
@@ -92,7 +92,7 @@ flowchart TD
     E --> F[Carry pantry reward/slack into Stage 2 objective]
 ```
 
-- Source files used: `backend/services/meal_planner.py:262`, `backend/services/meal_planner.py:539`, `backend/services/meal_planner.py:1474`
+- Source files used: `backend/services/meal_planner.py:300`, `backend/services/meal_planner.py:637`, `backend/services/meal_planner.py:1755`
 - Input variables: pantryItems, recipe tokens, stage1 policy
 - Output variables: pantryMatch count and score contribution
 - Validation approach: manual token-overlap table using sample pantry and sample recipe
@@ -113,7 +113,7 @@ flowchart TD
     H -- No --> J[Skip soft cost objective]
 ```
 
-- Source files used: `backend/services/meal_planner.py:790`, `backend/services/meal_planner.py:529`, `backend/services/meal_planner.py:868`, `backend/services/meal_planner.py:1474`
+- Source files used: `backend/services/meal_planner.py:932`, `backend/services/meal_planner.py:593`, `backend/services/meal_planner.py:1010`, `backend/services/meal_planner.py:1755`
 - Input variables: weeklyBudgetPhp, budgetWeekly, budgetMonthly, householdSize, planningPriority
 - Output variables: resolved weekly budget, cost-aware shortlist behavior, budget hard-cap enforcement
 - Validation approach: compare budget and non-budget-priority runs/tests
@@ -133,11 +133,30 @@ flowchart TD
     G -- No --> I[Return no-safe-plan response]
 ```
 
-- Source files used: `backend/services/meal_planner.py:1474`, `backend/services/plan_response_builder.py:79`
+- Source files used: `backend/services/meal_planner.py:1755`, `backend/services/plan_response_builder.py:111`
 - Input variables: shortlisted recipes, targets, policy, budget, pantry, restrictions
 - Output variables: `GeneratePlanResponse`
 - Validation approach: planner contract tests plus manual reading of constraints/objective
 - What to show during demo: solver metadata fields and explanation payload
+
+## G2. Adaptive CP-SAT Retry Sequence
+
+```mermaid
+flowchart TD
+    A[Stage 1 candidate pool ready] --> B[Build tolerance levels]
+    B --> C[Build repeat-limit sequence]
+    C --> D[Create CP-SAT attempt pairs]
+    D --> E{Feasible or optimal full-slot plan found?}
+    E -- Yes --> F[Return success response]
+    E -- No, time remains --> G[Try next tolerance/repeat pair]
+    G --> E
+    E -- No, attempts exhausted or timed out --> H[Return structured no-safe-plan response]
+```
+
+- Source files used: `backend/services/meal_planner.py:1755`, `backend/policy_config.py:101`
+- Implemented adaptive dimensions: nutrition tolerance and recipe repeat limits
+- Not implemented as relaxation levels: budget warning band, pantry-overlap lowering, partial-plan return
+- Validation approach: planner contract tests plus no-safe-plan contract tests
 
 ## H. No-Safe-Plan Decision Tree
 
@@ -152,7 +171,7 @@ flowchart TD
     F --> G[Android shows guidance and cached-plan continuity if available]
 ```
 
-- Source files used: `backend/services/plan_response_builder.py:9`, `backend/services/plan_response_builder.py:79`, `app/src/main/java/com/pcosina/app/ui/MealPlanViewModel.kt:997`
+- Source files used: `backend/services/plan_response_builder.py:11`, `backend/services/plan_response_builder.py:111`, `app/src/main/java/com/pcosina/app/ui/MealPlanViewModel.kt:855`
 - Input variables: message text, diagnostics, profile, cached plan availability
 - Output variables: structured no-safe-plan response and Android presentation state
 - Validation approach: backend no-safe-plan contract tests plus UI tests
@@ -170,7 +189,7 @@ flowchart TD
     F --> G[Display grocery list and snapshots]
 ```
 
-- Source files used: `app/src/main/java/com/pcosina/app/domain/GroceryAggregation.kt:64`, `app/src/main/java/com/pcosina/app/ui/screens/GroceryRefinedScreen.kt:1500`, `app/src/main/java/com/pcosina/app/data/repository/UserPreferencesRepository.kt:35`
+- Source files used: `app/src/main/java/com/pcosina/app/domain/GroceryAggregation.kt:163`, `app/src/main/java/com/pcosina/app/ui/screens/GroceryRefinedScreen.kt:1827`, `app/src/main/java/com/pcosina/app/data/repository/UserPreferencesRepository.kt:43`
 - Input variables: recipe ingredient strings, household size, pantry entries, checked state
 - Output variables: grocery items, prices, pantry-covered state, saved snapshots
 - Validation approach: manual grocery rebuild check using one sample recipe
@@ -189,7 +208,7 @@ flowchart TD
     F -- No --> H[Continue offline-first behavior]
 ```
 
-- Source files used: `app/src/main/java/com/pcosina/app/data/repository/UserPreferencesRepository.kt:35`, `app/src/main/java/com/pcosina/app/data/repository/ReflectionStore.kt:17`, `app/src/main/java/com/pcosina/app/ui/ProgressViewModel.kt:127`, `app/src/main/java/com/pcosina/app/ui/MealPlanViewModel.kt:68`
+- Source files used: `app/src/main/java/com/pcosina/app/data/repository/UserPreferencesRepository.kt:43`, `app/src/main/java/com/pcosina/app/data/repository/ReflectionStore.kt:17`, `app/src/main/java/com/pcosina/app/ui/ProgressViewModel.kt:129`, `app/src/main/java/com/pcosina/app/ui/MealPlanViewModel.kt:69`
 - Input variables: user ID, local artifact keys, cloud sync availability
 - Output variables: loaded local state, optional sync update
 - Validation approach: manual airplane-mode/load-from-cache demo
@@ -207,7 +226,7 @@ flowchart TD
     E -- No --> G[Keep current active plan]
 ```
 
-- Source files used: `app/src/main/java/com/pcosina/app/data/repository/UserPreferencesRepository.kt:35`, `app/src/main/java/com/pcosina/app/ui/MealPlanViewModel.kt:68`
+- Source files used: `app/src/main/java/com/pcosina/app/data/repository/UserPreferencesRepository.kt:43`, `app/src/main/java/com/pcosina/app/ui/MealPlanViewModel.kt:69`
 - Input variables: plan response, plan history, active user ID
 - Output variables: active plan, plan history, metrics
 - Validation approach: save/load/swap walkthrough plus repository persistence tests where present
@@ -226,7 +245,7 @@ flowchart TD
     G --> H[Persist updated active plan]
 ```
 
-- Source files used: `app/src/main/java/com/pcosina/app/data/repository/MealPlanRepository.kt:34`, `app/src/main/java/com/pcosina/app/ui/MealPlanViewModel.kt:68`, `backend/main.py:4506`
+- Source files used: `app/src/main/java/com/pcosina/app/data/repository/MealPlanRepository.kt:47`, `app/src/main/java/com/pcosina/app/ui/MealPlanViewModel.kt:69`, `backend/main.py:4528`
 - Input variables: current recipe ID, mealLabel, activeRecipeIds, profile
 - Output variables: swap option list or updated plan
 - Validation approach: swap-path UI test plus backend candidate restrictions
@@ -246,7 +265,7 @@ flowchart TD
     G -- No --> I[Mark feedback synced]
 ```
 
-- Source files used: `app/src/main/java/com/pcosina/app/ui/ProgressViewModel.kt:127`, `app/src/main/java/com/pcosina/app/data/repository/ReflectionStore.kt:17`
+- Source files used: `app/src/main/java/com/pcosina/app/ui/ProgressViewModel.kt:129`, `app/src/main/java/com/pcosina/app/data/repository/ReflectionStore.kt:17`
 - Input variables: selected date, meal check-ins, reflections, feedback payload
 - Output variables: saved log state, queued feedback state
 - Validation approach: same-day logging test and offline feedback retry check

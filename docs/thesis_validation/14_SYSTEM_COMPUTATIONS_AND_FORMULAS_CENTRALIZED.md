@@ -7,6 +7,7 @@ Centralized reference for the deterministic computations currently used in PCOSi
 - The live planner is a 0-1 CP-SAT model in OR-Tools, not a classical MILP solver.
 - Pantry use is soft in the current optimizer: it is rewarded and can be thresholded, but it is not a full ingredient-by-ingredient hard feasibility proof.
 - `budget_penalty` is currently `0` in the live objective; the hard weekly budget is enforced separately.
+- The current adaptive solve path retries nutrition tolerance and recipe-repeat limits only. It does not implement a four-level ladder that relaxes budget caps or pantry overlap.
 - Android preview values can differ by 1 kcal from backend planning because Android uses `round()` while backend uses `int()`.
 - Android and backend use different fallback defaults for invalid profile inputs.
 
@@ -113,6 +114,15 @@ Then symptom bonuses are applied and the results are clamped to policy bounds.
 ### Daily tolerance ladder
 
 `toleranceLevels = [dailyTolerance, min(0.8, dailyTolerance + max(0.05, weeklyTolerance)), min(0.8, dailyTolerance + max(0.10, weeklyTolerance * 2.0))]`
+
+### Adaptive infeasibility handling
+
+The implemented retry sequence combines:
+
+- the derived nutrition tolerance levels above
+- the configured `planning.recipe_repeat_limits`, adjusted by variety preference
+
+The ordering is controlled by `planning.infeasibility_relaxation_order`; the current supported dimensions are `daily_tolerance_percent` and `recipe_repeat_limits`. Budget is not relaxed by this sequence. If a weekly budget is present, the CP-SAT model keeps `total_cost <= budget` as a hard constraint. Pantry overlap is rewarded and can be thresholded during Stage 1, but there is no final fallback step that lowers pantry overlap and returns a partial plan.
 
 ### Budget normalization
 
@@ -435,7 +445,7 @@ Where:
 
 - The planner tries multiple tolerance and repeat-limit combinations.
 - The order of relaxation is controlled by policy.
-- The solver uses hints, then CP-SAT search, then fallback handling if no safe plan is found.
+- The solver uses hints, then CP-SAT search, then structured no-safe-plan handling if no complete safe plan is found.
 
 ## 6. Tracking And Derived Metrics
 

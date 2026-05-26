@@ -19,6 +19,7 @@ import database
 import policy_store
 import queue_broker
 import firebase_admin
+from db_url import is_postgres_database_url
 from firebase_admin import credentials, auth, app_check
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -133,6 +134,15 @@ def _uid_hash_salt_configured_for_production() -> bool:
     return bool(salt) and salt != "pcosina-default-salt" and len(salt) >= 32
 
 
+def _seed_nutrition_corrections_on_startup() -> bool:
+    configured = os.getenv("PCOSINA_SEED_NUTRITION_CORRECTIONS", "").strip().lower()
+    if configured:
+        return configured in ("1", "true", "yes", "on")
+    if os.getenv("PYTEST_CURRENT_TEST", "").strip():
+        return False
+    return True
+
+
 def _log_app_check_mode(enforced: bool) -> None:
     mode = "enforced" if enforced else "skipped"
     if mode in _APP_CHECK_MODE_LOGGED:
@@ -178,6 +188,7 @@ def _runtime_readiness_report(*, include_schema: bool = False) -> Dict[str, Any]
     warnings: list[str] = []
     queue_backend = str(getattr(QUEUE_BROKER, "backend", "db") or "db")
     allowed_hosts_raw = os.getenv("PCOSINA_ALLOWED_HOSTS", "").strip()
+    db_pool_status = database.get_database_connection_pool_status(os.getenv("DATABASE_URL", ""))
 
     if IS_PRODUCTION:
         if not _app_check_enforced():
@@ -196,8 +207,12 @@ def _runtime_readiness_report(*, include_schema: bool = False) -> Dict[str, Any]
             errors.append("PCOSINA_ADMIN_SESSION_SECRET is required in production")
         if os.getenv("FIREBASE_AUTH_DISABLED", "").strip().lower() == "true":
             errors.append("FIREBASE_AUTH_DISABLED cannot be enabled in production")
-        if not os.getenv("DATABASE_URL", "").strip().startswith("postgres"):
+        if not is_postgres_database_url(os.getenv("DATABASE_URL", "")):
             errors.append("Production requires a Postgres DATABASE_URL")
+        elif not db_pool_status.get("enabled"):
+            errors.append("PCOSINA_DB_POOL_ENABLED must remain enabled in production")
+        elif not db_pool_status.get("driverAvailable"):
+            errors.append("psycopg-pool is required for production Postgres connection pooling")
         if not _firebase_credentials_configured() and not firebase_admin._apps:
             errors.append("Firebase credentials are required in production")
         if not sentry_dsn:
@@ -226,6 +241,10 @@ def _runtime_readiness_report(*, include_schema: bool = False) -> Dict[str, Any]
         "appCheckEnforced": _app_check_enforced(),
         "operatorMfaRequired": _operator_require_mfa_for_admin_access(),
         "release": _release_metadata(),
+        "database": {
+            "mode": db_pool_status.get("mode"),
+            "pool": db_pool_status,
+        },
         "errors": errors,
         "warnings": warnings,
     }
@@ -245,6 +264,24 @@ def _runtime_readiness_report(*, include_schema: bool = False) -> Dict[str, Any]
             if not schema_status["ok"]:
                 errors.append("Pending schema migrations detected")
         report["schemaMigrations"] = schema_status
+        try:
+            catalog_nutrition_status = database.get_recipe_catalog_nutrition_status()
+        except Exception as exc:
+            catalog_nutrition_status = {
+                "ok": False,
+                "errors": [str(exc)],
+                "warnings": [],
+            }
+            errors.append(f"Recipe catalog nutrition readiness check failed: {exc}")
+        else:
+            if not catalog_nutrition_status.get("ok"):
+                messages = list(catalog_nutrition_status.get("errors") or [])
+                if IS_PRODUCTION:
+                    errors.extend(messages or ["Recipe catalog nutrition readiness failed"])
+                else:
+                    warnings.extend(messages or ["Recipe catalog nutrition readiness has gaps"])
+            warnings.extend(list(catalog_nutrition_status.get("warnings") or []))
+        report["recipeCatalogNutrition"] = catalog_nutrition_status
     report["ok"] = len(errors) == 0
     return report
 
@@ -284,6 +321,8 @@ async def lifespan(app: FastAPI):
     
     database.init_db()
     database.seed_recipes()
+    if _seed_nutrition_corrections_on_startup():
+        database.seed_nutrition_corrections()
     policy_store.init_policy_store()
     policy_store.ensure_default_policy(actor="system-bootstrap")
     _validate_runtime_readiness(include_schema=True)
@@ -1123,7 +1162,7 @@ def _clear_admin_session_cookie(response) -> None:
 def _build_admin_csrf_token(principal: Dict[str, Any], purpose: str) -> str:
     nonce = str(principal.get("nonce") or "").strip()
     if not nonce:
-        raise HTTPException(status_code=403, detail="Admin session required for browser mutations")
+        raise HTTPException(status_code=403, detail="Admin session required to save changes")
     now = int(time.time())
     payload = {
         "uid": principal.get("uid"),
@@ -1347,70 +1386,248 @@ def mobile_operator_access(
     return _operator_access_service().build_mobile_access_status(user, auth_type="bearer")
 
 
+def _env_first(*names: str) -> str:
+    for name in names:
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _firebase_web_sign_in_config() -> tuple[Dict[str, str], list[str]]:
+    project_id = _env_first("PCOSINA_FIREBASE_WEB_PROJECT_ID", "FIREBASE_WEB_PROJECT_ID")
+    auth_domain = _env_first("PCOSINA_FIREBASE_WEB_AUTH_DOMAIN", "FIREBASE_WEB_AUTH_DOMAIN")
+    if not auth_domain and project_id:
+        auth_domain = f"{project_id}.firebaseapp.com"
+    config: Dict[str, str] = {
+        "apiKey": _env_first("PCOSINA_FIREBASE_WEB_API_KEY", "FIREBASE_WEB_API_KEY"),
+        "authDomain": auth_domain,
+        "projectId": project_id,
+        "appId": _env_first("PCOSINA_FIREBASE_WEB_APP_ID", "FIREBASE_WEB_APP_ID"),
+    }
+    optional_values = {
+        "messagingSenderId": _env_first(
+            "PCOSINA_FIREBASE_WEB_MESSAGING_SENDER_ID",
+            "FIREBASE_WEB_MESSAGING_SENDER_ID",
+        ),
+        "measurementId": _env_first("PCOSINA_FIREBASE_WEB_MEASUREMENT_ID", "FIREBASE_WEB_MEASUREMENT_ID"),
+    }
+    for key, value in optional_values.items():
+        if value:
+            config[key] = value
+    missing = [key for key in ("apiKey", "authDomain", "projectId", "appId") if not config.get(key)]
+    return config, missing
+
+
+def _admin_google_login_html(error_message: str | None = None) -> str:
+    firebase_config, missing = _firebase_web_sign_in_config()
+    firebase_config = {key: value for key, value in firebase_config.items() if value}
+    firebase_config_json = json.dumps(firebase_config, sort_keys=True)
+    configured_json = json.dumps(not missing)
+    status_message = str(error_message or "Ready for Google sign-in.").strip()
+    status_class = "admin-status error" if error_message else "admin-status"
+    return """
+        <!doctype html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>PCOSINA Admin Login</title>
+          <style>__ADMIN_BASE_CSS__</style>
+        </head>
+        <body class="admin-login-body">
+          <div class="admin-login-panel">
+            <h1>PCOSINA Admin Login</h1>
+            <p style="color:var(--admin-muted);line-height:1.55;">
+              Continue with the Google account registered for PCOSINA admin access. After sign-in,
+              you will only see the tools your account is allowed to use.
+            </p>
+            <button id="google-sign-in" type="button">Continue with Google</button>
+            <div id="login-status" class="__STATUS_CLASS__" role="status">__STATUS_MESSAGE__</div>
+            <p style="margin-top:14px;font-size:13px;color:var(--admin-muted);">
+              Use the same admin email configured for the PCOSINA backend.
+            </p>
+            <form id="admin-session-form" method="post" action="/admin/session" style="display:none;">
+              <input type="hidden" name="next_path" value="/admin/login">
+              <input type="hidden" name="interactive" value="true">
+              <input type="hidden" id="id_token" name="id_token" required>
+            </form>
+          </div>
+          <script type="module">
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+            import {
+              getAuth,
+              GoogleAuthProvider,
+              getRedirectResult,
+              signInWithPopup,
+              signInWithRedirect
+            } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
+            const firebaseConfig = __FIREBASE_CONFIG_JSON__;
+            const isConfigured = __CONFIGURED_JSON__;
+            const button = document.getElementById("google-sign-in");
+            const statusBox = document.getElementById("login-status");
+            const form = document.getElementById("admin-session-form");
+            const tokenInput = document.getElementById("id_token");
+
+            function setStatus(message, isError = false) {
+              statusBox.textContent = message;
+              statusBox.classList.toggle("error", isError);
+            }
+
+            if (!isConfigured) {
+              button.disabled = true;
+              setStatus("Admin Google sign-in needs Firebase web setup before it can be used here.", true);
+            } else {
+              const app = initializeApp(firebaseConfig);
+              const auth = getAuth(app);
+              const provider = new GoogleAuthProvider();
+              provider.setCustomParameters({ prompt: "select_account" });
+
+              async function submitCredential(result) {
+                if (!result || !result.user) {
+                  return;
+                }
+                setStatus("Verifying Firebase session...");
+                tokenInput.value = await result.user.getIdToken(true);
+                form.submit();
+              }
+
+              getRedirectResult(auth)
+                .then(submitCredential)
+                .catch((error) => setStatus(error.message || "Google sign-in failed.", true));
+
+              button.addEventListener("click", async () => {
+                button.disabled = true;
+                setStatus("Opening Google sign-in...");
+                try {
+                  await submitCredential(await signInWithPopup(auth, provider));
+                } catch (error) {
+                  const code = String(error && error.code || "");
+                  if (code.includes("popup") || code.includes("cancelled")) {
+                    setStatus("Popup was blocked. Redirecting to Google sign-in...");
+                    await signInWithRedirect(auth, provider);
+                    return;
+                  }
+                  button.disabled = false;
+                  setStatus(error.message || "Google sign-in failed.", true);
+                }
+              });
+            }
+          </script>
+        </body>
+        </html>
+    """.replace("__ADMIN_BASE_CSS__", _admin_base_css()).replace(
+        "__STATUS_CLASS__",
+        status_class,
+    ).replace("__STATUS_MESSAGE__", html.escape(status_message, quote=True)).replace("__FIREBASE_CONFIG_JSON__", firebase_config_json).replace(
+        "__CONFIGURED_JSON__",
+        configured_json,
+    )
+
+
+@app.get("/admin")
+def admin_entry():
+    return RedirectResponse(url="/admin/login", status_code=307)
+
+
 @app.get("/admin/login", response_class=HTMLResponse)
 def admin_login_page(request: Request):
     principal = _principal_from_session_token(request.cookies.get(ADMIN_SESSION_COOKIE))
     if principal:
-        actor = html.escape(str(principal.get("actor") or "admin"))
         role_list = sorted(principal.get("roles") or [])
-        roles = ", ".join(role_list) or "admin"
-        links = []
+        cards: list[tuple[str, str, str]] = []
+        snapshot_cards: list[tuple[str, str, str, int]] = []
         if "feedback_admin" in role_list or "admin" in role_list:
-            links.append('<li><a href="/admin/feedback">Feedback console</a></li>')
+            cards.append(("Read Feedback", "/admin/feedback", "See messages users sent from the mobile app."))
+            snapshot_cards.append((
+                "Feedback",
+                "/admin/feedback",
+                "Messages waiting in the feedback list.",
+                _admin_safe_count(lambda: database.get_recent_feedback(500)),
+            ))
         if "policy_admin" in role_list or "admin" in role_list:
-            links.append('<li><a href="/admin/policy">Policy console</a></li>')
-            links.append('<li><a href="/admin/policy/active">Policy API</a></li>')
+            cards.append(("Planner Settings", "/admin/policy", "Review or change the planner rules used by the backend."))
+            active_policy = policy_store.get_active_policy()
+            snapshot_cards.append((
+                "Planner Version",
+                "/admin/policy",
+                "Current saved planner setting version.",
+                int((active_policy or {}).get("version_number") or 0),
+            ))
         if "content_admin" in role_list or "admin" in role_list:
-            links.append('<li><a href="/admin/content">Content console</a></li>')
-            links.append('<li><a href="/admin/recipes">Recipe admin API</a></li>')
-            links.append('<li><a href="/admin/price-rules">Price-rule admin API</a></li>')
-            links.append('<li><a href="/admin/nutrition-corrections">Nutrition-correction admin API</a></li>')
+            cards.append(("Manage Meals", "/admin/content", "Edit recipes, prices, and nutrition corrections."))
+            snapshot_cards.extend([
+                (
+                    "Recipes",
+                    "/admin/content/recipes",
+                    "Meals currently available to the planner.",
+                    _admin_safe_count(lambda: database.list_admin_recipes(limit=500)),
+                ),
+                (
+                    "Price Rules",
+                    "/admin/content/price-rules",
+                    "Saved ingredient cost rules.",
+                    _admin_safe_count(lambda: database.list_admin_price_rules(limit=500)),
+                ),
+            ])
         if "ops_admin" in role_list or "admin" in role_list:
-            links.append('<li><a href="/admin/ops">Ops console</a></li>')
-            links.append('<li><a href="/admin/audit/logs">Admin audit API</a></li>')
-        return HTMLResponse(
-            content=f"""
-            <!doctype html>
-            <html>
-            <head><meta charset="utf-8"><title>PCOSINA Admin Login</title></head>
-            <body style="font-family:Arial,sans-serif;max-width:720px;margin:32px auto;padding:0 16px;">
-              <h1>PCOSINA Admin</h1>
-              <p>Signed in as <strong>{actor}</strong>.</p>
-              <p>Roles: {html.escape(roles)}</p>
-              <ul>{''.join(links)}</ul>
-              <form method="post" action="/admin/logout">
-                <button type="submit">Sign out</button>
-              </form>
-            </body>
-            </html>
-            """
+            cards.append(("Fix App Issues", "/admin/ops", "Handle support cases, sign-ins, access, and change history."))
+            snapshot_cards.extend([
+                (
+                    "Open Issues",
+                    "/admin/ops/support-cases",
+                    "Recent support cases and app issues.",
+                    _admin_safe_count(lambda: database.list_support_cases(limit=500)),
+                ),
+                (
+                    "Change History",
+                    "/admin/ops/audit-logs",
+                    "Recent admin changes.",
+                    _admin_safe_count(lambda: database.list_admin_action_logs(limit=500)),
+                ),
+            ])
+        body_html = (
+            "<section class='admin-card' style='margin-bottom:16px;'>"
+            f"{_admin_section_header('What do you need to do?', 'Choose the task first. Each card opens the right tool for that job.')}"
+            f"{_admin_workspace_cards_html(cards) if cards else '<p class=\"admin-copy\">No admin tools are available for this account.</p>'}"
+            "</section>"
+            + (
+                "<section class='admin-card'>"
+                f"{_admin_section_header('Quick Counts', 'A short summary of what is currently in the admin tools.')}"
+                f"{_admin_metric_cards_html(snapshot_cards)}"
+                "</section>"
+                if snapshot_cards
+                else ""
+            )
         )
-    return HTMLResponse(
-        content="""
-        <!doctype html>
-        <html>
-        <head><meta charset="utf-8"><title>PCOSINA Admin Login</title></head>
-        <body style="font-family:Arial,sans-serif;max-width:720px;margin:32px auto;padding:0 16px;">
-          <h1>PCOSINA Admin Login</h1>
-          <p>Paste a Firebase ID token for an operator account with admin claims or an allowlisted admin email.</p>
-          <form method="post" action="/admin/session">
-            <input type="hidden" name="next_path" value="/admin/login" />
-            <label for="id_token">Firebase ID Token</label><br/>
-            <textarea id="id_token" name="id_token" rows="12" style="width:100%;font-family:monospace;" required></textarea><br/><br/>
-            <button type="submit">Create admin session</button>
-          </form>
-        </body>
-        </html>
-        """
-    )
+        return _admin_shell(
+            "Admin Home",
+            principal,
+            body_html,
+            current_console="",
+            description="Choose a maintenance task for PCOSina.",
+            max_width=1180,
+        )
+    return HTMLResponse(content=_admin_google_login_html())
 
 
 @app.post("/admin/session")
-def admin_create_session(id_token: str = Form(...), next_path: str = Form(default="/admin/feedback")):
-    decoded = _verify_firebase_id_token(id_token)
-    _assert_recent_admin_auth(decoded)
-    principal = _operator_access_service().resolve_principal(decoded, auth_type="bearer")
-    token, _session_principal = _issue_admin_session(principal)
+def admin_create_session(
+    id_token: str = Form(...),
+    next_path: str = Form(default="/admin/feedback"),
+    interactive: str | None = Form(default=None),
+):
+    try:
+        decoded = _verify_firebase_id_token(id_token)
+        _assert_recent_admin_auth(decoded)
+        principal = _operator_access_service().resolve_principal(decoded, auth_type="bearer")
+        token, _session_principal = _issue_admin_session(principal)
+    except HTTPException as exc:
+        if str(interactive or "").lower() == "true":
+            message = str(exc.detail or "Admin sign-in failed.")
+            return HTMLResponse(content=_admin_google_login_html(message), status_code=int(exc.status_code or 403))
+        raise
     auth_time = int(decoded.get("auth_time") or 0) if str(decoded.get("auth_time") or "").strip() else 0
     auth_age_seconds = max(0, int(time.time()) - auth_time) if auth_time > 0 else None
     database.log_admin_action(
@@ -1530,7 +1747,8 @@ def _admin_notice_html(status: str | None, error: str | None) -> str:
         "support_case_noted": "Support case note added.",
         "admin_session_revoked": "Admin session revoked.",
         "admin_sessions_cleaned": "Admin sessions cleanup completed.",
-        "operator_access_saved": "Operator access override saved.",
+        "operator_access_saved": "Admin access saved.",
+        "recipe_seeded": "Recipe seed import completed.",
     }
     message = status_messages.get(str(status or "").strip())
     if not message:
@@ -1561,39 +1779,895 @@ def _admin_format_epoch_ms(value: Any) -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(raw / 1000.0))
 
 
-def _admin_console_switcher_html(principal: Dict[str, Any], *, current: str) -> str:
+def _admin_role_set(principal: Dict[str, Any]) -> set[str]:
     role_set = {str(role) for role in (principal.get("roles") or [])}
     if "admin" in role_set:
         role_set.update({"feedback_admin", "content_admin", "ops_admin", "policy_admin"})
+    return role_set
+
+
+def _admin_visible_consoles(principal: Dict[str, Any]) -> list[tuple[str, str, str, str]]:
+    role_set = _admin_role_set(principal)
     console_items = [
         ("feedback", "Feedback", "/admin/feedback", "feedback_admin"),
-        ("content", "Content", "/admin/content", "content_admin"),
-        ("ops", "Ops", "/admin/ops", "ops_admin"),
-        ("policy", "Policy", "/admin/policy", "policy_admin"),
+        ("content", "Meals", "/admin/content", "content_admin"),
+        ("ops", "Issues", "/admin/ops", "ops_admin"),
+        ("policy", "Settings", "/admin/policy", "policy_admin"),
     ]
-    visible_items = [item for item in console_items if item[3] in role_set]
+    return [item for item in console_items if item[3] in role_set]
+
+
+def _admin_console_switcher_html(principal: Dict[str, Any], *, current: str) -> str:
+    visible_items = _admin_visible_consoles(principal)
     if len(visible_items) <= 1:
         return ""
     pills = "".join(
         (
-            "<a href='{href}' style='text-decoration:none;padding:6px 10px;border-radius:999px;"
-            "border:1px solid {border};background:{background};color:{color};font-weight:{weight};'>"
-            "{label}</a>"
+            "<a href='{href}' class='admin-console-link {active}'>{label}</a>"
         ).format(
             href=href,
             label=html.escape(label, quote=True),
-            border="#1677ff" if key == current else "#d9d9d9",
-            background="#e6f4ff" if key == current else "#ffffff",
-            color="#0958d9" if key == current else "#434343",
-            weight="700" if key == current else "500",
+            active="is-active" if key == current else "",
         )
         for key, label, href, _required_role in visible_items
     )
     return (
-        "<div style='display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;'>"
-        "<span style='font-size:13px;color:#595959;font-weight:600;'>Switch console</span>"
-        f"{pills}</div>"
+        "<nav class='admin-console-switcher' aria-label='Admin consoles'>"
+        "<span class='admin-switcher-label'>Tools</span>"
+        f"{pills}</nav>"
     )
+
+
+def _admin_section_nav_html(items: list[tuple[str, str, str]], *, active: str) -> str:
+    return "".join(
+        (
+            "<a href='{href}' class='admin-section-link {active}'>{label}</a>"
+        ).format(
+            href=href,
+            label=html.escape(label, quote=True),
+            active="is-active" if key == active else "",
+        )
+        for label, href, key in items
+    )
+
+
+def _admin_base_css() -> str:
+    return """
+      :root {
+        --admin-bg: #f4f7f6;
+        --admin-surface: #ffffff;
+        --admin-surface-muted: #f8faf9;
+        --admin-line: #d9e2df;
+        --admin-text: #17211d;
+        --admin-muted: #5d6b66;
+        --admin-strong: #0f2f26;
+        --admin-green: #237a5b;
+        --admin-green-dark: #185b43;
+        --admin-blue: #1f6feb;
+        --admin-red: #b42318;
+        --admin-red-bg: #fff1f0;
+        --admin-ok-bg: #ecfdf3;
+        --admin-shadow: 0 10px 28px rgba(15, 45, 35, 0.08);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: linear-gradient(180deg, #eef6f1 0, var(--admin-bg) 240px);
+        color: var(--admin-text);
+      }
+      a { color: var(--admin-green); }
+      .admin-shell {
+        min-height: 100vh;
+      }
+      .admin-topbar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: rgba(255, 255, 255, 0.96);
+        border-bottom: 1px solid var(--admin-line);
+        backdrop-filter: blur(10px);
+      }
+      .admin-topbar-inner {
+        max-width: var(--admin-width, 1240px);
+        margin: 0 auto;
+        padding: 14px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .admin-brand {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 180px;
+      }
+      .admin-brand a {
+        color: var(--admin-strong);
+        text-decoration: none;
+        font-size: 17px;
+        font-weight: 800;
+      }
+      .admin-brand a:before {
+        content: "";
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        margin-right: 8px;
+        border-radius: 999px;
+        background: var(--admin-green);
+        box-shadow: 0 0 0 4px #e9f6ef;
+      }
+      .admin-brand small {
+        color: var(--admin-muted);
+        font-size: 12px;
+      }
+      .admin-home-link {
+        text-decoration: none;
+        border: 1px solid var(--admin-line);
+        background: var(--admin-surface);
+        color: var(--admin-green-dark);
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+      .admin-home-link:hover {
+        border-color: var(--admin-green);
+        background: var(--admin-surface-muted);
+      }
+      .admin-console-switcher,
+      .admin-section-nav {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .admin-switcher-label {
+        color: var(--admin-muted);
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0;
+      }
+      .admin-console-link,
+      .admin-section-link {
+        text-decoration: none;
+        border: 1px solid var(--admin-line);
+        background: var(--admin-surface);
+        color: var(--admin-muted);
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .admin-console-link.is-active,
+      .admin-section-link.is-active {
+        border-color: var(--admin-green);
+        background: #e9f6ef;
+        color: var(--admin-green-dark);
+      }
+      .admin-user {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .admin-user-chip {
+        border: 1px solid var(--admin-line);
+        background: var(--admin-surface-muted);
+        border-radius: 999px;
+        padding: 8px 12px;
+        color: var(--admin-muted);
+        font-size: 13px;
+      }
+      .admin-main {
+        max-width: var(--admin-width, 1240px);
+        margin: 0 auto;
+        padding: 22px 20px 42px;
+      }
+      .admin-hero {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+      .admin-hero h1 {
+        margin: 0 0 6px;
+        font-size: 30px;
+        letter-spacing: 0;
+      }
+      .admin-hero p {
+        margin: 0;
+        color: var(--admin-muted);
+        line-height: 1.5;
+      }
+      .admin-section-nav {
+        margin: 0 0 18px;
+      }
+      .admin-card,
+      section {
+        background: var(--admin-surface) !important;
+        border: 1px solid var(--admin-line) !important;
+        border-radius: 8px !important;
+        box-shadow: var(--admin-shadow);
+      }
+      .admin-card {
+        padding: 18px;
+      }
+      .admin-card.is-quiet {
+        background: var(--admin-surface-muted) !important;
+        box-shadow: none;
+      }
+      .admin-page-grid {
+        display: grid;
+        grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+        gap: 18px;
+        align-items: start;
+      }
+      .admin-page-grid.is-three {
+        grid-template-columns: minmax(300px, 360px) minmax(300px, 390px) minmax(0, 1fr);
+      }
+      .admin-section-stack {
+        display: grid;
+        gap: 18px;
+      }
+      .admin-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+      }
+      .admin-section-header h2 {
+        margin: 0 0 5px;
+        font-size: 18px;
+      }
+      .admin-section-header p,
+      .admin-copy {
+        margin: 0;
+        color: var(--admin-muted);
+        line-height: 1.5;
+      }
+      .admin-eyebrow {
+        margin: 0 0 4px;
+        color: var(--admin-green);
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0;
+      }
+      .admin-toolbar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+      }
+      .admin-toolbar.is-split {
+        justify-content: space-between;
+      }
+      .admin-toolbar input,
+      .admin-toolbar select {
+        width: auto;
+        min-width: 160px;
+        flex: 1 1 170px;
+      }
+      .admin-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .admin-field-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .admin-field {
+        display: grid;
+        gap: 6px;
+        margin-bottom: 12px;
+        color: var(--admin-strong);
+        font-weight: 700;
+      }
+      .admin-field span {
+        font-size: 13px;
+      }
+      .admin-field-help {
+        margin: -4px 0 12px;
+        color: var(--admin-muted);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      .admin-link-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 36px;
+        text-decoration: none;
+        border: 1px solid var(--admin-line);
+        border-radius: 8px;
+        padding: 8px 12px;
+        background: #fff;
+        color: var(--admin-green-dark);
+        font-weight: 800;
+      }
+      .admin-link-button:hover {
+        border-color: var(--admin-green);
+        background: var(--admin-surface-muted);
+      }
+      .admin-danger-button {
+        border-color: #f1b4ae;
+        background: #fff;
+        color: var(--admin-red);
+      }
+      .admin-danger-button:hover {
+        border-color: var(--admin-red);
+        background: var(--admin-red-bg);
+        color: var(--admin-red);
+      }
+      .admin-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 26px;
+        border-radius: 999px;
+        padding: 4px 9px;
+        background: var(--admin-surface-muted);
+        border: 1px solid var(--admin-line);
+        color: var(--admin-muted);
+        font-size: 12px;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+      .admin-badge.ok {
+        background: var(--admin-ok-bg);
+        border-color: #b7ebc9;
+        color: #146c43;
+      }
+      .admin-badge.warn {
+        background: #fff8e6;
+        border-color: #f0d58c;
+        color: #7a4f00;
+      }
+      .admin-badge.danger {
+        background: var(--admin-red-bg);
+        border-color: #f1b4ae;
+        color: var(--admin-red);
+      }
+      .admin-empty-row td,
+      .admin-empty {
+        color: var(--admin-muted);
+        background: #fbfdfc;
+        text-align: center;
+      }
+      .admin-id {
+        font-family: Consolas, monospace;
+        font-size: 12px;
+        word-break: break-all;
+      }
+      .admin-note-list {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--admin-muted);
+        line-height: 1.5;
+      }
+      .admin-timeline {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .admin-timeline li {
+        border-left: 3px solid #d9e9e1;
+        padding: 2px 0 2px 12px;
+        color: var(--admin-muted);
+        line-height: 1.45;
+      }
+      .admin-timeline strong {
+        color: var(--admin-strong);
+      }
+      .admin-json-editor {
+        min-height: 420px;
+        font-family: Consolas, monospace;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      .admin-json-preview {
+        max-width: 520px;
+        max-height: 260px;
+        overflow: auto;
+        margin: 8px 0 0;
+        padding: 10px;
+        border-radius: 8px;
+        background: #f7fbf9;
+        border: 1px solid var(--admin-line);
+        font-family: Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+      }
+      .admin-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+      }
+      .admin-metric {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        min-height: 132px;
+        padding: 18px;
+        background: var(--admin-surface);
+        border: 1px solid var(--admin-line);
+        border-radius: 8px;
+        box-shadow: var(--admin-shadow);
+        transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+      }
+      .admin-metric:hover {
+        border-color: var(--admin-green);
+        transform: translateY(-1px);
+        box-shadow: 0 14px 32px rgba(15, 45, 35, 0.12);
+      }
+      .admin-metric-title {
+        font-size: 15px;
+        font-weight: 800;
+        margin-bottom: 8px;
+      }
+      .admin-metric-copy {
+        color: var(--admin-muted);
+        line-height: 1.45;
+        min-height: 42px;
+      }
+      .admin-metric-value {
+        margin-top: 14px;
+        font-size: 13px;
+        color: var(--admin-green);
+        font-weight: 800;
+      }
+      h2, h3 { color: var(--admin-strong); }
+      input, textarea, select {
+        width: 100%;
+        border: 1px solid #cfd9d5;
+        border-radius: 8px;
+        padding: 10px 11px;
+        font: inherit;
+        color: var(--admin-text);
+        background: #fff;
+      }
+      input[type="checkbox"],
+      input[type="radio"] {
+        width: auto;
+        margin-right: 6px;
+      }
+      input:focus, textarea:focus, select:focus {
+        outline: 3px solid rgba(35, 122, 91, 0.18);
+        border-color: var(--admin-green);
+      }
+      button, .admin-button {
+        border: 1px solid var(--admin-green);
+        border-radius: 8px;
+        padding: 9px 13px;
+        background: var(--admin-green);
+        color: #fff;
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      button:hover, .admin-button:hover {
+        background: var(--admin-green-dark);
+        border-color: var(--admin-green-dark);
+      }
+      button[disabled] {
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+      .admin-button-secondary,
+      .admin-logout button,
+      form.pill button {
+        border: 1px solid var(--admin-line);
+        border-radius: 8px;
+        padding: 9px 13px;
+        font: inherit;
+        font-weight: 800;
+        background: #fff;
+        color: var(--admin-green-dark);
+      }
+      .admin-button-secondary:hover,
+      .admin-logout button:hover,
+      form.pill button:hover {
+        background: var(--admin-surface-muted);
+        border-color: var(--admin-green);
+      }
+      table {
+        width: 100%;
+        border-collapse: separate !important;
+        border-spacing: 0;
+        background: var(--admin-surface);
+        overflow: hidden;
+      }
+      tr:hover td {
+        background: #f7fbf9;
+      }
+      section {
+        overflow-x: auto;
+      }
+      th, td {
+        border-bottom: 1px solid #e8efec !important;
+        padding: 11px 10px !important;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #f1f6f4 !important;
+        color: var(--admin-strong);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0;
+      }
+      tr:nth-child(even) {
+        background: #fbfdfc;
+      }
+      code {
+        background: #eef5f2;
+        color: var(--admin-strong);
+        padding: 2px 5px;
+        border-radius: 6px;
+      }
+      .admin-scroll {
+        overflow-x: auto;
+      }
+      .admin-login-body {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .admin-login-panel {
+        max-width: 560px;
+        width: 100%;
+        background: var(--admin-surface);
+        border: 1px solid var(--admin-line);
+        border-radius: 8px;
+        padding: 26px;
+        box-shadow: var(--admin-shadow);
+      }
+      .admin-shortcut-hint {
+        color: var(--admin-muted);
+        font-size: 12px;
+      }
+      .admin-status {
+        margin-top: 16px;
+        padding: 12px;
+        border-radius: 8px;
+        background: #eef5ff;
+        color: #173b69;
+        min-height: 20px;
+      }
+      .admin-status.error {
+        background: var(--admin-red-bg);
+        color: var(--admin-red);
+      }
+      .admin-alert {
+        margin: 0 0 16px;
+        padding: 12px 14px;
+        border-radius: 8px;
+        border: 1px solid var(--admin-line);
+        background: var(--admin-surface-muted);
+        color: var(--admin-muted);
+        line-height: 1.45;
+      }
+      .admin-alert strong {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--admin-strong);
+      }
+      .admin-alert ul {
+        margin: 6px 0 0;
+        padding-left: 18px;
+      }
+      .admin-alert.danger {
+        background: var(--admin-red-bg);
+        border-color: #f1b4ae;
+        color: var(--admin-red);
+      }
+      .admin-alert.warn {
+        background: #fff8e6;
+        border-color: #f0d58c;
+        color: #7a4f00;
+      }
+      .admin-alert.ok {
+        background: var(--admin-ok-bg);
+        border-color: #b7ebc9;
+        color: #146c43;
+      }
+      .admin-task-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 14px;
+      }
+      .admin-task-card {
+        display: grid;
+        gap: 8px;
+        min-height: 150px;
+        padding: 16px;
+        text-decoration: none;
+        color: inherit;
+        border: 1px solid var(--admin-line);
+        border-radius: 8px;
+        background: #fff;
+        transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+      }
+      .admin-task-card:hover {
+        border-color: var(--admin-green);
+        transform: translateY(-1px);
+        box-shadow: 0 14px 32px rgba(15, 45, 35, 0.12);
+      }
+      .admin-task-card strong {
+        color: var(--admin-strong);
+        font-size: 16px;
+      }
+      .admin-task-card span {
+        color: var(--admin-muted);
+        line-height: 1.45;
+      }
+      .admin-task-step {
+        width: fit-content;
+        border-radius: 999px;
+        padding: 4px 8px;
+        background: #e9f6ef;
+        color: var(--admin-green-dark) !important;
+        font-size: 12px;
+        font-weight: 800;
+      }
+      @media (max-width: 760px) {
+        .admin-topbar-inner,
+        .admin-hero,
+        .admin-user {
+          align-items: stretch;
+          flex-direction: column;
+        }
+        .admin-main {
+          padding: 18px 14px 32px;
+        }
+        .admin-hero h1 {
+          font-size: 23px;
+        }
+        .admin-main div[style*="grid-template-columns"] {
+          grid-template-columns: 1fr !important;
+        }
+        .admin-page-grid,
+        .admin-page-grid.is-three,
+        .admin-field-grid {
+          grid-template-columns: 1fr;
+        }
+        .admin-toolbar input,
+        .admin-toolbar select {
+          width: 100%;
+          min-width: 0;
+        }
+        .admin-console-link,
+        .admin-section-link,
+        button,
+        .admin-button,
+        .admin-button-secondary {
+          min-height: 40px;
+        }
+      }
+    """
+
+
+def _admin_shell(
+    title: str,
+    principal: Dict[str, Any],
+    body_html: str,
+    *,
+    current_console: str,
+    section_nav_html: str = "",
+    description: str = "",
+    max_width: int = 1240,
+) -> HTMLResponse:
+    actor = html.escape(str(principal.get("actor") or principal.get("uid") or "admin"), quote=True)
+    roles = ", ".join(sorted(str(role) for role in (principal.get("roles") or []))) or "admin"
+    return HTMLResponse(
+        content=f"""
+        <!doctype html>
+        <html>
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>{html.escape(title, quote=True)}</title>
+          <style>{_admin_base_css()}</style>
+        </head>
+        <body>
+          <div class="admin-shell" style="--admin-width:{int(max_width)}px;">
+            <header class="admin-topbar">
+              <div class="admin-topbar-inner">
+                <div class="admin-brand">
+                  <a href="/admin/login">PCOSina Admin</a>
+                  <small>Simple maintenance tools</small>
+                </div>
+                <a href="/admin/login" class="admin-home-link">Home</a>
+                {_admin_console_switcher_html(principal, current=current_console)}
+                <div class="admin-user">
+                  <span class="admin-user-chip">{actor}</span>
+                  <span class="admin-user-chip">Roles: {html.escape(roles, quote=True)}</span>
+                  <form method="post" action="/admin/logout" class="admin-logout" style="margin:0;">
+                    <button type="submit">Sign out</button>
+                  </form>
+                </div>
+              </div>
+            </header>
+            <main class="admin-main">
+              <div class="admin-hero">
+                <div>
+                  <h1>{html.escape(title, quote=True)}</h1>
+                  <p>{html.escape(description, quote=True)}</p>
+                </div>
+              </div>
+              {f'<nav class="admin-section-nav" aria-label="Section navigation">{section_nav_html}</nav>' if section_nav_html else ''}
+              {body_html}
+            </main>
+          </div>
+          <script>
+            document.addEventListener("submit", (event) => {{
+              const form = event.target;
+              if (!form || !form.dataset || !form.dataset.confirm) {{
+                return;
+              }}
+              if (!window.confirm(form.dataset.confirm)) {{
+                event.preventDefault();
+              }}
+            }});
+
+            document.addEventListener("keydown", (event) => {{
+              const key = String(event.key || "").toLowerCase();
+              if ((event.ctrlKey || event.metaKey) && key === "k") {{
+                const search = document.querySelector('input[name="q"], input[type="search"]');
+                if (search) {{
+                  event.preventDefault();
+                  search.focus();
+                  if (typeof search.select === "function") {{
+                    search.select();
+                  }}
+                }}
+              }}
+            }});
+          </script>
+        </body>
+        </html>
+        """
+    )
+
+
+def _admin_metric_cards_html(cards: list[tuple[str, str, str, int]]) -> str:
+    card_html = "".join(
+        f"""
+        <a href="{href}" class="admin-metric">
+          <div class="admin-metric-title">{html.escape(label, quote=True)}</div>
+          <div class="admin-metric-copy">{html.escape(description, quote=True)}</div>
+          <div class="admin-metric-value">Total: {int(count)}</div>
+        </a>
+        """
+        for label, href, description, count in cards
+    )
+    return f"<div class='admin-card-grid'>{card_html}</div>"
+
+
+def _admin_workspace_cards_html(cards: list[tuple[str, str, str]]) -> str:
+    card_html = "".join(
+        f"""
+        <a href="{href}" class="admin-metric">
+          <div class="admin-metric-title">{html.escape(label, quote=True)}</div>
+          <div class="admin-metric-copy">{html.escape(description, quote=True)}</div>
+          <div class="admin-metric-value">Open console</div>
+        </a>
+        """
+        for label, href, description in cards
+    )
+    return f"<div class='admin-card-grid'>{card_html}</div>"
+
+
+def _admin_safe_count(loader) -> int:
+    try:
+        return len(loader())
+    except Exception:
+        return 0
+
+
+def _admin_safe_load(label: str, loader, default: Any):
+    try:
+        return loader(), ""
+    except Exception as exc:
+        traceback.print_exc()
+        return default, f"{label} could not be loaded right now."
+
+
+def _admin_alert_list_html(messages: list[str]) -> str:
+    cleaned = [str(item or "").strip() for item in messages if str(item or "").strip()]
+    if not cleaned:
+        return ""
+    items = "".join(f"<li>{html.escape(item, quote=True)}</li>" for item in cleaned)
+    return (
+        "<div class='admin-alert danger' role='status'>"
+        "<strong>Some information could not be loaded.</strong>"
+        f"<ul>{items}</ul>"
+        "</div>"
+    )
+
+
+def _admin_task_cards_html(cards: list[tuple[str, str, str, str]]) -> str:
+    card_html = "".join(
+        f"""
+        <a href="{href}" class="admin-task-card">
+          <span class="admin-task-step">{html.escape(step, quote=True)}</span>
+          <strong>{html.escape(title, quote=True)}</strong>
+          <span>{html.escape(description, quote=True)}</span>
+        </a>
+        """
+        for step, title, href, description in cards
+    )
+    return f"<div class='admin-task-grid'>{card_html}</div>"
+
+
+def _admin_select_options(options: list[tuple[str, str]], current: Any) -> str:
+    current_value = str(current or "").strip().lower()
+    return "".join(
+        "<option value='{value}' {selected}>{label}</option>".format(
+            value=html.escape(str(value), quote=True),
+            label=html.escape(str(label), quote=True),
+            selected="selected" if str(value).strip().lower() == current_value else "",
+        )
+        for value, label in options
+    )
+
+
+def _admin_timeline_html(items: list[tuple[str, str]]) -> str:
+    rows = "".join(
+        f"<li><strong>{html.escape(title, quote=True)}</strong><br/>{html.escape(copy, quote=True)}</li>"
+        for title, copy in items
+    )
+    return f"<ul class='admin-timeline'>{rows}</ul>"
+
+
+def _admin_badge(label: Any, tone: str = "") -> str:
+    tone_class = f" {tone}" if tone else ""
+    return f"<span class='admin-badge{tone_class}'>{html.escape(str(label), quote=True)}</span>"
+
+
+def _admin_empty_row(colspan: int, message: str) -> str:
+    return f"<tr class='admin-empty-row'><td colspan='{int(colspan)}'>{html.escape(message, quote=True)}</td></tr>"
+
+
+def _admin_section_header(title: str, description: str, action_html: str = "") -> str:
+    action_block = f"<div class='admin-actions'>{action_html}</div>" if action_html else ""
+    return (
+        "<div class='admin-section-header'>"
+        "<div>"
+        f"<h2>{html.escape(title, quote=True)}</h2>"
+        f"<p>{html.escape(description, quote=True)}</p>"
+        "</div>"
+        f"{action_block}"
+        "</div>"
+    )
+
+
+def _admin_new_link(href: str, label: str) -> str:
+    return f"<a href='{html.escape(href, quote=True)}' class='admin-link-button'>{html.escape(label, quote=True)}</a>"
+
+
+def _admin_danger_confirm(message: str) -> str:
+    return f"data-confirm='{html.escape(message, quote=True)}'"
 
 
 def _admin_content_layout(
@@ -1603,57 +2677,20 @@ def _admin_content_layout(
     *,
     active: str,
 ) -> HTMLResponse:
-    actor = html.escape(str(principal.get("actor") or principal.get("uid") or "admin"), quote=True)
-    roles = ", ".join(sorted(str(role) for role in (principal.get("roles") or [])))
-    switcher_html = _admin_console_switcher_html(principal, current="content")
     nav_items = [
         ("Overview", "/admin/content", "overview"),
         ("Recipes", "/admin/content/recipes", "recipes"),
         ("Price Rules", "/admin/content/price-rules", "price-rules"),
         ("Nutrition Corrections", "/admin/content/nutrition-corrections", "nutrition-corrections"),
     ]
-    nav_html = "".join(
-        (
-            "<a href='{href}' style='text-decoration:none;padding:8px 12px;border-radius:999px;"
-            "border:1px solid {border};background:{background};color:{color};font-weight:{weight};'>"
-            "{label}</a>"
-        ).format(
-            href=href,
-            label=html.escape(label, quote=True),
-            border="#1677ff" if key == active else "#d9d9d9",
-            background="#e6f4ff" if key == active else "#ffffff",
-            color="#0958d9" if key == active else "#434343",
-            weight="700" if key == active else "500",
-        )
-        for label, href, key in nav_items
-    )
-    return HTMLResponse(
-        content=f"""
-        <!doctype html>
-        <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>{html.escape(title, quote=True)}</title>
-        </head>
-        <body style="font-family:Arial,sans-serif;margin:24px;background:#f5f7fa;color:#141414;">
-          <div style="max-width:1200px;margin:0 auto;">
-            <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:16px;">
-              <div>
-                <a href="/admin/login" style="color:#1677ff;text-decoration:none;">PCOSINA Admin</a>
-                <h1 style="margin:8px 0 4px;">{html.escape(title, quote=True)}</h1>
-                <div style="color:#595959;">Signed in as <strong>{actor}</strong> • Roles: {html.escape(roles or "content_admin", quote=True)}</div>
-                {switcher_html}
-              </div>
-              <form method="post" action="/admin/logout" style="margin:0;">
-                <button type="submit" style="padding:10px 14px;border-radius:10px;border:1px solid #d9d9d9;background:#fff;cursor:pointer;">Sign out</button>
-              </form>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;">{nav_html}</div>
-            {body_html}
-          </div>
-        </body>
-        </html>
-        """
+    return _admin_shell(
+        title,
+        principal,
+        body_html,
+        current_console="content",
+        section_nav_html=_admin_section_nav_html(nav_items, active=active),
+        description="Edit meals, prices, and nutrition corrections used by PCOSina.",
+        max_width=1240,
     )
 
 
@@ -1664,57 +2701,21 @@ def _admin_ops_layout(
     *,
     active: str,
 ) -> HTMLResponse:
-    actor = html.escape(str(principal.get("actor") or principal.get("uid") or "ops-admin"), quote=True)
-    roles = ", ".join(sorted(str(role) for role in (principal.get("roles") or [])))
-    switcher_html = _admin_console_switcher_html(principal, current="ops")
     nav_items = [
-        ("Overview", "/admin/ops", "overview"),
-        ("Support Cases", "/admin/ops/support-cases", "support-cases"),
-        ("Admin Sessions", "/admin/ops/admin-sessions", "admin-sessions"),
-        ("Operator Access", "/admin/ops/operator-access", "operator-access"),
+        ("Start", "/admin/ops", "overview"),
+        ("Support", "/admin/ops/support-cases", "support-cases"),
+        ("Sign-ins", "/admin/ops/admin-sessions", "admin-sessions"),
+        ("Access", "/admin/ops/operator-access", "operator-access"),
+        ("History", "/admin/ops/audit-logs", "audit-logs"),
     ]
-    nav_html = "".join(
-        (
-            "<a href='{href}' style='text-decoration:none;padding:8px 12px;border-radius:999px;"
-            "border:1px solid {border};background:{background};color:{color};font-weight:{weight};'>"
-            "{label}</a>"
-        ).format(
-            href=href,
-            label=html.escape(label, quote=True),
-            border="#1677ff" if key == active else "#d9d9d9",
-            background="#e6f4ff" if key == active else "#ffffff",
-            color="#0958d9" if key == active else "#434343",
-            weight="700" if key == active else "500",
-        )
-        for label, href, key in nav_items
-    )
-    return HTMLResponse(
-        content=f"""
-        <!doctype html>
-        <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>{html.escape(title, quote=True)}</title>
-        </head>
-        <body style="font-family:Arial,sans-serif;margin:24px;background:#f5f7fa;color:#141414;">
-          <div style="max-width:1240px;margin:0 auto;">
-            <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:16px;">
-              <div>
-                <a href="/admin/login" style="color:#1677ff;text-decoration:none;">PCOSINA Admin</a>
-                <h1 style="margin:8px 0 4px;">{html.escape(title, quote=True)}</h1>
-                <div style="color:#595959;">Signed in as <strong>{actor}</strong> • Roles: {html.escape(roles or "ops_admin", quote=True)}</div>
-                {switcher_html}
-              </div>
-              <form method="post" action="/admin/logout" style="margin:0;">
-                <button type="submit" style="padding:10px 14px;border-radius:10px;border:1px solid #d9d9d9;background:#fff;cursor:pointer;">Sign out</button>
-              </form>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;">{nav_html}</div>
-            {body_html}
-          </div>
-        </body>
-        </html>
-        """
+    return _admin_shell(
+        title,
+        principal,
+        body_html,
+        current_console="ops",
+        section_nav_html=_admin_section_nav_html(nav_items, active=active),
+        description="Handle app issues, admin sign-ins, access, and change history.",
+        max_width=1280,
     )
 
 
@@ -1723,35 +2724,13 @@ def _admin_policy_layout(
     principal: Dict[str, Any],
     body_html: str,
 ) -> HTMLResponse:
-    actor = html.escape(str(principal.get("actor") or principal.get("uid") or "policy-admin"), quote=True)
-    roles = ", ".join(sorted(str(role) for role in (principal.get("roles") or [])))
-    switcher_html = _admin_console_switcher_html(principal, current="policy")
-    return HTMLResponse(
-        content=f"""
-        <!doctype html>
-        <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>{html.escape(title, quote=True)}</title>
-        </head>
-        <body style="font-family:Arial,sans-serif;margin:24px;background:#f5f7fa;color:#141414;">
-          <div style="max-width:1280px;margin:0 auto;">
-            <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:16px;">
-              <div>
-                <a href="/admin/login" style="color:#1677ff;text-decoration:none;">PCOSINA Admin</a>
-                <h1 style="margin:8px 0 4px;">{html.escape(title, quote=True)}</h1>
-                <div style="color:#595959;">Signed in as <strong>{actor}</strong> • Roles: {html.escape(roles or "policy_admin", quote=True)}</div>
-                {switcher_html}
-              </div>
-              <form method="post" action="/admin/logout" style="margin:0;">
-                <button type="submit" style="padding:10px 14px;border-radius:10px;border:1px solid #d9d9d9;background:#fff;cursor:pointer;">Sign out</button>
-              </form>
-            </div>
-            {body_html}
-          </div>
-        </body>
-        </html>
-        """
+    return _admin_shell(
+        title,
+        principal,
+        body_html,
+        current_console="policy",
+        description="Review and update the planner settings used by the backend.",
+        max_width=1320,
     )
 
 
@@ -1780,22 +2759,12 @@ def admin_content_home(principal: Any = Depends(require_content_admin)):
             nutrition_count,
         ),
     ]
-    card_html = "".join(
-        f"""
-        <a href="{href}" style="display:block;text-decoration:none;color:inherit;min-width:260px;flex:1 1 280px;background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-          <div style="font-size:18px;font-weight:700;margin-bottom:6px;">{html.escape(label, quote=True)}</div>
-          <div style="color:#595959;margin-bottom:14px;line-height:1.5;">{html.escape(description, quote=True)}</div>
-          <div style="font-size:13px;color:#1677ff;font-weight:700;">Visible items: {count}</div>
-        </a>
-        """
-        for label, href, description, count in cards
-    )
     body_html = (
-        "<div style='background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;margin-bottom:16px;'>"
-        "<p style='margin:0;line-height:1.6;'>This operator console sits on top of the existing audited content-admin endpoints. "
-        "Use it for browser-based content operations without dropping down to raw JSON APIs.</p>"
-        "</div>"
-        f"<div style='display:flex;gap:16px;flex-wrap:wrap;'>{card_html}</div>"
+        "<section class='admin-card' style='margin-bottom:16px;'>"
+        "<p style='margin:0;line-height:1.6;'>Use this area to keep the meal planner data updated. "
+        "Start with recipes, then review price rules and nutrition corrections when needed.</p>"
+        "</section>"
+        f"{_admin_metric_cards_html(cards)}"
     )
     return _admin_content_layout("Content Console", principal, body_html, active="overview")
 
@@ -1817,9 +2786,11 @@ def admin_content_recipes_page(
     edit_item = database.get_recipe_by_id(edit_token) if edit_token else None
     if edit_token and not edit_item and not error:
         error = f"Recipe not found: {edit_token}"
+    catalog_status = database.get_recipe_catalog_status()
 
     save_csrf = _build_admin_csrf_token(principal, "content-recipe-save")
     delete_csrf = _build_admin_csrf_token(principal, "content-recipe-delete")
+    seed_csrf = _build_admin_csrf_token(principal, "content-recipe-seed")
 
     current = edit_item or {
         "id": "",
@@ -1847,56 +2818,81 @@ def admin_content_recipes_page(
             f"<td>{int(item.get('calories') or 0)}</td>"
             f"<td>{int(item.get('minutes') or 0)}</td>"
             f"<td>{html.escape(', '.join(item.get('tags') or []), quote=True)}</td>"
-            "<td style='white-space:nowrap;'>"
-            f"<a href='{edit_link}' style='margin-right:10px;'>Edit</a>"
-            f"<form method='post' action='/admin/content/recipes/{html.escape(str(item.get('id') or ''), quote=True)}/delete' style='display:inline;'>"
+            "<td><div class='admin-actions'>"
+            f"<a href='{edit_link}' class='admin-link-button'>Edit</a>"
+            f"<form method='post' action='/admin/content/recipes/{html.escape(str(item.get('id') or ''), quote=True)}/delete' {_admin_danger_confirm('Delete this recipe from the planner catalog?')}>"
             f"<input type='hidden' name='csrf_token' value='{html.escape(delete_csrf, quote=True)}'/>"
             f"<input type='hidden' name='q' value='{html.escape(query, quote=True)}'/>"
             f"<input type='hidden' name='meal_type' value='{html.escape(meal, quote=True)}'/>"
-            "<button type='submit'>Delete</button>"
+            "<button type='submit' class='admin-danger-button'>Delete</button>"
             "</form>"
-            "</td>"
+            "</div></td>"
             "</tr>"
         )
-    rows_html = "\n".join(rows) if rows else "<tr><td colspan='6'>No recipes found.</td></tr>"
+    rows_html = "\n".join(rows) if rows else _admin_empty_row(6, "No recipes match the current filters.")
+    seed_source_count = int(catalog_status.get("seedSourceCount") or 0)
+    missing_seed_count = int(catalog_status.get("missingSeedCount") or 0)
+    database_count = int(catalog_status.get("databaseCount") or 0)
+    database_total_count = int(catalog_status.get("databaseTotalCount") or database_count)
+    database_inactive_count = int(catalog_status.get("databaseInactiveCount") or 0)
+    seed_source_label = html.escape(str(catalog_status.get("seedSourcePath") or "not found"), quote=True)
 
     body_html = f"""
     {_admin_notice_html(status, error)}
-    <div style="display:grid;grid-template-columns:minmax(340px,420px) minmax(0,1fr);gap:18px;align-items:start;">
-      <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
-          <h2 style="margin:0;">Recipe Operations</h2>
-          <a href="/admin/content/recipes" style="text-decoration:none;">New recipe</a>
-        </div>
-        <p style="color:#595959;line-height:1.5;">Tags use comma-separated values. Ingredients use one item per line in <code>name | quantity</code> format.</p>
+    <section class="admin-card" style="margin-bottom:18px;">
+      {_admin_section_header("Catalog Status", "Keep the working recipe database aligned with the bundled seed catalog before reviewing or editing meals.")}
+      <div class="admin-card-grid">
+        <div>{_admin_badge(database_count, "ok")}<p class="admin-copy">Active database recipes</p></div>
+        <div>{_admin_badge(database_total_count)}<p class="admin-copy">Total recipe rows</p></div>
+        <div>{_admin_badge(database_inactive_count, "warn" if database_inactive_count else "ok")}<p class="admin-copy">Inactive rows</p></div>
+        <div>{_admin_badge(missing_seed_count, "warn" if missing_seed_count else "ok")}<p class="admin-copy">Missing bundled recipes</p></div>
+      </div>
+      <div class="admin-toolbar" style="margin-top:14px;margin-bottom:0;">
+        <code>{seed_source_label}</code>
+        <form method="post" action="/admin/content/recipes/seed" style="margin:0;">
+          <input type="hidden" name="csrf_token" value="{html.escape(seed_csrf, quote=True)}"/>
+          <input type="hidden" name="q" value="{html.escape(query, quote=True)}"/>
+          <input type="hidden" name="meal_type" value="{html.escape(meal, quote=True)}"/>
+          <input type="hidden" name="limit" value="{limit}"/>
+          <button type="submit">Import missing seed recipes</button>
+        </form>
+      </div>
+    </section>
+    <div class="admin-page-grid">
+      <section class="admin-card">
+        {_admin_section_header("Recipe Operations", "Create a new planner recipe or load an existing one from the library to update it.", _admin_new_link("/admin/content/recipes", "New recipe"))}
+        <p class="admin-field-help">Tags use comma-separated values. Ingredients use one item per line in <code>name | quantity</code> format.</p>
         <form method="post" action="/admin/content/recipes/save">
           <input type="hidden" name="csrf_token" value="{html.escape(save_csrf, quote=True)}"/>
           <input type="hidden" name="recipe_id" value="{_admin_html_attr(current.get('id'))}"/>
-          <label>Title<br/><input type="text" name="title" value="{_admin_html_attr(current.get('title'))}" style="width:100%;" required/></label><br/><br/>
-          <label>Meal type<br/><input type="text" name="meal_type" value="{_admin_html_attr(current.get('mealType'))}" style="width:100%;" required/></label><br/><br/>
-          <label>Calories<br/><input type="number" name="calories" value="{_admin_html_attr(current.get('calories'))}" min="0" style="width:100%;" required/></label><br/><br/>
-          <label>Protein (g)<br/><input type="number" name="protein_grams" value="{_admin_html_attr(current.get('proteinGrams'))}" min="0" style="width:100%;" required/></label><br/><br/>
-          <label>Carbs (g)<br/><input type="number" name="carbs_grams" value="{_admin_html_attr(current.get('carbsGrams'))}" min="0" style="width:100%;" required/></label><br/><br/>
-          <label>Fats (g)<br/><input type="number" name="fats_grams" value="{_admin_html_attr(current.get('fatsGrams'))}" min="0" style="width:100%;" required/></label><br/><br/>
-          <label>Fiber (g)<br/><input type="number" name="fiber_grams" value="{_admin_html_attr(current.get('fiberGrams'))}" min="0" style="width:100%;" required/></label><br/><br/>
-          <label>Minutes<br/><input type="number" name="minutes" value="{_admin_html_attr(current.get('minutes'))}" min="0" style="width:100%;" required/></label><br/><br/>
-          <label>Tags<br/><input type="text" name="tags" value="{_admin_html_attr(', '.join(current.get('tags') or []))}" style="width:100%;"/></label><br/><br/>
-          <label>Ingredients<br/><textarea name="ingredients_text" rows="7" style="width:100%;font-family:monospace;">{html.escape(_admin_format_ingredients(current.get('ingredients')), quote=True)}</textarea></label><br/><br/>
-          <label>Steps<br/><textarea name="steps_text" rows="7" style="width:100%;">{html.escape(_admin_format_lines(current.get('steps')), quote=True)}</textarea></label><br/><br/>
+          <label class="admin-field"><span>Title</span><input type="text" name="title" value="{_admin_html_attr(current.get('title'))}" required/></label>
+          <label class="admin-field"><span>Meal type</span><input type="text" name="meal_type" value="{_admin_html_attr(current.get('mealType'))}" required/></label>
+          <div class="admin-field-grid">
+            <label class="admin-field"><span>Calories</span><input type="number" name="calories" value="{_admin_html_attr(current.get('calories'))}" min="0" required/></label>
+            <label class="admin-field"><span>Protein (g)</span><input type="number" name="protein_grams" value="{_admin_html_attr(current.get('proteinGrams'))}" min="0" required/></label>
+            <label class="admin-field"><span>Carbs (g)</span><input type="number" name="carbs_grams" value="{_admin_html_attr(current.get('carbsGrams'))}" min="0" required/></label>
+            <label class="admin-field"><span>Fats (g)</span><input type="number" name="fats_grams" value="{_admin_html_attr(current.get('fatsGrams'))}" min="0" required/></label>
+            <label class="admin-field"><span>Fiber (g)</span><input type="number" name="fiber_grams" value="{_admin_html_attr(current.get('fiberGrams'))}" min="0" required/></label>
+            <label class="admin-field"><span>Minutes</span><input type="number" name="minutes" value="{_admin_html_attr(current.get('minutes'))}" min="0" required/></label>
+          </div>
+          <label class="admin-field"><span>Tags</span><input type="text" name="tags" value="{_admin_html_attr(', '.join(current.get('tags') or []))}"/></label>
+          <label class="admin-field"><span>Ingredients</span><textarea name="ingredients_text" rows="7">{html.escape(_admin_format_ingredients(current.get('ingredients')), quote=True)}</textarea></label>
+          <label class="admin-field"><span>Steps</span><textarea name="steps_text" rows="7">{html.escape(_admin_format_lines(current.get('steps')), quote=True)}</textarea></label>
           <button type="submit">{'Update recipe' if current.get('id') else 'Create recipe'}</button>
         </form>
       </section>
-      <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-        <h2 style="margin-top:0;">Recipe Library</h2>
-        <form method="get" action="/admin/content/recipes" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
-          <input type="text" name="q" value="{html.escape(query, quote=True)}" placeholder="Search title" style="flex:1 1 220px;"/>
-          <input type="text" name="meal_type" value="{html.escape(meal, quote=True)}" placeholder="Meal type" style="flex:1 1 180px;"/>
+      <section class="admin-card">
+        {_admin_section_header("Recipe Library", "Search existing meals, load a record for editing, or remove retired content.")}
+        <form method="get" action="/admin/content/recipes" class="admin-toolbar">
+          <input type="text" name="q" value="{html.escape(query, quote=True)}" placeholder="Search title"/>
+          <input type="text" name="meal_type" value="{html.escape(meal, quote=True)}" placeholder="Meal type"/>
           <input type="hidden" name="limit" value="{limit}"/>
           <button type="submit">Filter</button>
+          <a href="/admin/content/recipes" class="admin-link-button">Clear</a>
         </form>
-        <table style="width:100%;border-collapse:collapse;">
+        <table>
           <thead>
-            <tr><th style="text-align:left;">Title</th><th style="text-align:left;">Meal</th><th style="text-align:left;">Calories</th><th style="text-align:left;">Minutes</th><th style="text-align:left;">Tags</th><th style="text-align:left;">Actions</th></tr>
+            <tr><th>Title</th><th>Meal</th><th>Calories</th><th>Minutes</th><th>Tags</th><th>Actions</th></tr>
           </thead>
           <tbody>{rows_html}</tbody>
         </table>
@@ -1962,6 +2958,22 @@ def admin_content_delete_recipe(
         return _admin_redirect("/admin/content/recipes", q=q, meal_type=meal_type, error=str(exc.detail or "Recipe delete failed"))
 
 
+@app.post("/admin/content/recipes/seed")
+def admin_content_seed_recipes(
+    csrf_token: str = Form(...),
+    q: str | None = Form(default=None),
+    meal_type: str | None = Form(default=None),
+    limit: int = Form(default=50),
+    principal: Any = Depends(require_content_admin),
+):
+    _verify_admin_csrf_token(principal, csrf_token, "content-recipe-seed")
+    try:
+        admin_seed_recipes(force=False, principal=principal)
+        return _admin_redirect("/admin/content/recipes", q=q, meal_type=meal_type, limit=limit, status="recipe_seeded")
+    except Exception as exc:
+        return _admin_redirect("/admin/content/recipes", q=q, meal_type=meal_type, limit=limit, error=f"Recipe seed import failed: {exc}")
+
+
 @app.get("/admin/content/price-rules", response_class=HTMLResponse)
 def admin_content_price_rules_page(
     q: str | None = None,
@@ -2010,59 +3022,57 @@ def admin_content_price_rules_page(
             f"<td>{html.escape(range_text, quote=True)}</td>"
             f"<td>{html.escape(str(item.get('category') or ''), quote=True)}</td>"
             f"<td>{html.escape(str(item.get('unit') or ''), quote=True)}</td>"
-            f"<td>{'Yes' if item.get('active') else 'No'}</td>"
+            f"<td>{_admin_badge('Active' if item.get('active') else 'Inactive', 'ok' if item.get('active') else 'warn')}</td>"
             f"<td>{html.escape(str(item.get('notes') or ''), quote=True)}</td>"
-            "<td style='white-space:nowrap;'>"
-            f"<a href='{edit_link}' style='margin-right:10px;'>Edit</a>"
-            f"<form method='post' action='/admin/content/price-rules/{html.escape(str(item.get('id') or ''), quote=True)}/delete' style='display:inline;'>"
+            "<td><div class='admin-actions'>"
+            f"<a href='{edit_link}' class='admin-link-button'>Edit</a>"
+            f"<form method='post' action='/admin/content/price-rules/{html.escape(str(item.get('id') or ''), quote=True)}/delete' {_admin_danger_confirm('Delete this price rule? Grocery estimates may change.')}>"
             f"<input type='hidden' name='csrf_token' value='{html.escape(delete_csrf, quote=True)}'/>"
             f"<input type='hidden' name='q' value='{html.escape(query, quote=True)}'/>"
             f"<input type='hidden' name='category' value='{html.escape(category_value, quote=True)}'/>"
-            "<button type='submit'>Delete</button>"
+            "<button type='submit' class='admin-danger-button'>Delete</button>"
             "</form>"
-            "</td>"
+            "</div></td>"
             "</tr>"
         )
-    rows_html = "\n".join(rows) if rows else "<tr><td colspan='8'>No price rules found.</td></tr>"
+    rows_html = "\n".join(rows) if rows else _admin_empty_row(8, "No price rules match the current filters.")
 
     active_checked = "checked" if current.get("active", True) else ""
     body_html = f"""
     {_admin_notice_html(status, error)}
-    <div style="display:grid;grid-template-columns:minmax(320px,400px) minmax(0,1fr);gap:18px;align-items:start;">
-      <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
-          <h2 style="margin:0;">Ingredient Price Rules</h2>
-          <a href="/admin/content/price-rules" style="text-decoration:none;">New rule</a>
-        </div>
-        <p style="color:#595959;line-height:1.5;">Keywords use comma-separated values and should match pantry or grocery ingredient terms.</p>
+    <div class="admin-page-grid">
+      <section class="admin-card">
+        {_admin_section_header("Ingredient Price Rules", "Control the cost estimates used by grocery guidance and budget-aware planning.", _admin_new_link("/admin/content/price-rules", "New rule"))}
+        <p class="admin-field-help">Keywords should match pantry or grocery ingredient names. Use ranges when store prices vary often.</p>
+        <p class="admin-field-help">Prices are estimates and may vary by store, location, and date.</p>
         <form method="post" action="/admin/content/price-rules/save">
           <input type="hidden" name="csrf_token" value="{html.escape(save_csrf, quote=True)}"/>
           <input type="hidden" name="rule_id" value="{_admin_html_attr(current.get('id'))}"/>
-          <label>Keywords<br/><input type="text" name="keywords" value="{_admin_html_attr(', '.join(current.get('keywords') or []))}" style="width:100%;" required/></label><br/><br/>
-          <label>Estimate / midpoint (PHP)<br/><input type="number" name="price_php" value="{_admin_html_attr(current.get('pricePhp'))}" min="1" style="width:100%;" required/></label><br/><br/>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            <label>Min price (optional)<br/><input type="number" name="price_min_php" value="{_admin_html_attr(current.get('priceMinPhp'))}" min="1" style="width:100%;"/></label>
-            <label>Max price (optional)<br/><input type="number" name="price_max_php" value="{_admin_html_attr(current.get('priceMaxPhp'))}" min="1" style="width:100%;"/></label>
+          <label class="admin-field"><span>Keywords</span><input type="text" name="keywords" value="{_admin_html_attr(', '.join(current.get('keywords') or []))}" required/></label>
+          <label class="admin-field"><span>Estimate / midpoint (PHP)</span><input type="number" name="price_php" value="{_admin_html_attr(current.get('pricePhp'))}" min="1" required/></label>
+          <div class="admin-field-grid">
+            <label class="admin-field"><span>Min price</span><input type="number" name="price_min_php" value="{_admin_html_attr(current.get('priceMinPhp'))}" min="1"/></label>
+            <label class="admin-field"><span>Max price</span><input type="number" name="price_max_php" value="{_admin_html_attr(current.get('priceMaxPhp'))}" min="1"/></label>
           </div>
-          <p style="color:#777;margin-top:8px;">Prices are estimates and may vary by store, location, and date.</p>
-          <label>Category<br/><input type="text" name="category" value="{_admin_html_attr(current.get('category'))}" style="width:100%;" required/></label><br/><br/>
-          <label>Unit<br/><input type="text" name="unit" value="{_admin_html_attr(current.get('unit'))}" style="width:100%;"/></label><br/><br/>
-          <label><input type="checkbox" name="active" value="true" {active_checked}/> Active</label><br/><br/>
-          <label>Notes<br/><textarea name="notes" rows="5" style="width:100%;">{html.escape(str(current.get('notes') or ''), quote=True)}</textarea></label><br/><br/>
+          <label class="admin-field"><span>Category</span><input type="text" name="category" value="{_admin_html_attr(current.get('category'))}" required/></label>
+          <label class="admin-field"><span>Unit</span><input type="text" name="unit" value="{_admin_html_attr(current.get('unit'))}"/></label>
+          <label class="admin-field"><span><input type="checkbox" name="active" value="true" {active_checked}/> Active rule</span></label>
+          <label class="admin-field"><span>Notes</span><textarea name="notes" rows="5">{html.escape(str(current.get('notes') or ''), quote=True)}</textarea></label>
           <button type="submit">{'Update rule' if current.get('id') else 'Create rule'}</button>
         </form>
       </section>
-      <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-        <h2 style="margin-top:0;">Rule Library</h2>
-        <form method="get" action="/admin/content/price-rules" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
-          <input type="text" name="q" value="{html.escape(query, quote=True)}" placeholder="Search keywords or category" style="flex:1 1 220px;"/>
-          <input type="text" name="category" value="{html.escape(category_value, quote=True)}" placeholder="Category" style="flex:1 1 180px;"/>
+      <section class="admin-card">
+        {_admin_section_header("Rule Library", "Find, edit, or retire ingredient pricing rules.")}
+        <form method="get" action="/admin/content/price-rules" class="admin-toolbar">
+          <input type="text" name="q" value="{html.escape(query, quote=True)}" placeholder="Search keywords or category"/>
+          <input type="text" name="category" value="{html.escape(category_value, quote=True)}" placeholder="Category"/>
           <input type="hidden" name="limit" value="{limit}"/>
           <button type="submit">Filter</button>
+          <a href="/admin/content/price-rules" class="admin-link-button">Clear</a>
         </form>
-        <table style="width:100%;border-collapse:collapse;">
+        <table>
           <thead>
-            <tr><th style="text-align:left;">Keywords</th><th style="text-align:left;">Estimate</th><th style="text-align:left;">Range</th><th style="text-align:left;">Category</th><th style="text-align:left;">Unit</th><th style="text-align:left;">Active</th><th style="text-align:left;">Notes</th><th style="text-align:left;">Actions</th></tr>
+            <tr><th>Keywords</th><th>Estimate</th><th>Range</th><th>Category</th><th>Unit</th><th>Active</th><th>Notes</th><th>Actions</th></tr>
           </thead>
           <tbody>{rows_html}</tbody>
         </table>
@@ -2174,56 +3184,56 @@ def admin_content_nutrition_page(
         rows.append(
             "<tr>"
             f"<td>{html.escape(str(item.get('recipeTitle') or ''), quote=True)}</td>"
-            f"<td>{html.escape(str(item.get('recipeId') or ''), quote=True)}</td>"
-            f"<td>{'Yes' if item.get('active') else 'No'}</td>"
+            f"<td><span class='admin-id'>{html.escape(str(item.get('recipeId') or ''), quote=True)}</span></td>"
+            f"<td>{_admin_badge('Active' if item.get('active') else 'Inactive', 'ok' if item.get('active') else 'warn')}</td>"
             f"<td>{html.escape(str(item.get('notes') or ''), quote=True)}</td>"
-            "<td style='white-space:nowrap;'>"
-            f"<a href='{edit_link}' style='margin-right:10px;'>Edit</a>"
-            f"<form method='post' action='/admin/content/nutrition-corrections/{html.escape(str(item.get('recipeId') or ''), quote=True)}/delete' style='display:inline;'>"
+            "<td><div class='admin-actions'>"
+            f"<a href='{edit_link}' class='admin-link-button'>Edit</a>"
+            f"<form method='post' action='/admin/content/nutrition-corrections/{html.escape(str(item.get('recipeId') or ''), quote=True)}/delete' {_admin_danger_confirm('Delete this nutrition correction? The recipe will use its base nutrition values.')}>"
             f"<input type='hidden' name='csrf_token' value='{html.escape(delete_csrf, quote=True)}'/>"
             f"<input type='hidden' name='q' value='{html.escape(query, quote=True)}'/>"
-            "<button type='submit'>Delete</button>"
+            "<button type='submit' class='admin-danger-button'>Delete</button>"
             "</form>"
-            "</td>"
+            "</div></td>"
             "</tr>"
         )
-    rows_html = "\n".join(rows) if rows else "<tr><td colspan='5'>No nutrition corrections found.</td></tr>"
+    rows_html = "\n".join(rows) if rows else _admin_empty_row(5, "No nutrition corrections match the current filters.")
     active_checked = "checked" if current.get("active", True) else ""
 
     body_html = f"""
     {_admin_notice_html(status, error)}
-    <div style="display:grid;grid-template-columns:minmax(320px,400px) minmax(0,1fr);gap:18px;align-items:start;">
-      <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
-          <h2 style="margin:0;">Nutrition Corrections</h2>
-          <a href="/admin/content/nutrition-corrections" style="text-decoration:none;">New correction</a>
-        </div>
-        <p style="color:#595959;line-height:1.5;">{html.escape(recipe_hint, quote=True)}</p>
+    <div class="admin-page-grid">
+      <section class="admin-card">
+        {_admin_section_header("Nutrition Corrections", "Apply reviewed nutrition overrides while preserving the original recipe record.", _admin_new_link("/admin/content/nutrition-corrections", "New correction"))}
+        <p class="admin-field-help">{html.escape(recipe_hint, quote=True)}</p>
         <form method="post" action="/admin/content/nutrition-corrections/save">
           <input type="hidden" name="csrf_token" value="{html.escape(save_csrf, quote=True)}"/>
-          <label>Recipe ID<br/><input type="text" name="recipe_id" value="{_admin_html_attr(current.get('recipeId'))}" style="width:100%;" required/></label><br/><br/>
-          <label>Calories<br/><input type="number" name="calories" value="{_admin_html_attr(current.get('calories'))}" min="0" style="width:100%;"/></label><br/><br/>
-          <label>Protein (g)<br/><input type="number" name="protein_grams" value="{_admin_html_attr(current.get('proteinGrams'))}" min="0" style="width:100%;"/></label><br/><br/>
-          <label>Carbs (g)<br/><input type="number" name="carbs_grams" value="{_admin_html_attr(current.get('carbsGrams'))}" min="0" style="width:100%;"/></label><br/><br/>
-          <label>Fats (g)<br/><input type="number" name="fats_grams" value="{_admin_html_attr(current.get('fatsGrams'))}" min="0" style="width:100%;"/></label><br/><br/>
-          <label>Fiber (g)<br/><input type="number" name="fiber_grams" value="{_admin_html_attr(current.get('fiberGrams'))}" min="0" style="width:100%;"/></label><br/><br/>
-          <label>Sodium (mg)<br/><input type="number" name="sodium_mg" value="{_admin_html_attr(current.get('sodiumMg'))}" min="0" style="width:100%;"/></label><br/><br/>
-          <label>Sugar (g)<br/><input type="number" name="sugar_grams" value="{_admin_html_attr(current.get('sugarGrams'))}" min="0" style="width:100%;"/></label><br/><br/>
-          <label><input type="checkbox" name="active" value="true" {active_checked}/> Active</label><br/><br/>
-          <label>Notes<br/><textarea name="notes" rows="5" style="width:100%;">{html.escape(str(current.get('notes') or ''), quote=True)}</textarea></label><br/><br/>
+          <label class="admin-field"><span>Recipe ID</span><input type="text" name="recipe_id" value="{_admin_html_attr(current.get('recipeId'))}" required/></label>
+          <div class="admin-field-grid">
+            <label class="admin-field"><span>Calories</span><input type="number" name="calories" value="{_admin_html_attr(current.get('calories'))}" min="0"/></label>
+            <label class="admin-field"><span>Protein (g)</span><input type="number" name="protein_grams" value="{_admin_html_attr(current.get('proteinGrams'))}" min="0"/></label>
+            <label class="admin-field"><span>Carbs (g)</span><input type="number" name="carbs_grams" value="{_admin_html_attr(current.get('carbsGrams'))}" min="0"/></label>
+            <label class="admin-field"><span>Fats (g)</span><input type="number" name="fats_grams" value="{_admin_html_attr(current.get('fatsGrams'))}" min="0"/></label>
+            <label class="admin-field"><span>Fiber (g)</span><input type="number" name="fiber_grams" value="{_admin_html_attr(current.get('fiberGrams'))}" min="0"/></label>
+            <label class="admin-field"><span>Sodium (mg)</span><input type="number" name="sodium_mg" value="{_admin_html_attr(current.get('sodiumMg'))}" min="0"/></label>
+          </div>
+          <label class="admin-field"><span>Sugar (g)</span><input type="number" name="sugar_grams" value="{_admin_html_attr(current.get('sugarGrams'))}" min="0"/></label>
+          <label class="admin-field"><span><input type="checkbox" name="active" value="true" {active_checked}/> Active correction</span></label>
+          <label class="admin-field"><span>Notes</span><textarea name="notes" rows="5">{html.escape(str(current.get('notes') or ''), quote=True)}</textarea></label>
           <button type="submit">Save correction</button>
         </form>
       </section>
-      <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-        <h2 style="margin-top:0;">Correction Library</h2>
-        <form method="get" action="/admin/content/nutrition-corrections" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
-          <input type="text" name="q" value="{html.escape(query, quote=True)}" placeholder="Search recipe title or ID" style="flex:1 1 260px;"/>
+      <section class="admin-card">
+        {_admin_section_header("Correction Library", "Search reviewed corrections and load one into the editor.")}
+        <form method="get" action="/admin/content/nutrition-corrections" class="admin-toolbar">
+          <input type="text" name="q" value="{html.escape(query, quote=True)}" placeholder="Search recipe title or ID"/>
           <input type="hidden" name="limit" value="{limit}"/>
           <button type="submit">Filter</button>
+          <a href="/admin/content/nutrition-corrections" class="admin-link-button">Clear</a>
         </form>
-        <table style="width:100%;border-collapse:collapse;">
+        <table>
           <thead>
-            <tr><th style="text-align:left;">Recipe</th><th style="text-align:left;">Recipe ID</th><th style="text-align:left;">Active</th><th style="text-align:left;">Notes</th><th style="text-align:left;">Actions</th></tr>
+            <tr><th>Recipe</th><th>Recipe ID</th><th>Active</th><th>Notes</th><th>Actions</th></tr>
           </thead>
           <tbody>{rows_html}</tbody>
         </table>
@@ -2286,35 +3296,42 @@ def admin_content_delete_nutrition_correction(
 
 @app.get("/admin/ops", response_class=HTMLResponse)
 def admin_ops_home(principal: Any = Depends(require_ops_admin)):
-    support_cases = database.list_support_cases(limit=50)
+    support_cases, support_error = _admin_safe_load("Support cases", lambda: database.list_support_cases(limit=50), [])
     open_cases = sum(1 for item in support_cases if str(item.get("status") or "").lower() not in {"resolved", "closed"})
-    escalated_cases = sum(1 for item in support_cases if bool(item.get("escalated")))
-    sessions = database.list_admin_sessions(active_only=True, limit=100)
-    blocked_overrides = database.list_operator_access_overrides(blocked_only=True, limit=100)
+    sessions, sessions_error = _admin_safe_load("Admin sessions", lambda: database.list_admin_sessions(active_only=True, limit=100), [])
+    blocked_overrides, access_error = _admin_safe_load(
+        "Admin access rules",
+        lambda: database.list_operator_access_overrides(blocked_only=True, limit=100),
+        [],
+    )
+    audit_events, audit_error = _admin_safe_load("Change history", lambda: database.list_admin_action_logs(limit=50), [])
+    load_errors = [support_error, sessions_error, access_error, audit_error]
+    urgent_cases = sum(1 for item in support_cases if str(item.get("priority") or "").lower() in {"urgent", "high"} or bool(item.get("escalated")))
     cards = [
-        ("Support Cases", "/admin/ops/support-cases", "Triage planner failures and user-facing issues.", len(support_cases)),
-        ("Open or escalated", "/admin/ops/support-cases", "Open cases need active ownership and escalation tracking.", open_cases + escalated_cases),
-        ("Active Admin Sessions", "/admin/ops/admin-sessions", "Review current privileged browser sessions.", len(sessions)),
-        ("Blocked Operators", "/admin/ops/operator-access", "Track immediate access overrides and operator offboarding.", len(blocked_overrides)),
+        ("Open Issues", "/admin/ops/support-cases", "Support cases that are not closed yet.", open_cases),
+        ("Urgent Issues", "/admin/ops/support-cases", "Cases marked high, urgent, or escalated.", urgent_cases),
+        ("Active Sign-ins", "/admin/ops/admin-sessions", "Admin accounts currently signed in.", len(sessions)),
+        ("Blocked Accounts", "/admin/ops/operator-access", "Admin accounts blocked from access.", len(blocked_overrides)),
+        ("Recent Changes", "/admin/ops/audit-logs", "Latest admin actions saved by the system.", len(audit_events)),
     ]
-    card_html = "".join(
-        f"""
-        <a href="{href}" style="display:block;text-decoration:none;color:inherit;min-width:240px;flex:1 1 260px;background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-          <div style="font-size:18px;font-weight:700;margin-bottom:6px;">{html.escape(label, quote=True)}</div>
-          <div style="color:#595959;margin-bottom:14px;line-height:1.5;">{html.escape(description, quote=True)}</div>
-          <div style="font-size:13px;color:#1677ff;font-weight:700;">Count: {count}</div>
-        </a>
-        """
-        for label, href, description, count in cards
-    )
+    tasks = [
+        ("Help", "User Issues", "/admin/ops/support-cases", "Create or update a case when a user reports a problem."),
+        ("Check", "Admin Sign-ins", "/admin/ops/admin-sessions", "Review who is signed in and revoke suspicious sessions."),
+        ("Control", "Admin Access", "/admin/ops/operator-access", "Block or restore an admin account."),
+        ("Review", "Change History", "/admin/ops/audit-logs", "See recent admin changes for traceability."),
+    ]
     body_html = (
-        "<div style='background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;margin-bottom:16px;'>"
-        "<p style='margin:0;line-height:1.6;'>The ops console layers browser workflows on top of the existing audited ops endpoints. "
-        "Use it for support-case coordination, session revocation, and operator access overrides.</p>"
-        "</div>"
-        f"<div style='display:flex;gap:16px;flex-wrap:wrap;'>{card_html}</div>"
+        f"{_admin_alert_list_html(load_errors)}"
+        "<section class='admin-card' style='margin-bottom:16px;'>"
+        f"{_admin_section_header('What do you need to do?', 'Choose the task. The technical checks stay in the background unless something needs attention.')}"
+        f"{_admin_task_cards_html(tasks)}"
+        "</section>"
+        "<section class='admin-card'>"
+        f"{_admin_section_header('At a Glance', 'Simple counts for the admin work that may need follow-up.')}"
+        f"{_admin_metric_cards_html(cards)}"
+        "</section>"
     )
-    return _admin_ops_layout("Ops Console", principal, body_html, active="overview")
+    return _admin_ops_layout("Ops Home", principal, body_html, active="overview")
 
 
 @app.get("/admin/ops/support-cases", response_class=HTMLResponse)
@@ -2334,17 +3351,27 @@ def admin_ops_support_cases_page(
     assignee_filter = str(assignee or "").strip()
     edit_token = str(edit_case_id or "").strip()
     escalated_filter = None if escalated in (None, "", "all") else str(escalated).lower() == "true"
-    items = database.list_support_cases(
-        user_uid=None,
-        status=status_filter or None,
-        assignee=assignee_filter or None,
-        escalated=escalated_filter,
-        q=query or None,
-        limit=limit,
+    items, list_error = _admin_safe_load(
+        "Support case queue",
+        lambda: database.list_support_cases(
+            user_uid=None,
+            status=status_filter or None,
+            assignee=assignee_filter or None,
+            escalated=escalated_filter,
+            q=query or None,
+            limit=limit,
+        ),
+        [],
     )
-    edit_item = database.get_support_case(edit_token) if edit_token else None
+    edit_item, edit_error = _admin_safe_load(
+        "Selected support case",
+        lambda: database.get_support_case(edit_token),
+        None,
+    ) if edit_token else (None, "")
     if edit_token and not edit_item and not error:
         error = f"Support case not found: {edit_token}"
+    if not error:
+        error = list_error or edit_error or None
 
     create_csrf = _build_admin_csrf_token(principal, "ops-support-case-create")
     update_csrf = _build_admin_csrf_token(principal, "ops-support-case-update")
@@ -2355,19 +3382,23 @@ def admin_ops_support_cases_page(
         edit_params = {"edit_case_id": item.get("id"), "q": query, "status": status_filter, "assignee": assignee_filter, "escalated": escalated or "all"}
         edit_link = f"/admin/ops/support-cases?{urlencode({k: v for k, v in edit_params.items() if v not in (None, '')})}"
         export_link = f"/ops/support-cases/{html.escape(str(item.get('id') or ''), quote=True)}/export"
+        row_status = str(item.get("status") or "")
+        row_priority = str(item.get("priority") or "")
+        status_tone = "ok" if row_status.lower() in {"resolved", "closed"} else "warn"
+        priority_tone = "danger" if row_priority.lower() in {"urgent", "high"} else ""
         rows.append(
             "<tr>"
             f"<td>{html.escape(str(item.get('summary') or ''), quote=True)}</td>"
-            f"<td>{html.escape(str(item.get('userUid') or ''), quote=True)}</td>"
-            f"<td>{html.escape(str(item.get('status') or ''), quote=True)}</td>"
-            f"<td>{html.escape(str(item.get('priority') or ''), quote=True)}</td>"
+            f"<td><span class='admin-id'>{html.escape(str(item.get('userUid') or ''), quote=True)}</span></td>"
+            f"<td>{_admin_badge(row_status or 'open', status_tone)}</td>"
+            f"<td>{_admin_badge(row_priority or 'normal', priority_tone)}</td>"
             f"<td>{html.escape(str(item.get('assignee') or '—'), quote=True)}</td>"
-            f"<td>{'Yes' if item.get('escalated') else 'No'}</td>"
+            f"<td>{_admin_badge('Escalated' if item.get('escalated') else 'Normal', 'danger' if item.get('escalated') else 'ok')}</td>"
             f"<td>{html.escape(_admin_format_epoch_ms(item.get('updatedAt')), quote=True)}</td>"
-            f"<td><a href='{edit_link}' style='margin-right:10px;'>Edit</a><a href='{export_link}'>Export JSON</a></td>"
+            f"<td><div class='admin-actions'><a href='{edit_link}' class='admin-link-button'>Open</a><a href='{export_link}' class='admin-link-button'>Download</a></div></td>"
             "</tr>"
         )
-    rows_html = "\n".join(rows) if rows else "<tr><td colspan='8'>No support cases found.</td></tr>"
+    rows_html = "\n".join(rows) if rows else _admin_empty_row(8, "No support cases match the current filters.")
 
     current = edit_item or {
         "id": "",
@@ -2381,6 +3412,18 @@ def admin_ops_support_cases_page(
         "notes": [],
     }
     note_items = current.get("notes") or []
+    current_status_options = _admin_select_options(
+        [("open", "Open"), ("investigating", "Investigating"), ("resolved", "Resolved"), ("closed", "Closed")],
+        current.get("status") or "open",
+    )
+    current_priority_options = _admin_select_options(
+        [("normal", "Normal"), ("low", "Low"), ("high", "High"), ("urgent", "Urgent")],
+        current.get("priority") or "normal",
+    )
+    status_filter_options = _admin_select_options(
+        [("", "All statuses"), ("open", "Open"), ("investigating", "Investigating"), ("resolved", "Resolved"), ("closed", "Closed")],
+        status_filter,
+    )
     notes_html = "".join(
         f"<li><strong>{html.escape(str(note.get('author') or ''), quote=True)}</strong> • "
         f"{html.escape(_admin_format_epoch_ms(note.get('createdAtMs')), quote=True)}<br/>"
@@ -2391,74 +3434,90 @@ def admin_ops_support_cases_page(
 
     body_html = f"""
     {_admin_notice_html(notice, error)}
-    <div style="display:grid;grid-template-columns:minmax(320px,390px) minmax(320px,390px) minmax(0,1fr);gap:18px;align-items:start;">
-      <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-        <h2 style="margin-top:0;">Create Support Case</h2>
+    <section class="admin-card" style="margin-bottom:18px;">
+      {_admin_section_header("User Issues", "Search, open, and update reported app problems.")}
+      <form method="get" action="/admin/ops/support-cases" class="admin-toolbar">
+        <input type="text" name="q" value="{html.escape(query, quote=True)}" placeholder="Search summary or job text"/>
+        <select name="status">{status_filter_options}</select>
+        <input type="text" name="assignee" value="{html.escape(assignee_filter, quote=True)}" placeholder="Assignee"/>
+        <select name="escalated">
+          <option value="all" {'selected' if (escalated or 'all') == 'all' else ''}>All escalation states</option>
+          <option value="true" {'selected' if escalated == 'true' else ''}>Escalated only</option>
+          <option value="false" {'selected' if escalated == 'false' else ''}>Not escalated</option>
+        </select>
+        <button type="submit">Filter</button>
+        <a href="/admin/ops/support-cases" class="admin-link-button">Clear</a>
+      </form>
+      <table>
+        <thead><tr><th>Summary</th><th>User</th><th>Status</th><th>Priority</th><th>Assignee</th><th>Escalation</th><th>Updated</th><th>Actions</th></tr></thead>
+        <tbody>{rows_html}</tbody>
+      </table>
+    </section>
+    <div class="admin-page-grid">
+      <section class="admin-card">
+        {_admin_section_header("New Issue", "Create a case when a user reports a problem or a meal plan job needs review.")}
         <form method="post" action="/admin/ops/support-cases/create">
           <input type="hidden" name="csrf_token" value="{html.escape(create_csrf, quote=True)}"/>
-          <label>User UID<br/><input type="text" name="user_uid" style="width:100%;" required/></label><br/><br/>
-          <label>Related job ID<br/><input type="text" name="related_job_id" style="width:100%;"/></label><br/><br/>
-          <label>Summary<br/><textarea name="summary" rows="4" style="width:100%;" required></textarea></label><br/><br/>
-          <label>Priority<br/><input type="text" name="priority" value="normal" style="width:100%;"/></label><br/><br/>
-          <label>Assignee<br/><input type="text" name="assignee" style="width:100%;"/></label><br/><br/>
-          <label><input type="checkbox" name="escalated" value="true"/> Escalated</label><br/><br/>
-          <label>Initial note<br/><textarea name="initial_note" rows="3" style="width:100%;"></textarea></label><br/><br/>
+          <label class="admin-field"><span>User ID</span><input type="text" name="user_uid" required/></label>
+          <label class="admin-field"><span>Meal plan job ID</span><input type="text" name="related_job_id"/></label>
+          <label class="admin-field"><span>Summary</span><textarea name="summary" rows="4" required></textarea></label>
+          <div class="admin-field-grid">
+            <label class="admin-field"><span>Priority</span>
+              <select name="priority">
+                <option value="normal" selected>Normal</option>
+                <option value="low">Low</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </label>
+            <label class="admin-field"><span>Assignee</span><input type="text" name="assignee"/></label>
+          </div>
+          <label class="admin-field"><span><input type="checkbox" name="escalated" value="true"/> Escalated</span></label>
+          <label class="admin-field"><span>Initial note</span><textarea name="initial_note" rows="3"></textarea></label>
           <button type="submit">Create case</button>
         </form>
       </section>
-      <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
-          <h2 style="margin:0;">Case Detail</h2>
-          <a href="/admin/ops/support-cases" style="text-decoration:none;">Clear selection</a>
-        </div>
-        <p style="color:#595959;">{html.escape(str(current.get('id') or 'Select a case from the table to edit or add notes.'), quote=True)}</p>
+      <section class="admin-card">
+        {_admin_section_header("Issue Details", str(current.get('id') or 'Select an issue from the list to edit it or add notes.'), _admin_new_link("/admin/ops/support-cases", "Clear selection"))}
         <form method="post" action="/admin/ops/support-cases/{html.escape(str(current.get('id') or ''), quote=True)}/update">
           <input type="hidden" name="csrf_token" value="{html.escape(update_csrf, quote=True)}"/>
-          <label>Summary<br/><textarea name="summary" rows="4" style="width:100%;" {'required' if current.get('id') else 'disabled'}>{html.escape(str(current.get('summary') or ''), quote=True)}</textarea></label><br/><br/>
-          <label>Status<br/><input type="text" name="status" value="{_admin_html_attr(current.get('status'))}" style="width:100%;" {'required' if current.get('id') else 'disabled'}/></label><br/><br/>
-          <label>Priority<br/><input type="text" name="priority" value="{_admin_html_attr(current.get('priority'))}" style="width:100%;" {'required' if current.get('id') else 'disabled'}/></label><br/><br/>
-          <label>Assignee<br/><input type="text" name="assignee" value="{_admin_html_attr(current.get('assignee'))}" style="width:100%;" {'disabled' if not current.get('id') else ''}/></label><br/><br/>
-          <label>Escalated<br/>
-            <select name="escalated" style="width:100%;" {'disabled' if not current.get('id') else ''}>
+          <label class="admin-field"><span>Summary</span><textarea name="summary" rows="4" {'required' if current.get('id') else 'disabled'}>{html.escape(str(current.get('summary') or ''), quote=True)}</textarea></label>
+          <div class="admin-field-grid">
+            <label class="admin-field"><span>Status</span>
+              <select name="status" {'required' if current.get('id') else 'disabled'}>
+                {current_status_options}
+              </select>
+            </label>
+            <label class="admin-field"><span>Priority</span>
+              <select name="priority" {'required' if current.get('id') else 'disabled'}>
+                {current_priority_options}
+              </select>
+            </label>
+          </div>
+          <label class="admin-field"><span>Assignee</span><input type="text" name="assignee" value="{_admin_html_attr(current.get('assignee'))}" {'disabled' if not current.get('id') else ''}/></label>
+          <label class="admin-field"><span>Escalated</span>
+            <select name="escalated" {'disabled' if not current.get('id') else ''}>
               <option value="false" {'selected' if escalated_selected == 'false' else ''}>No</option>
               <option value="true" {'selected' if escalated_selected == 'true' else ''}>Yes</option>
             </select>
-          </label><br/><br/>
-          <label><input type="checkbox" name="clear_assignee" value="true" {'disabled' if not current.get('id') else ''}/> Clear assignee</label><br/><br/>
+          </label>
+          <label class="admin-field"><span><input type="checkbox" name="clear_assignee" value="true" {'disabled' if not current.get('id') else ''}/> Clear assignee</span></label>
           <button type="submit" {'disabled' if not current.get('id') else ''}>Update case</button>
         </form>
-        <hr style="margin:18px 0;border:none;border-top:1px solid #f0f0f0;"/>
+        <hr style="margin:18px 0;border:none;border-top:1px solid #e8efec;"/>
         <form method="post" action="/admin/ops/support-cases/{html.escape(str(current.get('id') or ''), quote=True)}/notes">
           <input type="hidden" name="csrf_token" value="{html.escape(note_csrf, quote=True)}"/>
-          <label>Add note<br/><textarea name="message" rows="3" style="width:100%;" {'required' if current.get('id') else 'disabled'}></textarea></label><br/><br/>
+          <label class="admin-field"><span>Add note</span><textarea name="message" rows="3" {'required' if current.get('id') else 'disabled'}></textarea></label>
           <button type="submit" {'disabled' if not current.get('id') else ''}>Add note</button>
         </form>
         <div style="margin-top:16px;">
           <h3 style="margin:0 0 8px;">Recent Notes</h3>
-          <ul style="padding-left:20px;line-height:1.5;">{notes_html}</ul>
+          <ul class="admin-note-list">{notes_html}</ul>
         </div>
-      </section>
-      <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-        <h2 style="margin-top:0;">Support Case Queue</h2>
-        <form method="get" action="/admin/ops/support-cases" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
-          <input type="text" name="q" value="{html.escape(query, quote=True)}" placeholder="Search summary or job text" style="flex:1 1 180px;"/>
-          <input type="text" name="status" value="{html.escape(status_filter, quote=True)}" placeholder="Status" style="flex:1 1 120px;"/>
-          <input type="text" name="assignee" value="{html.escape(assignee_filter, quote=True)}" placeholder="Assignee" style="flex:1 1 160px;"/>
-          <select name="escalated">
-            <option value="all" {'selected' if (escalated or 'all') == 'all' else ''}>All</option>
-            <option value="true" {'selected' if escalated == 'true' else ''}>Escalated</option>
-            <option value="false" {'selected' if escalated == 'false' else ''}>Not escalated</option>
-          </select>
-          <button type="submit">Filter</button>
-        </form>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead><tr><th style="text-align:left;">Summary</th><th style="text-align:left;">User</th><th style="text-align:left;">Status</th><th style="text-align:left;">Priority</th><th style="text-align:left;">Assignee</th><th style="text-align:left;">Escalated</th><th style="text-align:left;">Updated</th><th style="text-align:left;">Actions</th></tr></thead>
-          <tbody>{rows_html}</tbody>
-        </table>
       </section>
     </div>
     """
-    return _admin_ops_layout("Support Case Console", principal, body_html, active="support-cases")
+    return _admin_ops_layout("User Issues", principal, body_html, active="support-cases")
 
 
 @app.post("/admin/ops/support-cases/create")
@@ -2489,6 +3548,9 @@ def admin_ops_support_case_create(
         return _admin_redirect("/admin/ops/support-cases", edit_case_id=case_id, notice="support_case_created")
     except HTTPException as exc:
         return _admin_redirect("/admin/ops/support-cases", error=str(exc.detail or "Support case create failed"))
+    except Exception as exc:
+        traceback.print_exc()
+        return _admin_redirect("/admin/ops/support-cases", error=f"Support case create failed ({type(exc).__name__})")
 
 
 @app.post("/admin/ops/support-cases/{case_id}/update")
@@ -2517,6 +3579,9 @@ def admin_ops_support_case_update(
         return _admin_redirect("/admin/ops/support-cases", edit_case_id=case_id, notice="support_case_updated")
     except HTTPException as exc:
         return _admin_redirect("/admin/ops/support-cases", edit_case_id=case_id, error=str(exc.detail or "Support case update failed"))
+    except Exception as exc:
+        traceback.print_exc()
+        return _admin_redirect("/admin/ops/support-cases", edit_case_id=case_id, error=f"Support case update failed ({type(exc).__name__})")
 
 
 @app.post("/admin/ops/support-cases/{case_id}/notes")
@@ -2532,6 +3597,9 @@ def admin_ops_support_case_note(
         return _admin_redirect("/admin/ops/support-cases", edit_case_id=case_id, notice="support_case_noted")
     except HTTPException as exc:
         return _admin_redirect("/admin/ops/support-cases", edit_case_id=case_id, error=str(exc.detail or "Support case note failed"))
+    except Exception as exc:
+        traceback.print_exc()
+        return _admin_redirect("/admin/ops/support-cases", edit_case_id=case_id, error=f"Support case note failed ({type(exc).__name__})")
 
 
 @app.get("/admin/ops/admin-sessions", response_class=HTMLResponse)
@@ -2545,7 +3613,13 @@ def admin_ops_admin_sessions_page(
 ):
     uid_filter = str(uid or "").strip()
     active_only_flag = str(active_only or "true").lower() != "false"
-    items = database.list_admin_sessions(uid=uid_filter or None, active_only=active_only_flag, limit=limit)
+    items, list_error = _admin_safe_load(
+        "Admin sessions",
+        lambda: database.list_admin_sessions(uid=uid_filter or None, active_only=active_only_flag, limit=limit),
+        [],
+    )
+    if not error:
+        error = list_error or None
     revoke_csrf = _build_admin_csrf_token(principal, "ops-admin-session-revoke")
     cleanup_csrf = _build_admin_csrf_token(principal, "ops-admin-session-cleanup")
 
@@ -2554,12 +3628,12 @@ def admin_ops_admin_sessions_page(
         revoke_form = ""
         if item.get("revokedAt") is None:
             revoke_form = (
-                f"<form method='post' action='/admin/ops/admin-sessions/{html.escape(str(item.get('id') or ''), quote=True)}/revoke' style='display:inline;'>"
+                f"<form method='post' action='/admin/ops/admin-sessions/{html.escape(str(item.get('id') or ''), quote=True)}/revoke' style='display:inline;' {_admin_danger_confirm('Revoke this admin session now?')}>"
                 f"<input type='hidden' name='csrf_token' value='{html.escape(revoke_csrf, quote=True)}'/>"
                 f"<input type='hidden' name='uid' value='{html.escape(uid_filter, quote=True)}'/>"
                 f"<input type='hidden' name='active_only' value='{str(active_only_flag).lower()}'/>"
                 "<input type='hidden' name='reason' value='manual_review'/>"
-                "<button type='submit'>Revoke</button>"
+                "<button type='submit' class='admin-danger-button'>Revoke</button>"
                 "</form>"
             )
         rows.append(
@@ -2570,43 +3644,44 @@ def admin_ops_admin_sessions_page(
             f"<td>{html.escape(str(item.get('authType') or ''), quote=True)}</td>"
             f"<td>{html.escape(_admin_format_epoch_ms(item.get('createdAt')), quote=True)}</td>"
             f"<td>{html.escape(_admin_format_epoch_ms(item.get('expiresAt')), quote=True)}</td>"
-            f"<td>{html.escape(_admin_format_epoch_ms(item.get('revokedAt')), quote=True)}</td>"
+            f"<td>{_admin_badge('Active', 'ok') if item.get('revokedAt') is None else _admin_badge('Revoked', 'danger')}</td>"
             f"<td>{revoke_form or '—'}</td>"
             "</tr>"
         )
-    rows_html = "\n".join(rows) if rows else "<tr><td colspan='8'>No admin sessions found.</td></tr>"
+    rows_html = "\n".join(rows) if rows else _admin_empty_row(8, "No admin sessions match the current filter.")
 
     body_html = f"""
     {_admin_notice_html(notice, error)}
-    <div style="display:grid;grid-template-columns:minmax(320px,360px) minmax(0,1fr);gap:18px;align-items:start;">
-      <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-        <h2 style="margin-top:0;">Admin Session Maintenance</h2>
-        <form method="get" action="/admin/ops/admin-sessions" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
-          <input type="text" name="uid" value="{html.escape(uid_filter, quote=True)}" placeholder="Filter by UID" style="flex:1 1 180px;"/>
+    <div class="admin-page-grid">
+      <section class="admin-card">
+        {_admin_section_header("Clean Up Old Sign-ins", "Remove old expired or revoked admin sign-in records.")}
+        <form method="get" action="/admin/ops/admin-sessions" class="admin-toolbar">
+          <input type="text" name="uid" value="{html.escape(uid_filter, quote=True)}" placeholder="Filter by user ID"/>
           <select name="active_only">
             <option value="true" {'selected' if active_only_flag else ''}>Active only</option>
             <option value="false" {'selected' if not active_only_flag else ''}>Include revoked</option>
           </select>
           <button type="submit">Filter</button>
+          <a href="/admin/ops/admin-sessions" class="admin-link-button">Clear</a>
         </form>
         <form method="post" action="/admin/ops/admin-sessions/cleanup">
           <input type="hidden" name="csrf_token" value="{html.escape(cleanup_csrf, quote=True)}"/>
-          <label>Retention days<br/><input type="number" name="retention_days" value="30" min="1" style="width:100%;"/></label><br/><br/>
-          <label><input type="checkbox" name="include_revoked" value="true" checked/> Include revoked</label><br/>
-          <label><input type="checkbox" name="include_expired" value="true" checked/> Include expired</label><br/><br/>
+          <label class="admin-field"><span>Retention days</span><input type="number" name="retention_days" value="30" min="1"/></label>
+          <label class="admin-field"><span><input type="checkbox" name="include_revoked" value="true" checked/> Include revoked</span></label>
+          <label class="admin-field"><span><input type="checkbox" name="include_expired" value="true" checked/> Include expired</span></label>
           <button type="submit">Run cleanup</button>
         </form>
       </section>
-      <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-        <h2 style="margin-top:0;">Admin Sessions</h2>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead><tr><th style="text-align:left;">Actor</th><th style="text-align:left;">UID</th><th style="text-align:left;">Roles</th><th style="text-align:left;">Auth</th><th style="text-align:left;">Created</th><th style="text-align:left;">Expires</th><th style="text-align:left;">Revoked</th><th style="text-align:left;">Actions</th></tr></thead>
+      <section class="admin-card">
+        {_admin_section_header("Signed-in Admins", "Review active admin sign-ins and revoke anything suspicious.")}
+        <table>
+          <thead><tr><th>Admin</th><th>User ID</th><th>Role</th><th>Sign-in</th><th>Created</th><th>Expires</th><th>State</th><th>Actions</th></tr></thead>
           <tbody>{rows_html}</tbody>
         </table>
       </section>
     </div>
     """
-    return _admin_ops_layout("Admin Session Console", principal, body_html, active="admin-sessions")
+    return _admin_ops_layout("Admin Sign-ins", principal, body_html, active="admin-sessions")
 
 
 @app.post("/admin/ops/admin-sessions/{session_id}/revoke")
@@ -2624,6 +3699,9 @@ def admin_ops_revoke_admin_session(
         return _admin_redirect("/admin/ops/admin-sessions", uid=uid, active_only=active_only, notice="admin_session_revoked")
     except HTTPException as exc:
         return _admin_redirect("/admin/ops/admin-sessions", uid=uid, active_only=active_only, error=str(exc.detail or "Admin session revoke failed"))
+    except Exception as exc:
+        traceback.print_exc()
+        return _admin_redirect("/admin/ops/admin-sessions", uid=uid, active_only=active_only, error=f"Admin session revoke failed ({type(exc).__name__})")
 
 
 @app.post("/admin/ops/admin-sessions/cleanup")
@@ -2635,15 +3713,22 @@ def admin_ops_cleanup_admin_sessions(
     principal: Any = Depends(require_ops_admin),
 ):
     _verify_admin_csrf_token(principal, csrf_token, "ops-admin-session-cleanup")
-    ops_cleanup_admin_sessions(
-        AdminSessionCleanupRequest(
-            retentionDays=max(1, int(retention_days or 1)),
-            includeRevoked=include_revoked is not None,
-            includeExpired=include_expired is not None,
-        ),
-        principal=principal,
-    )
-    return _admin_redirect("/admin/ops/admin-sessions", active_only="false", notice="admin_sessions_cleaned")
+    try:
+        ops_cleanup_admin_sessions(
+            AdminSessionCleanupRequest(
+                retentionDays=max(1, int(retention_days or 1)),
+                includeRevoked=include_revoked is not None,
+                includeExpired=include_expired is not None,
+            ),
+            principal=principal,
+        )
+        return _admin_redirect("/admin/ops/admin-sessions", active_only="false", notice="admin_sessions_cleaned")
+    except (HTTPException, ValueError) as exc:
+        detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
+        return _admin_redirect("/admin/ops/admin-sessions", active_only="false", error=str(detail or "Admin sessions cleanup failed"))
+    except Exception as exc:
+        traceback.print_exc()
+        return _admin_redirect("/admin/ops/admin-sessions", active_only="false", error=f"Admin sessions cleanup failed ({type(exc).__name__})")
 
 
 @app.get("/admin/ops/operator-access", response_class=HTMLResponse)
@@ -2657,10 +3742,20 @@ def admin_ops_operator_access_page(
 ):
     blocked_only_flag = str(blocked_only or "false").lower() == "true"
     edit_token = str(edit_uid or "").strip()
-    items = database.list_operator_access_overrides(blocked_only=blocked_only_flag, limit=limit)
-    edit_item = database.get_operator_access_override(edit_token) if edit_token else None
+    items, list_error = _admin_safe_load(
+        "Operator access overrides",
+        lambda: database.list_operator_access_overrides(blocked_only=blocked_only_flag, limit=limit),
+        [],
+    )
+    edit_item, edit_error = _admin_safe_load(
+        "Selected admin access rule",
+        lambda: database.get_operator_access_override(edit_token),
+        None,
+    ) if edit_token else (None, "")
     if edit_token and not edit_item and not error:
         error = f"Operator access override not found: {edit_token}"
+    if not error:
+        error = list_error or edit_error or None
 
     save_csrf = _build_admin_csrf_token(principal, "ops-operator-access-save")
     current = edit_item or {"uid": "", "email": "", "blocked": True, "reason": ""}
@@ -2671,57 +3766,55 @@ def admin_ops_operator_access_page(
         edit_link = f"/admin/ops/operator-access?{urlencode({'edit_uid': item.get('uid'), 'blocked_only': str(blocked_only_flag).lower()})}"
         rows.append(
             "<tr>"
-            f"<td>{html.escape(str(item.get('uid') or ''), quote=True)}</td>"
+            f"<td><span class='admin-id'>{html.escape(str(item.get('uid') or ''), quote=True)}</span></td>"
             f"<td>{html.escape(str(item.get('email') or ''), quote=True)}</td>"
-            f"<td>{'Blocked' if item.get('blocked') else 'Allowed'}</td>"
+            f"<td>{_admin_badge('Blocked' if item.get('blocked') else 'Allowed', 'danger' if item.get('blocked') else 'ok')}</td>"
             f"<td>{html.escape(str(item.get('reason') or ''), quote=True)}</td>"
             f"<td>{html.escape(str(item.get('updatedBy') or ''), quote=True)}</td>"
             f"<td>{html.escape(_admin_format_epoch_ms(item.get('updatedAt')), quote=True)}</td>"
-            f"<td><a href='{edit_link}'>Edit</a></td>"
+            f"<td><a href='{edit_link}' class='admin-link-button'>Edit</a></td>"
             "</tr>"
         )
-    rows_html = "\n".join(rows) if rows else "<tr><td colspan='7'>No operator access overrides found.</td></tr>"
+    rows_html = "\n".join(rows) if rows else _admin_empty_row(7, "No admin access rules match the current filter.")
 
     body_html = f"""
     {_admin_notice_html(notice, error)}
-    <div style="display:grid;grid-template-columns:minmax(320px,380px) minmax(0,1fr);gap:18px;align-items:start;">
-      <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
-          <h2 style="margin:0;">Operator Access Override</h2>
-          <a href="/admin/ops/operator-access" style="text-decoration:none;">New override</a>
-        </div>
+    <div class="admin-page-grid">
+      <section class="admin-card">
+        {_admin_section_header("Block or Restore Admin", "Control admin access without changing code.", _admin_new_link("/admin/ops/operator-access", "New rule"))}
         <form method="post" action="/admin/ops/operator-access/save">
           <input type="hidden" name="csrf_token" value="{html.escape(save_csrf, quote=True)}"/>
-          <label>Operator UID<br/><input type="text" name="uid" value="{_admin_html_attr(current.get('uid'))}" style="width:100%;" required/></label><br/><br/>
-          <label>Email<br/><input type="text" name="email" value="{_admin_html_attr(current.get('email'))}" style="width:100%;"/></label><br/><br/>
-          <label>Access state<br/>
-            <select name="blocked" style="width:100%;">
+          <label class="admin-field"><span>Admin user ID</span><input type="text" name="uid" value="{_admin_html_attr(current.get('uid'))}" required/></label>
+          <label class="admin-field"><span>Email</span><input type="text" name="email" value="{_admin_html_attr(current.get('email'))}"/></label>
+          <label class="admin-field"><span>Access state</span>
+            <select name="blocked">
               <option value="true" {'selected' if blocked_selected == 'true' else ''}>Blocked</option>
               <option value="false" {'selected' if blocked_selected == 'false' else ''}>Allowed</option>
             </select>
-          </label><br/><br/>
-          <label>Reason<br/><textarea name="reason" rows="4" style="width:100%;">{html.escape(str(current.get('reason') or ''), quote=True)}</textarea></label><br/><br/>
-          <label><input type="checkbox" name="revoke_active_sessions" value="true" checked/> Revoke active sessions when blocking</label><br/><br/>
-          <button type="submit">Save override</button>
+          </label>
+          <label class="admin-field"><span>Reason</span><textarea name="reason" rows="4">{html.escape(str(current.get('reason') or ''), quote=True)}</textarea></label>
+          <label class="admin-field"><span><input type="checkbox" name="revoke_active_sessions" value="true" checked/> Revoke active sessions when blocking</span></label>
+          <button type="submit">Save access</button>
         </form>
       </section>
-      <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-        <h2 style="margin-top:0;">Operator Access Overrides</h2>
-        <form method="get" action="/admin/ops/operator-access" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+      <section class="admin-card">
+        {_admin_section_header("Saved Access Rules", "Review current allow/block decisions for admin accounts.")}
+        <form method="get" action="/admin/ops/operator-access" class="admin-toolbar">
           <select name="blocked_only">
-            <option value="false" {'selected' if not blocked_only_flag else ''}>All overrides</option>
+            <option value="false" {'selected' if not blocked_only_flag else ''}>All rules</option>
             <option value="true" {'selected' if blocked_only_flag else ''}>Blocked only</option>
           </select>
           <button type="submit">Filter</button>
+          <a href="/admin/ops/operator-access" class="admin-link-button">Clear</a>
         </form>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead><tr><th style="text-align:left;">UID</th><th style="text-align:left;">Email</th><th style="text-align:left;">State</th><th style="text-align:left;">Reason</th><th style="text-align:left;">Updated by</th><th style="text-align:left;">Updated</th><th style="text-align:left;">Actions</th></tr></thead>
+        <table>
+          <thead><tr><th>User ID</th><th>Email</th><th>State</th><th>Reason</th><th>Updated by</th><th>Updated</th><th>Actions</th></tr></thead>
           <tbody>{rows_html}</tbody>
         </table>
       </section>
     </div>
     """
-    return _admin_ops_layout("Operator Access Console", principal, body_html, active="operator-access")
+    return _admin_ops_layout("Admin Access", principal, body_html, active="operator-access")
 
 
 @app.post("/admin/ops/operator-access/save")
@@ -2749,6 +3842,90 @@ def admin_ops_operator_access_save(
         return _admin_redirect("/admin/ops/operator-access", edit_uid=uid, notice="operator_access_saved")
     except HTTPException as exc:
         return _admin_redirect("/admin/ops/operator-access", edit_uid=uid, error=str(exc.detail or "Operator access save failed"))
+    except Exception as exc:
+        traceback.print_exc()
+        return _admin_redirect("/admin/ops/operator-access", edit_uid=uid, error=f"Operator access save failed ({type(exc).__name__})")
+
+
+@app.get("/admin/ops/audit-logs", response_class=HTMLResponse)
+def admin_ops_audit_logs_page(
+    resource_type: str | None = None,
+    action: str | None = None,
+    resource_id: str | None = None,
+    actor: str | None = None,
+    limit: int = 100,
+    error: str | None = None,
+    principal: Any = Depends(require_ops_admin),
+):
+    resource_type_filter = str(resource_type or "").strip()
+    action_filter = str(action or "").strip()
+    resource_id_filter = str(resource_id or "").strip()
+    actor_filter = str(actor or "").strip()
+    limit_value = max(10, min(int(limit or 100), 500))
+    items, list_error = _admin_safe_load(
+        "Change history",
+        lambda: database.list_admin_action_logs(
+            limit=limit_value,
+            resource_type=resource_type_filter or None,
+            action=action_filter or None,
+            resource_id=resource_id_filter or None,
+            actor=actor_filter or None,
+        ),
+        [],
+    )
+    if not error:
+        error = list_error or None
+
+    rows = []
+    for item in items:
+        details = item.get("details")
+        details_text = json.dumps(details, indent=2, sort_keys=True) if isinstance(details, dict) else str(details or "")
+        resource_label = str(item.get("resource_type") or "")
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(_admin_format_epoch_ms(item.get('created_at')), quote=True)}</td>"
+            f"<td>{_admin_badge(str(item.get('action') or 'event'))}</td>"
+            f"<td>{html.escape(str(item.get('actor') or '—'), quote=True)}</td>"
+            f"<td>{html.escape(resource_label or '—', quote=True)}</td>"
+            f"<td><span class='admin-id'>{html.escape(str(item.get('resource_id') or '—'), quote=True)}</span></td>"
+            "<td>"
+            "<details>"
+            "<summary>View details</summary>"
+            f"<pre class='admin-json-preview'>{html.escape(details_text, quote=True)}</pre>"
+            "</details>"
+            "</td>"
+            "</tr>"
+        )
+    rows_html = "\n".join(rows) if rows else _admin_empty_row(6, "No changes match the current filters.")
+
+    body_html = f"""
+    {_admin_notice_html(None, error)}
+    <section class="admin-card" style="margin-bottom:18px;">
+      {_admin_section_header("Find Changes", "Search recent admin activity by area, action, item, or admin account.")}
+      <form method="get" action="/admin/ops/audit-logs" class="admin-toolbar">
+        <input type="text" name="resource_type" value="{html.escape(resource_type_filter, quote=True)}" placeholder="Area"/>
+        <input type="text" name="action" value="{html.escape(action_filter, quote=True)}" placeholder="Action"/>
+        <input type="text" name="resource_id" value="{html.escape(resource_id_filter, quote=True)}" placeholder="Item ID"/>
+        <input type="text" name="actor" value="{html.escape(actor_filter, quote=True)}" placeholder="Admin"/>
+        <select name="limit">
+          <option value="50" {'selected' if limit_value == 50 else ''}>50 events</option>
+          <option value="100" {'selected' if limit_value == 100 else ''}>100 events</option>
+          <option value="250" {'selected' if limit_value == 250 else ''}>250 events</option>
+          <option value="500" {'selected' if limit_value == 500 else ''}>500 events</option>
+        </select>
+        <button type="submit">Filter</button>
+        <a href="/admin/ops/audit-logs" class="admin-link-button">Clear</a>
+      </form>
+    </section>
+    <section class="admin-card">
+      {_admin_section_header("Saved Changes", "A readable history of recent admin actions.")}
+      <table>
+        <thead><tr><th>Time</th><th>Action</th><th>Admin</th><th>Area</th><th>Item ID</th><th>Details</th></tr></thead>
+        <tbody>{rows_html}</tbody>
+      </table>
+    </section>
+    """
+    return _admin_ops_layout("Change History", principal, body_html, active="audit-logs")
 
 
 @app.get("/admin/recipes")
@@ -2760,6 +3937,25 @@ def admin_list_recipes(
 ):
     items = database.list_admin_recipes(q=q, meal_type=meal_type, limit=limit)
     return {"items": items, "count": len(items)}
+
+
+@app.get("/admin/recipes/status")
+def admin_recipe_catalog_status(_: Any = Depends(require_content_admin)):
+    return database.get_recipe_catalog_status()
+
+
+@app.post("/admin/recipes/seed")
+def admin_seed_recipes(force: bool = False, principal: Any = Depends(require_content_admin)):
+    summary = database.seed_recipes(force_reseed=force)
+    _invalidate_plan_cache()
+    database.log_admin_action(
+        "recipe.seed",
+        actor=str(principal.get("actor") or "admin"),
+        resource_type="recipe_catalog",
+        resource_id=str(summary.get("sourcePath") or "recipes.json"),
+        details=summary,
+    )
+    return {"status": "ok", **summary}
 
 
 @app.get("/admin/recipes/{recipe_id}", response_model=RecipeDetail)
@@ -3046,13 +4242,15 @@ def admin_policy_console(
         activate_action = "Active"
         if not item.get("is_active"):
             activate_action = (
-                f"<form method='post' action='/admin/policy/activate-form' style='display:inline;'>"
+                f"<form method='post' action='/admin/policy/activate-form'>"
                 f"<input type='hidden' name='csrf_token' value='{html.escape(activate_csrf, quote=True)}'/>"
                 f"<input type='hidden' name='policy_id' value='{html.escape(item_id, quote=True)}'/>"
                 "<input type='hidden' name='notes' value='Activated from policy console'/>"
                 "<button type='submit'>Activate</button>"
                 "</form>"
             )
+        else:
+            activate_action = _admin_badge("Active", "ok")
         version_rows.append(
             "<tr>"
             f"<td>#{int(item.get('version_number') or 0)}</td>"
@@ -3061,11 +4259,11 @@ def admin_policy_console(
             f"<td>{html.escape(_admin_format_epoch_ms(item.get('created_at')), quote=True)}</td>"
             f"<td>{html.escape(_admin_format_epoch_ms(item.get('activated_at')), quote=True)}</td>"
             f"<td>{html.escape(str(item.get('notes') or ''), quote=True)}</td>"
-            f"<td>{'Yes' if item.get('is_active') else 'No'}</td>"
-            f"<td><a href='{load_link}' style='margin-right:10px;'>Load into editor</a>{activate_action}</td>"
+            f"<td>{_admin_badge('Active' if item.get('is_active') else 'Stored', 'ok' if item.get('is_active') else '')}</td>"
+            f"<td><div class='admin-actions'><a href='{load_link}' class='admin-link-button'>Load into editor</a>{activate_action}</div></td>"
             "</tr>"
         )
-    version_rows_html = "\n".join(version_rows) if version_rows else "<tr><td colspan='8'>No policy versions available.</td></tr>"
+    version_rows_html = "\n".join(version_rows) if version_rows else _admin_empty_row(8, "No policy versions available.")
 
     audit_items = []
     for item in audit_rows:
@@ -3080,65 +4278,58 @@ def admin_policy_console(
             f"<td style='word-break:break-word;'>{html.escape(details_text, quote=True)}</td>"
             "</tr>"
         )
-    audit_rows_html = "\n".join(audit_items) if audit_items else "<tr><td colspan='5'>No policy audit events yet.</td></tr>"
+    audit_rows_html = "\n".join(audit_items) if audit_items else _admin_empty_row(5, "No policy audit events yet.")
 
     body_html = f"""
     {_admin_notice_html(notice, error)}
-    <div style="display:grid;grid-template-columns:minmax(320px,400px) minmax(0,1fr);gap:18px;align-items:start;">
-      <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-        <h2 style="margin-top:0;">Active Policy</h2>
-        <div style="display:grid;gap:10px;">
-          <div><strong>Version</strong><br/>#{int(active.get('version_number') or 0)}</div>
+    <div class="admin-page-grid">
+      <section class="admin-card">
+        {_admin_section_header("Active Policy", "This is the runtime planner policy currently used by the backend.")}
+        <div class="admin-section-stack" style="gap:12px;">
+          <div>{_admin_badge(f"Version #{int(active.get('version_number') or 0)}", "ok")}<p class="admin-copy">Current active version</p></div>
           <div><strong>Policy name</strong><br/>{html.escape(str(active_policy_payload.get('policy_name') or 'unnamed-policy'), quote=True)}</div>
           <div><strong>Schema</strong><br/>{html.escape(str(active.get('schema_version') or POLICY_SCHEMA_VERSION), quote=True)}</div>
           <div><strong>Created by</strong><br/>{html.escape(str(active.get('created_by') or ''), quote=True)}</div>
           <div><strong>Activated</strong><br/>{html.escape(_admin_format_epoch_ms(active.get('activated_at')), quote=True)}</div>
           <div><strong>Notes</strong><br/>{html.escape(str(active.get('notes') or '—'), quote=True)}</div>
-          <div><strong>Policy hash</strong><br/><code style="font-size:12px;">{html.escape(str(active.get('policy_hash') or ''), quote=True)}</code></div>
+          <div><strong>Policy hash</strong><br/><code class="admin-id">{html.escape(str(active.get('policy_hash') or ''), quote=True)}</code></div>
         </div>
-        <hr style="margin:18px 0;border:none;border-top:1px solid #f0f0f0;"/>
-        <h3 style="margin:0 0 8px;">Rollback</h3>
-        <form method="post" action="/admin/policy/rollback-form">
+        <hr style="margin:18px 0;border:none;border-top:1px solid #e8efec;"/>
+        {_admin_section_header("Rollback", "Use rollback only when the active policy has caused planner behavior that must be reversed.")}
+        <form method="post" action="/admin/policy/rollback-form" {_admin_danger_confirm('Rollback the active planner policy? This changes runtime planner behavior.')}>
           <input type="hidden" name="csrf_token" value="{html.escape(rollback_csrf, quote=True)}"/>
-          <label>Rollback target<br/>
-            <select name="target_policy_id" style="width:100%;">
+          <label class="admin-field"><span>Rollback target</span>
+            <select name="target_policy_id">
               <option value="">Latest previous version</option>
               {rollback_options_html}
             </select>
-          </label><br/><br/>
-          <label>Notes<br/><input type="text" name="notes" value="Rollback from policy console" style="width:100%;"/></label><br/><br/>
-          <button type="submit">Rollback</button>
+          </label>
+          <label class="admin-field"><span>Notes</span><input type="text" name="notes" value="Rollback from policy console"/></label>
+          <button type="submit" class="admin-danger-button">Rollback</button>
         </form>
       </section>
-      <section style="display:grid;gap:18px;">
-        <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
-            <div>
-              <h2 style="margin:0;">Create Policy Version</h2>
-              <div style="color:#595959;margin-top:6px;">{html.escape(source_label, quote=True)}</div>
-            </div>
-            <a href="/admin/policy" style="text-decoration:none;">Reset editor</a>
-          </div>
-          <p style="color:#595959;line-height:1.5;">Use the validated runtime policy JSON. Saving here creates a new immutable version; activation remains explicit unless you check the activation box below.</p>
+      <section class="admin-section-stack">
+        <section class="admin-card">
+          {_admin_section_header("Create Policy Version", f"{source_label}. Saving creates a new immutable version; activation remains explicit unless selected below.", _admin_new_link("/admin/policy", "Reset editor"))}
           <form method="post" action="/admin/policy/create">
             <input type="hidden" name="csrf_token" value="{html.escape(create_csrf, quote=True)}"/>
-            <label>Notes<br/><input type="text" name="notes" value="{html.escape(str(source_policy.get('notes') or ''), quote=True)}" style="width:100%;"/></label><br/><br/>
-            <label>Policy JSON<br/><textarea name="policy_json" rows="20" style="width:100%;font-family:Consolas,monospace;" required>{html.escape(editor_json, quote=True)}</textarea></label><br/><br/>
-            <label><input type="checkbox" name="activate" value="true"/> Activate immediately after save</label><br/><br/>
+            <label class="admin-field"><span>Notes</span><input type="text" name="notes" value="{html.escape(str(source_policy.get('notes') or ''), quote=True)}"/></label>
+            <label class="admin-field"><span>Policy JSON</span><textarea name="policy_json" rows="20" class="admin-json-editor" required>{html.escape(editor_json, quote=True)}</textarea></label>
+            <label class="admin-field"><span><input type="checkbox" name="activate" value="true"/> Activate immediately after save</span></label>
             <button type="submit">Save policy version</button>
           </form>
         </section>
-        <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-          <h2 style="margin-top:0;">Policy Version History</h2>
-          <table style="width:100%;border-collapse:collapse;">
-            <thead><tr><th style="text-align:left;">Version</th><th style="text-align:left;">Name</th><th style="text-align:left;">Created by</th><th style="text-align:left;">Created</th><th style="text-align:left;">Activated</th><th style="text-align:left;">Notes</th><th style="text-align:left;">Active</th><th style="text-align:left;">Actions</th></tr></thead>
+        <section class="admin-card">
+          {_admin_section_header("Policy Version History", "Load past versions into the editor or activate a reviewed version.")}
+          <table>
+            <thead><tr><th>Version</th><th>Name</th><th>Created by</th><th>Created</th><th>Activated</th><th>Notes</th><th>State</th><th>Actions</th></tr></thead>
             <tbody>{version_rows_html}</tbody>
           </table>
         </section>
-        <section style="background:#fff;border:1px solid #d9d9d9;border-radius:16px;padding:18px;">
-          <h2 style="margin-top:0;">Recent Policy Audit</h2>
-          <table style="width:100%;border-collapse:collapse;">
-            <thead><tr><th style="text-align:left;">Action</th><th style="text-align:left;">Actor</th><th style="text-align:left;">Policy</th><th style="text-align:left;">Created</th><th style="text-align:left;">Details</th></tr></thead>
+        <section class="admin-card">
+          {_admin_section_header("Recent Policy Audit", "Trace policy changes and activation events.")}
+          <table>
+            <thead><tr><th>Action</th><th>Actor</th><th>Policy</th><th>Created</th><th>Details</th></tr></thead>
             <tbody>{audit_rows_html}</tbody>
           </table>
         </section>
@@ -4524,6 +5715,19 @@ def recipe_summaries(
         raise HTTPException(status_code=500, detail=f"Recipe summaries failed: {e}")
 
 
+@app.get("/recipes/catalog", response_model=list[RecipeDetail])
+def recipe_catalog(
+    limit: int = 2000,
+    _: Any = Depends(require_firebase_auth),
+    __: Any = Depends(require_app_check),
+):
+    try:
+        capped_limit = max(1, min(int(limit or 2000), 5000))
+        return [RecipeDetail(**recipe) for recipe in database.get_all_recipes()[:capped_limit]]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Recipe catalog failed: {e}")
+
+
 @app.post("/recipes/swap-options", response_model=list[RecipeSummary])
 def recipe_swap_options(
     payload: SwapOptionsRequest,
@@ -4678,24 +5882,24 @@ def admin_feedback(
         rows.append(
             "<tr>"
             "<td>"
-            f"<input type='checkbox' name='ids' value='{fid}' form='bulk-delete'/>"
+            f"<input type='checkbox' class='feedback-row-check' name='ids' value='{fid}' form='bulk-delete'/>"
             "</td>"
             f"<td>{created_at}</td>"
             f"<td>{msg}</td>"
             "<td>"
-            f"<form method='post' action='/admin/feedback/delete'>"
+            f"<form method='post' action='/admin/feedback/delete' {_admin_danger_confirm('Delete this feedback record?')}>"
             f"<input type='hidden' name='id' value='{fid}'/>"
             f"<input type='hidden' name='csrf_token' value='{html.escape(delete_csrf, quote=True)}'/>"
             f"<input type='hidden' name='q' value='{html.escape(query, quote=True)}'/>"
             f"<input type='hidden' name='page' value='{page}'/>"
             f"<input type='hidden' name='sort' value='{order}'/>"
             f"<input type='hidden' name='page_size' value='{page_size}'/>"
-            "<button type='submit'>Delete</button>"
+            "<button type='submit' class='admin-danger-button'>Delete</button>"
             "</form>"
             "</td>"
             "</tr>"
         )
-    rows_html = "\n".join(rows) if rows else "<tr><td colspan='4'>No feedback yet.</td></tr>"
+    rows_html = "\n".join(rows) if rows else _admin_empty_row(4, "No feedback matches the current view.")
     base_params_dict = {"page_size": page_size, "sort": order}
     if query:
         base_params_dict["q"] = query
@@ -4703,73 +5907,66 @@ def admin_feedback(
     prev_page = max(1, page - 1)
     next_page = min(total_pages, page + 1)
     page_label = html.escape(f"Page {page} of {total_pages} • {total} items", quote=True)
-    operator_label = html.escape(str(session_principal.get("actor") or "admin"), quote=True)
-    switcher_html = _admin_console_switcher_html(session_principal, current="feedback")
-
-    html_doc = f"""
-    <!doctype html>
-    <html>
-    <head>
-      <meta charset="utf-8" />
-      <title>PCOSINA Feedback</title>
-      <style>
-        body {{ font-family: Arial, sans-serif; margin: 24px; background: #f7f7f7; }}
-        h1 {{ margin-bottom: 12px; }}
-        form.inline {{ display: inline; }}
-        .toolbar {{ display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }}
-        .pill {{ background: #fff; padding: 8px 12px; border-radius: 8px; border: 1px solid #ddd; }}
-        table {{ width: 100%; border-collapse: collapse; background: #fff; }}
-        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }}
-        th {{ background: #f0f0f0; }}
-        tr:nth-child(even) {{ background: #fafafa; }}
-        button {{ padding: 6px 10px; }}
-        .nav a {{ margin-right: 10px; }}
-      </style>
-    </head>
-    <body>
-      <h1>PCOSINA Feedback</h1>
-        <div class="toolbar">
-          <div class="pill">Signed in as {operator_label}</div>
-          <form method="get" action="/admin/feedback" class="pill">
-            <input type="hidden" name="page_size" value="{page_size}"/>
-            <input type="hidden" name="sort" value="{html.escape(order, quote=True)}"/>
-            <input type="text" name="q" value="{html.escape(query, quote=True)}" placeholder="Search message..." />
-            <button type="submit">Search</button>
-          </form>
-          <form id="bulk-delete" method="post" action="/admin/feedback/delete-bulk" class="pill">
-            <input type="hidden" name="csrf_token" value="{html.escape(bulk_delete_csrf, quote=True)}"/>
-            <input type="hidden" name="q" value="{html.escape(query, quote=True)}"/>
-            <input type="hidden" name="page" value="{page}"/>
-            <input type="hidden" name="page_size" value="{page_size}"/>
-            <input type="hidden" name="sort" value="{html.escape(order, quote=True)}"/>
-            <button type="submit">Delete selected</button>
-          </form>
-          <form method="post" action="/admin/logout" class="pill">
-            <button type="submit">Sign out</button>
-          </form>
-          <div class="pill">{page_label}</div>
-          <div class="nav">
-            <a href="/admin/feedback?{base_params}&page={prev_page}">Prev</a>
-            <a href="/admin/feedback?{base_params}&page={next_page}">Next</a>
-          </div>
-          <div class="nav">
-            <a href="/admin/feedback?{base_params}&export=json">Export JSON</a>
-            <a href="/admin/feedback?{base_params}&export=csv">Export CSV</a>
-            <a href="/admin/feedback?{base_params}&sort=desc">Newest first</a>
-            <a href="/admin/feedback?{base_params}&sort=asc">Oldest first</a>
-          </div>
+    body_html = f"""
+      <section class="admin-card" style="margin-bottom:16px;">
+        {_admin_section_header("Feedback Inbox", "Search, export, and remove resolved feedback records.")}
+        <div class="admin-toolbar" style="margin-bottom:0;">
+          {_admin_badge(page_label)}
+          <a class="admin-link-button" href="/admin/feedback?{base_params}&page={prev_page}">Prev</a>
+          <a class="admin-link-button" href="/admin/feedback?{base_params}&page={next_page}">Next</a>
+          <a class="admin-link-button" href="/admin/feedback?{base_params}&export=json">Export JSON</a>
+          <a class="admin-link-button" href="/admin/feedback?{base_params}&export=csv">Export CSV</a>
         </div>
-      {switcher_html}
-      <table>
-        <thead><tr><th></th><th>Created At</th><th>Message</th><th>Action</th></tr></thead>
-        <tbody>
-          {rows_html}
-        </tbody>
-      </table>
-    </body>
-    </html>
+      </section>
+      <section class="admin-card" style="margin-bottom:16px;">
+        <form method="get" action="/admin/feedback" class="admin-toolbar">
+          <input type="hidden" name="sort" value="{html.escape(order, quote=True)}"/>
+          <input type="text" name="q" value="{html.escape(query, quote=True)}" placeholder="Search message..."/>
+          <select name="page_size">
+            <option value="25" {'selected' if page_size == 25 else ''}>25 per page</option>
+            <option value="50" {'selected' if page_size == 50 else ''}>50 per page</option>
+            <option value="100" {'selected' if page_size == 100 else ''}>100 per page</option>
+            <option value="200" {'selected' if page_size == 200 else ''}>200 per page</option>
+          </select>
+          <button type="submit">Search</button>
+          <a href="/admin/feedback" class="admin-link-button">Clear</a>
+          <a href="/admin/feedback?{base_params}&sort=desc" class="admin-link-button">Newest first</a>
+          <a href="/admin/feedback?{base_params}&sort=asc" class="admin-link-button">Oldest first</a>
+        </form>
+        <form id="bulk-delete" method="post" action="/admin/feedback/delete-bulk" class="admin-toolbar" style="margin-bottom:0;" {_admin_danger_confirm('Delete all selected feedback records?')}>
+          <input type="hidden" name="csrf_token" value="{html.escape(bulk_delete_csrf, quote=True)}"/>
+          <input type="hidden" name="q" value="{html.escape(query, quote=True)}"/>
+          <input type="hidden" name="page" value="{page}"/>
+          <input type="hidden" name="page_size" value="{page_size}"/>
+          <input type="hidden" name="sort" value="{html.escape(order, quote=True)}"/>
+          <button type="submit" class="admin-danger-button">Delete selected</button>
+        </form>
+      </section>
+      <section class="admin-card admin-scroll">
+        <table>
+          <thead><tr><th><input type="checkbox" id="feedback-select-all" aria-label="Select visible feedback"/></th><th>Created At</th><th>Message</th><th>Action</th></tr></thead>
+          <tbody>{rows_html}</tbody>
+        </table>
+      </section>
+      <script>
+        const selectAll = document.getElementById("feedback-select-all");
+        if (selectAll) {{
+          selectAll.addEventListener("change", () => {{
+            document.querySelectorAll(".feedback-row-check").forEach((input) => {{
+              input.checked = selectAll.checked;
+            }});
+          }});
+        }}
+      </script>
     """
-    response = HTMLResponse(content=html_doc)
+    response = _admin_shell(
+        "Feedback Console",
+        session_principal,
+        body_html,
+        current_console="feedback",
+        description="Review submitted feedback, search responses, export evidence, and remove resolved records.",
+        max_width=1220,
+    )
     if issued_session_token:
         _set_admin_session_cookie(response, issued_session_token)
     return response

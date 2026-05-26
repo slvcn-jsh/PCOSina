@@ -26,7 +26,10 @@ It keeps MILP/CP-SAT authoritative, but reduces search pressure before and durin
 - `solver.solver_max_seconds = 7`
 - `solver.total_solver_seconds = 14`
 - `solver.retry_attempts = 1`
-- `solver.solver_workers = 2`
+- `solver.max_solution_count = 1`
+- `solver.solver_workers = 4`
+
+The planner also applies a wall-clock pool cap before CP-SAT. With the 14-second production budget, the effective solve pool is about 33 recipes even when the policy shortlist is larger; this keeps the hosted Render worker from timing out on 21-slot weekly plans. Profile-specific solve ordering starts strict-time, allergy, Budget First, restriction-only, high nutrition-pressure, default, and no-budget profiles from the tolerance/repetition pairs that are most likely to be feasible. Stage 1 caches static recipe tags, ingredient tokens, protein groups, vegetable tokens, and meal-slot eligibility by recipe identity/version. The CP-SAT model avoids redundant helper variables for constraints that are already hard. When `solver.max_solution_count` is `1`, CP-SAT stops after the first feasible hard-safe plan instead of spending the rest of the time box polishing the objective.
 
 These values are bootstrap defaults for production-like environments, not a replacement for explicit operator tuning.
 Customized active policies should keep their explicit values.
@@ -44,6 +47,7 @@ Top-level policy namespaces:
 
 1. `nutrition`
 - `calorie_min`, `calorie_max`, `carb_min`, `carb_max`, `protein_min`, `protein_max`, `fat_min`, `fat_max`, `fiber_min`, `sodium_max`, `sugar_max`, `meal_distribution_targets`, `daily_tolerance_percent`, `weekly_tolerance_percent`
+- Runtime planning treats calories, protein, carbs, fats, and fiber as the visible nutrition contract. `sodium_max` and `sugar_max` remain advisory scoring/diagnostic targets until those values become first-class user-facing nutrition fields.
 
 2. `planning`
 - `planning_horizon_days`, `meals_per_day`, `snack_rules`, `recipe_repeat_limits`, `cuisine_diversity_weight`, `pantry_utilization_weight`, `grocery_cost_weight`, `prep_time_weight`, `acceptance_score_weight`, `substitution_penalty`, `infeasibility_relaxation_order`
@@ -118,6 +122,8 @@ It shows the active policy, immutable version history, recent audit events, and 
 These pages are server-rendered operator tooling layered on top of the audited content-admin services.
 They require a signed admin browser session and CSRF protection for mutations.
 
+The Android app does not expose mobile admin/operator screens. Admin content, price, policy, ops, and feedback management are browser-dashboard workflows using the allowlisted Google/Firebase admin identity model documented below.
+
 ### Browser Ops Console
 
 - `GET /admin/ops`
@@ -180,6 +186,15 @@ Support cases carry operator handoff metadata:
 - schema status cannot be evaluated, or
 - any tracked application or policy migration remains pending after bootstrap
 
+## Database Stance
+
+PCOSINA uses two persistence layers:
+
+- Android local persistence: Jetpack DataStore, encrypted shared preferences, and local artifact storage for offline-first app state. The Android client is not Room/SQLite based.
+- Backend production database: PostgreSQL through `DATABASE_URL`. `render.yaml` provisions managed Postgres and passes the connection string to both the FastAPI web service and the worker.
+
+SQLite is retained only for local development and automated tests through `PCOSINA_DB_NAME`. In production, the backend and policy store refuse the SQLite fallback and readiness reports fail unless `DATABASE_URL` uses a valid `postgres://` or `postgresql://` scheme.
+
 ## Environment Variables
 
 Core environment switches (non-policy):
@@ -217,6 +232,10 @@ Core environment switches (non-policy):
 - `SENTRY_DSN`, `SENTRY_TRACES_SAMPLE_RATE`, `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`
 - `PCOSINA_ML_MODEL_PATH`, `PCOSINA_ML_METRICS_PATH`
 - `PCOSINA_UID_HASH_SALT`
+- `PCOSINA_FIREBASE_WEB_API_KEY`
+- `PCOSINA_FIREBASE_WEB_AUTH_DOMAIN`
+- `PCOSINA_FIREBASE_WEB_PROJECT_ID`
+- `PCOSINA_FIREBASE_WEB_APP_ID`
 
 Operational webhook canary calls should send `PCOSINA_WEBHOOK_RECEIVER_KEY` through the `X-PCOSINA-Webhook-Key` header. The legacy path-key route is retained for compatibility, but header-based delivery avoids placing receiver secrets in access logs.
 
@@ -228,8 +247,9 @@ To resolve the current rollout candidate into shell-ready env exports, use:
 
 - Legacy shared admin tokens are no longer accepted for privileged endpoints.
 - Operator access now requires either:
-  - a Firebase ID token that resolves to an allowlisted operator role, or
+  - a Firebase ID token created through the browser Google sign-in flow that resolves to an allowlisted operator role, or
   - an existing signed admin session created from a valid operator token.
+- `/admin/login` uses Firebase Web Google sign-in and posts the short-lived ID token to `/admin/session`; configure the `PCOSINA_FIREBASE_WEB_*` variables from the Firebase web app settings for the deployed dashboard domain.
 - Email-derived operator roles require `email_verified=true` when `PCOSINA_REQUIRE_VERIFIED_OPERATOR_EMAIL` is enabled.
 - Privileged operator access can require Firebase MFA evidence via `PCOSINA_REQUIRE_OPERATOR_MFA`; accepted signals include Firebase second-factor claims, supported `amr` values, or an equivalent explicit operator MFA claim.
 - Admin session minting requires a recent Firebase sign-in when `PCOSINA_REQUIRE_RECENT_ADMIN_AUTH` is enabled.

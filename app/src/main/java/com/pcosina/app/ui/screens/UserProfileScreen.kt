@@ -58,7 +58,6 @@ import java.util.Locale
 private const val ProfileMinAge = 18
 private const val ProfileMaxAge = 60
 
-HEAD
 private fun hasSavedProfileToken(values: List<String>, vararg aliases: String): Boolean {
     val normalizedAliases = aliases.map { it.lowercase(Locale.ENGLISH) }.toSet()
     return values.any { value -> value.trim().lowercase(Locale.ENGLISH) in normalizedAliases }
@@ -70,10 +69,7 @@ private fun parseDelimitedProfileItems(text: String): List<String> =
         .filter { it.isNotBlank() }
         .distinctBy { it.lowercase(Locale.ENGLISH) }
 
-@OptIn(ExperimentalMaterial3Api::class)
-
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-85ece4c (Describe the latest changes)
 @Composable
 fun UserProfileScreen(
     userViewModel: UserViewModel,
@@ -1281,8 +1277,8 @@ fun StepThreeDiet(
     onR5: (Boolean) -> Unit,
     budget: String,
     onBudget: (String) -> Unit,
-    householdSize: Int,
-    onHouseholdSize: (Int) -> Unit,
+    householdSize: Int = 1,
+    onHouseholdSize: (Int) -> Unit = {},
     maxCookingTime: String,
     onMaxCookingTime: (String) -> Unit,
     varietyPreference: String,

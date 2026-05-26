@@ -9,9 +9,12 @@ import com.google.gson.JsonParser
 import com.pcosina.app.data.model.DailyLog
 import com.pcosina.app.data.model.FeedbackEntry
 import com.pcosina.app.data.model.MealCheckIn
+import com.pcosina.app.data.model.PlannerPlanResponse
 import com.pcosina.app.data.repository.FeedbackRepository
 import com.pcosina.app.data.repository.ProgressLocalRepository
 import com.pcosina.app.data.repository.ReflectionStore
+import com.pcosina.app.data.repository.UserPreferencesProgressLocalRepository
+import com.pcosina.app.data.repository.UserPreferencesRepository
 import com.pcosina.app.domain.MealLoggingPolicyUseCase
 import com.pcosina.app.util.safeUserLogScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +25,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.util.UUID
 
 internal fun parseDailyLogsSafely(raw: String?, gson: Gson = Gson()): List<DailyLog> {
@@ -131,6 +135,16 @@ class ProgressViewModel(
     private val reflectionStore: ReflectionStore,
     private val feedbackRepository: FeedbackRepository
 ) : ViewModel() {
+    constructor(
+        userPrefsRepository: UserPreferencesRepository,
+        reflectionStore: ReflectionStore,
+        feedbackRepository: FeedbackRepository
+    ) : this(
+        UserPreferencesProgressLocalRepository(userPrefsRepository),
+        reflectionStore,
+        feedbackRepository
+    )
+
 
     private val gson = Gson()
     private val dateFmt = DateTimeFormatter.ISO_LOCAL_DATE
@@ -811,6 +825,23 @@ class ProgressViewModel(
         viewModelScope.launch {
             progressLocalRepository.saveFeedbackQueueJson(currentUserId, gson.toJson(entries))
         }
+    }
+
+    fun seedDemoWeeks(plan: PlannerPlanResponse) {
+        val today = LocalDate.now()
+        val start = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.temporal.WeekFields.of(Locale.getDefault()).firstDayOfWeek))
+        val seededLogs = plan.days.mapIndexed { index, day ->
+            val date = start.plusDays(index.toLong()).format(dateFmt)
+            val completedMeals = day.meals.take(if (index < 3) day.meals.size else 1).map { meal ->
+                buildMealKey(meal.mealLabel, meal.recipeId)
+            }
+            date to DailyLog(
+                date = date,
+                completedMealIds = completedMeals,
+                timestamp = System.currentTimeMillis()
+            )
+        }.toMap()
+        _dailyLogs.value = seededLogs
     }
 
     class Factory(

@@ -1,84 +1,84 @@
 keyword,normalized_keyword_if_any,price_php,category,unit,source_file,notes
-egg,egg,7,Eggs & Dairy,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-itlog,itlog,7,Eggs & Dairy,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-milk,milk,90,Eggs & Dairy,l,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-gatas,gatas,90,Eggs & Dairy,l,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-cheese,cheese,300,Eggs & Dairy,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-keso,keso,300,Eggs & Dairy,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-yogurt,yogurt,60,Eggs & Dairy,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-gata,gata,70,Eggs & Dairy,l,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-coconut milk,coconut_milk,70,Eggs & Dairy,l,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-rice,rice,60,Dry Goods,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-bigas,bigas,60,Dry Goods,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-oat,oat,140,Dry Goods,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-bread,bread,80,Dry Goods,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-tinapay,tinapay,80,Dry Goods,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-pasta,pasta,90,Dry Goods,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-noodles,noodles,90,Dry Goods,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-bihon,bihon,90,Dry Goods,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-miki,miki,90,Dry Goods,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-pancit,pancit,90,Dry Goods,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-flour,flour,60,Dry Goods,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-chicken,chicken,180,Meat/Seafood,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-manok,manok,180,Meat/Seafood,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-beef,beef,320,Meat/Seafood,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-pork,pork,260,Meat/Seafood,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-liempo,liempo,260,Meat/Seafood,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-baboy,baboy,260,Meat/Seafood,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-fish,fish,220,Meat/Seafood,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-tilapia,tilapia,220,Meat/Seafood,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-bangus,bangus,220,Meat/Seafood,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-salmon,salmon,220,Meat/Seafood,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-galunggong,galunggong,220,Meat/Seafood,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-tuna,tuna,35,Canned/Packaged,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-sardines,sardines,35,Canned/Packaged,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-shrimp,shrimp,300,Meat/Seafood,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-hipon,hipon,300,Meat/Seafood,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-tomato,tomato,60,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-kamatis,kamatis,60,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-onion,onion,80,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-sibuyas,sibuyas,80,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-garlic,garlic,120,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-bawang,bawang,120,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-carrot,carrot,70,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-cabbage,cabbage,55,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-repolyo,repolyo,55,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-pechay,pechay,60,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-spinach,spinach,60,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-kale,kale,60,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-malunggay,malunggay,60,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-kangkong,kangkong,60,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-okra,okra,70,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-ampalaya,ampalaya,70,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-talong,talong,70,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-sayote,sayote,70,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-kalabasa,kalabasa,70,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-sili,sili,140,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-chili,chili,140,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-banana,banana,60,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-apple,apple,120,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-orange,orange,80,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-ginger,ginger,140,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-luya,luya,140,Produce,kg,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-oil,oil,120,Spices & Condiments,l,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-olive,olive,120,Spices & Condiments,l,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-coconut,coconut,120,Spices & Condiments,l,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-soy,soy,40,Spices & Condiments,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-toyo,toyo,40,Spices & Condiments,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-sauce,sauce,40,Spices & Condiments,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-vinegar,vinegar,40,Spices & Condiments,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-suka,suka,40,Spices & Condiments,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-patis,patis,40,Spices & Condiments,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-salt,salt,20,Spices & Condiments,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-asin,asin,20,Spices & Condiments,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-pepper,pepper,20,Spices & Condiments,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-paminta,paminta,20,Spices & Condiments,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-spice,spice,20,Spices & Condiments,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-coffee,coffee,90,Beverages,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-tea,tea,90,Beverages,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-juice,juice,40,Beverages,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-soda,soda,40,Beverages,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-water,water,20,Beverages,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-canned,canned,45,Canned/Packaged,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-packaged,packaged,45,Canned/Packaged,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
-instant,instant,45,Canned/Packaged,piece,backend/price_catalog.py:16,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+egg,egg,7,Eggs & Dairy,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+itlog,itlog,7,Eggs & Dairy,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+milk,milk,90,Eggs & Dairy,l,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+gatas,gatas,90,Eggs & Dairy,l,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+cheese,cheese,300,Eggs & Dairy,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+keso,keso,300,Eggs & Dairy,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+yogurt,yogurt,60,Eggs & Dairy,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+gata,gata,70,Eggs & Dairy,l,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+coconut milk,coconut_milk,70,Eggs & Dairy,l,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+rice,rice,60,Dry Goods,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+bigas,bigas,60,Dry Goods,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+oat,oat,140,Dry Goods,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+bread,bread,80,Dry Goods,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+tinapay,tinapay,80,Dry Goods,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+pasta,pasta,90,Dry Goods,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+noodles,noodles,90,Dry Goods,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+bihon,bihon,90,Dry Goods,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+miki,miki,90,Dry Goods,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+pancit,pancit,90,Dry Goods,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+flour,flour,60,Dry Goods,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+chicken,chicken,180,Meat/Seafood,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+manok,manok,180,Meat/Seafood,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+beef,beef,320,Meat/Seafood,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+pork,pork,260,Meat/Seafood,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+liempo,liempo,260,Meat/Seafood,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+baboy,baboy,260,Meat/Seafood,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+fish,fish,220,Meat/Seafood,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+tilapia,tilapia,220,Meat/Seafood,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+bangus,bangus,220,Meat/Seafood,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+salmon,salmon,220,Meat/Seafood,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+galunggong,galunggong,220,Meat/Seafood,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+tuna,tuna,35,Canned/Packaged,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+sardines,sardines,35,Canned/Packaged,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+shrimp,shrimp,300,Meat/Seafood,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+hipon,hipon,300,Meat/Seafood,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+tomato,tomato,60,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+kamatis,kamatis,60,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+onion,onion,80,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+sibuyas,sibuyas,80,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+garlic,garlic,120,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+bawang,bawang,120,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+carrot,carrot,70,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+cabbage,cabbage,55,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+repolyo,repolyo,55,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+pechay,pechay,60,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+spinach,spinach,60,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+kale,kale,60,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+malunggay,malunggay,60,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+kangkong,kangkong,60,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+okra,okra,70,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+ampalaya,ampalaya,70,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+talong,talong,70,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+sayote,sayote,70,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+kalabasa,kalabasa,70,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+sili,sili,140,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+chili,chili,140,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+banana,banana,60,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+apple,apple,120,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+orange,orange,80,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+ginger,ginger,140,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+luya,luya,140,Produce,kg,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+oil,oil,120,Spices & Condiments,l,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+olive,olive,120,Spices & Condiments,l,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+coconut,coconut,120,Spices & Condiments,l,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+soy,soy,40,Spices & Condiments,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+toyo,toyo,40,Spices & Condiments,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+sauce,sauce,40,Spices & Condiments,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+vinegar,vinegar,40,Spices & Condiments,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+suka,suka,40,Spices & Condiments,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+patis,patis,40,Spices & Condiments,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+salt,salt,20,Spices & Condiments,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+asin,asin,20,Spices & Condiments,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+pepper,pepper,20,Spices & Condiments,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+paminta,paminta,20,Spices & Condiments,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+spice,spice,20,Spices & Condiments,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+coffee,coffee,90,Beverages,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+tea,tea,90,Beverages,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+juice,juice,40,Beverages,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+soda,soda,40,Beverages,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+water,water,20,Beverages,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+canned,canned,45,Canned/Packaged,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+packaged,packaged,45,Canned/Packaged,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.
+instant,instant,45,Canned/Packaged,piece,backend/price_catalog.py:149,Backend base code rule. Runtime DB overrides are not bundled in the repo snapshot.

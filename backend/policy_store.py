@@ -10,6 +10,7 @@ from copy import deepcopy
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional
 
+from db_url import is_postgres_database_url
 from policy_config import (
     POLICY_SCHEMA_VERSION,
     PRODUCTION_CANARY_BOOTSTRAP_PERCENT,
@@ -44,7 +45,11 @@ def _is_production_env() -> bool:
 
 
 def _use_postgres() -> bool:
-    return DATABASE_URL.startswith("postgres")
+    return is_postgres_database_url(DATABASE_URL)
+
+
+def db_mode() -> str:
+    return "postgres" if _use_postgres() else "sqlite"
 
 
 def _connect():

@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -54,7 +55,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.traversalIndex
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -214,6 +219,8 @@ fun ProgressRefinedScreen(
     val weeklyJournal by progressViewModel.weeklyJournal.collectAsState()
     val weeklySpend by progressViewModel.weeklySpend.collectAsState()
     val planFeedbackTags by progressViewModel.planFeedbackTags.collectAsState()
+    val savedProgressMode by progressViewModel.savedProgressMode.collectAsState()
+    val savedAdvancedWeekAnalyticsExpanded by progressViewModel.savedAdvancedWeekAnalyticsExpanded.collectAsState()
     val today = LocalDate.now()
     val currentPlan = remember(planState, planHistory, activePlanId) {
         (planState as? MealPlanUiState.Success)?.response
@@ -273,10 +280,19 @@ fun ProgressRefinedScreen(
     var showReflectionDialog by remember { mutableStateOf(false) }
     var showWeeklyReviewDialog by remember { mutableStateOf(false) }
     var showWeeklyHighlightsDialog by remember { mutableStateOf(false) }
-    var weeklyAdherenceExpanded by remember { mutableStateOf(false) }
-    var weeklySavingsExpanded by remember { mutableStateOf(false) }
-    var averageMacrosExpanded by remember { mutableStateOf(false) }
-    var symptomTrendsExpanded by remember { mutableStateOf(false) }
+    val showWeekMode = savedProgressMode.equals("Week", ignoreCase = true)
+    var weeklyAdherenceExpanded by remember(savedAdvancedWeekAnalyticsExpanded, showWeekMode) {
+        mutableStateOf(savedAdvancedWeekAnalyticsExpanded || showWeekMode)
+    }
+    var weeklySavingsExpanded by remember(savedAdvancedWeekAnalyticsExpanded, showWeekMode) {
+        mutableStateOf(savedAdvancedWeekAnalyticsExpanded || showWeekMode)
+    }
+    var averageMacrosExpanded by remember(savedAdvancedWeekAnalyticsExpanded, showWeekMode) {
+        mutableStateOf(savedAdvancedWeekAnalyticsExpanded || showWeekMode)
+    }
+    var symptomTrendsExpanded by remember(savedAdvancedWeekAnalyticsExpanded, showWeekMode) {
+        mutableStateOf(savedAdvancedWeekAnalyticsExpanded || showWeekMode)
+    }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
     var visibleCalendarMonth by remember { mutableStateOf(YearMonth.from(today)) }
     var selectedCalendarDate by remember { mutableStateOf(today) }
@@ -378,7 +394,7 @@ fun ProgressRefinedScreen(
                             )
                         ) {
                             if (weightInput.isBlank()) {
-                                feedbackMessage = "Today's check-in was saved."
+                                feedbackMessage = "Reflection saved for today."
                             } else if (normalizedWeightKg != null && progressViewModel.setWeight(today, normalizedWeightKg)) {
                                 feedbackMessage = "Today's check-in and weight were saved."
                             } else {
@@ -389,7 +405,7 @@ fun ProgressRefinedScreen(
                         }
                         showReflectionDialog = false
                     }
-                ) { Text("Save") }
+                ) { Text("Save Reflection") }
             },
             dismissButton = {
                 TextButton(onClick = { showReflectionDialog = false }) { Text("Cancel") }
@@ -650,6 +666,7 @@ fun ProgressRefinedScreen(
                 .fillMaxSize()
                 .verticalScroll(scrollState)
                 .navigationBarsPadding()
+                .testTag("progress_content_list")
                 .padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 10.dp else 14.dp),
             verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 14.dp)
         ) {
@@ -665,7 +682,15 @@ fun ProgressRefinedScreen(
                 title = "Progress",
                 subtitle = "Track meal adherence and self-reported progress.",
                 avatarId = profile.avatarId,
+                modifier = Modifier
+                    .testTag("progress_header"),
                 dateLabel = today.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)),
+                compact = compact,
+            )
+
+            ProgressModeSelector(
+                selectedMode = savedProgressMode,
+                onSelect = { progressViewModel.setProgressModePreference(it) },
                 compact = compact,
             )
 
@@ -674,15 +699,18 @@ fun ProgressRefinedScreen(
                 bmiCategory = bmiCategory,
                 mealsDoneLabel = mealsDoneLabel,
                 weeklyMealSummary = weeklyMealSummary,
+                modifier = Modifier.testTag("progress_today_hub_card"),
                 compact = compact
             )
 
-            ProgressWeeklyHighlightsLauncher(
-                weekStart = weekStart,
-                weeklyHighlights = weeklyHighlights,
-                onClick = { showWeeklyHighlightsDialog = true },
-                compact = compact
-            )
+            if (showWeekMode) {
+                ProgressWeeklyHighlightsLauncher(
+                    weekStart = weekStart,
+                    weeklyHighlights = weeklyHighlights,
+                    onClick = { showWeeklyHighlightsDialog = true },
+                    compact = compact
+                )
+            }
 
             ProgressCalendarCard(
                 visibleMonth = visibleCalendarMonth,
@@ -719,70 +747,110 @@ fun ProgressRefinedScreen(
                 }
             }
 
-            ProgressDropdownCard(
-                title = "Weekly adherence",
-                value = "${weeklyMealSummary.adherencePercent}%",
-                subtitle = "$mealsDoneLabel meals complete this week.",
-                expanded = weeklyAdherenceExpanded,
-                onToggle = { weeklyAdherenceExpanded = !weeklyAdherenceExpanded },
-                compact = compact,
-            ) {
-                ProgressWeeklyCard(
-                    weekNodes = weekNodes,
-                    weeklyMealSummary = weeklyMealSummary,
-                    compact = compact
-                )
-            }
+            if (showWeekMode) {
+                ProgressDropdownCard(
+                    title = "Weekly adherence",
+                    value = "${weeklyMealSummary.adherencePercent}%",
+                    subtitle = "$mealsDoneLabel meals complete this week.",
+                    expanded = weeklyAdherenceExpanded,
+                    onToggle = { weeklyAdherenceExpanded = !weeklyAdherenceExpanded },
+                    modifier = Modifier.semantics { traversalIndex = 5f },
+                    compact = compact,
+                ) {
+                    ProgressWeeklyCard(
+                        weekNodes = weekNodes,
+                        weeklyMealSummary = weeklyMealSummary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { traversalIndex = 5f },
+                        compact = compact
+                    )
+                }
 
-            ProgressDropdownCard(
-                title = "Weekly savings",
-                value = weeklySavingsValue,
-                subtitle = savingsTileSubtitle,
-                expanded = weeklySavingsExpanded,
-                onToggle = { weeklySavingsExpanded = !weeklySavingsExpanded },
-                compact = compact,
-            ) {
-                ProgressSavingsCard(
+                ProgressDropdownCard(
+                    title = "Weekly savings",
                     value = weeklySavingsValue,
                     subtitle = savingsTileSubtitle,
-                    summary = savingsSummaryLabel,
-                    chartPoints = savingsChartPoints,
-                    spendStats = spendStats,
-                    compact = compact
-                )
-            }
+                    expanded = weeklySavingsExpanded,
+                    onToggle = { weeklySavingsExpanded = !weeklySavingsExpanded },
+                    modifier = Modifier.semantics { traversalIndex = 6f },
+                    compact = compact,
+                ) {
+                    ProgressSavingsCard(
+                        value = weeklySavingsValue,
+                        subtitle = savingsTileSubtitle,
+                        summary = savingsSummaryLabel,
+                        chartPoints = savingsChartPoints,
+                        spendStats = spendStats,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("progress_week_spending_card")
+                            .semantics { traversalIndex = 6f },
+                        compact = compact
+                    )
+                }
 
-            ProgressDropdownCard(
-                title = "Average macros",
-                value = "${planMetrics.avgProtein}g protein",
-                subtitle = "Plan averages and target balance.",
-                expanded = averageMacrosExpanded,
-                onToggle = { averageMacrosExpanded = !averageMacrosExpanded },
-                compact = compact,
-            ) {
-                ProgressInsightsCard(
-                    planMetrics = planMetrics,
-                    currentPlan = currentPlan,
-                    weeklyMealSummary = weeklyMealSummary,
-                    planFeedbackTags = planFeedbackTags,
-                    modifier = Modifier.fillMaxWidth(),
-                    compact = compact
-                )
-            }
+                ProgressDropdownCard(
+                    title = "Average macros",
+                    value = "${planMetrics.avgProtein}g protein",
+                    subtitle = "Plan averages and target balance.",
+                    expanded = averageMacrosExpanded,
+                    onToggle = { averageMacrosExpanded = !averageMacrosExpanded },
+                    modifier = Modifier.semantics { traversalIndex = 7f },
+                    compact = compact,
+                ) {
+                    ProgressInsightsCard(
+                        planMetrics = planMetrics,
+                        currentPlan = currentPlan,
+                        weeklyMealSummary = weeklyMealSummary,
+                        planFeedbackTags = planFeedbackTags,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("progress_week_macro_card")
+                            .semantics { traversalIndex = 7f },
+                        compact = compact
+                    )
+                }
 
-            ProgressDropdownCard(
-                title = "Symptom trends",
-                value = "${trendSummary.checkInDays} days",
-                subtitle = trendSummary.headline,
-                expanded = symptomTrendsExpanded,
-                onToggle = { symptomTrendsExpanded = !symptomTrendsExpanded },
-                compact = compact,
-            ) {
-                ProgressSymptomManagementCard(
-                    metrics = symptomMetrics,
-                    summary = trendSummary,
-                    compact = compact
-                )
+                RefinedOverviewCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("progress_plan_feedback_card")
+                        .semantics { traversalIndex = 8f },
+                    containerColor = Color.White,
+                    borderColor = PcosinaDeepRose.copy(alpha = 0.18f),
+                    contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
+                ) {
+                    Text(
+                        text = "Plan feedback",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                        color = PcosinaDeepRose
+                    )
+                    Text(
+                        text = if (planFeedbackTags.isEmpty()) {
+                            "No plan feedback tags saved yet."
+                        } else {
+                            "Saved: ${planFeedbackTags.joinToString()}"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PcosinaMuted
+                    )
+                }
+
+                ProgressDropdownCard(
+                    title = "Symptom trends",
+                    value = "${trendSummary.checkInDays} days",
+                    subtitle = trendSummary.headline,
+                    expanded = symptomTrendsExpanded,
+                    onToggle = { symptomTrendsExpanded = !symptomTrendsExpanded },
+                    compact = compact,
+                ) {
+                    ProgressSymptomManagementCard(
+                        metrics = symptomMetrics,
+                        summary = trendSummary,
+                        compact = compact
+                    )
+                }
             }
 
             ProgressBottomCtaCard(
@@ -1232,10 +1300,11 @@ private fun ProgressHeadlineCard(
     bmiCategory: String,
     mealsDoneLabel: String,
     weeklyMealSummary: WeeklyMealSummary,
+    modifier: Modifier = Modifier,
     compact: Boolean,
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
@@ -1254,6 +1323,77 @@ private fun ProgressHeadlineCard(
                 weeklyMealSummary = weeklyMealSummary,
                 compact = true,
                 modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProgressModeSelector(
+    selectedMode: String,
+    onSelect: (String) -> Unit,
+    compact: Boolean,
+) {
+    val normalizedMode = if (selectedMode.equals("Week", ignoreCase = true)) "Week" else "Today"
+    RefinedOverviewCard(
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = Color(0xFFFFF8FB),
+        borderColor = PcosinaPink.copy(alpha = 0.2f),
+        contentPadding = PaddingValues(if (compact) 10.dp else 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ProgressModeChoice(
+                label = "Today",
+                selected = normalizedMode == "Today",
+                testTag = "progress_mode_today",
+                onClick = { onSelect("Today") },
+                modifier = Modifier.weight(1f),
+                compact = compact,
+            )
+            ProgressModeChoice(
+                label = "Week",
+                selected = normalizedMode == "Week",
+                testTag = "progress_mode_week",
+                onClick = { onSelect("Week") },
+                modifier = Modifier.weight(1f),
+                compact = compact,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProgressModeChoice(
+    label: String,
+    selected: Boolean,
+    testTag: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    compact: Boolean,
+) {
+    Surface(
+        modifier = modifier
+            .height(if (compact) 42.dp else 46.dp)
+            .testTag(testTag)
+            .selectable(
+                selected = selected,
+                onClick = onClick,
+                role = Role.RadioButton,
+            ),
+        shape = RoundedCornerShape(999.dp),
+        color = if (selected) PcosinaPink else Color.White,
+        border = BorderStroke(1.dp, if (selected) PcosinaPink else PcosinaPink.copy(alpha = 0.24f)),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
+                color = if (selected) Color.White else PcosinaDeepRose,
+                textAlign = TextAlign.Center,
             )
         }
     }
@@ -1614,10 +1754,12 @@ private fun ProgressDropdownCard(
     subtitle: String,
     expanded: Boolean,
     onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
     compact: Boolean,
     content: @Composable () -> Unit,
 ) {
     RefinedOverviewCard(
+        modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
     ) {
         Row(
@@ -1676,6 +1818,7 @@ private fun ProgressDropdownCard(
 private fun ProgressWeeklyCard(
     weekNodes: List<ProgressWeekNode>,
     weeklyMealSummary: WeeklyMealSummary,
+    modifier: Modifier = Modifier,
     compact: Boolean,
 ) {
     val plannedMeals = weeklyMealSummary.plannedMeals.coerceAtLeast(1)
@@ -1688,6 +1831,7 @@ private fun ProgressWeeklyCard(
         else -> "Log meals or check in so this weekly pattern can reflect your actual routine."
     }
     RefinedOverviewCard(
+        modifier = modifier,
         containerColor = Color(0xFFFFE2E8),
         borderColor = PcosinaPink.copy(alpha = 0.28f),
         contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
@@ -2241,10 +2385,12 @@ private fun ProgressSavingsCard(
     summary: String,
     chartPoints: List<ProgressChartPoint>,
     spendStats: List<ProgressSpendStat>,
+    modifier: Modifier = Modifier,
     compact: Boolean,
 ) {
     val monthLabel = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("MMMM", Locale.ENGLISH)).uppercase(Locale.ENGLISH) }
     RefinedOverviewCard(
+        modifier = modifier,
         containerColor = Color.White,
         borderColor = PcosinaDeepRose.copy(alpha = 0.34f),
         contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
@@ -2938,7 +3084,9 @@ private fun ProgressBottomCtaCard(
                     RefinedPrimaryButton(
                         text = "Check in",
                         onClick = onCheckIn,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("progress_open_daily_reflection_cta")
                     )
                     Surface(
                         shape = RoundedCornerShape(999.dp),

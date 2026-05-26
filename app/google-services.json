@@ -7,7 +7,7 @@
   "client": [
     {
       "client_info": {
-      co  "mobilesdk_app_id": "1:950408114415:android:0b3c55b663b7638c20ab1a",
+        "mobilesdk_app_id": "1:950408114415:android:0b3c55b663b7638c20ab1a",
         "android_client_info": {
           "package_name": "com.pcosina.app"
         }

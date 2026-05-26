@@ -71,10 +71,13 @@ def main() -> int:
         failures.append(f"policy pending migrations: {', '.join(policy_status['pending'])}")
 
     status = "ok" if not failures else "failed"
+    app_backend = database.db_mode()
+    policy_backend = policy_store.db_mode() if hasattr(policy_store, "db_mode") else app_backend
     payload = {
         "status": status,
-        "databaseBackend": database.db_mode(),
-        "databaseName": os.getenv("PCOSINA_DB_NAME", "").strip() or database.DB_NAME,
+        "databaseBackend": app_backend,
+        "policyDatabaseBackend": policy_backend,
+        "databaseName": (os.getenv("PCOSINA_DB_NAME", "").strip() or database.DB_NAME) if app_backend == "sqlite" else None,
         "skipApply": bool(args.skip_apply),
         "failures": failures,
         "application": app_status,

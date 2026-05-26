@@ -399,6 +399,21 @@ def parse_meal_planner_literals() -> dict:
     relative_path = "backend/services/meal_planner.py"
     tree = ast.parse(read_text(relative_path), filename=relative_path)
     literals = {}
+
+    def eval_literal(node: ast.AST):
+        try:
+            return ast.literal_eval(node)
+        except Exception:
+            pass
+        if isinstance(node, ast.Name) and node.id in literals:
+            return literals[node.id]
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+            left = eval_literal(node.left)
+            right = eval_literal(node.right)
+            if isinstance(left, (set, list, tuple)) and isinstance(right, (set, list, tuple)):
+                return set(left) | set(right)
+        raise ValueError(f"Unsupported literal expression in {relative_path}: {ast.dump(node, include_attributes=False)}")
+
     for node in tree.body:
         if isinstance(node, ast.Assign):
             for target in node.targets:
@@ -415,7 +430,7 @@ def parse_meal_planner_literals() -> dict:
                     "GLUTEN_FAMILY_TOKENS",
                     "SYMPTOM_ALIASES",
                 }:
-                    literals[target.id] = ast.literal_eval(node.value)
+                    literals[target.id] = eval_literal(node.value)
     literals["ALLERGEN_FAMILY_TOKENS"] = {
         "fish": sorted(literals.get("FISH_FAMILY_TOKENS", [])),
         "shellfish": sorted(literals.get("SHELLFISH_FAMILY_TOKENS", [])),
@@ -663,7 +678,7 @@ def recipe_inventory(database_module) -> list[dict]:
     for recipe in recipes_raw:
         nutrition = recipe.get("nutrition", {}) or {}
         calories, protein, carbs, fats, fiber = database_module._normalize_nutrition(nutrition, medians)
-        inferred_tags = database_module._infer_tags(recipe)
+        inferred_tags = sorted(database_module._infer_tags(recipe))
         row = {
             "recipe_id": recipe.get("id", ""),
             "title": recipe.get("name", ""),
@@ -2162,6 +2177,7 @@ def write_formulas(ctx: dict) -> None:
           - cap recipe reuse by current repeat limit
           - enforce weekly budget cap when budget exists
           - add soft deviation variables for daily calories, macros, fiber, sodium, sugar, meal distribution, pantry, and diversity
+          - retry only the supported adaptive dimensions: nutrition tolerance and recipe repeat limit
           - minimize weighted objective across those deviations
         - Input variables: shortlisted recipes, targets, policy config, budget, pantry, restrictions
         - Output variables: selected recipe assignments and explanation payload
@@ -2179,6 +2195,7 @@ def write_formulas(ctx: dict) -> None:
           - if Stage 1 yields too few safe candidates -> return structured `no-safe-plan`
           - if CP-SAT proves infeasible or times out -> return structured `no-safe-plan`
           - builder attaches `machineReasonCodes`, `humanGuidance`, `suggestedRelaxations`, diagnostics, solver metadata, and timestamps
+          - no production path returns a greedy or partial meal plan as an authoritative fallback
         - Input variables: validation error, diagnostics, profile, solver status
         - Output variables: `GeneratePlanResponse` with `status="no-safe-plan"`
         - Units: response contract
@@ -2349,6 +2366,25 @@ def write_decision_trees(ctx: dict) -> None:
         - Output variables: `GeneratePlanResponse`
         - Validation approach: planner contract tests plus manual reading of constraints/objective
         - What to show during demo: solver metadata fields and explanation payload
+
+        ## G2. Adaptive CP-SAT Retry Sequence
+
+        ```mermaid
+        flowchart TD
+            A[Stage 1 candidate pool ready] --> B[Build tolerance levels]
+            B --> C[Build repeat-limit sequence]
+            C --> D[Create CP-SAT attempt pairs]
+            D --> E{{Feasible or optimal full-slot plan found?}}
+            E -- Yes --> F[Return success response]
+            E -- No, time remains --> G[Try next tolerance/repeat pair]
+            G --> E
+            E -- No, attempts exhausted or timed out --> H[Return structured no-safe-plan response]
+        ```
+
+        - Source files used: `{ctx["citations"]["solve_meal_plan"]}`, `{cite("backend/policy_config.py", "class PlanningPolicy")}`
+        - Implemented adaptive dimensions: nutrition tolerance and recipe repeat limits
+        - Not implemented as relaxation levels: budget warning band, pantry-overlap lowering, partial-plan return
+        - Validation approach: planner contract tests plus no-safe-plan contract tests
 
         ## H. No-Safe-Plan Decision Tree
 
@@ -2862,6 +2898,31 @@ def write_chapter_tables(ctx: dict) -> None:
                 ["Conflicting profile/restrictions", "Return no-safe-plan with mapped reason codes", ctx["citations"]["build_no_safe_plan_response"]],
                 ["No safe candidates after Stage 1", "Return no-safe-plan with diagnostics", ctx["citations"]["build_no_safe_plan_response"]],
                 ["Solver infeasible/time-out", "Return no-safe-plan with solver metadata", ctx["citations"]["build_no_safe_plan_response"]],
+            ],
+        )}
+
+        ## Table 12A: Adaptive Constraint Handling Actually Implemented
+
+        {markdown_table(
+            ["Attempt Dimension", "Implemented Behavior", "Not Relaxed"],
+            [
+                ["Nutrition tolerance", "Tries configured daily tolerance and wider derived tolerance bands", "Allergy, restriction, slot validity, and budget hard cap"],
+                ["Recipe repeat limits", "Tries configured repeat caps adjusted by variety preference", "Adjacent duplicate block and meal-slot admissibility"],
+                ["Budget", "Hard weekly cap when budget exists; no warning-band fallback", "Budget ceiling"],
+                ["Pantry overlap", "Stage 1 score/optional threshold and Stage 2 reward/slack", "No final pantry-overlap relaxation level or partial plan"],
+            ],
+        )}
+
+        ## Table 12B: Trigger Conditions and Evidence Indicators
+
+        {markdown_table(
+            ["Trigger Condition", "Operational Indicator", "Evidence Signal", "Fallback Action"],
+            [
+                ["Profile conflict", "`validate_profile()` returns a conflict message", "Reason codes and guidance in no-safe-plan response", "Return structured no-safe-plan"],
+                ["Insufficient safe candidates", "Candidate count below `stage1.minimum_candidates_required`", "Candidate counts and exclusion summaries when available", "Return structured no-safe-plan"],
+                ["CP-SAT infeasible", "All tolerance/repeat attempts fail", "Solve-pair diagnostics with tolerance and repeat cap values", "Return structured no-safe-plan"],
+                ["Planner timeout", "Total planner deadline reached", "`budget_exceeded_stage`, phase timings, solver budget metadata", "Return structured no-safe-plan with retry guidance"],
+                ["Service/network interruption", "Backend request or queued polling cannot complete", "Android error state while local artifacts remain available", "Preserve saved local plans/groceries/progress and provide retry guidance"],
             ],
         )}
 

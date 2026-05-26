@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -148,6 +149,7 @@ fun GroceryRefinedScreen(
     var pantryOptOut by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var expandedCategories by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
+    var initializedCategoryExpansion by rememberSaveable(activePlanId) { mutableStateOf(false) }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
     var showPantryDialog by remember { mutableStateOf(false) }
     var showAddPantryDialog by remember { mutableStateOf(false) }
@@ -158,17 +160,40 @@ fun GroceryRefinedScreen(
     var groceryFilterScope by rememberSaveable { mutableStateOf(GroceryFilterScope.AllItems.name) }
     var selectedFilterCategories by rememberSaveable { mutableStateOf(setOf<String>()) }
     var selectedCategoryKey by rememberSaveable(activePlanId) { mutableStateOf("") }
+    var expiredPantryEventKeys by rememberSaveable { mutableStateOf(setOf<String>()) }
+    val today = remember { LocalDate.now() }
 
     val effectiveChecked = remember(checkedNames, pantryMatches, pantryOptOut) {
         checkedNames + pantryMatches.filter { it !in pantryOptOut }
     }
     val hasPlan = planHistory.isNotEmpty() || planState is MealPlanUiState.Success
+    val expiredPantryEntries = remember(effectivePantryEntries, today) {
+        effectivePantryEntries.filter { entry ->
+            val expiry = parsePantryExpiryDate(entry.expiryDate)
+            expiry != null && expiry.isBefore(today)
+        }
+    }
 
     LaunchedEffect(hasPlan, groupedEntries.isEmpty(), mealSources.isEmpty()) {
         if (hasPlan && groupedEntries.isEmpty() && mealSources.isEmpty()) {
             mealPlanViewModel.extractGrocerySourcesForPlan { sources ->
                 groceryViewModel.setPlanSources(sources)
             }
+        }
+    }
+
+    LaunchedEffect(expiredPantryEntries) {
+        val newExpiredKeys = expiredPantryEntries
+            .map { refinedPantryKey(it.name) }
+            .filter { it.isNotBlank() && it !in expiredPantryEventKeys }
+        newExpiredKeys.forEach { token ->
+            mealPlanViewModel.trackMlEvent(
+                eventName = "pantry_item_expired",
+                payload = mapOf("item_token" to token, "source" to "grocery_pantry_review")
+            )
+        }
+        if (newExpiredKeys.isNotEmpty()) {
+            expiredPantryEventKeys = expiredPantryEventKeys + newExpiredKeys
         }
     }
 
@@ -214,11 +239,15 @@ fun GroceryRefinedScreen(
         if (categoryEntries.isNotEmpty() && categoryEntries.none { it.first == selectedCategoryKey }) {
             selectedCategoryKey = categoryEntries.first().first
         }
+        if (categoryEntries.isNotEmpty() && !initializedCategoryExpansion) {
+            expandedCategories = categoryEntries.map { it.first }.toSet()
+            initializedCategoryExpansion = true
+        }
     }
     val selectedCategoryIndex = categoryEntries.indexOfFirst { it.first == selectedCategoryKey }.let { index ->
         if (index >= 0) index else 0
     }
-    val todayLabel = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("MMM dd", Locale.ENGLISH)) }
+    val todayLabel = remember(today) { today.format(DateTimeFormatter.ofPattern("MMM dd", Locale.ENGLISH)) }
     val totalCount = groupedEntries.size
     val coveredCount = groupedEntries.count { it.name in effectiveChecked }
     val remainingCount = (totalCount - coveredCount).coerceAtLeast(0)
@@ -253,6 +282,13 @@ fun GroceryRefinedScreen(
                         refinedPantryKey(it.name) == refinedPantryKey(entry.name)
                     }
                 )
+                mealPlanViewModel.trackMlEvent(
+                    eventName = "pantry_item_removed",
+                    payload = mapOf(
+                        "item_name" to entry.name,
+                        "source" to "grocery_pantry_dialog"
+                    )
+                )
                 feedbackMessage = "${entry.name} removed from pantry."
             }
         )
@@ -275,6 +311,13 @@ fun GroceryRefinedScreen(
                             name = trimmed,
                             quantity = pantryQty.trim().takeIf { it.isNotBlank() },
                             expiryDate = pantryExpiry.trim().takeIf { it.isNotBlank() }
+                        )
+                    )
+                    mealPlanViewModel.trackMlEvent(
+                        eventName = "pantry_item_added",
+                        payload = mapOf(
+                            "item_name" to trimmed,
+                            "source" to "grocery_pantry_dialog"
                         )
                     )
                     feedbackMessage = "$trimmed added to pantry."
@@ -325,6 +368,7 @@ fun GroceryRefinedScreen(
                 .fillMaxSize()
                 .verticalScroll(scrollState)
                 .navigationBarsPadding()
+                .testTag("grocery_content_list")
                 .padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 8.dp else 12.dp),
             verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp)
         ) {
@@ -340,6 +384,28 @@ fun GroceryRefinedScreen(
                 avatarId = userProfile.avatarId,
                 dateLabel = todayLabel,
                 compact = compact
+            )
+
+            GroceryNextStepsCard(
+                anyExpanded = expandedCategories.isNotEmpty(),
+                onToggleAll = {
+                    expandedCategories = if (expandedCategories.isNotEmpty()) {
+                        feedbackMessage = "Collapsed all categories."
+                        emptySet()
+                    } else {
+                        feedbackMessage = "Opened all categories."
+                        categoryEntries.map { it.first }.toSet()
+                    }
+                },
+                onOpenMealPlan = {
+                    if (isOnline) {
+                        onNavigateToRoute(Routes.MealPlan)
+                    } else {
+                        feedbackMessage = "Internet required for this action. Connect to open plan generation."
+                    }
+                },
+                onOpenProgress = { onNavigateToRoute(Routes.Progress) },
+                compact = compact,
             )
 
             if (!feedbackMessage.isNullOrBlank()) {
@@ -429,10 +495,28 @@ fun GroceryRefinedScreen(
                     }
                 },
                 onToggleItem = { item ->
+                    val wasComplete = totalCount > 0 && coveredCount >= totalCount
+                    val nextPantryOptOut: Set<String>
+                    val nextCheckedNames: Set<String>
                     if (item.name in pantryMatches) {
-                        pantryOptOut = if (item.name in pantryOptOut) pantryOptOut - item.name else pantryOptOut + item.name
+                        nextPantryOptOut = if (item.name in pantryOptOut) pantryOptOut - item.name else pantryOptOut + item.name
+                        nextCheckedNames = checkedNames
                     } else {
-                        checkedNames = if (item.name in checkedNames) checkedNames - item.name else checkedNames + item.name
+                        nextPantryOptOut = pantryOptOut
+                        nextCheckedNames = if (item.name in checkedNames) checkedNames - item.name else checkedNames + item.name
+                    }
+                    pantryOptOut = nextPantryOptOut
+                    checkedNames = nextCheckedNames
+                    val nextEffectiveChecked = nextCheckedNames + pantryMatches.filter { it !in nextPantryOptOut }
+                    val isComplete = totalCount > 0 && groupedEntries.all { it.name in nextEffectiveChecked }
+                    if (!wasComplete && isComplete) {
+                        mealPlanViewModel.trackMlEvent(
+                            eventName = "grocery_completed",
+                            payload = mapOf(
+                                "plan_id" to (activePlanId ?: "current"),
+                                "item_count" to totalCount
+                            )
+                        )
                     }
                 },
                 onSyncIngredients = {
@@ -1192,6 +1276,83 @@ private fun GroceryActionTile(
 }
 
 @Composable
+private fun GroceryNextStepsCard(
+    anyExpanded: Boolean,
+    onToggleAll: () -> Unit,
+    onOpenMealPlan: () -> Unit,
+    onOpenProgress: () -> Unit,
+    compact: Boolean,
+) {
+    RefinedOverviewCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("grocery_next_steps_card"),
+        containerColor = Color(0xFFFFF8FB),
+        borderColor = PcosinaPink.copy(alpha = 0.22f),
+        contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
+    ) {
+        Text(
+            text = "Categories",
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+            color = PcosinaDeepRose,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GroceryPillAction(
+                text = "Go to Plan",
+                onClick = onOpenMealPlan,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("grocery_open_mealplan_cta"),
+            )
+            GroceryPillAction(
+                text = "Progress",
+                onClick = onOpenProgress,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("grocery_open_progress_cta"),
+            )
+        }
+        GroceryPillAction(
+            text = if (anyExpanded) "Collapse all" else "Open all",
+            onClick = onToggleAll,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("grocery_expand_toggle_all"),
+        )
+    }
+}
+
+@Composable
+private fun GroceryPillAction(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier
+            .heightIn(min = 44.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(999.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.24f))
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = text,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = PcosinaDeepRose,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+@Composable
 private fun GroceryKitchenHubHeader(
     searchQuery: String,
     onSearchChange: (String) -> Unit,
@@ -1816,6 +1977,13 @@ private fun formatPhp(value: Int): String = "₱%,d".format(Locale.ENGLISH, valu
 
 private fun refinedPantryKey(raw: String): String =
     canonicalGroceryKey(raw)
+
+private fun parsePantryExpiryDate(raw: String?): LocalDate? =
+    raw?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?.let { value ->
+            runCatching { LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
+        }
 
 private fun refinedPantryTokens(raw: String): Set<String> =
     refinedPantryKey(raw)

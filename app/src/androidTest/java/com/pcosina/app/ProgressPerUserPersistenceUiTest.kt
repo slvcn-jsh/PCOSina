@@ -1,6 +1,7 @@
 package com.pcosina.app
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertCountEquals
@@ -68,20 +69,26 @@ class ProgressPerUserPersistenceUiTest {
             progressViewModel.loadProgressUiPreferences()
         }
 
+        val renderedUserId = mutableStateOf(userA)
+
+        composeRule.setContent {
+            MaterialTheme {
+                ProgressScreen(
+                    userViewModel = userViewModel,
+                    mealPlanViewModel = mealPlanViewModel,
+                    progressViewModel = progressViewModel,
+                    groceryViewModel = groceryViewModel,
+                    userId = renderedUserId.value,
+                    onBackToDashboard = {},
+                    onNavigateToRoute = {},
+                    onlineStateOverride = true
+                )
+            }
+        }
+
         fun render(userId: String) {
-            composeRule.setContent {
-                MaterialTheme {
-                    ProgressScreen(
-                        userViewModel = userViewModel,
-                        mealPlanViewModel = mealPlanViewModel,
-                        progressViewModel = progressViewModel,
-                        groceryViewModel = groceryViewModel,
-                        userId = userId,
-                        onBackToDashboard = {},
-                        onNavigateToRoute = {},
-                        onlineStateOverride = true
-                    )
-                }
+            composeRule.runOnUiThread {
+                renderedUserId.value = userId
             }
         }
 

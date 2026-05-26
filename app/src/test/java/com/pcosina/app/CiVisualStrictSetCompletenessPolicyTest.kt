@@ -15,10 +15,7 @@ class CiVisualStrictSetCompletenessPolicyTest {
             "compact_chip_row.png",
             "compact_dashboard_today_outcome.png",
             "compact_progress_top_section.png",
-            "compact_mealplan_top_section.png",
-            "compact_login_first_win_card.png",
-            "compact_profile_first_win_card.png",
-            "compact_goal_handoff_card.png"
+            "compact_mealplan_top_section.png"
         )
 
         val ciSource = read(resolve(".github", "workflows", "ci.yml"))

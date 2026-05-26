@@ -92,11 +92,22 @@ fun CommunityScreen(
         }
         item {
             SharedAvatarHeader(
-                title = "Support Page",
-                subtitle = "Browse our support hub or send us your feedback.",
+                title = "Support",
+                subtitle = "Clear help for planning, logging, and sending feedback.",
                 avatarId = avatarId,
                 dateLabel = supportDateLabel,
                 compact = false,
+            )
+        }
+        item {
+            Text(
+                text = "Support Page",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    color = PcosinaDeepRose,
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         item {
@@ -105,11 +116,11 @@ fun CommunityScreen(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 SupportVideoCard(
-                    title = "Watch our app walk-through",
+                    title = "Start with the next useful step.",
                     modifier = Modifier.weight(1f),
                 )
                 SupportVideoCard(
-                    title = "Step-by-Step Guide",
+                    title = "Make the week feel lighter",
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -280,7 +291,7 @@ private fun SupportFeedbackCard(
                 )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Send feedback",
+                        text = "Need a hand?",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = PcosinaDeepRose,
@@ -289,7 +300,7 @@ private fun SupportFeedbackCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = "Tell us if something feels confusing, missing, or harder than it should be.",
+                        text = "Tell us if planning, logging, or feedback feels harder than it should be.",
                         style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
                         color = PcosinaDeepRose,
                         maxLines = 2,
@@ -451,13 +462,13 @@ private fun SupportFreshStartCard(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
-                    text = "Ready for a Fresh Start?",
+                    text = "Make the week feel lighter",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = PcosinaDeepRose),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "Organize your meals for the coming week.",
+                    text = "Start with the next useful step.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = PcosinaDeepRose,
                     maxLines = 2,

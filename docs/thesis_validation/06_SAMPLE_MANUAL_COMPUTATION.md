@@ -32,7 +32,7 @@
 
 ## 3. BMR
 
-- Formula source: Android `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:55`, backend `backend/services/meal_planner.py:1474`
+- Formula source: Android `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:55`, backend `backend/services/meal_planner.py:1755`
 - `BMR = (10 * 65) + (6.25 * 160) - (5 * 25) - 161`
 - `BMR = 650 + 1000 - 125 - 161`
 - `BMR = 1364.0`
@@ -54,7 +54,7 @@
 
 ## 6. Macro Target
 
-- Source: `backend/services/meal_planner.py:800` and `backend/services/meal_planner.py:1474`
+- Source: `backend/services/meal_planner.py:942` and `backend/services/meal_planner.py:1755`
 - Moderate insulin resistance ratios: protein `0.28`, carbs `0.35`, fats `0.37`
 - Protein target: `int(1375 * 0.28 / 4) = 96 g`
 - Carbohydrate target: `int(1375 * 0.35 / 4) = 120 g`
@@ -71,7 +71,7 @@
   - onion chopped (2 tbsp)
   - tomato chopped (1/3 cup)
   - white rice cooked (2/3 cup)
-- Backend pantry normalization source: `backend/services/meal_planner.py:262`
+- Backend pantry normalization source: `backend/services/meal_planner.py:300`
 - Normalized pantry tokens: `egg, onion, rice, tomato`
 - Normalized recipe tokens include: `chopped, cooked, egg, onion, rice, roasted, talong, tomato, white`
 - Overlap count: `4`
@@ -79,7 +79,7 @@
 
 ## 8. Grocery Missing-Items Determination For The Same Recipe
 
-- Source: `app/src/main/java/com/pcosina/app/ui/screens/GroceryRefinedScreen.kt:1500`
+- Source: `app/src/main/java/com/pcosina/app/ui/screens/GroceryRefinedScreen.kt:1827`
 - Important actual behavior: the Android grocery screen uses pantry-name matching, not the backend token-overlap algorithm.
 - With pantry entries entered exactly as `egg`, `rice`, `tomato`, and `onion`:
   - `egg` can exact-match a grocery item named `egg`
@@ -91,27 +91,27 @@
 
 ## 9. Estimated Price For One Grocery Item
 
-- Source: `app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:13`
+- Source: `app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt:26`
 - Android price rule: `egg -> PHP 7 per piece`
 - Example quantity: `2 pieces`
 - Estimated price: `7 * 2 = PHP 14`
 
 ## 10. How The Planner Treats This Profile In Stage 1
 
-- Source: `backend/services/meal_planner.py:872`, `backend/services/meal_planner.py:539`, `backend/services/meal_planner.py:593`
+- Source: `backend/services/meal_planner.py:1088`, `backend/services/meal_planner.py:637`, `backend/services/meal_planner.py:691`
 - The profile passes validation because it has valid age, height, weight, activity, goal, household size, cooking-time limit, and no conflicting restrictions.
 - Stage 1 removes recipes that violate allergies/restrictions or exceed 45 minutes.
-- For sample recipe `ph_qk_052`, the backend estimated cost is `PHP 55`.
+- For sample recipe `ph_qk_052`, the backend estimated cost is `PHP 82`.
 - Deterministic base score:
   - `(protein * 2.0) - (cost * 0.05) - (abs(calories - 500) * 0.15) + (pantryMatch * 1.5) + stage1Boost`
-  - `= 21.500`
-- Deterministic shadow ranking score for the same recipe: `0.6147`
-- After shadow-score weighting, the effective boost becomes about `1.200` and the revised base score becomes about `21.950`.
+  - `= 20.150`
+- Deterministic shadow ranking score for the same recipe: `0.5917`
+- After shadow-score weighting, the effective boost becomes about `1.200` and the revised base score becomes about `20.600`.
 - ML remains assistive only here. Hard filters still run before any ranking effect.
 
 ## 11. How The Planner Treats This Profile In Stage 2
 
-- Source: `backend/services/meal_planner.py:1474`
+- Source: `backend/services/meal_planner.py:1755`
 - The solver would create `21` meal slots (`7 days * 3 meals/day`).
 - It would use the backend daily calorie target of `1375` kcal/day.
 - It would use macro targets of `96 g protein`, `120 g carbs`, and `56 g fat`.
@@ -124,10 +124,10 @@
 
 ## 12. Actual Generated Output
 
-- Full local generation was **not executed** in this environment because importing `backend/services/meal_planner.py` is blocked here: `OSError: [WinError 4551] An Application Control policy has blocked this file`
+- Full local generation was **not executed** in this environment because importing `backend/services/meal_planner.py` is blocked here: `ModuleNotFoundError: No module named 'domain'`
 - The actual response shape is implemented in:
-  - backend `backend/domain/models.py:243`
-  - Android `app/src/main/java/com/pcosina/app/data/api/PcosinaApiService.kt:38`
+  - backend `backend/domain/models.py:272`
+  - Android `app/src/main/java/com/pcosina/app/data/api/PcosinaApiService.kt:40`
 - Actual response fields include:
   - `weekLabel`
   - `days`

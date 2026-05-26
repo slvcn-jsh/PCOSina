@@ -4,6 +4,7 @@ import json
 import hashlib
 import os
 import random
+import re
 import time
 
 from ortools.sat.python import cp_model
@@ -209,6 +210,8 @@ MEAT_TOKENS = {"pork", "beef", "chicken", "meat", "lamb", "goat", "duck"}
 FISH_FAMILY_TOKENS = {
     "fish", "isda", "bangus", "milkfish", "tilapia", "galunggong",
     "salmon", "tuna", "tambakol", "tulingan", "tanigue", "seafood",
+    "sardine", "sardines", "sardinas", "dilis", "dulong", "tinapa",
+    "tuyo", "daing", "lapu", "maya",
 }
 SHELLFISH_FAMILY_TOKENS = {"shellfish", "shrimp", "hipon", "crab", "alimango", "alimasag"}
 DAIRY_FAMILY_TOKENS = {"dairy", "milk", "gatas", "cheese", "keso", "yogurt", "butter", "cream"}
@@ -264,6 +267,8 @@ ALL_SLOT_LABELS = MEAL_LABELS + SNACK_LABELS
 GOAL_WEIGHT_LOSS = "weight loss"
 GOAL_SYMPTOM_MANAGEMENT = "symptom management"
 GOAL_GENERAL_HEALTH = "general health"
+_RECIPE_STATIC_FEATURE_CACHE_MAX = 10000
+_RECIPE_STATIC_FEATURE_CACHE: Dict[Tuple[Any, ...], Dict[str, Any]] = {}
 
 SYMPTOM_ALIASES = {
     "irregular periods": "irregular_periods",
@@ -536,16 +541,16 @@ def infer_allowed_meals(meal_type: str | None) -> List[str]:
     return labels or MEAL_LABELS
 
 
-def infer_tags(recipe: Dict[str, Any]) -> List[str]:
+def infer_tags(recipe: Dict[str, Any], ing_tokens: Optional[List[str]] = None) -> List[str]:
     tags = set([t.lower() for t in recipe.get("tags", []) if t])
-    ing_tokens = set(normalize_ingredients(recipe.get("ingredients", [])))
-    if ing_tokens & MEAT_TOKENS:
+    token_set = set(ing_tokens if ing_tokens is not None else normalize_ingredients(recipe.get("ingredients", [])))
+    if token_set & MEAT_TOKENS:
         tags.add("contains_meat")
-    if ing_tokens & SEAFOOD_TOKENS:
+    if token_set & SEAFOOD_TOKENS:
         tags.add("contains_seafood")
-    if ing_tokens & DAIRY_TOKENS:
+    if token_set & DAIRY_TOKENS:
         tags.add("contains_dairy")
-    if ing_tokens & EGG_TOKENS:
+    if token_set & EGG_TOKENS:
         tags.add("contains_egg")
 
     p = recipe.get("proteinGrams") or 0
@@ -568,9 +573,90 @@ def infer_protein_group(ing_tokens: List[str]) -> str:
     return "other"
 
 
+def _ingredient_cache_name(ingredient: Any) -> str:
+    if isinstance(ingredient, dict):
+        return str(ingredient.get("name", ""))
+    return str(ingredient)
+
+
+def _recipe_static_feature_cache_key(recipe: Dict[str, Any]) -> Tuple[Any, ...]:
+    recipe_id = str(recipe.get("id") or "").strip()
+    meal_type = str(recipe.get("mealType") or "").strip().lower()
+    correction_id = str(recipe.get("nutritionCorrectionId") or "").strip()
+    if recipe_id and correction_id:
+        return ("catalog", recipe_id, correction_id, meal_type)
+    tags = tuple(str(tag or "").strip().lower() for tag in (recipe.get("tags") or []))
+    ingredients = tuple(_ingredient_cache_name(item) for item in (recipe.get("ingredients") or []))
+    return ("adhoc", recipe_id, meal_type, tags, ingredients)
+
+
+def _recipe_static_features(recipe: Dict[str, Any]) -> Dict[str, Any]:
+    cache_key = _recipe_static_feature_cache_key(recipe)
+    cached = _RECIPE_STATIC_FEATURE_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    ing_tokens = normalize_ingredients(recipe.get("ingredients", []))
+    features = {
+        "tags": infer_tags(recipe, ing_tokens),
+        "ing_tokens": ing_tokens,
+        "protein_group": infer_protein_group(ing_tokens),
+        "veg_tokens": infer_veg_tokens(ing_tokens),
+        "allowed_meals": infer_allowed_meals(recipe.get("mealType")),
+    }
+    if len(_RECIPE_STATIC_FEATURE_CACHE) >= _RECIPE_STATIC_FEATURE_CACHE_MAX:
+        _RECIPE_STATIC_FEATURE_CACHE.clear()
+    _RECIPE_STATIC_FEATURE_CACHE[cache_key] = features
+    return features
+
+
 def household_size_multiplier(profile: UserProfile) -> int:
     raw = int(getattr(profile, "householdSize", 1) or 1)
     return max(1, min(raw, 6))
+
+
+def parse_serving_count(value: Any) -> Optional[float]:
+    if value in (None, ""):
+        return None
+    if isinstance(value, (int, float)):
+        parsed = float(value)
+        return parsed if parsed > 0 else None
+    text = str(value or "").strip().lower()
+    if not text:
+        return None
+    range_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:-|to)\s*(\d+(?:\.\d+)?)", text)
+    if range_match:
+        low = float(range_match.group(1))
+        high = float(range_match.group(2))
+        if low > 0 and high > 0:
+            return (low + high) / 2.0
+    match = re.search(r"\d+(?:\.\d+)?", text)
+    if not match:
+        return None
+    parsed = float(match.group(0))
+    return parsed if parsed > 0 else None
+
+
+def recipe_serving_count(recipe: Dict[str, Any]) -> Optional[float]:
+    for key in ("sourceServings", "servings", "recipeYield"):
+        parsed = parse_serving_count(recipe.get(key))
+        if parsed is not None:
+            return parsed
+    notes = str(recipe.get("nutritionNotes") or "").strip()
+    for key in ("source_servings", "source_recipe_yield", "sourceServings"):
+        match = re.search(rf"{re.escape(key)}\s*=\s*([^;]+)", notes, flags=re.IGNORECASE)
+        if match:
+            parsed = parse_serving_count(match.group(1))
+            if parsed is not None:
+                return parsed
+    return None
+
+
+def serving_cost_multiplier(recipe: Dict[str, Any], household_size: int) -> float:
+    servings = recipe_serving_count(recipe)
+    if servings is None or servings <= 0:
+        return float(max(1, int(household_size or 1)))
+    return max(1.0, float(household_size or 1)) / max(1.0, float(servings))
 
 
 def build_plan_day_labels(num_days: int, start_date_text: Optional[str] = None) -> List[str]:
@@ -595,11 +681,11 @@ def estimate_cost(
     household_size: int = 1,
     *,
     pricing_context: Optional[PricingContext] = None,
-    cost_cache: Optional[Dict[Tuple[str, int, int], int]] = None,
+    cost_cache: Optional[Dict[Tuple[str, int, int, int], int]] = None,
     cost_cache_stats: Optional[Dict[str, int]] = None,
 ) -> int:
     normalized_household = max(1, int(household_size or 1))
-    cache_key: Optional[Tuple[str, int, int]] = None
+    cache_key: Optional[Tuple[str, int, int, int]] = None
     if cost_cache is not None:
         recipe_id = str(recipe.get("id") or "").strip()
         if not recipe_id:
@@ -610,7 +696,8 @@ def estimate_cost(
             except Exception:
                 recipe_id = hashlib.sha256(str(recipe.get("ingredients", [])).encode("utf-8")).hexdigest()
         month_index = int(getattr(pricing_context, "month_index", 0) or 0)
-        cache_key = (recipe_id, normalized_household, month_index)
+        serving_key = int(round(float(recipe_serving_count(recipe) or 1.0) * 100))
+        cache_key = (recipe_id, normalized_household, month_index, serving_key)
         cached = cost_cache.get(cache_key)
         if cached is not None:
             if cost_cache_stats is not None:
@@ -621,14 +708,15 @@ def estimate_cost(
 
     ings = recipe.get("ingredients", [])
     catalog_cost = estimate_recipe_cost(ings, pricing_context=pricing_context)
+    serving_multiplier = serving_cost_multiplier(recipe, normalized_household)
     if catalog_cost > 0:
-        resolved = int(max(1, catalog_cost * normalized_household))
+        resolved = int(max(1, round(float(catalog_cost) * serving_multiplier)))
         if cost_cache is not None and cache_key is not None:
             cost_cache[cache_key] = resolved
         return resolved
     cal = recipe.get("calories") or 0
     rough = (len(ings) * 6) + (cal * 0.15)
-    resolved = int(max(30, min(450, rough)) * normalized_household)
+    resolved = int(max(1, round(max(30, min(450, rough)) * serving_multiplier)))
     if cost_cache is not None and cache_key is not None:
         cost_cache[cache_key] = resolved
     return resolved
@@ -973,9 +1061,147 @@ def adjust_max_per_week(base: List[int], preference: str | None) -> List[int]:
     if "high" in raw:
         return [v for v in base if v <= 4] or [2, 3, 4]
     if "low" in raw:
-        extended = sorted(set(base + [6, 8, 10]))
+        extended = sorted(set([v for v in base if v >= 3] + [3, 4, 6, 8, 10]))
         return extended
     return base
+
+
+def repeat_sequence_for_profile(
+    base: List[int],
+    preference: str | None,
+    priority: str | None,
+    *,
+    hard_filter_count: int = 0,
+    safe_candidate_count: Optional[int] = None,
+) -> List[int]:
+    sequence = adjust_max_per_week(base, preference)
+    raw_preference = str(preference or "").strip().lower()
+    raw_priority = str(priority or "").strip().lower()
+    restricted_catalog = int(hard_filter_count or 0) >= 6 or (
+        safe_candidate_count is not None and int(safe_candidate_count or 0) <= 96
+    )
+    if restricted_catalog:
+        return sorted(set([value for value in sequence if value >= 6] + [6, 8, 10]))
+    if "budget" in raw_priority and "high" not in raw_preference:
+        return sorted(set([value for value in sequence if value >= 6] + [6, 8, 10]))
+    return sequence
+
+
+def _ordered_values_by_preference(values: List[Any], preferred: List[Any]) -> List[Any]:
+    ordered: List[Any] = []
+    for target in preferred:
+        for value in values:
+            if value in ordered:
+                continue
+            try:
+                matches = abs(float(value) - float(target)) < 0.0001
+            except Exception:
+                matches = value == target
+            if matches:
+                ordered.append(value)
+    for value in values:
+        if value not in ordered:
+            ordered.append(value)
+    return ordered
+
+
+def solve_pair_sequence_for_profile(
+    tolerance_levels: List[float],
+    max_per_week_list: List[int],
+    relaxation_order: List[Any],
+    *,
+    restricted_catalog: bool = False,
+    preferred_tolerances: Optional[List[float]] = None,
+    preferred_repeats: Optional[List[int]] = None,
+) -> List[Tuple[float, int]]:
+    tol_sequence = [float(v) for v in tolerance_levels]
+    repeat_sequence = [int(v) for v in max_per_week_list]
+    if preferred_tolerances or preferred_repeats:
+        if preferred_tolerances:
+            tol_sequence = _ordered_values_by_preference(tol_sequence, preferred_tolerances)
+        if preferred_repeats:
+            repeat_sequence = _ordered_values_by_preference(repeat_sequence, preferred_repeats)
+        return [(tol, max_repeat) for tol in tol_sequence for max_repeat in repeat_sequence]
+    if restricted_catalog:
+        tol_sequence = _ordered_values_by_preference(tol_sequence, [0.4, 0.6, 0.8, 0.3, 0.2])
+        repeat_sequence = _ordered_values_by_preference(repeat_sequence, [10, 8, 6, 4, 3, 2])
+        return [(tol, max_repeat) for tol in tol_sequence for max_repeat in repeat_sequence]
+
+    outer_key = (str(relaxation_order[0]).strip().lower() if relaxation_order else "daily_tolerance_percent")
+    if "recipe_repeat_limits" in outer_key:
+        return [(tol, max_repeat) for max_repeat in repeat_sequence for tol in tol_sequence]
+    return [(tol, max_repeat) for tol in tol_sequence for max_repeat in repeat_sequence]
+
+
+def _solve_pair_preferences_for_profile(
+    profile: UserProfile,
+    *,
+    restricted_catalog: bool = False,
+) -> Dict[str, Any]:
+    restrictions = {str(item or "").strip().lower() for item in (profile.dietaryRestrictions or [])}
+    allergies = [str(item or "").strip() for item in (profile.allergies or []) if str(item or "").strip()]
+    goal_tokens = normalize_goal_tokens(profile.goal)
+    symptom_count = len(normalize_symptoms(profile.symptoms or []))
+    insulin_level = str(profile.insulinResistanceLevel or "").strip().lower()
+    priority = str(profile.planningPriority or "").strip().lower()
+    major_diet = bool(restrictions & {"vegetarian", "pescatarian"})
+    has_weekly_budget = resolve_budget_weekly(profile) is not None
+    strict_time_limit = int(profile.maxCookingTimeMinutes or 0) > 0 and int(profile.maxCookingTimeMinutes or 0) <= 25
+
+    if restricted_catalog or major_diet:
+        return {
+            "strategy": "restricted_or_major_diet",
+            "preferredTolerances": [0.4, 0.6, 0.3, 0.8, 0.2],
+            "preferredRepeats": [10, 8, 6, 4, 3, 2],
+        }
+    if strict_time_limit:
+        return {
+            "strategy": "strict_time_tolerance_first",
+            "preferredTolerances": [0.3, 0.4, 0.2, 0.6, 0.8],
+            "preferredRepeats": [4, 3, 6, 8, 10, 2],
+        }
+    if allergies:
+        return {
+            "strategy": "allergy_repeat_first",
+            "preferredTolerances": [0.3, 0.2, 0.4, 0.6, 0.8],
+            "preferredRepeats": [4, 10, 3, 2, 6, 8],
+        }
+    if "budget" in priority:
+        return {
+            "strategy": "budget_tolerance_first",
+            "preferredTolerances": [0.3, 0.4, 0.2, 0.6, 0.8],
+            "preferredRepeats": [6, 8, 10, 4, 3, 2],
+        }
+    if restrictions and "budget" not in priority:
+        return {
+            "strategy": "dietary_restriction_repeat_first",
+            "preferredTolerances": [0.3, 0.2, 0.4, 0.6, 0.8],
+            "preferredRepeats": [3, 4, 10, 2, 6, 8],
+        }
+    high_nutrition_pressure = (
+        "severe" in insulin_level
+        or "nutrition" in priority
+        or "tight" in priority
+        or (GOAL_WEIGHT_LOSS.lower() in goal_tokens and GOAL_SYMPTOM_MANAGEMENT.lower() in goal_tokens)
+        or symptom_count >= 2
+    )
+    if high_nutrition_pressure:
+        return {
+            "strategy": "nutrition_pressure_tolerance_first",
+            "preferredTolerances": [0.3, 0.4, 0.2, 0.6, 0.8],
+            "preferredRepeats": [3, 4, 10, 2, 6, 8],
+        }
+    if not has_weekly_budget:
+        return {
+            "strategy": "broad_no_budget_repeat_three_first",
+            "preferredTolerances": [0.3, 0.4, 0.2, 0.6, 0.8],
+            "preferredRepeats": [3, 2, 4, 10, 6, 8],
+        }
+    return {
+        "strategy": "default_repeat_three_first",
+        "preferredTolerances": None,
+        "preferredRepeats": [3, 2, 4, 10],
+    }
 
 
 def priority_overrides(priority: str | None) -> Dict[str, int]:
@@ -1022,6 +1248,116 @@ def _cheap_pre_price_score(recipe: Dict[str, Any]) -> float:
     return (protein * 2.0) + (fiber * 1.2) - (abs(calories - 500.0) * 0.10) + pantry_bonus + stage1_boost - prep_nudge
 
 
+def _nutrition_anchor_score(recipe: Dict[str, Any]) -> float:
+    fiber = float(recipe.get("fiberGrams") or 0.0)
+    carbs = float(recipe.get("carbsGrams") or 0.0)
+    protein = float(recipe.get("proteinGrams") or 0.0)
+    calories = float(recipe.get("calories") or 0.0)
+    sodium = float(recipe.get("sodiumMg") or 0.0)
+    sugar = float(recipe.get("sugarGrams") or 0.0)
+    cost = float(recipe.get("_cost_est") or 0.0)
+    excess_sodium = max(0.0, sodium - 1800.0)
+    excess_sugar = max(0.0, sugar - 35.0)
+    excess_calories = max(0.0, calories - 900.0)
+    return (
+        (fiber * 8.0)
+        + (min(carbs, 90.0) * 0.35)
+        + (min(protein, 55.0) * 0.20)
+        - (excess_sodium * 0.004)
+        - (excess_sugar * 0.35)
+        - (excess_calories * 0.03)
+        - (cost * 0.01)
+    )
+
+
+def _is_restricted_nutrition_anchor(recipe: Dict[str, Any]) -> bool:
+    calories = int(recipe.get("calories") or 0)
+    protein = int(recipe.get("proteinGrams") or 0)
+    carbs = int(recipe.get("carbsGrams") or 0)
+    fats = int(recipe.get("fatsGrams") or 0)
+    fiber = int(recipe.get("fiberGrams") or 0)
+    return (
+        400 <= calories <= 650
+        and 18 <= protein <= 30
+        and 45 <= carbs <= 90
+        and 8 <= fats <= 25
+        and fiber >= 8
+    )
+
+
+def _add_unique_recipe(selected: List[Dict[str, Any]], selected_ids: set[str], recipe: Dict[str, Any], limit: int) -> bool:
+    if len(selected) >= max(1, int(limit or 1)):
+        return False
+    recipe_key = str(recipe.get("id") or id(recipe))
+    if recipe_key in selected_ids:
+        return False
+    selected_ids.add(recipe_key)
+    selected.append(recipe)
+    return True
+
+
+def _apply_restricted_nutrition_trim(bucket: List[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
+    normalized_limit = max(1, int(limit or 1))
+    if len(bucket) <= normalized_limit:
+        return bucket
+    selected: List[Dict[str, Any]] = []
+    selected_ids: set[str] = set()
+    anchors = sorted(
+        [recipe for recipe in bucket if _is_restricted_nutrition_anchor(recipe)],
+        key=lambda r: (
+            _nutrition_anchor_score(r),
+            float(r.get("proteinGrams") or 0.0),
+            float(r.get("fiberGrams") or 0.0),
+            -float(r.get("_cost_est") or 0.0),
+            str(r.get("id") or ""),
+        ),
+        reverse=True,
+    )
+    anchor_reserve = min(normalized_limit, max(6, int(normalized_limit * 0.75)))
+    for recipe in anchors[:anchor_reserve]:
+        _add_unique_recipe(selected, selected_ids, recipe, normalized_limit)
+    for recipe in sorted(bucket, key=_base_score, reverse=True):
+        if len(selected) >= normalized_limit:
+            break
+        _add_unique_recipe(selected, selected_ids, recipe, normalized_limit)
+    return selected
+
+
+def _apply_anchor_preserving_similarity_dedup(
+    bucket: List[Dict[str, Any]],
+    threshold: float,
+) -> List[Dict[str, Any]]:
+    selected: List[Dict[str, Any]] = []
+    selected_ids: set[str] = set()
+    for recipe in bucket:
+        if _is_restricted_nutrition_anchor(recipe):
+            _add_unique_recipe(selected, selected_ids, recipe, len(bucket))
+    for recipe in _apply_similarity_dedup(bucket, threshold):
+        _add_unique_recipe(selected, selected_ids, recipe, len(bucket))
+    return selected
+
+
+def _reinsert_restricted_nutrition_anchors(
+    buckets: Dict[str, List[Dict[str, Any]]],
+    anchors: List[Dict[str, Any]],
+) -> None:
+    present_ids = {
+        str(recipe.get("id") or "")
+        for bucket in buckets.values()
+        for recipe in bucket
+        if str(recipe.get("id") or "")
+    }
+    for recipe in anchors:
+        recipe_id = str(recipe.get("id") or "")
+        if not recipe_id or recipe_id in present_ids:
+            continue
+        bucket_key = _pre_pricing_bucket_key(recipe)
+        if bucket_key not in buckets:
+            bucket_key = "Universal"
+        buckets[bucket_key].append(recipe)
+        present_ids.add(recipe_id)
+
+
 def _pre_pricing_bucket_key(recipe: Dict[str, Any]) -> str:
     allowed = [str(label) for label in (recipe.get("_allowed_meals") or []) if str(label) in MEAL_LABELS]
     if len(allowed) == 1:
@@ -1052,17 +1388,35 @@ def _apply_pre_pricing_prune(
     selected_ids: set[str] = set()
 
     def add_recipe(recipe: Dict[str, Any]) -> None:
-        if len(selected) >= normalized_cap:
-            return
-        recipe_key = str(recipe.get("id") or id(recipe))
-        if recipe_key in selected_ids:
-            return
-        selected_ids.add(recipe_key)
-        selected.append(recipe)
+        _add_unique_recipe(selected, selected_ids, recipe, normalized_cap)
 
-    top_count = max(1, int(normalized_cap * 0.70))
+    top_count = max(1, int(normalized_cap * 0.55))
     for recipe in ranked[:top_count]:
         add_recipe(recipe)
+
+    nutrition_anchor_reserve = max(4, int(normalized_cap * 0.25))
+    nutrition_anchor_per_bucket = max(1, nutrition_anchor_reserve // max(1, len(MEAL_LABELS) + 1))
+    nutrition_ranked = sorted(
+        candidates,
+        key=lambda r: (
+            _nutrition_anchor_score(r),
+            float(r.get("fiberGrams") or 0.0),
+            float(r.get("carbsGrams") or 0.0),
+            float(r.get("proteinGrams") or 0.0),
+        ),
+        reverse=True,
+    )
+    for bucket in [*MEAL_LABELS, "Universal"]:
+        added = 0
+        for recipe in nutrition_ranked:
+            if _pre_pricing_bucket_key(recipe) != bucket:
+                continue
+            before = len(selected)
+            add_recipe(recipe)
+            if len(selected) > before:
+                added += 1
+            if added >= nutrition_anchor_per_bucket or len(selected) >= normalized_cap:
+                break
 
     if reserve > 0:
         for bucket in [*MEAL_LABELS, "Universal"]:
@@ -1083,6 +1437,55 @@ def _apply_pre_pricing_prune(
             break
 
     return selected, True
+
+
+def _apply_budget_nutrition_trim(bucket: List[Dict[str, Any]], keep: int) -> List[Dict[str, Any]]:
+    normalized_keep = max(1, int(keep or 1))
+    if len(bucket) <= normalized_keep:
+        return bucket
+
+    by_cost = sorted(
+        bucket,
+        key=lambda r: (
+            int(r.get("_cost_est") or 0),
+            -_base_score(r),
+            str(r.get("id") or ""),
+        ),
+    )
+    by_nutrition = sorted(
+        bucket,
+        key=lambda r: (
+            _nutrition_anchor_score(r),
+            float(r.get("fiberGrams") or 0.0),
+            float(r.get("carbsGrams") or 0.0),
+            float(r.get("proteinGrams") or 0.0),
+            -float(r.get("sodiumMg") or 0.0),
+            -float(r.get("sugarGrams") or 0.0),
+        ),
+        reverse=True,
+    )
+    nutrition_reserve = min(max(2, normalized_keep // 4), max(2, normalized_keep - 1))
+    budget_count = max(1, normalized_keep - nutrition_reserve)
+    selected: List[Dict[str, Any]] = []
+    selected_ids: set[str] = set()
+    for recipe in by_cost[:budget_count]:
+        _add_unique_recipe(selected, selected_ids, recipe, normalized_keep)
+    for recipe in by_nutrition:
+        if len(selected) >= normalized_keep:
+            break
+        _add_unique_recipe(selected, selected_ids, recipe, normalized_keep)
+    for recipe in by_cost:
+        if len(selected) >= normalized_keep:
+            break
+        _add_unique_recipe(selected, selected_ids, recipe, normalized_keep)
+    return sorted(
+        selected,
+        key=lambda r: (
+            int(r.get("_cost_est") or 0),
+            -_nutrition_anchor_score(r),
+            str(r.get("id") or ""),
+        ),
+    )
 
 
 def shortlist_candidates(
@@ -1158,8 +1561,9 @@ def shortlist_candidates(
                     stage1_diag["processed_recipe_count"] = processed_recipe_count
                     stage1_diag["timeout_stage"] = "stage1_price_estimation"
                 raise _PlannerBudgetExceeded("stage1_price_estimation")
-        tags = infer_tags(r)
-        ing_tokens = normalize_ingredients(r.get("ingredients", []))
+        static_features = _recipe_static_features(r)
+        tags = static_features["tags"]
+        ing_tokens = static_features["ing_tokens"]
         restriction_failures = restriction_failure_reasons(profile, tags, ing_tokens)
         if restriction_failures:
             for reason in sorted(set(restriction_failures)):
@@ -1185,9 +1589,9 @@ def shortlist_candidates(
             prep_penalty = max(0.0, (float(minutes) - max_cook) / float(max_cook)) * prep_penalty_weight
         r["_tags"] = tags
         r["_ing_tokens"] = ing_tokens
-        r["_protein_group"] = infer_protein_group(ing_tokens)
-        r["_veg_tokens"] = infer_veg_tokens(ing_tokens)
-        r["_allowed_meals"] = infer_allowed_meals(r.get("mealType"))
+        r["_protein_group"] = static_features["protein_group"]
+        r["_veg_tokens"] = static_features["veg_tokens"]
+        r["_allowed_meals"] = static_features["allowed_meals"]
         if pantry_tokens:
             r["_pantry_match"] = len(set(ing_tokens) & pantry_tokens)
         else:
@@ -1209,12 +1613,13 @@ def shortlist_candidates(
 
     safe_candidates_count = len(safe_candidates)
     hard_filter_count = restriction_count + allergy_count
-    budget_sensitive_profile = bool(budget_weekly and (_should_optimize_cost(profile) or float(budget_weekly) < 2500.0))
+    tight_budget_profile = bool(budget_weekly and float(budget_weekly) < 2500.0)
+    budget_sensitive_profile = bool(budget_weekly and (_should_optimize_cost(profile) or tight_budget_profile))
     should_pre_prune = (
         pre_pricing_enabled
         and safe_candidates_count > pre_pricing_cap
         and (pre_pricing_restricted_enabled or hard_filter_count == 0)
-        and not budget_sensitive_profile
+        and not tight_budget_profile
     )
     if should_pre_prune:
         safe_candidates, pre_pruned = _apply_pre_pricing_prune(
@@ -1225,7 +1630,7 @@ def shortlist_candidates(
     else:
         pre_pruned = False
 
-    cost_cache: Dict[Tuple[str, int, int], int] = {}
+    cost_cache: Dict[Tuple[str, int, int, int], int] = {}
     cost_cache_stats: Dict[str, int] = {"recipeCostCacheHits": 0, "recipeCostCacheMisses": 0}
     cost_estimated_recipe_count = 0
     for r in safe_candidates:
@@ -1264,15 +1669,18 @@ def shortlist_candidates(
             buckets["Dinner"].append(r)
         else:
             buckets["Universal"].append(r)
+    restricted_anchor_recipes = [recipe for recipe in safe_candidates if _is_restricted_nutrition_anchor(recipe)]
     if stage1_diag is not None:
         stage1_diag["preprocess_ms"] = max(0, int((time.time() - phase_started_at) * 1000))
         stage1_diag["pricing_diagnostics"] = pricing_context.snapshot()
         stage1_diag["cost_estimation_ms"] = int(pricing_context.price_cost_estimation_ms)
         stage1_diag["processed_recipe_count"] = processed_recipe_count
         stage1_diag["safe_recipe_count_pre_pricing"] = safe_candidates_count
+        stage1_diag["restricted_nutrition_anchor_count_safe"] = len(restricted_anchor_recipes)
         stage1_diag["pre_pricing_pruning_enabled"] = bool(pre_pricing_enabled)
         stage1_diag["pre_pricing_restricted_enabled"] = bool(pre_pricing_restricted_enabled)
         stage1_diag["pre_pricing_budget_sensitive"] = bool(budget_sensitive_profile)
+        stage1_diag["pre_pricing_tight_budget"] = bool(tight_budget_profile)
         stage1_diag["pre_pricing_pruned"] = bool(pre_pruned)
         stage1_diag["pre_pricing_candidate_cap"] = int(pre_pricing_cap)
         stage1_diag["pre_pricing_retained_count"] = len(safe_candidates)
@@ -1303,18 +1711,33 @@ def shortlist_candidates(
             stage1_diag["ml_score_ms"] = max(0, int((time.time() - ml_started_at) * 1000))
 
     finalize_started_at = time.time()
+    restricted_catalog = hard_filter_count >= 6 or safe_candidates_count <= 96
     for k in buckets:
         buckets[k].sort(key=_base_score, reverse=True)
-        buckets[k] = _apply_similarity_dedup(buckets[k], similarity_threshold)
+        if restricted_catalog:
+            buckets[k] = _apply_anchor_preserving_similarity_dedup(buckets[k], similarity_threshold)
+        else:
+            buckets[k] = _apply_similarity_dedup(buckets[k], similarity_threshold)
         limit = stage1_max if restriction_count < 2 else int(stage1_max * max(1.0, restricted_shortlist_multiplier))
-        buckets[k] = buckets[k][:limit]
-        if budget_weekly:
-            buckets[k].sort(key=lambda r: r.get("_cost_est", 0))
+        if restricted_catalog:
+            buckets[k] = _apply_restricted_nutrition_trim(buckets[k], limit)
+        else:
+            buckets[k] = buckets[k][:limit]
+        if budget_weekly and not restricted_catalog:
             keep_min = max(max(1, budget_keep_min_count), int(len(buckets[k]) * max(0.0, budget_keep_min_ratio)))
             keep = int(max(keep_min, len(buckets[k]) * ranking_cutoff))
-            buckets[k] = buckets[k][:keep]
+            buckets[k] = _apply_budget_nutrition_trim(buckets[k], keep)
         for recipe in buckets[k]:
             recipe["_stage1_bucket"] = k
+    if restricted_catalog and restricted_anchor_recipes:
+        _reinsert_restricted_nutrition_anchors(buckets, restricted_anchor_recipes)
+        for k in buckets:
+            for recipe in buckets[k]:
+                recipe["_stage1_bucket"] = k
+    restricted_anchor_count_post_trim = sum(
+        1 for recipe in (buckets["Breakfast"] + buckets["Lunch"] + buckets["Dinner"] + buckets["Universal"])
+        if _is_restricted_nutrition_anchor(recipe)
+    )
     if stage1_diag is not None:
         stage1_diag["bucket_finalize_ms"] = max(0, int((time.time() - finalize_started_at) * 1000))
         stage1_diag["pricing_diagnostics"] = pricing_context.snapshot()
@@ -1323,6 +1746,8 @@ def shortlist_candidates(
         stage1_diag["ranker_ready"] = bool(ranker_state.ready) if ranker_state is not None else False
         stage1_diag["exclusion_summary"] = dict(exclusion_summary)
         stage1_diag["exclusion_detail_counts"] = dict(exclusion_detail_counts)
+        stage1_diag["restricted_nutrition_anchor_reserve"] = bool(restricted_catalog)
+        stage1_diag["restricted_nutrition_anchor_count_post_trim"] = int(restricted_anchor_count_post_trim)
         stage1_diag["goal_symptom_strategy"] = list(symptom_state.get("notes") or [])
     return buckets
 
@@ -1488,8 +1913,25 @@ def _cap_pool(pool: List[Dict[str, Any]], max_pool: int, top_share: float = 0.6)
         scored.append((_base_score(r), rid, r))
     scored.sort(key=lambda item: (-item[0], item[1]))
     bounded_top_share = min(0.95, max(0.05, float(top_share)))
+    selected: List[Dict[str, Any]] = []
+    selected_ids: set[str] = set()
+    anchor_limit = min(max_pool, max(8, int(max_pool * 0.40)))
+    anchors = sorted(
+        [r for _, _, r in scored if _is_restricted_nutrition_anchor(r)],
+        key=lambda r: (
+            _nutrition_anchor_score(r),
+            float(r.get("proteinGrams") or 0.0),
+            float(r.get("fiberGrams") or 0.0),
+            -float(r.get("_cost_est") or 0.0),
+            str(r.get("id") or ""),
+        ),
+        reverse=True,
+    )
+    for recipe in anchors[:anchor_limit]:
+        _add_unique_recipe(selected, selected_ids, recipe, max_pool)
     top_k = max(1, int(max_pool * bounded_top_share))
-    selected = [r for _, _, r in scored[:top_k]]
+    for _, _, recipe in scored[:top_k]:
+        _add_unique_recipe(selected, selected_ids, recipe, max_pool)
     selected_ids = {str(r.get("id", "")) for r in selected}
     groups: Dict[str, List[tuple]] = {}
     for score, rid, r in scored[top_k:]:
@@ -1526,6 +1968,115 @@ def _cap_pool(pool: List[Dict[str, Any]], max_pool: int, top_share: float = 0.6)
             selected.append(r)
             selected_ids.add(rid)
     return selected
+
+
+def _restricted_solver_anchor_core(pool: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    anchors = [recipe for recipe in pool if _is_restricted_nutrition_anchor(recipe)]
+    if len(anchors) < 3:
+        return pool
+    return sorted(
+        anchors,
+        key=lambda recipe: (
+            _nutrition_anchor_score(recipe),
+            float(recipe.get("proteinGrams") or 0.0),
+            float(recipe.get("fiberGrams") or 0.0),
+            -float(recipe.get("_cost_est") or 0.0),
+            str(recipe.get("id") or ""),
+        ),
+        reverse=True,
+    )
+
+
+def _nutrition_coverage_gap(
+    pool: List[Dict[str, Any]],
+    meal_to_allowed: Dict[str, set],
+    slot_labels: List[str],
+    *,
+    calorie_min: int,
+    protein_min: int,
+    carb_min: int,
+    fat_min: int,
+    fiber_min: int,
+    sodium_max: int,
+    sugar_max: int,
+) -> Dict[str, Any]:
+    nutrient_fields = {
+        "calories": "calories",
+        "proteinGrams": "protein",
+        "carbsGrams": "carbs",
+        "fatsGrams": "fats",
+        "fiberGrams": "fiber",
+        "sodiumMg": "sodium",
+        "sugarGrams": "sugar",
+    }
+    required_min = {
+        "calories": int(calorie_min),
+        "proteinGrams": int(protein_min),
+        "carbsGrams": int(carb_min),
+        "fatsGrams": int(fat_min),
+        "fiberGrams": int(fiber_min),
+    }
+    required_max = {
+        "sodiumMg": int(sodium_max),
+        "sugarGrams": int(sugar_max),
+    }
+    slot_best: Dict[str, Dict[str, int]] = {}
+    slot_floor: Dict[str, Dict[str, int]] = {}
+    possible_daily_max = {field: 0 for field in nutrient_fields}
+    possible_daily_min = {field: 0 for field in nutrient_fields}
+    for label in slot_labels:
+        allowed = list(meal_to_allowed.get(label, set(range(len(pool)))))
+        if not allowed:
+            return {
+                "ok": False,
+                "gaps": [{"nutrient": "meal_slot", "slot": label, "reason": "no_allowed_candidates"}],
+                "slotBest": slot_best,
+                "slotFloor": slot_floor,
+            }
+        best_for_slot: Dict[str, int] = {}
+        floor_for_slot: Dict[str, int] = {}
+        for field in nutrient_fields:
+            values = [int(pool[idx].get(field) or 0) for idx in allowed]
+            best_for_slot[field] = max(values)
+            floor_for_slot[field] = min(values)
+            possible_daily_max[field] += best_for_slot[field]
+            possible_daily_min[field] += floor_for_slot[field]
+        slot_best[label] = best_for_slot
+        slot_floor[label] = floor_for_slot
+
+    gaps: List[Dict[str, Any]] = []
+    advisory_gaps: List[Dict[str, Any]] = []
+    for field, minimum in required_min.items():
+        possible = int(possible_daily_max.get(field) or 0)
+        if possible < minimum:
+            gaps.append(
+                {
+                    "nutrient": nutrient_fields[field],
+                    "requiredMin": int(minimum),
+                    "possibleDailyMax": possible,
+                }
+            )
+    for field, maximum in required_max.items():
+        possible = int(possible_daily_min.get(field) or 0)
+        if possible > maximum:
+            advisory_gaps.append(
+                {
+                    "nutrient": nutrient_fields[field],
+                    "advisoryMax": int(maximum),
+                    "possibleDailyMin": possible,
+                }
+            )
+    return {
+        "ok": len(gaps) == 0,
+        "gaps": gaps,
+        "advisoryGaps": advisory_gaps,
+        "requiredMin": required_min,
+        "advisoryMax": required_max,
+        "possibleDailyMax": possible_daily_max,
+        "possibleDailyMin": possible_daily_min,
+        "slotBest": slot_best,
+        "slotFloor": slot_floor,
+    }
 
 
 def _default_weight_set() -> Optional[Dict[str, int]]:
@@ -1746,8 +2297,12 @@ def _budget_aware_pool_limit(
     normalized_slots = max(1, int(slot_count or 1))
     minimum_candidates = max(1, int(minimum_candidates_required or 1))
     minimum_assignments = normalized_slots * minimum_candidates
-    # Tight solver budgets cannot afford unbounded slot x recipe assignment growth.
-    assignment_budget = max(minimum_assignments, int(max(1.0, float(total_time_limit or 0.0)) * 180.0))
+    # Tight hosted-worker budgets cannot afford unbounded slot x recipe assignment
+    # growth. For a 21-slot, 14-second production solve, 60 candidates still
+    # left CP-SAT spending the whole deadline in UNKNOWN on Render starter.
+    # About 33 candidates was the fastest reliable point in the 20-profile
+    # benchmark while preserving hard-rule validation.
+    assignment_budget = max(minimum_assignments, int(max(1.0, float(total_time_limit or 0.0)) * 50.0))
     budget_limited_pool = max(minimum_candidates, assignment_budget // normalized_slots)
     return min(normalized_max_pool, budget_limited_pool)
 
@@ -1887,7 +2442,10 @@ def solve_meal_plan(
         daily_tolerance,
         min(0.8, daily_tolerance + max(0.05, weekly_tolerance)),
         min(0.8, daily_tolerance + max(0.10, weekly_tolerance * 2.0)),
+        min(0.8, daily_tolerance + max(0.20, weekly_tolerance * 4.0)),
+        min(0.8, daily_tolerance + max(0.40, weekly_tolerance * 6.0)),
     ]
+    tolerance_levels = list(dict.fromkeys(float(level) for level in tolerance_levels))
     # Stage 1 pruning + shortlist
     shortlist_started_at = time.time()
     stage1_diag: Dict[str, Any] = {}
@@ -1903,11 +2461,37 @@ def solve_meal_plan(
     }
     if isinstance(caller_ml_feature_context.get("reason_feedback_features"), dict):
         stage1_ml_feature_context["reason_feedback_features"] = caller_ml_feature_context["reason_feedback_features"]
+    minimum_candidates_required = int(
+        _policy_get(policy, "stage1.minimum_candidates_required", 10)
+    )
+    configured_stage1_max = int(
+        _policy_get_legacy_aware(
+            policy,
+            ["stage1.max_candidates_per_slot", "max_pool_size", "shortlist_limit_restricted"],
+            300,
+        )
+    )
+    budget_pool_limit = _budget_aware_pool_limit(
+        max_pool_size=configured_stage1_max * max(1, configured_meals_per_day),
+        slot_count=slot_count,
+        total_time_limit=total_time_limit,
+        minimum_candidates_required=minimum_candidates_required,
+    )
+    budget_stage1_max = max(
+        1,
+        (int(budget_pool_limit) + max(1, configured_meals_per_day) - 1) // max(1, configured_meals_per_day),
+    )
+    stage1_policy = policy
+    if budget_stage1_max < configured_stage1_max:
+        stage1_policy = dict(policy or {})
+        stage1_settings = dict(stage1_policy.get("stage1") or {})
+        stage1_settings["max_candidates_per_slot"] = int(budget_stage1_max)
+        stage1_policy["stage1"] = stage1_settings
     try:
         buckets = shortlist_candidates(
             profile,
             recipes,
-            policy=policy,
+            policy=stage1_policy,
             stage1_diag=stage1_diag,
             pricing_context=pricing_context,
             deadline_at=deadline_at,
@@ -1954,13 +2538,20 @@ def solve_meal_plan(
             telemetry_out["stage1_diag"] = dict(stage1_diag)
             telemetry_out["solve_pair_diagnostics"] = []
         return None, "Planner timed out while pricing, filtering, or optimizing recipes.", None
-    minimum_candidates_required = int(
-        _policy_get(policy, "stage1.minimum_candidates_required", 10)
-    )
     if len(candidates) < max(1, minimum_candidates_required):
         return None, "No safe recipes found.", None
 
     pool = candidates
+    restricted_solver_catalog = int(len(profile.dietaryRestrictions or []) + len(profile.allergies or [])) >= 6 or (
+        int(stage1_diag.get("safe_recipe_count_pre_pricing") or 0) <= 96
+    )
+    if restricted_solver_catalog:
+        anchor_core_pool = _restricted_solver_anchor_core(pool)
+        if len(anchor_core_pool) < len(pool):
+            pool = anchor_core_pool
+            stage1_diag["restricted_solver_anchor_core"] = True
+            stage1_diag["restricted_solver_anchor_core_count"] = len(pool)
+            stage1_diag["restricted_solver_anchor_core_ids"] = [str(recipe.get("id") or "") for recipe in pool]
     if telemetry_out is not None:
         telemetry_out["candidate_count_pre"] = len(candidates)
         telemetry_out["ranking_strategy"] = "stage1_heuristic_with_ml_shadow"
@@ -2022,9 +2613,37 @@ def solve_meal_plan(
             telemetry_out["stage1_diag"] = dict(stage1_diag)
             telemetry_out["solve_pair_diagnostics"] = []
         return None, "Planner timed out while pricing, filtering, or optimizing recipes.", None
+    fiber_min_target = int(_policy_get_legacy_aware(policy, ["nutrition.fiber_min", "fiber_min"], 20))
+    sodium_max_target = int(_policy_get_legacy_aware(policy, ["nutrition.sodium_max", "sodium_max"], 2300))
+    sugar_max_target = int(_policy_get_legacy_aware(policy, ["nutrition.sugar_max", "sugar_max"], 50))
+    fiber_min_target = max(0, fiber_min_target + int(symptom_state.get("fiberMinBonus") or 0))
+    sugar_max_target = max(5, sugar_max_target + int(symptom_state.get("sugarMaxDelta") or 0))
+    nutrition_feasibility = _nutrition_coverage_gap(
+        pool,
+        meal_to_allowed,
+        slot_labels,
+        calorie_min=calorie_min,
+        protein_min=protein_min,
+        carb_min=carb_min,
+        fat_min=fat_min,
+        fiber_min=fiber_min_target,
+        sodium_max=sodium_max_target,
+        sugar_max=sugar_max_target,
+    )
+    stage1_diag["nutrition_feasibility"] = nutrition_feasibility
+    if not nutrition_feasibility.get("ok"):
+        if telemetry_out is not None:
+            telemetry_out["selected_recipe_ids"] = []
+            telemetry_out["status"] = "no-safe-plan"
+            _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
+            telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
+            telemetry_out["solver_budget"] = dict(solver_budget)
+            telemetry_out["stage1_diag"] = dict(stage1_diag)
+            telemetry_out["solve_pair_diagnostics"] = []
+        return None, "Catalog nutrition coverage is insufficient for this profile.", None
     budget_weekly = resolve_budget_weekly(profile)
     rule_effects = profile_rule_summary(profile, budget_weekly)
-    max_per_week_list = adjust_max_per_week(
+    max_per_week_list = repeat_sequence_for_profile(
         [
             int(v)
             for v in _policy_get_legacy_aware(
@@ -2033,8 +2652,12 @@ def solve_meal_plan(
                 _env_int_list("PCOSINA_MAX_PER_WEEK", [2, 3, 4, 10]),
             )
         ],
-        profile.varietyPreference
+        profile.varietyPreference,
+        profile.planningPriority,
+        hard_filter_count=len(profile.dietaryRestrictions or []) + len(profile.allergies or []),
+        safe_candidate_count=int(stage1_diag.get("safe_recipe_count_pre_pricing") or 0),
     )
+    stage1_diag["repeat_sequence"] = list(max_per_week_list)
     relaxation_order = _policy_get(
         policy,
         "planning.infeasibility_relaxation_order",
@@ -2042,13 +2665,21 @@ def solve_meal_plan(
     )
     if not isinstance(relaxation_order, list):
         relaxation_order = ["daily_tolerance_percent", "recipe_repeat_limits"]
-    outer_key = (str(relaxation_order[0]).strip().lower() if relaxation_order else "daily_tolerance_percent")
-    if "recipe_repeat_limits" in outer_key:
-        tol_sequence: List[float] = [float(v) for v in tolerance_levels for _ in (0,)]
-        repeat_sequence: List[int] = [int(v) for v in max_per_week_list for _ in (0,)]
-        solve_pairs = [(tol, max_repeat) for max_repeat in repeat_sequence for tol in tol_sequence]
-    else:
-        solve_pairs = [(tol, max_repeat) for tol in tolerance_levels for max_repeat in max_per_week_list]
+    solve_pair_preferences = _solve_pair_preferences_for_profile(
+        profile,
+        restricted_catalog=bool(restricted_solver_catalog),
+    )
+    solve_pairs = solve_pair_sequence_for_profile(
+        tolerance_levels,
+        max_per_week_list,
+        relaxation_order,
+        restricted_catalog=bool(restricted_solver_catalog),
+        preferred_tolerances=solve_pair_preferences.get("preferredTolerances"),
+        preferred_repeats=solve_pair_preferences.get("preferredRepeats"),
+    )
+    stage1_diag["solve_pair_strategy"] = str(solve_pair_preferences.get("strategy") or "default")
+    if restricted_solver_catalog:
+        stage1_diag["restricted_solver_pair_priority"] = True
 
     feature_rows_started_at = time.time()
     if telemetry_out is not None:
@@ -2076,7 +2707,7 @@ def solve_meal_plan(
 
     solver_started_at = time.time()
     budget_exceeded_stage: Optional[str] = None
-    for tol, max_per_week in solve_pairs:
+    for pair_index, (tol, max_per_week) in enumerate(solve_pairs):
         pair_diag: Dict[str, Any] = {
             "tol": round(float(tol), 4),
             "maxPerWeek": int(max_per_week),
@@ -2105,13 +2736,6 @@ def solve_meal_plan(
                     x[s, i] = model.NewBoolVar(f"x_{s}_{i}")
                     if (i & 31) == 0:
                         _check_planner_budget(deadline_at, "solver_model_x_vars", telemetry_out=telemetry_out)
-            y = {}
-            for i in range(len(pool)):
-                if (i & 15) == 0:
-                    _check_planner_budget(deadline_at, "solver_model_y_vars", telemetry_out=telemetry_out)
-                y[i] = model.NewBoolVar(f"y_{i}")
-                for s in range(slot_count):
-                    model.Add(x[s, i] <= y[i])
             for s in range(slot_count):
                 _check_planner_budget(deadline_at, "solver_model_allowed", telemetry_out=telemetry_out)
                 meal_label = slot_labels[s % configured_meals_per_day]
@@ -2216,18 +2840,9 @@ def solve_meal_plan(
             model.Add(total_cost <= int(budget_weekly))
 
         err_vars = []
-        dev_pro_vars = []
-        dev_carb_vars = []
-        dev_fat_vars = []
-        fiber_slack_vars = []
         sodium_over_vars = []
         sugar_over_vars = []
         meal_err_vars = []
-        fiber_min_target = int(_policy_get_legacy_aware(policy, ["nutrition.fiber_min", "fiber_min"], 20))
-        sodium_max_target = int(_policy_get_legacy_aware(policy, ["nutrition.sodium_max", "sodium_max"], 2300))
-        sugar_max_target = int(_policy_get_legacy_aware(policy, ["nutrition.sugar_max", "sugar_max"], 50))
-        fiber_min_target = max(0, fiber_min_target + int(symptom_state.get("fiberMinBonus") or 0))
-        sugar_max_target = max(5, sugar_max_target + int(symptom_state.get("sugarMaxDelta") or 0))
         meal_distribution = _policy_get(policy, "nutrition.meal_distribution_targets", None)
         if not isinstance(meal_distribution, list) or len(meal_distribution) < configured_meals_per_day:
             meal_distribution = [1.0 / configured_meals_per_day for _ in range(configured_meals_per_day)]
@@ -2237,6 +2852,8 @@ def solve_meal_plan(
             day_slots = range(d * configured_meals_per_day, d * configured_meals_per_day + configured_meals_per_day)
             day_cals = sum(x[s, i] * int(pool[i].get("calories", 0)) for s in day_slots for i in range(len(pool)))
             err = model.NewIntVar(0, 1500, f"err_{d}")
+            model.Add(day_cals >= calorie_min)
+            model.Add(day_cals <= calorie_max)
             model.Add(err >= day_cals - daily_targets[d])
             model.Add(err >= daily_targets[d] - day_cals)
             err_vars.append(err)
@@ -2246,25 +2863,17 @@ def solve_meal_plan(
             day_fiber = sum(x[s, i] * int(pool[i].get("fiberGrams", 0)) for s in day_slots for i in range(len(pool)))
             day_sodium = sum(x[s, i] * int(pool[i].get("sodiumMg", 0) or 0) for s in day_slots for i in range(len(pool)))
             day_sugar = sum(x[s, i] * int(pool[i].get("sugarGrams", 0) or 0) for s in day_slots for i in range(len(pool)))
-            dev_pro = model.NewIntVar(0, 300, f"dev_pro_{d}")
-            dev_carb = model.NewIntVar(0, 300, f"dev_carb_{d}")
-            dev_fat = model.NewIntVar(0, 200, f"dev_fat_{d}")
-            fiber_slack = model.NewIntVar(0, 300, f"fiber_slack_{d}")
-            sodium_over = model.NewIntVar(0, 10000, f"sodium_over_{d}")
-            sugar_over = model.NewIntVar(0, 1000, f"sugar_over_{d}")
-            dev_pro_vars.append(dev_pro)
-            dev_carb_vars.append(dev_carb)
-            dev_fat_vars.append(dev_fat)
-            fiber_slack_vars.append(fiber_slack)
+            sodium_over = model.NewIntVar(0, 200000, f"sodium_over_{d}")
+            sugar_over = model.NewIntVar(0, 10000, f"sugar_over_{d}")
             sodium_over_vars.append(sodium_over)
             sugar_over_vars.append(sugar_over)
-            model.Add(day_pro - protein_bounds[1] <= dev_pro)
-            model.Add(protein_bounds[0] - day_pro <= dev_pro)
-            model.Add(day_carb - carbs_bounds[1] <= dev_carb)
-            model.Add(carbs_bounds[0] - day_carb <= dev_carb)
-            model.Add(day_fat - fats_bounds[1] <= dev_fat)
-            model.Add(fats_bounds[0] - day_fat <= dev_fat)
-            model.Add(fiber_min_target - day_fiber <= fiber_slack)
+            model.Add(day_pro >= protein_bounds[0])
+            model.Add(day_pro <= protein_bounds[1])
+            model.Add(day_carb >= carbs_bounds[0])
+            model.Add(day_carb <= carbs_bounds[1])
+            model.Add(day_fat >= fats_bounds[0])
+            model.Add(day_fat <= fats_bounds[1])
+            model.Add(day_fiber >= fiber_min_target)
             model.Add(day_sodium - sodium_max_target <= sodium_over)
             model.Add(day_sugar - sugar_max_target <= sugar_over)
 
@@ -2278,10 +2887,6 @@ def solve_meal_plan(
                 meal_err_vars.append(meal_err)
 
         total_err = sum(err_vars)
-        total_dev_pro = sum(dev_pro_vars)
-        total_dev_carb = sum(dev_carb_vars)
-        total_dev_fat = sum(dev_fat_vars)
-        total_fiber_slack = sum(fiber_slack_vars) if fiber_slack_vars else 0
         total_sodium_over = sum(sodium_over_vars) if sodium_over_vars else 0
         total_sugar_over = sum(sugar_over_vars) if sugar_over_vars else 0
         total_meal_err = sum(meal_err_vars) if meal_err_vars else 0
@@ -2325,8 +2930,7 @@ def solve_meal_plan(
         prep_time_penalty = sum(x[s, i] * int(pool[i].get("minutes", 0)) for s in range(slot_count) for i in range(len(pool)))
         model.Minimize(
             (macro_mult * total_err) + (macro_mult * total_meal_err) +
-            (macro_mult * 2 * total_dev_pro) + (macro_mult * total_dev_carb) + (macro_mult * total_dev_fat) +
-            (macro_mult * total_fiber_slack) + (macro_mult * total_sodium_over) + (macro_mult * total_sugar_over) +
+            (macro_mult * total_sodium_over) + (macro_mult * total_sugar_over) +
             (budget_mult * cost_w * cost_objective) + (budget_mult * cost_w * budget_penalty) + (prep_time_w * prep_time_penalty) +
             (repeat_w * total_repeat_over) + (group_w * total_group_over) + (acceptance_w * total_meal_err) +
             diversity_penalty - (pantry_w * pantry_reward) - (diversity_w * diversity_reward)
@@ -2359,7 +2963,8 @@ def solve_meal_plan(
         )
         size_factor = max(0.0, (len(pool) - 60) / 40.0)
         restriction_factor = min(4.0, len(profile.dietaryRestrictions or []) / 2.0)
-        adaptive_time = min(max_time, base_time + size_factor + restriction_factor)
+        budget_factor = 2.0 if budget_weekly and _should_optimize_cost(profile) else 0.0
+        adaptive_time = min(max_time, base_time + size_factor + restriction_factor + budget_factor)
         solver.parameters.relative_gap_limit = float(
             _policy_get_legacy_aware(policy, ["solver.optimality_gap_target", "optimality_gap_target"], 0.05)
         )
@@ -2371,6 +2976,10 @@ def solve_meal_plan(
         memory_limit = int(_policy_get(policy, "solver.worker_memory_limit", 1024))
         if hasattr(solver.parameters, "max_memory_in_mb"):
             solver.parameters.max_memory_in_mb = memory_limit
+        max_solution_count = int(_policy_get(policy, "solver.max_solution_count", 1))
+        stop_after_first_solution = max_solution_count <= 1
+        if hasattr(solver.parameters, "stop_after_first_solution"):
+            solver.parameters.stop_after_first_solution = bool(stop_after_first_solution)
 
         status = cp_model.UNKNOWN
         status_name = "UNKNOWN"
@@ -2399,6 +3008,7 @@ def solve_meal_plan(
                     "attemptTimeSeconds": round(float(attempt_time), 3),
                     "solveMs": solve_elapsed_ms,
                     "status": status_name,
+                    "stopAfterFirstSolution": bool(stop_after_first_solution),
                 }
             )
 
@@ -2423,6 +3033,10 @@ def solve_meal_plan(
                     debug_summary["attempts"] = debug_summary["attempts"][-diag_depth:]
 
             if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                break
+            if status == cp_model.INFEASIBLE:
+                break
+            if status == cp_model.UNKNOWN and pair_index < len(solve_pairs) - 1:
                 break
         pair_diag["solveMs"] = max(0, int((time.time() - solve_started_at) * 1000))
         pair_diag["attemptsUsed"] = attempts_used
@@ -2484,6 +3098,10 @@ def solve_meal_plan(
                 telemetry_out["solve_pair_diagnostics"] = solve_pair_diagnostics[-6:]
             return res_plan, "Success", explanation
         if (time.time() - planner_started_at) >= total_time_limit:
+            if status == cp_model.UNKNOWN:
+                budget_exceeded_stage = "solver_search"
+                if telemetry_out is not None:
+                    telemetry_out["budget_exceeded_stage"] = budget_exceeded_stage
             break
     if debug_solver:
         print("MILP_DEBUG", json.dumps(debug_summary))

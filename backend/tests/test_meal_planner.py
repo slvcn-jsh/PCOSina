@@ -33,10 +33,11 @@ def _recipe(
     protein: int = 24,
     carbs: int = 40,
     fats: int = 15,
-    fiber: int = 6,
+    fiber: int = 7,
     minutes: int = 20,
     ingredients: list[dict] | None = None,
     sugar: int | None = None,
+    sodium: int | None = None,
 ) -> dict:
     return {
         "id": recipe_id,
@@ -51,6 +52,7 @@ def _recipe(
         "ingredients": ingredients or [{"name": "egg", "quantity": "2 pcs"}],
         "tags": [],
         "sugarGrams": sugar,
+        "sodiumMg": sodium,
     }
 
 
@@ -60,6 +62,38 @@ def test_macro_ratios_moderate():
 
 def test_macro_ratios_severe():
     assert meal_planner.macro_ratios("Severe") == (0.30, 0.30, 0.40)
+
+
+def test_recipe_static_features_cache_reuses_catalog_version():
+    meal_planner._RECIPE_STATIC_FEATURE_CACHE.clear()
+    recipe = _recipe(
+        "catalog-cache",
+        "Catalog Cache",
+        "Breakfast",
+        ingredients=[{"name": "egg tomato chicken", "quantity": ""}],
+    )
+    recipe["nutritionCorrectionId"] = "v1"
+
+    first = meal_planner._recipe_static_features(recipe)
+    second = meal_planner._recipe_static_features(dict(recipe))
+
+    assert first is second
+    assert "contains_egg" in first["tags"]
+    assert "egg" in first["ing_tokens"]
+
+
+def test_custom_allergy_token_excludes_matching_ingredient():
+    profile = UserProfile(allergies=["chicken"])
+    recipe = _recipe(
+        "chicken-test",
+        "Chicken Test",
+        "Lunch",
+        ingredients=[{"name": "chicken breast", "quantity": ""}],
+    )
+    ing_tokens = meal_planner.normalize_ingredients(recipe["ingredients"])
+    tags = meal_planner.infer_tags(recipe, ing_tokens)
+
+    assert "allergy:chicken" in meal_planner.restriction_failure_reasons(profile, tags, ing_tokens)
 
 
 def test_stage1_pricing_uses_request_scoped_market_multiplier_cache(monkeypatch):
@@ -163,6 +197,37 @@ def test_estimate_cost_uses_request_local_recipe_cache(monkeypatch):
     assert calls == 1
     assert cost_cache_stats["recipeCostCacheMisses"] == 1
     assert cost_cache_stats["recipeCostCacheHits"] == 1
+
+
+def test_estimate_cost_uses_source_servings_for_meal_budget(monkeypatch):
+    monkeypatch.setattr(meal_planner, "estimate_recipe_cost", lambda ingredients, pricing_context=None: 600)
+    recipe = {
+        "id": "served-1",
+        "title": "Served Recipe",
+        "sourceServings": "6",
+        "ingredients": [{"name": "fish", "quantity": "1 kg"}],
+        "calories": 500,
+    }
+
+    assert meal_planner.estimate_cost(recipe, household_size=1) == 100
+    assert meal_planner.estimate_cost(recipe, household_size=3) == 300
+
+
+def test_estimate_cost_parses_servings_from_nutrition_notes(monkeypatch):
+    monkeypatch.setattr(meal_planner, "estimate_recipe_cost", lambda ingredients, pricing_context=None: 500)
+    recipe = {
+        "id": "notes-served-1",
+        "title": "Notes Served Recipe",
+        "nutritionNotes": (
+            "title=Recipe; source_url=https://example.test; source_servings=4; "
+            "source_basis=source_published_per_serving"
+        ),
+        "ingredients": [{"name": "chicken", "quantity": "1 kg"}],
+        "calories": 500,
+    }
+
+    assert meal_planner.recipe_serving_count(recipe) == 4
+    assert meal_planner.estimate_cost(recipe, household_size=1) == 125
 
 
 def test_pre_pricing_prunes_broad_profile_before_cost_estimation(monkeypatch):
@@ -275,6 +340,111 @@ def test_pre_pricing_keeps_allergy_filter_before_pricing(monkeypatch):
     assert diagnostics["safe_recipe_count_pre_pricing"] == 20
     assert diagnostics["pre_pricing_pruned"] is True
     assert all("peanut" not in name.lower() for name in priced_ingredient_names)
+
+
+def test_budget_shortlist_preserves_nutrition_anchors_after_pruning(monkeypatch):
+    def fake_estimate_recipe_cost(ingredients, pricing_context=None):
+        if pricing_context is not None:
+            pricing_context.recipe_cost_estimates += 1
+        names = [
+            str(item.get("name") if isinstance(item, dict) else item).lower()
+            for item in ingredients
+        ]
+        return 240 if any("anchor" in name for name in names) else 45
+
+    monkeypatch.setattr(meal_planner, "estimate_recipe_cost", fake_estimate_recipe_cost)
+    profile = UserProfile(
+        displayName="Budget Anchor Profile",
+        age=28,
+        heightCm=162,
+        weightKg=64,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        dietaryRestrictions=[],
+        allergies=[],
+        pantryItems=[],
+        maxCookingTimeMinutes=60,
+        weeklyBudgetPhp=4000,
+        planningPriority="Budget First",
+        varietyPreference="Low",
+    )
+    recipes = [
+        _recipe(
+            f"cheap_low_fiber_{i}",
+            f"Cheap Low Fiber {i}",
+            ["Breakfast", "Lunch", "Dinner"][i % 3],
+            calories=520,
+            protein=50,
+            carbs=35,
+            fats=16,
+            fiber=2,
+            ingredients=[{"name": f"cheap ingredient {i}", "quantity": "1 cup"}],
+        )
+        for i in range(120)
+    ] + [
+        _recipe(
+            f"fiber_anchor_{i}",
+            f"Fiber Anchor {i}",
+            "Universal",
+            calories=390,
+            protein=10,
+            carbs=70,
+            fats=10,
+            fiber=12,
+            ingredients=[{"name": f"anchor monggo {i}", "quantity": "1 cup"}],
+        )
+        for i in range(16)
+    ]
+    diagnostics: dict = {}
+    policy = {
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "max_candidates_per_slot": 10,
+            "pre_pricing_candidate_cap": 60,
+            "pre_pricing_bucket_reserve": 4,
+            "ranking_cutoff": 0.8,
+            "similarity_threshold": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 0.25,
+            "minimum_candidates_required": 1,
+        }
+    }
+
+    buckets = meal_planner.shortlist_candidates(profile, recipes, policy=policy, stage1_diag=diagnostics)
+    pool = list({
+        recipe["id"]: recipe
+        for recipe in (
+            buckets["Breakfast"]
+            + buckets["Lunch"]
+            + buckets["Dinner"]
+            + buckets["Universal"]
+        )
+    }.values())
+    meal_to_allowed = {
+        label: {
+            index
+            for index, recipe in enumerate(pool)
+            if label in (recipe.get("_allowed_meals") or meal_planner.MEAL_LABELS)
+        }
+        for label in meal_planner.MEAL_LABELS
+    }
+    coverage = meal_planner._nutrition_coverage_gap(
+        pool,
+        meal_to_allowed,
+        meal_planner.MEAL_LABELS,
+        calorie_min=1200,
+        protein_min=45,
+        carb_min=120,
+        fat_min=35,
+        fiber_min=20,
+        sodium_max=2300,
+        sugar_max=50,
+    )
+
+    assert diagnostics["pre_pricing_pruned"] is True
+    assert any(str(recipe.get("id", "")).startswith("fiber_anchor_") for recipe in pool)
+    assert coverage["ok"] is True
 
 
 def test_broad_profile_generates_basic_seven_day_plan(monkeypatch):
@@ -428,6 +598,186 @@ def test_seeded_recipe_database_broad_profile_generates_plan_with_bounded_market
     assert len(market_calls) <= 12
 
 
+def test_solver_returns_no_safe_plan_when_required_nutrition_bounds_are_impossible():
+    profile = UserProfile(
+        displayName="Hard Nutrition User",
+        age=30,
+        heightCm=160,
+        weightKg=65,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        dietaryRestrictions=[],
+        allergies=[],
+        pantryItems=[],
+        maxCookingTimeMinutes=60,
+    )
+    request = meal_planner.GeneratePlanRequest(profile=profile, days=1, mealsPerDay=3)
+    recipes = [
+        _recipe("low_b", "Low Breakfast", "Breakfast", protein=10, carbs=40, fats=15, fiber=2, sugar=30),
+        _recipe("low_l", "Low Lunch", "Lunch", protein=10, carbs=40, fats=15, fiber=2, sugar=30),
+        _recipe("low_d", "Low Dinner", "Dinner", protein=10, carbs=40, fats=15, fiber=2, sugar=30),
+    ]
+    policy = {
+        "planning": {
+            "planning_horizon_days": 1,
+            "meals_per_day": 3,
+            "recipe_repeat_limits": [3],
+        },
+        "nutrition": {
+            "calorie_min": 1000,
+            "calorie_max": 2200,
+            "protein_min": 80,
+            "protein_max": 200,
+            "carb_min": 0,
+            "carb_max": 500,
+            "fat_min": 0,
+            "fat_max": 250,
+            "fiber_min": 20,
+            "sodium_max": 2300,
+            "sugar_max": 20,
+            "daily_tolerance_percent": 0.2,
+        },
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "max_candidates_per_slot": 10,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "minimum_candidates_required": 1,
+            "pool_cap_top_share": 1.0,
+        },
+        "solver": {
+            "solver_time_limit_seconds": 1.0,
+            "solver_max_seconds": 2.0,
+            "total_solver_seconds": 3.0,
+            "timeout_ms": 3000,
+            "retry_attempts": 0,
+            "optimality_gap_target": 0.1,
+            "solver_workers": 1,
+        },
+    }
+
+    telemetry = {}
+    plan, msg, explanation = meal_planner.solve_meal_plan(request, recipes, policy=policy, telemetry_out=telemetry)
+
+    assert plan is None
+    assert msg == "Catalog nutrition coverage is insufficient for this profile."
+    assert explanation is None
+    assert telemetry["stage1_diag"]["nutrition_feasibility"]["ok"] is False
+    assert any(
+        gap["nutrient"] in {"protein", "fiber"}
+        for gap in telemetry["stage1_diag"]["nutrition_feasibility"]["gaps"]
+    )
+
+
+def test_solver_treats_sodium_and_sugar_as_advisory_not_hard_blockers():
+    profile = UserProfile(
+        displayName="Advisory Sodium Sugar",
+        age=30,
+        heightCm=160,
+        weightKg=65,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        dietaryRestrictions=[],
+        allergies=[],
+        pantryItems=[],
+        maxCookingTimeMinutes=60,
+    )
+    request = meal_planner.GeneratePlanRequest(profile=profile, days=1, mealsPerDay=3)
+    recipes = [
+        _recipe(
+            "high_sodium_sugar_b",
+            "High Sodium Sugar Breakfast",
+            "Breakfast",
+            calories=500,
+            protein=25,
+            carbs=55,
+            fats=15,
+            fiber=8,
+            sugar=100,
+            sodium=5000,
+        ),
+        _recipe(
+            "high_sodium_sugar_l",
+            "High Sodium Sugar Lunch",
+            "Lunch",
+            calories=600,
+            protein=35,
+            carbs=70,
+            fats=18,
+            fiber=9,
+            sugar=100,
+            sodium=5000,
+        ),
+        _recipe(
+            "high_sodium_sugar_d",
+            "High Sodium Sugar Dinner",
+            "Dinner",
+            calories=520,
+            protein=30,
+            carbs=55,
+            fats=17,
+            fiber=8,
+            sugar=100,
+            sodium=5000,
+        ),
+    ]
+    policy = {
+        "planning": {
+            "planning_horizon_days": 1,
+            "meals_per_day": 3,
+            "recipe_repeat_limits": [3],
+        },
+        "nutrition": {
+            "calorie_min": 1000,
+            "calorie_max": 2200,
+            "protein_min": 45,
+            "protein_max": 200,
+            "carb_min": 100,
+            "carb_max": 500,
+            "fat_min": 30,
+            "fat_max": 250,
+            "fiber_min": 20,
+            "sodium_max": 10,
+            "sugar_max": 1,
+            "daily_tolerance_percent": 0.2,
+        },
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "max_candidates_per_slot": 10,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "minimum_candidates_required": 1,
+            "pool_cap_top_share": 1.0,
+        },
+        "solver": {
+            "solver_time_limit_seconds": 1.0,
+            "solver_max_seconds": 2.0,
+            "total_solver_seconds": 3.0,
+            "timeout_ms": 3000,
+            "retry_attempts": 0,
+            "optimality_gap_target": 0.1,
+            "solver_workers": 1,
+        },
+    }
+
+    telemetry: dict = {}
+    plan, msg, explanation = meal_planner.solve_meal_plan(request, recipes, policy=policy, telemetry_out=telemetry)
+
+    assert msg == "Success"
+    assert plan is not None
+    assert explanation is not None
+    feasibility = telemetry["stage1_diag"]["nutrition_feasibility"]
+    assert feasibility["ok"] is True
+    assert feasibility["gaps"] == []
+    assert {gap["nutrient"] for gap in feasibility["advisoryGaps"]} == {"sodium", "sugar"}
+
+
 def test_resolve_budget_weekly_prefers_weekly_php():
     profile = UserProfile(weeklyBudgetPhp=3000, budgetWeekly=2000, budgetMonthly=8000)
     assert meal_planner.resolve_budget_weekly(profile) == 3000.0
@@ -452,14 +802,222 @@ def test_budget_aware_pool_limit_shrinks_for_tight_solver_budgets():
         slot_count=21,
         total_time_limit=14.0,
         minimum_candidates_required=10,
-    ) == 120
+    ) == 33
 
     assert meal_planner._budget_aware_pool_limit(
         max_pool_size=192,
         slot_count=21,
         total_time_limit=25.0,
         minimum_candidates_required=10,
-    ) == 192
+    ) == 59
+
+    assert meal_planner._budget_aware_pool_limit(
+        max_pool_size=192,
+        slot_count=21,
+        total_time_limit=45.0,
+        minimum_candidates_required=10,
+    ) == 107
+
+
+def test_low_variety_repeat_sequence_starts_with_relaxed_repeat_limit():
+    assert meal_planner.adjust_max_per_week([2, 3, 4, 10], "Low") == [3, 4, 6, 8, 10]
+
+
+def test_budget_first_repeat_sequence_prefers_reliable_repeat_limits():
+    assert meal_planner.repeat_sequence_for_profile([2, 3, 4, 10], "Balanced", "Budget First") == [6, 8, 10]
+    assert meal_planner.repeat_sequence_for_profile([2, 3, 4, 10], "Low", "Budget First") == [6, 8, 10]
+    assert meal_planner.repeat_sequence_for_profile([2, 3, 4, 10], "High", "Budget First") == [2, 3, 4]
+
+
+def test_restricted_profile_repeat_sequence_prefers_reliable_repeat_limits():
+    assert meal_planner.repeat_sequence_for_profile(
+        [2, 3, 4, 10],
+        "Balanced",
+        "Nutrition First",
+        hard_filter_count=12,
+        safe_candidate_count=72,
+    ) == [6, 8, 10]
+
+
+def test_restricted_profile_solve_pairs_try_reliable_middle_path_first():
+    pairs = meal_planner.solve_pair_sequence_for_profile(
+        [0.2, 0.3, 0.4, 0.6000000000000001, 0.8],
+        [6, 8, 10],
+        ["daily_tolerance_percent", "recipe_repeat_limits"],
+        restricted_catalog=True,
+    )
+
+    assert pairs[:3] == [(0.4, 10), (0.4, 8), (0.4, 6)]
+    assert len(pairs) == 15
+    assert len(set(pairs)) == 15
+
+
+def test_profile_solve_pair_preferences_start_near_likely_feasible_path():
+    major_diet = meal_planner._solve_pair_preferences_for_profile(
+        UserProfile(dietaryRestrictions=["Vegetarian"])
+    )
+    allergy = meal_planner._solve_pair_preferences_for_profile(
+        UserProfile(allergies=["egg"])
+    )
+    strict_time = meal_planner._solve_pair_preferences_for_profile(
+        UserProfile(maxCookingTimeMinutes=20, planningPriority="Budget First", weeklyBudgetPhp=5000)
+    )
+    budget_priority = meal_planner._solve_pair_preferences_for_profile(
+        UserProfile(planningPriority="Budget First", weeklyBudgetPhp=5000)
+    )
+    broad_no_budget = meal_planner._solve_pair_preferences_for_profile(
+        UserProfile(planningPriority="Balanced")
+    )
+    default_with_budget = meal_planner._solve_pair_preferences_for_profile(
+        UserProfile(planningPriority="Balanced", weeklyBudgetPhp=5000)
+    )
+    nutrition_pressure = meal_planner._solve_pair_preferences_for_profile(
+        UserProfile(
+            goal="Weight Loss, Symptom Management",
+            insulinResistanceLevel="Severe",
+            symptoms=["Weight gain", "Irregular periods"],
+            planningPriority="Nutrition Tight",
+        )
+    )
+
+    assert major_diet["strategy"] == "restricted_or_major_diet"
+    assert major_diet["preferredTolerances"][:2] == [0.4, 0.6]
+    assert major_diet["preferredRepeats"][:2] == [10, 8]
+    assert allergy["strategy"] == "allergy_repeat_first"
+    assert allergy["preferredTolerances"][0] == 0.3
+    assert allergy["preferredRepeats"][0] == 4
+    assert strict_time["strategy"] == "strict_time_tolerance_first"
+    assert strict_time["preferredTolerances"][:2] == [0.3, 0.4]
+    assert strict_time["preferredRepeats"][:2] == [4, 3]
+    assert budget_priority["strategy"] == "budget_tolerance_first"
+    assert budget_priority["preferredRepeats"][:3] == [6, 8, 10]
+    assert broad_no_budget["strategy"] == "broad_no_budget_repeat_three_first"
+    assert broad_no_budget["preferredRepeats"][:3] == [3, 2, 4]
+    assert default_with_budget["strategy"] == "default_repeat_three_first"
+    assert default_with_budget["preferredRepeats"][:3] == [3, 2, 4]
+    assert nutrition_pressure["strategy"] == "nutrition_pressure_tolerance_first"
+    assert nutrition_pressure["preferredTolerances"][0] == 0.3
+
+
+def test_solver_honors_single_solution_policy_for_latency():
+    recipes = [
+        _recipe(
+            f"r{i}",
+            f"Recipe {i}",
+            ["Breakfast", "Lunch", "Dinner"][i % 3],
+            calories=520,
+            protein=24,
+            carbs=50,
+            fats=16,
+            fiber=8,
+        )
+        for i in range(12)
+    ]
+    profile = UserProfile(
+        displayName="SingleSolutionPolicy",
+        age=28,
+        heightCm=160,
+        weightKg=65,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        weeklyBudgetPhp=5000,
+        maxCookingTimeMinutes=45,
+    )
+    policy = {
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "max_candidates_per_slot": 20,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "minimum_candidates_required": 1,
+        },
+        "solver": {
+            "max_solution_count": 1,
+            "solver_time_limit_seconds": 4.0,
+            "solver_max_seconds": 4.0,
+            "total_solver_seconds": 8.0,
+            "retry_attempts": 0,
+        },
+    }
+    telemetry: dict = {}
+
+    plan, msg, _ = meal_planner.solve_meal_plan(
+        meal_planner.GeneratePlanRequest(profile=profile, days=2, mealsPerDay=3),
+        recipes,
+        policy=policy,
+        telemetry_out=telemetry,
+    )
+
+    assert msg == "Success"
+    assert plan is not None
+    attempts = [
+        attempt
+        for pair in telemetry.get("solve_pair_diagnostics", [])
+        for attempt in pair.get("attempts", [])
+    ]
+    assert attempts
+    assert attempts[-1]["stopAfterFirstSolution"] is True
+
+
+def test_anchor_preserving_similarity_keeps_restricted_nutrition_anchors():
+    anchor_one = {
+        "id": "anchor-1",
+        "title": "Monggo Fiber Bowl",
+        "calories": 520,
+        "proteinGrams": 22,
+        "carbsGrams": 73,
+        "fatsGrams": 14,
+        "fiberGrams": 13,
+    }
+    anchor_two = {
+        "id": "anchor-2",
+        "title": "Monggo Fiber Bowl",
+        "calories": 550,
+        "proteinGrams": 27,
+        "carbsGrams": 80,
+        "fatsGrams": 10,
+        "fiberGrams": 14,
+    }
+
+    assert [item["id"] for item in meal_planner._apply_similarity_dedup([anchor_one, anchor_two], 0.85)] == [
+        "anchor-1"
+    ]
+    assert [
+        item["id"]
+        for item in meal_planner._apply_anchor_preserving_similarity_dedup([anchor_one, anchor_two], 0.85)
+    ] == [
+        "anchor-1",
+        "anchor-2",
+    ]
+
+
+def test_restricted_solver_anchor_core_uses_only_strong_anchors():
+    weak = {
+        "id": "weak",
+        "title": "Low Protein Side",
+        "calories": 220,
+        "proteinGrams": 4,
+        "carbsGrams": 25,
+        "fatsGrams": 4,
+        "fiberGrams": 2,
+    }
+    anchors = [
+        {
+            "id": f"anchor-{idx}",
+            "title": f"Anchor {idx}",
+            "calories": 500 + idx,
+            "proteinGrams": 22,
+            "carbsGrams": 70,
+            "fatsGrams": 12,
+            "fiberGrams": 12,
+        }
+        for idx in range(3)
+    ]
+
+    core = meal_planner._restricted_solver_anchor_core([weak, *anchors])
+
+    assert {item["id"] for item in core} == {item["id"] for item in anchors}
 
 
 def test_allergy_filter_blocks_recipe():
@@ -489,6 +1047,9 @@ def test_allergy_filter_blocks_recipe():
         ("fish", "galunggong"),
         ("fish", "salmon"),
         ("fish", "tuna steak"),
+        ("fish", "sardinas"),
+        ("fish", "dulong"),
+        ("fish", "tinapa flakes"),
         ("shellfish", "shrimp"),
         ("shellfish", "crab"),
         ("shellfish", "squid"),
@@ -658,7 +1219,7 @@ def test_build_swap_candidates_blocks_current_recipe_and_repetition_overflow():
             "proteinGrams": 24,
             "carbsGrams": 36,
             "fatsGrams": 12,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 10,
             "ingredients": [{"name": "egg", "quantity": "2 pcs"}],
             "tags": [],
@@ -737,7 +1298,7 @@ def test_build_swap_candidates_respects_budget_and_restrictions():
             "proteinGrams": 28,
             "carbsGrams": 44,
             "fatsGrams": 20,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 25,
             "ingredients": [{"name": "pork", "quantity": "200 g"}],
             "tags": [],
@@ -750,7 +1311,7 @@ def test_build_swap_candidates_respects_budget_and_restrictions():
             "proteinGrams": 30,
             "carbsGrams": 42,
             "fatsGrams": 18,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 25,
             "ingredients": [{"name": "shrimp", "quantity": "2 kg"}],
             "tags": [],
@@ -977,7 +1538,7 @@ def test_build_swap_candidates_allows_repeats_up_to_policy_limit():
             "proteinGrams": 24,
             "carbsGrams": 36,
             "fatsGrams": 12,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 10,
             "ingredients": [{"name": "egg", "quantity": "2 pcs"}],
             "tags": [],
@@ -1053,7 +1614,7 @@ def test_solve_meal_plan_emits_telemetry_snapshot():
             "proteinGrams": 30,
             "carbsGrams": 45,
             "fatsGrams": 16,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 20,
             "ingredients": [{"name": "egg", "quantity": "2 pcs"}],
             "tags": [],
@@ -1079,7 +1640,7 @@ def test_solve_meal_plan_emits_telemetry_snapshot():
             "proteinGrams": 27,
             "carbsGrams": 48,
             "fatsGrams": 17,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 30,
             "ingredients": [{"name": "tomato", "quantity": "1 pc"}],
             "tags": [],
@@ -1160,7 +1721,7 @@ def test_solve_meal_plan_canary_applies_ml_ranking_strategy():
             "proteinGrams": 30,
             "carbsGrams": 45,
             "fatsGrams": 16,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 20,
             "ingredients": [{"name": "egg", "quantity": "2 pcs"}],
             "tags": [],
@@ -1186,7 +1747,7 @@ def test_solve_meal_plan_canary_applies_ml_ranking_strategy():
             "proteinGrams": 27,
             "carbsGrams": 48,
             "fatsGrams": 17,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 30,
             "ingredients": [{"name": "tomato", "quantity": "1 pc"}],
             "tags": [],
@@ -1264,7 +1825,7 @@ def test_solve_meal_plan_stage1_ml_uses_file_backed_ranker_artifacts(monkeypatch
             "proteinGrams": 24,
             "carbsGrams": 41,
             "fatsGrams": 14,
-            "fiberGrams": 5,
+            "fiberGrams": 7,
             "minutes": 15,
             "ingredients": [{"name": "egg", "quantity": "2 pcs"}],
             "tags": [],
@@ -1290,7 +1851,7 @@ def test_solve_meal_plan_stage1_ml_uses_file_backed_ranker_artifacts(monkeypatch
             "proteinGrams": 27,
             "carbsGrams": 45,
             "fatsGrams": 16,
-            "fiberGrams": 6,
+            "fiberGrams": 7,
             "minutes": 30,
             "ingredients": [{"name": "fish", "quantity": "1 fillet"}],
             "tags": [],
@@ -1394,9 +1955,9 @@ def test_symptoms_create_deterministic_planner_adjustments():
 
 def test_goal_and_symptoms_are_reflected_in_planner_explanation():
     recipes = [
-        _recipe("b1", "Breakfast", "Breakfast", ingredients=[{"name": "egg", "quantity": "2 pcs"}], sugar=4),
-        _recipe("l1", "Lunch", "Lunch", ingredients=[{"name": "rice", "quantity": "1 cup"}], sugar=6),
-        _recipe("d1", "Dinner", "Dinner", ingredients=[{"name": "chicken", "quantity": "200 g"}], sugar=5),
+        _recipe("b1", "Breakfast", "Breakfast", ingredients=[{"name": "egg", "quantity": "2 pcs"}], fiber=10, sugar=4),
+        _recipe("l1", "Lunch", "Lunch", ingredients=[{"name": "rice", "quantity": "1 cup"}], fiber=10, sugar=6),
+        _recipe("d1", "Dinner", "Dinner", ingredients=[{"name": "chicken", "quantity": "200 g"}], fiber=10, sugar=5),
     ]
     policy = {
         "planning": {"planning_horizon_days": 1, "meals_per_day": 3, "recipe_repeat_limits": [3]},

@@ -8,6 +8,9 @@ import com.pcosina.app.data.model.NotificationLogEntry
 import com.pcosina.app.data.model.NotificationPreferences
 import com.pcosina.app.data.model.UserProfile
 import com.pcosina.app.data.repository.NotificationLocalRepository
+import com.pcosina.app.data.repository.UserPreferencesNotificationLocalRepository
+import com.pcosina.app.data.repository.UserPreferencesRepository
+import com.pcosina.app.data.repository.UserPreferencesUserProfileLocalRepository
 import com.pcosina.app.data.repository.UserProfileLocalRepository
 import com.pcosina.app.domain.CalorieTargetBreakdown
 import com.pcosina.app.domain.HealthMetrics
@@ -24,14 +27,17 @@ class UserViewModel(
     private val userProfileLocalRepository: UserProfileLocalRepository,
     private val notificationLocalRepository: NotificationLocalRepository
 ) : ViewModel() {
+    constructor(userPreferencesRepository: UserPreferencesRepository) : this(
+        UserPreferencesUserProfileLocalRepository(userPreferencesRepository),
+        UserPreferencesNotificationLocalRepository(userPreferencesRepository)
+    )
+
     private val _userProfile = MutableStateFlow(UserProfile())
     val userProfile: StateFlow<UserProfile> = _userProfile.asStateFlow()
 
     private val _isProfileLoading = MutableStateFlow(false)
     val isProfileLoading: StateFlow<Boolean> = _isProfileLoading.asStateFlow()
 
-    private val _adminMode = MutableStateFlow(false)
-    val adminMode: StateFlow<Boolean> = _adminMode.asStateFlow()
     private val _pantryEntries = MutableStateFlow<List<PantryEntry>>(emptyList())
     val pantryEntries: StateFlow<List<PantryEntry>> = _pantryEntries.asStateFlow()
     private val _remindersEnabled = MutableStateFlow(false)
@@ -128,12 +134,7 @@ class UserViewModel(
         _remindersEnabled.value = false
         _notificationPreferences.value = NotificationPreferences()
         _notificationLogs.value = emptyList()
-        _adminMode.value = false
         pendingProfile = null
-    }
-
-    fun setAdminMode(enabled: Boolean) {
-        _adminMode.value = enabled
     }
 
     private fun saveProfile() {

@@ -25,19 +25,19 @@ if ($DeviceId) {
     $env:ANDROID_SERIAL = $DeviceId
 }
 
-$args = @(":$Module:connectedDebugAndroidTest")
+$gradleArgs = @(":${Module}:connectedDebugAndroidTest")
 if (-not [string]::IsNullOrWhiteSpace($TestClass)) {
-    $args += "-Pandroid.testInstrumentationRunnerArguments.class=$TestClass"
+    $gradleArgs += "-Pandroid.testInstrumentationRunnerArguments.class=$TestClass"
 }
 if ($ExtraGradleArgs.Count -gt 0) {
-    $args += $ExtraGradleArgs
+    $gradleArgs += $ExtraGradleArgs
 }
 
 Push-Location $root
 try {
-    & $gradle @args
+    & $gradle @gradleArgs
     if ($LASTEXITCODE -ne 0) {
-        throw "connectedDebugAndroidTest failed. Args: $($args -join ' ')"
+        throw "connectedDebugAndroidTest failed. Args: $($gradleArgs -join ' ')"
     }
 }
 finally {

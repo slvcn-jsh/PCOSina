@@ -131,10 +131,7 @@ jobs:
                [ -f app/src/androidTest/assets/visual_baselines/compact_chip_row.png ] && \
                [ -f app/src/androidTest/assets/visual_baselines/compact_dashboard_today_outcome.png ] && \
                [ -f app/src/androidTest/assets/visual_baselines/compact_progress_top_section.png ] && \
-               [ -f app/src/androidTest/assets/visual_baselines/compact_mealplan_top_section.png ] && \
-               [ -f app/src/androidTest/assets/visual_baselines/compact_login_first_win_card.png ] && \
-               [ -f app/src/androidTest/assets/visual_baselines/compact_profile_first_win_card.png ] && \
-               [ -f app/src/androidTest/assets/visual_baselines/compact_goal_handoff_card.png ]; then
+               [ -f app/src/androidTest/assets/visual_baselines/compact_mealplan_top_section.png ]; then
               ./gradlew :app:connectedDebugAndroidTest \
                 -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest \
                 -Pandroid.testInstrumentationRunnerArguments.require_visual_baseline=true \
@@ -143,6 +140,12 @@ jobs:
               ./gradlew :app:connectedDebugAndroidTest \
                 -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest \
                 -Pandroid.testInstrumentationRunnerArguments.refresh_visual_baseline=true
+            else
+              echo "Full compact baseline set not committed yet; strict verify skipped."
+              ./gradlew :app:connectedDebugAndroidTest \
+                -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest \
+                -Pandroid.testInstrumentationRunnerArguments.refresh_visual_baseline=true
+            fi
 
       - name: Upload compact visual regression artifacts
         if: always()
@@ -154,12 +157,6 @@ jobs:
             app/build/outputs/androidTest-results/connected/**/*
             app/build/outputs/connected_android_test_additional_output/**/*
           if-no-files-found: warn
-            else
-              echo "Full compact baseline set not committed yet; strict verify skipped."
-              ./gradlew :app:connectedDebugAndroidTest \
-                -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest \
-                -Pandroid.testInstrumentationRunnerArguments.refresh_visual_baseline=true
-            fi
 
   ux-critical-flow:
     name: UX Critical Flow Gates (API 34)
@@ -178,7 +175,7 @@ jobs:
       - name: Ensure Gradle wrapper is executable
         run: chmod +x ./gradlew
 
-      - name: Run first-win and reminder critical instrumentation tests
+      - name: Run current core and reminder critical instrumentation tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -190,8 +187,7 @@ jobs:
           script: |
             adb shell settings put system font_scale 1.0
             ./gradlew :app:connectedDebugAndroidTest \
-              -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.FirstWinFlowUiTest \
-              -Pandroid.testInstrumentationRunnerArguments.first_win_timeout_ms=90000
+              -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CurrentCoreFlowUiTest
             ./gradlew :app:connectedDebugAndroidTest \
               -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.MealPlanSwapBannerUiTest#statusCenter_showsReminderSummaryWhenNotificationsEnabled
 

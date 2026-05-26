@@ -15,7 +15,7 @@ PRODUCTION_SOLVER_TIME_LIMIT_SECONDS = 4.0
 PRODUCTION_SOLVER_MAX_SECONDS = 7.0
 PRODUCTION_TOTAL_SOLVER_SECONDS = 14.0
 PRODUCTION_SOLVER_RETRY_ATTEMPTS = 1
-PRODUCTION_SOLVER_WORKERS = 2
+PRODUCTION_SOLVER_WORKERS = 4
 
 
 def _default_environment_overrides() -> Dict[str, Dict[str, Any]]:
@@ -116,8 +116,6 @@ class PlanningPolicy(BaseModel):
         default_factory=lambda: [
             "daily_tolerance_percent",
             "recipe_repeat_limits",
-            "budget_constraint",
-            "prep_time_preference",
         ]
     )
 

@@ -9,6 +9,8 @@ import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.GroceryItemSource
 import com.pcosina.app.data.model.GrocerySnapshot
 import com.pcosina.app.data.repository.GroceryLocalRepository
+import com.pcosina.app.data.repository.UserPreferencesGroceryLocalRepository
+import com.pcosina.app.data.repository.UserPreferencesRepository
 import com.pcosina.app.domain.canonicalGroceryKey
 import com.pcosina.app.domain.GroceryRebuildUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +21,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepository) : ViewModel() {
+    constructor(userPreferencesRepository: UserPreferencesRepository) : this(
+        UserPreferencesGroceryLocalRepository(userPreferencesRepository)
+    )
+
     private val _groceryItems = MutableStateFlow<List<DummyData.GroceryItem>>(emptyList())
     val groceryItems: StateFlow<List<DummyData.GroceryItem>> = _groceryItems.asStateFlow()
 

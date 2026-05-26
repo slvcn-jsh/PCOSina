@@ -106,7 +106,6 @@ fun UserProfileScreen(
     var activityLevel by rememberSaveable { mutableStateOf(profile.activityLevel) }
     val insulinLevel = "None"
 
-HEAD
     val savedSymptomKey = profile.symptoms.joinToString("|")
     var symptomIrregularPeriods by rememberSaveable(savedSymptomKey) {
         mutableStateOf(hasSavedProfileToken(profile.symptoms, "Irregular periods"))
@@ -121,12 +120,7 @@ HEAD
         mutableStateOf(hasSavedProfileToken(profile.symptoms, "Hair loss"))
     }
 
-    var symptomIrregularPeriods by rememberSaveable { mutableStateOf(false) }
-    var symptomWeightGain by rememberSaveable { mutableStateOf(false) }
-    var symptomAcne by rememberSaveable { mutableStateOf(false) }
-    var symptomHairLoss by rememberSaveable { mutableStateOf(false) }
     var symptomNone by rememberSaveable { mutableStateOf(false) }
-c755606 (Update UI changes)
 
     val savedRestrictionKey = profile.dietaryRestrictions.joinToString("|")
     var lacto by rememberSaveable(savedRestrictionKey) {

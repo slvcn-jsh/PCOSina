@@ -11,7 +11,6 @@ object Routes {
         Auth,
         ProfileSetup,
         GoalSetup,
-        Operator,
         GuidedCore,
         PlanRequired
     }
@@ -39,14 +38,6 @@ object Routes {
     val Settings = defineRoute("settings", RouteAccess.GuidedCore)
     val Notifications = defineRoute("notifications", RouteAccess.GuidedCore)
     val MoreTools = defineRoute("more_tools", RouteAccess.GuidedCore)
-    val OperatorDashboard = defineRoute("operator_dashboard", RouteAccess.Operator)
-    val OperatorRecipes = defineRoute("operator_recipes", RouteAccess.Operator)
-    val OperatorPrices = defineRoute("operator_prices", RouteAccess.Operator)
-    val OperatorGroceryPantry = defineRoute("operator_grocery_pantry", RouteAccess.Operator)
-    val OperatorRules = defineRoute("operator_rules", RouteAccess.Operator)
-    val OperatorSystemInfo = defineRoute("operator_system_info", RouteAccess.Operator)
-    val OperatorAdminSettings = defineRoute("operator_admin_settings", RouteAccess.Operator)
-    val AdminMethodology = defineRoute("admin_methodology", RouteAccess.GuidedCore)
 
     // Bottom tabs
     val MealPlan = defineRoute("meal_plan", RouteAccess.GuidedCore)
@@ -82,9 +73,6 @@ object Routes {
 
     fun isGoalRoute(route: String?): Boolean =
         routeAccessByBase[baseRoute(route)] == RouteAccess.GoalSetup
-
-    fun isOperatorRoute(route: String?): Boolean =
-        routeAccessByBase[baseRoute(route)] == RouteAccess.Operator
 
     fun isKnownRoute(route: String?): Boolean =
         routeAccessByBase.containsKey(baseRoute(route))

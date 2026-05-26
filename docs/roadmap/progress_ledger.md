@@ -1,6 +1,6 @@
 # PCOSINA Roadmap Progress Ledger
 
-Updated: 2026-05-18
+Updated: 2026-05-19
 
 | Roadmap Item | Status | Evidence | Tests Added | Key Risk | Next Action |
 |---|---|---|---|---|---|
@@ -28,11 +28,25 @@ Updated: 2026-05-18
 - Local replay of Budget First, Low variety, `weeklyBudgetPhp=4000`, no allergies, and no restrictions now returns `Success` with 96 candidates, no pre-solver nutrition gaps, and an estimated weekly cost of 2,639 PHP.
 - Sodium and sugar remain in backend diagnostics/scoring as advisory limits, but they no longer block plan generation because they are not part of the current user-facing recipe nutrition contract.
 - Budget First planning now starts with repeat-friendly limits in production-shaped solves, matching the budget/reliability intent instead of spending the Render deadline on strict variety attempts first.
-- Production-shaped CP-SAT pools are now capped more aggressively by the wall-clock solver budget; the 14-second Render profile uses about 40 candidates instead of 60 so the hosted worker can prove a feasible plan before the deadline.
+- Production-shaped CP-SAT pools are now capped more aggressively by the wall-clock solver budget; the 14-second Render profile uses about 33 candidates instead of 60 so the hosted worker can prove a feasible plan before the deadline.
 - The CP-SAT model now removes unused recipe-selection helper variables and redundant visible-nutrition deviation variables, and Budget First receives a longer first-attempt search window inside the same 14-second production cap.
 - The restricted-profile catalog repair added 16 soy-free, gluten-free, dairy-free, egg-free, fish-free, shellfish-free, peanut/nut-free vegan quick meals in the 400-650 kcal, 18-28g protein target band, and a production-shaped replay of the hardest profile now returns `Success`.
 - Highly restricted profiles now use the repeat-reliable solver ladder even outside Budget First, so the Render 14-second cap reaches the `maxPerWeek=6` attempt needed by the hardest safe catalog profile.
-- Highly restricted Stage 1 pools now reserve strong nutrition anchors before the 40-candidate Render cap, preventing ML/shadow ranking and budget shortlist trimming from dropping the new feasible vegan protein/fiber meals.
-- Restricted-profile Stage 1 dedup now preserves all strong nutrition anchors before similarity pruning, and the solver tries the reliable `tol=0.4/maxPerWeek=8` path first under the existing 14-second cap.
+- Highly restricted Stage 1 pools now reserve strong nutrition anchors before the Render pool cap, preventing ML/shadow ranking and budget shortlist trimming from dropping the new feasible vegan protein/fiber meals.
+- Restricted-profile Stage 1 dedup now preserves all strong nutrition anchors before similarity pruning, and the solver tries the reliable `tol=0.4/maxPerWeek=10` path first under the existing 14-second cap.
 - Highly restrictive profiles with enough strong nutrition anchors now solve against a deterministic anchor-core pool, so real LightGBM canary ordering cannot remove the feasible vegan protein/fiber core.
 - Remaining blocker: 953/1,130 active recipes still need reviewed nutrition provenance before claiming unrestricted nutrition-data maturity, even though the readiness gate is green for local planner feasibility.
+
+## 2026-05-19 Planner Benchmark Update
+
+- `benchmarks/canonical_scenarios/planner_realistic_profiles_20.json` freezes 20 realistic, reachable PCOSina user profiles for planner success and latency evaluation.
+- `scripts/benchmark_planner_profiles.py` now runs the 20-profile pack with repeatable JSON/CSV reporting and optional regression thresholds for failed plans, max runtime, and P95 runtime.
+- The first local 20-profile benchmark passed functionally but failed the latency gate: 20/20 success, average 6,154 ms, P95 12,514 ms, max 14,013 ms.
+- Profile-aware solve-pair ordering now starts closer to the likely feasible path for major diet restrictions, allergy profiles, ordinary dietary restrictions, and high nutrition-pressure profiles without weakening allergy, restriction, budget, or visible nutrition hard constraints.
+- After solve-pair ordering, the local 20-profile benchmark passes: 20/20 success, average 4,669 ms, P95 6,679 ms, max 7,612 ms, and no planner timeouts.
+- The solver now honors `solver.max_solution_count=1` by stopping after the first feasible CP-SAT solution. The 5-run local benchmark now passes 100/100 runs with average 970 ms, P95 2,770 ms, max 3,328 ms, and no planner timeouts.
+- The LightGBM V1 artifact was re-exported from the frozen training dataset so `Stage1MLRanker` loads `lightgbm_stage1_ranker_v1` locally instead of falling back to `shadow_v0`.
+- With `--require-ml-ready`, the real local LightGBM artifact loaded and benchmark hard-rule validation enabled, the 5-run 20-profile benchmark passes 100/100 runs with average 1,004 ms, P95 3,043 ms, max 3,493 ms, zero hard-constraint violations, and 26 sodium/sugar advisory warnings across 13 runs.
+- After profile-specific tolerance ordering and the 33-candidate production pool budget, the same real-LightGBM 5-run benchmark passes 100/100 runs with average 531 ms, P95 953 ms, max 1,260 ms, zero hard-constraint violations, and no planner timeouts.
+- The next pass raised production-shaped CP-SAT workers to 4, starts default/no-budget profiles from the observed repeat-3 feasible path, and caches static Stage 1 recipe features by recipe identity/version. The real-LightGBM 5-run benchmark now passes 100/100 runs with average 257 ms, P95 313 ms, max 357 ms, zero hard-constraint violations, and 13 sodium/sugar advisory warnings.
+- The planner benchmark runner now has a guarded `--live-base-url` mode for Render/prod latency evidence. It requires caller-provided Firebase ID and App Check tokens through environment variables and does not bypass production mobile auth.

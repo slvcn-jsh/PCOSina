@@ -64,6 +64,38 @@ def test_macro_ratios_severe():
     assert meal_planner.macro_ratios("Severe") == (0.30, 0.30, 0.40)
 
 
+def test_recipe_static_features_cache_reuses_catalog_version():
+    meal_planner._RECIPE_STATIC_FEATURE_CACHE.clear()
+    recipe = _recipe(
+        "catalog-cache",
+        "Catalog Cache",
+        "Breakfast",
+        ingredients=[{"name": "egg tomato chicken", "quantity": ""}],
+    )
+    recipe["nutritionCorrectionId"] = "v1"
+
+    first = meal_planner._recipe_static_features(recipe)
+    second = meal_planner._recipe_static_features(dict(recipe))
+
+    assert first is second
+    assert "contains_egg" in first["tags"]
+    assert "egg" in first["ing_tokens"]
+
+
+def test_custom_allergy_token_excludes_matching_ingredient():
+    profile = UserProfile(allergies=["chicken"])
+    recipe = _recipe(
+        "chicken-test",
+        "Chicken Test",
+        "Lunch",
+        ingredients=[{"name": "chicken breast", "quantity": ""}],
+    )
+    ing_tokens = meal_planner.normalize_ingredients(recipe["ingredients"])
+    tags = meal_planner.infer_tags(recipe, ing_tokens)
+
+    assert "allergy:chicken" in meal_planner.restriction_failure_reasons(profile, tags, ing_tokens)
+
+
 def test_stage1_pricing_uses_request_scoped_market_multiplier_cache(monkeypatch):
     price_catalog.invalidate_override_cache()
     monkeypatch.setattr(database, "list_active_price_rules", lambda limit=500: [])
@@ -770,21 +802,21 @@ def test_budget_aware_pool_limit_shrinks_for_tight_solver_budgets():
         slot_count=21,
         total_time_limit=14.0,
         minimum_candidates_required=10,
-    ) == 40
+    ) == 33
 
     assert meal_planner._budget_aware_pool_limit(
         max_pool_size=192,
         slot_count=21,
         total_time_limit=25.0,
         minimum_candidates_required=10,
-    ) == 71
+    ) == 59
 
     assert meal_planner._budget_aware_pool_limit(
         max_pool_size=192,
         slot_count=21,
         total_time_limit=45.0,
         minimum_candidates_required=10,
-    ) == 128
+    ) == 107
 
 
 def test_low_variety_repeat_sequence_starts_with_relaxed_repeat_limit():
@@ -815,9 +847,117 @@ def test_restricted_profile_solve_pairs_try_reliable_middle_path_first():
         restricted_catalog=True,
     )
 
-    assert pairs[:3] == [(0.4, 8), (0.4, 10), (0.4, 6)]
+    assert pairs[:3] == [(0.4, 10), (0.4, 8), (0.4, 6)]
     assert len(pairs) == 15
     assert len(set(pairs)) == 15
+
+
+def test_profile_solve_pair_preferences_start_near_likely_feasible_path():
+    major_diet = meal_planner._solve_pair_preferences_for_profile(
+        UserProfile(dietaryRestrictions=["Vegetarian"])
+    )
+    allergy = meal_planner._solve_pair_preferences_for_profile(
+        UserProfile(allergies=["egg"])
+    )
+    strict_time = meal_planner._solve_pair_preferences_for_profile(
+        UserProfile(maxCookingTimeMinutes=20, planningPriority="Budget First", weeklyBudgetPhp=5000)
+    )
+    budget_priority = meal_planner._solve_pair_preferences_for_profile(
+        UserProfile(planningPriority="Budget First", weeklyBudgetPhp=5000)
+    )
+    broad_no_budget = meal_planner._solve_pair_preferences_for_profile(
+        UserProfile(planningPriority="Balanced")
+    )
+    default_with_budget = meal_planner._solve_pair_preferences_for_profile(
+        UserProfile(planningPriority="Balanced", weeklyBudgetPhp=5000)
+    )
+    nutrition_pressure = meal_planner._solve_pair_preferences_for_profile(
+        UserProfile(
+            goal="Weight Loss, Symptom Management",
+            insulinResistanceLevel="Severe",
+            symptoms=["Weight gain", "Irregular periods"],
+            planningPriority="Nutrition Tight",
+        )
+    )
+
+    assert major_diet["strategy"] == "restricted_or_major_diet"
+    assert major_diet["preferredTolerances"][:2] == [0.4, 0.6]
+    assert major_diet["preferredRepeats"][:2] == [10, 8]
+    assert allergy["strategy"] == "allergy_repeat_first"
+    assert allergy["preferredTolerances"][0] == 0.3
+    assert allergy["preferredRepeats"][0] == 4
+    assert strict_time["strategy"] == "strict_time_tolerance_first"
+    assert strict_time["preferredTolerances"][:2] == [0.3, 0.4]
+    assert strict_time["preferredRepeats"][:2] == [4, 3]
+    assert budget_priority["strategy"] == "budget_tolerance_first"
+    assert budget_priority["preferredRepeats"][:3] == [6, 8, 10]
+    assert broad_no_budget["strategy"] == "broad_no_budget_repeat_three_first"
+    assert broad_no_budget["preferredRepeats"][:3] == [3, 2, 4]
+    assert default_with_budget["strategy"] == "default_repeat_three_first"
+    assert default_with_budget["preferredRepeats"][:3] == [3, 2, 4]
+    assert nutrition_pressure["strategy"] == "nutrition_pressure_tolerance_first"
+    assert nutrition_pressure["preferredTolerances"][0] == 0.3
+
+
+def test_solver_honors_single_solution_policy_for_latency():
+    recipes = [
+        _recipe(
+            f"r{i}",
+            f"Recipe {i}",
+            ["Breakfast", "Lunch", "Dinner"][i % 3],
+            calories=520,
+            protein=24,
+            carbs=50,
+            fats=16,
+            fiber=8,
+        )
+        for i in range(12)
+    ]
+    profile = UserProfile(
+        displayName="SingleSolutionPolicy",
+        age=28,
+        heightCm=160,
+        weightKg=65,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        weeklyBudgetPhp=5000,
+        maxCookingTimeMinutes=45,
+    )
+    policy = {
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "max_candidates_per_slot": 20,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "minimum_candidates_required": 1,
+        },
+        "solver": {
+            "max_solution_count": 1,
+            "solver_time_limit_seconds": 4.0,
+            "solver_max_seconds": 4.0,
+            "total_solver_seconds": 8.0,
+            "retry_attempts": 0,
+        },
+    }
+    telemetry: dict = {}
+
+    plan, msg, _ = meal_planner.solve_meal_plan(
+        meal_planner.GeneratePlanRequest(profile=profile, days=2, mealsPerDay=3),
+        recipes,
+        policy=policy,
+        telemetry_out=telemetry,
+    )
+
+    assert msg == "Success"
+    assert plan is not None
+    attempts = [
+        attempt
+        for pair in telemetry.get("solve_pair_diagnostics", [])
+        for attempt in pair.get("attempts", [])
+    ]
+    assert attempts
+    assert attempts[-1]["stopAfterFirstSolution"] is True
 
 
 def test_anchor_preserving_similarity_keeps_restricted_nutrition_anchors():

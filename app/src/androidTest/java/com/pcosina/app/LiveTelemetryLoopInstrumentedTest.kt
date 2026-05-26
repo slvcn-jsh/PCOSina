@@ -64,12 +64,6 @@ class LiveTelemetryLoopInstrumentedTest {
             waitForKnownEntryPoint()
         }
 
-        if (exists(hasTestTag("login_debug_continue_first_win"))) {
-            Log.i(TAG, "Using debug first-win continuation")
-            composeRule.onNodeWithTag("login_debug_continue_first_win").performClick()
-            composeRule.waitForIdle()
-        }
-
         if (exists(hasTestTag("profile_step1_name_input"))) {
             Log.i(TAG, "Completing profile setup")
             composeRule.onNodeWithTag("profile_step1_name_input").performTextReplacement("Live Telemetry")
@@ -191,8 +185,7 @@ class LiveTelemetryLoopInstrumentedTest {
 
     private fun waitForKnownEntryPoint() {
         composeRule.waitUntil(timeoutMillis = ENTRY_WAIT_MS) {
-            exists(hasTestTag("login_debug_continue_first_win")) ||
-                isOnLoginScreen() ||
+            isOnLoginScreen() ||
                 exists(hasTestTag("profile_step1_name_input")) ||
                 exists(hasTestTag("goal_option_weight_loss")) ||
                 exists(hasContentDescription("Plan")) ||
@@ -204,8 +197,8 @@ class LiveTelemetryLoopInstrumentedTest {
         exists(hasTestTag("login_primary_cta")) ||
             exists(hasTestTag("login_email_input")) ||
             exists(hasTestTag("login_password_input")) ||
-            exists(hasTestTag("login_first_win_card")) ||
-            exists(hasTestTag("login_step1_label"))
+            exists(hasTestTag("login_screen_content")) ||
+            exists(hasTestTag("login_wellness_label"))
 
     private fun exists(matcher: SemanticsMatcher): Boolean =
         composeRule.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()

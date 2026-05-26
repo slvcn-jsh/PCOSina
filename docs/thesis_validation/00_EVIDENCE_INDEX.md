@@ -44,7 +44,7 @@ This evidence pack was generated from the `dev` branch only, as requested. No `m
 | app/src/androidTest/java/com/pcosina/app/CompactWidthVisualRegressionTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/androidTest/java/com/pcosina/app/DashboardWeekCloseoutUiTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/androidTest/java/com/pcosina/app/DuplicateMealSlotUiFlowTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
-| app/src/androidTest/java/com/pcosina/app/FirstWinFlowUiTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
+| app/src/androidTest/java/com/pcosina/app/CurrentCoreFlowUiTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/androidTest/java/com/pcosina/app/GroceryFeedbackSemanticsUiTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/androidTest/java/com/pcosina/app/LiveTelemetryLoopInstrumentedTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/androidTest/java/com/pcosina/app/MealPlanNoSafePlanUiTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
@@ -123,7 +123,7 @@ This evidence pack was generated from the `dev` branch only, as requested. No `m
 | app/src/test/java/com/pcosina/app/DataPersistenceRecoveryPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/DebugBaseUrlPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/FeedbackConsistencyPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
-| app/src/test/java/com/pcosina/app/FirstWinDeterminismPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
+| app/src/test/java/com/pcosina/app/CurrentCoreFlowPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/FrameTimingProbeTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/GoalSemanticsTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/GoogleServicesReleaseGuardPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |

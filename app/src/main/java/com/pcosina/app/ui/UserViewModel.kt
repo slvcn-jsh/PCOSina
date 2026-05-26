@@ -38,8 +38,6 @@ class UserViewModel(
     private val _isProfileLoading = MutableStateFlow(false)
     val isProfileLoading: StateFlow<Boolean> = _isProfileLoading.asStateFlow()
 
-    private val _adminMode = MutableStateFlow(false)
-    val adminMode: StateFlow<Boolean> = _adminMode.asStateFlow()
     private val _pantryEntries = MutableStateFlow<List<PantryEntry>>(emptyList())
     val pantryEntries: StateFlow<List<PantryEntry>> = _pantryEntries.asStateFlow()
     private val _remindersEnabled = MutableStateFlow(false)
@@ -136,12 +134,7 @@ class UserViewModel(
         _remindersEnabled.value = false
         _notificationPreferences.value = NotificationPreferences()
         _notificationLogs.value = emptyList()
-        _adminMode.value = false
         pendingProfile = null
-    }
-
-    fun setAdminMode(enabled: Boolean) {
-        _adminMode.value = enabled
     }
 
     private fun saveProfile() {

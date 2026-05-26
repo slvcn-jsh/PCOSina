@@ -96,9 +96,8 @@ import java.util.Locale
 @Composable
 fun LoginScreen(
     authViewModel: AuthViewModel,
-    onLoginSuccess: (Boolean) -> Unit,
+    onLoginSuccess: () -> Unit,
     onNavigateToSignUp: () -> Unit,
-    onDebugFirstWinContinue: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val loginState by authViewModel.loginState.collectAsState()
@@ -109,7 +108,6 @@ fun LoginScreen(
     val currentUserUid = session.currentUserUid.orEmpty()
     var showTerms by rememberSaveable(currentUserUid) { mutableStateOf(false) }
     var legalNotice by rememberSaveable { mutableStateOf<String?>(null) }
-    var operatorAccessRequested by rememberSaveable { mutableStateOf(false) }
     var loginCompletionHandled by rememberSaveable { mutableStateOf(false) }
     val isLoading = loginState is LoginState.Loading
     val loginErrorMessage = (loginState as? LoginState.Error)?.message
@@ -186,7 +184,7 @@ fun LoginScreen(
             }
             loginCompletionHandled = true
             analytics.logEvent("login_success", null)
-            onLoginSuccess(operatorAccessRequested)
+            onLoginSuccess()
         }
     }
 
@@ -281,6 +279,7 @@ fun LoginScreen(
                 modifier = contentModifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
+                    .testTag("login_screen_content")
                     .padding(horizontal = if (compact) 24.dp else 30.dp)
                     .padding(top = contentTopPadding, bottom = if (compact) 18.dp else 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -308,6 +307,7 @@ fun LoginScreen(
 
                 Text(
                     text = "A wellness decision support tool",
+                    modifier = Modifier.testTag("login_wellness_label"),
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = if (compact) 20.sp else 22.sp,
@@ -329,7 +329,6 @@ fun LoginScreen(
                 Button(
                     onClick = {
                         legalNotice = null
-                        operatorAccessRequested = true
                         loginCompletionHandled = false
                         analytics.logEvent("google_login_attempt", null)
                         googleLauncher.launch(googleSignInClient.signInIntent)
@@ -391,16 +390,6 @@ fun LoginScreen(
                     textAlign = TextAlign.Center,
                 )
 
-                if (BuildConfig.DEBUG && onDebugFirstWinContinue != null) {
-                    TextButton(
-                        onClick = onDebugFirstWinContinue,
-                        modifier = Modifier.testTag("login_debug_continue_first_win"),
-                        enabled = !isLoading,
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White),
-                    ) {
-                        Text("Debug: Continue First-Win Flow")
-                    }
-                }
             }
         }
 
@@ -417,7 +406,7 @@ fun LoginScreen(
                     if (session.isLoggedIn && !loginCompletionHandled) {
                         loginCompletionHandled = true
                         analytics.logEvent("login_success", null)
-                        onLoginSuccess(operatorAccessRequested)
+                        onLoginSuccess()
                     }
                 },
                 onDecline = {

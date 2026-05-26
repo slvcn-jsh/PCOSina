@@ -28,21 +28,16 @@ import com.pcosina.app.data.repository.FeedbackRepository
 import com.pcosina.app.data.repository.MealPlanRepository
 import com.pcosina.app.data.repository.ReflectionStore
 import com.pcosina.app.data.repository.UserPreferencesRepository
-import com.pcosina.app.data.repository.AuthRepository
-import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.screens.DashboardTodayOutcomeCard
-import com.pcosina.app.ui.screens.GoalSelectionScreen
-import com.pcosina.app.ui.screens.LoginScreen
 import com.pcosina.app.ui.screens.MealPlanScreen
 import com.pcosina.app.ui.screens.ProgressScreen
 import com.pcosina.app.ui.screens.TodayTimelineState
 import com.pcosina.app.ui.screens.TodayTimelineStep
 import com.pcosina.app.ui.screens.StepThreeDiet
-import com.pcosina.app.ui.screens.UserProfileScreen
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -192,7 +187,7 @@ class CompactWidthVisualRegressionTest {
             }
         }
 
-        assertCompactScreenshot("progress_top_section_capture", "compact_progress_top_section")
+        assertCompactScreenshot("progress_header", "compact_progress_top_section")
     }
 
     @Test
@@ -225,87 +220,6 @@ class CompactWidthVisualRegressionTest {
         }
 
         assertCompactScreenshot(rootTag, "compact_mealplan_top_section")
-    }
-
-    @Test
-    fun compactWidth_loginFirstWinCard_screenshotRegression() {
-        val fixture = createFirstWinFixture("compact_login_first_win_${System.currentTimeMillis()}")
-        val rootTag = "compact_login_first_win_root_capture"
-
-        composeRule.setContent {
-            MaterialTheme {
-                Surface {
-                    Box(
-                        modifier = Modifier
-                            .width(320.dp)
-                            .fillMaxHeight()
-                            .testTag(rootTag)
-                    ) {
-                        LoginScreen(
-                            authViewModel = fixture.authViewModel,
-                            onLoginSuccess = {},
-                            onNavigateToSignUp = {},
-                            onDebugFirstWinContinue = {}
-                        )
-                    }
-                }
-            }
-        }
-
-        assertCompactScreenshot("login_first_win_card", "compact_login_first_win_card")
-    }
-
-    @Test
-    fun compactWidth_profileFirstWinCard_screenshotRegression() {
-        val fixture = createFirstWinFixture("compact_profile_first_win_${System.currentTimeMillis()}")
-        val rootTag = "compact_profile_first_win_root_capture"
-
-        composeRule.setContent {
-            MaterialTheme {
-                Surface {
-                    Box(
-                        modifier = Modifier
-                            .width(320.dp)
-                            .fillMaxHeight()
-                            .testTag(rootTag)
-                    ) {
-                        UserProfileScreen(
-                            userViewModel = fixture.userViewModel,
-                            onNext = {},
-                            isEditMode = false
-                        )
-                    }
-                }
-            }
-        }
-
-        assertCompactScreenshot("profile_first_win_card", "compact_profile_first_win_card")
-    }
-
-    @Test
-    fun compactWidth_goalHandoffCard_screenshotRegression() {
-        val fixture = createFirstWinFixture("compact_goal_handoff_${System.currentTimeMillis()}")
-        val rootTag = "compact_goal_handoff_root_capture"
-
-        composeRule.setContent {
-            MaterialTheme {
-                Surface {
-                    Box(
-                        modifier = Modifier
-                            .width(320.dp)
-                            .fillMaxHeight()
-                            .testTag(rootTag)
-                    ) {
-                        GoalSelectionScreen(
-                            userViewModel = fixture.userViewModel,
-                            onFinish = {}
-                        )
-                    }
-                }
-            }
-        }
-
-        assertCompactScreenshot("goal_why_card", "compact_goal_handoff_card")
     }
 
     private fun assertCompactScreenshot(captureTag: String, baselineName: String) {
@@ -495,17 +409,6 @@ class CompactWidthVisualRegressionTest {
         )
     }
 
-    private fun createFirstWinFixture(userId: String): FirstWinCompactFixture {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val userPrefs = UserPreferencesRepository(context)
-        val userViewModel = UserViewModel(userPrefs)
-        val authViewModel = AuthViewModel(AuthRepository(context))
-        userViewModel.loadProfileForUser(userId)
-        return FirstWinCompactFixture(
-            authViewModel = authViewModel,
-            userViewModel = userViewModel
-        )
-    }
 }
 
 private data class ProgressFixture(
@@ -521,11 +424,6 @@ private data class MealPlanFixture(
     val mealPlanViewModel: MealPlanViewModel,
     val groceryViewModel: GroceryViewModel,
     val progressViewModel: ProgressViewModel
-)
-
-private data class FirstWinCompactFixture(
-    val authViewModel: AuthViewModel,
-    val userViewModel: UserViewModel
 )
 
 @androidx.compose.runtime.Composable

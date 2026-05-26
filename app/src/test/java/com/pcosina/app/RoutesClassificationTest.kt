@@ -19,14 +19,6 @@ class RoutesClassificationTest {
             Routes.Dashboard,
             Routes.Settings,
             Routes.Notifications,
-            Routes.AdminMethodology,
-            Routes.OperatorDashboard,
-            Routes.OperatorRecipes,
-            Routes.OperatorPrices,
-            Routes.OperatorGroceryPantry,
-            Routes.OperatorRules,
-            Routes.OperatorSystemInfo,
-            Routes.OperatorAdminSettings,
             Routes.MealPlan,
             Routes.GroceryList,
             Routes.Progress,
@@ -49,14 +41,6 @@ class RoutesClassificationTest {
             Routes.Dashboard,
             Routes.Settings,
             Routes.Notifications,
-            Routes.AdminMethodology,
-            Routes.OperatorDashboard,
-            Routes.OperatorRecipes,
-            Routes.OperatorPrices,
-            Routes.OperatorGroceryPantry,
-            Routes.OperatorRules,
-            Routes.OperatorSystemInfo,
-            Routes.OperatorAdminSettings,
             Routes.MealPlan,
             Routes.GroceryList,
             Routes.Progress,
@@ -81,14 +65,6 @@ class RoutesClassificationTest {
         assertFalse(Routes.requiresPlan(Routes.MealPlan))
         assertFalse(Routes.requiresPlan(Routes.Settings))
         assertFalse(Routes.requiresPlan(Routes.Notifications))
-        assertFalse(Routes.requiresPlan(Routes.AdminMethodology))
-        assertFalse(Routes.requiresPlan(Routes.OperatorDashboard))
-        assertFalse(Routes.requiresPlan(Routes.OperatorRecipes))
-        assertFalse(Routes.requiresPlan(Routes.OperatorPrices))
-        assertFalse(Routes.requiresPlan(Routes.OperatorGroceryPantry))
-        assertFalse(Routes.requiresPlan(Routes.OperatorRules))
-        assertFalse(Routes.requiresPlan(Routes.OperatorSystemInfo))
-        assertFalse(Routes.requiresPlan(Routes.OperatorAdminSettings))
         assertFalse(Routes.requiresPlan(Routes.UserProfile))
         assertFalse(Routes.requiresPlan(Routes.GoalSelection))
         assertFalse(Routes.requiresPlan(Routes.Ipo))

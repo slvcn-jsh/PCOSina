@@ -82,7 +82,6 @@ fun RecipeDetailsScreen(
     groceryViewModel: GroceryViewModel,
     progressViewModel: ProgressViewModel,
     goal: String = "",
-    adminMode: Boolean = false,
     householdSize: Int = 1,
     onBack: () -> Unit,
     onAddToGrocery: () -> Unit,

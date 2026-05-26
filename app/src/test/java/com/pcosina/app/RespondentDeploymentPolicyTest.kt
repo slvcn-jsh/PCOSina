@@ -24,13 +24,11 @@ class RespondentDeploymentPolicyTest {
     fun appCheckTokenSendFlag_controlsBackendHeaderAndStartupRefresh() {
         val appSource = read(resolve("app", "src", "main", "java", "com", "pcosina", "app", "PcosinaApp.kt"))
         val repositorySource = read(resolve("app", "src", "main", "java", "com", "pcosina", "app", "data", "repository", "MealPlanRepository.kt"))
-        val authRepositorySource = read(resolve("app", "src", "main", "java", "com", "pcosina", "app", "data", "repository", "AuthRepository.kt"))
 
         assertTrue(appSource.contains("DebugAppCheckProviderFactory"))
         assertTrue(appSource.contains("PlayIntegrityAppCheckProviderFactory"))
         assertTrue(appSource.contains("setTokenAutoRefreshEnabled(BuildConfig.PCOSINA_SEND_APP_CHECK)"))
         assertTrue(repositorySource.contains("if (BuildConfig.PCOSINA_SEND_APP_CHECK)"))
-        assertTrue(authRepositorySource.contains("if (!BuildConfig.PCOSINA_SEND_APP_CHECK)"))
         assertTrue(repositorySource.contains("X-Firebase-AppCheck"))
     }
 

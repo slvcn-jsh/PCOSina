@@ -104,7 +104,6 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     private object Keys {
-        val adminMode = booleanPreferencesKey("admin_mode")
         val profileCompletionMigrationDone = booleanPreferencesKey("profile_completion_key_migration_done_v1")
         fun profileUpdatedAt(userId: String) = longPreferencesKey("profile_updated_at_$userId")
         fun name(userId: String) = stringPreferencesKey("name_$userId")
@@ -1084,14 +1083,6 @@ class UserPreferencesRepository(private val context: Context) {
         writeSecureArtifact(userId, SecureArtifacts.pantryEntries, gson.toJson(entries))
         editArtifactDomainsAndSync(userId, ArtifactDomain.Pantry) { prefs ->
             prefs.remove(Keys.pantryEntries(userId))
-        }
-    }
-
-    fun getAdminMode(): Flow<Boolean> = context.dataStore.data.map { it[Keys.adminMode] ?: false }
-
-    suspend fun setAdminMode(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[Keys.adminMode] = enabled
         }
     }
 

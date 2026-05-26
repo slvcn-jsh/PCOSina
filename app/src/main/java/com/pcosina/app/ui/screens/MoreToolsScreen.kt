@@ -1,6 +1,5 @@
 package com.pcosina.app.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,21 +33,18 @@ import com.pcosina.app.ui.components.ScreenFocusStrip
 private enum class MoreToolsFocus {
     Guides,
     Feedback,
-    Team,
 }
 
 @Composable
 fun MoreToolsScreen(
     onBack: () -> Unit,
     onOpenSupport: () -> Unit,
-    onOpenMethodology: () -> Unit,
     onFeedback: () -> Unit,
-    showAdminTools: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = MaterialTheme.colorScheme
     var focusKey by rememberSaveable { mutableStateOf(MoreToolsFocus.Guides.name) }
-    val focusOptions = remember(showAdminTools) {
+    val focusOptions = remember {
         buildList {
             add(
                 ScreenFocusOption(
@@ -65,40 +60,25 @@ fun MoreToolsScreen(
                     summary = "Report an issue fast."
                 )
             )
-            if (showAdminTools) {
-                add(
-                    ScreenFocusOption(
-                        key = MoreToolsFocus.Team.name,
-                        label = "Team",
-                        summary = "Open team-only planner guides."
-                    )
-                )
-            }
         }
     }
     val focusSummaryTitle = when (focusKey) {
         MoreToolsFocus.Guides.name -> "Open the right guide fast."
         MoreToolsFocus.Feedback.name -> "Send one clear note."
-        else -> "Keep review tools separate."
+        else -> "Open the right guide fast."
     }
     val focusSummaryBody = when (focusKey) {
         MoreToolsFocus.Guides.name -> "This screen should feel like a quick launcher for help, not a second settings page."
         MoreToolsFocus.Feedback.name -> "Use this space when something felt confusing, visually off, or harder than it should be."
-        else -> "Internal review links stay tucked away so everyday planning stays simple."
+        else -> "This screen should feel like a quick launcher for help, not a second settings page."
     }
     val focusSummaryHighlights = buildList {
-        add(
-            if (showAdminTools) {
-                "Admin tools are available for this account."
-            } else {
-                "Normal accounts only see help and feedback."
-            }
-        )
+        add("Help and feedback stay separate from planning.")
         add(
             when (focusKey) {
                 MoreToolsFocus.Guides.name -> "Open the guide that answers the current question."
                 MoreToolsFocus.Feedback.name -> "Keep feedback short, specific, and tied to one screen or step."
-                else -> "Use methodology and admin-only tools only during review or testing."
+                else -> "Open the guide that answers the current question."
             }
         )
     }
@@ -115,7 +95,7 @@ fun MoreToolsScreen(
             Box {
                 GradientHeader(
                     title = "More Tools",
-                    subtitle = "Quick help, feedback, and team-only links.",
+                    subtitle = "Quick help and feedback.",
                     containerHeight = 108
                 )
                 IconButton(onClick = onBack, modifier = Modifier.padding(8.dp)) {
@@ -180,25 +160,6 @@ fun MoreToolsScreen(
                     actionLabel = "Send feedback",
                     onAction = onFeedback,
                     modifier = Modifier.testTag("more_tools_feedback_card")
-                )
-            }
-        }
-
-        if (showAdminTools && focusKey == MoreToolsFocus.Team.name) {
-            item {
-                RefinedFeatureCard(
-                    icon = Icons.Filled.Settings,
-                    accentColor = colorScheme.tertiary,
-                    statusLabel = "Team only",
-                    title = "Open planner guide",
-                    body = "Review how the planner turns saved food rules into a weekly meal plan before you test deeper flows.",
-                    highlights = listOf(
-                        "This tab is for setup, review, and internal troubleshooting only.",
-                        "Regular users should stay on plan, grocery, progress, and support."
-                    ),
-                    actionLabel = "Open guide",
-                    onAction = onOpenMethodology,
-                    modifier = Modifier.testTag("more_tools_methodology_card")
                 )
             }
         }

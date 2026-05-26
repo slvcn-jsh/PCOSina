@@ -228,7 +228,7 @@ def test_bundled_catalog_nutrition_seed_has_no_fixed_placeholder_profiles():
     assert telemetry["candidate_count_post"] == telemetry["stage1_diag"]["restricted_solver_anchor_core_count"]
     assert telemetry["stage1_diag"]["repeat_sequence"] == [6, 8, 10]
     assert telemetry["solve_pair_diagnostics"][0]["tol"] == 0.4
-    assert telemetry["solve_pair_diagnostics"][0]["maxPerWeek"] == 8
+    assert telemetry["solve_pair_diagnostics"][0]["maxPerWeek"] == 10
     assert set(telemetry["selected_recipe_ids"]) & {f"ph_qk_{idx:03d}" for idx in range(61, 77)}
 
 

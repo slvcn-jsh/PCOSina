@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -148,6 +149,7 @@ fun GroceryRefinedScreen(
     var pantryOptOut by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var expandedCategories by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
+    var initializedCategoryExpansion by rememberSaveable(activePlanId) { mutableStateOf(false) }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
     var showPantryDialog by remember { mutableStateOf(false) }
     var showAddPantryDialog by remember { mutableStateOf(false) }
@@ -236,6 +238,10 @@ fun GroceryRefinedScreen(
     LaunchedEffect(categoryEntries) {
         if (categoryEntries.isNotEmpty() && categoryEntries.none { it.first == selectedCategoryKey }) {
             selectedCategoryKey = categoryEntries.first().first
+        }
+        if (categoryEntries.isNotEmpty() && !initializedCategoryExpansion) {
+            expandedCategories = categoryEntries.map { it.first }.toSet()
+            initializedCategoryExpansion = true
         }
     }
     val selectedCategoryIndex = categoryEntries.indexOfFirst { it.first == selectedCategoryKey }.let { index ->
@@ -362,6 +368,7 @@ fun GroceryRefinedScreen(
                 .fillMaxSize()
                 .verticalScroll(scrollState)
                 .navigationBarsPadding()
+                .testTag("grocery_content_list")
                 .padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 8.dp else 12.dp),
             verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp)
         ) {
@@ -377,6 +384,28 @@ fun GroceryRefinedScreen(
                 avatarId = userProfile.avatarId,
                 dateLabel = todayLabel,
                 compact = compact
+            )
+
+            GroceryNextStepsCard(
+                anyExpanded = expandedCategories.isNotEmpty(),
+                onToggleAll = {
+                    expandedCategories = if (expandedCategories.isNotEmpty()) {
+                        feedbackMessage = "Collapsed all categories."
+                        emptySet()
+                    } else {
+                        feedbackMessage = "Opened all categories."
+                        categoryEntries.map { it.first }.toSet()
+                    }
+                },
+                onOpenMealPlan = {
+                    if (isOnline) {
+                        onNavigateToRoute(Routes.MealPlan)
+                    } else {
+                        feedbackMessage = "Internet required for this action. Connect to open plan generation."
+                    }
+                },
+                onOpenProgress = { onNavigateToRoute(Routes.Progress) },
+                compact = compact,
             )
 
             if (!feedbackMessage.isNullOrBlank()) {
@@ -1241,6 +1270,83 @@ private fun GroceryActionTile(
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                 color = PcosinaDeepRose,
                 textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+private fun GroceryNextStepsCard(
+    anyExpanded: Boolean,
+    onToggleAll: () -> Unit,
+    onOpenMealPlan: () -> Unit,
+    onOpenProgress: () -> Unit,
+    compact: Boolean,
+) {
+    RefinedOverviewCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("grocery_next_steps_card"),
+        containerColor = Color(0xFFFFF8FB),
+        borderColor = PcosinaPink.copy(alpha = 0.22f),
+        contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
+    ) {
+        Text(
+            text = "Categories",
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+            color = PcosinaDeepRose,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GroceryPillAction(
+                text = "Go to Plan",
+                onClick = onOpenMealPlan,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("grocery_open_mealplan_cta"),
+            )
+            GroceryPillAction(
+                text = "Progress",
+                onClick = onOpenProgress,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("grocery_open_progress_cta"),
+            )
+        }
+        GroceryPillAction(
+            text = if (anyExpanded) "Collapse all" else "Open all",
+            onClick = onToggleAll,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("grocery_expand_toggle_all"),
+        )
+    }
+}
+
+@Composable
+private fun GroceryPillAction(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier
+            .heightIn(min = 44.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(999.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.24f))
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = text,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = PcosinaDeepRose,
+                textAlign = TextAlign.Center,
             )
         }
     }

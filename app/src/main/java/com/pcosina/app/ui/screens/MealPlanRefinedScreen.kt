@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -475,6 +476,7 @@ fun MealPlanRefinedScreen(
                 .fillMaxSize()
                 .verticalScroll(scrollState)
                 .navigationBarsPadding()
+                .testTag("mealplan_content_list")
                 .padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 10.dp else 14.dp),
             verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 14.dp)
         ) {
@@ -490,6 +492,7 @@ fun MealPlanRefinedScreen(
                 title = "Meal Plan",
                 subtitle = "Review your week, log today's meals, and sync groceries.",
                 avatarId = profile.avatarId,
+                modifier = Modifier.testTag("mealplan_top_section_capture"),
                 dateLabel = today.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)),
                 compact = compact,
             )
@@ -608,18 +611,59 @@ fun MealPlanRefinedScreen(
 
             if (noSafePlanNotice != null) {
                 RefinedOverviewCard(
+                    modifier = Modifier.testTag("mealplan_no_safe_plan_card"),
                     containerColor = Color(0xFFFFF4F6),
                     borderColor = MaterialTheme.colorScheme.error.copy(alpha = 0.24f),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp)
                 ) {
                     Text(
+                        text = "No safe plan is available yet",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Text(
                         text = noSafePlanNotice.message,
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.error
                     )
+                    if (noSafePlanNotice.guidance.isNotEmpty()) {
+                        Text(
+                            text = "Try adjusting:",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = PcosinaDeepRose
+                        )
+                    }
                     noSafePlanNotice.guidance.take(2).forEach { line ->
                         Text(text = "• $line", style = MaterialTheme.typography.bodySmall, color = PcosinaDeepRose)
                     }
+                    noSafePlanNotice.diagnosticsReference?.let { reference ->
+                        Text(
+                            text = "Reference: $reference",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = PcosinaMuted
+                        )
+                    }
+                    if (noSafePlanNotice.continuityPlanAvailable) {
+                        Text(
+                            text = "Your saved week is still available below.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = PcosinaMuted
+                        )
+                    }
+                }
+            }
+
+            if (!isOnline && currentPlan != null) {
+                RefinedOverviewCard(
+                    containerColor = Color(0xFFFFFBF0),
+                    borderColor = PcosinaPink.copy(alpha = 0.18f),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp)
+                ) {
+                    Text(
+                        text = "Offline mode: showing your last saved plan.",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = PcosinaDeepRose
+                    )
                 }
             }
 
@@ -696,6 +740,7 @@ fun MealPlanRefinedScreen(
                         { onNavigateToRoute(Routes.UserProfile) }
                     } else null,
                     primaryEnabled = profile.isProfileCompleted && uiState !is MealPlanUiState.Loading,
+                    primaryTestTag = "mealplan_generate_new_week_button",
                     compact = compact
                 )
             } else {
@@ -839,7 +884,7 @@ fun MealPlanRefinedScreen(
                                                     "recipe_id" to meal.recipeId
                                                 )
                                             )
-                                            feedbackMessage = "Internet required for meal swaps."
+                                            feedbackMessage = "Internet required for swap options. Connect and try again."
                                         } else {
                                             swapTarget = MealSwapTarget(
                                                 dayIndex = selectedDayIndex,
@@ -848,6 +893,7 @@ fun MealPlanRefinedScreen(
                                             )
                                         }
                                     },
+                                    swapTestTag = "mealplan_swap_meal_button_$mealIndex",
                                     compact = compact
                                 )
                             }
@@ -873,10 +919,8 @@ fun MealPlanRefinedScreen(
                         title = "Ready to shop?",
                         subtitle = replaceWeekSubtitle,
                         primaryLabel = "Go to Grocery",
-                        secondaryLabel = when {
-                            uiState is MealPlanUiState.Loading -> null
-                            planRenewalEligible -> "Start next week"
-                            else -> null
+                        secondaryLabel = if (uiState is MealPlanUiState.Loading) null else {
+                            if (planRenewalEligible) "Start next week" else "Generate New Week"
                         },
                         onPrimaryClick = {
                             mealPlanViewModel.extractGrocerySourcesForPlan { sources ->
@@ -884,16 +928,17 @@ fun MealPlanRefinedScreen(
                                 onNavigateToRoute(Routes.GroceryList)
                             }
                         },
-                        onSecondaryClick = if (planRenewalEligible) {
-                            {
-                                if (uiState !is MealPlanUiState.Loading) {
-                                    requestFreshWeek()
-                                }
+                        onSecondaryClick = {
+                            if (isOnline && planRenewalEligible && uiState !is MealPlanUiState.Loading) {
+                                requestFreshWeek()
                             }
-                        } else {
-                            null
                         },
                         primaryEnabled = currentPlan.days.isNotEmpty(),
+                        secondaryEnabled = isOnline && planRenewalEligible && uiState !is MealPlanUiState.Loading,
+                        cardTestTag = "mealplan_next_best_action_card",
+                        subtitleTestTag = "mealplan_next_best_action_reason",
+                        primaryTestTag = "mealplan_next_best_action_cta",
+                        secondaryTestTag = "mealplan_generate_new_week_button",
                         compact = compact
                     )
                 }
@@ -1133,10 +1178,18 @@ private fun MealPlanShoppingCard(
     onPrimaryClick: () -> Unit,
     onSecondaryClick: (() -> Unit)? = null,
     primaryEnabled: Boolean = true,
+    secondaryEnabled: Boolean = true,
+    modifier: Modifier = Modifier,
+    primaryTestTag: String? = null,
+    secondaryTestTag: String? = null,
+    cardTestTag: String? = null,
+    subtitleTestTag: String? = null,
     compact: Boolean,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(cardTestTag?.let { Modifier.testTag(it) } ?: Modifier),
         shape = RoundedCornerShape(26.dp),
         color = Color(0xFFF7F2F4),
         border = BorderStroke(2.dp, Color(0xFF30181E).copy(alpha = 0.72f))
@@ -1154,6 +1207,7 @@ private fun MealPlanShoppingCard(
             )
             Text(
                 text = subtitle,
+                modifier = subtitleTestTag?.let { Modifier.testTag(it) } ?: Modifier,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = PcosinaMuted
@@ -1171,14 +1225,19 @@ private fun MealPlanShoppingCard(
                     RefinedPrimaryButton(
                         text = primaryLabel,
                         onClick = onPrimaryClick,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(primaryTestTag?.let { Modifier.testTag(it) } ?: Modifier),
                         enabled = primaryEnabled
                     )
                     if (!secondaryLabel.isNullOrBlank() && onSecondaryClick != null) {
                         Surface(
-                            modifier = Modifier.fillMaxWidth().clickable(onClick = onSecondaryClick),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(secondaryTestTag?.let { Modifier.testTag(it) } ?: Modifier)
+                                .clickable(enabled = secondaryEnabled, onClick = onSecondaryClick),
                             shape = RoundedCornerShape(18.dp),
-                            color = PcosinaBlush.copy(alpha = 0.9f),
+                            color = PcosinaBlush.copy(alpha = if (secondaryEnabled) 0.9f else 0.42f),
                             border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.22f))
                         ) {
                             Text(
@@ -1187,7 +1246,7 @@ private fun MealPlanShoppingCard(
                                 textAlign = TextAlign.Center,
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = PcosinaDeepRose
+                                    color = if (secondaryEnabled) PcosinaDeepRose else PcosinaMuted
                                 )
                             )
                         }
@@ -1284,6 +1343,7 @@ private fun MealPlanOutlineMealCard(
     onLog: () -> Unit,
     onSkip: () -> Unit,
     onSwap: () -> Unit,
+    swapTestTag: String? = null,
     compact: Boolean,
 ) {
     val (containerColor, accentColor, iconRes) = when {
@@ -1397,7 +1457,9 @@ private fun MealPlanOutlineMealCard(
             Surface(
                 shape = RoundedCornerShape(999.dp),
                 color = if (logged || skipped) Color.White.copy(alpha = 0.12f) else Color.Transparent,
-                modifier = Modifier.clickable(enabled = !logged && !skipped, onClick = onSwap)
+                modifier = Modifier
+                    .then(swapTestTag?.let { Modifier.testTag(it) } ?: Modifier)
+                    .clickable(enabled = !logged && !skipped, onClick = onSwap)
             ) {
                 Column(
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),

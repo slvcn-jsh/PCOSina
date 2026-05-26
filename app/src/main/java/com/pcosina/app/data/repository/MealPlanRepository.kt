@@ -1,9 +1,6 @@
 package com.pcosina.app.data.repository
 
 import com.pcosina.app.BuildConfig
-import com.pcosina.app.data.api.AdminPriceRuleDto
-import com.pcosina.app.data.api.AdminPriceRuleUpsertDto
-import com.pcosina.app.data.api.AdminRecipeUpsertDto
 import com.pcosina.app.data.api.GeneratePlanRequest
 import com.pcosina.app.data.api.MlClientEventRequestDto
 import com.pcosina.app.data.api.PcosinaApiService
@@ -364,100 +361,6 @@ class MealPlanRepository(
         }
     }
 
-    suspend fun getAdminRecipes(limit: Int = 250): Result<List<RecipeDetailDto>> {
-        return try {
-            val response = executeWithBackendFallback("admin recipe review") { service ->
-                service.getAdminRecipes(limit = limit)
-            }
-            Result.success(response.items)
-        } catch (e: Exception) {
-            Result.failure(mapAdminException(e, "recipe dataset"))
-        }
-    }
-
-    suspend fun saveAdminRecipe(request: AdminRecipeUpsertDto): Result<RecipeDetailDto> {
-        return try {
-            val recipeId = request.id?.trim().orEmpty()
-            val saved = executeWithBackendFallback("admin recipe save") { service ->
-                if (recipeId.isBlank()) {
-                    service.createAdminRecipe(request.copy(id = null))
-                } else {
-                    service.updateAdminRecipe(recipeId, request.copy(id = recipeId))
-                }
-            }
-            synchronized(recipeCache) {
-                recipeCache.remove(saved.id)
-            }
-            synchronized(summaryCache) {
-                summaryCache.clear()
-            }
-            recipeSnapshotStore.upsert(saved)
-            Result.success(saved)
-        } catch (e: Exception) {
-            Result.failure(mapAdminException(e, "recipe dataset"))
-        }
-    }
-
-    suspend fun deleteAdminRecipe(recipeId: String): Result<Unit> {
-        return try {
-            val normalized = recipeId.trim()
-            require(normalized.isNotBlank()) { "Recipe ID is required." }
-            executeWithBackendFallback("admin recipe delete") { service ->
-                service.deleteAdminRecipe(normalized)
-            }
-            synchronized(recipeCache) {
-                recipeCache.remove(normalized)
-            }
-            synchronized(summaryCache) {
-                summaryCache.clear()
-            }
-            recipeSnapshotStore.remove(normalized)
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(mapAdminException(e, "recipe dataset"))
-        }
-    }
-
-    suspend fun getAdminPriceRules(limit: Int = 250): Result<List<AdminPriceRuleDto>> {
-        return try {
-            val response = executeWithBackendFallback("admin price-rule review") { service ->
-                service.getAdminPriceRules(limit = limit)
-            }
-            Result.success(response.items)
-        } catch (e: Exception) {
-            Result.failure(mapAdminException(e, "ingredient and price dataset"))
-        }
-    }
-
-    suspend fun saveAdminPriceRule(request: AdminPriceRuleUpsertDto): Result<AdminPriceRuleDto> {
-        return try {
-            val ruleId = request.id?.trim().orEmpty()
-            val saved = executeWithBackendFallback("admin price-rule save") { service ->
-                if (ruleId.isBlank()) {
-                    service.createAdminPriceRule(request.copy(id = null))
-                } else {
-                    service.updateAdminPriceRule(ruleId, request.copy(id = ruleId))
-                }
-            }
-            Result.success(saved)
-        } catch (e: Exception) {
-            Result.failure(mapAdminException(e, "ingredient and price dataset"))
-        }
-    }
-
-    suspend fun deleteAdminPriceRule(ruleId: String): Result<Unit> {
-        return try {
-            val normalized = ruleId.trim()
-            require(normalized.isNotBlank()) { "Price rule ID is required." }
-            executeWithBackendFallback("admin price-rule delete") { service ->
-                service.deleteAdminPriceRule(normalized)
-            }
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(mapAdminException(e, "ingredient and price dataset"))
-        }
-    }
-
     suspend fun getSwapOptions(
         profile: UserProfile,
         mealLabel: String,
@@ -602,24 +505,6 @@ class MealPlanRepository(
                 else (error.message ?: "Request failed")
             )
         }
-    }
-
-    private fun mapAdminException(error: Exception, datasetName: String): Exception {
-        if (error is HttpException) {
-            return when (error.code()) {
-                401, 403 -> IllegalStateException(
-                    "Admin $datasetName review was rejected by the backend. " +
-                        "Sign out, sign in with an allowlisted admin Google account, and try again."
-                )
-                404 -> IllegalStateException(
-                    "Admin $datasetName endpoint is not available on the configured backend."
-                )
-                else -> IllegalStateException(
-                    "Admin $datasetName review failed with HTTP ${error.code()}."
-                )
-            }
-        }
-        return mapGeneratePlanException(error)
     }
 
     private fun parseErrorDetail(error: HttpException): String {

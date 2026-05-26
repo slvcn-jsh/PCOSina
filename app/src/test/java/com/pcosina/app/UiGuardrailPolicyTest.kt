@@ -147,16 +147,14 @@ class UiGuardrailPolicyTest {
     }
 
     @Test
-    fun adminOperatorRouting_doesNotWhitelistClientMoreToolsSurface() {
+    fun mobileShell_doesNotExposeAdminOperatorRoutes() {
         val navHost = read(
             resolve("app", "src", "main", "java", "com", "pcosina", "app", "ui", "navigation", "AppNavHost.kt")
         )
 
-        assertFalse("Operator accounts should not get a MoreTools client-side bypass.", navHost.contains("isOperatorReviewRoute"))
-        assertTrue(
-            "Operator dashboard More Tools entry should stay in admin methodology.",
-            navHost.contains("onOpenMoreTools = { navigateInternal(Routes.AdminMethodology) }")
-        )
+        assertFalse("Mobile navigation should not contain operator routes.", navHost.contains("Routes.Operator"))
+        assertFalse("Mobile navigation should not contain admin methodology routes.", navHost.contains("Routes.AdminMethodology"))
+        assertFalse("Mobile navigation should not enable admin-only More Tools.", navHost.contains("showAdminTools"))
     }
 
     private fun discoverScreenFileNames(): Set<String> {
@@ -215,7 +213,6 @@ class UiGuardrailPolicyTest {
             "MealPlanRefinedScreen.kt",
             "MoreToolsScreen.kt",
             "NotificationScreen.kt",
-            "OperatorDashboardScreen.kt",
             "ProgressRefinedScreen.kt",
             "SignUpScreen.kt",
             "SplashScreen.kt"

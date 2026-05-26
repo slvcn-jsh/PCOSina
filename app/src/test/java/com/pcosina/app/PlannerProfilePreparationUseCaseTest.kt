@@ -54,13 +54,41 @@ class PlannerProfilePreparationUseCaseTest {
 
         assertFalse(prepared.usedStoredProfileFallback)
         assertEquals("High", prepared.plannerProfile.varietyPreference)
-        assertEquals(1800, prepared.plannerProfile.weeklyBudgetPhp)
-        assertEquals(35, prepared.plannerProfile.maxCookingTimeMinutes)
+        assertEquals(2000, prepared.plannerProfile.weeklyBudgetPhp)
+        assertEquals(45, prepared.plannerProfile.maxCookingTimeMinutes)
+        assertEquals("Budget First Quick Prep", prepared.plannerProfile.planningPriority)
         assertEquals("Symptom Management, General Health", prepared.plannerProfile.goal)
         assertEquals(
             listOf("Too repetitive", "Too expensive", "Too hard to cook"),
             prepared.appliedFeedbackTags
         )
+    }
+
+    @Test
+    fun prepare_appliesOptInGoalLoopTagsWithoutWeakeningHardInputs() {
+        val requested = UserProfile(
+            age = 30,
+            heightCm = 162,
+            weightKg = 70,
+            activityLevel = "Lightly Active",
+            goal = "Weight Loss",
+            weeklyBudgetPhp = 1800,
+            maxCookingTimeMinutes = 40,
+        )
+
+        val prepared = useCase(
+            requestedProfile = requested,
+            feedbackTags = listOf(
+                PlannerProfilePreparationUseCase.GoalWeightTrendSupportTag,
+                PlannerProfilePreparationUseCase.GoalCravingSupportTag,
+            )
+        )
+
+        assertEquals(1800, prepared.plannerProfile.weeklyBudgetPhp)
+        assertEquals(40, prepared.plannerProfile.maxCookingTimeMinutes)
+        assertEquals("Nutrition Tight", prepared.plannerProfile.planningPriority)
+        assertTrue(prepared.plannerProfile.symptoms.contains("Weight gain"))
+        assertEquals("Weight Loss, Symptom Management", prepared.plannerProfile.goal)
     }
 
     @Test

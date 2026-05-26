@@ -72,6 +72,8 @@ import com.pcosina.app.data.model.PlannerPlannedMeal
 import com.pcosina.app.data.model.PlannerPlanResponse
 import com.pcosina.app.domain.HealthMetrics
 import com.pcosina.app.domain.PlannedDayCount
+import com.pcosina.app.domain.ProgressNextPlanAdjustmentSuggestion
+import com.pcosina.app.domain.ProgressNextPlanAdjustmentUseCase
 import com.pcosina.app.domain.ProgressAdherencePoint
 import com.pcosina.app.domain.ProgressCheckInHistoryDay
 import com.pcosina.app.domain.ProgressDayStatus
@@ -79,6 +81,8 @@ import com.pcosina.app.domain.ProgressSummaryUseCase
 import com.pcosina.app.domain.ProgressTrendSummary
 import com.pcosina.app.domain.ProgressWeekNodeSummary
 import com.pcosina.app.domain.UnitConverter
+import com.pcosina.app.domain.WeightGoalGuardrailSummary
+import com.pcosina.app.domain.WeightGoalGuardrailUseCase
 import com.pcosina.app.domain.WeeklyMealSummaryResult
 import com.pcosina.app.R
 import com.pcosina.app.ui.GroceryViewModel
@@ -158,6 +162,7 @@ private data class ProgressDraftInputs(
     val energyLevel: Int = 3,
     val moodLevel: Int = 3,
     val cravingsLevel: Int = 3,
+    val symptomSeverityByTag: Map<String, Int> = emptyMap(),
     val noteText: String = "",
     val weightInput: String = "",
     val weeklyJournalDraft: String = "",
@@ -228,6 +233,8 @@ fun ProgressRefinedScreen(
             ?: planHistory.maxByOrNull { it.generatedAt }?.response
     }
     val progressSummaryUseCase = remember { ProgressSummaryUseCase() }
+    val nextPlanAdjustmentUseCase = remember { ProgressNextPlanAdjustmentUseCase() }
+    val weightGoalGuardrailUseCase = remember { WeightGoalGuardrailUseCase() }
     val weekStart = remember(activeWeekStart, currentPlan?.weekLabel) {
         activeWeekStart?.let {
             runCatching { LocalDate.parse(it, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
@@ -277,6 +284,12 @@ fun ProgressRefinedScreen(
     val trendSummary = remember(logs, today) {
         progressSummaryUseCase.buildFourWeekTrendSummary(logs, today)
     }
+    val nextPlanAdjustmentSummary = remember(profile, logs, today) {
+        nextPlanAdjustmentUseCase.build(profile, logs, today)
+    }
+    val weightGoalSummary = remember(profile, today) {
+        weightGoalGuardrailUseCase.build(profile, today)
+    }
     var showReflectionDialog by remember { mutableStateOf(false) }
     var showWeeklyReviewDialog by remember { mutableStateOf(false) }
     var showWeeklyHighlightsDialog by remember { mutableStateOf(false) }
@@ -302,6 +315,7 @@ fun ProgressRefinedScreen(
         todayLog?.energyLevel,
         todayLog?.moodLevel,
         todayLog?.cravingsLevel,
+        todayLog?.symptomSeverityByTag,
         todayLog?.symptomsNote,
         todayLog?.weightKg,
         profile.weightUnit,
@@ -323,6 +337,7 @@ fun ProgressRefinedScreen(
                 energyLevel = todayLog?.energyLevel ?: 3,
                 moodLevel = todayLog?.moodLevel ?: 3,
                 cravingsLevel = todayLog?.cravingsLevel ?: 3,
+                symptomSeverityByTag = todayLog?.symptomSeverityByTag.orEmpty(),
                 noteText = todayLog?.symptomsNote.orEmpty(),
                 weightInput = displayWeight,
                 weeklyJournalDraft = weeklyJournal,
@@ -338,6 +353,7 @@ fun ProgressRefinedScreen(
     var energyLevel by remember(today.toString()) { mutableStateOf(draftInputs.energyLevel) }
     var moodLevel by remember(today.toString()) { mutableStateOf(draftInputs.moodLevel) }
     var cravingsLevel by remember(today.toString()) { mutableStateOf(draftInputs.cravingsLevel) }
+    var symptomSeverityByTag by remember(today.toString()) { mutableStateOf(draftInputs.symptomSeverityByTag) }
     var noteText by remember(today.toString()) { mutableStateOf(draftInputs.noteText) }
     var weightInput by remember(today.toString(), profile.weightUnit) { mutableStateOf(draftInputs.weightInput) }
     var weeklyJournalDraft by remember(weekStartKey) { mutableStateOf(draftInputs.weeklyJournalDraft) }
@@ -349,6 +365,7 @@ fun ProgressRefinedScreen(
         draftInputs.energyLevel,
         draftInputs.moodLevel,
         draftInputs.cravingsLevel,
+        draftInputs.symptomSeverityByTag,
         draftInputs.noteText,
         draftInputs.weightInput,
         today.toString(),
@@ -357,6 +374,7 @@ fun ProgressRefinedScreen(
         energyLevel = draftInputs.energyLevel
         moodLevel = draftInputs.moodLevel
         cravingsLevel = draftInputs.cravingsLevel
+        symptomSeverityByTag = draftInputs.symptomSeverityByTag
         noteText = draftInputs.noteText
         weightInput = draftInputs.weightInput
     }
@@ -389,7 +407,8 @@ fun ProgressRefinedScreen(
                                 energyLevel = energyLevel,
                                 cravingsLevel = cravingsLevel,
                                 moodLevel = moodLevel,
-                                symptomTags = todayLog?.symptomTags.orEmpty(),
+                                symptomTags = symptomSeverityByTag.keys.toList(),
+                                symptomSeverityByTag = symptomSeverityByTag,
                                 symptomsNote = noteText
                             )
                         ) {
@@ -412,7 +431,10 @@ fun ProgressRefinedScreen(
             },
             title = { Text("Today's check-in") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     ProgressLevelPicker(
                         label = "Energy",
                         value = energyLevel,
@@ -428,6 +450,24 @@ fun ProgressRefinedScreen(
                         value = cravingsLevel,
                         onSelect = { cravingsLevel = it }
                     )
+                    if (profile.symptoms.isNotEmpty()) {
+                        Text(
+                            text = "Symptom severity",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = PcosinaDeepRose
+                        )
+                        profile.symptoms.forEach { symptom ->
+                            ProgressLevelPicker(
+                                label = symptom,
+                                value = symptomSeverityByTag[symptom] ?: 3,
+                                onSelect = { level ->
+                                    symptomSeverityByTag = symptomSeverityByTag
+                                        .toMutableMap()
+                                        .also { it[symptom] = level }
+                                }
+                            )
+                        }
+                    }
                     OutlinedTextField(
                         value = noteText,
                         onValueChange = { noteText = it },
@@ -703,6 +743,17 @@ fun ProgressRefinedScreen(
                 compact = compact
             )
 
+            if (profile.goal.contains("Weight Loss", ignoreCase = true) || weightGoalSummary.hasTarget) {
+                ProgressWeightSupportCard(
+                    summary = weightGoalSummary,
+                    weightUnitLabel = weightUnitLabel,
+                    compact = compact,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("progress_weight_support_card")
+                )
+            }
+
             if (showWeekMode) {
                 ProgressWeeklyHighlightsLauncher(
                     weekStart = weekStart,
@@ -834,6 +885,28 @@ fun ProgressRefinedScreen(
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = PcosinaMuted
+                    )
+                }
+
+                if (nextPlanAdjustmentSummary.suggestions.isNotEmpty()) {
+                    ProgressNextPlanAdjustmentCard(
+                        suggestions = nextPlanAdjustmentSummary.suggestions,
+                        evidenceDays = nextPlanAdjustmentSummary.evidenceDays,
+                        appliedTags = planFeedbackTags,
+                        onApply = {
+                            val nextTags = (planFeedbackTags + nextPlanAdjustmentSummary.suggestions.map { it.tag })
+                                .map { it.trim() }
+                                .filter { it.isNotBlank() }
+                                .distinct()
+                            progressViewModel.savePlanFeedbackTags(nextTags)
+                            selectedFeedbackTags = nextTags.toSet()
+                            feedbackMessage = "Next-plan adjustments saved. Generate a new plan when ready."
+                        },
+                        compact = compact,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("progress_next_plan_adjustment_card")
+                            .semantics { traversalIndex = 8.5f },
                     )
                 }
 
@@ -1672,6 +1745,134 @@ private fun ProgressFourWeekTrendCard(summary: ProgressTrendSummary) {
                 ProgressTrendMetric("Energy", summary.averageEnergy.formatTrendAverage(), Modifier.weight(1f))
                 ProgressTrendMetric("Mood", summary.averageMood.formatTrendAverage(), Modifier.weight(1f))
                 ProgressTrendMetric("Cravings", summary.averageCravings.formatTrendAverage(), Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressWeightSupportCard(
+    summary: WeightGoalGuardrailSummary,
+    weightUnitLabel: String,
+    compact: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val paceValue = summary.weeklyChangeKg?.let { weeklyKg ->
+        val display = if (weightUnitLabel == "lb") weeklyKg * 2.20462 else weeklyKg
+        String.format(Locale.ENGLISH, "%.2f %s/week", kotlin.math.abs(display), weightUnitLabel)
+    }
+    RefinedOverviewCard(
+        modifier = modifier,
+        containerColor = Color(0xFFF8FFF9),
+        borderColor = Color(0xFF009A57).copy(alpha = 0.22f),
+        contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(
+                    text = "Weight support",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                    color = PcosinaDeepRose
+                )
+                Text(
+                    text = summary.title,
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = Color(0xFF009A57),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            RefinedStatusPill(
+                text = when (summary.status) {
+                    "within_guardrail" -> "Ready"
+                    "review_pace" -> "Review"
+                    "direction_only" -> "Date needed"
+                    "maintenance" -> "Maintain"
+                    else -> "Optional"
+                },
+                containerColor = Color.White,
+                contentColor = PcosinaDeepRose
+            )
+        }
+        Text(
+            text = summary.detail,
+            style = MaterialTheme.typography.bodySmall,
+            color = PcosinaMuted
+        )
+        if (paceValue != null) {
+            ProgressLevelPill(label = "Weekly pace", value = paceValue)
+        }
+    }
+}
+
+@Composable
+private fun ProgressNextPlanAdjustmentCard(
+    suggestions: List<ProgressNextPlanAdjustmentSuggestion>,
+    evidenceDays: Int,
+    appliedTags: List<String>,
+    onApply: () -> Unit,
+    compact: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val pending = suggestions.filterNot { suggestion ->
+        appliedTags.any { it.equals(suggestion.tag, ignoreCase = true) }
+    }
+    RefinedOverviewCard(
+        modifier = modifier,
+        containerColor = Color(0xFFFFF8FB),
+        borderColor = PcosinaPink.copy(alpha = 0.24f),
+        contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = "Next-plan adjustments",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                    color = PcosinaDeepRose,
+                )
+                Text(
+                    text = "$evidenceDays local check-in day(s) reviewed.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PcosinaMuted,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            TextButton(
+                enabled = pending.isNotEmpty(),
+                onClick = onApply,
+            ) {
+                Text(if (pending.isEmpty()) "Applied" else "Apply")
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            suggestions.forEach { suggestion ->
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = suggestion.title,
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        color = PcosinaDeepRose,
+                    )
+                    Text(
+                        text = suggestion.detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PcosinaMuted,
+                    )
+                }
             }
         }
     }
@@ -3461,6 +3662,7 @@ private fun hasCalendarReflection(log: DailyLog?): Boolean {
         !log.symptomsNote.isNullOrBlank() ||
         !log.journalText.isNullOrBlank() ||
         log.symptomTags.isNotEmpty() ||
+        log.symptomSeverityByTag.isNotEmpty() ||
         log.weightKg != null
 }
 
@@ -3488,6 +3690,11 @@ private fun buildCalendarReflectionSummaries(log: DailyLog?): List<String> {
     log.moodLevel?.let { lines += "Mood: $it/5" }
     log.cravingsLevel?.let { lines += "Cravings: $it/5" }
     log.weightKg?.let { lines += "Weight record: ${it}kg" }
+    if (log.symptomSeverityByTag.isNotEmpty()) {
+        lines += "Symptom severity: ${
+            log.symptomSeverityByTag.entries.joinToString(", ") { (label, level) -> "$label $level/5" }
+        }"
+    }
     if (log.symptomTags.isNotEmpty()) lines += "Self-reported symptoms: ${log.symptomTags.joinToString(", ")}"
     if (!log.symptomsNote.isNullOrBlank()) lines += "Symptom note saved."
     if (!log.journalText.isNullOrBlank()) lines += "Journal note saved."
@@ -3573,6 +3780,9 @@ private fun buildProgressSymptomMetrics(summary: ProgressTrendSummary): List<Pro
     val cravingControl = summary.averageCravings
         ?.let { ((6f - it.toFloat()) / 5f).coerceIn(0f, 1f) }
         ?: 0f
+    val symptomStability = summary.averageSymptomSeverity
+        ?.let { ((6f - it.toFloat()) / 5f).coerceIn(0f, 1f) }
+        ?: 0f
     val checkInCoverage = (summary.checkInDays.toFloat() / 28f).coerceIn(0f, 1f)
     return listOf(
         ProgressSymptomMetric(
@@ -3592,6 +3802,12 @@ private fun buildProgressSymptomMetrics(summary: ProgressTrendSummary): List<Pro
             valueText = "${(cravingControl * 100).toInt()}%",
             progress = cravingControl,
             color = Color(0xFFE2526E)
+        ),
+        ProgressSymptomMetric(
+            label = "Symptom stability",
+            valueText = if (summary.symptomSeverityDays > 0) "${(symptomStability * 100).toInt()}%" else "--",
+            progress = symptomStability,
+            color = Color(0xFF7B61FF)
         ),
         ProgressSymptomMetric(
             label = "Check-in coverage",

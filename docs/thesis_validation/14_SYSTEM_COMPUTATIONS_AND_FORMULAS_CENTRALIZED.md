@@ -93,13 +93,12 @@ Backend target flow:
 
 Android preview uses the same base pattern without the backend symptom adjustment layer.
 
-### Macro ratios by insulin resistance
+### Fixed macro ratio policy
 
-| Level | Protein | Carbs | Fat |
+| Policy | Protein | Carbs | Fat |
 | --- | --- | --- | --- |
-| Severe | 0.30 | 0.30 | 0.40 |
-| Moderate | 0.28 | 0.35 | 0.37 |
-| Default / Mild | 0.25 | 0.40 | 0.35 |
+| Final PCOS wellness policy | 0.25 | 0.40 | 0.35 |
+| Legacy severity argument | ignored | ignored | ignored |
 
 ### Macro gram conversion
 
@@ -127,12 +126,6 @@ The ordering is controlled by `planning.infeasibility_relaxation_order`; the cur
 ### Budget normalization
 
 `weeklyBudget = weeklyBudgetPhp if present else budgetWeekly else budgetMonthly / 4.33`
-
-### Household scaling
-
-`householdSize = max(1, min(profile.householdSize, 6))`
-
-This clamp is used for shopping and cost scaling.
 
 ### Symptom adjustments
 
@@ -172,7 +165,6 @@ Hard exclusions are applied before optimization:
 
 Backend and Android mirror the same constraint logic:
 
-- Household size must be between 1 and 6
 - Max cooking time must be between 10 and 240 minutes when set
 - Vegetarian and Pescatarian cannot both be active
 - Pescatarian conflicts with both fish and shellfish allergies
@@ -254,7 +246,7 @@ The Android `PriceCatalog` follows the same idea with local rules, category aver
 
 ### Total recipe cost
 
-`estimate_cost(recipe, householdSize) = catalogCost * householdSize`
+`estimate_cost(recipe) = catalogCost * servingCostMultiplier`
 
 If catalog pricing fails:
 
@@ -262,7 +254,7 @@ If catalog pricing fails:
 
 Then:
 
-`estimate_cost = clamp(rough, 30, 450) * householdSize`
+`estimate_cost = clamp(rough, 30, 450) * servingCostMultiplier`
 
 ### Stage 1 base score
 

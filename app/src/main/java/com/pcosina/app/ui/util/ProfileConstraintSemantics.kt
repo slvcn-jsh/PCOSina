@@ -1,6 +1,5 @@
 package com.pcosina.app.ui.util
 
-import com.pcosina.app.domain.householdSizeLabel
 import java.util.Locale
 
 private val fishAllergyTokens = setOf(
@@ -53,6 +52,3 @@ fun profileConstraintConflictMessage(
     }
     return null
 }
-
-fun householdPlanningSummary(householdSize: Int): String =
-    "Nutrition stays per person. Ingredients and shopping totals are scaled for ${householdSizeLabel(householdSize)}."

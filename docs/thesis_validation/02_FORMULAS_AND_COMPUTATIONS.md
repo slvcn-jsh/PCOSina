@@ -41,7 +41,7 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: `weightKg`, `heightCm`, `age`
 - Output variables: `bmr`
 - Units: kcal/day
-- Source file path: Android `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:55`, backend `backend/services/meal_planner.py:1755`
+- Source file path: Android `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:55`, backend `backend/services/meal_planner.py:2290`
 - Example manual computation using sample profile: `(10*65) + (6.25*160) - (5*25) - 161 = 1364`
 - Implemented in: Android and backend
 - Manual validation recommended: Yes
@@ -58,7 +58,7 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: `activityLevel`
 - Output variables: `activityMultiplier`
 - Units: multiplier
-- Source file path: Android `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:45`, backend `backend/services/meal_planner.py:951`
+- Source file path: Android `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:45`, backend `backend/services/meal_planner.py:1026`
 - Example manual computation using sample profile: `Lightly Active -> 1.375`
 - Implemented in: Android and backend
 - Manual validation recommended: Yes
@@ -72,7 +72,7 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: `bmr`, `activityMultiplier`
 - Output variables: `tdee`
 - Units: kcal/day
-- Source file path: Android `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:63`, backend `backend/services/meal_planner.py:1755`
+- Source file path: Android `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:63`, backend `backend/services/meal_planner.py:2290`
 - Example manual computation using sample profile:
   - Android preview: `round(1364 * 1.375) = 1876`
   - Backend planner: `int(1364 * 1.375) = 1875`
@@ -96,7 +96,7 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: `bmr`, `activityLevel`, `goal`, backend `symptom_state`
 - Output variables: `targetCalories`
 - Units: kcal/day
-- Source file path: Android `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:63`, backend `backend/services/meal_planner.py:1755`
+- Source file path: Android `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:63`, backend `backend/services/meal_planner.py:2290`
 - Example manual computation using sample profile:
   - Android preview: `1876 - 500 = 1376`
   - Backend authoritative target: `1875 - 500 = 1375`
@@ -112,26 +112,25 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: `goal`, `symptoms`
 - Output variables: calorie delta
 - Units: kcal/day
-- Source file path: Android `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:63`, backend `backend/services/meal_planner.py:388`
+- Source file path: Android `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:63`, backend `backend/services/meal_planner.py:393`
 - Example manual computation using sample profile: `Weight Loss -> -500`, no additional symptom delta because no symptoms were supplied.
 - Implemented in: Android and backend
 - Manual validation recommended: Yes
 - Suggested validation table format: `goal | symptoms | expected_delta | system_delta | match_yes_no`
 
-### 8. Macro Ratio Mapping By Insulin Resistance
-- Purpose: Set backend daily macro ratios before gram conversion.
+### 8. Fixed Macro Ratio Policy
+- Purpose: Set the backend daily macro ratios before gram conversion using the final PCOS wellness policy.
 - Actual formula or pseudocode:
-  - `Severe -> (protein=0.30, carbs=0.30, fats=0.40)`
-  - `Moderate -> (protein=0.28, carbs=0.35, fats=0.37)`
-  - default (`Mild` and unrecognized) -> `(0.25, 0.40, 0.35)`
-- Input variables: `insulinResistanceLevel`
+  - `macro_ratios()` returns `(protein=0.25, carbs=0.40, fats=0.35)`
+  - the optional legacy argument is ignored so old clients cannot branch the policy by medical severity
+- Input variables: none
 - Output variables: `proteinRatio`, `carbRatio`, `fatRatio`
 - Units: ratio
-- Source file path: `backend/services/meal_planner.py:942` (`macro_ratios`)
-- Example manual computation using sample profile: `Moderate -> (0.28, 0.35, 0.37)`
+- Source file path: `backend/services/meal_planner.py:1018` (`macro_ratios`)
+- Example manual computation using sample profile: `(0.25, 0.40, 0.35)`
 - Implemented in: Backend
 - Manual validation recommended: Yes
-- Suggested validation table format: `profile_id | insulinResistanceLevel | expected_ratios | backend_ratios | match_yes_no`
+- Suggested validation table format: `profile_id | expected_ratios | backend_ratios | legacy_argument_ignored_yes_no`
 
 ### 9. Macro Gram Conversion
 - Purpose: Convert the backend calorie target into daily protein, carbohydrate, and fat gram targets.
@@ -143,11 +142,11 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: `targetCalories`, `macroRatios`, policy min/max, symptom deltas
 - Output variables: `targetProtein`, `targetCarbs`, `targetFats`
 - Units: grams/day
-- Source file path: `backend/services/meal_planner.py:1755` (`solve_meal_plan`)
+- Source file path: `backend/services/meal_planner.py:2290` (`solve_meal_plan`)
 - Example manual computation using sample profile:
-  - Protein: `int(1375 * 0.28 / 4) = 96`
-  - Carbs: `int(1375 * 0.35 / 4) = 120` then clamp stays `120`
-  - Fats: `int(1375 * 0.37 / 9) = 56`
+  - Protein: `int(1375 * 0.25 / 4) = 85`
+  - Carbs: `int(1375 * 0.40 / 4) = 137`
+  - Fats: `int(1375 * 0.35 / 9) = 53`
 - Implemented in: Backend
 - Manual validation recommended: Yes
 - Suggested validation table format: `profile_id | targetCalories | manual_protein | manual_carbs | manual_fats | backend_targets | match_yes_no`
@@ -179,7 +178,7 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: `pantryItems`
 - Output variables: normalized pantry token set
 - Units: normalized tokens
-- Source file path: `backend/services/meal_planner.py:300` (`normalize_pantry`)
+- Source file path: `backend/services/meal_planner.py:305` (`normalize_pantry`)
 - Example manual computation using sample profile: `egg, rice, tomato, onion -> egg, onion, rice, tomato`
 - Implemented in: Backend
 - Manual validation recommended: Yes
@@ -194,7 +193,7 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: normalized pantry tokens, normalized recipe tokens
 - Output variables: `pantryMatch`, score contribution
 - Units: token count and weighted score
-- Source file path: `backend/services/meal_planner.py:1088` and `backend/services/meal_planner.py:637`
+- Source file path: `backend/services/meal_planner.py:1476` and `backend/services/meal_planner.py:717`
 - Example manual computation using sample recipe `ph_qk_052 Tortang Talong Lite with Rice`:
   - Pantry tokens: `egg, onion, rice, tomato`
   - Normalized ingredient tokens include: `chopped, cooked, egg, onion, rice, roasted, talong, tomato, white`
@@ -214,7 +213,7 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: `allergies`
 - Output variables: normalized allergies
 - Units: normalized family labels
-- Source file path: `backend/services/meal_planner.py:310` (`normalize_allergies`)
+- Source file path: `backend/services/meal_planner.py:315` (`normalize_allergies`)
 - Example manual computation using sample profile: no allergies supplied, so normalized set is empty.
 - Implemented in: Backend
 - Manual validation recommended: Yes
@@ -229,7 +228,7 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: recipe ingredient tokens, allergen-family token map
 - Output variables: detected exposure families
 - Units: family labels
-- Source file path: `backend/services/meal_planner.py:371` (`derive_allergen_exposures`)
+- Source file path: `backend/services/meal_planner.py:376` (`derive_allergen_exposures`)
 - Example manual computation: token `bangus` maps to fish-family exposure; token `shrimp` maps to shellfish-family exposure.
 - Implemented in: Backend
 - Manual validation recommended: Yes
@@ -246,7 +245,7 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: `dietaryRestrictions`, recipe tags, normalized ingredient tokens
 - Output variables: keep/exclude decision and failure reasons
 - Units: rule decision
-- Source file path: `backend/services/meal_planner.py:868` (`restriction_failure_reasons`)
+- Source file path: `backend/services/meal_planner.py:948` (`restriction_failure_reasons`)
 - Example manual computation using sample profile: no dietary restrictions supplied, so the sample recipe is not excluded by this path.
 - Implemented in: Backend
 - Manual validation recommended: Yes
@@ -264,7 +263,7 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: `goal`, normalized `symptoms`, recipe nutrition/tags
 - Output variables: `calorieTargetDelta`, macro deltas, fiber/sugar adjustments, Stage 1 bonus flags
 - Units: kcal/day, grams/day, score bonuses
-- Source file path: `backend/services/meal_planner.py:388` and `backend/services/meal_planner.py:481`
+- Source file path: `backend/services/meal_planner.py:393` and `backend/services/meal_planner.py:485`
 - Example manual computation using sample profile: because no symptom tags were supplied, symptom-specific deltas remain zero; only the weight-loss lower-calorie recipe bonus can apply to eligible recipes.
 - Implemented in: Backend
 - Manual validation recommended: Yes
@@ -276,15 +275,15 @@ This file separates what is directly implemented from what is recommended for th
   - `estimate_recipe_cost(ingredients)` sums per-ingredient `estimate_price_detail`
   - scale total by `0.75`
   - clamp to `30..450`
-  - `meal_planner.estimate_cost()` multiplies by household size
-- Input variables: ingredients, price rules, household size
+  - `meal_planner.estimate_cost()` adjusts by recipe serving metadata when available
+- Input variables: ingredients, price rules, recipe serving metadata
 - Output variables: estimated recipe cost
 - Units: Philippine pesos
-- Source file path: `backend/price_catalog.py:646` and `backend/services/meal_planner.py:593`
-- Example manual computation using sample recipe `ph_qk_052`: backend estimated cost = `82` PHP for household size `1`
+- Source file path: `backend/price_catalog.py:646` and `backend/services/meal_planner.py:673`
+- Example manual computation using sample recipe `ph_qk_052`: backend estimated cost = `82` PHP
 - Implemented in: Backend
 - Manual validation recommended: Yes
-- Suggested validation table format: `recipe_id | ingredient_list | manual_cost | backend_cost | household_size | match_yes_no`
+- Suggested validation table format: `recipe_id | ingredient_list | manual_cost | backend_cost | serving_count | match_yes_no`
 
 ### 18. Price Rule Matching
 - Purpose: Match grocery or ingredient names against code-defined price rules.
@@ -305,13 +304,12 @@ This file separates what is directly implemented from what is recommended for th
 - Purpose: Combine ingredient strings into a saved grocery list and estimate cost in Android.
 - Actual formula or pseudocode:
   - normalize display key
-  - scale quantity text by household size
   - merge matching segments
   - sum estimated prices for segments using `PriceCatalog.estimatePriceDetail`
-- Input variables: ingredient strings, household size, saved plan sources
+- Input variables: ingredient strings and saved plan sources
 - Output variables: grocery list entries with quantity display and estimated price
 - Units: text quantities and Philippine pesos
-- Source file path: `app/src/main/java/com/pcosina/app/domain/GroceryAggregation.kt:163` (`buildGroceryListEntries`)
+- Source file path: `app/src/main/java/com/pcosina/app/domain/GroceryAggregation.kt:156` (`buildGroceryListEntries`)
 - Example manual computation using one item: `egg (2 pieces)` becomes one grocery entry with estimated price `PHP 14`
 - Implemented in: Android
 - Manual validation recommended: Yes
@@ -323,7 +321,7 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: selected recipes with detail data
 - Output variables: calories, protein, carbs, fats, fiber totals
 - Units: kcal/day or plan totals; grams for macros/fiber
-- Source file path: `app/src/main/java/com/pcosina/app/ui/MealPlanViewModel.kt:197` (`MealPlanViewModel.calculateMetrics`)
+- Source file path: `app/src/main/java/com/pcosina/app/ui/MealPlanViewModel.kt:207` (`MealPlanViewModel.calculateMetrics`)
 - Example manual computation: if the current plan only contained `ph_qk_052`, the meal would contribute `390` kcal, `17` g protein, `46` g carbs, `14` g fats, `6` g fiber.
 - Implemented in: Android
 - Manual validation recommended: Yes
@@ -336,7 +334,7 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: recipe protein, cost estimate, calories, pantryMatch, stage1Boost
 - Output variables: `_base_score`
 - Units: weighted score
-- Source file path: `backend/services/meal_planner.py:637` (`_base_score`)
+- Source file path: `backend/services/meal_planner.py:717` (`_base_score`)
 - Example manual computation using `ph_qk_052`:
   - `(17 * 2.0) - (82 * 0.05) - (|390 - 500| * 0.15) + (4 * 1.5) + 0.75`
   - `= 20.150`
@@ -356,7 +354,7 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: recipe nutrition, prep time, pantry match, budget, cost
 - Output variables: `shadowMlScore`
 - Units: 0..1 score
-- Source file path: `backend/services/meal_planner.py:691` (`_shadow_ml_score`)
+- Source file path: `backend/services/meal_planner.py:771` (`_shadow_ml_score`)
 - Example manual computation using `ph_qk_052`: shadow score ≈ `0.5917`
 - Implemented in: Backend
 - Manual validation recommended: Yes
@@ -370,7 +368,7 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: preserved boost, ML or shadow score, weight, cap, prep penalty
 - Output variables: updated `_stage1_boost`
 - Units: weighted score
-- Source file path: `backend/services/meal_planner.py:804` (`_apply_stage1_scoring`)
+- Source file path: `backend/services/meal_planner.py:884` (`_apply_stage1_scoring`)
 - Example manual computation using `ph_qk_052`: updated boost with shadow contribution ≈ `1.200`, giving a revised base score ≈ `20.600`
 - Implemented in: Backend
 - Manual validation recommended: Yes
@@ -391,7 +389,7 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: shortlisted recipes, targets, policy config, budget, pantry, restrictions
 - Output variables: selected recipe assignments and explanation payload
 - Units: plan assignments and diagnostics
-- Source file path: `backend/services/meal_planner.py:1755` (`solve_meal_plan`)
+- Source file path: `backend/services/meal_planner.py:2290` (`solve_meal_plan`)
 - Example manual computation using sample profile: the model would build `7 days * 3 meals = 21` meal slots, use the backend target of `1375` kcal/day, and enforce the weekly budget cap of `PHP 1500`.
 - Implemented in: Backend
 - Manual validation recommended: Yes, by tracing one solved case and one no-safe-plan case
@@ -408,7 +406,7 @@ This file separates what is directly implemented from what is recommended for th
 - Input variables: validation error, diagnostics, profile, solver status
 - Output variables: `GeneratePlanResponse` with `status="no-safe-plan"`
 - Units: response contract
-- Source file path: `backend/services/plan_response_builder.py:111` and `backend/services/plan_response_builder.py:11`
+- Source file path: `backend/services/plan_response_builder.py:116` and `backend/services/plan_response_builder.py:11`
 - Example manual computation using sample profile: not triggered by the sample profile itself, but it would trigger if the budget or restrictions made the candidate set or solver model infeasible.
 - Implemented in: Backend and Android consumer path
 - Manual validation recommended: Yes

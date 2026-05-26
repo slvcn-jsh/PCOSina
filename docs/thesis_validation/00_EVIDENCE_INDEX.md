@@ -5,10 +5,10 @@ This evidence pack was generated from the `dev` branch only, as requested. No `m
 ## Generation Metadata
 
 - Current branch: `dev`
-- Current commit SHA: `2f0bd7e1c0e920678022a3966b37b16ced1ad257`
-- Date/time generated: `2026-05-17T11:08:10.417664+08:00`
+- Current commit SHA: `997534e9436a754a195631c857495b34b5b6ca9c`
+- Date/time generated: `2026-05-26T13:07:13.148286+08:00`
 - Generator script: `docs/thesis_validation/scripts/extract_validation_data.py`
-- Total inspected source entries listed below: `246` 
+- Total inspected source entries listed below: `251` 
 
 ## Trust Levels
 
@@ -42,9 +42,9 @@ This evidence pack was generated from the `dev` branch only, as requested. No `m
 | app/build.gradle.kts | Android build config, schema version, and release endpoints. | N | N | Y | N | N | N | Y | HIGH |  |
 | app/src/androidTest/java/com/pcosina/app/AppLaunchTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/androidTest/java/com/pcosina/app/CompactWidthVisualRegressionTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
+| app/src/androidTest/java/com/pcosina/app/CurrentCoreFlowUiTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/androidTest/java/com/pcosina/app/DashboardWeekCloseoutUiTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/androidTest/java/com/pcosina/app/DuplicateMealSlotUiFlowTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
-| app/src/androidTest/java/com/pcosina/app/CurrentCoreFlowUiTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/androidTest/java/com/pcosina/app/GroceryFeedbackSemanticsUiTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/androidTest/java/com/pcosina/app/LiveTelemetryLoopInstrumentedTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/androidTest/java/com/pcosina/app/MealPlanNoSafePlanUiTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
@@ -90,11 +90,11 @@ This evidence pack was generated from the `dev` branch only, as requested. No `m
 | app/src/main/java/com/pcosina/app/ui/screens/GoalSelectionScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/GroceryRefinedScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/IpoVisualizationScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
+| app/src/main/java/com/pcosina/app/ui/screens/LegacyScreenCompatibility.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/LoginScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/MealPlanRefinedScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/MoreToolsScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/NotificationScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
-| app/src/main/java/com/pcosina/app/ui/screens/OperatorDashboardScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/ProgressDateSupport.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/ProgressLegacySupport.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
 | app/src/main/java/com/pcosina/app/ui/screens/ProgressRefinedScreen.kt | Compose screen and output flow. | Y | N | Y | N | N | N | Y | HIGH |  |
@@ -114,6 +114,7 @@ This evidence pack was generated from the `dev` branch only, as requested. No `m
 | app/src/test/java/com/pcosina/app/CiVisualStrictSetCompletenessPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/ConnectedTestRunnerPreflightPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/ConnectivityObserverPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
+| app/src/test/java/com/pcosina/app/CurrentCoreFlowPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/DashboardConnectivityPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/DashboardDisclosureTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/DashboardHomeCardPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
@@ -123,7 +124,6 @@ This evidence pack was generated from the `dev` branch only, as requested. No `m
 | app/src/test/java/com/pcosina/app/DataPersistenceRecoveryPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/DebugBaseUrlPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/FeedbackConsistencyPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
-| app/src/test/java/com/pcosina/app/CurrentCoreFlowPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/FrameTimingProbeTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/GoalSemanticsTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/GoogleServicesReleaseGuardPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
@@ -172,6 +172,7 @@ This evidence pack was generated from the `dev` branch only, as requested. No `m
 | app/src/test/java/com/pcosina/app/RecipeDetailsVisualPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/RecipeMappersTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/RecipeRouteContextPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
+| app/src/test/java/com/pcosina/app/RecipeSnapshotCachePolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/ReleaseSigningPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/RespondentDeploymentPolicyTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
 | app/src/test/java/com/pcosina/app/RoutesClassificationTest.kt | Android automated test coverage. | N | N | Y | N | N | Y | Y | HIGH |  |
@@ -217,11 +218,13 @@ This evidence pack was generated from the `dev` branch only, as requested. No `m
 | backend/tests/test_app_check_enforcement.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_async_job_ownership.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_async_queue_contract.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
+| backend/tests/test_backfill_nutrition_from_panlasang.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_broker_queue_mode.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_canary_guard.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_canary_guard_alert.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_ci_ops_scripts.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_database_backend_policy.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
+| backend/tests/test_draft_nutrition_from_fdc.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_feedback_storage_constraints.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_grocery_aggregator.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_lightgbm_training.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
@@ -253,12 +256,14 @@ This evidence pack was generated from the `dev` branch only, as requested. No `m
 | backend/tests/test_policy_config.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_policy_registry.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_policy_store.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
+| backend/tests/test_postgres_backup_restore_script.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_price_catalog_credibility.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_rate_limit_backend.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_reason_feedback_dataset_builder.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_reason_normalizer.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_reason_telemetry_generator.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_recipe_quality_tools.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
+| backend/tests/test_recipe_source_metadata_sync.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_request_size_limit.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_runtime_readiness.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |
 | backend/tests/test_schema_contract.py | Backend automated test coverage. | N | N | Y | Y | N | Y | N | HIGH |  |

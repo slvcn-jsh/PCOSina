@@ -191,7 +191,7 @@ def test_draft_row_uses_labeled_defaults_when_source_has_names_without_quantitie
     assert draft["source"] == "local_reference_missing_quantity_draft"
     assert draft["confidence"] == "api_estimate"
     assert draft["review_status"] == "pending_review"
-    assert "default household quantities" in draft["notes"]
+    assert "default ingredient quantities" in draft["notes"]
 
 
 def test_draft_row_leaves_values_blank_when_no_matches():

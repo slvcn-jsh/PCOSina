@@ -21,7 +21,6 @@
         "heightCm": 160,
         "weightKg": 65,
         "activityLevel": "Lightly Active",
-        "insulinResistanceLevel": "Mild",
         "symptoms": [],
         "dietaryRestrictions": [],
         "allergies": [],
@@ -29,7 +28,6 @@
         "maxCookingTimeMinutes": 45,
         "varietyPreference": "Balanced",
         "planningPriority": "Balanced",
-        "householdSize": 1,
         "pantryItems": []
       }
     },
@@ -42,16 +40,21 @@
         "heightCm": 155,
         "weightKg": 68,
         "activityLevel": "Sedentary",
-        "insulinResistanceLevel": "Moderate",
-        "symptoms": ["Weight gain", "Acne"],
+        "symptoms": [
+          "Weight gain",
+          "Acne"
+        ],
         "dietaryRestrictions": [],
         "allergies": [],
         "weeklyBudgetPhp": 3000,
         "maxCookingTimeMinutes": 30,
         "varietyPreference": "Low",
         "planningPriority": "Budget First",
-        "householdSize": 1,
-        "pantryItems": ["rice", "egg", "tomato"]
+        "pantryItems": [
+          "rice",
+          "egg",
+          "tomato"
+        ]
       }
     },
     {
@@ -63,16 +66,22 @@
         "heightCm": 158,
         "weightKg": 72,
         "activityLevel": "Lightly Active",
-        "insulinResistanceLevel": "Moderate",
-        "symptoms": ["Irregular periods", "Acne"],
-        "dietaryRestrictions": ["Lactose Intolerant"],
+        "symptoms": [
+          "Irregular periods",
+          "Acne"
+        ],
+        "dietaryRestrictions": [
+          "Lactose Intolerant"
+        ],
         "allergies": [],
         "weeklyBudgetPhp": 5000,
         "maxCookingTimeMinutes": 45,
         "varietyPreference": "Balanced",
         "planningPriority": "Nutrition Tight",
-        "householdSize": 1,
-        "pantryItems": ["rice", "malunggay"]
+        "pantryItems": [
+          "rice",
+          "malunggay"
+        ]
       }
     },
     {
@@ -84,7 +93,6 @@
         "heightCm": 162,
         "weightKg": 70,
         "activityLevel": "Lightly Active",
-        "insulinResistanceLevel": "Mild",
         "symptoms": [],
         "dietaryRestrictions": [],
         "allergies": [],
@@ -92,8 +100,10 @@
         "maxCookingTimeMinutes": 20,
         "varietyPreference": "Low",
         "planningPriority": "Balanced",
-        "householdSize": 1,
-        "pantryItems": ["canned tuna", "rice"]
+        "pantryItems": [
+          "canned tuna",
+          "rice"
+        ]
       }
     },
     {
@@ -105,37 +115,43 @@
         "heightCm": 165,
         "weightKg": 62,
         "activityLevel": "Moderately Active",
-        "insulinResistanceLevel": "Mild",
-        "symptoms": ["Hair loss"],
+        "symptoms": [
+          "Hair loss"
+        ],
         "dietaryRestrictions": [],
         "allergies": [],
         "weeklyBudgetPhp": 6500,
         "maxCookingTimeMinutes": 60,
         "varietyPreference": "High",
         "planningPriority": "Nutrition Tight",
-        "householdSize": 1,
-        "pantryItems": ["chicken", "vegetables"]
+        "pantryItems": [
+          "chicken",
+          "vegetables"
+        ]
       }
     },
     {
       "id": "T06",
-      "userType": "Filipino household no pork",
+      "userType": "No pork higher-budget user",
       "profile": {
         "goal": "General Health",
         "age": 35,
         "heightCm": 157,
         "weightKg": 76,
         "activityLevel": "Lightly Active",
-        "insulinResistanceLevel": "Mild",
         "symptoms": [],
-        "dietaryRestrictions": ["No Pork"],
+        "dietaryRestrictions": [
+          "No Pork"
+        ],
         "allergies": [],
         "weeklyBudgetPhp": 7000,
         "maxCookingTimeMinutes": 45,
         "varietyPreference": "Balanced",
         "planningPriority": "Budget First",
-        "householdSize": 3,
-        "pantryItems": ["rice", "sayote"]
+        "pantryItems": [
+          "rice",
+          "sayote"
+        ]
       }
     },
     {
@@ -147,16 +163,22 @@
         "heightCm": 160,
         "weightKg": 74,
         "activityLevel": "Sedentary",
-        "insulinResistanceLevel": "Moderate",
-        "symptoms": ["Irregular periods"],
-        "dietaryRestrictions": ["No Pork", "No Beef"],
+        "symptoms": [
+          "Irregular periods"
+        ],
+        "dietaryRestrictions": [
+          "No Pork",
+          "No Beef"
+        ],
         "allergies": [],
         "weeklyBudgetPhp": 6000,
         "maxCookingTimeMinutes": 45,
         "varietyPreference": "Balanced",
         "planningPriority": "Balanced",
-        "householdSize": 2,
-        "pantryItems": ["rice", "munggo"]
+        "pantryItems": [
+          "rice",
+          "munggo"
+        ]
       }
     },
     {
@@ -168,16 +190,20 @@
         "heightCm": 154,
         "weightKg": 60,
         "activityLevel": "Lightly Active",
-        "insulinResistanceLevel": "Mild",
         "symptoms": [],
-        "dietaryRestrictions": ["Vegetarian"],
+        "dietaryRestrictions": [
+          "Vegetarian"
+        ],
         "allergies": [],
         "weeklyBudgetPhp": 5000,
         "maxCookingTimeMinutes": 45,
         "varietyPreference": "Balanced",
         "planningPriority": "Balanced",
-        "householdSize": 1,
-        "pantryItems": ["tofu", "munggo", "rice"]
+        "pantryItems": [
+          "tofu",
+          "munggo",
+          "rice"
+        ]
       }
     },
     {
@@ -189,16 +215,21 @@
         "heightCm": 159,
         "weightKg": 78,
         "activityLevel": "Lightly Active",
-        "insulinResistanceLevel": "Moderate",
-        "symptoms": ["Weight gain"],
-        "dietaryRestrictions": ["Pescatarian"],
+        "symptoms": [
+          "Weight gain"
+        ],
+        "dietaryRestrictions": [
+          "Pescatarian"
+        ],
         "allergies": [],
         "weeklyBudgetPhp": 5500,
         "maxCookingTimeMinutes": 45,
         "varietyPreference": "Balanced",
         "planningPriority": "Budget First",
-        "householdSize": 1,
-        "pantryItems": ["fish", "rice"]
+        "pantryItems": [
+          "fish",
+          "rice"
+        ]
       }
     },
     {
@@ -210,16 +241,23 @@
         "heightCm": 152,
         "weightKg": 64,
         "activityLevel": "Sedentary",
-        "insulinResistanceLevel": "Mild",
-        "symptoms": ["Acne"],
-        "dietaryRestrictions": ["Lactose Intolerant"],
-        "allergies": ["dairy"],
+        "symptoms": [
+          "Acne"
+        ],
+        "dietaryRestrictions": [
+          "Lactose Intolerant"
+        ],
+        "allergies": [
+          "dairy"
+        ],
         "weeklyBudgetPhp": 4500,
         "maxCookingTimeMinutes": 35,
         "varietyPreference": "Balanced",
         "planningPriority": "Nutrition Tight",
-        "householdSize": 1,
-        "pantryItems": ["rice", "vegetables"]
+        "pantryItems": [
+          "rice",
+          "vegetables"
+        ]
       }
     },
     {
@@ -231,16 +269,19 @@
         "heightCm": 161,
         "weightKg": 69,
         "activityLevel": "Lightly Active",
-        "insulinResistanceLevel": "Mild",
         "symptoms": [],
         "dietaryRestrictions": [],
-        "allergies": ["gluten"],
+        "allergies": [
+          "gluten"
+        ],
         "weeklyBudgetPhp": 5500,
         "maxCookingTimeMinutes": 45,
         "varietyPreference": "Balanced",
         "planningPriority": "Balanced",
-        "householdSize": 1,
-        "pantryItems": ["rice", "chicken"]
+        "pantryItems": [
+          "rice",
+          "chicken"
+        ]
       }
     },
     {
@@ -252,16 +293,21 @@
         "heightCm": 158,
         "weightKg": 73,
         "activityLevel": "Lightly Active",
-        "insulinResistanceLevel": "Mild",
         "symptoms": [],
-        "dietaryRestrictions": ["No Pork"],
-        "allergies": ["shellfish"],
+        "dietaryRestrictions": [
+          "No Pork"
+        ],
+        "allergies": [
+          "shellfish"
+        ],
         "weeklyBudgetPhp": 6000,
         "maxCookingTimeMinutes": 45,
         "varietyPreference": "Balanced",
         "planningPriority": "Budget First",
-        "householdSize": 2,
-        "pantryItems": ["rice", "eggs"]
+        "pantryItems": [
+          "rice",
+          "eggs"
+        ]
       }
     },
     {
@@ -273,16 +319,21 @@
         "heightCm": 150,
         "weightKg": 58,
         "activityLevel": "Sedentary",
-        "insulinResistanceLevel": "Moderate",
-        "symptoms": ["Acne"],
+        "symptoms": [
+          "Acne"
+        ],
         "dietaryRestrictions": [],
-        "allergies": ["egg"],
+        "allergies": [
+          "egg"
+        ],
         "weeklyBudgetPhp": 4500,
         "maxCookingTimeMinutes": 45,
         "varietyPreference": "Balanced",
         "planningPriority": "Balanced",
-        "householdSize": 1,
-        "pantryItems": ["rice", "vegetables"]
+        "pantryItems": [
+          "rice",
+          "vegetables"
+        ]
       }
     },
     {
@@ -294,49 +345,56 @@
         "heightCm": 164,
         "weightKg": 80,
         "activityLevel": "Lightly Active",
-        "insulinResistanceLevel": "Mild",
         "symptoms": [],
         "dietaryRestrictions": [],
-        "allergies": ["peanut", "nuts"],
+        "allergies": [
+          "peanut",
+          "nuts"
+        ],
         "weeklyBudgetPhp": 5500,
         "maxCookingTimeMinutes": 45,
         "varietyPreference": "Balanced",
         "planningPriority": "Balanced",
-        "householdSize": 1,
-        "pantryItems": ["rice", "fish"]
+        "pantryItems": [
+          "rice",
+          "fish"
+        ]
       }
     },
     {
       "id": "T15",
-      "userType": "Severe insulin profile",
+      "userType": "Nutrition-tight weight-loss profile",
       "profile": {
         "goal": "Weight Loss, Symptom Management",
         "age": 36,
         "heightCm": 156,
         "weightKg": 88,
         "activityLevel": "Sedentary",
-        "insulinResistanceLevel": "Severe",
-        "symptoms": ["Weight gain", "Irregular periods"],
+        "symptoms": [
+          "Weight gain",
+          "Irregular periods"
+        ],
         "dietaryRestrictions": [],
         "allergies": [],
         "weeklyBudgetPhp": 6000,
         "maxCookingTimeMinutes": 45,
         "varietyPreference": "Balanced",
         "planningPriority": "Nutrition Tight",
-        "householdSize": 1,
-        "pantryItems": ["rice", "vegetables"]
+        "pantryItems": [
+          "rice",
+          "vegetables"
+        ]
       }
     },
     {
       "id": "T16",
-      "userType": "Family planning",
+      "userType": "Higher-budget prep-limited user",
       "profile": {
         "goal": "General Health",
         "age": 40,
         "heightCm": 155,
         "weightKg": 82,
         "activityLevel": "Lightly Active",
-        "insulinResistanceLevel": "Moderate",
         "symptoms": [],
         "dietaryRestrictions": [],
         "allergies": [],
@@ -344,8 +402,11 @@
         "maxCookingTimeMinutes": 60,
         "varietyPreference": "Low",
         "planningPriority": "Budget First",
-        "householdSize": 4,
-        "pantryItems": ["rice", "chicken", "squash"]
+        "pantryItems": [
+          "rice",
+          "chicken",
+          "squash"
+        ]
       }
     },
     {
@@ -357,7 +418,6 @@
         "heightCm": 153,
         "weightKg": 55,
         "activityLevel": "Lightly Active",
-        "insulinResistanceLevel": "None",
         "symptoms": [],
         "dietaryRestrictions": [],
         "allergies": [],
@@ -365,8 +425,10 @@
         "maxCookingTimeMinutes": 35,
         "varietyPreference": "Low",
         "planningPriority": "Budget First",
-        "householdSize": 1,
-        "pantryItems": ["rice", "egg"]
+        "pantryItems": [
+          "rice",
+          "egg"
+        ]
       }
     },
     {
@@ -378,15 +440,15 @@
         "heightCm": 160,
         "weightKg": 66,
         "activityLevel": "Moderately Active",
-        "insulinResistanceLevel": "Mild",
-        "symptoms": ["Hair loss"],
+        "symptoms": [
+          "Hair loss"
+        ],
         "dietaryRestrictions": [],
         "allergies": [],
         "weeklyBudgetPhp": 0,
         "maxCookingTimeMinutes": 45,
         "varietyPreference": "Balanced",
         "planningPriority": "Balanced",
-        "householdSize": 1,
         "pantryItems": []
       }
     },
@@ -399,16 +461,21 @@
         "heightCm": 163,
         "weightKg": 71,
         "activityLevel": "Lightly Active",
-        "insulinResistanceLevel": "Mild",
         "symptoms": [],
-        "dietaryRestrictions": ["No Beef"],
+        "dietaryRestrictions": [
+          "No Beef"
+        ],
         "allergies": [],
         "weeklyBudgetPhp": 5000,
         "maxCookingTimeMinutes": 45,
         "varietyPreference": "Balanced",
         "planningPriority": "Balanced",
-        "householdSize": 2,
-        "pantryItems": ["rice", "chicken", "pechay", "tomato"]
+        "pantryItems": [
+          "rice",
+          "chicken",
+          "pechay",
+          "tomato"
+        ]
       }
     },
     {
@@ -420,16 +487,21 @@
         "heightCm": 152,
         "weightKg": 78,
         "activityLevel": "Sedentary",
-        "insulinResistanceLevel": "Moderate",
-        "symptoms": ["Irregular periods"],
-        "dietaryRestrictions": ["Lactose Intolerant"],
+        "symptoms": [
+          "Irregular periods"
+        ],
+        "dietaryRestrictions": [
+          "Lactose Intolerant"
+        ],
         "allergies": [],
         "weeklyBudgetPhp": 5500,
         "maxCookingTimeMinutes": 45,
         "varietyPreference": "Balanced",
         "planningPriority": "Balanced",
-        "householdSize": 1,
-        "pantryItems": ["rice", "fish"]
+        "pantryItems": [
+          "rice",
+          "fish"
+        ]
       }
     }
   ]

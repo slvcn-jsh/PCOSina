@@ -162,14 +162,29 @@ class UserViewModel(
         saveProfile()
     }
 
+    fun updateWeightSupport(
+        targetWeightKg: Int?,
+        targetDate: String?,
+        weeklyWeightChangeGoalKg: Float?
+    ) {
+        _userProfile.update {
+            it.copy(
+                targetWeightKg = targetWeightKg,
+                targetDate = targetDate?.trim()?.takeIf { value -> value.isNotBlank() },
+                weeklyWeightChangeGoalKg = weeklyWeightChangeGoalKg
+            )
+        }
+        saveProfile()
+    }
+
     fun updateUnitPreferences(heightUnit: String, weightUnit: String) {
         _userProfile.update { it.copy(heightUnit = heightUnit, weightUnit = weightUnit) }
         saveProfile()
     }
 
-    fun updatePcosDetails(insulin: String, symptoms: List<String>, comorbidities: List<String>) {
+    fun updatePcosDetails(symptoms: List<String>, comorbidities: List<String>) {
         _userProfile.update {
-            it.copy(insulinResistanceLevel = insulin, symptoms = symptoms, comorbidities = comorbidities)
+            it.copy(symptoms = symptoms, comorbidities = comorbidities)
         }
         saveProfile()
     }
@@ -196,11 +211,6 @@ class UserViewModel(
 
     fun updateBudget(budget: Int) {
         _userProfile.update { it.copy(weeklyBudgetPhp = budget) }
-        saveProfile()
-    }
-
-    fun updateHouseholdSize(size: Int) {
-        _userProfile.update { it.copy(householdSize = size.coerceIn(1, 6)) }
         saveProfile()
     }
 

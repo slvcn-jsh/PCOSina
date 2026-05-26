@@ -25,17 +25,18 @@ class UserProfile(BaseModel):
     age: int = Field(default=25, ge=0, le=120)
     heightCm: int = Field(default=160, ge=0, le=260)
     weightKg: int = Field(default=65, ge=0, le=350)
+    targetWeightKg: Optional[int] = Field(default=None, ge=0, le=350)
+    targetDate: Optional[IsoDateText] = None
+    weeklyWeightChangeGoalKg: Optional[float] = Field(default=None, ge=-20, le=20)
     heightUnit: ProfileCode = "cm"
     weightUnit: ProfileCode = "kg"
     activityLevel: ProfileToken = "Lightly Active"
     goal: ProfileText = "General Health"
-    insulinResistanceLevel: ProfileToken = "Mild"
     symptoms: List[ProfileToken] = Field(default_factory=list, max_length=20)
     comorbidities: List[ProfileToken] = Field(default_factory=list, max_length=20)
     dietaryRestrictions: List[ProfileToken] = Field(default_factory=list, max_length=20)
     allergies: List[ProfileToken] = Field(default_factory=list, max_length=30)
     weeklyBudgetPhp: Optional[int] = Field(default=None, ge=0, le=1_000_000, alias="weeklyBudgetPhp")
-    householdSize: int = Field(default=1, ge=1, le=6)
     budgetWeekly: Optional[float] = Field(default=None, ge=0, le=1_000_000)
     budgetMonthly: Optional[float] = Field(default=None, ge=0, le=5_000_000)
     maxCookingTimeMinutes: int = Field(default=45, ge=0, le=240)

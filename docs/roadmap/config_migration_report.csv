@@ -29,7 +29,7 @@ backend/services/meal_planner.py: shortlist_keep_ratio,stage1.ranking_cutoff,0.8
 N/A (new explicit policy control),stage1.similarity_threshold,0.85,0..1.0,medium,admin_only,externalized into typed policy schema
 N/A (new explicit policy control),stage1.pantry_match_threshold,0,0..50,medium,admin_only,externalized into typed policy schema
 N/A (new explicit policy control),stage1.exclusion_penalty_weights,"{'allergy': 1000.0, 'restriction': 500.0, 'prep_time': 50.0}",numeric map,medium,admin_only,externalized into typed policy schema
-N/A (new explicit policy control),stage1.cold_start_defaults,"{'activityLevel': 'Lightly Active', 'goal': 'General Health', 'insulinResistanceLevel': 'Mild'}",bounded object,medium,admin_only,externalized into typed policy schema
+N/A (new explicit policy control),stage1.cold_start_defaults,"{'activityLevel': 'Lightly Active', 'goal': 'General Health'}",bounded object,medium,admin_only,externalized into typed policy schema
 N/A (new explicit policy control),stage1.ML_shadow_enabled,True,bool,medium,admin_only,externalized into typed policy schema
 N/A (new explicit policy control),stage1.ML_canary_enabled,False,bool,medium,admin_only,externalized into typed policy schema
 N/A (new explicit policy control),stage1.ML_score_weight,0.15,0..1.0,medium,admin_only,externalized into typed policy schema

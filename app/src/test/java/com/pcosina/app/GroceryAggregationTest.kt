@@ -1,40 +1,34 @@
 package com.pcosina.app
 
 import com.pcosina.app.data.model.DummyData
+import com.pcosina.app.data.model.PantryEntry
+import com.pcosina.app.domain.PantryCoverageStatus
 import com.pcosina.app.domain.buildGroceryListEntries
+import com.pcosina.app.domain.buildPantryCoverage
 import com.pcosina.app.domain.canonicalGroceryKey
 import com.pcosina.app.domain.canonicalGroceryName
-import com.pcosina.app.domain.householdSizeLabel
-import com.pcosina.app.domain.scaleQuantityText
-import com.pcosina.app.domain.scaleNutritionPerMeal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.LocalDate
 
 class GroceryAggregationTest {
 
     @Test
-    fun scaleQuantityText_multipliesSimpleQuantitiesByHouseholdSize() {
-        assertEquals("8 kg", scaleQuantityText("2 kg", 4))
-        assertEquals("6 pcs", scaleQuantityText("3 pcs", 2))
-    }
-
-    @Test
-    fun buildGroceryListEntries_groupsRepeatedIngredientsAndScalesTotals() {
+    fun buildGroceryListEntries_groupsRepeatedIngredientsForPrimaryUserTotals() {
         val entries = buildGroceryListEntries(
             items = listOf(
                 DummyData.GroceryItem("Eggs", "2 pcs", 0, "Eggs & Dairy"),
                 DummyData.GroceryItem("Eggs", "1 pc", 0, "Eggs & Dairy"),
                 DummyData.GroceryItem("Rice", "500 g", 0, "Dry Goods"),
-            ),
-            householdSize = 2
+            )
         )
 
         val eggs = entries.first { it.name == "Eggs" }
         val rice = entries.first { it.name == "Rice" }
 
-        assertEquals("6 pcs", eggs.quantityDisplay)
-        assertEquals("1 kg", rice.quantityDisplay)
+        assertEquals("3 pcs", eggs.quantityDisplay)
+        assertEquals("500 g", rice.quantityDisplay)
         assertTrue(eggs.estimatedCostPhp > 0)
         assertTrue(rice.estimatedCostPhp > 0)
     }
@@ -46,8 +40,7 @@ class GroceryAggregationTest {
                 DummyData.GroceryItem("bawang", "3 cloves", 0, "Produce"),
                 DummyData.GroceryItem("minced garlic", "2 tbsp", 0, "Produce"),
                 DummyData.GroceryItem("garlic cloves", "1 clove", 0, "Produce"),
-            ),
-            householdSize = 1
+            )
         )
 
         assertEquals(1, entries.size)
@@ -61,8 +54,7 @@ class GroceryAggregationTest {
             items = listOf(
                 DummyData.GroceryItem("3 cloves garlic, minced", "", 0, "Produce"),
                 DummyData.GroceryItem("bawang", "2 cloves", 0, "Produce"),
-            ),
-            householdSize = 1
+            )
         )
 
         assertEquals(1, entries.size)
@@ -78,25 +70,56 @@ class GroceryAggregationTest {
     }
 
     @Test
-    fun householdSizeLabel_formatsSinglesCouplesAndFamilies() {
-        assertEquals("1 person", householdSizeLabel(1))
-        assertEquals("2 people", householdSizeLabel(2))
-        assertEquals("family of 5", householdSizeLabel(5))
+    fun buildPantryCoverage_marksFullOnlyWhenQuantityCoversNeed() {
+        val entries = buildGroceryListEntries(
+            items = listOf(
+                DummyData.GroceryItem("Eggs", "3 pcs", 0, "Eggs & Dairy"),
+                DummyData.GroceryItem("Rice", "500 g", 0, "Dry Goods"),
+            )
+        )
+
+        val coverage = buildPantryCoverage(
+            groceryEntries = entries,
+            pantryEntries = listOf(
+                PantryEntry(name = "eggs", quantity = "6 pcs"),
+                PantryEntry(name = "bigas", quantity = "250 g"),
+            ),
+            today = LocalDate.of(2026, 5, 26)
+        )
+
+        assertEquals(PantryCoverageStatus.Full, coverage["Eggs"]?.status)
+        assertEquals(PantryCoverageStatus.Partial, coverage["Rice"]?.status)
+        assertEquals("250 g", coverage["Rice"]?.remainingQuantityDisplay)
     }
 
     @Test
-    fun scaleNutritionPerMeal_multipliesPerPersonNutritionByHouseholdSize() {
-        assertEquals(450, scaleNutritionPerMeal(450, 1))
-        assertEquals(900, scaleNutritionPerMeal(450, 2))
-        assertEquals(1800, scaleNutritionPerMeal(450, 4))
-        assertEquals(2700, scaleNutritionPerMeal(450, 6))
+    fun buildPantryCoverage_keepsNameOnlyMatchesFromAutoCoverage() {
+        val entries = buildGroceryListEntries(
+            items = listOf(DummyData.GroceryItem("Tomato", "2 pcs", 0, "Produce"))
+        )
+
+        val coverage = buildPantryCoverage(
+            groceryEntries = entries,
+            pantryEntries = listOf(PantryEntry(name = "kamatis")),
+            today = LocalDate.of(2026, 5, 26)
+        )
+
+        assertEquals(PantryCoverageStatus.NameOnly, coverage["Tomato"]?.status)
+        assertTrue(coverage["Tomato"]?.autoCovered == false)
     }
 
     @Test
-    fun scaleQuantityText_handlesSupportedHouseholdBands() {
-        assertEquals("1 pc", scaleQuantityText("1 pc", 1))
-        assertEquals("2 pcs", scaleQuantityText("1 pc", 2))
-        assertEquals("4 pcs", scaleQuantityText("1 pc", 4))
-        assertEquals("6 pcs", scaleQuantityText("1 pc", 6))
+    fun buildPantryCoverage_ignoresExpiredPantryEntries() {
+        val entries = buildGroceryListEntries(
+            items = listOf(DummyData.GroceryItem("Eggs", "2 pcs", 0, "Eggs & Dairy"))
+        )
+
+        val coverage = buildPantryCoverage(
+            groceryEntries = entries,
+            pantryEntries = listOf(PantryEntry(name = "eggs", quantity = "6 pcs", expiryDate = "2026-05-20")),
+            today = LocalDate.of(2026, 5, 26)
+        )
+
+        assertTrue(coverage.isEmpty())
     }
 }

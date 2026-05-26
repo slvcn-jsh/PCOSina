@@ -1740,7 +1740,7 @@
         "dataSource": "local_reference_missing_quantity_draft",
         "confidence": "api_estimate",
         "reviewStatus": "pending_review",
-        "notes": "Draft only: used source ingredient names with default household quantities and divided by source_servings=1. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+        "notes": "Draft only: used source ingredient names with default recipe quantities and divided by source_servings=1. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
         "correctionId": "f4bf841d07a443e5a810bcb754b95645"
       },
       "ingredients": [

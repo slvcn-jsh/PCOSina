@@ -1,7 +1,6 @@
 package com.pcosina.app.ui.util
 
 import com.pcosina.app.data.model.MealCheckIn
-import com.pcosina.app.domain.householdSizeLabel
 
 enum class GoalOption(
     val label: String,
@@ -84,45 +83,75 @@ fun goalTextForApi(goal: String): String {
 }
 
 fun primaryGoalLabel(goal: String): String =
-    parseGoalOptions(goal).firstOrNull()?.label
+    parseGoalOptions(goal).takeIf { it.isNotEmpty() }?.let(::goalTextFromOptions)
         ?: goal.trim().takeIf { it.isNotEmpty() }
         ?: "Not set"
 
 fun primaryGoalShortLabel(goal: String): String =
-    parseGoalOptions(goal).firstOrNull()?.shortLabel
+    parseGoalOptions(goal).takeIf { it.size > 1 }?.let { "${it.size} goals" }
+        ?: parseGoalOptions(goal).firstOrNull()?.shortLabel
         ?: if (goal.trim().isNotEmpty()) "Custom" else "Focus"
 
 fun supportsLowGiGuidance(goal: String): Boolean =
     parseGoalOptions(goal).contains(GoalOption.SymptomManagement)
 
-fun goalPlanFocusCopy(goal: String): String = when (parseGoalOptions(goal).firstOrNull()) {
-    GoalOption.WeightLoss ->
-        "This week favors steady portions, satisfying protein, and meals that are easier to repeat."
-    GoalOption.SymptomManagement ->
-        "This week leans toward steadier carbs, fiber-rich meals, and routines that are easier to stick with."
-    GoalOption.GeneralHealth ->
-        "This week focuses on balanced meals, practical variety, and an easier everyday rhythm."
-    null -> "This week is built around the preferences saved in your profile."
+fun goalPlanFocusCopy(goal: String): String {
+    val goals = parseGoalOptions(goal)
+    return when {
+        goals.hasWeightAndSymptom() && goals.contains(GoalOption.GeneralHealth) ->
+            "This week balances calorie fit, steadier-carb support, and practical variety without weakening your hard food rules."
+        goals.hasWeightAndSymptom() ->
+            "This week balances calorie fit with steadier-carb, fiber-rich meals that stay satisfying."
+        goals.hasWeightAndGeneral() ->
+            "This week favors steady portions, satisfying protein, and practical variety for a sustainable routine."
+        goals.hasSymptomAndGeneral() ->
+            "This week leans toward steadier carbs, fiber-rich meals, and balanced everyday variety."
+        goals.contains(GoalOption.WeightLoss) ->
+            "This week favors steady portions, satisfying protein, and meals that are easier to repeat."
+        goals.contains(GoalOption.SymptomManagement) ->
+            "This week leans toward steadier carbs, fiber-rich meals, and routines that are easier to stick with."
+        goals.contains(GoalOption.GeneralHealth) ->
+            "This week focuses on balanced meals, practical variety, and an easier everyday rhythm."
+        else -> "This week is built around the preferences saved in your profile."
+    }
 }
 
-fun goalReflectionSupportCopy(goal: String): String = when (parseGoalOptions(goal).firstOrNull()) {
-    GoalOption.WeightLoss ->
-        "Use this check-in to notice which meals felt filling, steady, and easier to repeat."
-    GoalOption.SymptomManagement ->
-        "Use this check-in to notice which meals helped you feel steadier through the day."
-    GoalOption.GeneralHealth ->
-        "Use this check-in to notice which meals felt balanced, satisfying, and easy to keep doing."
-    null -> "Use this check-in to notice patterns you want to keep for next week."
+fun goalReflectionSupportCopy(goal: String): String {
+    val goals = parseGoalOptions(goal)
+    return when {
+        goals.hasWeightAndSymptom() ->
+            "Use this check-in to notice which meals felt filling, steady, and easier on cravings or energy."
+        goals.hasWeightAndGeneral() ->
+            "Use this check-in to notice which meals felt filling, balanced, and easy to repeat."
+        goals.hasSymptomAndGeneral() ->
+            "Use this check-in to notice which meals felt steady, balanced, and easy to keep doing."
+        goals.contains(GoalOption.WeightLoss) ->
+            "Use this check-in to notice which meals felt filling, steady, and easier to repeat."
+        goals.contains(GoalOption.SymptomManagement) ->
+            "Use this check-in to notice which meals helped you feel steadier through the day."
+        goals.contains(GoalOption.GeneralHealth) ->
+            "Use this check-in to notice which meals felt balanced, satisfying, and easy to keep doing."
+        else -> "Use this check-in to notice patterns you want to keep for next week."
+    }
 }
 
-fun goalMealCheckInPrompt(goal: String): String = when (parseGoalOptions(goal).firstOrNull()) {
-    GoalOption.WeightLoss ->
-        "A quick check-in helps you spot which meals kept you full and steady."
-    GoalOption.SymptomManagement ->
-        "A quick check-in helps you spot which meals felt steadier and easier on your day."
-    GoalOption.GeneralHealth ->
-        "A quick check-in helps you spot which meals felt balanced and easy to keep doing."
-    null -> "A quick check-in helps you notice what worked well for you."
+fun goalMealCheckInPrompt(goal: String): String {
+    val goals = parseGoalOptions(goal)
+    return when {
+        goals.hasWeightAndSymptom() ->
+            "A quick check-in helps you spot which meals kept you full, steady, and easier on cravings."
+        goals.hasWeightAndGeneral() ->
+            "A quick check-in helps you spot which meals felt filling, balanced, and repeatable."
+        goals.hasSymptomAndGeneral() ->
+            "A quick check-in helps you spot which meals felt steady, balanced, and sustainable."
+        goals.contains(GoalOption.WeightLoss) ->
+            "A quick check-in helps you spot which meals kept you full and steady."
+        goals.contains(GoalOption.SymptomManagement) ->
+            "A quick check-in helps you spot which meals felt steadier and easier on your day."
+        goals.contains(GoalOption.GeneralHealth) ->
+            "A quick check-in helps you spot which meals felt balanced and easy to keep doing."
+        else -> "A quick check-in helps you notice what worked well for you."
+    }
 }
 
 fun goalMealReasonCopy(goal: String, reasons: List<String>): List<String> {
@@ -140,17 +169,8 @@ fun goalMealReasonCopy(goal: String, reasons: List<String>): List<String> {
                 mapped += "Uses ingredients you may already have at home."
             reason.equals("Budget-aware", ignoreCase = true) ->
                 mapped += "Keeps your weekly grocery spend in mind."
-            reason.equals("Macro-aligned", ignoreCase = true) -> {
-                mapped += when (parseGoalOptions(goal).firstOrNull()) {
-                    GoalOption.WeightLoss ->
-                        "Supports a filling plate that matches your weight goal."
-                    GoalOption.SymptomManagement ->
-                        "Supports steadier energy with balanced meals."
-                    GoalOption.GeneralHealth ->
-                        "Supports a more balanced everyday routine."
-                    null -> "Supports the goal saved in your profile."
-                }
-            }
+            reason.equals("Macro-aligned", ignoreCase = true) ->
+                mapped += goalMacroAlignedCopy(goal)
         }
     }
     return mapped.toList().ifEmpty {
@@ -163,8 +183,35 @@ fun goalMealCheckInInsight(goal: String, checkIn: MealCheckIn): String {
     val lowFullness = (checkIn.fullnessLevel ?: 3) <= 2
     val highCravings = (checkIn.cravingsLevel ?: 3) >= 4
     val lowSatisfaction = (checkIn.satisfactionLevel ?: 3) <= 2
-    return when (parseGoalOptions(goal).firstOrNull()) {
-        GoalOption.WeightLoss -> when {
+    val goals = parseGoalOptions(goal)
+    return when {
+        goals.hasWeightAndSymptom() -> when {
+            lowFullness || highCravings ->
+                "If this meal did not feel filling or steady enough, try pairing the next meal with more protein, fiber, and slower carbs."
+            lowEnergy ->
+                "If your energy dipped after this meal, keep the next one balanced with protein, fiber, and a steadier carb portion."
+            lowSatisfaction ->
+                "If this meal felt unsatisfying, keep a familiar option in rotation while preserving steadier meal balance."
+            else ->
+                "This meal looks like a useful repeat candidate for both fullness and steadier-day support."
+        }
+        goals.hasWeightAndGeneral() -> when {
+            lowFullness || highCravings ->
+                "If this meal did not feel filling enough, try a more balanced plate with protein, fiber, and familiar produce."
+            lowEnergy || lowSatisfaction ->
+                "If this meal felt harder to sustain, compare it with meals that feel filling and balanced."
+            else ->
+                "This meal looks like a practical repeat candidate for your balanced weight-support routine."
+        }
+        goals.hasSymptomAndGeneral() -> when {
+            lowEnergy || highCravings ->
+                "If this meal felt less steady, try a balanced next meal with protein, fiber, and a steadier carb choice."
+            lowFullness || lowSatisfaction ->
+                "If this meal felt incomplete, keep the note and look for steadier balanced meals next time."
+            else ->
+                "This meal looks like a good candidate for a steadier and balanced routine."
+        }
+        goals.contains(GoalOption.WeightLoss) -> when {
             lowFullness || highCravings ->
                 "If this meal did not feel filling enough, try pairing the next meal with more protein or fiber."
             lowEnergy ->
@@ -174,7 +221,7 @@ fun goalMealCheckInInsight(goal: String, checkIn: MealCheckIn): String {
             else ->
                 "This meal looks like a good candidate to repeat on busy days."
         }
-        GoalOption.SymptomManagement -> when {
+        goals.contains(GoalOption.SymptomManagement) -> when {
             lowEnergy || highCravings ->
                 "If this meal felt less steady, try pairing carbs with protein or fiber in the next meal."
             lowFullness ->
@@ -184,7 +231,7 @@ fun goalMealCheckInInsight(goal: String, checkIn: MealCheckIn): String {
             else ->
                 "This meal looks like one that may support a steadier day for you."
         }
-        GoalOption.GeneralHealth -> when {
+        goals.contains(GoalOption.GeneralHealth) -> when {
             lowFullness || lowSatisfaction ->
                 "If this meal did not feel balanced enough, try adding a more filling side next time."
             lowEnergy ->
@@ -192,7 +239,7 @@ fun goalMealCheckInInsight(goal: String, checkIn: MealCheckIn): String {
             else ->
                 "This meal looks like a strong fit for your regular routine."
         }
-        null -> when {
+        else -> when {
             lowFullness || highCravings ->
                 "Keep noticing which meals help you stay full and steady for longer."
             else ->
@@ -201,25 +248,69 @@ fun goalMealCheckInInsight(goal: String, checkIn: MealCheckIn): String {
     }
 }
 
-fun goalShoppingTips(goal: String, householdSize: Int): List<String> {
-    val homeLabel = householdSizeLabel(householdSize)
-    val goalSpecific = when (parseGoalOptions(goal).firstOrNull()) {
-        GoalOption.WeightLoss -> listOf(
-            "Shop with protein first so each meal stays filling for $homeLabel.",
+fun goalShoppingTips(goal: String): List<String> {
+    val goals = parseGoalOptions(goal)
+    val goalSpecific = when {
+        goals.hasWeightAndSymptom() && goals.contains(GoalOption.GeneralHealth) -> listOf(
+            "Shop protein, high-fiber staples, and produce first so the cart supports all selected goals.",
+            "Use pantry matches before buying duplicates, then choose familiar ingredients you can repeat safely."
+        )
+        goals.hasWeightAndSymptom() -> listOf(
+            "Shop with protein and high-fiber staples first so meals stay filling and steadier.",
+            "Choose slower-carb swaps and simple produce that fit your weekly plan."
+        )
+        goals.hasWeightAndGeneral() -> listOf(
+            "Shop with protein first, then add produce and repeatable staples for balanced meals.",
+            "Choose familiar ingredients you can use across more than one filling meal."
+        )
+        goals.hasSymptomAndGeneral() -> listOf(
+            "Prioritize high-fiber staples, produce, and steadier-carb swaps for a balanced cart.",
+            "Prep simple add-ons like eggs, greens, and yogurt so supportive meals stay easy."
+        )
+        goals.contains(GoalOption.WeightLoss) -> listOf(
+            "Shop with protein first so each meal stays filling for your plan.",
             "Keep produce and simple breakfast staples visible so the easiest meal is still a good fit."
         )
-        GoalOption.SymptomManagement -> listOf(
-            "Prioritize high-fiber staples and steadier-carb swaps for $homeLabel.",
+        goals.contains(GoalOption.SymptomManagement) -> listOf(
+            "Prioritize high-fiber staples and steadier-carb swaps for your plan.",
             "Prep simple add-ons like eggs, greens, and yogurt so symptom-friendly meals stay easy."
         )
-        GoalOption.GeneralHealth -> listOf(
-            "Aim for a balanced cart with produce, protein, and pantry staples for $homeLabel.",
+        goals.contains(GoalOption.GeneralHealth) -> listOf(
+            "Aim for a balanced cart with produce, protein, and pantry staples for your plan.",
             "Choose a few repeat ingredients you can use across more than one meal this week."
         )
-        null -> listOf(
-            "Start with the ingredients you will use first so shopping stays simple for $homeLabel.",
+        else -> listOf(
+            "Start with the ingredients you will use first so shopping stays simple.",
             "Use pantry items before buying duplicates when you can."
         )
     }
     return goalSpecific + "Fresh market prices change week to week, so totals here are best-used as a guide."
+}
+
+private fun Set<GoalOption>.hasWeightAndSymptom(): Boolean =
+    contains(GoalOption.WeightLoss) && contains(GoalOption.SymptomManagement)
+
+private fun Set<GoalOption>.hasWeightAndGeneral(): Boolean =
+    contains(GoalOption.WeightLoss) && contains(GoalOption.GeneralHealth)
+
+private fun Set<GoalOption>.hasSymptomAndGeneral(): Boolean =
+    contains(GoalOption.SymptomManagement) && contains(GoalOption.GeneralHealth)
+
+private fun goalMacroAlignedCopy(goal: String): String {
+    val goals = parseGoalOptions(goal)
+    return when {
+        goals.hasWeightAndSymptom() ->
+            "Supports a filling, steadier plate that matches your selected goals."
+        goals.hasWeightAndGeneral() ->
+            "Supports a filling and balanced plate for your routine."
+        goals.hasSymptomAndGeneral() ->
+            "Supports steadier energy with balanced meals."
+        goals.contains(GoalOption.WeightLoss) ->
+            "Supports a filling plate that matches your weight goal."
+        goals.contains(GoalOption.SymptomManagement) ->
+            "Supports steadier energy with balanced meals."
+        goals.contains(GoalOption.GeneralHealth) ->
+            "Supports a more balanced everyday routine."
+        else -> "Supports the goal saved in your profile."
+    }
 }

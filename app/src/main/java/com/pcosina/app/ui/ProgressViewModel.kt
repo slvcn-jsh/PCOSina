@@ -61,6 +61,7 @@ private fun sanitizeDailyLog(log: DailyLog): DailyLog? {
         cravingsLevel = clampFeedbackLevel(log.cravingsLevel),
         moodLevel = clampFeedbackLevel(log.moodLevel),
         symptomTags = sanitizeStringList(log.symptomTags).distinct(),
+        symptomSeverityByTag = sanitizeSymptomSeverityMap(log.symptomSeverityByTag),
         symptomsNote = safeTrimmedText(log.symptomsNote),
         journalText = safeTrimmedText(log.journalText),
         timestamp = log.timestamp.takeIf { it > 0 } ?: System.currentTimeMillis(),
@@ -117,6 +118,20 @@ private fun sanitizeFeedbackEntry(entry: FeedbackEntry): FeedbackEntry? {
 private fun sanitizeStringList(values: Any?): List<String> =
     ((values as? List<*>) ?: emptyList<Any?>())
         .mapNotNull { safeTrimmedText(it) }
+
+private fun sanitizeSymptomSeverityMap(values: Any?): Map<String, Int> =
+    ((values as? Map<*, *>) ?: emptyMap<Any?, Any?>())
+        .mapNotNull { (key, value) ->
+            val label = safeTrimmedText(key) ?: return@mapNotNull null
+            val level = when (value) {
+                is Number -> value.toInt()
+                is String -> value.toIntOrNull()
+                else -> null
+            }?.coerceIn(1, 5) ?: return@mapNotNull null
+            label to level
+        }
+        .distinctBy { it.first.lowercase(Locale.ENGLISH) }
+        .toMap()
 
 private fun safeIsoDate(value: Any?): String? {
     val raw = safeTrimmedText(value) ?: return null
@@ -608,6 +623,7 @@ class ProgressViewModel(
         cravingsLevel: Int?,
         moodLevel: Int?,
         symptomTags: List<String>,
+        symptomSeverityByTag: Map<String, Int> = emptyMap(),
         symptomsNote: String?
     ): Boolean {
         if (!isDateLoggable(date)) return false
@@ -617,7 +633,8 @@ class ProgressViewModel(
             energyLevel = energyLevel,
             cravingsLevel = cravingsLevel,
             moodLevel = moodLevel,
-            symptomTags = symptomTags,
+            symptomTags = (symptomTags + symptomSeverityByTag.keys).map { it.trim() }.filter { it.isNotBlank() }.distinct(),
+            symptomSeverityByTag = sanitizeSymptomSeverityMap(symptomSeverityByTag),
             symptomsNote = symptomsNote?.takeIf { it.isNotBlank() },
             timestamp = System.currentTimeMillis()
         )
@@ -705,6 +722,18 @@ class ProgressViewModel(
         _planFeedbackTags.value = current
         viewModelScope.launch {
             progressLocalRepository.savePlanFeedbackTags(currentUserId, current)
+        }
+    }
+
+    fun savePlanFeedbackTags(tags: List<String>) {
+        if (currentUserId.isBlank()) return
+        val normalized = tags
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+        _planFeedbackTags.value = normalized
+        viewModelScope.launch {
+            progressLocalRepository.savePlanFeedbackTags(currentUserId, normalized)
         }
     }
 

@@ -66,9 +66,12 @@ import androidx.compose.ui.window.Dialog
 import com.pcosina.app.R
 import com.pcosina.app.data.model.PantryEntry
 import com.pcosina.app.domain.GroceryListEntry
+import com.pcosina.app.domain.PantryCoverage
+import com.pcosina.app.domain.PantryCoverageStatus
 import com.pcosina.app.domain.buildGroceryListEntries
+import com.pcosina.app.domain.buildPantryCoverage
 import com.pcosina.app.domain.canonicalGroceryKey
-import com.pcosina.app.domain.householdSizeLabel
+import com.pcosina.app.domain.groceryNamesMatch
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
@@ -133,17 +136,18 @@ fun GroceryRefinedScreen(
     }
     val planHistory by mealPlanViewModel.planHistory.collectAsState()
     val planState by mealPlanViewModel.uiState.collectAsState()
-    val householdSize = userProfile.householdSize.coerceIn(1, 6)
-    val groupedEntries = remember(groceryItems, householdSize) {
-        buildGroceryListEntries(groceryItems, householdSize)
+    val today = remember { LocalDate.now() }
+    val groupedEntries = remember(groceryItems) {
+        buildGroceryListEntries(groceryItems)
     }
-    val pantryTokens = remember(effectivePantryEntries) {
-        effectivePantryEntries.map { refinedPantryKey(it.name) }.filter { it.isNotBlank() }.toSet()
+    val pantryCoverageByName = remember(groupedEntries, effectivePantryEntries, today) {
+        buildPantryCoverage(groupedEntries, effectivePantryEntries, today)
     }
-    val pantryMatches = remember(groupedEntries, pantryTokens) {
-        groupedEntries.filter { item ->
-            pantryTokens.any { token -> refinedPantryMatches(token, item.name) }
-        }.map { it.name }.toSet()
+    val pantryMatches = remember(pantryCoverageByName) {
+        pantryCoverageByName
+            .filterValues { it.autoCovered }
+            .keys
+            .toSet()
     }
     var checkedNames by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
     var pantryOptOut by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
@@ -161,7 +165,6 @@ fun GroceryRefinedScreen(
     var selectedFilterCategories by rememberSaveable { mutableStateOf(setOf<String>()) }
     var selectedCategoryKey by rememberSaveable(activePlanId) { mutableStateOf("") }
     var expiredPantryEventKeys by rememberSaveable { mutableStateOf(setOf<String>()) }
-    val today = remember { LocalDate.now() }
 
     val effectiveChecked = remember(checkedNames, pantryMatches, pantryOptOut) {
         checkedNames + pantryMatches.filter { it !in pantryOptOut }
@@ -214,6 +217,7 @@ fun GroceryRefinedScreen(
         activeFilterScope,
         selectedFilterCategories,
         pantryMatches,
+        pantryCoverageByName,
         pantryOptOut,
         checkedNames
     ) {
@@ -258,7 +262,7 @@ fun GroceryRefinedScreen(
         totalEstimated.toFloat() / budget.toFloat()
     } ?: 0f
     val listProgress = if (totalCount > 0) coveredCount.toFloat() / totalCount.toFloat() else 0f
-    val tipLine = remember(userProfile.goal, householdSize) {
+    val tipLine = remember(userProfile.goal) {
         when {
             userProfile.goal.contains("Symptom", ignoreCase = true) ->
                 "Keep pantry staples simple so symptom-friendly meals stay easy to repeat."
@@ -434,12 +438,16 @@ fun GroceryRefinedScreen(
                 remainingCount = remainingCount,
                 totalCount = totalCount,
                 listProgress = listProgress,
-                householdSize = householdSize,
                 onShare = {
                     val body = buildString {
                         append("PCOSina Grocery List\n\n")
                         groupedEntries.forEach { item ->
-                            val pantryTag = if (item.name in pantryMatches) " • pantry" else ""
+                            val pantryTag = when (pantryCoverageByName[item.name]?.status) {
+                                PantryCoverageStatus.Full -> " • pantry covered"
+                                PantryCoverageStatus.Partial -> " • pantry partial"
+                                PantryCoverageStatus.NameOnly -> " • pantry match"
+                                null -> ""
+                            }
                             append("• ${item.name} (${item.quantityDisplay})${pantryTag}\n")
                         }
                     }
@@ -470,6 +478,7 @@ fun GroceryRefinedScreen(
                 searchFilteredEmpty = filteredEntries.isEmpty(),
                 searchQuery = searchQuery,
                 pantryMatches = pantryMatches,
+                pantryCoverageByName = pantryCoverageByName,
                 pantryOptOut = pantryOptOut,
                 checkedNames = checkedNames,
                 categoryEntries = categoryEntries,
@@ -921,14 +930,24 @@ private fun GroceryDialogActionButton(
 @Composable
 private fun GroceryPreviewRow(
     item: GroceryListEntry,
+    pantryCoverage: PantryCoverage?,
     pantryCovered: Boolean,
     checked: Boolean,
     onToggle: () -> Unit,
 ) {
+    val hasPantrySignal = pantryCoverage != null
+    val isComplete = checked || pantryCovered
     Surface(
-        color = if (checked || pantryCovered) Color(0xFFFFF1F4) else Color.White,
+        color = if (isComplete) Color(0xFFFFF1F4) else Color.White,
         shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, if (checked || pantryCovered) PcosinaPink.copy(alpha = 0.18f) else PcosinaMuted.copy(alpha = 0.24f)),
+        border = BorderStroke(
+            1.dp,
+            when {
+                isComplete -> PcosinaPink.copy(alpha = 0.18f)
+                hasPantrySignal -> PcosinaSuccess.copy(alpha = 0.28f)
+                else -> PcosinaMuted.copy(alpha = 0.24f)
+            }
+        ),
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onToggle)
@@ -943,13 +962,13 @@ private fun GroceryPreviewRow(
             Surface(
                 modifier = Modifier.size(26.dp),
                 shape = RoundedCornerShape(12.dp),
-                color = if (checked || pantryCovered) PcosinaPink else Color.White,
-                border = BorderStroke(1.dp, if (checked || pantryCovered) PcosinaPink else PcosinaMuted.copy(alpha = 0.4f))
+                color = if (isComplete) PcosinaPink else Color.White,
+                border = BorderStroke(1.dp, if (isComplete) PcosinaPink else PcosinaMuted.copy(alpha = 0.4f))
             ) {
                 PcosinaDesignIcon(
                     resId = R.drawable.pcosina_svg_12_check,
                     contentDescription = null,
-                    tint = if (checked || pantryCovered) Color.White else Color.Transparent,
+                    tint = if (isComplete) Color.White else Color.Transparent,
                     modifier = Modifier
                         .size(14.dp)
                         .padding(2.dp)
@@ -965,13 +984,22 @@ private fun GroceryPreviewRow(
                     color = PcosinaDeepRose,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    textDecoration = if (checked || pantryCovered) TextDecoration.LineThrough else TextDecoration.None
+                    textDecoration = if (isComplete) TextDecoration.LineThrough else TextDecoration.None
                 )
                 Text(
                     text = item.quantityDisplay,
                     style = MaterialTheme.typography.bodySmall,
                     color = PcosinaMuted
                 )
+                if (pantryCoverage != null && !pantryCovered) {
+                    Text(
+                        text = pantryCoverage.detail,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (pantryCoverage.status == PantryCoverageStatus.Partial) PcosinaSuccess else PcosinaMuted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
@@ -980,7 +1008,13 @@ private fun GroceryPreviewRow(
                     color = PcosinaDeepRose
                 )
                 RefinedStatusPill(
-                    text = if (pantryCovered) "In Pantry" else if (checked) "Bought" else "To Buy",
+                    text = when {
+                        pantryCovered -> "In Pantry"
+                        checked -> "Bought"
+                        pantryCoverage?.status == PantryCoverageStatus.Partial -> "Partial"
+                        pantryCoverage?.status == PantryCoverageStatus.NameOnly -> "Pantry?"
+                        else -> "To Buy"
+                    },
                     containerColor = if (pantryCovered) Color(0xFFFFE8EE) else PcosinaSurfaceAlt,
                     contentColor = if (pantryCovered) PcosinaPink else PcosinaMuted
                 )
@@ -1115,7 +1149,6 @@ private fun GroceryProgressCard(
     remainingCount: Int,
     totalCount: Int,
     listProgress: Float,
-    householdSize: Int,
     onShare: () -> Unit,
     onOpenPantry: () -> Unit,
     compact: Boolean,
@@ -1156,7 +1189,7 @@ private fun GroceryProgressCard(
                             )
                         )
                         Text(
-                            text = "Built for ${householdSizeLabel(householdSize)} and synced with your saved pantry.",
+                            text = "Built for your primary-user plan and synced with your saved pantry.",
                             style = MaterialTheme.typography.bodySmall,
                             color = PcosinaMuted
                         )
@@ -1446,6 +1479,7 @@ private fun GroceryCategoryPanel(
     searchFilteredEmpty: Boolean,
     searchQuery: String,
     pantryMatches: Set<String>,
+    pantryCoverageByName: Map<String, PantryCoverage>,
     pantryOptOut: Set<String>,
     checkedNames: Set<String>,
     categoryEntries: List<Pair<String, List<GroceryListEntry>>>,
@@ -1621,6 +1655,7 @@ private fun GroceryCategoryPanel(
                             displayedItems.forEach { item ->
                                 GroceryPreviewRow(
                                     item = item,
+                                    pantryCoverage = pantryCoverageByName[item.name],
                                     pantryCovered = item.name in pantryMatches && item.name !in pantryOptOut,
                                     checked = item.name in checkedNames,
                                     onToggle = { onToggleItem(item) }
@@ -1758,11 +1793,9 @@ private fun GroceryCategoryExpandAction(
 
 @Composable
 private fun GroceryTipsCard(
-    householdSize: Int,
     goal: String,
     compact: Boolean,
 ) {
-    val householdLabel = if (householdSize == 1) "1 person" else "$householdSize people"
     val secondTip = when {
         goal.contains("Symptom", ignoreCase = true) ->
             "Prep simple add-ons like eggs, greens, and yogurt so symptom-friendly meals stay easy."
@@ -1800,7 +1833,7 @@ private fun GroceryTipsCard(
         }
         GroceryTipStripe(
             icon = "🍞",
-            text = "Prioritize high-fiber staples and steadier-carb swaps for $householdLabel.",
+            text = "Prioritize high-fiber staples and steadier-carb swaps for your plan.",
             colors = listOf(Color(0xFFFF91A7), Color(0xFFFF7E95))
         )
         GroceryTipStripe(
@@ -1993,12 +2026,5 @@ private fun refinedPantryTokens(raw: String): Set<String> =
         .toSet()
 
 private fun refinedPantryMatches(pantryName: String, groceryName: String): Boolean {
-    val pantryKey = refinedPantryKey(pantryName)
-    val groceryKey = refinedPantryKey(groceryName)
-    if (pantryKey.isBlank() || groceryKey.isBlank()) return false
-    if (pantryKey == groceryKey) return true
-    val pantryTokens = refinedPantryTokens(pantryName)
-    val groceryTokens = refinedPantryTokens(groceryName)
-    if (pantryTokens.size <= 1 || groceryTokens.size <= 1) return false
-    return pantryTokens.containsAll(groceryTokens) || groceryTokens.containsAll(pantryTokens)
+    return groceryNamesMatch(pantryName, groceryName)
 }

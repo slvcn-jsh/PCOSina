@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.pcosina.app.R
 import com.pcosina.app.data.model.GroceryItemSource
+import com.pcosina.app.data.model.PlannerContractItem
 import com.pcosina.app.data.model.PlannerPlannedMeal
 import com.pcosina.app.data.model.PlannerRecipeDetail
 import com.pcosina.app.data.model.PlannerRecipeSummary
@@ -433,7 +434,6 @@ fun MealPlanRefinedScreen(
             completedMealIds.contains(ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)) ||
                 completedMealIds.contains(meal.recipeId)
         }
-        val servingLabel = profile.householdSize.coerceAtLeast(1)
         val planEndDate = weekStart.plusDays(6)
         val lastPlanDayIndex = (currentPlan?.days?.lastIndex ?: 6).coerceAtLeast(0)
         val lastPlanDayDate = weekStart.plusDays(lastPlanDayIndex.toLong())
@@ -905,7 +905,6 @@ fun MealPlanRefinedScreen(
                         targetCalories = targetCalories,
                         loggedMeals = loggedMeals,
                         mealCount = selectedMeals.size,
-                        servingLabel = servingLabel,
                         totalProtein = totalProtein,
                         totalCarbs = totalCarbs,
                         totalFiber = totalFiber,
@@ -914,6 +913,15 @@ fun MealPlanRefinedScreen(
                         targetFiber = targetFiber,
                         compact = compact
                     )
+
+                    currentPlan.explanation?.plannerContract
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.let { contract ->
+                            MealPlanContractCard(
+                                contract = contract,
+                                compact = compact,
+                            )
+                        }
 
                     MealPlanShoppingCard(
                         title = "Ready to shop?",
@@ -1075,7 +1083,6 @@ private fun MealPlanDailySummaryCard(
     targetCalories: Int,
     loggedMeals: Int,
     mealCount: Int,
-    servingLabel: Int,
     totalProtein: Int,
     totalCarbs: Int,
     totalFiber: Int,
@@ -1110,7 +1117,7 @@ private fun MealPlanDailySummaryCard(
                     )
                 )
                 RefinedStatusPill(
-                    text = "Serving size: $servingLabel",
+                    text = "Primary-user plan",
                     containerColor = PcosinaBlush.copy(alpha = 0.78f),
                     contentColor = Color(0xFF682937)
                 )
@@ -1165,6 +1172,89 @@ private fun MealPlanDailySummaryCard(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MealPlanContractCard(
+    contract: List<PlannerContractItem>,
+    compact: Boolean,
+) {
+    val hardCount = contract.count { it.classification.equals("hard", ignoreCase = true) && it.active }
+    val softCount = contract.count { it.classification.equals("soft", ignoreCase = true) && it.active }
+    val advisoryCount = contract.count { it.classification.equals("advisory", ignoreCase = true) && it.active }
+    val trackingCount = contract.count { it.classification.equals("tracking", ignoreCase = true) && it.active }
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("mealplan_contract_card"),
+        shape = RoundedCornerShape(22.dp),
+        color = Color(0xFFFFF8FB),
+        border = BorderStroke(1.5.dp, PcosinaPink.copy(alpha = 0.20f))
+    ) {
+        Column(
+            modifier = Modifier.padding(
+                horizontal = if (compact) 12.dp else 14.dp,
+                vertical = if (compact) 12.dp else 14.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Plan rule contract",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                color = PcosinaDeepRose,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ContractCountPill("Hard", hardCount, Modifier.weight(1f))
+                ContractCountPill("Soft", softCount, Modifier.weight(1f))
+                ContractCountPill("Advisory", advisoryCount, Modifier.weight(1f))
+                ContractCountPill("Tracking", trackingCount, Modifier.weight(1f))
+            }
+            contract
+                .filter { it.classification.equals("advisory", ignoreCase = true) || it.classification.equals("soft", ignoreCase = true) }
+                .take(2)
+                .forEach { item ->
+                    Text(
+                        text = "${item.field}: ${item.enforcement}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PcosinaMuted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+        }
+    }
+}
+
+@Composable
+private fun ContractCountPill(label: String, count: Int, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.18f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                color = PcosinaDeepRose,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = PcosinaMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

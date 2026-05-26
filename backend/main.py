@@ -922,7 +922,6 @@ def _cloud_profile_summary(uid: str, data: Dict[str, Any]) -> Dict[str, Any]:
         "heightCm",
         "activityLevel",
         "goal",
-        "insulinResistanceLevel",
         "dietaryRestrictions",
         "allergies",
         "isProfileCompleted",

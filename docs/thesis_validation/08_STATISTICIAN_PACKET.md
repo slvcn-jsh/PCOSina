@@ -10,7 +10,7 @@ PCOSina is a wellness decision-support system for Filipino-PCOS meal planning. I
 
 ## What Data The System Collects
 
-- Profile inputs such as age, height, weight, activity level, goal, insulin resistance level, allergies, dietary restrictions, budget, household size, pantry items, and cooking-time preference
+- Profile inputs such as age, height, weight, activity level, goal, symptoms, allergies, dietary restrictions, budget, pantry items, and cooking-time preference
 - Plan outputs and explanation metadata
 - Grocery snapshots and item sources
 - Progress logs, meal check-ins, reflections, and feedback queue entries when the user uses progress features

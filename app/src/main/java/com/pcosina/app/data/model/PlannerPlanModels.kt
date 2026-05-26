@@ -23,6 +23,14 @@ data class PlannerTimestamps(
 )
 
 @Immutable
+data class PlannerContractItem(
+    val field: String,
+    val classification: String,
+    val enforcement: String,
+    val active: Boolean
+)
+
+@Immutable
 data class PlannerPlanExplanation(
     val confidenceScore: Int? = null,
     val targetCalories: Int? = null,
@@ -42,7 +50,6 @@ data class PlannerPlanExplanation(
     val estimatedWeeklyCost: Int? = null,
     val restrictionCount: Int? = null,
     val budgetHardCapApplied: Boolean? = null,
-    val householdPlanningMode: String? = null,
     val goalValue: String? = null,
     val symptomSelections: List<String> = emptyList(),
     val profileRuleEffects: Map<String, List<String>>? = null,
@@ -50,6 +57,7 @@ data class PlannerPlanExplanation(
     val candidateExclusionSummary: Map<String, Int>? = null,
     val selectionReasonsByRecipeId: Map<String, List<String>>? = null,
     val selectionReasonCounts: Map<String, Int>? = null,
+    val plannerContract: List<PlannerContractItem> = emptyList(),
     val fiberMinTarget: Int? = null,
     val sugarMaxTarget: Int? = null,
     val goalStrategy: List<String> = emptyList()

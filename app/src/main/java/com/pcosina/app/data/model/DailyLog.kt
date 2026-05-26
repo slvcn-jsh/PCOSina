@@ -11,6 +11,7 @@ data class DailyLog(
     val cravingsLevel: Int? = null, // 1-5
     val moodLevel: Int? = null, // 1-5
     val symptomTags: List<String> = emptyList(),
+    val symptomSeverityByTag: Map<String, Int> = emptyMap(), // symptom -> 1-5 self-reported severity
     val symptomsNote: String? = null,
     val journalText: String? = null,
     val timestamp: Long = System.currentTimeMillis()

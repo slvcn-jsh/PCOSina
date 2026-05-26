@@ -156,7 +156,6 @@ class Stage1Policy(BaseModel):
         default_factory=lambda: {
             "activityLevel": "Lightly Active",
             "goal": "General Health",
-            "insulinResistanceLevel": "Mild",
         }
     )
     ML_shadow_enabled: bool = True

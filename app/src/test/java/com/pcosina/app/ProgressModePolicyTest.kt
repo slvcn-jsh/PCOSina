@@ -25,6 +25,8 @@ class ProgressModePolicyTest {
         assertTrue("Progress screen should surface average daily macros.", text.contains("Average daily macros"))
         assertTrue("Progress screen should clearly label actual spend when present.", text.contains("Actual spend"))
         assertTrue("Progress screen should clearly label estimated cost fallback.", text.contains("Estimated cost"))
+        assertTrue("Progress screen should expose opt-in next-plan adjustments.", text.contains("Next-plan adjustments"))
+        assertTrue("Progress screen should persist approved next-plan adjustments.", text.contains("savePlanFeedbackTags(nextTags)"))
         assertTrue("Progress screen should expose a primary check-in CTA.", text.contains("text = \"Check in\""))
         assertTrue("Progress screen should expose the weekly review CTA.", text.contains("text = \"Review week\""))
     }

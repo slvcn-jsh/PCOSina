@@ -447,6 +447,7 @@ def profile_rule_summary(profile: UserProfile, budget_weekly: Optional[float]) -
     hard_filters: List[str] = []
     soft_drivers: List[str] = []
     shopping_factors: List[str] = []
+    advisory_limits: List[str] = []
     tracking_only: List[str] = []
 
     allergies = normalize_allergies(profile.allergies or [])
@@ -460,7 +461,7 @@ def profile_rule_summary(profile: UserProfile, budget_weekly: Optional[float]) -
         hard_filters.append(f"Weekly budget is capped at ₱{int(budget_weekly)}.")
 
     soft_drivers.append(f"Activity level changes calorie target ({profile.activityLevel or 'Lightly Active'}).")
-    soft_drivers.append(f"Insulin resistance changes macro targets ({profile.insulinResistanceLevel or 'Mild'}).")
+    soft_drivers.append("PCOS wellness nutrition policy uses a single macro target policy.")
     soft_drivers.append(f"Variety preference changes repeat pressure ({profile.varietyPreference or 'Balanced'}).")
     soft_drivers.append(f"Planning priority changes optimization weights ({profile.planningPriority or 'Balanced'}).")
     if str(profile.goal or "").strip():
@@ -469,9 +470,13 @@ def profile_rule_summary(profile: UserProfile, budget_weekly: Optional[float]) -
         soft_drivers.append("Selected symptoms add deterministic fiber, sugar, protein, or calorie nudges.")
     else:
         tracking_only.append("Symptoms are optional; no symptom-specific nudges are active.")
+    if profile.targetWeightKg:
+        tracking_only.append("Optional target weight supports progress review; it is not a solver hard constraint.")
+    advisory_limits.append("Sodium and sugar are target limits minimized through overage penalties, not hard infeasibility gates.")
 
-    household_size = household_size_multiplier(profile)
-    shopping_factors.append(f"Household size scales grocery quantities and estimated cost ({household_size}).")
+    shopping_factors.append("Grocery quantities and estimated cost are scoped to the primary user.")
+    if profile.pantryItems:
+        shopping_factors.append("Pantry items reward overlap; Android grocery coverage handles quantity-aware pantry marking after planning.")
     if not budget_weekly:
         tracking_only.append("Weekly budget is not set, so no hard budget cap is active.")
 
@@ -479,8 +484,89 @@ def profile_rule_summary(profile: UserProfile, budget_weekly: Optional[float]) -
         "hardFilters": hard_filters,
         "softDrivers": soft_drivers,
         "shoppingFactors": shopping_factors,
+        "advisoryLimits": advisory_limits,
         "trackingOnly": tracking_only,
     }
+
+
+def planner_contract_summary(profile: UserProfile, budget_weekly: Optional[float]) -> List[Dict[str, Any]]:
+    has_budget = budget_weekly is not None
+    has_pantry = bool(profile.pantryItems)
+    has_symptoms = bool(normalize_symptoms(profile.symptoms or []))
+    return [
+        {
+            "field": "allergies",
+            "classification": "hard",
+            "enforcement": "Stage 1 excludes recipes with matching allergen families or custom excluded ingredients.",
+            "active": bool(profile.allergies),
+        },
+        {
+            "field": "dietaryRestrictions",
+            "classification": "hard",
+            "enforcement": "Stage 1 excludes recipes incompatible with supported restriction rules.",
+            "active": bool(profile.dietaryRestrictions),
+        },
+        {
+            "field": "weeklyBudgetPhp",
+            "classification": "hard",
+            "enforcement": "Stage 2 enforces total estimated plan cost <= weekly budget when a budget is set.",
+            "active": has_budget,
+        },
+        {
+            "field": "maxCookingTimeMinutes",
+            "classification": "hard",
+            "enforcement": "Stage 1 excludes recipes above the saved maximum cooking time.",
+            "active": bool(profile.maxCookingTimeMinutes and profile.maxCookingTimeMinutes > 0),
+        },
+        {
+            "field": "calories/protein/carbs/fats/fiber",
+            "classification": "hard",
+            "enforcement": "Stage 2 applies daily calorie, macro, and fiber bounds for each solve attempt.",
+            "active": True,
+        },
+        {
+            "field": "sodiumMg/sugarGrams",
+            "classification": "advisory",
+            "enforcement": "Stage 2 minimizes sodium and sugar overage variables instead of rejecting every overage.",
+            "active": True,
+        },
+        {
+            "field": "goal",
+            "classification": "soft",
+            "enforcement": "Goal changes calorie targets, nutrition nudges, and candidate scoring, while preserving hard filters.",
+            "active": bool(str(profile.goal or "").strip()),
+        },
+        {
+            "field": "targetWeightKg/targetDate/weeklyWeightChangeGoalKg",
+            "classification": "tracking",
+            "enforcement": "Stored as progress-support context; Android guardrails and opt-in feedback tags decide whether future plans are adjusted.",
+            "active": bool(profile.targetWeightKg or profile.targetDate or profile.weeklyWeightChangeGoalKg is not None),
+        },
+        {
+            "field": "symptoms",
+            "classification": "soft",
+            "enforcement": "Selected symptoms add deterministic nutrition and scoring nudges.",
+            "active": has_symptoms,
+        },
+        {
+            "field": "varietyPreference/planningPriority",
+            "classification": "soft",
+            "enforcement": "Preference values change optimization weights and retry ordering.",
+            "active": True,
+        },
+        {
+            "field": "pantryItems",
+            "classification": "soft",
+            "enforcement": "Pantry overlap is scored, optionally thresholded in Stage 1, and rewarded in Stage 2; Android grocery coverage evaluates saved pantry quantities after planning.",
+            "active": has_pantry,
+        },
+        {
+            "field": "displayName/comorbidities",
+            "classification": "tracking",
+            "enforcement": "Stored for profile context and continuity; not used as solver hard constraints.",
+            "active": bool(str(profile.displayName or "").strip() or profile.comorbidities),
+        },
+    ]
 
 
 def stage1_recipe_adjustments(
@@ -610,11 +696,6 @@ def _recipe_static_features(recipe: Dict[str, Any]) -> Dict[str, Any]:
     return features
 
 
-def household_size_multiplier(profile: UserProfile) -> int:
-    raw = int(getattr(profile, "householdSize", 1) or 1)
-    return max(1, min(raw, 6))
-
-
 def parse_serving_count(value: Any) -> Optional[float]:
     if value in (None, ""):
         return None
@@ -652,11 +733,11 @@ def recipe_serving_count(recipe: Dict[str, Any]) -> Optional[float]:
     return None
 
 
-def serving_cost_multiplier(recipe: Dict[str, Any], household_size: int) -> float:
+def serving_cost_multiplier(recipe: Dict[str, Any]) -> float:
     servings = recipe_serving_count(recipe)
     if servings is None or servings <= 0:
-        return float(max(1, int(household_size or 1)))
-    return max(1.0, float(household_size or 1)) / max(1.0, float(servings))
+        return 1.0
+    return 1.0 / max(1.0, float(servings))
 
 
 def build_plan_day_labels(num_days: int, start_date_text: Optional[str] = None) -> List[str]:
@@ -678,14 +759,12 @@ def build_plan_day_labels(num_days: int, start_date_text: Optional[str] = None) 
 
 def estimate_cost(
     recipe: Dict[str, Any],
-    household_size: int = 1,
     *,
     pricing_context: Optional[PricingContext] = None,
-    cost_cache: Optional[Dict[Tuple[str, int, int, int], int]] = None,
+    cost_cache: Optional[Dict[Tuple[str, int, int], int]] = None,
     cost_cache_stats: Optional[Dict[str, int]] = None,
 ) -> int:
-    normalized_household = max(1, int(household_size or 1))
-    cache_key: Optional[Tuple[str, int, int, int]] = None
+    cache_key: Optional[Tuple[str, int, int]] = None
     if cost_cache is not None:
         recipe_id = str(recipe.get("id") or "").strip()
         if not recipe_id:
@@ -697,7 +776,7 @@ def estimate_cost(
                 recipe_id = hashlib.sha256(str(recipe.get("ingredients", [])).encode("utf-8")).hexdigest()
         month_index = int(getattr(pricing_context, "month_index", 0) or 0)
         serving_key = int(round(float(recipe_serving_count(recipe) or 1.0) * 100))
-        cache_key = (recipe_id, normalized_household, month_index, serving_key)
+        cache_key = (recipe_id, month_index, serving_key)
         cached = cost_cache.get(cache_key)
         if cached is not None:
             if cost_cache_stats is not None:
@@ -708,7 +787,7 @@ def estimate_cost(
 
     ings = recipe.get("ingredients", [])
     catalog_cost = estimate_recipe_cost(ings, pricing_context=pricing_context)
-    serving_multiplier = serving_cost_multiplier(recipe, normalized_household)
+    serving_multiplier = serving_cost_multiplier(recipe)
     if catalog_cost > 0:
         resolved = int(max(1, round(float(catalog_cost) * serving_multiplier)))
         if cost_cache is not None and cache_key is not None:
@@ -992,14 +1071,10 @@ def _increment_count(counter: Dict[str, int], key: str, amount: int = 1) -> None
 def validate_profile(profile: UserProfile) -> Optional[str]:
     restrictions = set(profile.dietaryRestrictions or [])
     allergy_tokens = set(normalize_allergies(profile.allergies or []))
-    household_raw = getattr(profile, "householdSize", 1)
     max_cook_raw = getattr(profile, "maxCookingTimeMinutes", 0)
-    household_size = int(1 if household_raw is None else household_raw)
     max_cook = int(0 if max_cook_raw is None else max_cook_raw)
     planning_priority = str(profile.planningPriority or "").strip().lower()
     variety_preference = str(profile.varietyPreference or "").strip().lower()
-    if household_size < 1 or household_size > 6:
-        return "Household size must stay between 1 and 6."
     if max_cook and not 10 <= max_cook <= 240:
         return "Max cooking time must stay between 10 and 240 minutes."
     if "Vegetarian" in restrictions and "Pescatarian" in restrictions:
@@ -1027,12 +1102,11 @@ def resolve_budget_weekly(profile: UserProfile) -> Optional[float]:
     return None
 
 
-def macro_ratios(insulin_level: str | None) -> tuple[float, float, float]:
-    raw = (insulin_level or "").lower()
-    if "severe" in raw:
-        return (0.30, 0.30, 0.40)
-    if "moderate" in raw:
-        return (0.28, 0.35, 0.37)
+def macro_ratios(_: str | None = None) -> tuple[float, float, float]:
+    """Return the final PCOS wellness macro policy.
+
+    The optional argument is retained for legacy callers during the transition.
+    """
     return (0.25, 0.40, 0.35)
 
 
@@ -1142,7 +1216,6 @@ def _solve_pair_preferences_for_profile(
     allergies = [str(item or "").strip() for item in (profile.allergies or []) if str(item or "").strip()]
     goal_tokens = normalize_goal_tokens(profile.goal)
     symptom_count = len(normalize_symptoms(profile.symptoms or []))
-    insulin_level = str(profile.insulinResistanceLevel or "").strip().lower()
     priority = str(profile.planningPriority or "").strip().lower()
     major_diet = bool(restrictions & {"vegetarian", "pescatarian"})
     has_weekly_budget = resolve_budget_weekly(profile) is not None
@@ -1172,6 +1245,12 @@ def _solve_pair_preferences_for_profile(
             "preferredTolerances": [0.3, 0.4, 0.2, 0.6, 0.8],
             "preferredRepeats": [6, 8, 10, 4, 3, 2],
         }
+    if "quick" in priority or "prep" in priority:
+        return {
+            "strategy": "quick_prep_tolerance_first",
+            "preferredTolerances": [0.3, 0.4, 0.2, 0.6, 0.8],
+            "preferredRepeats": [4, 3, 6, 8, 10, 2],
+        }
     if restrictions and "budget" not in priority:
         return {
             "strategy": "dietary_restriction_repeat_first",
@@ -1179,8 +1258,7 @@ def _solve_pair_preferences_for_profile(
             "preferredRepeats": [3, 4, 10, 2, 6, 8],
         }
     high_nutrition_pressure = (
-        "severe" in insulin_level
-        or "nutrition" in priority
+        "nutrition" in priority
         or "tight" in priority
         or (GOAL_WEIGHT_LOSS.lower() in goal_tokens and GOAL_SYMPTOM_MANAGEMENT.lower() in goal_tokens)
         or symptom_count >= 2
@@ -1206,6 +1284,16 @@ def _solve_pair_preferences_for_profile(
 
 def priority_overrides(priority: str | None) -> Dict[str, int]:
     raw = (priority or "").lower()
+    if "budget" in raw and ("quick" in raw or "prep" in raw):
+        return {
+            "budget_mult": 2,
+            "repeat_weight": 3,
+            "group_weight": 1,
+            "diversity_weight": 1,
+            "macro_mult": 1,
+            "variety_mult": 1,
+            "prep_time_mult": 3,
+        }
     if "budget" in raw:
         return {
             "budget_mult": 2,
@@ -1229,6 +1317,13 @@ def priority_overrides(priority: str | None) -> Dict[str, int]:
             "budget_mult": 1,
             "macro_mult": 2,
             "variety_mult": 1,
+        }
+    if "quick" in raw or "prep" in raw:
+        return {
+            "budget_mult": 1,
+            "macro_mult": 1,
+            "variety_mult": 1,
+            "prep_time_mult": 3,
         }
     return {"budget_mult": 1, "macro_mult": 1, "variety_mult": 1}
 
@@ -1528,7 +1623,6 @@ def shortlist_candidates(
         pre_pricing_cap = max(1, int(pre_pricing_cap_config))
     pre_pricing_bucket_reserve = int(_policy_get(policy, "stage1.pre_pricing_bucket_reserve", 32))
     pre_pricing_restricted_enabled = bool(_policy_get(policy, "stage1.pre_pricing_restricted_enabled", False))
-    household_size = household_size_multiplier(profile)
     symptom_state = symptom_adjustments(profile, profile.goal)
     ml_scoring_enabled = _stage1_ml_scoring_enabled(policy)
     ml_weight = float(_policy_get(policy, "stage1.ML_score_weight", 0.15))
@@ -1630,14 +1724,13 @@ def shortlist_candidates(
     else:
         pre_pruned = False
 
-    cost_cache: Dict[Tuple[str, int, int, int], int] = {}
+    cost_cache: Dict[Tuple[str, int, int], int] = {}
     cost_cache_stats: Dict[str, int] = {"recipeCostCacheHits": 0, "recipeCostCacheMisses": 0}
     cost_estimated_recipe_count = 0
     for r in safe_candidates:
         cost_estimated_recipe_count += 1
         r["_cost_est"] = estimate_cost(
             r,
-            household_size=household_size,
             pricing_context=pricing_context,
             cost_cache=cost_cache,
             cost_cache_stats=cost_cache_stats,
@@ -1793,11 +1886,10 @@ def build_swap_candidates(
     max_repeat_limit = max(repeat_limit_candidates or [baseline_repeat_limit])
 
     budget_weekly = resolve_budget_weekly(profile)
-    household_size = household_size_multiplier(profile)
     current_total_cost = 0.0
     if budget_weekly:
         current_total_cost = sum(
-            float(estimate_cost(recipe, household_size=household_size))
+            float(estimate_cost(recipe))
             for recipe in recipes
             for _ in range(current_counts.get(str(recipe.get("id") or ""), 0))
         )
@@ -1818,7 +1910,7 @@ def build_swap_candidates(
                 current_recipe_cost = float(
                     next(
                         (
-                            estimate_cost(item, household_size=household_size)
+                            estimate_cost(item)
                             for item in recipes
                             if str(item.get("id") or "") == str(current_recipe_id)
                         ),
@@ -1826,7 +1918,7 @@ def build_swap_candidates(
                     )
                 )
             candidate_total_cost = current_total_cost - current_recipe_cost + float(
-                recipe.get("_cost_est") or estimate_cost(recipe, household_size=household_size)
+                recipe.get("_cost_est") or estimate_cost(recipe)
             )
             if candidate_total_cost > float(budget_weekly):
                 continue
@@ -2132,7 +2224,6 @@ def _build_explanation(
     symptom_state: Optional[Dict[str, Any]] = None,
     candidate_exclusion_summary: Optional[Dict[str, int]] = None,
     budget_hard_cap_applied: bool = False,
-    household_planning_mode: str = "per_person_targets_household_scaled_shopping",
     fiber_min_target: Optional[int] = None,
     sugar_max_target: Optional[int] = None,
 ) -> Dict[str, Any]:
@@ -2189,10 +2280,10 @@ def _build_explanation(
         "candidatePoolSize": int(candidate_pool_size),
         "selectedMeals": len(selected),
         "budgetHardCapApplied": bool(budget_hard_cap_applied),
-        "householdPlanningMode": str(household_planning_mode),
         "goalValue": str(profile.goal or "").strip(),
         "symptomSelections": list(normalize_symptoms(profile.symptoms or [])),
         "profileRuleEffects": profile_rule_effects or profile_rule_summary(profile, budget_weekly),
+        "plannerContract": planner_contract_summary(profile, budget_weekly),
         "symptomStrategy": list((symptom_state or {}).get("notes") or []),
         "candidateExclusionSummary": candidate_exclusion_summary or {},
         "selectionReasonsByRecipeId": selection_reasons_by_recipe,
@@ -2331,16 +2422,10 @@ def solve_meal_plan(
         {
             "activityLevel": "Lightly Active",
             "goal": "General Health",
-            "insulinResistanceLevel": "Mild",
         },
     )
     activity_level = (profile.activityLevel or cold_start_defaults.get("activityLevel") or "Lightly Active")
     goal_value = (profile.goal or cold_start_defaults.get("goal") or "General Health")
-    insulin_level = (
-        profile.insulinResistanceLevel
-        or cold_start_defaults.get("insulinResistanceLevel")
-        or "Mild"
-    )
     symptom_state = symptom_adjustments(profile, goal_value)
     debug_solver = _env_bool("PCOSINA_DEBUG_SOLVER", False)
     debug_summary = {
@@ -2413,8 +2498,8 @@ def solve_meal_plan(
     rng = random.Random(seed_key)
     daily_targets = [target + rng.randint(-50, 50) for _ in range(num_days)]
     daily_targets = [max(calorie_min, min(t, calorie_max)) for t in daily_targets]
-    # Macro targets based on calories, adjusted by insulin resistance level
-    protein_ratio, carb_ratio, fat_ratio = macro_ratios(insulin_level)
+    # Macro targets use the final PCOS wellness policy.
+    protein_ratio, carb_ratio, fat_ratio = macro_ratios()
     target_protein = int((target * protein_ratio) / 4)
     target_carbs = int((target * carb_ratio) / 4)
     target_fats = int((target * fat_ratio) / 9)
@@ -2921,7 +3006,7 @@ def solve_meal_plan(
         group_w = int(_policy_get(policy, "planning.cuisine_diversity_weight", weights.get("group_weight", 2))) * int(priority.get("variety_mult", 1))
         diversity_w = int(_policy_get(policy, "planning.cuisine_diversity_weight", weights.get("diversity_weight", 1))) * int(priority.get("variety_mult", 1))
         pantry_w = int(_policy_get(policy, "planning.pantry_utilization_weight", weights.get("pantry_weight", 1)))
-        prep_time_w = int(_policy_get(policy, "planning.prep_time_weight", 1))
+        prep_time_w = int(priority.get("prep_time_mult", 1)) * int(_policy_get(policy, "planning.prep_time_weight", 1))
         cost_w = int(_policy_get(policy, "planning.grocery_cost_weight", 1))
         acceptance_w = int(_policy_get(policy, "planning.acceptance_score_weight", 1))
         macro_mult = int(priority.get("macro_mult", 1))

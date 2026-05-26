@@ -27,8 +27,8 @@ class SwapAndGroceryRegressionPolicyTest {
             actionBlock.contains("it.quantity")
         )
         assertFalse(
-            "RecipeDetails should not pre-scale grocery quantities before storing them.",
-            actionBlock.contains("scaleQuantityText(")
+            "RecipeDetails should not transform grocery quantities before storing them.",
+            actionBlock.contains("scaleQuantity")
         )
     }
 
@@ -49,7 +49,7 @@ class SwapAndGroceryRegressionPolicyTest {
     }
 
     @Test
-    fun householdAwareWeeklyCost_isNotScaledAgainOnClient() {
+    fun weeklyCost_isNotMultipliedAgainOnClient() {
         val dashboardPath = resolve(
             "app", "src", "main", "java", "com", "pcosina", "app",
             "ui", "screens", "DashboardRefinedScreen.kt"
@@ -68,19 +68,19 @@ class SwapAndGroceryRegressionPolicyTest {
         val progress = read(progressPath)
 
         assertFalse(
-            "Dashboard should not multiply estimatedWeeklyCost by household size after backend scaling.",
-            dashboard.contains("estimatedWeeklyCost?.times(profile.householdSize.coerceIn(1, 6))")
+            "Dashboard should not multiply estimatedWeeklyCost after backend calculation.",
+            dashboard.contains("estimatedWeeklyCost?.times(")
         )
         assertFalse(
-            "MealPlan should not multiply estimatedWeeklyCost by household size after backend scaling.",
-            mealPlan.contains("estimatedWeeklyCost\n                                ?.times(profile.householdSize.coerceIn(1, 6))") ||
-                mealPlan.contains("estimatedWeeklyCost?.times(profile.householdSize.coerceIn(1, 6))")
+            "MealPlan should not multiply estimatedWeeklyCost after backend calculation.",
+            mealPlan.contains("estimatedWeeklyCost\n                                ?.times(") ||
+                mealPlan.contains("estimatedWeeklyCost?.times(")
         )
         assertFalse(
-            "Progress should not multiply estimatedWeeklyCost by household size after backend scaling.",
-            progress.contains("estimatedWeeklyCost\n                ?.times(profile.householdSize.coerceIn(1, 6))") ||
-                progress.contains("estimatedWeeklyCost\n        ?.times(profile.householdSize.coerceIn(1, 6))") ||
-                progress.contains("estimatedWeeklyCost?.times(profile.householdSize.coerceIn(1, 6))")
+            "Progress should not multiply estimatedWeeklyCost after backend calculation.",
+            progress.contains("estimatedWeeklyCost\n                ?.times(") ||
+                progress.contains("estimatedWeeklyCost\n        ?.times(") ||
+                progress.contains("estimatedWeeklyCost?.times(")
         )
     }
 

@@ -7,11 +7,9 @@
 | age, heightCm, weightKg | app/src/main/java/com/pcosina/app/data/model/UserProfile.kt:6 | BMI/BMR/TDEE and planner validation |
 | activityLevel | app/src/main/java/com/pcosina/app/data/model/UserProfile.kt:6 | TDEE multiplier and calorie target |
 | goal | app/src/main/java/com/pcosina/app/data/model/UserProfile.kt:6 | Calorie adjustment and planner strategy |
-| insulinResistanceLevel | backend/domain/models.py:14 | Backend macro ratio mapping |
-| allergies, dietaryRestrictions | backend/domain/models.py:14 | Safety filtering |
-| weeklyBudgetPhp / budgetWeekly / budgetMonthly | backend/services/meal_planner.py:932 | Budget cap and cost objective |
-| householdSize | backend/domain/models.py:14 | Cost scaling and grocery scaling |
-| maxCookingTimeMinutes | backend/domain/models.py:14 | Recipe filtering |
+| allergies, dietaryRestrictions | backend/domain/models.py:22 | Safety filtering |
+| weeklyBudgetPhp / budgetWeekly / budgetMonthly | backend/services/meal_planner.py:1008 | Budget cap and cost objective |
+| maxCookingTimeMinutes | backend/domain/models.py:22 | Recipe filtering |
 | pantryItems | app/src/main/java/com/pcosina/app/data/model/UserProfile.kt:6 | Pantry overlap scoring and grocery UI coverage |
 
 ## Table 2: Health Computations Used by PCOSina
@@ -22,7 +20,7 @@
 | BMI category | Underweight <18.5, Normal <25, Overweight <30, else Obese | app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:35 |
 | BMR | (10*w) + (6.25*h) - (5*a) - 161 | app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:55 |
 | TDEE | BMR * activity multiplier | app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:63 |
-| Backend calorie target | int(BMR*multiplier) +/- goal/symptom deltas, then clamp | backend/services/meal_planner.py:1755 |
+| Backend calorie target | int(BMR*multiplier) +/- goal/symptom deltas, then clamp | backend/services/meal_planner.py:2290 |
 
 ## Table 3: Activity Level Multipliers
 
@@ -38,16 +36,15 @@
 | Goal | Android Adjustment | Backend Adjustment | Source |
 | --- | --- | --- | --- |
 | Weight Loss | -500 | -500 | app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:63 |
-| Symptom Management | 0 | 0 before symptom deltas | backend/services/meal_planner.py:388 |
+| Symptom Management | 0 | 0 before symptom deltas | backend/services/meal_planner.py:393 |
 | General Health | 0 | 0 before symptom deltas | app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:63 |
 
-## Table 5: Insulin Resistance Macro Ratios
+## Table 5: Fixed Wellness Macro Ratios
 
-| Insulin Resistance Level | Protein | Carbs | Fats | Source |
+| Policy | Protein | Carbs | Fats | Source |
 | --- | --- | --- | --- | --- |
-| Mild/default | 0.25 | 0.40 | 0.35 | backend/services/meal_planner.py:942 |
-| Moderate | 0.28 | 0.35 | 0.37 | backend/services/meal_planner.py:942 |
-| Severe | 0.30 | 0.30 | 0.40 | backend/services/meal_planner.py:942 |
+| Final PCOS wellness policy | 0.25 | 0.40 | 0.35 | backend/services/meal_planner.py:1018 |
+| Legacy severity argument | ignored | ignored | ignored | backend/services/meal_planner.py:1018 |
 
 ## Table 6: Sample Manual Computation
 
@@ -57,12 +54,12 @@
 | BMI Category | Overweight | app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:35 |
 | BMR | 1364.0 | app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:55 |
 | Android TDEE | 1876 | app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:63 |
-| Backend TDEE | 1875 | backend/services/meal_planner.py:1755 |
+| Backend TDEE | 1875 | backend/services/meal_planner.py:2290 |
 | Android calorie target | 1376 | app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:63 |
-| Backend calorie target | 1375 | backend/services/meal_planner.py:1755 |
-| Backend protein target | 96 g | backend/services/meal_planner.py:1755 |
-| Backend carb target | 120 g | backend/services/meal_planner.py:1755 |
-| Backend fat target | 56 g | backend/services/meal_planner.py:1755 |
+| Backend calorie target | 1375 | backend/services/meal_planner.py:2290 |
+| Backend protein target | 85 g | backend/services/meal_planner.py:2290 |
+| Backend carb target | 137 g | backend/services/meal_planner.py:2290 |
+| Backend fat target | 53 g | backend/services/meal_planner.py:2290 |
 
 ## Table 7: Manual vs System Output Validation
 
@@ -72,23 +69,23 @@
 | BMR | 1364.0 | Android and backend BMR formula | Exact integer match |
 | TDEE | Android 1876 / backend 1875 | Different rounding rules | Match the code path used |
 | Calorie target | Android 1376 / backend 1375 | Different rounding rules | Match the code path used |
-| Macro targets | 96 / 120 / 56 | Backend only | Exact integer match |
+| Macro targets | 85 / 137 / 53 | Backend only | Exact integer match |
 
 ## Table 8: Recipe Filtering Rules
 
 | Rule | Actual Behavior | Source |
 | --- | --- | --- |
-| Allergy filter | Exclude recipes with descendant allergen-family tokens | backend/services/meal_planner.py:371 |
-| Diet restrictions | Exclude recipes by No Pork/No Beef/Vegetarian/Pescatarian/Lactose Intolerant rules | backend/services/meal_planner.py:868 |
-| Cooking time | Exclude recipes beyond maxCookingTimeMinutes | backend/services/meal_planner.py:1088 |
-| Profile conflicts | Reject conflicting restriction combinations before solving | backend/services/meal_planner.py:904 |
+| Allergy filter | Exclude recipes with descendant allergen-family tokens | backend/services/meal_planner.py:376 |
+| Diet restrictions | Exclude recipes by No Pork/No Beef/Vegetarian/Pescatarian/Lactose Intolerant rules | backend/services/meal_planner.py:948 |
+| Cooking time | Exclude recipes beyond maxCookingTimeMinutes | backend/services/meal_planner.py:1476 |
+| Profile conflicts | Reject conflicting restriction combinations before solving | backend/services/meal_planner.py:984 |
 
 ## Table 9: Pantry Matching Rules
 
 | Layer | Actual Rule | Source |
 | --- | --- | --- |
-| Backend planner | Token overlap count influences Stage 1 score and Stage 2 soft reward | backend/services/meal_planner.py:637 |
-| Android grocery UI | Pantry coverage uses pantry-name matching, not backend token-overlap count | app/src/main/java/com/pcosina/app/ui/screens/GroceryRefinedScreen.kt:1827 |
+| Backend planner | Token overlap count influences Stage 1 score and Stage 2 soft reward | backend/services/meal_planner.py:717 |
+| Android grocery UI | Pantry coverage uses pantry-name matching, not backend token-overlap count | app/src/main/java/com/pcosina/app/ui/screens/GroceryRefinedScreen.kt:1989 |
 
 ## Table 10: Grocery Price Estimation Rules
 
@@ -102,22 +99,22 @@
 
 | Constraint | Hard/Soft | Source |
 | --- | --- | --- |
-| Exactly one recipe per meal slot | Hard | backend/services/meal_planner.py:1755 |
-| No adjacent identical recipe | Hard | backend/services/meal_planner.py:1755 |
-| Per-attempt reuse cap | Hard | backend/services/meal_planner.py:1755 |
-| Weekly budget cap when budget exists | Hard | backend/services/meal_planner.py:1755 |
-| Daily calorie deviation | Soft | backend/services/meal_planner.py:1755 |
-| Daily macro deviation | Soft | backend/services/meal_planner.py:1755 |
-| Fiber, sodium, sugar penalties | Soft | backend/services/meal_planner.py:1755 |
-| Pantry and vegetable diversity rewards | Soft | backend/services/meal_planner.py:1755 |
+| Exactly one recipe per meal slot | Hard | backend/services/meal_planner.py:2290 |
+| No adjacent identical recipe | Hard | backend/services/meal_planner.py:2290 |
+| Per-attempt reuse cap | Hard | backend/services/meal_planner.py:2290 |
+| Weekly budget cap when budget exists | Hard | backend/services/meal_planner.py:2290 |
+| Daily calorie deviation | Soft | backend/services/meal_planner.py:2290 |
+| Daily macro deviation | Soft | backend/services/meal_planner.py:2290 |
+| Fiber, sodium, sugar penalties | Soft | backend/services/meal_planner.py:2290 |
+| Pantry and vegetable diversity rewards | Soft | backend/services/meal_planner.py:2290 |
 
 ## Table 12: No-Safe-Plan Conditions
 
 | Condition | Actual Response Path | Source |
 | --- | --- | --- |
-| Conflicting profile/restrictions | Return no-safe-plan with mapped reason codes | backend/services/plan_response_builder.py:111 |
-| No safe candidates after Stage 1 | Return no-safe-plan with diagnostics | backend/services/plan_response_builder.py:111 |
-| Solver infeasible/time-out | Return no-safe-plan with solver metadata | backend/services/plan_response_builder.py:111 |
+| Conflicting profile/restrictions | Return no-safe-plan with mapped reason codes | backend/services/plan_response_builder.py:116 |
+| No safe candidates after Stage 1 | Return no-safe-plan with diagnostics | backend/services/plan_response_builder.py:116 |
+| Solver infeasible/time-out | Return no-safe-plan with solver metadata | backend/services/plan_response_builder.py:116 |
 
 ## Table 12A: Adaptive Constraint Handling Actually Implemented
 
@@ -141,13 +138,12 @@
 ## Table 13: Actual Recipe Dataset Summary
 
 - Total bundled recipes found in `backend/recipes.json`: `1130`
-- Raw bundled recipes with complete nutrition: `76`
-- Average calories among raw complete nutrition rows: `397.63`
-- Average protein among raw complete nutrition rows: `17.25`
-- Average minutes across bundled recipes: `77.81`
-- Minimum calories among raw complete nutrition rows: `280`
-- Maximum calories among raw complete nutrition rows: `550`
-- Average ingredient count across bundled recipes: `11.05`
+- Average calories: `399.84`
+- Average protein: `17.02`
+- Average minutes: `77.81`
+- Minimum calories: `280`
+- Maximum calories: `550`
+- Average ingredient count: `11.05`
 
 | Meal Type | Recipe Count |
 | --- | --- |
@@ -160,8 +156,8 @@
 
 | Metric | Actual Inventory Result |
 | --- | --- |
-| Backend test files discovered | 68 |
-| Backend test functions discovered | 265 |
+| Backend test files discovered | 72 |
+| Backend test functions discovered | 335 |
 | Planner-specific files observed | test_meal_planner.py, test_no_safe_plan_contract.py, test_planner_response_contract.py, test_worker_plan_jobs.py, test_policy_config.py, test_schema_contract.py |
 | Coverage percentage | NOT FOUND IN CURRENT DEV BRANCH |
 
@@ -169,9 +165,9 @@
 
 | Metric | Actual Inventory Result |
 | --- | --- |
-| Android test files discovered | 101 |
-| Android test methods discovered | 277 |
-| Unit/instrumented split | 218 unit tests, 59 instrumented tests |
+| Android test files discovered | 102 |
+| Android test methods discovered | 273 |
+| Unit/instrumented split | 219 unit tests, 54 instrumented tests |
 | Coverage percentage | NOT FOUND IN CURRENT DEV BRANCH |
 
 ## Table 16: ISO 25010 Evaluation Instrument Mapping

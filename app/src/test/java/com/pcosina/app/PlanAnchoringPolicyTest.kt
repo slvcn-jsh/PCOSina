@@ -109,6 +109,11 @@ class PlanAnchoringPolicyTest {
                 mealPlan.contains("saveMealCheckIn(")
         )
         assertTrue(
+            "MealPlan screen should expose the hard/soft/advisory planner contract from the backend explanation.",
+            mealPlan.contains("Plan rule contract") &&
+                mealPlan.contains("mealplan_contract_card")
+        )
+        assertTrue(
             "MealPlan screen should steer users back to weekly progress before replacing an in-progress week.",
             mealPlan.contains("Review this week in Progress before starting a new one.")
         )

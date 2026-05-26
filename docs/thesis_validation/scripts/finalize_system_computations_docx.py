@@ -484,7 +484,7 @@ def add_front_matter(doc: Document) -> None:
         doc,
         ["Notation", "Meaning", "Defense-safe explanation"],
         [
-            ["clamp(x, min, max)", "Restricts a value inside an allowed range.", "Used to keep calorie, macro, budget, household, and policy values inside explicit limits."],
+            ["clamp(x, min, max)", "Restricts a value inside an allowed range.", "Used to keep calorie, macro, budget, and policy values inside explicit limits."],
             ["int(x)", "Converts a decimal value to an integer.", "Backend target formulas use integer conversion, which may differ from Android rounding by 1 kcal or gram."],
             ["round(x)", "Rounds to the nearest whole number.", "Android preview values use rounding in some health-metric displays."],
             ["abs(x)", "Absolute value.", "Used for deviation/error terms where only distance from target matters."],

@@ -164,7 +164,6 @@ def _profile_from_dict(raw: Dict[str, Any]) -> UserProfile:
         weightKg=int(raw.get("weightKg", 65) or 65),
         activityLevel=str(raw.get("activityLevel", "Lightly Active")),
         goal=str(raw.get("goal", "General Health")),
-        insulinResistanceLevel=str(raw.get("insulinResistanceLevel", "Mild")),
         dietaryRestrictions=list(raw.get("dietaryRestrictions", []) or []),
         allergies=list(raw.get("allergies", []) or []),
         weeklyBudgetPhp=(int(raw["weeklyBudgetPhp"]) if raw.get("weeklyBudgetPhp") is not None else None),

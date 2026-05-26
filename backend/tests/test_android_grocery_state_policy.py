@@ -7,6 +7,7 @@ MEAL_PLAN_VIEW_MODEL = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina
 USER_PREFS_REPOSITORY = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "data" / "repository" / "UserPreferencesRepository.kt"
 USER_VIEW_MODEL = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "ui" / "UserViewModel.kt"
 GROCERY_SCREEN = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "ui" / "screens" / "GroceryRefinedScreen.kt"
+GROCERY_AGGREGATION = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "domain" / "GroceryAggregation.kt"
 
 
 def _read(path: Path) -> str:
@@ -44,14 +45,20 @@ def test_grocery_item_aggregation_and_manual_edits_use_normalized_name_keys():
 def test_pantry_editing_and_matching_use_normalized_name_keys():
     user_source = _read(USER_VIEW_MODEL)
     grocery_screen_source = _read(GROCERY_SCREEN)
+    grocery_aggregation_source = _read(GROCERY_AGGREGATION)
     assert "private fun normalizePantryNameKey(raw: String)" in user_source
     assert "_pantryEntries.value.associateBy { normalizePantryNameKey(it.name) }" in user_source
     assert ".distinctBy { normalizePantryNameKey(it.name) }" in user_source
-    assert "effectivePantryEntries.map { refinedPantryKey(it.name) }" in grocery_screen_source
-    assert "pantryTokens.any { token -> refinedPantryMatches(token, item.name) }" in grocery_screen_source
+    assert "buildPantryCoverage(groupedEntries, effectivePantryEntries, today)" in grocery_screen_source
+    assert ".filterValues { it.autoCovered }" in grocery_screen_source
+    assert "PantryCoverageStatus.Partial" in grocery_screen_source
+    assert "PantryCoverageStatus.NameOnly" in grocery_screen_source
+    assert "fun groceryNamesMatch(left: String, right: String): Boolean" in grocery_aggregation_source
+    assert "fun buildPantryCoverage(" in grocery_aggregation_source
+    assert "enum class PantryCoverageStatus" in grocery_aggregation_source
+    assert "PantryCoverageStatus.Full" in grocery_aggregation_source
+    assert "PantryCoverageStatus.Partial" in grocery_aggregation_source
+    assert "PantryCoverageStatus.NameOnly" in grocery_aggregation_source
     assert "private fun refinedPantryKey(raw: String)" in grocery_screen_source
-    assert "private fun refinedPantryTokens(raw: String): Set<String>" in grocery_screen_source
     assert "private fun refinedPantryMatches(pantryName: String, groceryName: String): Boolean" in grocery_screen_source
-    assert "if (pantryKey == groceryKey) return true" in grocery_screen_source
-    assert "if (pantryTokens.size <= 1 || groceryTokens.size <= 1) return false" in grocery_screen_source
-    assert "pantryTokens.containsAll(groceryTokens) || groceryTokens.containsAll(pantryTokens)" in grocery_screen_source
+    assert "return groceryNamesMatch(pantryName, groceryName)" in grocery_screen_source

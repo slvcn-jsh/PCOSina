@@ -17,6 +17,8 @@ data class RecipeDetailDto(
     val carbsGrams: Int? = null,
     val fatsGrams: Int? = null,
     val fiberGrams: Int? = null,
+    val sodiumMg: Int? = null,
+    val sugarGrams: Int? = null,
     val minutes: Int? = null,
     val ingredients: List<IngredientDto> = emptyList(),
     val steps: List<String> = emptyList(),

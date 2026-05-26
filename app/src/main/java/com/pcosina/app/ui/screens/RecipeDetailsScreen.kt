@@ -65,9 +65,6 @@ import com.pcosina.app.ui.util.remainingTodayMealSlots
 import com.pcosina.app.ui.util.mealImpactNextSuggestion
 import com.pcosina.app.ui.util.normalizeMealLabel
 import com.pcosina.app.ui.util.sampleFrameTiming
-import com.pcosina.app.domain.householdSizeLabel
-import com.pcosina.app.domain.scaleNutritionPerMeal
-import com.pcosina.app.domain.scaleQuantityText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -82,7 +79,6 @@ fun RecipeDetailsScreen(
     groceryViewModel: GroceryViewModel,
     progressViewModel: ProgressViewModel,
     goal: String = "",
-    householdSize: Int = 1,
     onBack: () -> Unit,
     onAddToGrocery: () -> Unit,
     onNavigateToRoute: (String) -> Unit = {},
@@ -303,8 +299,6 @@ fun RecipeDetailsScreen(
         }
         is RecipeDetailsUiState.Success -> {
             val r = (state as RecipeDetailsUiState.Success).recipe
-            val safeHouseholdSize = householdSize.coerceIn(1, 6)
-            val householdLabel = remember(safeHouseholdSize) { householdSizeLabel(safeHouseholdSize) }
             val plan = (planState as? MealPlanUiState.Success)?.response
             val today = LocalDate.now()
             val todayKey = today.format(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -402,7 +396,7 @@ fun RecipeDetailsScreen(
                     fallbackMealType = r.mealType
                 )
             }
-            val heroSubtitle = "$mealSlotLabel • $recipeMinutesLabel • $householdLabel"
+            val heroSubtitle = "$mealSlotLabel • $recipeMinutesLabel • Primary-user plan"
             var showLoadedContent by remember(r.id) { mutableStateOf(false) }
             var impactSummary by remember(r.id, todayKey) { mutableStateOf<RecipeImpactSummary?>(null) }
             var impactDetailsExpanded by remember(r.id, todayKey) { mutableStateOf(false) }
@@ -767,18 +761,24 @@ fun RecipeDetailsScreen(
                                             NutrientTile("Carbs", "${r.carbsGrams ?: 0}g", colorScheme.primary)
                                             NutrientTile("Fiber", "${r.fiberGrams ?: 0}g", colorScheme.primary)
                                         }
+                                        if (r.sodiumMg != null || r.sugarGrams != null) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                r.sodiumMg?.let {
+                                                    NutrientTile("Sodium", "${it}mg", colorScheme.onSurfaceVariant)
+                                                }
+                                                r.sugarGrams?.let {
+                                                    NutrientTile("Sugar", "${it}g", colorScheme.onSurfaceVariant)
+                                                }
+                                            }
+                                        }
                                         Text(
                                             text = nutritionTrustMessage(r.nutritionConfidence, r.nutritionReviewStatus),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = colorScheme.onSurfaceVariant
                                         )
-                                        if (safeHouseholdSize > 1) {
-                                            Text(
-                                                text = "Whole recipe for $householdLabel: ${scaleNutritionPerMeal(r.calories, safeHouseholdSize) ?: 0} kcal • ${scaleNutritionPerMeal(r.proteinGrams, safeHouseholdSize) ?: 0}g protein",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colorScheme.onSurfaceVariant
-                                            )
-                                        }
                                     }
                                 }
                             }
@@ -789,7 +789,7 @@ fun RecipeDetailsScreen(
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                     RecipeSectionHeader(
                                         title = "Ingredients",
-                                        subtitle = "${r.ingredients.size} item(s) scaled for $householdLabel."
+                                        subtitle = "${r.ingredients.size} item(s) for the primary-user plan."
                                     )
                                     Card(
                                         shape = RoundedCornerShape(22.dp),
@@ -801,7 +801,7 @@ fun RecipeDetailsScreen(
                                             verticalArrangement = Arrangement.spacedBy(2.dp)
                                         ) {
                                             r.ingredients.forEachIndexed { index, ing ->
-                                                IngredientRow(ing.name, scaleQuantityText(ing.quantity, safeHouseholdSize))
+                                                IngredientRow(ing.name, ing.quantity)
                                                 if (index < r.ingredients.lastIndex) {
                                                     HorizontalDivider(
                                                         modifier = Modifier.padding(vertical = 3.dp),

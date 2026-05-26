@@ -14,6 +14,12 @@ data class PreparedPlannerProfile(
 
 class PlannerProfilePreparationUseCase {
 
+    companion object {
+        const val GoalWeightTrendSupportTag = "Goal: Weight trend support"
+        const val GoalCravingSupportTag = "Goal: Craving support"
+        const val GoalEnergySupportTag = "Goal: Energy support"
+    }
+
     operator fun invoke(
         requestedProfile: UserProfile,
         storedProfile: UserProfile? = null,
@@ -29,19 +35,41 @@ class PlannerProfilePreparationUseCase {
             .filter { it.isNotBlank() }
         var tunedProfile = resolvedProfile
         val applied = mutableListOf<String>()
+        if (normalizedTags.any { it.equals(GoalWeightTrendSupportTag, ignoreCase = true) }) {
+            tunedProfile = tunedProfile.copy(
+                symptoms = appendProfileToken(tunedProfile.symptoms, "Weight gain"),
+                planningPriority = "Nutrition Tight"
+            )
+            applied += GoalWeightTrendSupportTag
+        }
+        if (normalizedTags.any { it.equals(GoalCravingSupportTag, ignoreCase = true) }) {
+            tunedProfile = tunedProfile.copy(
+                goal = appendGoalToken(tunedProfile.goal, "Symptom Management"),
+                planningPriority = "Nutrition Tight"
+            )
+            applied += GoalCravingSupportTag
+        }
+        if (normalizedTags.any { it.equals(GoalEnergySupportTag, ignoreCase = true) }) {
+            tunedProfile = tunedProfile.copy(planningPriority = "Nutrition Tight")
+            applied += GoalEnergySupportTag
+        }
         if (normalizedTags.any { it.equals("Too repetitive", ignoreCase = true) }) {
             tunedProfile = tunedProfile.copy(varietyPreference = "High")
             applied += "Too repetitive"
         }
         if (normalizedTags.any { it.equals("Too expensive", ignoreCase = true) }) {
-            val loweredBudget = (tunedProfile.weeklyBudgetPhp * 0.9f).toInt()
-            tunedProfile = tunedProfile.copy(weeklyBudgetPhp = loweredBudget.coerceAtLeast(0))
-            applied += "Too expensive"
+            if (tunedProfile.weeklyBudgetPhp > 0) {
+                tunedProfile = tunedProfile.copy(planningPriority = "Budget First")
+                applied += "Too expensive"
+            }
         }
         if (normalizedTags.any { it.equals("Too hard to cook", ignoreCase = true) }) {
-            tunedProfile = tunedProfile.copy(
-                maxCookingTimeMinutes = (tunedProfile.maxCookingTimeMinutes - 10).coerceAtLeast(10)
-            )
+            val priority = if (tunedProfile.planningPriority.contains("Budget", ignoreCase = true)) {
+                "Budget First Quick Prep"
+            } else {
+                "Quick Prep"
+            }
+            tunedProfile = tunedProfile.copy(planningPriority = priority)
             applied += "Too hard to cook"
         }
         val plannerProfile = tunedProfile.copy(goal = goalTextForApi(tunedProfile.goal))
@@ -60,5 +88,23 @@ class PlannerProfilePreparationUseCase {
             profile.weightKg > 0 &&
             profile.activityLevel.isNotBlank() &&
             hasGoalSelection(profile.goal)
+    }
+
+    private fun appendProfileToken(tokens: List<String>, token: String): List<String> =
+        if (tokens.any { it.equals(token, ignoreCase = true) }) {
+            tokens
+        } else {
+            tokens + token
+        }
+
+    private fun appendGoalToken(goal: String, token: String): String {
+        val existing = goal.split(",")
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+        return if (existing.any { it.equals(token, ignoreCase = true) }) {
+            goal
+        } else {
+            (existing + token).joinToString(", ")
+        }
     }
 }

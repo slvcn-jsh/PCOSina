@@ -160,18 +160,34 @@ fun SharedAvatarHeader(
     modifier: Modifier = Modifier,
     dateLabel: String? = null,
     compact: Boolean = false,
+    avatarAlignment: Alignment = ScreenArtworkAlignment.SharedAvatarHeaderAvatar,
     onAvatarClick: (() -> Unit)? = null,
 ) {
+    val avatarSize = if (compact) {
+        ScreenArtworkSizing.AvatarHeaderCompactAvatarSize
+    } else {
+        ScreenArtworkSizing.AvatarHeaderRegularAvatarSize
+    }
+    val headerMinHeight = if (compact) {
+        ScreenArtworkSizing.AvatarHeaderCompactMinHeight
+    } else {
+        ScreenArtworkSizing.AvatarHeaderRegularMinHeight
+    }
+    val cardMinHeight = if (compact) {
+        ScreenArtworkSizing.AvatarHeaderCompactCardMinHeight
+    } else {
+        ScreenArtworkSizing.AvatarHeaderRegularCardMinHeight
+    }
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(if (compact) 76.dp else 84.dp),
+            .heightIn(min = headerMinHeight),
     ) {
         Surface(
             modifier = Modifier
                 .align(Alignment.Center)
                 .fillMaxWidth()
-                .heightIn(min = if (compact) 58.dp else 64.dp),
+                .heightIn(min = cardMinHeight),
             shape = RoundedCornerShape(if (compact) 16.dp else 18.dp),
             color = Color(0xFFFF95A8),
             border = BorderStroke(1.3.dp, PcosinaDeepRose.copy(alpha = 0.58f)),
@@ -181,10 +197,10 @@ fun SharedAvatarHeader(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
-                        start = if (compact) 76.dp else 86.dp,
-                        end = if (compact) 8.dp else 10.dp,
-                        top = if (compact) 8.dp else 9.dp,
-                        bottom = if (compact) 8.dp else 9.dp,
+                        start = if (compact) 78.dp else 88.dp,
+                        end = if (compact) 10.dp else 12.dp,
+                        top = if (compact) 9.dp else 10.dp,
+                        bottom = if (compact) 9.dp else 10.dp,
                     ),
                 horizontalArrangement = Arrangement.spacedBy(if (compact) 7.dp else 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -206,7 +222,7 @@ fun SharedAvatarHeader(
                                 color = PcosinaDeepRose,
                             )
                         },
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Box(
@@ -220,7 +236,7 @@ fun SharedAvatarHeader(
                         text = subtitle,
                         style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
                         color = Color(0xFF3A2028),
-                        maxLines = if (compact) 1 else 2,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -232,15 +248,17 @@ fun SharedAvatarHeader(
                 }
             }
         }
-        val avatarSize = if (compact) 76.dp else 86.dp
         val avatarModifier = Modifier
-            .align(Alignment.CenterStart)
+            .align(avatarAlignment)
             .offset(x = if (compact) (-2).dp else (-4).dp, y = if (compact) 1.dp else 2.dp)
-            .size(avatarSize)
             .then(if (onAvatarClick != null) Modifier.clickable(onClick = onAvatarClick) else Modifier)
-        PcosinaAvatar(
+        PcosinaAvatarBadge(
             avatarId = avatarId,
             modifier = avatarModifier,
+            size = avatarSize,
+            ringColor = PcosinaDeepRose.copy(alpha = 0.22f),
+            containerColor = Color.White.copy(alpha = 0.62f),
+            shadowElevation = 1.dp,
         )
     }
 }

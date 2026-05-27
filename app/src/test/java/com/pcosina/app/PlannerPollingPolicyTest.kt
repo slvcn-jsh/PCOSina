@@ -64,8 +64,8 @@ class PlannerPollingPolicyTest {
             repo.contains("Tap Retry to keep waiting for the same request.")
         )
         assertTrue(
-            "Loading copy should acknowledge backend queue delay in the refined shell.",
-            screen.contains("This can take a while if the backend queue is busy.")
+            "Loading copy should acknowledge queue delay without backend-facing wording.",
+            screen.contains("This can take a while when many plan requests are running.")
         )
     }
 

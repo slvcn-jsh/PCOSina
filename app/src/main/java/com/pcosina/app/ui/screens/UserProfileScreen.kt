@@ -88,6 +88,9 @@ fun UserProfileScreen(
     val profile by userViewModel.userProfile.collectAsState()
     val isProfileLoading by userViewModel.isProfileLoading.collectAsState()
     var currentStep by rememberSaveable { mutableStateOf(1) }
+    val profileSaveScope = rememberCoroutineScope()
+    var profileSaveInProgress by rememberSaveable { mutableStateOf(false) }
+    var profileActionMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
     // State Persistence with safe defaults
     var displayName by rememberSaveable { mutableStateOf(profile.displayName) }
@@ -344,6 +347,12 @@ fun UserProfileScreen(
         maxCookingValue?.let { it !in 10..240 } == true -> "Max cooking time must stay between 10 and 240 minutes."
         else -> "Set max cooking time (10–240). Budget is optional unless Budget First is selected."
     }
+    val currentStepBlockerMessage = when (currentStep) {
+        1 -> stepOneBlockerMessage
+        2 -> stepTwoBlockerMessage
+        3 -> stepThreeBlockerMessage
+        else -> "Fix highlighted fields to continue."
+    }
     val profileStatusSummary = when (currentStep) {
         1 -> if (stepOneValid) {
             "Personal details are ready. Nutrition targets can now be estimated accurately."
@@ -479,10 +488,13 @@ fun UserProfileScreen(
         bottomBar = {
             BottomActionRow(
                 currentStep = currentStep,
-                primaryLabel = primaryActionLabel,
+                primaryLabel = if (profileSaveInProgress) "Saving..." else primaryActionLabel,
                 primaryColor = colorScheme.primary,
-                isNextEnabled = canProceed,
+                isNextEnabled = canProceed && !profileSaveInProgress,
                 compact = inputMode,
+                disabledReason = if (!canProceed) currentStepBlockerMessage else null,
+                statusMessage = profileActionMessage,
+                isSaving = profileSaveInProgress,
                 modifier = Modifier
                     .fillMaxWidth()
                     .imePadding()
@@ -494,13 +506,25 @@ fun UserProfileScreen(
                     }
                 },
                 onNext = {
-                    if (!canProceed) return@BottomActionRow
+                    if (!canProceed) {
+                        profileActionMessage = currentStepBlockerMessage
+                        return@BottomActionRow
+                    }
+                    profileActionMessage = null
                     if (currentStep < 3) {
                         persistStepData(currentStep, markComplete = false)
+                        profileActionMessage = "Saved this step on this device."
                         currentStep++
                     } else {
+                        profileSaveInProgress = true
+                        profileActionMessage = "Saving profile on this device..."
                         persistStepData(currentStep, markComplete = true)
-                        onNext()
+                        profileSaveScope.launch {
+                            delay(450)
+                            profileSaveInProgress = false
+                            profileActionMessage = "Profile saved on this device. Sync will retry when online."
+                            onNext()
+                        }
                     }
                 }
             )
@@ -966,15 +990,29 @@ fun BottomActionRow(
     primaryColor: Color,
     isNextEnabled: Boolean,
     compact: Boolean = false,
+    disabledReason: String? = null,
+    statusMessage: String? = null,
+    isSaving: Boolean = false,
     onBack: () -> Unit,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val helperCopy = when (currentStep) {
+    val defaultHelperCopy = when (currentStep) {
         1 -> "Start with your identity, height, weight, and activity so targets stay realistic."
         2 -> "Add symptoms and health markers that should influence your weekly plan."
         else -> "Finish the hard food rules, pantry, and budget settings before saving."
+    }
+    val helperCopy = when {
+        isSaving -> "Saving profile on this device..."
+        !isNextEnabled && !disabledReason.isNullOrBlank() -> disabledReason
+        !statusMessage.isNullOrBlank() -> statusMessage
+        else -> defaultHelperCopy
+    }
+    val helperColor = when {
+        isSaving || !statusMessage.isNullOrBlank() -> primaryColor.copy(alpha = 0.82f)
+        !isNextEnabled && !disabledReason.isNullOrBlank() -> colorScheme.error
+        else -> PcosinaDeepRose.copy(alpha = 0.78f)
     }
     Surface(
         modifier = modifier,
@@ -993,11 +1031,11 @@ fun BottomActionRow(
                 .padding(horizontal = 18.dp, vertical = if (compact) 8.dp else 10.dp),
             verticalArrangement = Arrangement.spacedBy(if (compact) 0.dp else 8.dp)
         ) {
-            if (!compact) {
+            if (!compact || isSaving || !isNextEnabled || !statusMessage.isNullOrBlank()) {
                 Text(
                     text = helperCopy,
                     style = MaterialTheme.typography.labelMedium.copy(fontStyle = FontStyle.Italic),
-                    color = PcosinaDeepRose.copy(alpha = 0.78f),
+                    color = helperColor,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )

@@ -26,6 +26,16 @@ class PriceCatalogCredibilityTest {
     }
 
     @Test
+    fun estimatePriceExplanation_usesIngredientSpecificPieceWeightsForGarlic() {
+        val clove = PriceCatalog.estimatePriceExplanation("garlic", "1 clove", monthIndex = 3)
+        val grams = PriceCatalog.estimatePriceExplanation("garlic", "130 g", monthIndex = 3)
+
+        assertEquals("Produce", clove.category)
+        assertTrue("One garlic clove should not price like a generic 120 g produce piece.", clove.pricePhp <= 8)
+        assertTrue("Garlic 130 g should stay in a realistic small-quantity range.", grams.pricePhp < 80)
+    }
+
+    @Test
     fun estimatePriceExplanation_labelsFallbacksAsLowConfidence() {
         val estimate = PriceCatalog.estimatePriceExplanation("unknown ingredient", "1 pack", monthIndex = 3)
 

@@ -119,6 +119,9 @@ class CurrentCoreFlowUiTest {
         }
         composeRule.onNodeWithTag("progress_header").assertIsDisplayed()
         composeRule.onNodeWithTag("progress_today_hub_card").assertIsDisplayed()
+        composeRule.runOnUiThread {
+            fixture.progressViewModel.setAdvancedWeekAnalyticsExpandedPreference(true)
+        }
         composeRule.onNodeWithTag("progress_mode_week").performClick()
         composeRule.onNodeWithTag("progress_content_list")
             .performScrollToNode(hasTestTag("progress_week_macro_card"))

@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.pcosina.app.ui.screens
 
 import androidx.annotation.DrawableRes
@@ -9,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,7 +34,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -49,8 +51,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,8 +75,8 @@ import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
 import com.pcosina.app.ui.components.FriendlyEmptyStateCard
 import com.pcosina.app.ui.components.LoadingActionButton
-import com.pcosina.app.ui.components.PcosinaAvatarBadge
 import com.pcosina.app.ui.components.PcosinaDesignIcon
+import com.pcosina.app.ui.components.ScreenArtworkAlignment
 import com.pcosina.app.ui.components.SharedAvatarHeader
 import com.pcosina.app.ui.components.SharedTopHeader
 import com.pcosina.app.ui.navigation.Routes
@@ -325,7 +329,8 @@ fun DashboardRefinedScreen(
         modifier = modifier
             .fillMaxSize()
             .background(PcosinaSurface)
-            .statusBarsPadding(),
+            .statusBarsPadding()
+            .testTag("dashboard_content_list"),
         contentPadding = PaddingValues(horizontal = if (compactHomeLayout) 16.dp else 18.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(if (compactHomeLayout) 12.dp else 14.dp)
     ) {
@@ -474,6 +479,9 @@ fun DashboardRefinedScreen(
                 message = primaryActionMessage,
                 buttonLabel = primaryActionLabel,
                 state = primaryActionState.value,
+                modifier = Modifier
+                    .testTag("dashboard_primary_next_card")
+                    .semantics { traversalIndex = 2f },
                 onClick = {
                     when {
                         !profile.isProfileCompleted -> onNavigateToRoute(Routes.UserProfile)
@@ -542,6 +550,7 @@ private fun RefinedWelcomeCard(
         avatarId = avatarId,
         dateLabel = dateHeader,
         compact = compactLayout,
+        avatarAlignment = ScreenArtworkAlignment.HomeHeaderAvatar,
     )
 }
 
@@ -649,52 +658,66 @@ private fun RefinedGoalsCard(
                 color = Color.White.copy(alpha = 0.92f)
             )
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 goalOptions.forEach { option ->
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = Color.White.copy(alpha = 0.86f)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(7.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = PcosinaPink
-                            ) {
-                                PcosinaDesignIcon(
-                                    resId = R.drawable.pcosina_svg_12_check,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.padding(4.dp)
-                                )
-                            }
-                            Text(
-                                text = option.label,
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                color = PcosinaDeepRose,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            IconButton(
-                                modifier = Modifier.size(24.dp),
-                                onClick = { onOpenGoalInfo(option) }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Info,
-                                    contentDescription = "About ${option.label}",
-                                    tint = PcosinaPink
-                                )
-                            }
-                        }
-                    }
+                    HomeGoalChip(
+                        option = option,
+                        onOpenGoalInfo = onOpenGoalInfo,
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun HomeGoalChip(
+    option: GoalOption,
+    onOpenGoalInfo: (GoalOption) -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .heightIn(min = 32.dp)
+            .widthIn(max = 180.dp)
+            .clickable(onClick = { onOpenGoalInfo(option) }),
+        shape = RoundedCornerShape(999.dp),
+        color = Color.White.copy(alpha = 0.88f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                modifier = Modifier.size(17.dp),
+                shape = CircleShape,
+                color = PcosinaPink,
+            ) {
+                PcosinaDesignIcon(
+                    resId = R.drawable.pcosina_svg_12_check,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.padding(3.dp),
+                )
+            }
+            Text(
+                text = option.label,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = PcosinaDeepRose,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Icon(
+                imageVector = Icons.Filled.Info,
+                contentDescription = "About ${option.label}",
+                modifier = Modifier.size(15.dp),
+                tint = PcosinaPink,
+            )
         }
     }
 }
@@ -1019,10 +1042,11 @@ private fun RefinedPrimaryActionCard(
     message: String,
     buttonLabel: String,
     state: FeedbackActionState,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(Brush.linearGradient(colors = listOf(PcosinaLightPink.copy(alpha = 0.92f), PcosinaBlush.copy(alpha = 0.94f))))

@@ -32,6 +32,8 @@ class ProfileStepOneValidationUiTest {
             MaterialTheme {
                 var age by remember { mutableStateOf("") }
                 var weight by remember { mutableStateOf("") }
+                var targetWeight by remember { mutableStateOf("") }
+                var targetDate by remember { mutableStateOf("") }
                 var heightCm by remember { mutableStateOf("") }
 
                 StepOneIdentity(
@@ -43,6 +45,10 @@ class ProfileStepOneValidationUiTest {
                     onWeight = { weight = it },
                     weightUnit = UnitConverter.WEIGHT_KG,
                     onWeightUnit = {},
+                    targetWeight = targetWeight,
+                    onTargetWeight = { targetWeight = it },
+                    targetDate = targetDate,
+                    onTargetDate = { targetDate = it },
                     heightUnit = UnitConverter.HEIGHT_CM,
                     onHeightUnit = {},
                     heightCm = heightCm,
@@ -73,7 +79,7 @@ class ProfileStepOneValidationUiTest {
         composeRule.onNodeWithTag("profile_step1_height_cm_input").performTextInput("100")
 
         composeRule.onNodeWithText("Age must be 18–60.").assertIsDisplayed()
-        composeRule.onNodeWithText("Allowed range: 35–180 kg equivalent.").assertIsDisplayed()
+        composeRule.onNodeWithText("35–180 kg equivalent only.").assertIsDisplayed()
         composeRule.onNodeWithText("Height must be 120–200 cm.").assertIsDisplayed()
     }
 }

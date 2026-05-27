@@ -38,8 +38,6 @@ import androidx.compose.ui.unit.sp
 import android.util.Log
 import com.pcosina.app.BuildConfig
 import com.pcosina.app.R
-import com.pcosina.app.data.model.DummyData
-import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
@@ -76,11 +74,9 @@ fun RecipeDetailsScreen(
     recipeId: String,
     plannedMealLabelHint: String? = null,
     mealPlanViewModel: MealPlanViewModel,
-    groceryViewModel: GroceryViewModel,
     progressViewModel: ProgressViewModel,
     goal: String = "",
     onBack: () -> Unit,
-    onAddToGrocery: () -> Unit,
     onNavigateToRoute: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -396,7 +392,14 @@ fun RecipeDetailsScreen(
                     fallbackMealType = r.mealType
                 )
             }
-            val heroSubtitle = "$mealSlotLabel • $recipeMinutesLabel • Primary-user plan"
+            val selectedSlotSkipped = remember(todaySkippedIds, recipeId, plannedTodayMeal?.mealLabel, mealLabelHint) {
+                progressViewModel.isMealSkipped(
+                    date = today,
+                    recipeId = recipeId,
+                    mealLabel = plannedTodayMeal?.mealLabel ?: mealLabelHint
+                )
+            }
+            val heroSubtitle = "$mealSlotLabel • $recipeMinutesLabel"
             var showLoadedContent by remember(r.id) { mutableStateOf(false) }
             var impactSummary by remember(r.id, todayKey) { mutableStateOf<RecipeImpactSummary?>(null) }
             var impactDetailsExpanded by remember(r.id, todayKey) { mutableStateOf(false) }
@@ -454,6 +457,20 @@ fun RecipeDetailsScreen(
                     postRecipeFeedback(
                         tone = FeedbackBannerTone.Error,
                         message = "No change: this recipe is not in today’s plan."
+                    )
+                    Unit
+                } else if (selectedSlotSkipped) {
+                    impactSummary = RecipeImpactSummary(
+                        headline = "$mealSlotLabel was skipped in your plan.",
+                        detailLine = "",
+                        nextSuggestion = "Undo Skip from the Plan screen before logging this meal.",
+                        nextRoute = Routes.MealPlan,
+                        nextCtaLabel = "Open Plan"
+                    )
+                    impactDetailsExpanded = false
+                    postRecipeFeedback(
+                        tone = FeedbackBannerTone.Error,
+                        message = "No change: $mealSlotLabel was skipped. Undo Skip from Plan before logging it."
                     )
                     Unit
                 } else {
@@ -529,12 +546,7 @@ fun RecipeDetailsScreen(
                         val nextMeal = buildTodayLogSnapshot(
                             todayMeals = todayMealDescriptors,
                             completedMealIds = completedIdsAfterLog,
-                            skippedMealIds = todaySkippedIds.filterNot { skippedKey ->
-                                plannedTodayMeal != null &&
-                                    ProgressViewModel.extractRecipeId(skippedKey) == plannedTodayMeal.recipeId &&
-                                    ProgressViewModel.extractMealLabel(skippedKey)
-                                        .equals(plannedTodayMeal.mealLabel, ignoreCase = true)
-                            }
+                            skippedMealIds = todaySkippedIds
                         ).nextMeal?.let { next ->
                             todayPlannedMeals.firstOrNull { meal ->
                                 meal.recipeId == next.recipeId &&
@@ -569,23 +581,6 @@ fun RecipeDetailsScreen(
                     }
                 }
             }
-            val addToGroceryAction: () -> Unit = {
-                val items = r.ingredients.map {
-                    DummyData.GroceryItem(
-                        name = it.name,
-                        quantity = it.quantity,
-                        price = 0,
-                        category = r.mealType ?: "Recipe ingredient"
-                    )
-                }
-                groceryViewModel.addItems(items)
-                postRecipeFeedback(
-                    tone = FeedbackBannerTone.Success,
-                    message = "Added recipe ingredients to Grocery."
-                )
-                onAddToGrocery()
-            }
-
             Scaffold(
                 containerColor = colorScheme.background,
                 bottomBar = {
@@ -614,20 +609,6 @@ fun RecipeDetailsScreen(
                                     onNavigateToRoute = onNavigateToRoute
                                 )
                             }
-                            OutlinedButton(
-                                onClick = addToGroceryAction,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp),
-                                shape = RoundedCornerShape(18.dp),
-                                border = BorderStroke(1.dp, colorScheme.primary.copy(alpha = 0.42f))
-                            ) {
-                                Text(
-                                    text = "Add ingredients to Grocery",
-                                    fontWeight = FontWeight.Bold,
-                                    color = colorScheme.primary
-                                )
-                            }
                             if (!isRecipeInTodayPlan) {
                                 RecipeLockedStateCard()
                             } else {
@@ -638,22 +619,26 @@ fun RecipeDetailsScreen(
                                         .height(50.dp),
                                     shape = RoundedCornerShape(20.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
-                                    enabled = !alreadyLoggedToday
+                                    enabled = !alreadyLoggedToday && !selectedSlotSkipped
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Icon(
-                                            imageVector = if (alreadyLoggedToday) Icons.Filled.CheckCircle else Icons.Filled.Restaurant,
+                                            imageVector = when {
+                                                alreadyLoggedToday -> Icons.Filled.CheckCircle
+                                                selectedSlotSkipped -> Icons.Filled.Lock
+                                                else -> Icons.Filled.Restaurant
+                                            },
                                             contentDescription = null,
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Text(
-                                            text = if (alreadyLoggedToday) {
-                                                "$mealSlotLabel already logged"
-                                            } else {
-                                                "Log $mealSlotLabel for today"
+                                            text = when {
+                                                alreadyLoggedToday -> "$mealSlotLabel already logged"
+                                                selectedSlotSkipped -> "$mealSlotLabel skipped in Plan"
+                                                else -> "Log $mealSlotLabel for today"
                                             },
                                             fontWeight = FontWeight.Bold
                                         )

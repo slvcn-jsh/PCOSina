@@ -94,12 +94,17 @@ class ProgressPerUserPersistenceUiTest {
 
         loadUser(userA)
         progressViewModel.setProgressModePreference("Week")
-        progressViewModel.setAdvancedWeekAnalyticsExpandedPreference(true)
         render(userA)
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithTag("progress_content_list").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithTag("progress_mode_week").performClick()
+        composeRule.runOnUiThread {
+            progressViewModel.setAdvancedWeekAnalyticsExpandedPreference(true)
+        }
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithTag("progress_week_macro_card").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithTag("progress_content_list")
             .performScrollToNode(hasTestTag("progress_week_macro_card"))
         composeRule.onNodeWithTag("progress_week_macro_card").assertIsDisplayed()
@@ -118,6 +123,9 @@ class ProgressPerUserPersistenceUiTest {
             composeRule.onAllNodesWithTag("progress_content_list").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithTag("progress_mode_week").assertIsSelected()
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithTag("progress_week_macro_card").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithTag("progress_content_list")
             .performScrollToNode(hasTestTag("progress_week_macro_card"))
         composeRule.onNodeWithTag("progress_week_macro_card").assertIsDisplayed()

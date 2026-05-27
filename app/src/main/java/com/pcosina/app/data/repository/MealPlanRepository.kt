@@ -433,32 +433,16 @@ class MealPlanRepository(
 
     private fun mapGeneratePlanException(error: Exception): Exception {
         if (error is UnknownHostException) {
-            val host = backendHost(primaryBaseUrl)
-            return IllegalStateException(
-                "Cannot reach backend host ($host). DNS lookup failed. " +
-                    "Check Private DNS/VPN/adblock settings, then try again."
-            )
+            return IllegalStateException(OfflineGenerationMessage)
         }
         if (isBackendConnectFailure(error)) {
-            val host = backendHost(primaryBaseUrl)
-            val fallbackHost = fallbackBaseUrl?.let(::backendHost)
-            return IllegalStateException(
-                if (fallbackHost != null) {
-                    "Cannot reach the local debug backend ($host). " +
-                        "The app also retried the hosted backend ($fallbackHost), but that connection was unavailable. " +
-                        "Start the local backend on your laptop or retry on a network that allows HTTPS access."
-                } else {
-                    "Cannot reach the PCOSina backend over HTTPS from this network. " +
-                        "The app tried $host and its Render fallback edge, but the connection was blocked or unavailable. " +
-                        "Check emulator internet access, VPN/Private DNS/adblock settings, or try again later."
-                }
-            )
+            return IllegalStateException(OfflineGenerationMessage)
         }
         if (error !is HttpException) {
             val message = error.message.orEmpty()
             return when {
                 isAppCheckTokenMessage(message) ->
-                    IllegalStateException("We could not verify the planner connection. Please try again or contact the research team.")
+                    IllegalStateException("We could not verify the planner connection. Please sign in again or try later.")
                 message.contains("sign-in session", ignoreCase = true) ||
                     message.contains("sign in", ignoreCase = true) ->
                     IllegalStateException("Your sign-in session is still preparing. Please wait a moment and try again.")
@@ -476,19 +460,19 @@ class MealPlanRepository(
                 }
             )
             409 -> IllegalStateException(
-                if (detail.isNotBlank()) detail else "App and backend schema versions do not match."
+                "App update required before generating plans. Please update the app and try again."
             )
             401 -> IllegalStateException(
                 when {
                     isAppCheckTokenMessage(detail) ->
-                        "We could not verify the planner connection. Please try again or contact the research team."
+                        "We could not verify the planner connection. Please sign in again or try later."
                     else -> "Session expired. Please sign in again."
                 }
             )
             403 -> IllegalStateException(
                 when {
                     isAppCheckTokenMessage(detail) ->
-                        "We could not verify the planner connection. Please try again or contact the research team."
+                        "We could not verify the planner connection. Please sign in again or try later."
                     detail.isNotBlank() -> "Planner access could not be verified. Please sign in again, then retry."
                     else -> "Planner access could not be verified. Please sign in again, then retry."
                 }
@@ -501,8 +485,7 @@ class MealPlanRepository(
                 }
             )
             else -> IllegalStateException(
-                if (detail.isNotBlank()) "HTTP ${error.code()}: $detail"
-                else (error.message ?: "Request failed")
+                "We could not generate a new plan right now. Please try again later. Saved plans still work offline."
             )
         }
     }
@@ -756,6 +739,8 @@ class MealPlanRepository(
     }
 
     companion object {
+        private const val OfflineGenerationMessage =
+            "Internet connection is needed to generate a new plan. You can still view saved plans and groceries offline."
         private const val RELEASE_BACKEND_URL = "https://pcosina-backend.onrender.com/"
         private const val RELEASE_BACKEND_HOST = "pcosina-backend.onrender.com"
         private val RELEASE_BACKEND_FALLBACK_IPS = listOf("216.24.57.7", "216.24.57.251")

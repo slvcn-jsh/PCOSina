@@ -19,6 +19,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.util.concurrent.TimeUnit
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -91,10 +92,11 @@ class LiveTelemetryLoopInstrumentedTest {
             return
         }
         if (loginEmail.isBlank() || loginPassword.isBlank()) {
-            error(
+            assumeTrue(
                 "Live telemetry loop reached the login screen without credentials. " +
                     "Provide pcosina.liveEmail and pcosina.livePassword instrumentation args, " +
-                    "or sign in once manually before rerunning."
+                    "or sign in once manually before rerunning.",
+                false
             )
         }
 

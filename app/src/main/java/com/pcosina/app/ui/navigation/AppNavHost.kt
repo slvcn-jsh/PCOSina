@@ -638,15 +638,9 @@ fun AppNavHost(
                 recipeId = recipeId,
                 plannedMealLabelHint = mealLabelHint,
                 mealPlanViewModel = mealPlanViewModel,
-                groceryViewModel = groceryViewModel,
                 progressViewModel = progressViewModel,
                 goal = userProfile.goal,
                 onBack = { navController.popBackStack() },
-                onAddToGrocery = {
-                    navigateInternal(Routes.GroceryList) {
-                        tabNavigationOptions()
-                    }
-                },
                 onNavigateToRoute = { route ->
                     when (route) {
                         Routes.Dashboard,

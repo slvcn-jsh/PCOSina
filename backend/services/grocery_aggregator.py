@@ -64,7 +64,8 @@ KNOWN_INGREDIENTS = {
 QTY_RE = re.compile(
     r"(?P<num>\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*"
     r"(?P<unit>kg|kilo|kilogram|g|gram|grams|lb|lbs|oz|ml|l|liter|litre|cup|cups|tbsp|tablespoon|tablespoons|"
-    r"tsp|teaspoon|teaspoons|piece|pieces|piraso|pc|pcs|clove|cloves|bunch|bunches|tali|head|heads)",
+    r"tsp|teaspoon|teaspoons|piece|pieces|piraso|pc|pcs|clove|cloves|bunch|bunches|tali|stalk|stalks|"
+    r"can|cans|pack|packs|head|heads)",
     re.IGNORECASE,
 )
 
@@ -88,6 +89,9 @@ UNIT_ALIASES = {
     "cloves": "clove",
     "bunches": "bunch",
     "tali": "bunch",
+    "stalks": "stalk",
+    "cans": "can",
+    "packs": "pack",
     "heads": "head",
 }
 
@@ -99,6 +103,13 @@ PIECE_GRAMS = {
     ("onion", "piece"): 110.0,
     ("tomato", "piece"): 90.0,
     ("ginger", "piece"): 20.0,
+    ("banana", "piece"): 100.0,
+    ("chicken", "piece"): 180.0,
+    ("pork", "piece"): 150.0,
+    ("fish", "piece"): 180.0,
+    ("pechay", "bunch"): 180.0,
+    ("kangkong", "bunch"): 180.0,
+    ("malunggay", "bunch"): 80.0,
 }
 
 

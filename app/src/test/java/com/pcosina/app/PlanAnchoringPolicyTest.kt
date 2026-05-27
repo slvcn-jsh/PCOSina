@@ -108,9 +108,9 @@ class PlanAnchoringPolicyTest {
             mealPlan.contains("MealCheckInDialog(") &&
                 mealPlan.contains("saveMealCheckIn(")
         )
-        assertTrue(
-            "MealPlan screen should expose the hard/soft/advisory planner contract from the backend explanation.",
-            mealPlan.contains("Plan rule contract") &&
+        assertFalse(
+            "MealPlan screen should not expose backend planner contract internals as user-facing copy.",
+            mealPlan.contains("Plan rule contract") ||
                 mealPlan.contains("mealplan_contract_card")
         )
         assertTrue(

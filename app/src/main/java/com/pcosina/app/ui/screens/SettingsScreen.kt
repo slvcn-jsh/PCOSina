@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -64,10 +65,13 @@ import com.pcosina.app.ui.components.PcosinaAvatarOptions
 import com.pcosina.app.ui.components.PcosinaDesignIcon
 import com.pcosina.app.data.model.NotificationPreferences
 import com.pcosina.app.notifications.NotificationScheduler
+import com.pcosina.app.ui.theme.UiSpacingTokens
 import com.pcosina.app.ui.util.primaryGoalLabel
 import android.Manifest
 import android.os.Build
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
@@ -120,6 +124,7 @@ fun SettingsScreen(
     val profile by userViewModel.userProfile.collectAsState()
     val session by authViewModel.session.collectAsState()
     val notificationPrefs by userViewModel.notificationPreferences.collectAsState()
+    val notificationLogs by userViewModel.notificationLogs.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -154,24 +159,35 @@ fun SettingsScreen(
             Manifest.permission.POST_NOTIFICATIONS
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
     val appNotificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
+    val phoneNotificationReady = appNotificationsEnabled && runtimeNotificationPermissionGranted
     val permissionStateLabel = when {
-        !appNotificationsEnabled -> "Blocked in system settings"
-        runtimeNotificationPermissionGranted -> "Allowed"
-        else -> "Permission not granted"
+        !appNotificationsEnabled -> "Blocked in phone settings"
+        runtimeNotificationPermissionGranted -> "Phone notifications ready"
+        else -> "Phone permission needed"
     }
     val notificationStatusSummary = when {
-        !notificationPrefs.masterEnabled -> "Reminders are paused."
-        !appNotificationsEnabled -> "Phone settings are blocking reminders."
-        runtimeNotificationPermissionGranted -> "Reminders are ready for meals and plan updates."
-        else -> "Reminder permission still needs approval."
+        !notificationPrefs.masterEnabled -> "Reminders are paused on this phone."
+        !appNotificationsEnabled -> "Turn on phone notifications before reminders can appear."
+        runtimeNotificationPermissionGranted -> "Reminders are ready on this phone."
+        else -> "Allow phone notifications before reminders can appear."
     }
     val scheduledWorkersSummary = if (scheduledWorkSummaries.isEmpty()) {
-        "No reminder times lined up yet."
+        "No scheduled reminder work yet."
     } else {
         "${scheduledWorkSummaries.size} reminder time(s) lined up"
     }
-    val nextReminderSummary = nextReminderSummaries.firstOrNull()?.let { "Next reminder: $it" }
-        ?: "No reminder time saved yet."
+    val nextReminderSummary = when {
+        !notificationPrefs.masterEnabled -> "Reminders are paused."
+        nextReminderSummaries.isNotEmpty() -> "Next reminder: ${nextReminderSummaries.first()}"
+        else -> "No reminder type is enabled."
+    }
+    val lastNotificationLog = notificationLogs.firstOrNull()
+    val lastDeliveredLabel = lastNotificationLog?.let { log ->
+        formatNotificationEventLabel(log.type)
+    } ?: "No delivery yet"
+    val deliveryHistoryDescription = lastNotificationLog?.let { log ->
+        "Last delivered at ${formatNotificationDeliveredAt(log.deliveredAt)} on this phone."
+    } ?: "History starts only after Android posts a notification."
     val reminderOverviewLabel = if (notificationPrefs.masterEnabled) {
         "Reminders on"
     } else {
@@ -204,7 +220,7 @@ fun SettingsScreen(
             "Finish your profile so planning feels more personal."
         }
         SettingsScreenFocus.Reminders -> notificationStatusSummary
-        SettingsScreenFocus.Account -> "Account actions stay local to this device."
+        SettingsScreenFocus.Account -> "Local data is primary; cloud backup is best-effort when sync succeeds."
     }
     val settingsSyncLabel = when (settingsFocus) {
         SettingsScreenFocus.Profile -> "Saved food rules: ${profile.dietaryRestrictions.size + profile.allergies.size}"
@@ -221,8 +237,8 @@ fun SettingsScreen(
     }
     val settingsPlanRangeLabel = when (settingsFocus) {
         SettingsScreenFocus.Profile -> "Main goal: $mainGoalLabel"
-        SettingsScreenFocus.Reminders -> "Phone permission: $permissionStateLabel"
-        SettingsScreenFocus.Account -> "Clearing data only affects this phone unless you confirm it."
+        SettingsScreenFocus.Reminders -> "Phone notifications: $permissionStateLabel"
+        SettingsScreenFocus.Account -> "Clear saved week data removes local week data and synced week backup when sync succeeds."
     }
     val settingsNextLabel = when (settingsFocus) {
         SettingsScreenFocus.Profile -> "Next focus: review the details that affect budget, time, and food rules."
@@ -344,6 +360,7 @@ fun SettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .testTag("settings_content_scroll")
             .background(Color.White)
             .verticalScroll(rememberScrollState())
             .navigationBarsPadding()
@@ -377,8 +394,8 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = 32.dp, vertical = UiSpacingTokens.SectionGap),
+            verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap)
         ) {
 
         if (settingsFocus == SettingsScreenFocus.Profile) {
@@ -391,20 +408,30 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
                 SettingsDivider()
-                FigmaSettingsFeatureToggle(
+                FigmaSettingsStatusRow(
                     icon = Icons.Default.Warning,
-                    label = "Symptom Management",
-                    checked = profile.goal.equals("symptom_management", ignoreCase = true) || profile.symptoms.isNotEmpty()
+                    label = "Symptom support",
+                    value = if (profile.goal.contains("symptom", ignoreCase = true) || profile.symptoms.isNotEmpty()) {
+                        "Active"
+                    } else {
+                        "Not set"
+                    },
+                    description = "Based on saved goals and symptom details.",
+                    emphasized = profile.goal.contains("symptom", ignoreCase = true) || profile.symptoms.isNotEmpty()
                 )
-                FigmaSettingsFeatureToggle(
+                FigmaSettingsStatusRow(
                     icon = Icons.Default.Notifications,
                     label = "Reminders",
-                    checked = notificationPrefs.masterEnabled
+                    value = if (notificationPrefs.masterEnabled) "On" else "Paused",
+                    description = "Change meal and weekly nudges from the Reminders tab.",
+                    emphasized = notificationPrefs.masterEnabled
                 )
-                FigmaSettingsFeatureToggle(
+                FigmaSettingsStatusRow(
                     icon = Icons.Default.Warning,
-                    label = "Alerts",
-                    checked = notificationPrefs.grocerySyncEnabled || notificationPrefs.planReadyEnabled
+                    label = "Plan and grocery alerts",
+                    value = if (notificationPrefs.grocerySyncEnabled || notificationPrefs.planReadyEnabled) "On" else "Off",
+                    description = "Status notifications for plan-ready and grocery updates.",
+                    emphasized = notificationPrefs.grocerySyncEnabled || notificationPrefs.planReadyEnabled
                 )
                 SettingsDivider()
                 SettingsItem(icon = Icons.Default.Info, label = "Main goal", value = mainGoalLabel)
@@ -444,6 +471,39 @@ fun SettingsScreen(
 
         if (settingsFocus == SettingsScreenFocus.Account) {
             SettingsSection(
+                title = "Storage and restore",
+                summary = "Local data is the source of truth. Cloud backup is best-effort after a successful sync."
+            ) {
+                SettingsRestoreExpectationRow(
+                    icon = Icons.Default.Check,
+                    label = "App close",
+                    value = "Saved locally",
+                    description = "Profile, saved plans, groceries, pantry, progress logs, feedback queue, and reminders load from this phone."
+                )
+                SettingsDivider()
+                SettingsRestoreExpectationRow(
+                    icon = Icons.Default.History,
+                    label = "Sign out",
+                    value = "Kept here",
+                    description = "Signing out does not delete this phone's saved data for the same account."
+                )
+                SettingsDivider()
+                SettingsRestoreExpectationRow(
+                    icon = Icons.Default.Info,
+                    label = "Reinstall or new phone",
+                    value = "Best effort",
+                    description = "Only cloud-synced profile and artifacts can return after reinstall or new-phone login."
+                )
+                SettingsDivider()
+                SettingsRestoreExpectationRow(
+                    icon = Icons.Default.Warning,
+                    label = "Local-only history",
+                    value = "This install",
+                    description = "Meal logs, weekly journals, and notification delivery logs stay on this install."
+                )
+            }
+
+            SettingsSection(
                 title = "Account and device actions",
                 summary = "Use these only when you need a clean reset or want to leave this phone signed out.",
                 titleColor = colorScheme.error,
@@ -452,7 +512,7 @@ fun SettingsScreen(
                 SettingsActionItem(
                     icon = Icons.Default.History,
                     label = "Clear saved week data",
-                    description = "Removes saved plans, groceries, and logs from this phone only.",
+                    description = "Removes saved plans, grocery snapshots, and local logs for this account. Synced week backup clears when sync succeeds.",
                     color = colorScheme.error,
                     destructive = true
                 ) {
@@ -470,7 +530,7 @@ fun SettingsScreen(
                 SettingsActionItem(
                     icon = Icons.AutoMirrored.Filled.Logout,
                     label = "Sign out on this phone",
-                    description = "You can sign back in later without changing your planner rules.",
+                    description = "You can sign back in later. This does not delete this phone's saved account data.",
                     color = colorScheme.error,
                     destructive = true
                 ) {
@@ -527,9 +587,39 @@ fun SettingsScreen(
                         }
                     }
                 )
+                FigmaSettingsStatusRow(
+                    icon = Icons.Default.Notifications,
+                    label = "Phone notifications",
+                    value = permissionStateLabel,
+                    description = if (phoneNotificationReady) {
+                        "Android can post PCOSina reminders from this phone."
+                    } else {
+                        "Android must allow notifications before scheduled reminders can appear."
+                    },
+                    emphasized = phoneNotificationReady,
+                    accentColor = if (phoneNotificationReady) colorScheme.primary else colorScheme.error
+                )
+                FigmaSettingsStatusRow(
+                    icon = Icons.Default.History,
+                    label = "Delivery history",
+                    value = lastDeliveredLabel,
+                    description = deliveryHistoryDescription,
+                    emphasized = lastNotificationLog != null
+                )
+                FigmaSettingsStatusRow(
+                    icon = Icons.Default.Info,
+                    label = "Scheduled reminders",
+                    value = scheduledWorkersSummary,
+                    description = if (notificationPrefs.masterEnabled && phoneNotificationReady) {
+                        nextReminderSummary
+                    } else {
+                        "Schedules are created after reminders are on and phone notifications are ready."
+                    },
+                    emphasized = scheduledWorkSummaries.isNotEmpty()
+                )
                 SettingsInlineNotice(
-                    message = "Phone permission: $permissionStateLabel",
-                    isError = !runtimeNotificationPermissionGranted || !appNotificationsEnabled
+                    message = "Delivery logs appear only after Android posts a notification.",
+                    isError = false
                 )
                 if (!appNotificationsEnabled) {
                     SettingsActionItem(
@@ -593,15 +683,12 @@ fun SettingsScreen(
                         }
                     }
                 }
-                Text(
-                    text = "Saved meal times: B ${formatTime(notificationPrefs.breakfastHour, notificationPrefs.breakfastMinute)} • " +
-                        "L ${formatTime(notificationPrefs.lunchHour, notificationPrefs.lunchMinute)} • " +
-                        "D ${formatTime(notificationPrefs.dinnerHour, notificationPrefs.dinnerMinute)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (!notificationPrefs.masterEnabled || !notificationPrefs.mealRemindersEnabled) {
+                    SettingsInlineNotice(
+                        message = "Meal reminder times are saved, but they will not fire until reminders and meal nudges are on.",
+                        isError = false
+                    )
+                }
             }
             }
 
@@ -660,24 +747,23 @@ fun SettingsScreen(
                         }
                     }
                 }
-                Text(
-                    text = "Weekly reminder: ${formatDayOfWeek(notificationPrefs.weeklyResetDayOfWeek)} ${formatTime(notificationPrefs.weeklyResetHour, notificationPrefs.weeklyResetMinute)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (!notificationPrefs.masterEnabled || !notificationPrefs.weeklyResetEnabled) {
+                    SettingsInlineNotice(
+                        message = "Weekly reminder timing is saved, but it will not fire until reminders and the weekly nudge are on.",
+                        isError = false
+                    )
+                }
             }
             }
 
             if (reminderFocus == ReminderSettingsFocus.Routine) {
             SettingsSection(
-                title = "Gentle routine nudges",
+                title = "Check-in reminders",
                 summary = "Keep check-ins supportive, lightweight, and easy to ignore when you need quiet."
             ) {
                 SettingsToggleItem(
-                    label = "Keep-going nudges",
-                    description = "Gentle routine nudges, goal-aware and non-judgmental.",
+                    label = "Daily check-in reminder",
+                    description = "A gentle reminder to log how your meals and day felt.",
                     checked = notificationPrefs.streakNudgesEnabled,
                     enabled = notificationPrefs.masterEnabled,
                     onCheckedChange = { enabled ->
@@ -720,12 +806,16 @@ fun SettingsScreen(
                         }
                     }
                 }
-                Text(
-                    text = "Upcoming reminders: ${nextReminderSummaries.firstOrNull() ?: "No reminder time saved yet."}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                FigmaSettingsStatusRow(
+                    icon = Icons.Default.Info,
+                    label = "Next reminder",
+                    value = if (notificationPrefs.masterEnabled) nextReminderSummary else "Reminders are paused",
+                    description = if (notificationPrefs.masterEnabled) {
+                        "Quiet hours and Android delivery timing can still affect when it appears."
+                    } else {
+                        "Turn reminders on before routine nudges can run."
+                    },
+                    emphasized = notificationPrefs.masterEnabled
                 )
             }
             }
@@ -768,7 +858,12 @@ fun SettingsScreen(
                 SettingsDialogDismissButton(onClick = { showClearDialog = false })
             },
             title = { Text("Clear meal history?") },
-            text = { Text("This removes plans, grocery snapshots, and adherence logs for this account.") }
+            text = {
+                Text(
+                    "This removes saved plans, grocery snapshots, and local adherence logs for this account. " +
+                        "Synced week backup clears when sync succeeds."
+                )
+            }
         )
     }
 
@@ -788,7 +883,7 @@ fun SettingsScreen(
                 SettingsDialogDismissButton(onClick = { showLogoutDialog = false })
             },
             title = { Text("Logout?") },
-            text = { Text("You will need to sign in again to access your data.") }
+            text = { Text("You will need to sign in again. This does not delete this phone's saved account data.") }
         )
     }
 
@@ -1292,10 +1387,13 @@ private fun FigmaSettingsReminderTabs(
 }
 
 @Composable
-private fun FigmaSettingsFeatureToggle(
+private fun FigmaSettingsStatusRow(
     icon: ImageVector,
     label: String,
-    checked: Boolean,
+    value: String,
+    description: String,
+    emphasized: Boolean,
+    accentColor: Color = Color(0xFFFF7A92),
 ) {
     Row(
         modifier = Modifier
@@ -1318,18 +1416,29 @@ private fun FigmaSettingsFeatureToggle(
             text = label,
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyLarge,
-            color = Color(0xFF3B3135)
+            color = Color(0xFF3B3135),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
-        Switch(
-            checked = checked,
-            onCheckedChange = null,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color(0xFFFF7A92),
-                checkedTrackColor = Color(0xFFFFC4CE),
-                uncheckedThumbColor = Color(0xFFFF7A92),
-                uncheckedTrackColor = Color(0xFFD7D7D7)
+        Spacer(Modifier.width(10.dp))
+        Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.widthIn(max = 188.dp)
+        ) {
+            SettingsStatePill(
+                text = value,
+                emphasized = emphasized,
+                accentColor = accentColor
             )
-        )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF6F5960),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -1737,6 +1846,67 @@ fun SettingsItem(icon: ImageVector, label: String, value: String) {
 }
 
 @Composable
+private fun SettingsRestoreExpectationRow(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    description: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+            contentColor = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(36.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = label,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                SettingsStatePill(
+                    text = value,
+                    emphasized = true
+                )
+            }
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
 fun SettingsActionItem(
     icon: ImageVector,
     label: String,
@@ -1919,7 +2089,9 @@ private fun SettingsStatePill(
         Text(
             text = text,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -1942,6 +2114,25 @@ private fun formatTime(hour: Int, minute: Int): String {
         else -> h
     }
     return String.format(Locale.ENGLISH, "%d:%02d %s", displayHour, normalizedMinute, amPm)
+}
+
+private fun formatNotificationDeliveredAt(epochMs: Long): String {
+    val formatter = DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.ENGLISH)
+    return Instant.ofEpochMilli(epochMs)
+        .atZone(ZoneId.systemDefault())
+        .format(formatter)
+}
+
+private fun formatNotificationEventLabel(type: String): String {
+    return type
+        .split("_")
+        .filter { it.isNotBlank() }
+        .joinToString(" ") { part ->
+            part.replaceFirstChar { char ->
+                if (char.isLowerCase()) char.titlecase(Locale.ENGLISH) else char.toString()
+            }
+        }
+        .ifBlank { "Notification" }
 }
 
 private fun formatDayOfWeek(day: Int): String {

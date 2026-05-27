@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,7 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -44,12 +44,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pcosina.app.R
-import com.pcosina.app.ui.components.PcosinaAvatar
 import com.pcosina.app.ui.components.PcosinaDesignIcon
+import com.pcosina.app.ui.components.ScreenArtworkAlignment
+import com.pcosina.app.ui.components.ScreenArtworkOffset
+import com.pcosina.app.ui.components.ScreenArtworkSizing
 import com.pcosina.app.ui.components.SharedAvatarHeader
 import com.pcosina.app.ui.components.SharedTopHeader
 import com.pcosina.app.ui.theme.PcosinaDeepRose
@@ -97,33 +98,8 @@ fun CommunityScreen(
                 avatarId = avatarId,
                 dateLabel = supportDateLabel,
                 compact = false,
+                avatarAlignment = ScreenArtworkAlignment.SupportHeaderAvatar,
             )
-        }
-        item {
-            Text(
-                text = "Support Page",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.ExtraBold,
-                    color = PcosinaDeepRose,
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                SupportVideoCard(
-                    title = "Start with the next useful step.",
-                    modifier = Modifier.weight(1f),
-                )
-                SupportVideoCard(
-                    title = "Make the week feel lighter",
-                    modifier = Modifier.weight(1f),
-                )
-            }
         }
         item {
             SupportFeedbackCard(
@@ -210,53 +186,6 @@ private fun SupportBrandHeader(
                 contentDescription = "Notification settings",
                 onClick = onOpenSettings,
             )
-        }
-    }
-}
-
-@Composable
-private fun SupportVideoCard(
-    title: String,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelMedium.copy(
-                fontWeight = FontWeight.ExtraBold,
-                color = PcosinaDeepRose,
-            ),
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(75.dp),
-            shape = RoundedCornerShape(10.dp),
-            color = Color(0xFFE4C2C2).copy(alpha = 0.72f),
-            border = BorderStroke(1.dp, PcosinaDeepRose.copy(alpha = 0.35f)),
-            shadowElevation = 3.dp,
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Surface(
-                    shape = CircleShape,
-                    color = Color.White,
-                    contentColor = PcosinaSoftPink,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .padding(7.dp)
-                            .size(18.dp),
-                    )
-                }
-            }
         }
     }
 }
@@ -447,7 +376,7 @@ private fun SupportFreshStartCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(155.dp)
+                .heightIn(min = ScreenArtworkSizing.SupportFreshStartMinHeight)
                 .clip(RoundedCornerShape(12.dp))
                 .background(
                     brush = Brush.linearGradient(listOf(PcosinaSoftPink, Color(0xFFFFB2C1))),
@@ -462,13 +391,13 @@ private fun SupportFreshStartCard(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
-                    text = "Make the week feel lighter",
+                    text = "Open this week's plan",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = PcosinaDeepRose),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "Start with the next useful step.",
+                    text = "Review meals, grocery, and progress from one place.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = PcosinaDeepRose,
                     maxLines = 2,
@@ -490,7 +419,7 @@ private fun SupportFreshStartCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text("Let's Go!", fontWeight = FontWeight.ExtraBold)
+                        Text("Open Plan", fontWeight = FontWeight.ExtraBold)
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
                     }
                 }
@@ -500,8 +429,11 @@ private fun SupportFreshStartCard(
                 contentDescription = null,
                 tint = PcosinaDeepRose.copy(alpha = 0.70f),
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .offset(x = 12.dp, y = 10.dp)
+                    .align(ScreenArtworkAlignment.SupportFreshStartIcon)
+                    .offset(
+                        x = ScreenArtworkOffset.SupportFreshStartIconX,
+                        y = ScreenArtworkOffset.SupportFreshStartIconY,
+                    )
                     .size(132.dp),
             )
         }

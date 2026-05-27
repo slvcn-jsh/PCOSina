@@ -88,6 +88,7 @@ object PriceCatalog {
         "cloves" to "clove",
         "bunches" to "bunch",
         "stalks" to "stalk",
+        "heads" to "head",
         "cans" to "piece",
         "pack" to "piece",
         "packs" to "piece",
@@ -136,8 +137,21 @@ object PriceCatalog {
         "Others" to 0.10
     )
 
+    private val ingredientPieceWeightKg = mapOf(
+        "garlic:clove" to 0.005,
+        "garlic:piece" to 0.005,
+        "garlic:head" to 0.045,
+        "onion:piece" to 0.11,
+        "tomato:piece" to 0.09,
+        "ginger:piece" to 0.02,
+        "egg:piece" to 0.055,
+        "pechay:bunch" to 0.18,
+        "kangkong:bunch" to 0.18,
+        "malunggay:bunch" to 0.08,
+    )
+
     private val quantityPattern = Regex(
-        """(?i)(\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(kg|kilo|kilogram|g|gram|grams|lb|lbs|pound|pounds|oz|ml|l|liter|litre|cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|piece|pieces|pc|pcs|clove|cloves|bunch|bunches|stalk|stalks|can|cans|pack|packs)"""
+        """(?i)(\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(kg|kilo|kilogram|g|gram|grams|lb|lbs|pound|pounds|oz|ml|l|liter|litre|cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|piece|pieces|pc|pcs|clove|cloves|bunch|bunches|stalk|stalks|can|cans|pack|packs|head|heads)"""
     )
 
     fun estimatePrice(name: String): Int = estimatePriceDetail(name).first
@@ -155,7 +169,7 @@ object PriceCatalog {
         val basePrice = rule?.pricePhp ?: (categoryAverages[category] ?: 60)
         val targetUnit = rule?.unit ?: (categoryDefaultUnit[category] ?: "piece")
         val (qtyValue, qtyUnit) = extractQuantity("$quantityText $name".trim())
-        val factor = clampFactor(quantityFactor(qtyValue, qtyUnit, targetUnit, category), category)
+        val factor = clampFactor(quantityFactor(qtyValue, qtyUnit, targetUnit, category, name), category)
         val marketMultiplier = defaultSeasonalMultiplier[category]?.get(monthIndex.coerceIn(1, 12)) ?: 1.0
         val tingiMultiplier = tingiMultiplier(qtyValue, qtyUnit, targetUnit)
         val safetyBuffer = if (includeSafetyBuffer) 1.10 else 1.0
@@ -268,13 +282,13 @@ object PriceCatalog {
         else -> null
     }
 
-    private fun quantityFactor(value: Double?, unit: String?, targetUnit: String, category: String): Double {
+    private fun quantityFactor(value: Double?, unit: String?, targetUnit: String, category: String, name: String): Double {
         if (value == null || unit == null) return 1.0
         return when (targetUnit) {
             "kg" -> {
                 val kg = unitToKg(value, unit)
-                    ?: if (unit == "piece" || unit == "clove" || unit == "bunch" || unit == "stalk") {
-                        value * (pieceWeightKg[category] ?: 0.1)
+                    ?: if (unit in setOf("piece", "clove", "bunch", "stalk", "head")) {
+                        value * pieceWeightFor(name, category, unit)
                     } else {
                         null
                     }
@@ -283,10 +297,10 @@ object PriceCatalog {
             "l" -> unitToLiters(value, unit) ?: 1.0
             "piece" -> {
                 when (unit) {
-                    "piece", "clove", "bunch", "stalk" -> value
+                    "piece", "clove", "bunch", "stalk", "can", "pack", "head" -> value
                     else -> {
                         val kg = unitToKg(value, unit) ?: return 1.0
-                        val pieceWeight = pieceWeightKg[category] ?: 0.1
+                        val pieceWeight = pieceWeightFor(name, category, "piece")
                         (kg / pieceWeight).coerceAtLeast(0.1)
                     }
                 }
@@ -295,8 +309,26 @@ object PriceCatalog {
         }
     }
 
+    private fun pieceWeightFor(name: String, category: String, unit: String): Double {
+        val lower = name.lowercase(Locale.getDefault())
+        val ingredient = when {
+            lower.contains("garlic") || lower.contains("bawang") -> "garlic"
+            lower.contains("onion") || lower.contains("sibuyas") -> "onion"
+            lower.contains("tomato") || lower.contains("kamatis") -> "tomato"
+            lower.contains("ginger") || lower.contains("luya") -> "ginger"
+            lower.contains("egg") || lower.contains("itlog") -> "egg"
+            lower.contains("pechay") -> "pechay"
+            lower.contains("kangkong") -> "kangkong"
+            lower.contains("malunggay") -> "malunggay"
+            else -> ""
+        }
+        return ingredientPieceWeightKg["$ingredient:$unit"]
+            ?: pieceWeightKg[category]
+            ?: 0.1
+    }
+
     private fun tingiMultiplier(value: Double?, unit: String?, targetUnit: String): Double {
-        if (unit in setOf("piece", "clove", "bunch", "stalk", "can", "pack") && targetUnit in setOf("kg", "l")) {
+        if (unit in setOf("piece", "clove", "bunch", "stalk", "can", "pack", "head") && targetUnit in setOf("kg", "l")) {
             return 1.12
         }
         if (value != null && value > 0.0 && value < 0.25 && targetUnit in setOf("kg", "l")) {
@@ -307,7 +339,8 @@ object PriceCatalog {
 
     private fun clampFactor(value: Double, category: String): Double {
         val maxFactor = if (category in setOf("Meat/Seafood", "Dry Goods")) 2.5 else 2.0
-        return value.coerceIn(0.1, maxFactor)
+        val minFactor = if (category in setOf("Produce", "Spices & Condiments")) 0.02 else 0.1
+        return value.coerceIn(minFactor, maxFactor)
     }
 
     private fun ruleForName(name: String): PriceRule? {

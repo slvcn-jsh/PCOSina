@@ -213,30 +213,41 @@ _UNIT_ALIASES = {
     "pieces": "piece",
     "pc": "piece",
     "pcs": "piece",
-    "clove": "piece",
-    "cloves": "piece",
+    "clove": "clove",
+    "cloves": "clove",
+    "bunch": "bunch",
+    "bunches": "bunch",
+    "tali": "bunch",
+    "stalk": "stalk",
+    "stalks": "stalk",
+    "can": "can",
+    "cans": "can",
+    "pack": "pack",
+    "packs": "pack",
+    "head": "head",
+    "heads": "head",
 }
 
 _CATEGORY_DEFAULT_UNIT = {
     "Meat/Seafood": "kg",
     "Produce": "kg",
     "Dry Goods": "kg",
-    "Eggs & Dairy": "kg",
+    "Eggs & Dairy": "piece",
     "Spices & Condiments": "piece",
     "Canned/Packaged": "piece",
-    "Beverages": "l",
+    "Beverages": "piece",
     "Others": "piece",
 }
 
 _CATEGORY_MULTIPLIER = {
-    "Meat/Seafood": 1.0,
-    "Produce": 0.6,
+    "Meat/Seafood": 0.85,
+    "Produce": 0.75,
     "Dry Goods": 0.8,
-    "Eggs & Dairy": 0.9,
-    "Spices & Condiments": 0.3,
+    "Eggs & Dairy": 0.85,
+    "Spices & Condiments": 0.7,
     "Canned/Packaged": 0.8,
-    "Beverages": 0.7,
-    "Others": 0.7,
+    "Beverages": 0.8,
+    "Others": 0.75,
 }
 
 _DEFAULT_SEASONAL_MULTIPLIER = {
@@ -273,14 +284,27 @@ _VOLATILE_INGREDIENT_TOKENS = {
 }
 
 _PIECE_WEIGHT_KG = {
-    "Meat/Seafood": 0.20,
+    "Meat/Seafood": 0.15,
     "Produce": 0.12,
     "Eggs & Dairy": 0.06,
     "Dry Goods": 0.10,
     "Spices & Condiments": 0.05,
-    "Canned/Packaged": 0.20,
-    "Beverages": 0.50,
+    "Canned/Packaged": 0.18,
+    "Beverages": 0.25,
     "Others": 0.10,
+}
+
+_INGREDIENT_PIECE_WEIGHT_KG = {
+    ("garlic", "clove"): 0.005,
+    ("garlic", "piece"): 0.005,
+    ("garlic", "head"): 0.045,
+    ("onion", "piece"): 0.11,
+    ("tomato", "piece"): 0.09,
+    ("ginger", "piece"): 0.02,
+    ("egg", "piece"): 0.055,
+    ("pechay", "bunch"): 0.18,
+    ("kangkong", "bunch"): 0.18,
+    ("malunggay", "bunch"): 0.08,
 }
 
 
@@ -360,7 +384,7 @@ def _parse_number(text: str) -> Optional[float]:
 
 
 _QTY_PATTERN = re.compile(
-    r"(?P<num>\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(?P<unit>kg|kilo|kilogram|g|gram|grams|lb|lbs|pound|pounds|oz|ml|l|liter|litre|cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|piece|pieces|pc|pcs|clove|cloves)"
+    r"(?P<num>\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(?P<unit>kg|kilo|kilogram|g|gram|grams|lb|lbs|pound|pounds|oz|ml|l|liter|litre|cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|piece|pieces|pc|pcs|clove|cloves|bunch|bunches|tali|stalk|stalks|can|cans|pack|packs|head|heads)"
 )
 
 
@@ -446,14 +470,40 @@ def _unit_to_l(value: float, unit: str) -> Optional[float]:
     return None
 
 
-def _quantity_factor(value: Optional[float], unit: Optional[str], target_unit: str, category: str) -> float:
+def _ingredient_weight_key(name: str) -> str:
+    lower = (name or "").lower()
+    if "garlic" in lower or "bawang" in lower:
+        return "garlic"
+    if "onion" in lower or "sibuyas" in lower:
+        return "onion"
+    if "tomato" in lower or "kamatis" in lower:
+        return "tomato"
+    if "ginger" in lower or "luya" in lower:
+        return "ginger"
+    if "egg" in lower or "itlog" in lower:
+        return "egg"
+    if "pechay" in lower:
+        return "pechay"
+    if "kangkong" in lower:
+        return "kangkong"
+    if "malunggay" in lower:
+        return "malunggay"
+    return ""
+
+
+def _piece_weight_for(name: str, category: str, unit: str) -> float:
+    ingredient = _ingredient_weight_key(name)
+    return _INGREDIENT_PIECE_WEIGHT_KG.get((ingredient, unit), _PIECE_WEIGHT_KG.get(category, 0.1))
+
+
+def _quantity_factor(value: Optional[float], unit: Optional[str], target_unit: str, category: str, name: str = "") -> float:
     if value is None or unit is None:
         return 1.0
     unit = _UNIT_ALIASES.get(unit, unit)
     if target_unit == "kg":
         kg = _unit_to_kg(value, unit)
-        if kg is None and unit == "piece":
-            kg = value * _PIECE_WEIGHT_KG.get(category, 0.1)
+        if kg is None and unit in {"piece", "clove", "bunch", "stalk", "head"}:
+            kg = value * _piece_weight_for(name, category, unit)
         if kg is None:
             return 1.0
         return kg
@@ -463,18 +513,18 @@ def _quantity_factor(value: Optional[float], unit: Optional[str], target_unit: s
             return 1.0
         return liters
     if target_unit == "piece":
-        if unit == "piece":
+        if unit in {"piece", "clove", "bunch", "stalk", "can", "pack", "head"}:
             return value
         kg = _unit_to_kg(value, unit)
         if kg is None:
             return 1.0
-        piece_weight = _PIECE_WEIGHT_KG.get(category, 0.1)
+        piece_weight = _piece_weight_for(name, category, "piece")
         return max(0.1, kg / piece_weight)
     return 1.0
 
 
 def _clamp_factor(value: float, category: str) -> float:
-    min_factor = 0.1
+    min_factor = 0.02 if category in {"Produce", "Spices & Condiments"} else 0.1
     max_factor = 2.5 if category in ("Meat/Seafood", "Dry Goods") else 2.0
     return max(min_factor, min(max_factor, value))
 
@@ -572,7 +622,7 @@ def _market_multiplier(
 
 def _tingi_multiplier(unit: Optional[str], target_unit: str, quantity_value: Optional[float]) -> float:
     normalized_unit = _UNIT_ALIASES.get(str(unit or ""), str(unit or ""))
-    if normalized_unit in {"piece", "clove", "bunch", "stalk", "can", "pack"} and target_unit in {"kg", "l"}:
+    if normalized_unit in {"piece", "clove", "bunch", "stalk", "can", "pack", "head"} and target_unit in {"kg", "l"}:
         return 1.12
     if quantity_value is not None and quantity_value > 0 and quantity_value < 0.25 and target_unit in {"kg", "l"}:
         return 1.08
@@ -600,7 +650,7 @@ def estimate_price_explained(
     target_unit = resolved_rule.unit or _CATEGORY_DEFAULT_UNIT.get(category, "piece")
     qty_value, qty_unit = _parse_quantity(f"{quantity_text} {name}".strip())
 
-    factor = _quantity_factor(qty_value, qty_unit, target_unit, category)
+    factor = _quantity_factor(qty_value, qty_unit, target_unit, category, name)
     factor = _clamp_factor(factor, category)
 
     seasonal_multiplier = _market_multiplier(category, month_index, pricing_context=pricing_context)

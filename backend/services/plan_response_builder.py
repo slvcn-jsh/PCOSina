@@ -5,7 +5,7 @@ import uuid
 from typing import Any
 
 from domain.models import GeneratePlanRequest, GeneratePlanResponse
-from services.meal_planner import profile_rule_summary, resolve_budget_weekly, validate_profile
+from services.meal_planner import planner_contract_summary, profile_rule_summary, resolve_budget_weekly, validate_profile
 
 
 def _reason_codes_from_message(msg: str, *, budget_exceeded_stage: str | None = None) -> list[str]:
@@ -26,8 +26,6 @@ def _reason_codes_from_message(msg: str, *, budget_exceeded_stage: str | None = 
         codes.append("MISSING_BUDGET_INPUT")
     if "variety first priority conflicts" in text:
         codes.append("CONFLICTING_PRIORITIES")
-    if "household size must stay" in text:
-        codes.append("INVALID_HOUSEHOLD_SIZE")
     if "max cooking time must stay" in text:
         codes.append("INVALID_MAX_COOK_TIME")
     if "only mealsperday" in text:
@@ -138,6 +136,7 @@ def build_no_safe_plan_response(
         "summary": message,
         "profileConflict": validate_profile(profile),
         "profileRuleEffects": profile_rule_summary(profile, budget_weekly),
+        "plannerContract": planner_contract_summary(profile, budget_weekly),
         "candidateExclusionSummary": dict(stage1_diag.get("exclusion_summary") or {}),
         "candidateExclusionDetailCounts": dict(
             stage1_diag.get("exclusion_detail_counts") or {}
@@ -164,6 +163,7 @@ def build_no_safe_plan_response(
         message=message,
         explanation={
             "profileRuleEffects": diagnostics_summary["profileRuleEffects"],
+            "plannerContract": diagnostics_summary["plannerContract"],
             "candidateExclusionSummary": diagnostics_summary["candidateExclusionSummary"],
             "budgetHardCapApplied": bool(budget_weekly),
         },

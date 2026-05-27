@@ -641,7 +641,6 @@ fun AppNavHost(
                 groceryViewModel = groceryViewModel,
                 progressViewModel = progressViewModel,
                 goal = userProfile.goal,
-                householdSize = userProfile.householdSize,
                 onBack = { navController.popBackStack() },
                 onAddToGrocery = {
                     navigateInternal(Routes.GroceryList) {

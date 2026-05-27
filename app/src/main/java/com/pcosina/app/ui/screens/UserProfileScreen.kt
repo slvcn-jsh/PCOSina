@@ -54,6 +54,9 @@ import com.pcosina.app.ui.util.primaryGoalLabel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 private const val ProfileMinAge = 18
@@ -100,11 +103,18 @@ fun UserProfileScreen(
         } else ""
         mutableStateOf(value)
     }
+    var targetWeight by rememberSaveable {
+        val value = profile.targetWeightKg?.let {
+            if (profile.weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.kgToLb(it).toString()
+            else it.toString()
+        }.orEmpty()
+        mutableStateOf(value)
+    }
+    var targetDate by rememberSaveable { mutableStateOf(profile.targetDate.orEmpty()) }
     var heightCmInput by rememberSaveable { mutableStateOf(if (profile.heightCm > 0) profile.heightCm.toString() else "") }
     var heightFtInput by rememberSaveable { mutableStateOf("") }
     var heightInInput by rememberSaveable { mutableStateOf("") }
     var activityLevel by rememberSaveable { mutableStateOf(profile.activityLevel) }
-    val insulinLevel = "None"
 
     val savedSymptomKey = profile.symptoms.joinToString("|")
     var symptomIrregularPeriods by rememberSaveable(savedSymptomKey) {
@@ -119,8 +129,6 @@ fun UserProfileScreen(
     var symptomHairLoss by rememberSaveable(savedSymptomKey) {
         mutableStateOf(hasSavedProfileToken(profile.symptoms, "Hair loss"))
     }
-
-    var symptomNone by rememberSaveable { mutableStateOf(false) }
 
     val savedRestrictionKey = profile.dietaryRestrictions.joinToString("|")
     var lacto by rememberSaveable(savedRestrictionKey) {
@@ -167,6 +175,17 @@ fun UserProfileScreen(
                 profile.weightKg.toString()
             }
         }
+        val savedTargetWeightKg = profile.targetWeightKg
+        if (targetWeight.isBlank() && savedTargetWeightKg != null) {
+            targetWeight = if (weightUnit == UnitConverter.WEIGHT_LB) {
+                UnitConverter.kgToLb(savedTargetWeightKg).toString()
+            } else {
+                savedTargetWeightKg.toString()
+            }
+        }
+        if (targetDate.isBlank() && !profile.targetDate.isNullOrBlank()) {
+            targetDate = profile.targetDate.orEmpty()
+        }
         if (heightCmInput.isBlank() && profile.heightCm > 0) {
             heightCmInput = profile.heightCm.toString()
         }
@@ -207,6 +226,16 @@ fun UserProfileScreen(
             } else {
                 currentKg?.toString() ?: ""
             }
+            val currentTargetKg = if (lastWeightUnit == UnitConverter.WEIGHT_LB) {
+                targetWeight.toIntOrNull()?.let { UnitConverter.lbToKg(it) }
+            } else {
+                targetWeight.toIntOrNull()
+            }
+            targetWeight = if (weightUnit == UnitConverter.WEIGHT_LB) {
+                currentTargetKg?.let { UnitConverter.kgToLb(it).toString() } ?: ""
+            } else {
+                currentTargetKg?.toString() ?: ""
+            }
             lastWeightUnit = weightUnit
         }
     }
@@ -232,6 +261,25 @@ fun UserProfileScreen(
     val weightValueKg = weightInputValue?.let {
         if (weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.lbToKg(it) else it
     }
+    val targetWeightInputValue = targetWeight.toIntOrNull()
+    val targetWeightValueKg = targetWeightInputValue?.let {
+        if (weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.lbToKg(it) else it
+    }
+    val targetDateText = targetDate.trim()
+    val targetDateValue = targetDateText.takeIf { it.isNotBlank() }?.let {
+        runCatching { LocalDate.parse(it, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
+    }
+    val targetDateInvalidFormat = targetDateText.isNotBlank() && targetDateValue == null
+    val targetDateInPast = targetDateValue?.isBefore(LocalDate.now()) == true
+    val targetWeightInvalid = targetWeight.isNotBlank() && targetWeightInputValue == null
+    val targetWeightOutOfRange = targetWeightValueKg != null && targetWeightValueKg !in 35..180
+    val targetSupportValid = when {
+        targetWeight.isBlank() && targetDateText.isBlank() -> true
+        targetWeightInvalid || targetWeightOutOfRange -> false
+        targetWeightValueKg == null -> false
+        targetDateInvalidFormat || targetDateInPast -> false
+        else -> true
+    }
     val heightValueCm = if (heightUnit == UnitConverter.HEIGHT_FT_IN) {
         val ft = heightFtInput.toIntOrNull()
         val inch = heightInInput.toIntOrNull()
@@ -249,18 +297,13 @@ fun UserProfileScreen(
         allergiesText = allergiesText,
         budgetPhp = budgetValue,
     )
-    val symptomSelectionReady = symptomNone ||
-        symptomIrregularPeriods ||
-        symptomWeightGain ||
-        symptomAcne ||
-        symptomHairLoss
-
     val stepOneValid = (isEditMode || displayName.isNotBlank()) &&
         ageValue != null && ageValue in ProfileMinAge..ProfileMaxAge &&
         weightValueKg != null && weightValueKg in 35..180 &&
-        heightValueCm != null && heightValueCm in 120..200
+        heightValueCm != null && heightValueCm in 120..200 &&
+        targetSupportValid
 
-    val stepTwoValid = symptomSelectionReady
+    val stepTwoValid = true
 
     val stepThreeValid = (budgetValue == null || budgetValue in 1..20000) &&
         maxCookingValue != null && maxCookingValue in 10..240 &&
@@ -285,18 +328,22 @@ fun UserProfileScreen(
         ageValue?.let { it !in ProfileMinAge..ProfileMaxAge } == true -> "Age must stay between 18 and 60."
         weight.isBlank() || weightInputValue == null -> "Enter weight as a whole number."
         weightValueKg == null || (weightValueKg !in 35..180) -> "Weight must stay between 35 and 180 kg equivalent."
+        targetWeightInvalid -> "Enter target weight as a whole number or leave it blank."
+        targetWeightOutOfRange -> "Target weight must stay between 35 and 180 kg equivalent."
+        targetDateInvalidFormat -> "Use target date format YYYY-MM-DD or leave it blank."
+        targetDateInPast -> "Target date must be today or later."
         heightValueCm == null -> "Enter a valid height before continuing."
         heightValueCm?.let { it !in 120..200 } == true -> "Height must stay between 120 and 200 cm."
         activityLevel.isBlank() -> "Choose your typical activity level."
         else -> "Fix highlighted fields to continue."
     }
+    val stepTwoBlockerMessage = "Symptoms are optional. Continue if none apply."
     val stepThreeBlockerMessage = when {
         stepThreeConflict != null -> stepThreeConflict
         maxCookingTime.isBlank() || maxCookingValue == null -> "Enter max cooking time in minutes."
         maxCookingValue?.let { it !in 10..240 } == true -> "Max cooking time must stay between 10 and 240 minutes."
         else -> "Set max cooking time (10–240). Budget is optional unless Budget First is selected."
     }
-    val stepTwoBlockerMessage = "Pick any symptoms that apply, or choose No current symptoms."
     val profileStatusSummary = when (currentStep) {
         1 -> if (stepOneValid) {
             "Personal details are ready. Nutrition targets can now be estimated accurately."
@@ -304,7 +351,7 @@ fun UserProfileScreen(
             stepOneBlockerMessage
         }
         2 -> if (stepTwoValid) {
-            "Symptoms are ready. These cues can guide deterministic planning nudges."
+            "Wellness details are ready. Symptoms can guide deterministic planning nudges."
         } else {
             stepTwoBlockerMessage
         }
@@ -321,13 +368,13 @@ fun UserProfileScreen(
         "Saved locally. Goals, weekly planning, and grocery setup unlock after this profile."
     }
     val primaryActionLabel = when (currentStep) {
-        1 -> "Save personal details"
-        2 -> "Save symptoms"
+        1 -> "Save identity"
+        2 -> "Save wellness"
         3 -> if (isEditMode) "Save profile" else "Complete profile"
         else -> "Next"
     }
     val currentStepRequiredTotal = when (currentStep) {
-        1 -> if (isEditMode) 4 else 5
+        1 -> if (isEditMode) 5 else 6
         2 -> 1
         3 -> 3
         else -> 1
@@ -338,9 +385,10 @@ fun UserProfileScreen(
             ageValue != null && ageValue in ProfileMinAge..ProfileMaxAge,
             weightValueKg != null && weightValueKg in 35..180,
             heightValueCm != null && heightValueCm in 120..200,
+            targetSupportValid,
             activityLevel.isNotBlank()
         ).count { it }
-        2 -> if (symptomSelectionReady) 1 else 0
+        2 -> 1
         3 -> listOf(
             maxCookingValue != null && maxCookingValue in 10..240,
             budget.isBlank() || budgetValue != null,
@@ -367,13 +415,26 @@ fun UserProfileScreen(
                 activity = activityLevel
             )
         }
-        if (step >= 2 && insulinLevel.isNotBlank()) {
+        val safeTargetWeight = targetWeightValueKg?.takeIf { it in 35..180 }
+        val safeTargetDate = targetDateValue?.format(DateTimeFormatter.ISO_LOCAL_DATE)
+        val safeWeeklyWeightChangeGoal = if (safeWeight != null && safeTargetWeight != null && targetDateValue != null) {
+            val weeks = ChronoUnit.DAYS.between(LocalDate.now(), targetDateValue).toFloat() / 7f
+            if (weeks > 0f) (safeTargetWeight - safeWeight) / weeks else null
+        } else {
+            null
+        }
+        userViewModel.updateWeightSupport(
+            targetWeightKg = safeTargetWeight,
+            targetDate = safeTargetDate,
+            weeklyWeightChangeGoalKg = safeWeeklyWeightChangeGoal
+        )
+        if (step >= 2) {
             val symptoms = mutableListOf<String>()
             if (symptomIrregularPeriods) symptoms.add("Irregular periods")
             if (symptomWeightGain) symptoms.add("Weight gain")
             if (symptomAcne) symptoms.add("Acne")
             if (symptomHairLoss) symptoms.add("Hair loss")
-            userViewModel.updatePcosDetails(insulinLevel, symptoms, emptyList())
+            userViewModel.updatePcosDetails(symptoms, emptyList())
         }
         if (step >= 3) {
             val restrictions = mutableListOf<String>()
@@ -385,7 +446,6 @@ fun UserProfileScreen(
             userViewModel.updateDietaryRestrictions(restrictions)
             val budgetSafe = budgetValue?.coerceIn(1, 20000)
             if (budgetSafe != null) userViewModel.updateBudget(budgetSafe) else userViewModel.updateBudget(0)
-            userViewModel.updateHouseholdSize(1)
             val maxCookSafe = maxCookingValue?.coerceIn(10, 240) ?: 45
             userViewModel.updateCookingPreferences(maxCookSafe, varietyPref.ifBlank { "Balanced" })
             userViewModel.updatePlanningPriority(planningPriority.ifBlank { "Balanced" })
@@ -513,87 +573,73 @@ fun UserProfileScreen(
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         }
-                        when (step) {
-                            1 -> StepOneIdentity(
-                                name = displayName,
-                                onName = { displayName = it },
-                                age = age,
-                                onAge = { age = it },
-                                weight = weight,
-                                onWeight = { weight = it },
-                                weightUnit = weightUnit,
-                                onWeightUnit = { weightUnit = it },
-                                heightUnit = heightUnit,
-                                onHeightUnit = { heightUnit = it },
-                                heightCm = heightCmInput,
-                                onHeightCm = { heightCmInput = it },
-                                heightFt = heightFtInput,
-                                onHeightFt = { heightFtInput = it },
-                                heightIn = heightInInput,
-                                onHeightIn = { heightInInput = it },
-                                activity = activityLevel,
-                                onActivity = { activityLevel = it },
-                                color = colorScheme.primary,
-                                showName = !isEditMode
-                            )
-                            2 -> StepTwoMedical(
-                                noCurrentSymptoms = symptomNone,
-                                onNoCurrentSymptoms = {
-                                    symptomNone = it
-                                    if (it) {
-                                        symptomIrregularPeriods = false
-                                        symptomWeightGain = false
-                                        symptomAcne = false
-                                        symptomHairLoss = false
-                                    }
-                                },
-                                s1 = symptomIrregularPeriods,
-                                onS1 = {
-                                    symptomNone = false
-                                    symptomIrregularPeriods = it
-                                },
-                                s2 = symptomWeightGain,
-                                onS2 = {
-                                    symptomNone = false
-                                    symptomWeightGain = it
-                                },
-                                s3 = symptomAcne,
-                                onS3 = {
-                                    symptomNone = false
-                                    symptomAcne = it
-                                },
-                                s4 = symptomHairLoss,
-                                onS4 = {
-                                    symptomNone = false
-                                    symptomHairLoss = it
-                                },
-                                color = colorScheme.primary
-                            )
-                            3 -> StepThreeDiet(
-                                r1 = lacto,
-                                onR1 = { lacto = it },
-                                r2 = vegetarian,
-                                onR2 = { vegetarian = it },
-                                r3 = pescatarian,
-                                onR3 = { pescatarian = it },
-                                r4 = noPork,
-                                onR4 = { noPork = it },
-                                r5 = noBeef,
-                                onR5 = { noBeef = it },
-                                budget = budget,
-                                onBudget = { budget = sanitizeBudgetInput(it) },
-                                maxCookingTime = maxCookingTime,
-                                onMaxCookingTime = { maxCookingTime = it },
-                                varietyPreference = varietyPref,
-                                onVarietyPreference = { varietyPref = it },
-                                planningPriority = planningPriority,
-                                onPlanningPriority = { planningPriority = it },
-                                pantryText = pantryText,
-                                onPantryText = { pantryText = it },
-                                allergiesText = allergiesText,
-                                onAllergiesText = { allergiesText = it },
-                                color = colorScheme.primary
-                            )
+                        ProfileSectionCard(
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            when (step) {
+                                1 -> StepOneIdentity(
+                                    name = displayName,
+                                    onName = { displayName = it },
+                                    age = age,
+                                    onAge = { age = it },
+                                    weight = weight,
+                                    onWeight = { weight = it },
+                                    weightUnit = weightUnit,
+                                    onWeightUnit = { weightUnit = it },
+                                    targetWeight = targetWeight,
+                                    onTargetWeight = { targetWeight = it },
+                                    targetDate = targetDate,
+                                    onTargetDate = { targetDate = it },
+                                    heightUnit = heightUnit,
+                                    onHeightUnit = { heightUnit = it },
+                                    heightCm = heightCmInput,
+                                    onHeightCm = { heightCmInput = it },
+                                    heightFt = heightFtInput,
+                                    onHeightFt = { heightFtInput = it },
+                                    heightIn = heightInInput,
+                                    onHeightIn = { heightInInput = it },
+                                    activity = activityLevel,
+                                    onActivity = { activityLevel = it },
+                                    color = colorScheme.primary,
+                                    showName = !isEditMode
+                                )
+                                2 -> StepTwoMedical(
+                                    s1 = symptomIrregularPeriods,
+                                    onS1 = { symptomIrregularPeriods = it },
+                                    s2 = symptomWeightGain,
+                                    onS2 = { symptomWeightGain = it },
+                                    s3 = symptomAcne,
+                                    onS3 = { symptomAcne = it },
+                                    s4 = symptomHairLoss,
+                                    onS4 = { symptomHairLoss = it },
+                                    color = colorScheme.primary
+                                )
+                                3 -> StepThreeDiet(
+                                    r1 = lacto,
+                                    onR1 = { lacto = it },
+                                    r2 = vegetarian,
+                                    onR2 = { vegetarian = it },
+                                    r3 = pescatarian,
+                                    onR3 = { pescatarian = it },
+                                    r4 = noPork,
+                                    onR4 = { noPork = it },
+                                    r5 = noBeef,
+                                    onR5 = { noBeef = it },
+                                    budget = budget,
+                                    onBudget = { budget = sanitizeBudgetInput(it) },
+                                    maxCookingTime = maxCookingTime,
+                                    onMaxCookingTime = { maxCookingTime = it },
+                                    varietyPreference = varietyPref,
+                                    onVarietyPreference = { varietyPref = it },
+                                    planningPriority = planningPriority,
+                                    onPlanningPriority = { planningPriority = it },
+                                    pantryText = pantryText,
+                                    onPantryText = { pantryText = it },
+                                    allergiesText = allergiesText,
+                                    onAllergiesText = { allergiesText = it },
+                                    color = colorScheme.primary
+                                )
+                            }
                         }
 
                         if (!canProceed) {
@@ -841,6 +887,26 @@ private fun ProfileStepProgressPanel(
 }
 
 @Composable
+private fun ProfileSectionCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, PcosinaBlushBorder),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = content,
+        )
+    }
+}
+
+@Composable
 fun OnboardingProgress(currentStep: Int, color: Color) {
     val colorScheme = MaterialTheme.colorScheme
     Column(
@@ -906,9 +972,9 @@ fun BottomActionRow(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val helperCopy = when (currentStep) {
-        1 -> "Start with your personal details, height, weight, and activity so targets stay realistic."
-        2 -> "Pick any symptoms that apply so planning nudges reflect your current context."
-        else -> "Finish the hard food rules and planning settings before saving."
+        1 -> "Start with your identity, height, weight, and activity so targets stay realistic."
+        2 -> "Add symptoms and health markers that should influence your weekly plan."
+        else -> "Finish the hard food rules, pantry, and budget settings before saving."
     }
     Surface(
         modifier = modifier,
@@ -1004,6 +1070,10 @@ fun StepOneIdentity(
     onWeight: (String) -> Unit,
     weightUnit: String,
     onWeightUnit: (String) -> Unit,
+    targetWeight: String,
+    onTargetWeight: (String) -> Unit,
+    targetDate: String,
+    onTargetDate: (String) -> Unit,
     heightUnit: String,
     onHeightUnit: (String) -> Unit,
     heightCm: String,
@@ -1025,8 +1095,17 @@ fun StepOneIdentity(
     val weightKg = weightValue?.let {
         if (weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.lbToKg(it) else it
     }
+    val targetWeightValue = targetWeight.toIntOrNull()
+    val targetWeightKg = targetWeightValue?.let {
+        if (weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.lbToKg(it) else it
+    }
+    val targetDateText = targetDate.trim()
+    val targetDateValue = targetDateText.takeIf { it.isNotBlank() }?.let {
+        runCatching { LocalDate.parse(it, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
+    }
     val ageInvalidFormat = age.isNotBlank() && ageValue == null
     val weightInvalidFormat = weight.isNotBlank() && weightValue == null
+    val targetWeightInvalidFormat = targetWeight.isNotBlank() && targetWeightValue == null
     val heightCmValue = if (heightUnit == UnitConverter.HEIGHT_FT_IN) {
         val ft = heightFt.toIntOrNull()
         val inch = heightIn.toIntOrNull()
@@ -1047,6 +1126,9 @@ fun StepOneIdentity(
         (heightIn.toIntOrNull()?.let { it !in 0..11 } == true)
     val ageOutOfRange = ageValue != null && (ageValue < ProfileMinAge || ageValue > ProfileMaxAge)
     val weightOutOfRange = weightKg != null && (weightKg < 35 || weightKg > 180)
+    val targetWeightOutOfRange = targetWeightKg != null && (targetWeightKg < 35 || targetWeightKg > 180)
+    val targetDateInvalidFormat = targetDateText.isNotBlank() && targetDateValue == null
+    val targetDateInPast = targetDateValue?.isBefore(LocalDate.now()) == true
     val heightOutOfRange = heightCmValue != null && (heightCmValue < 120 || heightCmValue > 200)
     val screenWidthDp = LocalConfiguration.current.screenWidthDp
     val compactUnitChipWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 68.dp, medium = 88.dp)
@@ -1274,6 +1356,69 @@ fun StepOneIdentity(
                 color = MaterialTheme.colorScheme.error
             )
         }
+        Text(
+            text = "Optional weight support",
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+            color = PcosinaDeepRose
+        )
+        OutlinedTextField(
+            value = targetWeight,
+            onValueChange = onTargetWeight,
+            label = { Text(if (weightUnit == UnitConverter.WEIGHT_LB) "Target weight (lb, optional)" else "Target weight (kg, optional)") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("profile_step1_target_weight_input"),
+            shape = MaterialTheme.shapes.medium,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            isError = targetWeightInvalidFormat || targetWeightOutOfRange,
+            supportingText = if (targetWeightInvalidFormat || targetWeightOutOfRange) {
+                {
+                    Text(
+                        when {
+                            targetWeightInvalidFormat -> "Enter a whole number or leave blank."
+                            else -> "35–180 kg equivalent only."
+                        }
+                    )
+                }
+            } else null,
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
+        )
+        OutlinedTextField(
+            value = targetDate,
+            onValueChange = onTargetDate,
+            label = { Text("Target date (YYYY-MM-DD, optional)") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("profile_step1_target_date_input"),
+            shape = MaterialTheme.shapes.medium,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+            isError = targetDateInvalidFormat || targetDateInPast,
+            supportingText = if (targetDateInvalidFormat || targetDateInPast) {
+                {
+                    Text(
+                        when {
+                            targetDateInvalidFormat -> "Use YYYY-MM-DD."
+                            else -> "Choose today or a future date."
+                        }
+                    )
+                }
+            } else null,
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
+        )
+        val targetPaceText = if (weightKg != null && targetWeightKg != null && targetDateValue != null && !targetDateInPast) {
+            val days = ChronoUnit.DAYS.between(LocalDate.now(), targetDateValue)
+            val weeklyPace = if (days > 0) (targetWeightKg - weightKg).toFloat() / (days.toFloat() / 7f) else 0f
+            "Estimated target pace: ${String.format(Locale.ENGLISH, "%.2f", kotlin.math.abs(weeklyPace))} kg/week."
+        } else {
+            "Target fields are optional. They only support progress review and do not guarantee weight change."
+        }
+        Text(
+            text = targetPaceText,
+            style = MaterialTheme.typography.labelMedium.copy(fontStyle = FontStyle.Italic),
+            color = PcosinaDeepRose.copy(alpha = 0.72f),
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis
+        )
 
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
             OutlinedTextField(value = activity, onValueChange = {}, readOnly = true, label = { Text("Activity Level") }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }, shape = MaterialTheme.shapes.medium, colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = color))
@@ -1297,38 +1442,22 @@ fun StepOneIdentity(
 }
 
 @Composable
-fun StepTwoMedical(
-    noCurrentSymptoms: Boolean,
-    onNoCurrentSymptoms: (Boolean) -> Unit,
-    s1: Boolean,
-    onS1: (Boolean) -> Unit,
-    s2: Boolean,
-    onS2: (Boolean) -> Unit,
-    s3: Boolean,
-    onS3: (Boolean) -> Unit,
-    s4: Boolean,
-    onS4: (Boolean) -> Unit,
-    color: Color
-) {
+fun StepTwoMedical(s1: Boolean, onS1: (Boolean) -> Unit, s2: Boolean, onS2: (Boolean) -> Unit, s3: Boolean, onS3: (Boolean) -> Unit, s4: Boolean, onS4: (Boolean) -> Unit, color: Color) {
     val symptomOptions = listOf(
         "Irregular periods" to (s1 to onS1),
         "Weight gain" to (s2 to onS2),
         "Acne" to (s3 to onS3),
-        "Hair loss" to (s4 to onS4),
-        "No current symptoms" to (noCurrentSymptoms to onNoCurrentSymptoms)
+        "Hair loss" to (s4 to onS4)
     )
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap)) {
+        SectionTitle("Wellness Details")
         Text(
-            text = "Symptoms",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            text = "These are optional wellness signals and can be changed later without redoing your whole profile.",
+            style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+            color = PcosinaDeepRose.copy(alpha = 0.72f)
         )
-        Text(
-            text = "Pick any that apply. You can choose more than one, or choose No current symptoms.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text("Symptoms (optional)", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1402,8 +1531,6 @@ fun StepThreeDiet(
     onR5: (Boolean) -> Unit,
     budget: String,
     onBudget: (String) -> Unit,
-    householdSize: Int = 1,
-    onHouseholdSize: (Int) -> Unit = {},
     maxCookingTime: String,
     onMaxCookingTime: (String) -> Unit,
     varietyPreference: String,
@@ -1534,6 +1661,11 @@ fun StepThreeDiet(
             prefix = { Text("₱ ") },
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
         )
+        Text(
+            text = "Nutrition, ingredients, and shopping totals are planned for the primary user only.",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         OutlinedTextField(
             value = maxCookingTime,
             onValueChange = onMaxCookingTime,
@@ -1600,7 +1732,7 @@ fun StepThreeDiet(
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
         )
         Text(
-            text = "Finish the hard food rules and planning settings before saving.",
+            text = "Finish the hard food rules, pantry, and budget settings before saving.",
             style = MaterialTheme.typography.labelMedium.copy(fontStyle = FontStyle.Italic),
             color = PcosinaDeepRose.copy(alpha = 0.72f)
         )

@@ -109,12 +109,14 @@ class UserPreferencesRepository(private val context: Context) {
         fun name(userId: String) = stringPreferencesKey("name_$userId")
         fun age(userId: String) = intPreferencesKey("age_$userId")
         fun weight(userId: String) = intPreferencesKey("weight_$userId")
+        fun targetWeight(userId: String) = intPreferencesKey("target_weight_$userId")
+        fun targetDate(userId: String) = stringPreferencesKey("target_date_$userId")
+        fun weeklyWeightChangeGoal(userId: String) = floatPreferencesKey("weekly_weight_change_goal_$userId")
         fun height(userId: String) = intPreferencesKey("height_$userId")
         fun weightUnit(userId: String) = stringPreferencesKey("weight_unit_$userId")
         fun heightUnit(userId: String) = stringPreferencesKey("height_unit_$userId")
         fun activity(userId: String) = stringPreferencesKey("activity_$userId")
         fun goal(userId: String) = stringPreferencesKey("goal_$userId")
-        fun insulin(userId: String) = stringPreferencesKey("insulin_$userId")
         fun symptoms(userId: String) = stringPreferencesKey("symptoms_$userId")
         fun comorbidities(userId: String) = stringPreferencesKey("comorbidities_$userId")
         fun restrictions(userId: String) = stringPreferencesKey("restrictions_$userId")
@@ -122,7 +124,6 @@ class UserPreferencesRepository(private val context: Context) {
         fun pantry(userId: String) = stringPreferencesKey("pantry_$userId")
         fun pantryEntries(userId: String) = stringPreferencesKey("pantry_entries_$userId")
         fun budget(userId: String) = intPreferencesKey("budget_$userId")
-        fun householdSize(userId: String) = intPreferencesKey("household_size_$userId")
         fun maxCookingTime(userId: String) = intPreferencesKey("max_cooking_time_$userId")
         fun variety(userId: String) = stringPreferencesKey("variety_pref_$userId")
         fun planningPriority(userId: String) = stringPreferencesKey("planning_priority_$userId")
@@ -192,7 +193,6 @@ class UserPreferencesRepository(private val context: Context) {
         fun heightUnit(email: String) = stringPreferencesKey("height_unit_$email")
         fun activity(email: String) = stringPreferencesKey("activity_$email")
         fun goal(email: String) = stringPreferencesKey("goal_$email")
-        fun insulin(email: String) = stringPreferencesKey("insulin_$email")
         fun symptoms(email: String) = stringPreferencesKey("symptoms_$email")
         fun comorbidities(email: String) = stringPreferencesKey("comorbidities_$email")
         fun restrictions(email: String) = stringPreferencesKey("restrictions_$email")
@@ -200,7 +200,6 @@ class UserPreferencesRepository(private val context: Context) {
         fun pantry(email: String) = stringPreferencesKey("pantry_$email")
         fun pantryEntries(email: String) = stringPreferencesKey("pantry_entries_$email")
         fun budget(email: String) = intPreferencesKey("budget_$email")
-        fun householdSize(email: String) = intPreferencesKey("household_size_$email")
         fun maxCookingTime(email: String) = intPreferencesKey("max_cooking_time_$email")
         fun variety(email: String) = stringPreferencesKey("variety_pref_$email")
         fun planningPriority(email: String) = stringPreferencesKey("planning_priority_$email")
@@ -296,14 +295,12 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.heightUnit(userId)] = preferences[LegacyKeys.heightUnit(email)] ?: "cm"
             preferences[Keys.activity(userId)] = preferences[LegacyKeys.activity(email)] ?: "Lightly Active"
             preferences[Keys.goal(userId)] = preferences[LegacyKeys.goal(email)] ?: ""
-            preferences[Keys.insulin(userId)] = preferences[LegacyKeys.insulin(email)] ?: "Mild"
             preferences[Keys.symptoms(userId)] = preferences[LegacyKeys.symptoms(email)] ?: ""
             preferences[Keys.comorbidities(userId)] = preferences[LegacyKeys.comorbidities(email)] ?: ""
             preferences[Keys.restrictions(userId)] = preferences[LegacyKeys.restrictions(email)] ?: ""
             preferences[Keys.allergies(userId)] = preferences[LegacyKeys.allergies(email)] ?: ""
             preferences[Keys.pantry(userId)] = preferences[LegacyKeys.pantry(email)] ?: ""
             preferences[Keys.budget(userId)] = preferences[LegacyKeys.budget(email)] ?: 0
-            preferences[Keys.householdSize(userId)] = preferences[LegacyKeys.householdSize(email)] ?: 1
             preferences[Keys.maxCookingTime(userId)] = preferences[LegacyKeys.maxCookingTime(email)] ?: 45
             preferences[Keys.variety(userId)] = preferences[LegacyKeys.variety(email)] ?: "Balanced"
             preferences[Keys.planningPriority(userId)] = preferences[LegacyKeys.planningPriority(email)] ?: "Balanced"
@@ -356,19 +353,20 @@ class UserPreferencesRepository(private val context: Context) {
                 displayName = preferences[Keys.name(userId)] ?: "",
                 age = preferences[Keys.age(userId)] ?: 0,
                 weightKg = preferences[Keys.weight(userId)] ?: 0,
+                targetWeightKg = preferences[Keys.targetWeight(userId)],
+                targetDate = preferences[Keys.targetDate(userId)]?.takeIf { it.isNotBlank() },
+                weeklyWeightChangeGoalKg = preferences[Keys.weeklyWeightChangeGoal(userId)],
                 heightCm = preferences[Keys.height(userId)] ?: 0,
                 weightUnit = preferences[Keys.weightUnit(userId)] ?: "kg",
                 heightUnit = preferences[Keys.heightUnit(userId)] ?: "cm",
                 activityLevel = preferences[Keys.activity(userId)] ?: "Lightly Active",
                 goal = preferences[Keys.goal(userId)] ?: "",
-                insulinResistanceLevel = preferences[Keys.insulin(userId)] ?: "Mild",
                 symptoms = preferences[Keys.symptoms(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
                 comorbidities = preferences[Keys.comorbidities(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
                 dietaryRestrictions = preferences[Keys.restrictions(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
                 allergies = preferences[Keys.allergies(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
                 pantryItems = preferences[Keys.pantry(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
                 weeklyBudgetPhp = preferences[Keys.budget(userId)] ?: 0,
-                householdSize = (preferences[Keys.householdSize(userId)] ?: 1).coerceIn(1, 6),
                 maxCookingTimeMinutes = preferences[Keys.maxCookingTime(userId)] ?: 45,
                 varietyPreference = preferences[Keys.variety(userId)] ?: "Balanced",
                 planningPriority = preferences[Keys.planningPriority(userId)] ?: "Balanced",
@@ -465,19 +463,23 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[Keys.name(userId)] = profile.displayName
             preferences[Keys.age(userId)] = profile.age
             preferences[Keys.weight(userId)] = profile.weightKg
+            profile.targetWeightKg?.let { preferences[Keys.targetWeight(userId)] = it }
+                ?: preferences.remove(Keys.targetWeight(userId))
+            profile.targetDate?.takeIf { it.isNotBlank() }?.let { preferences[Keys.targetDate(userId)] = it }
+                ?: preferences.remove(Keys.targetDate(userId))
+            profile.weeklyWeightChangeGoalKg?.let { preferences[Keys.weeklyWeightChangeGoal(userId)] = it }
+                ?: preferences.remove(Keys.weeklyWeightChangeGoal(userId))
             preferences[Keys.height(userId)] = profile.heightCm
             preferences[Keys.weightUnit(userId)] = profile.weightUnit
             preferences[Keys.heightUnit(userId)] = profile.heightUnit
             preferences[Keys.activity(userId)] = profile.activityLevel
             preferences[Keys.goal(userId)] = profile.goal
-            preferences[Keys.insulin(userId)] = profile.insulinResistanceLevel
             preferences[Keys.symptoms(userId)] = profile.symptoms.joinToString(",")
             preferences[Keys.comorbidities(userId)] = profile.comorbidities.joinToString(",")
             preferences[Keys.restrictions(userId)] = profile.dietaryRestrictions.joinToString(",")
             preferences[Keys.allergies(userId)] = profile.allergies.joinToString(",")
             preferences[Keys.pantry(userId)] = profile.pantryItems.joinToString(",")
             preferences[Keys.budget(userId)] = profile.weeklyBudgetPhp
-            preferences[Keys.householdSize(userId)] = profile.householdSize.coerceIn(1, 6)
             preferences[Keys.maxCookingTime(userId)] = profile.maxCookingTimeMinutes
             preferences[Keys.variety(userId)] = profile.varietyPreference
             preferences[Keys.planningPriority(userId)] = profile.planningPriority
@@ -500,13 +502,11 @@ class UserPreferencesRepository(private val context: Context) {
                 "weightUnit" to profile.weightUnit,
                 "activityLevel" to profile.activityLevel,
                 "goal" to profile.goal,
-                "insulinResistanceLevel" to profile.insulinResistanceLevel,
                 "symptoms" to profile.symptoms,
                 "comorbidities" to profile.comorbidities,
                 "dietaryRestrictions" to profile.dietaryRestrictions,
                 "allergies" to profile.allergies,
                 "weeklyBudgetPhp" to profile.weeklyBudgetPhp,
-                "householdSize" to profile.householdSize.coerceIn(1, 6),
                 "maxCookingTimeMinutes" to profile.maxCookingTimeMinutes,
                 "varietyPreference" to profile.varietyPreference,
                 "planningPriority" to profile.planningPriority,
@@ -515,6 +515,9 @@ class UserPreferencesRepository(private val context: Context) {
                 "isProfileCompleted" to profile.isProfileCompleted,
                 Cloud.updatedAtEpochMs to updatedAtMs
             )
+            payload["targetWeightKg"] = profile.targetWeightKg ?: FieldValue.delete()
+            payload["targetDate"] = profile.targetDate?.takeIf { it.isNotBlank() } ?: FieldValue.delete()
+            payload["weeklyWeightChangeGoalKg"] = profile.weeklyWeightChangeGoalKg ?: FieldValue.delete()
             withTimeoutOrNull(Cloud.syncTimeoutMs) {
                 firestore.collection(Cloud.profileCollection)
                     .document(userId)
@@ -531,19 +534,20 @@ class UserPreferencesRepository(private val context: Context) {
             displayName = preferences[Keys.name(userId)] ?: "",
             age = preferences[Keys.age(userId)] ?: 0,
             weightKg = preferences[Keys.weight(userId)] ?: 0,
+            targetWeightKg = preferences[Keys.targetWeight(userId)],
+            targetDate = preferences[Keys.targetDate(userId)]?.takeIf { it.isNotBlank() },
+            weeklyWeightChangeGoalKg = preferences[Keys.weeklyWeightChangeGoal(userId)],
             heightCm = preferences[Keys.height(userId)] ?: 0,
             weightUnit = preferences[Keys.weightUnit(userId)] ?: "kg",
             heightUnit = preferences[Keys.heightUnit(userId)] ?: "cm",
             activityLevel = preferences[Keys.activity(userId)] ?: "Lightly Active",
             goal = preferences[Keys.goal(userId)] ?: "",
-            insulinResistanceLevel = preferences[Keys.insulin(userId)] ?: "Mild",
             symptoms = preferences[Keys.symptoms(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
             comorbidities = preferences[Keys.comorbidities(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
             dietaryRestrictions = preferences[Keys.restrictions(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
             allergies = preferences[Keys.allergies(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
             pantryItems = preferences[Keys.pantry(userId)]?.split(",")?.filter { it.isNotEmpty() } ?: emptyList(),
             weeklyBudgetPhp = preferences[Keys.budget(userId)] ?: 0,
-            householdSize = (preferences[Keys.householdSize(userId)] ?: 1).coerceIn(1, 6),
             maxCookingTimeMinutes = preferences[Keys.maxCookingTime(userId)] ?: 45,
             varietyPreference = preferences[Keys.variety(userId)] ?: "Balanced",
             planningPriority = preferences[Keys.planningPriority(userId)] ?: "Balanced",
@@ -558,8 +562,12 @@ class UserPreferencesRepository(private val context: Context) {
             (data[key] as? String)?.trim()?.takeIf { it.isNotEmpty() } ?: fallback
         fun readInt(key: String, fallback: Int): Int =
             (data[key] as? Number)?.toInt() ?: fallback
+        fun readFloatOrNull(key: String): Float? =
+            (data[key] as? Number)?.toFloat()
         fun readBool(key: String, fallback: Boolean): Boolean =
             (data[key] as? Boolean) ?: fallback
+        fun readStringOrNull(key: String): String? =
+            (data[key] as? String)?.trim()?.takeIf { it.isNotEmpty() }
         fun readStringList(key: String): List<String> =
             (data[key] as? List<*>)?.mapNotNull { it?.toString()?.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
 
@@ -568,17 +576,18 @@ class UserPreferencesRepository(private val context: Context) {
             age = readInt("age", 0),
             heightCm = readInt("heightCm", 0),
             weightKg = readInt("weightKg", 0),
+            targetWeightKg = (data["targetWeightKg"] as? Number)?.toInt(),
+            targetDate = readStringOrNull("targetDate"),
+            weeklyWeightChangeGoalKg = readFloatOrNull("weeklyWeightChangeGoalKg"),
             heightUnit = readString("heightUnit", "cm"),
             weightUnit = readString("weightUnit", "kg"),
             activityLevel = readString("activityLevel", "Lightly Active"),
             goal = readString("goal", ""),
-            insulinResistanceLevel = readString("insulinResistanceLevel", "Mild"),
             symptoms = readStringList("symptoms"),
             comorbidities = readStringList("comorbidities"),
             dietaryRestrictions = readStringList("dietaryRestrictions"),
             allergies = readStringList("allergies"),
             weeklyBudgetPhp = readInt("weeklyBudgetPhp", 0),
-            householdSize = readInt("householdSize", 1).coerceIn(1, 6),
             maxCookingTimeMinutes = readInt("maxCookingTimeMinutes", 45),
             varietyPreference = readString("varietyPreference", "Balanced"),
             planningPriority = readString("planningPriority", "Balanced"),
@@ -594,7 +603,6 @@ class UserPreferencesRepository(private val context: Context) {
             profile.heightCm > 0 ||
             profile.weightKg > 0 ||
             profile.goal.isNotBlank() ||
-            profile.householdSize > 1 ||
             profile.symptoms.isNotEmpty() ||
             profile.comorbidities.isNotEmpty() ||
             profile.dietaryRestrictions.isNotEmpty() ||

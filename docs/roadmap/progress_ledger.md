@@ -1,6 +1,6 @@
 # PCOSINA Roadmap Progress Ledger
 
-Updated: 2026-05-19
+Updated: 2026-05-26
 
 | Roadmap Item | Status | Evidence | Tests Added | Key Risk | Next Action |
 |---|---|---|---|---|---|
@@ -50,3 +50,21 @@ Updated: 2026-05-19
 - After profile-specific tolerance ordering and the 33-candidate production pool budget, the same real-LightGBM 5-run benchmark passes 100/100 runs with average 531 ms, P95 953 ms, max 1,260 ms, zero hard-constraint violations, and no planner timeouts.
 - The next pass raised production-shaped CP-SAT workers to 4, starts default/no-budget profiles from the observed repeat-3 feasible path, and caches static Stage 1 recipe features by recipe identity/version. The real-LightGBM 5-run benchmark now passes 100/100 runs with average 257 ms, P95 313 ms, max 357 ms, zero hard-constraint violations, and 13 sodium/sugar advisory warnings.
 - The planner benchmark runner now has a guarded `--live-base-url` mode for Render/prod latency evidence. It requires caller-provided Firebase ID and App Check tokens through environment variables and does not bypass production mobile auth.
+
+## 2026-05-26 Final Scope Cleanup
+
+- The Android profile flow no longer collects insulin-resistance level or household/family serving size.
+- Android profile persistence and planner payloads no longer write those removed fields; legacy local keys and cloud payload values are ignored rather than used.
+- Backend `UserProfile` no longer defines those removed fields, while the Pydantic model still ignores unknown extra payload fields so older clients do not break during rollout.
+- Planner macro targets now use one final PCOS wellness policy instead of severity-based macro branching.
+- Grocery aggregation, recipe details, and meal-plan summaries now present primary-user quantities and costs only.
+- Focused Android and backend tests were updated to enforce the primary-user-only grocery/cost contract and the single macro policy.
+
+## 2026-05-26 Purpose-Contract Polish
+
+- The planner now exposes a hard/soft/advisory/tracking contract in backend explanations and Android plan UI, keeping ML assistive and preserving deterministic solver authority.
+- Feedback-driven next-plan tuning is opt-in from Progress and no longer tightens budget or cooking-time limits after negative feedback.
+- Recipe sodium and sugar are carried through Android DTOs, mappers, models, and recipe details when the backend sends them; solver claims still treat these limits as advisory overage penalties.
+- Profile and Progress now support optional target weight/date/weekly pace guardrails and structured symptom severity logs. These are progress-support signals only; they do not prove weight loss or clinical symptom improvement.
+- Android Grocery now separates full pantry coverage, partial quantity coverage, and name-only pantry matches. Only full saved-quantity coverage auto-counts as pantry-covered; partial/name-only matches stay visible as shopping guidance.
+- Full local verification passed on 2026-05-26: `.\gradlew.bat testDebugUnitTest` and `python -m pytest backend/tests -q`.

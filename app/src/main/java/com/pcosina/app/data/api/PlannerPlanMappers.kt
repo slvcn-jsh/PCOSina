@@ -1,6 +1,7 @@
 package com.pcosina.app.data.api
 
 import com.pcosina.app.data.model.PlannerDayPlan
+import com.pcosina.app.data.model.PlannerContractItem
 import com.pcosina.app.data.model.PlannerPlanExplanation
 import com.pcosina.app.data.model.PlannerPlanResponse
 import com.pcosina.app.data.model.PlannerPlannedMeal
@@ -18,6 +19,14 @@ fun DayPlanDto.toPlannerDayPlan(): PlannerDayPlan =
         dayLabel = dayLabel,
         meals = meals.map { it.toPlannerPlannedMeal() },
         totalCalories = totalCalories,
+    )
+
+fun PlannerContractItemDto.toPlannerContractItem(): PlannerContractItem =
+    PlannerContractItem(
+        field = field,
+        classification = classification,
+        enforcement = enforcement,
+        active = active,
     )
 
 fun PlanExplanation.toPlannerPlanExplanation(): PlannerPlanExplanation =
@@ -40,7 +49,6 @@ fun PlanExplanation.toPlannerPlanExplanation(): PlannerPlanExplanation =
         estimatedWeeklyCost = estimatedWeeklyCost,
         restrictionCount = restrictionCount,
         budgetHardCapApplied = budgetHardCapApplied,
-        householdPlanningMode = householdPlanningMode,
         goalValue = goalValue,
         symptomSelections = symptomSelections,
         profileRuleEffects = profileRuleEffects,
@@ -48,6 +56,7 @@ fun PlanExplanation.toPlannerPlanExplanation(): PlannerPlanExplanation =
         candidateExclusionSummary = candidateExclusionSummary,
         selectionReasonsByRecipeId = selectionReasonsByRecipeId,
         selectionReasonCounts = selectionReasonCounts,
+        plannerContract = plannerContract.map { it.toPlannerContractItem() },
         fiberMinTarget = fiberMinTarget,
         sugarMaxTarget = sugarMaxTarget,
         goalStrategy = goalStrategy,

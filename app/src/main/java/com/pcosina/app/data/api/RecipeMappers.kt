@@ -15,6 +15,8 @@ fun RecipeDetailDto.toPlannerRecipeDetail(): PlannerRecipeDetail =
         carbsGrams = carbsGrams,
         fatsGrams = fatsGrams,
         fiberGrams = fiberGrams,
+        sodiumMg = sodiumMg,
+        sugarGrams = sugarGrams,
         minutes = minutes,
         ingredients = ingredients.map { Ingredient(name = it.name, quantity = it.quantity) },
         steps = steps,

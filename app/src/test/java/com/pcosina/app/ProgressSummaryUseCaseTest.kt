@@ -82,7 +82,13 @@ class ProgressSummaryUseCaseTest {
             "2026-05-02" to DailyLog(date = "2026-05-02", energyLevel = 2, moodLevel = 3, cravingsLevel = 4),
             "2026-05-08" to DailyLog(date = "2026-05-08", energyLevel = 2, moodLevel = 3, cravingsLevel = 4),
             "2026-05-20" to DailyLog(date = "2026-05-20", energyLevel = 4, moodLevel = 4, cravingsLevel = 2),
-            "2026-05-27" to DailyLog(date = "2026-05-27", energyLevel = 5, moodLevel = 5, cravingsLevel = 1),
+            "2026-05-27" to DailyLog(
+                date = "2026-05-27",
+                energyLevel = 5,
+                moodLevel = 5,
+                cravingsLevel = 1,
+                symptomSeverityByTag = mapOf("Acne" to 2)
+            ),
         )
 
         val summary = useCase.buildFourWeekTrendSummary(logs, today)
@@ -91,6 +97,8 @@ class ProgressSummaryUseCaseTest {
         assertEquals("improving", summary.energyDirection)
         assertEquals("Energy is trending up", summary.headline)
         assertTrue((summary.averageEnergy ?: 0.0) > 3.0)
+        assertEquals(2.0, summary.averageSymptomSeverity ?: 0.0, 0.01)
+        assertEquals(1, summary.symptomSeverityDays)
     }
 
     @Test

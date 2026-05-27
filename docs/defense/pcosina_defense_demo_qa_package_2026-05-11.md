@@ -18,7 +18,7 @@ Use this file as the presenter/demo support document. The full implementation au
 | 6 | View Today's Plan and weekly plan | "Saved plans can be viewed again after generation." | Do not claim every recipe detail is offline after restart. |
 | 7 | Open recipe details | "Recipe details show ingredients, steps, and nutrition values from backend recipe data." | Do not claim nutrition data is clinically certified unless validation is complete. |
 | 8 | Open meal swap | "Meal swaps request backend alternatives and save the replacement locally." | Do not say swaps work without internet. |
-| 9 | Open grocery list | "The grocery list is derived from planned recipe ingredients and scaled by household size." | Do not claim exact market prices. |
+| 9 | Open grocery list | "The grocery list is derived from planned recipe ingredients for the primary-user plan." | Do not claim exact market prices. |
 | 10 | Mark item bought/in pantry | "The UI supports bought and pantry status during shopping." | Do not overclaim durable purchased tracking until verified. |
 | 11 | Progress/check-in | "Progress entries and check-ins are stored locally." | Do not call it clinical monitoring. |
 | 12 | Explain meal logging rule | "Logging is today-only and sequence-based, not based on exact clock time." | Do not say the system detects real eating time. |

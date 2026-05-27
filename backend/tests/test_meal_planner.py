@@ -56,12 +56,13 @@ def _recipe(
     }
 
 
-def test_macro_ratios_moderate():
-    assert meal_planner.macro_ratios("Moderate") == (0.28, 0.35, 0.37)
+def test_macro_ratios_use_single_final_pcos_policy():
+    assert meal_planner.macro_ratios() == (0.25, 0.40, 0.35)
+    assert meal_planner.macro_ratios("legacy-value") == (0.25, 0.40, 0.35)
 
 
-def test_macro_ratios_severe():
-    assert meal_planner.macro_ratios("Severe") == (0.30, 0.30, 0.40)
+def test_macro_ratios_do_not_branch_on_medical_severity():
+    assert meal_planner.macro_ratios("Moderate") == meal_planner.macro_ratios("Severe")
 
 
 def test_recipe_static_features_cache_reuses_catalog_version():
@@ -180,20 +181,18 @@ def test_estimate_cost_uses_request_local_recipe_cache(monkeypatch):
 
     first = meal_planner.estimate_cost(
         recipe,
-        household_size=2,
         pricing_context=pricing_context,
         cost_cache=cost_cache,
         cost_cache_stats=cost_cache_stats,
     )
     second = meal_planner.estimate_cost(
         recipe,
-        household_size=2,
         pricing_context=pricing_context,
         cost_cache=cost_cache,
         cost_cache_stats=cost_cache_stats,
     )
 
-    assert first == second == 246
+    assert first == second == 123
     assert calls == 1
     assert cost_cache_stats["recipeCostCacheMisses"] == 1
     assert cost_cache_stats["recipeCostCacheHits"] == 1
@@ -209,8 +208,7 @@ def test_estimate_cost_uses_source_servings_for_meal_budget(monkeypatch):
         "calories": 500,
     }
 
-    assert meal_planner.estimate_cost(recipe, household_size=1) == 100
-    assert meal_planner.estimate_cost(recipe, household_size=3) == 300
+    assert meal_planner.estimate_cost(recipe) == 100
 
 
 def test_estimate_cost_parses_servings_from_nutrition_notes(monkeypatch):
@@ -227,7 +225,7 @@ def test_estimate_cost_parses_servings_from_nutrition_notes(monkeypatch):
     }
 
     assert meal_planner.recipe_serving_count(recipe) == 4
-    assert meal_planner.estimate_cost(recipe, household_size=1) == 125
+    assert meal_planner.estimate_cost(recipe) == 125
 
 
 def test_pre_pricing_prunes_broad_profile_before_cost_estimation(monkeypatch):
@@ -874,7 +872,6 @@ def test_profile_solve_pair_preferences_start_near_likely_feasible_path():
     nutrition_pressure = meal_planner._solve_pair_preferences_for_profile(
         UserProfile(
             goal="Weight Loss, Symptom Management",
-            insulinResistanceLevel="Severe",
             symptoms=["Weight gain", "Irregular periods"],
             planningPriority="Nutrition Tight",
         )
@@ -1343,15 +1340,14 @@ def test_build_swap_candidates_respects_budget_and_restrictions():
     assert [recipe["id"] for recipe in swaps] == ["l_safe"]
 
 
-def test_shortlist_candidates_scales_cost_estimates_for_households():
+def test_shortlist_candidates_uses_primary_user_cost_estimates():
     profile = UserProfile(
-        householdSize=4,
         pantryItems=["rice"],
         maxCookingTimeMinutes=45,
     )
     recipe = {
-        "id": "l_family",
-        "title": "Family Lunch",
+        "id": "l_primary",
+        "title": "Primary User Lunch",
         "mealType": "Lunch",
         "calories": 520,
         "proteinGrams": 24,
@@ -1367,23 +1363,18 @@ def test_shortlist_candidates_scales_cost_estimates_for_households():
     shortlisted = buckets["Lunch"]
 
     assert len(shortlisted) == 1
-    assert shortlisted[0]["_cost_est"] == meal_planner.estimate_cost(recipe, household_size=4)
+    assert shortlisted[0]["_cost_est"] == meal_planner.estimate_cost(recipe)
 
 
-def test_estimate_cost_scales_monotonically_with_household_size():
+def test_estimate_cost_uses_primary_user_recipe_cost():
     recipe = _recipe(
-        "family_scale",
-        "Scaled Meal",
+        "primary_scale",
+        "Primary Meal",
         "Lunch",
         ingredients=[{"name": "rice", "quantity": "1 cup"}, {"name": "egg", "quantity": "2 pcs"}],
     )
 
-    costs = [
-        meal_planner.estimate_cost(recipe, household_size=size)
-        for size in (1, 2, 4, 6)
-    ]
-
-    assert costs[0] < costs[1] < costs[2] < costs[3]
+    assert meal_planner.estimate_cost(recipe) > 0
 
 
 def test_shortlist_candidates_batches_ml_shadow_scoring(monkeypatch):
@@ -1931,10 +1922,6 @@ def test_validate_profile_rejects_semantically_conflicting_inputs():
     ) == "Variety First priority conflicts with Low variety preference."
 
     assert meal_planner.validate_profile(
-        UserProfile.model_construct(householdSize=0)
-    ) == "Household size must stay between 1 and 6."
-
-    assert meal_planner.validate_profile(
         UserProfile.model_construct(maxCookingTimeMinutes=5)
     ) == "Max cooking time must stay between 10 and 240 minutes."
 
@@ -1951,6 +1938,28 @@ def test_symptoms_create_deterministic_planner_adjustments():
     assert symptom_state["sugarMaxDelta"] < 0
     assert symptom_state["dairyPenalty"] > 0
     assert symptom_state["notes"]
+
+
+def test_goal_combinations_stack_deterministic_planner_adjustments():
+    single_loss = meal_planner.symptom_adjustments(UserProfile(goal="Weight Loss"), "Weight Loss")
+    single_symptom = meal_planner.symptom_adjustments(
+        UserProfile(goal="Symptom Management"),
+        "Symptom Management",
+    )
+    combined = meal_planner.symptom_adjustments(
+        UserProfile(goal="Weight Loss, Symptom Management, General Health"),
+        "Weight Loss, Symptom Management, General Health",
+    )
+
+    assert meal_planner.goal_has("Weight Loss, Symptom Management", meal_planner.GOAL_WEIGHT_LOSS)
+    assert meal_planner.goal_has("Weight Loss, Symptom Management", meal_planner.GOAL_SYMPTOM_MANAGEMENT)
+    assert meal_planner.goal_has("Symptom Management, General Health", meal_planner.GOAL_GENERAL_HEALTH)
+    assert combined["stage1LowerCalorieBonus"] == single_loss["stage1LowerCalorieBonus"]
+    assert combined["stage1HighProteinBonus"] == single_loss["stage1HighProteinBonus"]
+    assert combined["fiberMinBonus"] == single_symptom["fiberMinBonus"]
+    assert combined["sugarMaxDelta"] == single_symptom["sugarMaxDelta"]
+    assert combined["carbTargetDelta"] == single_symptom["carbTargetDelta"]
+    assert len(combined["notes"]) == 2
 
 
 def test_goal_and_symptoms_are_reflected_in_planner_explanation():
@@ -2036,6 +2045,15 @@ def test_goal_and_symptoms_are_reflected_in_planner_explanation():
     assert symptom_explanation["symptomStrategy"]
     assert symptom_explanation["selectionReasonsByRecipeId"]
     assert symptom_explanation["selectionReasonCounts"]
+    assert any(
+        row["field"] == "sodiumMg/sugarGrams" and row["classification"] == "advisory"
+        for row in symptom_explanation["plannerContract"]
+    )
+    assert any(
+        row["field"] == "targetWeightKg/targetDate/weeklyWeightChangeGoalKg" and row["classification"] == "tracking"
+        for row in symptom_explanation["plannerContract"]
+    )
+    assert symptom_explanation["profileRuleEffects"]["advisoryLimits"]
     assert loss_explanation["targetCalories"] < general_explanation["targetCalories"]
     assert any("Weight Loss lowers calorie target." == item for item in loss_explanation["goalStrategy"])
 
@@ -2088,6 +2106,9 @@ def test_solve_meal_plan_enforces_budget_as_hard_cap():
     assert plan is not None
     assert explanation["estimatedWeeklyCost"] <= 150
     assert explanation["budgetHardCapApplied"] is True
+    budget_row = next(row for row in explanation["plannerContract"] if row["field"] == "weeklyBudgetPhp")
+    assert budget_row["classification"] == "hard"
+    assert budget_row["active"] is True
 
 
 def test_solve_meal_plan_returns_no_safe_plan_when_budget_makes_model_infeasible():

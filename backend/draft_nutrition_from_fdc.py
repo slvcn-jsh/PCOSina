@@ -457,7 +457,7 @@ def draft_row(row: dict[str, str], resolver: NutritionResolver) -> dict[str, Any
             else str(getattr(resolver, "source_name", "usda_fdc_ingredient_sum_draft"))
         )
         review_note = (
-            "used source ingredient names with default household quantities"
+            "used source ingredient names with default ingredient quantities"
             if used_missing_quantity_defaults
             else str(getattr(resolver, "review_note", "summed ingredient matches"))
         )

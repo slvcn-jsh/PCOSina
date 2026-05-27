@@ -183,8 +183,8 @@ fun DashboardRefinedScreen(
     val todayLabel = remember(today) {
         today.format(DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)).lowercase(Locale.ENGLISH)
     }
-    val tipLines = remember(profile.goal, profile.householdSize, today.dayOfYear) {
-        val availableTips = goalShoppingTips(profile.goal, profile.householdSize)
+    val tipLines = remember(profile.goal, today.dayOfYear) {
+        val availableTips = goalShoppingTips(profile.goal)
         if (availableTips.isEmpty()) {
             emptyList()
         } else {

@@ -44,6 +44,8 @@ data class ProgressTrendSummary(
     val averageEnergy: Double?,
     val averageMood: Double?,
     val averageCravings: Double?,
+    val averageSymptomSeverity: Double?,
+    val symptomSeverityDays: Int,
     val energyDirection: String,
     val headline: String,
     val detail: String,
@@ -158,6 +160,7 @@ class ProgressSummaryUseCase {
         val energyValues = scopedLogs.mapNotNull { it.second.energyLevel }
         val moodValues = scopedLogs.mapNotNull { it.second.moodLevel }
         val cravingValues = scopedLogs.mapNotNull { it.second.cravingsLevel }
+        val symptomSeverityValues = scopedLogs.flatMap { it.second.symptomSeverityByTag.values }
         val mealCheckIns = scopedLogs.sumOf { it.second.mealCheckIns.size }
         val midpoint = today.minusDays(13)
         val firstHalfAverage = scopedLogs
@@ -199,6 +202,8 @@ class ProgressSummaryUseCase {
             averageEnergy = averageEnergy,
             averageMood = moodValues.takeIf { it.isNotEmpty() }?.average(),
             averageCravings = cravingValues.takeIf { it.isNotEmpty() }?.average(),
+            averageSymptomSeverity = symptomSeverityValues.takeIf { it.isNotEmpty() }?.average(),
+            symptomSeverityDays = scopedLogs.count { it.second.symptomSeverityByTag.isNotEmpty() },
             energyDirection = direction,
             headline = headline,
             detail = detail,
@@ -220,6 +225,7 @@ class ProgressSummaryUseCase {
                 val hasDailyReflection = log.energyLevel != null ||
                     log.moodLevel != null ||
                     log.cravingsLevel != null ||
+                    log.symptomSeverityByTag.isNotEmpty() ||
                     !log.symptomsNote.isNullOrBlank()
                 val mealCheckIns = log.mealCheckIns.sortedByDescending { it.timestamp }
                 if (!hasDailyReflection && mealCheckIns.isEmpty()) return@mapNotNull null

@@ -1,10 +1,8 @@
 package com.pcosina.app
 
-import com.pcosina.app.ui.util.householdPlanningSummary
 import com.pcosina.app.ui.util.profileConstraintConflictMessage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProfileConstraintSemanticsTest {
@@ -78,11 +76,4 @@ class ProfileConstraintSemanticsTest {
         )
     }
 
-    @Test
-    fun householdPlanningSummary_keepsPerPersonNutritionContractExplicit() {
-        val text = householdPlanningSummary(4)
-        assertTrue(text.contains("Nutrition stays per person."))
-        assertTrue(text.contains("family of 4"))
-        assertTrue(text.contains("scaled"))
-    }
 }

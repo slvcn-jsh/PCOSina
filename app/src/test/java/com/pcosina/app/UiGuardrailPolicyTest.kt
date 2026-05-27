@@ -194,7 +194,7 @@ class UiGuardrailPolicyTest {
 
     companion object {
         private val spacingTokenScreens = setOf(
-            "IpoVisualizationScreen.kt",
+            "InternalMethodologyScreen.kt",
             "RecipeDetailsScreen.kt",
             "SettingsScreen.kt",
             "UserProfileScreen.kt"

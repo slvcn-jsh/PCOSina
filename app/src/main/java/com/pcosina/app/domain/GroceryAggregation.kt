@@ -1,6 +1,9 @@
 package com.pcosina.app.domain
 
 import com.pcosina.app.data.model.DummyData
+import com.pcosina.app.data.model.PantryEntry
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -12,6 +15,22 @@ data class GroceryListEntry(
     val estimatedCostPhp: Int,
     val sourceCount: Int,
 )
+
+enum class PantryCoverageStatus {
+    Full,
+    Partial,
+    NameOnly,
+}
+
+data class PantryCoverage(
+    val itemName: String,
+    val status: PantryCoverageStatus,
+    val pantryQuantityDisplay: String?,
+    val remainingQuantityDisplay: String?,
+    val detail: String,
+) {
+    val autoCovered: Boolean = status == PantryCoverageStatus.Full
+}
 
 private data class ParsedQuantity(
     val value: Double,
@@ -153,18 +172,9 @@ private val displayNameOverrides = mapOf(
     "egg" to "Eggs",
 )
 
-fun householdSizeLabel(size: Int): String = when (size.coerceIn(1, 6)) {
-    1 -> "1 person"
-    2 -> "2 people"
-    3 -> "3 people"
-    else -> "family of ${size.coerceIn(1, 6)}"
-}
-
 fun buildGroceryListEntries(
     items: List<DummyData.GroceryItem>,
-    householdSize: Int,
 ): List<GroceryListEntry> {
-    val safeHouseholdSize = householdSize.coerceIn(1, 6)
     return items
         .filter { it.name.isNotBlank() }
         .groupBy { canonicalGroceryIngredient(it.name).key }
@@ -182,12 +192,11 @@ fun buildGroceryListEntries(
             val sourceSegments = groupedItems.flatMap { item ->
                 quantitySegmentsForItem(item.name, item.quantity)
             }
-            val scaledSegments = sourceSegments
-                .map { scaleQuantityText(it, safeHouseholdSize) }
+            val primaryUserSegments = sourceSegments
                 .flatMap { splitQuantitySegments(it) }
                 .filter { it.isNotBlank() }
-            val quantityDisplay = aggregateQuantitySegments(displayName, category, scaledSegments)
-            val estimatedCost = scaledSegments
+            val quantityDisplay = aggregateQuantitySegments(displayName, category, primaryUserSegments)
+            val estimatedCost = primaryUserSegments
                 .sumOf { segment -> PriceCatalog.estimatePriceDetail(displayName, segment).first }
                 .takeIf { it > 0 }
                 ?: PriceCatalog.estimatePriceDetail(displayName, quantityDisplay).first
@@ -197,26 +206,11 @@ fun buildGroceryListEntries(
                 category = category,
                 quantityDisplay = quantityDisplay.ifBlank { "As needed" },
                 estimatedCostPhp = estimatedCost.coerceAtLeast(5),
-                sourceCount = scaledSegments.size.coerceAtLeast(1),
+                sourceCount = primaryUserSegments.size.coerceAtLeast(1),
             )
         }
         .sortedWith(compareBy<GroceryListEntry> { it.category }.thenBy { it.name.lowercase(Locale.ENGLISH) })
 }
-
-fun scaleQuantityText(quantity: String, householdSize: Int): String {
-    val safeHouseholdSize = householdSize.coerceIn(1, 6)
-    val trimmed = quantity.trim()
-    if (trimmed.isBlank() || safeHouseholdSize <= 1) return trimmed
-    val segments = splitQuantitySegments(trimmed)
-    if (segments.isEmpty()) return trimmed
-    return segments.joinToString(", ") { segment ->
-        val parsed = parseQuantitySegment(segment)
-        if (parsed == null) segment else "${formatScaledValue(parsed.value * safeHouseholdSize)} ${displayUnit(parsed.unit, parsed.value * safeHouseholdSize)}".trim()
-    }
-}
-
-fun scaleNutritionPerMeal(value: Int?, householdSize: Int): Int? =
-    value?.times(householdSize.coerceIn(1, 6))
 
 private fun splitQuantitySegments(quantity: String): List<String> =
     quantity.split(",")
@@ -226,6 +220,86 @@ private fun splitQuantitySegments(quantity: String): List<String> =
 fun canonicalGroceryName(raw: String): String = canonicalGroceryIngredient(raw).displayName
 
 fun canonicalGroceryKey(raw: String): String = canonicalGroceryIngredient(raw).key
+
+fun groceryNamesMatch(left: String, right: String): Boolean {
+    val leftKey = canonicalGroceryKey(left)
+    val rightKey = canonicalGroceryKey(right)
+    if (leftKey.isBlank() || rightKey.isBlank()) return false
+    if (leftKey == rightKey) return true
+    val leftTokens = leftKey.split(" ").filter { it.isNotBlank() }.toSet()
+    val rightTokens = rightKey.split(" ").filter { it.isNotBlank() }.toSet()
+    if (leftTokens.size <= 1 || rightTokens.size <= 1) return false
+    return leftTokens.containsAll(rightTokens) || rightTokens.containsAll(leftTokens)
+}
+
+fun buildPantryCoverage(
+    groceryEntries: List<GroceryListEntry>,
+    pantryEntries: List<PantryEntry>,
+    today: LocalDate = LocalDate.now(),
+): Map<String, PantryCoverage> {
+    val activePantry = pantryEntries.filterNot { entry ->
+        val expiry = entry.expiryDate
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { LocalDate.parse(it, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull() }
+        expiry != null && expiry.isBefore(today)
+    }
+    return groceryEntries.mapNotNull { grocery ->
+        val matchedPantry = activePantry.filter { pantry ->
+            groceryNamesMatch(pantry.name, grocery.name)
+        }
+        if (matchedPantry.isEmpty()) return@mapNotNull null
+        val needed = parseQuantitySegment(grocery.quantityDisplay)
+            ?.toBaseQuantity(grocery.name, grocery.category)
+        val pantryQuantities = matchedPantry.mapNotNull { pantry ->
+            pantryQuantitySegments(pantry).mapNotNull { segment ->
+                parseQuantitySegment(segment)?.toBaseQuantity(grocery.name, grocery.category)
+            }
+                .filter { needed == null || it.unit == needed.unit }
+                .takeIf { it.isNotEmpty() }
+                ?.let { quantities ->
+                    GroceryBaseQuantity(quantities.sumOf { it.value }, quantities.first().unit)
+                }
+        }
+        val pantryQuantity = pantryQuantities
+            .takeIf { it.isNotEmpty() }
+            ?.let { quantities ->
+                val unit = quantities.first().unit
+                val sameUnit = quantities.filter { it.unit == unit }
+                if (sameUnit.size == quantities.size) GroceryBaseQuantity(sameUnit.sumOf { it.value }, unit) else null
+            }
+
+        val coverage = when {
+            needed != null && pantryQuantity != null && pantryQuantity.unit == needed.unit && pantryQuantity.value >= needed.value * 0.98 -> {
+                PantryCoverage(
+                    itemName = grocery.name,
+                    status = PantryCoverageStatus.Full,
+                    pantryQuantityDisplay = formatBaseQuantity(listOf(pantryQuantity)),
+                    remainingQuantityDisplay = null,
+                    detail = "Pantry quantity covers the planned amount.",
+                )
+            }
+            needed != null && pantryQuantity != null && pantryQuantity.unit == needed.unit && pantryQuantity.value > 0.0 -> {
+                val remaining = GroceryBaseQuantity((needed.value - pantryQuantity.value).coerceAtLeast(0.0), needed.unit)
+                PantryCoverage(
+                    itemName = grocery.name,
+                    status = PantryCoverageStatus.Partial,
+                    pantryQuantityDisplay = formatBaseQuantity(listOf(pantryQuantity)),
+                    remainingQuantityDisplay = formatBaseQuantity(listOf(remaining)),
+                    detail = "Pantry covers ${formatBaseQuantity(listOf(pantryQuantity))}; still buy ${formatBaseQuantity(listOf(remaining))}.",
+                )
+            }
+            else -> PantryCoverage(
+                itemName = grocery.name,
+                status = PantryCoverageStatus.NameOnly,
+                pantryQuantityDisplay = null,
+                remainingQuantityDisplay = grocery.quantityDisplay,
+                detail = "Pantry name matches, but quantity is not saved.",
+            )
+        }
+        grocery.name to coverage
+    }.toMap()
+}
 
 private fun normalizeTokenText(raw: String): String =
     raw
@@ -273,6 +347,16 @@ private fun quantitySegmentsForItem(name: String, quantity: String): List<String
     val fromName = quantityPattern.find(name)?.value?.trim()
     if (!fromName.isNullOrBlank()) return listOf(fromName)
     return explicit.ifEmpty { listOf("1 piece") }
+}
+
+private fun pantryQuantitySegments(entry: PantryEntry): List<String> {
+    val quantity = entry.quantity?.trim().orEmpty()
+    if (quantity.isNotBlank()) {
+        val explicit = splitQuantitySegments(quantity)
+        if (explicit.any { quantityPattern.containsMatchIn(it) }) return explicit
+    }
+    val fromName = quantityPattern.find(entry.name)?.value?.trim()
+    return if (fromName.isNullOrBlank()) emptyList() else listOf(fromName)
 }
 
 private fun parseNumber(text: String): Double? {

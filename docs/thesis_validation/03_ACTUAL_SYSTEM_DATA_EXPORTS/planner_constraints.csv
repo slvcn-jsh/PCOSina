@@ -1,18 +1,18 @@
 constraint_name,stage,constraint_type,source_file,source_function,notes
-Valid profile required before planner execution,precheck,hard,backend/services/meal_planner.py:904,validate_profile,"Rejects invalid household size, conflicting restrictions, missing budget for budget priority, and invalid max cooking time."
-Planning horizon days must equal active policy,precheck,hard,backend/services/meal_planner.py:1755,solve_meal_plan,Current default policy expects 7 days.
-Meals per day must equal active policy,precheck,hard,backend/services/meal_planner.py:1755,solve_meal_plan,Current default policy expects 3 meals per day.
-Allergy exposure exclusion,stage1,hard,backend/services/meal_planner.py:868,restriction_failure_reasons,Recipes exposing normalized allergen families are removed before optimization.
-Dietary restriction exclusion,stage1,hard,backend/services/meal_planner.py:868,restriction_failure_reasons,"No Pork, No Beef, Vegetarian, Pescatarian, and Lactose Intolerant have explicit exclusion rules."
-Max cooking time screen-out,stage1,hard,backend/services/meal_planner.py:1088,shortlist_candidates,Recipes beyond the profile's max cooking time are excluded from the shortlist.
-Exactly one recipe per meal slot,stage2,hard,backend/services/meal_planner.py:1755,solve_meal_plan,"The CP-SAT model chooses one allowed recipe per breakfast, lunch, and dinner slot."
-Meal-slot compatibility,stage2,hard,backend/services/meal_planner.py:521,infer_allowed_meals,Recipes are only assignable to allowed meal labels.
-No adjacent identical recipe,stage2,hard,backend/services/meal_planner.py:1755,solve_meal_plan,Back-to-back repetition is blocked.
-Per-attempt max recipe reuse cap,stage2,hard,backend/services/meal_planner.py:971,adjust_max_per_week + solve_meal_plan,The solver retries with broader repeat caps if earlier attempts are infeasible.
-Weekly budget hard cap when budget exists,stage2,hard,backend/services/meal_planner.py:932,resolve_budget_weekly + solve_meal_plan,"Cost optimization is only activated for budget priority, but the weekly budget cap itself is hard whenever a budget is resolved."
+Valid profile required before planner execution,precheck,hard,backend/services/meal_planner.py:984,validate_profile,"Rejects conflicting restrictions, missing budget for budget priority, and invalid max cooking time."
+Planning horizon days must equal active policy,precheck,hard,backend/services/meal_planner.py:2290,solve_meal_plan,Current default policy expects 7 days.
+Meals per day must equal active policy,precheck,hard,backend/services/meal_planner.py:2290,solve_meal_plan,Current default policy expects 3 meals per day.
+Allergy exposure exclusion,stage1,hard,backend/services/meal_planner.py:948,restriction_failure_reasons,Recipes exposing normalized allergen families are removed before optimization.
+Dietary restriction exclusion,stage1,hard,backend/services/meal_planner.py:948,restriction_failure_reasons,"No Pork, No Beef, Vegetarian, Pescatarian, and Lactose Intolerant have explicit exclusion rules."
+Max cooking time screen-out,stage1,hard,backend/services/meal_planner.py:1476,shortlist_candidates,Recipes beyond the profile's max cooking time are excluded from the shortlist.
+Exactly one recipe per meal slot,stage2,hard,backend/services/meal_planner.py:2290,solve_meal_plan,"The CP-SAT model chooses one allowed recipe per breakfast, lunch, and dinner slot."
+Meal-slot compatibility,stage2,hard,backend/services/meal_planner.py:525,infer_allowed_meals,Recipes are only assignable to allowed meal labels.
+No adjacent identical recipe,stage2,hard,backend/services/meal_planner.py:2290,solve_meal_plan,Back-to-back repetition is blocked.
+Per-attempt max recipe reuse cap,stage2,hard,backend/services/meal_planner.py:1046,adjust_max_per_week + solve_meal_plan,The solver retries with broader repeat caps if earlier attempts are infeasible.
+Weekly budget hard cap when budget exists,stage2,hard,backend/services/meal_planner.py:1008,resolve_budget_weekly + solve_meal_plan,"Cost optimization is only activated for budget priority, but the weekly budget cap itself is hard whenever a budget is resolved."
 Daily calorie target deviation penalty,stage2,soft,backend/policy_config.py:59,NutritionPolicy + solve_meal_plan,Deviation is penalized within tolerance bands.
-Daily macro target deviation penalty,stage2,soft,backend/services/meal_planner.py:942,macro_ratios + solve_meal_plan,"Protein, carbohydrate, and fat deviations are penalized from daily targets."
-Fiber shortfall penalty,stage2,soft,backend/services/meal_planner.py:388,symptom_adjustments + solve_meal_plan,Fiber targets are raised for some goals/symptoms and shortfall is penalized.
+Daily macro target deviation penalty,stage2,soft,backend/services/meal_planner.py:1018,macro_ratios + solve_meal_plan,"Protein, carbohydrate, and fat deviations are penalized from daily targets."
+Fiber shortfall penalty,stage2,soft,backend/services/meal_planner.py:393,symptom_adjustments + solve_meal_plan,Fiber targets are raised for some goals/symptoms and shortfall is penalized.
 Sodium overage penalty,stage2,soft,backend/policy_config.py:59,NutritionPolicy + solve_meal_plan,Penalty only works when sodium values exist in recipe data or corrections.
 Sugar overage penalty,stage2,soft,backend/policy_config.py:59,NutritionPolicy + solve_meal_plan,Sugar ceiling can be tightened by symptom adjustments.
 Vegetable diversity reward/minimum slack,stage2,soft,backend/policy_config.py:101,PlanningPolicy + solve_meal_plan,Encourages diverse vegetable tokens across the week.

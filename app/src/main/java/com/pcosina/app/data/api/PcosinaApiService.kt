@@ -56,6 +56,13 @@ data class PlannerTimestamps(
     val completedAtMs: Long? = null
 )
 
+data class PlannerContractItemDto(
+    val field: String,
+    val classification: String,
+    val enforcement: String,
+    val active: Boolean
+)
+
 data class GeneratePlanAsyncResponse(
     val jobId: String,
     val status: String,
@@ -98,7 +105,6 @@ data class PlanExplanation(
     val estimatedWeeklyCost: Int? = null,
     val restrictionCount: Int? = null,
     val budgetHardCapApplied: Boolean? = null,
-    val householdPlanningMode: String? = null,
     val goalValue: String? = null,
     val symptomSelections: List<String> = emptyList(),
     val profileRuleEffects: Map<String, List<String>>? = null,
@@ -106,6 +112,7 @@ data class PlanExplanation(
     val candidateExclusionSummary: Map<String, Int>? = null,
     val selectionReasonsByRecipeId: Map<String, List<String>>? = null,
     val selectionReasonCounts: Map<String, Int>? = null,
+    val plannerContract: List<PlannerContractItemDto> = emptyList(),
     val fiberMinTarget: Int? = null,
     val sugarMaxTarget: Int? = null,
     val goalStrategy: List<String> = emptyList()

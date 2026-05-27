@@ -887,7 +887,8 @@ private fun buildSettingsProfileSteps(profile: UserProfile): List<SettingsProfil
             profile.activityLevel.isNotBlank()
         )
     val hasMedicalDetails = profile.isProfileCompleted ||
-        profile.insulinResistanceLevel.isNotBlank()
+        profile.symptoms.isNotEmpty() ||
+        profile.comorbidities.isNotEmpty()
     val hasPlanningRules = profile.isProfileCompleted ||
         profile.maxCookingTimeMinutes in 10..240
 

@@ -5,6 +5,7 @@ import com.pcosina.app.data.api.GeneratePlanResponse
 import com.pcosina.app.data.api.IngredientDto
 import com.pcosina.app.data.api.PlanExplanation
 import com.pcosina.app.data.api.PlannedMealDto
+import com.pcosina.app.data.api.PlannerContractItemDto
 import com.pcosina.app.data.api.RecipeDetailDto
 import com.pcosina.app.data.api.RecipeSummaryDto
 import com.pcosina.app.data.api.toPlannerPlanResponse
@@ -27,6 +28,8 @@ class RecipeMappersTest {
             carbsGrams = 18,
             fatsGrams = 14,
             fiberGrams = 4,
+            sodiumMg = 520,
+            sugarGrams = 6,
             minutes = 35,
             ingredients = listOf(
                 IngredientDto(name = "Chicken", quantity = "500 g"),
@@ -44,6 +47,8 @@ class RecipeMappersTest {
         assertEquals("Lunch", mapped.mealType)
         assertEquals("Chicken", mapped.ingredients.first().name)
         assertEquals("500 g", mapped.ingredients.first().quantity)
+        assertEquals(520, mapped.sodiumMg)
+        assertEquals(6, mapped.sugarGrams)
         assertEquals("corr-1", mapped.nutritionCorrectionId)
         assertEquals("high", mapped.nutritionConfidence)
     }
@@ -85,7 +90,15 @@ class RecipeMappersTest {
             explanation = PlanExplanation(
                 targetCalories = 1500,
                 targetProtein = 90,
-                estimatedWeeklyCost = 1200
+                estimatedWeeklyCost = 1200,
+                plannerContract = listOf(
+                    PlannerContractItemDto(
+                        field = "weeklyBudgetPhp",
+                        classification = "hard",
+                        enforcement = "budget cap",
+                        active = true
+                    )
+                )
             ),
             requestId = "req-1",
             planId = "plan-1"
@@ -96,5 +109,6 @@ class RecipeMappersTest {
         assertEquals("Breakfast", mapped.days.single().meals.single().mealLabel)
         assertEquals(1500, mapped.explanation?.targetCalories)
         assertEquals(1200, mapped.explanation?.estimatedWeeklyCost)
+        assertEquals("weeklyBudgetPhp", mapped.explanation?.plannerContract?.single()?.field)
     }
 }

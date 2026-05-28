@@ -937,6 +937,13 @@ def test_profile_solve_pair_preferences_start_near_likely_feasible_path():
             planningPriority="Nutrition Tight",
         )
     )
+    nutrition_pressure_tight_budget = meal_planner._solve_pair_preferences_for_profile(
+        UserProfile(
+            goal="Weight Loss, Symptom Management",
+            planningPriority="Balanced",
+            weeklyBudgetPhp=1500,
+        )
+    )
 
     assert major_diet["strategy"] == "restricted_or_major_diet"
     assert major_diet["preferredTolerances"][:2] == [0.4, 0.6]
@@ -955,6 +962,9 @@ def test_profile_solve_pair_preferences_start_near_likely_feasible_path():
     assert default_with_budget["preferredRepeats"][:3] == [3, 2, 4]
     assert nutrition_pressure["strategy"] == "nutrition_pressure_tolerance_first"
     assert nutrition_pressure["preferredTolerances"][0] == 0.3
+    assert nutrition_pressure_tight_budget["strategy"] == "nutrition_pressure_tight_budget_relaxed_first"
+    assert nutrition_pressure_tight_budget["preferredTolerances"][:2] == [0.6, 0.8]
+    assert nutrition_pressure_tight_budget["preferredRepeats"][:3] == [10, 8, 6]
 
 
 def test_solver_honors_single_solution_policy_for_latency():

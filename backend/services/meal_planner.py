@@ -1219,6 +1219,8 @@ def _solve_pair_preferences_for_profile(
     priority = str(profile.planningPriority or "").strip().lower()
     major_diet = bool(restrictions & {"vegetarian", "pescatarian"})
     has_weekly_budget = resolve_budget_weekly(profile) is not None
+    budget_weekly = resolve_budget_weekly(profile)
+    tight_budget_profile = bool(budget_weekly and float(budget_weekly) < 2500.0)
     strict_time_limit = int(profile.maxCookingTimeMinutes or 0) > 0 and int(profile.maxCookingTimeMinutes or 0) <= 25
 
     if restricted_catalog or major_diet:
@@ -1264,6 +1266,12 @@ def _solve_pair_preferences_for_profile(
         or symptom_count >= 2
     )
     if high_nutrition_pressure:
+        if tight_budget_profile:
+            return {
+                "strategy": "nutrition_pressure_tight_budget_relaxed_first",
+                "preferredTolerances": [0.6, 0.8, 0.4, 0.3, 0.2],
+                "preferredRepeats": [10, 8, 6, 4, 3, 2],
+            }
         return {
             "strategy": "nutrition_pressure_tolerance_first",
             "preferredTolerances": [0.3, 0.4, 0.2, 0.6, 0.8],

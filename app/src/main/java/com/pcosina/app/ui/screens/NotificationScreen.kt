@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pcosina.app.R
 import com.pcosina.app.ui.UserViewModel
+import com.pcosina.app.ui.components.ArtworkAlignmentKeys
 import com.pcosina.app.ui.components.SharedAvatarHeader
 import com.pcosina.app.ui.components.SharedTopHeader
 import com.pcosina.app.ui.theme.PcosinaDeepRose
@@ -117,6 +118,8 @@ fun NotificationScreen(
                 avatarId = profile.avatarId,
                 dateLabel = todayLabel,
                 compact = false,
+                avatarArtworkKey = ArtworkAlignmentKeys.NotificationsHeaderAvatar,
+                onHeaderClick = onOpenSettings,
             )
         }
         item {

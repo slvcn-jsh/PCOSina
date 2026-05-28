@@ -3,16 +3,11 @@ package com.pcosina.app
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -41,7 +36,7 @@ class ProgressPerUserPersistenceUiTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun progressModeAndAdvancedAnalytics_persistPerUserAcrossSwitch() {
+    fun advancedAnalyticsExpansion_persistsPerUserAcrossSwitch() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val userPrefs = UserPreferencesRepository(context)
         val userViewModel = UserViewModel(userPrefs)
@@ -93,12 +88,10 @@ class ProgressPerUserPersistenceUiTest {
         }
 
         loadUser(userA)
-        progressViewModel.setProgressModePreference("Week")
         render(userA)
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithTag("progress_content_list").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("progress_mode_week").performClick()
         composeRule.runOnUiThread {
             progressViewModel.setAdvancedWeekAnalyticsExpandedPreference(true)
         }
@@ -112,9 +105,8 @@ class ProgressPerUserPersistenceUiTest {
         loadUser(userB)
         render(userB)
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithTag("progress_mode_today").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithTag("progress_content_list").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("progress_mode_today").assertIsSelected()
         composeRule.onAllNodesWithTag("progress_week_macro_card").assertCountEquals(0)
 
         loadUser(userA)
@@ -122,7 +114,6 @@ class ProgressPerUserPersistenceUiTest {
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithTag("progress_content_list").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("progress_mode_week").assertIsSelected()
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithTag("progress_week_macro_card").fetchSemanticsNodes().isNotEmpty()
         }

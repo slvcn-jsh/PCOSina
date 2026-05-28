@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
@@ -81,6 +80,10 @@ import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
+import com.pcosina.app.ui.components.ArtworkAlignmentKeys
+import com.pcosina.app.ui.components.ArtworkAlignmentTarget
+import com.pcosina.app.ui.components.DevArtworkAlignmentHotspot
+import com.pcosina.app.ui.components.DevEditableArtworkImage
 import com.pcosina.app.ui.components.PcosinaDesignIcon
 import com.pcosina.app.ui.components.RefinedOverviewCard
 import com.pcosina.app.ui.components.RefinedPrimaryButton
@@ -431,7 +434,6 @@ fun GroceryRefinedScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
-                .navigationBarsPadding()
                 .testTag("grocery_content_list")
                 .padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 8.dp else 12.dp),
             verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp)
@@ -447,29 +449,10 @@ fun GroceryRefinedScreen(
             GroceryHeadlineCard(
                 avatarId = userProfile.avatarId,
                 dateLabel = todayLabel,
-                compact = compact
-            )
-
-            GroceryNextStepsCard(
-                anyExpanded = expandedCategories.isNotEmpty(),
-                onToggleAll = {
-                    expandedCategories = if (expandedCategories.isNotEmpty()) {
-                        feedbackMessage = "Collapsed all categories."
-                        emptySet()
-                    } else {
-                        feedbackMessage = "Opened all categories."
-                        categoryEntries.map { it.first }.toSet()
-                    }
-                },
-                onOpenMealPlan = {
-                    if (isOnline) {
-                        onNavigateToRoute(Routes.MealPlan)
-                    } else {
-                        feedbackMessage = "Internet required for this action. Connect to open plan generation."
-                    }
-                },
-                onOpenProgress = { onNavigateToRoute(Routes.Progress) },
                 compact = compact,
+                onOpenProfileSettings = {
+                    onNavigateToRoute(Routes.settingsRoute(Routes.SettingsSectionProfile))
+                }
             )
 
             if (!feedbackMessage.isNullOrBlank()) {
@@ -1227,6 +1210,7 @@ private fun GroceryHeadlineCard(
     avatarId: String,
     dateLabel: String,
     compact: Boolean,
+    onOpenProfileSettings: () -> Unit,
 ) {
     SharedAvatarHeader(
         title = "Grocery Pantry",
@@ -1235,6 +1219,8 @@ private fun GroceryHeadlineCard(
         dateLabel = dateLabel,
         compact = compact,
         avatarAlignment = ScreenArtworkAlignment.GroceryHeaderAvatar,
+        avatarArtworkKey = ArtworkAlignmentKeys.GroceryHeaderAvatar,
+        onHeaderClick = onOpenProfileSettings,
     )
 }
 
@@ -1254,8 +1240,9 @@ private fun GroceryBudgetCard(
         withinBudget -> Color(0xFF19B764)
         else -> Color(0xFFE2526E)
     }
-    val budgetIcon = when {
-        !hasBudgetComparison -> R.drawable.pcosina_grocery_budget
+    val budgetIcon = R.drawable.pcosina_grocery_budget
+    val statusIcon = when {
+        !hasBudgetComparison -> null
         withinBudget -> R.drawable.pcosina_budgeting_like
         else -> R.drawable.pcosina_budgeting_disliked
     }
@@ -1271,6 +1258,7 @@ private fun GroceryBudgetCard(
         withinBudget -> "Within Budget! ${formatPhp(remainingBudget ?: 0)} left."
         else -> "Over Budget by ${formatPhp(kotlin.math.abs(remainingBudget ?: 0))}."
     }
+    var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
 
     RefinedOverviewCard(
         containerColor = Color(0xFFF8FFF8),
@@ -1282,22 +1270,53 @@ private fun GroceryBudgetCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Image(
+            DevEditableArtworkImage(
+                alignmentKey = ArtworkAlignmentKeys.GroceryBudgetIllustration,
                 painter = painterResource(id = budgetIcon),
                 contentDescription = budgetTitle,
                 modifier = Modifier.size(if (compact) 72.dp else 86.dp),
                 contentScale = ContentScale.Fit,
                 alignment = ScreenArtworkAlignment.GroceryBudgetIllustration,
+                externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.GroceryBudgetIllustration,
+                onExternalEditingChange = { editing ->
+                    activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.GroceryBudgetIllustration else null
+                },
             )
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
-                Text(
-                    text = budgetTitle,
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
-                    color = PcosinaDeepRose
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = budgetTitle,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                        color = PcosinaDeepRose,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    statusIcon?.let { iconRes ->
+                        Surface(
+                            modifier = Modifier.size(if (compact) 30.dp else 34.dp),
+                            shape = CircleShape,
+                            color = budgetColor.copy(alpha = 0.14f),
+                            border = BorderStroke(1.dp, budgetColor.copy(alpha = 0.24f)),
+                        ) {
+                            PcosinaDesignIcon(
+                                resId = iconRes,
+                                contentDescription = budgetTitle,
+                                tint = Color.Unspecified,
+                                modifier = Modifier
+                                    .padding(if (compact) 6.dp else 7.dp)
+                                    .size(if (compact) 18.dp else 20.dp),
+                            )
+                        }
+                    }
+                }
                 RefinedStatusPill(
                     text = budgetLabel,
                     containerColor = budgetColor.copy(alpha = 0.16f),
@@ -1354,19 +1373,25 @@ private fun GroceryProgressCard(
     onOpenPantry: () -> Unit,
     compact: Boolean,
 ) {
+    var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
     RefinedOverviewCard(
         containerColor = Color(0xFFFFEEF3),
         borderColor = PcosinaPink.copy(alpha = 0.26f),
         contentPadding = PaddingValues(0.dp)
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            Image(
+            DevEditableArtworkImage(
+                alignmentKey = ArtworkAlignmentKeys.GroceryProgressBackground,
                 painter = painterResource(id = R.drawable.pcosina_grocery_progress_background),
                 contentDescription = null,
                 modifier = Modifier.matchParentSize(),
                 contentScale = ContentScale.Crop,
                 alignment = ScreenArtworkAlignment.GroceryProgressBackground,
                 alpha = 0.96f,
+                externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.GroceryProgressBackground,
+                onExternalEditingChange = { editing ->
+                    activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.GroceryProgressBackground else null
+                },
             )
             Column(
                 modifier = Modifier
@@ -1459,6 +1484,18 @@ private fun GroceryProgressCard(
                     )
                 }
             }
+            DevArtworkAlignmentHotspot(
+                targets = listOf(
+                    ArtworkAlignmentTarget(
+                        key = ArtworkAlignmentKeys.GroceryProgressBackground,
+                        label = "Grocery progress background",
+                    ),
+                ),
+                onEditTarget = { activeArtworkEditorKey = it },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(56.dp),
+            )
         }
     }
 }
@@ -1511,83 +1548,6 @@ private fun GroceryActionTile(
 }
 
 @Composable
-private fun GroceryNextStepsCard(
-    anyExpanded: Boolean,
-    onToggleAll: () -> Unit,
-    onOpenMealPlan: () -> Unit,
-    onOpenProgress: () -> Unit,
-    compact: Boolean,
-) {
-    RefinedOverviewCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("grocery_next_steps_card"),
-        containerColor = Color(0xFFFFF8FB),
-        borderColor = PcosinaPink.copy(alpha = 0.22f),
-        contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
-    ) {
-        Text(
-            text = "Categories",
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-            color = PcosinaDeepRose,
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            GroceryPillAction(
-                text = "Go to Plan",
-                onClick = onOpenMealPlan,
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("grocery_open_mealplan_cta"),
-            )
-            GroceryPillAction(
-                text = "Progress",
-                onClick = onOpenProgress,
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("grocery_open_progress_cta"),
-            )
-        }
-        GroceryPillAction(
-            text = if (anyExpanded) "Collapse all" else "Open all",
-            onClick = onToggleAll,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("grocery_expand_toggle_all"),
-        )
-    }
-}
-
-@Composable
-private fun GroceryPillAction(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier
-            .heightIn(min = 44.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(999.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.24f))
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(
-                text = text,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = PcosinaDeepRose,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
-}
-
-@Composable
 private fun GroceryKitchenHubHeader(
     searchQuery: String,
     onSearchChange: (String) -> Unit,
@@ -1596,6 +1556,7 @@ private fun GroceryKitchenHubHeader(
     tipLine: String,
     compact: Boolean,
 ) {
+    var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -1603,12 +1564,17 @@ private fun GroceryKitchenHubHeader(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Image(
+            DevEditableArtworkImage(
+                alignmentKey = ArtworkAlignmentKeys.GroceryKitchenHubIllustration,
                 painter = painterResource(id = R.drawable.pcosina_grocery_kitchen_hub),
                 contentDescription = null,
                 modifier = Modifier.size(if (compact) 58.dp else 68.dp),
                 contentScale = ContentScale.Fit,
                 alignment = ScreenArtworkAlignment.GroceryKitchenHubIllustration,
+                externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.GroceryKitchenHubIllustration,
+                onExternalEditingChange = { editing ->
+                    activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.GroceryKitchenHubIllustration else null
+                },
             )
             Column(
                 modifier = Modifier.weight(1f),
@@ -2184,6 +2150,7 @@ private fun GroceryFilterChoiceRow(
                 color = PcosinaDeepRose
             )
             Surface(
+                modifier = Modifier.size(22.dp),
                 shape = CircleShape,
                 color = if (selected) PcosinaPink else Color.White,
                 border = BorderStroke(1.dp, if (selected) PcosinaPink else PcosinaMuted.copy(alpha = 0.24f))
@@ -2192,7 +2159,9 @@ private fun GroceryFilterChoiceRow(
                     resId = R.drawable.pcosina_svg_12_check,
                     contentDescription = null,
                     tint = if (selected) Color.White else Color.Transparent,
-                    modifier = Modifier.padding(6.dp)
+                    modifier = Modifier
+                        .padding(5.dp)
+                        .size(12.dp)
                 )
             }
         }

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -64,6 +63,7 @@ import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
+import com.pcosina.app.ui.components.ArtworkAlignmentKeys
 import com.pcosina.app.ui.components.MealCheckInDialog
 import com.pcosina.app.ui.components.MealCheckInDraft
 import com.pcosina.app.ui.components.PcosinaAvatarBadge
@@ -490,7 +490,6 @@ fun MealPlanRefinedScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
-                .navigationBarsPadding()
                 .testTag("mealplan_content_list")
                 .padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 10.dp else 14.dp),
             verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 14.dp)
@@ -510,6 +509,8 @@ fun MealPlanRefinedScreen(
                 modifier = Modifier.testTag("mealplan_top_section_capture"),
                 dateLabel = today.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)),
                 compact = compact,
+                avatarArtworkKey = ArtworkAlignmentKeys.MealPlanHeaderAvatar,
+                onHeaderClick = { onNavigateToRoute(Routes.settingsRoute(Routes.SettingsSectionProfile)) },
             )
 
             if (isGenerating || errorState != null) {

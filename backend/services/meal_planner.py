@@ -1713,7 +1713,6 @@ def shortlist_candidates(
         pre_pricing_enabled
         and safe_candidates_count > pre_pricing_cap
         and (pre_pricing_restricted_enabled or hard_filter_count == 0)
-        and not tight_budget_profile
     )
     if should_pre_prune:
         safe_candidates, pre_pruned = _apply_pre_pricing_prune(

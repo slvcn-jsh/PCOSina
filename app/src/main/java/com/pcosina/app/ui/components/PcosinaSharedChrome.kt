@@ -1,10 +1,14 @@
 package com.pcosina.app.ui.components
 
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,9 +26,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
@@ -161,8 +169,18 @@ fun SharedAvatarHeader(
     dateLabel: String? = null,
     compact: Boolean = false,
     avatarAlignment: Alignment = ScreenArtworkAlignment.SharedAvatarHeaderAvatar,
+    avatarArtworkKey: String = ArtworkAlignmentKeys.SharedHeaderAvatar,
     onAvatarClick: (() -> Unit)? = null,
+    onHeaderClick: (() -> Unit)? = null,
+    headerClickLabel: String = "Open profile settings",
 ) {
+    val headerInteractionSource = remember { MutableInteractionSource() }
+    val headerPressed by headerInteractionSource.collectIsPressedAsState()
+    val headerScale by animateFloatAsState(
+        targetValue = if (onHeaderClick != null && headerPressed) 0.985f else 1f,
+        animationSpec = tween(durationMillis = 120),
+        label = "avatarHeaderPressScale",
+    )
     val avatarSize = if (compact) {
         ScreenArtworkSizing.AvatarHeaderCompactAvatarSize
     } else {
@@ -178,10 +196,27 @@ fun SharedAvatarHeader(
     } else {
         ScreenArtworkSizing.AvatarHeaderRegularCardMinHeight
     }
+    val avatarTextInset = if (compact) 118.dp else 128.dp
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = headerMinHeight),
+            .heightIn(min = headerMinHeight)
+            .graphicsLayer {
+                scaleX = headerScale
+                scaleY = headerScale
+            }
+            .then(
+                if (onHeaderClick != null) {
+                    Modifier.clickable(
+                        interactionSource = headerInteractionSource,
+                        indication = null,
+                        onClickLabel = headerClickLabel,
+                        onClick = onHeaderClick,
+                    )
+                } else {
+                    Modifier
+                }
+            ),
     ) {
         Surface(
             modifier = Modifier
@@ -197,10 +232,10 @@ fun SharedAvatarHeader(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
-                        start = if (compact) 78.dp else 88.dp,
-                        end = if (compact) 10.dp else 12.dp,
-                        top = if (compact) 9.dp else 10.dp,
-                        bottom = if (compact) 9.dp else 10.dp,
+                        start = avatarTextInset,
+                        end = if (compact) 12.dp else 14.dp,
+                        top = if (compact) 10.dp else 12.dp,
+                        bottom = if (compact) 10.dp else 12.dp,
                     ),
                 horizontalArrangement = Arrangement.spacedBy(if (compact) 7.dp else 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -250,15 +285,28 @@ fun SharedAvatarHeader(
         }
         val avatarModifier = Modifier
             .align(avatarAlignment)
-            .offset(x = if (compact) (-2).dp else (-4).dp, y = if (compact) 1.dp else 2.dp)
-            .then(if (onAvatarClick != null) Modifier.clickable(onClick = onAvatarClick) else Modifier)
-        PcosinaAvatarBadge(
-            avatarId = avatarId,
+            .offset(x = if (compact) (-3).dp else (-5).dp, y = if (compact) (-2).dp else (-1).dp)
+            .size(avatarSize)
+            .then(
+                when {
+                    onAvatarClick != null -> Modifier.clickable(onClick = onAvatarClick)
+                    onHeaderClick != null -> Modifier.clickable(
+                        onClickLabel = headerClickLabel,
+                        onClick = onHeaderClick,
+                    )
+                    else -> Modifier
+                }
+            )
+        val avatarOption = selectedPcosinaAvatar(avatarId)
+        DevEditableArtworkImage(
+            alignmentKey = avatarArtworkKey,
+            painter = painterResource(id = avatarOption.drawableRes),
+            contentDescription = avatarOption.label,
             modifier = avatarModifier,
-            size = avatarSize,
-            ringColor = PcosinaDeepRose.copy(alpha = 0.22f),
-            containerColor = Color.White.copy(alpha = 0.62f),
-            shadowElevation = 1.dp,
+            contentScale = ContentScale.Fit,
+            maxScale = ScreenArtworkSizing.AvatarHeaderMaxArtworkScale,
+            artworkScaleMultiplier = ScreenArtworkSizing.AvatarHeaderArtworkScaleMultiplier,
+            transformOrigin = TransformOrigin(0.5f, 1f),
         )
     }
 }

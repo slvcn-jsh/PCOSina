@@ -81,7 +81,11 @@ import com.pcosina.app.BuildConfig
 import com.pcosina.app.R
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.LoginState
+import com.pcosina.app.ui.components.ArtworkAlignmentKeys
+import com.pcosina.app.ui.components.ArtworkAlignmentTarget
 import com.pcosina.app.ui.components.AppFeedbackBanner
+import com.pcosina.app.ui.components.DevArtworkAlignmentHotspot
+import com.pcosina.app.ui.components.DevEditableArtworkImage
 import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
 import com.pcosina.app.ui.theme.PcosinaBlush
@@ -250,9 +254,11 @@ fun LoginScreen(
             offset = Offset(0f, 4f),
             blurRadius = 8f,
         )
+        var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
 
         Box(modifier = Modifier.fillMaxSize()) {
-            Image(
+            DevEditableArtworkImage(
+                alignmentKey = ArtworkAlignmentKeys.LoginSnacksBackground,
                 painter = painterResource(id = R.drawable.pcosina_auth_snacks_background),
                 contentDescription = null,
                 modifier = Modifier
@@ -260,6 +266,10 @@ fun LoginScreen(
                     .height(pinkFieldTop)
                     .align(Alignment.TopCenter),
                 contentScale = ContentScale.Crop,
+                externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.LoginSnacksBackground,
+                onExternalEditingChange = { editing ->
+                    activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.LoginSnacksBackground else null
+                },
             )
 
             Box(
@@ -292,13 +302,18 @@ fun LoginScreen(
                     .statusBarsPadding(),
                 contentAlignment = Alignment.Center,
             ) {
-                Image(
+                DevEditableArtworkImage(
+                    alignmentKey = ArtworkAlignmentKeys.LoginOwnershipWatermark,
                     painter = painterResource(id = R.drawable.login_ownership_watermark),
                     contentDescription = "Developed by Quadrant",
                     modifier = Modifier
                         .widthIn(max = if (compact) 252.dp else 286.dp)
                         .fillMaxWidth(if (compact) 0.76f else 0.82f),
                     contentScale = ContentScale.Fit,
+                    externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.LoginOwnershipWatermark,
+                    onExternalEditingChange = { editing ->
+                        activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.LoginOwnershipWatermark else null
+                    },
                 )
             }
 
@@ -441,6 +456,23 @@ fun LoginScreen(
                     )
                 }
             }
+            DevArtworkAlignmentHotspot(
+                targets = listOf(
+                    ArtworkAlignmentTarget(
+                        key = ArtworkAlignmentKeys.LoginSnacksBackground,
+                        label = "Login background",
+                    ),
+                    ArtworkAlignmentTarget(
+                        key = ArtworkAlignmentKeys.LoginOwnershipWatermark,
+                        label = "Developed by Quadrant",
+                    ),
+                ),
+                onEditTarget = { activeArtworkEditorKey = it },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .size(64.dp),
+            )
         }
 
         if (showTerms) {
@@ -510,19 +542,27 @@ private fun TermsOfServiceOverlay(
         val compact = screenHeight < 790.dp || screenWidth < 400.dp
         val sheetTop = screenHeight * if (compact) 0.26f else 0.29f
         val sheetFlatTop = sheetTop + if (compact) 58.dp else 72.dp
+        val snackBackgroundWidth = screenWidth * if (compact) 1.16f else 1.12f
         val outerArcSize = screenWidth * if (compact) 1.48f else 1.64f
         val innerArcSize = screenWidth * if (compact) 1.32f else 1.46f
         val scrollMaxHeight = screenHeight * if (compact) 0.43f else 0.47f
         val density = LocalDensity.current
+        var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
 
-        Image(
+        DevEditableArtworkImage(
+            alignmentKey = ArtworkAlignmentKeys.LoginTermsSnacksBackground,
             painter = painterResource(id = R.drawable.pcosina_auth_snacks_background),
             contentDescription = null,
             modifier = Modifier
-                .fillMaxWidth()
+                .width(snackBackgroundWidth)
                 .height(sheetFlatTop + if (compact) 6.dp else 14.dp)
+                .align(Alignment.TopCenter)
                 .statusBarsPadding(),
             contentScale = ContentScale.Crop,
+            externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.LoginTermsSnacksBackground,
+            onExternalEditingChange = { editing ->
+                activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.LoginTermsSnacksBackground else null
+            },
         )
 
         Box(
@@ -557,13 +597,18 @@ private fun TermsOfServiceOverlay(
                 .padding(top = if (compact) 48.dp else 54.dp, bottom = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Image(
+            DevEditableArtworkImage(
+                alignmentKey = ArtworkAlignmentKeys.LoginTermsOwnershipWatermark,
                 painter = painterResource(id = R.drawable.login_ownership_watermark),
                 contentDescription = "Developed by Quadrant",
                 modifier = Modifier
                     .widthIn(max = 238.dp)
                     .fillMaxWidth(0.68f),
                 contentScale = ContentScale.Fit,
+                externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.LoginTermsOwnershipWatermark,
+                onExternalEditingChange = { editing ->
+                    activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.LoginTermsOwnershipWatermark else null
+                },
             )
 
             Spacer(modifier = Modifier.height(if (compact) 22.dp else 28.dp))
@@ -717,6 +762,23 @@ private fun TermsOfServiceOverlay(
                 textAlign = TextAlign.Center,
             )
         }
+        DevArtworkAlignmentHotspot(
+            targets = listOf(
+                ArtworkAlignmentTarget(
+                    key = ArtworkAlignmentKeys.LoginTermsSnacksBackground,
+                    label = "Terms background",
+                ),
+                ArtworkAlignmentTarget(
+                    key = ArtworkAlignmentKeys.LoginTermsOwnershipWatermark,
+                    label = "Terms developed by Quadrant",
+                ),
+            ),
+            onEditTarget = { activeArtworkEditorKey = it },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .size(64.dp),
+        )
     }
 }
 

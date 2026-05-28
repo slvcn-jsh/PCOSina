@@ -3,6 +3,7 @@ package com.pcosina.app
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -24,10 +25,6 @@ class ProgressModePolicyTest {
         assertTrue("Progress screen should surface weekly savings.", text.contains("Weekly savings"))
         assertTrue("Progress screen should surface average daily macros.", text.contains("Average daily macros"))
         assertTrue("Progress tracking cards should be labeled as review-only.", text.contains("For review"))
-        assertTrue(
-            "Progress tuning cards should say when they can affect the next plan.",
-            text.contains("Can affect next plan after you apply")
-        )
         assertTrue("Progress screen should clearly label actual spend when present.", text.contains("Actual spend"))
         assertTrue("Progress savings graph should label the plan estimate.", text.contains("Plan estimate"))
         assertTrue("Progress screen should clearly label estimated cost fallback.", text.contains("Estimated cost"))
@@ -35,10 +32,15 @@ class ProgressModePolicyTest {
             "Progress macros should explain guide ranges instead of exact pass/fail targets.",
             text.contains("guide ranges, not exact pass/fail")
         )
-        assertTrue("Progress screen should expose opt-in next-plan adjustments.", text.contains("Next-plan adjustments"))
-        assertTrue("Progress screen should persist approved next-plan adjustments.", text.contains("savePlanFeedbackTags(nextTags)"))
+        assertFalse("Progress screen should not show the confusing standalone next-plan adjustment card.", text.contains("progress_next_plan_adjustment_card"))
+        assertFalse("Progress screen should not show the confusing standalone next-plan adjustment title.", text.contains("Next-plan adjustments"))
+        assertTrue("Progress screen should keep plan feedback inside weekly review.", text.contains("Help tune your next plan"))
+        assertTrue("Progress weekly review should still persist feedback tags.", text.contains("togglePlanFeedbackTag(tag)"))
+        assertFalse("Progress screen should not render the Today/Week toggle.", text.contains("ProgressModeSelector("))
+        assertFalse("Progress screen should not expose the old Today mode test tag.", text.contains("progress_mode_today"))
+        assertFalse("Progress screen should not expose the old Week mode test tag.", text.contains("progress_mode_week"))
         assertTrue(
-            "Standalone plan feedback card should stay merged into next-plan adjustments.",
+            "Standalone plan feedback card should not return as a separate progress card.",
             !text.contains("progress_plan_feedback_card")
         )
         assertTrue(

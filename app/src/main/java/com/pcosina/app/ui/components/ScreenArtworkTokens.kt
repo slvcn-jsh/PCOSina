@@ -22,11 +22,14 @@ object ScreenArtworkOffset {
 }
 
 object ScreenArtworkSizing {
-    val AvatarHeaderCompactMinHeight = 86.dp
-    val AvatarHeaderRegularMinHeight = 96.dp
-    val AvatarHeaderCompactCardMinHeight = 66.dp
-    val AvatarHeaderRegularCardMinHeight = 74.dp
-    val AvatarHeaderCompactAvatarSize = 76.dp
-    val AvatarHeaderRegularAvatarSize = 86.dp
+    val AvatarHeaderCompactMinHeight = 140.dp
+    val AvatarHeaderRegularMinHeight = 154.dp
+    val AvatarHeaderCompactCardMinHeight = 98.dp
+    val AvatarHeaderRegularCardMinHeight = 106.dp
+    val AvatarHeaderCompactAvatarSize = 112.dp
+    val AvatarHeaderRegularAvatarSize = 124.dp
+    const val AvatarHeaderArtworkScaleMultiplierBeforeBigger = 1.0f
+    const val AvatarHeaderArtworkScaleMultiplier = 1.06f
+    const val AvatarHeaderMaxArtworkScale = 1.28f
     val SupportFreshStartMinHeight = 155.dp
 }

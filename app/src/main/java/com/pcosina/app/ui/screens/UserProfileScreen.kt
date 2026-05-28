@@ -1,10 +1,12 @@
 package com.pcosina.app.ui.screens
 
+import android.app.DatePickerDialog
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -22,13 +24,24 @@ import androidx.compose.material3.*
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusEvent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -52,6 +65,7 @@ import com.pcosina.app.ui.theme.UiSpacingTokens
 import com.pcosina.app.ui.util.profileConstraintConflictMessage
 import com.pcosina.app.ui.util.primaryGoalLabel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import java.time.LocalDate
@@ -75,7 +89,43 @@ private fun parseDelimitedProfileItems(text: String): List<String> =
         .filter { it.isNotBlank() }
         .distinctBy { it.lowercase(Locale.ENGLISH) }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+private fun Modifier.clearProfileFocusOnUserDrag(onDragStart: () -> Unit): Modifier =
+    pointerInput(onDragStart) {
+        awaitPointerEventScope {
+            var gestureActive = false
+            var clearedForGesture = false
+            var accumulatedDrag = Offset.Zero
+
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val pressedChanges = event.changes.filter { it.pressed }
+
+                if (pressedChanges.isEmpty()) {
+                    gestureActive = false
+                    clearedForGesture = false
+                    accumulatedDrag = Offset.Zero
+                    continue
+                }
+
+                if (!gestureActive) {
+                    gestureActive = true
+                    clearedForGesture = false
+                    accumulatedDrag = Offset.Zero
+                }
+
+                accumulatedDrag += pressedChanges.fold(Offset.Zero) { total, change ->
+                    total + change.positionChange()
+                }
+
+                if (!clearedForGesture && kotlin.math.abs(accumulatedDrag.y) > viewConfiguration.touchSlop) {
+                    onDragStart()
+                    clearedForGesture = true
+                }
+            }
+        }
+    }
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalComposeUiApi::class)
 @Composable
 fun UserProfileScreen(
     userViewModel: UserViewModel,
@@ -160,9 +210,34 @@ fun UserProfileScreen(
 
     val colorScheme = MaterialTheme.colorScheme
     val density = LocalDensity.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val imeVisible = WindowInsets.ime.getBottom(density) > 0
     val inputMode = imeVisible
-    val keyboardScrollPadding = if (imeVisible) 112.dp else 24.dp
+    val profileContentBottomPadding = if (imeVisible) 12.dp else 8.dp
+    val profileScrollState = rememberScrollState()
+    val clearProfileTextFocus = remember(focusManager, keyboardController) {
+        {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+            Unit
+        }
+    }
+    val clearFocusOnProfileScroll = remember(clearProfileTextFocus) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && kotlin.math.abs(available.y) > 0.5f) {
+                    clearProfileTextFocus()
+                }
+                return Offset.Zero
+            }
+        }
+    }
+
+    LaunchedEffect(currentStep) {
+        clearProfileTextFocus()
+        profileScrollState.scrollTo(0)
+    }
 
     LaunchedEffect(profile) {
         if (displayName.isBlank() && profile.displayName.isNotBlank()) {
@@ -465,10 +540,40 @@ fun UserProfileScreen(
         }
         userViewModel.setProfileCompleted(markComplete || isEditMode)
     }
+    fun handleStepBack() {
+        if (currentStep > 1) {
+            persistStepData(currentStep, markComplete = false)
+            currentStep--
+        }
+    }
+
+    fun handleStepAction() {
+        if (!canProceed) {
+            profileActionMessage = currentStepBlockerMessage
+            return
+        }
+        profileActionMessage = null
+        if (currentStep < 3) {
+            persistStepData(currentStep, markComplete = false)
+            profileActionMessage = "Saved this step on this device."
+            currentStep++
+        } else {
+            profileSaveInProgress = true
+            profileActionMessage = "Saving profile on this device..."
+            persistStepData(currentStep, markComplete = true)
+            profileSaveScope.launch {
+                delay(450)
+                profileSaveInProgress = false
+                profileActionMessage = "Profile saved on this device. Sync will retry when online."
+                onNext()
+            }
+        }
+    }
+
     val showProfileShell = !inputMode
 
     Scaffold(
-        modifier = modifier.imeNestedScroll(),
+        modifier = modifier,
         topBar = {
             if (!inputMode) {
                 ProfileHeader(
@@ -486,48 +591,23 @@ fun UserProfileScreen(
             }
         },
         bottomBar = {
-            BottomActionRow(
-                currentStep = currentStep,
-                primaryLabel = if (profileSaveInProgress) "Saving..." else primaryActionLabel,
-                primaryColor = colorScheme.primary,
-                isNextEnabled = canProceed && !profileSaveInProgress,
-                compact = inputMode,
-                disabledReason = if (!canProceed) currentStepBlockerMessage else null,
-                statusMessage = profileActionMessage,
-                isSaving = profileSaveInProgress,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .imePadding()
-                    .navigationBarsPadding(),
-                onBack = {
-                    if (currentStep > 1) {
-                        persistStepData(currentStep, markComplete = false)
-                        currentStep--
-                    }
-                },
-                onNext = {
-                    if (!canProceed) {
-                        profileActionMessage = currentStepBlockerMessage
-                        return@BottomActionRow
-                    }
-                    profileActionMessage = null
-                    if (currentStep < 3) {
-                        persistStepData(currentStep, markComplete = false)
-                        profileActionMessage = "Saved this step on this device."
-                        currentStep++
-                    } else {
-                        profileSaveInProgress = true
-                        profileActionMessage = "Saving profile on this device..."
-                        persistStepData(currentStep, markComplete = true)
-                        profileSaveScope.launch {
-                            delay(450)
-                            profileSaveInProgress = false
-                            profileActionMessage = "Profile saved on this device. Sync will retry when online."
-                            onNext()
-                        }
-                    }
-                }
-            )
+            if (!inputMode) {
+                BottomActionRow(
+                    currentStep = currentStep,
+                    primaryLabel = if (profileSaveInProgress) "Saving..." else primaryActionLabel,
+                    primaryColor = colorScheme.primary,
+                    isNextEnabled = canProceed && !profileSaveInProgress,
+                    compact = false,
+                    disabledReason = if (!canProceed) currentStepBlockerMessage else null,
+                    statusMessage = profileActionMessage,
+                    isSaving = profileSaveInProgress,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding(),
+                    onBack = ::handleStepBack,
+                    onNext = ::handleStepAction
+                )
+            }
         },
         containerColor = if (showProfileShell) ProfileOnboardingCoral else PcosinaSurface
     ) { padding ->
@@ -535,6 +615,8 @@ fun UserProfileScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
+                .clearProfileFocusOnUserDrag(clearProfileTextFocus)
+                .nestedScroll(clearFocusOnProfileScroll)
                 .background(if (showProfileShell) ProfileOnboardingCoral else PcosinaSurface),
         ) {
             Surface(
@@ -567,10 +649,10 @@ fun UserProfileScreen(
                     ) { step ->
                     Column(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
+                            .fillMaxWidth()
+                            .verticalScroll(profileScrollState)
                             .padding(horizontal = 16.dp, vertical = if (showProfileShell) 22.dp else 10.dp)
-                            .padding(bottom = keyboardScrollPadding),
+                            .padding(bottom = profileContentBottomPadding),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         if (!inputMode) {
@@ -666,7 +748,7 @@ fun UserProfileScreen(
                             }
                         }
 
-                        if (!canProceed) {
+                        if (!canProceed && !inputMode) {
                             Text(
                                 text = when (currentStep) {
                                     1 -> stepOneBlockerMessage
@@ -676,6 +758,21 @@ fun UserProfileScreen(
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        if (inputMode) {
+                            BottomActionRow(
+                                currentStep = currentStep,
+                                primaryLabel = if (profileSaveInProgress) "Saving..." else primaryActionLabel,
+                                primaryColor = colorScheme.primary,
+                                isNextEnabled = canProceed && !profileSaveInProgress,
+                                compact = true,
+                                disabledReason = if (!canProceed) currentStepBlockerMessage else null,
+                                statusMessage = profileActionMessage,
+                                isSaving = profileSaveInProgress,
+                                modifier = Modifier.fillMaxWidth(),
+                                onBack = ::handleStepBack,
+                                onNext = ::handleStepAction
                             )
                         }
                     }
@@ -1081,11 +1178,18 @@ private fun Modifier.keepFocusedProfileFieldVisible(
 ): Modifier {
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
+    var bringIntoViewJob by remember { mutableStateOf<Job?>(null) }
+    DisposableEffect(Unit) {
+        onDispose {
+            bringIntoViewJob?.cancel()
+        }
+    }
     return bringIntoViewRequester(bringIntoViewRequester)
         .onFocusEvent { focusState ->
             onFocusChange(focusState.isFocused)
+            bringIntoViewJob?.cancel()
             if (focusState.isFocused) {
-                scope.launch {
+                bringIntoViewJob = scope.launch {
                     delay(120)
                     bringIntoViewRequester.bringIntoView()
                     delay(220)
@@ -1093,6 +1197,8 @@ private fun Modifier.keepFocusedProfileFieldVisible(
                     delay(320)
                     bringIntoViewRequester.bringIntoView()
                 }
+            } else {
+                bringIntoViewJob = null
             }
         }
 }
@@ -1126,6 +1232,7 @@ fun StepOneIdentity(
     color: Color,
     showName: Boolean
 ) {
+    val context = LocalContext.current
     val options = listOf("Sedentary", "Lightly Active", "Moderately Active", "Very Active")
     var expanded by remember { mutableStateOf(false) }
     val ageValue = age.toIntOrNull()
@@ -1140,6 +1247,24 @@ fun StepOneIdentity(
     val targetDateText = targetDate.trim()
     val targetDateValue = targetDateText.takeIf { it.isNotBlank() }?.let {
         runCatching { LocalDate.parse(it, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
+    }
+    val targetDateDisplay = targetDateValue
+        ?.format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH))
+        .orEmpty()
+    fun openTargetDatePicker() {
+        val initialDate = targetDateValue ?: LocalDate.now().plusMonths(3)
+        DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                val selected = LocalDate.of(year, month + 1, dayOfMonth)
+                onTargetDate(selected.format(DateTimeFormatter.ISO_LOCAL_DATE))
+            },
+            initialDate.year,
+            initialDate.monthValue - 1,
+            initialDate.dayOfMonth,
+        ).apply {
+            datePicker.minDate = System.currentTimeMillis()
+        }.show()
     }
     val ageInvalidFormat = age.isNotBlank() && ageValue == null
     val weightInvalidFormat = weight.isNotBlank() && weightValue == null
@@ -1421,28 +1546,58 @@ fun StepOneIdentity(
             } else null,
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
         )
-        OutlinedTextField(
-            value = targetDate,
-            onValueChange = onTargetDate,
-            label = { Text("Target date (YYYY-MM-DD, optional)") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("profile_step1_target_date_input"),
-            shape = MaterialTheme.shapes.medium,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-            isError = targetDateInvalidFormat || targetDateInPast,
-            supportingText = if (targetDateInvalidFormat || targetDateInPast) {
-                {
-                    Text(
-                        when {
-                            targetDateInvalidFormat -> "Use YYYY-MM-DD."
-                            else -> "Choose today or a future date."
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = ::openTargetDatePicker),
+            ) {
+                OutlinedTextField(
+                    value = targetDateDisplay,
+                    onValueChange = {},
+                    readOnly = true,
+                    enabled = false,
+                    label = { Text("Target date (optional)") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("profile_step1_target_date_input"),
+                    shape = MaterialTheme.shapes.medium,
+                    isError = targetDateInvalidFormat || targetDateInPast,
+                    supportingText = if (targetDateInvalidFormat || targetDateInPast) {
+                        {
+                            Text(
+                                when {
+                                    targetDateInvalidFormat -> "Pick a date from the calendar."
+                                    else -> "Choose today or a future date."
+                                }
+                            )
                         }
+                    } else null,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        disabledBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedBorderColor = color,
                     )
-                }
-            } else null,
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
-        )
+                )
+            }
+            OutlinedButton(
+                onClick = ::openTargetDatePicker,
+                modifier = Modifier.height(56.dp),
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Text(if (targetDateDisplay.isBlank()) "Pick" else "Change")
+            }
+        }
+        if (targetDateDisplay.isNotBlank()) {
+            TextButton(onClick = { onTargetDate("") }) {
+                Text("Clear target date")
+            }
+        }
         val targetPaceText = if (weightKg != null && targetWeightKg != null && targetDateValue != null && !targetDateInPast) {
             val days = ChronoUnit.DAYS.between(LocalDate.now(), targetDateValue)
             val weeklyPace = if (days > 0) (targetWeightKg - weightKg).toFloat() / (days.toFloat() / 7f) else 0f

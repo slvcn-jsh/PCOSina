@@ -287,6 +287,67 @@ def test_pre_pricing_prunes_broad_profile_before_cost_estimation(monkeypatch):
     assert cost_calls == 120
 
 
+def test_pre_pricing_prunes_broad_tight_budget_before_cost_estimation(monkeypatch):
+    cost_calls = 0
+
+    def fake_estimate_recipe_cost(ingredients, pricing_context=None):
+        nonlocal cost_calls
+        cost_calls += 1
+        if pricing_context is not None:
+            pricing_context.recipe_cost_estimates += 1
+        return 100
+
+    monkeypatch.setattr(meal_planner, "estimate_recipe_cost", fake_estimate_recipe_cost)
+    profile = UserProfile(
+        displayName="Broad Tight Budget",
+        age=28,
+        heightCm=162,
+        weightKg=64,
+        activityLevel="Lightly Active",
+        goal="Weight Loss, Symptom Management",
+        dietaryRestrictions=[],
+        allergies=[],
+        pantryItems=[],
+        maxCookingTimeMinutes=45,
+        weeklyBudgetPhp=1500,
+    )
+    recipes = [
+        _recipe(
+            f"tight_budget_{i}",
+            f"Tight Budget Recipe {i}",
+            ["Breakfast", "Lunch", "Dinner"][i % 3],
+            calories=470 + (i % 80),
+            protein=20 + (i % 16),
+            fiber=4 + (i % 8),
+            ingredients=[{"name": f"ingredient_{i}", "quantity": "1 cup"}],
+        )
+        for i in range(500)
+    ]
+    diagnostics: dict = {}
+    policy = {
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "max_candidates_per_slot": 64,
+            "pre_pricing_candidate_cap": 120,
+            "pre_pricing_bucket_reserve": 20,
+            "similarity_threshold": 1.0,
+            "minimum_candidates_required": 1,
+        }
+    }
+
+    buckets = meal_planner.shortlist_candidates(profile, recipes, policy=policy, stage1_diag=diagnostics)
+
+    assert sum(len(v) for v in buckets.values()) > 0
+    assert diagnostics["pre_pricing_tight_budget"] is True
+    assert diagnostics["pre_pricing_budget_sensitive"] is True
+    assert diagnostics["safe_recipe_count_pre_pricing"] == 500
+    assert diagnostics["pre_pricing_pruned"] is True
+    assert diagnostics["pre_pricing_retained_count"] == 120
+    assert diagnostics["cost_estimated_recipe_count"] == 120
+    assert cost_calls == 120
+
+
 def test_pre_pricing_keeps_allergy_filter_before_pricing(monkeypatch):
     priced_ingredient_names: list[str] = []
 

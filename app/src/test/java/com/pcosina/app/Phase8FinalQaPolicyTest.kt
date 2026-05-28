@@ -50,7 +50,8 @@ class Phase8FinalQaPolicyTest {
         val productionContract = read(resolve("docs", "architecture", "production_contract.md"))
         val mlAdr = read(resolve("docs", "adr", "ADR-004-ml-shadow-canary.md"))
 
-        assertTrue("Settings should surface storage and restore expectations.", settings.contains("Storage and restore"))
+        assertTrue("Settings should keep account actions clear.", settings.contains("Account actions"))
+        assertFalse("Settings should not show the removed storage/restore card.", settings.contains("Storage and restore"))
         assertTrue(
             "Offline generation failure should stay simple and user-facing.",
             repository.contains("Internet connection is needed to generate a new plan. You can still view saved plans and groceries offline.")

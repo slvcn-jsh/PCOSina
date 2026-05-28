@@ -75,6 +75,7 @@ import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
 import com.pcosina.app.ui.components.FriendlyEmptyStateCard
 import com.pcosina.app.ui.components.LoadingActionButton
+import com.pcosina.app.ui.components.ArtworkAlignmentKeys
 import com.pcosina.app.ui.components.PcosinaDesignIcon
 import com.pcosina.app.ui.components.ScreenArtworkAlignment
 import com.pcosina.app.ui.components.SharedAvatarHeader
@@ -359,6 +360,7 @@ fun DashboardRefinedScreen(
                 welcomeSubline = welcomeSubline,
                 avatarId = profile.avatarId,
                 compactLayout = compactHomeLayout,
+                onOpenProfileSettings = onNavigateToSettings,
             )
         }
 
@@ -371,11 +373,6 @@ fun DashboardRefinedScreen(
                     RefinedGoalsCard(
                         goalOptions = homeGoalOptions,
                         modifier = Modifier.weight(1.08f),
-                        onEditGoals = {
-                            onNavigateToRoute(
-                                if (profile.isProfileCompleted) Routes.UserProfileEdit else Routes.UserProfile
-                            )
-                        },
                         onOpenGoalInfo = { goalInfoState.value = it }
                     )
                     RefinedTipCard(
@@ -387,11 +384,6 @@ fun DashboardRefinedScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     RefinedGoalsCard(
                         goalOptions = homeGoalOptions,
-                        onEditGoals = {
-                            onNavigateToRoute(
-                                if (profile.isProfileCompleted) Routes.UserProfileEdit else Routes.UserProfile
-                            )
-                        },
                         onOpenGoalInfo = { goalInfoState.value = it }
                     )
                     RefinedTipCard(tipLines = tipLines)
@@ -543,6 +535,7 @@ private fun RefinedWelcomeCard(
     welcomeSubline: String,
     avatarId: String,
     compactLayout: Boolean,
+    onOpenProfileSettings: () -> Unit,
 ) {
     SharedAvatarHeader(
         title = "Welcome, $displayName!",
@@ -551,6 +544,8 @@ private fun RefinedWelcomeCard(
         dateLabel = dateHeader,
         compact = compactLayout,
         avatarAlignment = ScreenArtworkAlignment.HomeHeaderAvatar,
+        avatarArtworkKey = ArtworkAlignmentKeys.HomeHeaderAvatar,
+        onHeaderClick = onOpenProfileSettings,
     )
 }
 
@@ -622,7 +617,6 @@ private fun WelcomeDatePill(
 @Composable
 private fun RefinedGoalsCard(
     goalOptions: List<GoalOption>,
-    onEditGoals: () -> Unit,
     onOpenGoalInfo: (GoalOption) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -635,21 +629,6 @@ private fun RefinedGoalsCard(
         titleTextStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
         contentPadding = 10.dp,
         contentSpacing = 6.dp,
-        trailing = {
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = Color.White.copy(alpha = 0.94f),
-                border = BorderStroke(1.dp, Color(0xFF682937).copy(alpha = 0.25f)),
-                modifier = Modifier.clickable(onClick = onEditGoals)
-            ) {
-                Text(
-                    "Profile",
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    color = Color(0xFF682937),
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
-                )
-            }
-        }
     ) {
         if (goalOptions.isEmpty()) {
             Text(

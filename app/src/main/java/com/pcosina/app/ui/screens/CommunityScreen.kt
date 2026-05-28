@@ -5,13 +5,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -61,6 +60,7 @@ import com.pcosina.app.ui.util.rememberIsOnline
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import com.pcosina.app.ui.components.ArtworkAlignmentKeys
 
 @Composable
 fun CommunityScreen(
@@ -75,46 +75,54 @@ fun CommunityScreen(
     val context = LocalContext.current
     val observedOnline by rememberIsOnline(context)
     val supportDateLabel = LocalDate.now().format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH))
-    LazyColumn(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding(),
-        contentPadding = PaddingValues(horizontal = 30.dp, vertical = 22.dp),
-        verticalArrangement = Arrangement.spacedBy(13.dp),
+            .statusBarsPadding()
     ) {
-        item {
-            SharedTopHeader(
-                online = observedOnline,
-                onSettings = onOpenSettings ?: {},
-                onNotifications = onOpenNotifications ?: {},
-                compact = false,
-            )
-        }
-        item {
-            SharedAvatarHeader(
-                title = "Support",
-                subtitle = "Clear help for planning, logging, and sending feedback.",
-                avatarId = avatarId,
-                dateLabel = supportDateLabel,
-                compact = false,
-                avatarAlignment = ScreenArtworkAlignment.SupportHeaderAvatar,
-            )
-        }
-        item {
-            SupportFeedbackCard(
-                isOnline = observedOnline,
-                onFeedback = onFeedback,
-            )
-        }
-        item {
-            SupportDirectoryCard()
-        }
-        item {
-            SupportFreshStartCard(onOpenMealPlan = onOpenMealPlan)
-        }
-        item {
-            Spacer(Modifier.height(16.dp))
+        val compact = maxHeight < 760.dp || maxWidth < 390.dp
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize(),
+            contentPadding = PaddingValues(
+                horizontal = if (compact) 14.dp else 18.dp,
+                vertical = if (compact) 10.dp else 14.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 14.dp),
+        ) {
+            item {
+                SharedTopHeader(
+                    online = observedOnline,
+                    onSettings = onOpenSettings ?: {},
+                    onNotifications = onOpenNotifications ?: {},
+                    compact = compact,
+                )
+            }
+            item {
+                SharedAvatarHeader(
+                    title = "Support",
+                    subtitle = "Clear help for planning, logging, and sending feedback.",
+                    avatarId = avatarId,
+                    dateLabel = supportDateLabel,
+                    compact = compact,
+                    avatarAlignment = ScreenArtworkAlignment.SupportHeaderAvatar,
+                    avatarArtworkKey = ArtworkAlignmentKeys.SupportHeaderAvatar,
+                    onHeaderClick = onOpenSettings,
+                )
+            }
+            item {
+                SupportFeedbackCard(
+                    isOnline = observedOnline,
+                    onFeedback = onFeedback,
+                )
+            }
+            item {
+                SupportDirectoryCard()
+            }
+            item {
+                SupportFreshStartCard(onOpenMealPlan = onOpenMealPlan)
+            }
         }
     }
 }

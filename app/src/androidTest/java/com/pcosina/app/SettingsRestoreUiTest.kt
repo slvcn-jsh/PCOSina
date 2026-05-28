@@ -1,9 +1,11 @@
 package com.pcosina.app
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -32,7 +34,7 @@ class SettingsRestoreUiTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun accountTabShowsRestoreExpectations() {
+    fun accountTabShowsClearAccountActionsWithoutRestoreCard() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val userId = "settings_restore_${System.currentTimeMillis()}"
         val userPrefs = UserPreferencesRepository(context)
@@ -66,13 +68,14 @@ class SettingsRestoreUiTest {
 
         composeRule.onNodeWithText("Account").performClick()
         composeRule.onNodeWithTag("settings_content_scroll")
-            .performScrollToNode(hasText("Storage and restore"))
-        composeRule.onNodeWithText("Storage and restore").assertIsDisplayed()
+            .performScrollToNode(hasText("Account actions"))
+        composeRule.onNodeWithText("Account actions").assertIsDisplayed()
         composeRule.onNodeWithTag("settings_content_scroll")
-            .performScrollToNode(hasText("Reinstall or new phone"))
-        composeRule.onNodeWithText("Reinstall or new phone").assertIsDisplayed()
+            .performScrollToNode(hasText("Clear saved week data"))
+        composeRule.onNodeWithText("Clear saved week data").assertIsDisplayed()
         composeRule.onNodeWithTag("settings_content_scroll")
-            .performScrollToNode(hasText("Local-only history"))
-        composeRule.onNodeWithText("Local-only history").assertIsDisplayed()
+            .performScrollToNode(hasText("Sign out on this phone"))
+        composeRule.onNodeWithText("Sign out on this phone").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Storage and restore").assertCountEquals(0)
     }
 }

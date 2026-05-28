@@ -36,6 +36,18 @@ object Routes {
     // Main App
     val Dashboard = defineRoute("dashboard", RouteAccess.GuidedCore)
     val Settings = defineRoute("settings", RouteAccess.GuidedCore)
+    const val SettingsSectionArg = "section"
+    const val SettingsSectionProfile = "profile"
+    const val SettingsSectionReminders = "reminders"
+    const val SettingsSectionAccount = "account"
+    val SettingsRoutePattern: String
+        get() = "$Settings?$SettingsSectionArg={$SettingsSectionArg}"
+    fun settingsRoute(section: String? = null): String {
+        val encodedSection = section?.takeIf { it.isNotBlank() }?.let {
+            URLEncoder.encode(it, StandardCharsets.UTF_8.toString())
+        }
+        return if (encodedSection == null) Settings else "$Settings?$SettingsSectionArg=$encodedSection"
+    }
     val Notifications = defineRoute("notifications", RouteAccess.GuidedCore)
     val MoreTools = defineRoute("more_tools", RouteAccess.GuidedCore)
 
@@ -63,7 +75,7 @@ object Routes {
         }
     }
 
-    fun baseRoute(route: String?): String? = route?.substringBefore("/")
+    fun baseRoute(route: String?): String? = route?.substringBefore("?")?.substringBefore("/")
 
     fun isAuthRoute(route: String?): Boolean =
         routeAccessByBase[baseRoute(route)] == RouteAccess.Auth

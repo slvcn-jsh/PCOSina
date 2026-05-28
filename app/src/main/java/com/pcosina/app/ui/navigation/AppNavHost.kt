@@ -1,6 +1,13 @@
 package com.pcosina.app.ui.navigation
 
 import android.os.Bundle
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -157,8 +164,15 @@ fun AppNavHost(
             Routes.MealPlan,
             Routes.GroceryList,
             Routes.Progress,
-            Routes.Ipo -> navigateInternal(route) { tabNavigationOptions() }
+            Routes.Ipo -> navigateInternal(route) { tabNavigationOptions(route) }
+            Routes.Settings -> navigateInternal(route) { launchSingleTop = true }
             else -> navigateInternal(route)
+        }
+    }
+
+    fun navigateToSettingsProfile() {
+        navigateInternal(Routes.settingsRoute(Routes.SettingsSectionProfile)) {
+            launchSingleTop = true
         }
     }
 
@@ -383,7 +397,7 @@ fun AppNavHost(
                 (baseRoute == Routes.UserProfile || baseRoute == Routes.GoalSelection) -> {
                 navController.clearSetupFlowBackStack()
                 navigateInternal(Routes.MealPlan) {
-                    tabNavigationOptions()
+                    tabNavigationOptions(Routes.MealPlan)
                 }
             }
             !hasGoalSelection(userProfile.goal) && !Routes.isProfileRoute(route) && !Routes.isGoalRoute(route) -> {
@@ -394,7 +408,7 @@ fun AppNavHost(
             !hasPlan && Routes.requiresPlan(route) -> {
                 Toast.makeText(context, "Generate your plan first to unlock this step.", Toast.LENGTH_SHORT).show()
                 navigateInternal(Routes.MealPlan) {
-                    tabNavigationOptions()
+                    tabNavigationOptions(Routes.MealPlan)
                 }
             }
         }
@@ -404,6 +418,31 @@ fun AppNavHost(
         navController = navController,
         startDestination = startDestination,
         modifier = modifier,
+        enterTransition = {
+            if (Routes.baseRoute(targetState.destination.route) == Routes.Settings) {
+                fadeIn(animationSpec = tween(170)) +
+                    slideInVertically(animationSpec = tween(220)) { it / 10 }
+            } else {
+                EnterTransition.None
+            }
+        },
+        exitTransition = {
+            if (Routes.baseRoute(targetState.destination.route) == Routes.Settings) {
+                fadeOut(animationSpec = tween(120)) +
+                    slideOutVertically(animationSpec = tween(160)) { -it / 18 }
+            } else {
+                ExitTransition.None
+            }
+        },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = {
+            if (Routes.baseRoute(initialState.destination.route) == Routes.Settings) {
+                fadeOut(animationSpec = tween(120)) +
+                    slideOutVertically(animationSpec = tween(160)) { it / 12 }
+            } else {
+                ExitTransition.None
+            }
+        },
     ) {
         composable(Routes.Splash) {
             SplashScreen(
@@ -458,7 +497,14 @@ fun AppNavHost(
         composable(Routes.UserProfileEdit) {
             UserProfileScreen(
                 userViewModel = userViewModel,
-                onNext = { navController.popBackStack(Routes.Settings, false) },
+                onNext = {
+                    if (!navController.popBackStack(Routes.Settings, false)) {
+                        navigateInternal(Routes.Settings) {
+                            popUpTo(Routes.UserProfileEdit) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                },
                 isEditMode = true,
                 onEditGoals = {
                     goalEditMode.value = true
@@ -483,7 +529,7 @@ fun AppNavHost(
                     } else {
                         navController.clearSetupFlowBackStack()
                         navigateInternal(Routes.MealPlan) {
-                            tabNavigationOptions()
+                            tabNavigationOptions(Routes.Dashboard)
                         }
                     }
                 },
@@ -502,8 +548,8 @@ fun AppNavHost(
                     groceryViewModel = groceryViewModel,
                     progressViewModel = progressViewModel,
                     onRecipeClick = { id, mealLabel -> navigateInternal(Routes.recipeDetailsRoute(id, mealLabel)) },
-                    onViewPlan = { navigateInternal(Routes.MealPlan) { tabNavigationOptions() } },
-                    onNavigateToSettings = { navigateInternal(Routes.Settings) },
+                    onViewPlan = { navigateInternal(Routes.MealPlan) { tabNavigationOptions(Routes.MealPlan) } },
+                    onNavigateToSettings = ::navigateToSettingsProfile,
                     onOpenNotifications = { navigateInternal(Routes.Notifications) },
                     onNavigateToRoute = ::navigateFromRefinedShell,
                     modifier = Modifier.padding(contentPadding),
@@ -518,7 +564,7 @@ fun AppNavHost(
                     groceryViewModel = groceryViewModel,
                     progressViewModel = progressViewModel,
                     onRecipeClick = { id, mealLabel -> navigateInternal(Routes.recipeDetailsRoute(id, mealLabel)) },
-                    onViewProgress = { navigateInternal(Routes.Progress) { tabNavigationOptions() } },
+                    onViewProgress = { navigateInternal(Routes.Progress) { tabNavigationOptions(Routes.Progress) } },
                     onNavigateToRoute = ::navigateFromRefinedShell,
                     modifier = Modifier.padding(contentPadding),
                 )
@@ -546,7 +592,7 @@ fun AppNavHost(
                     userId = session.currentUserUid ?: "",
                     onBackToDashboard = {
                         navigateInternal(Routes.Dashboard) {
-                            tabNavigationOptions()
+                            tabNavigationOptions(Routes.Dashboard)
                         }
                     },
                     onNavigateToRoute = ::navigateFromRefinedShell,
@@ -560,9 +606,9 @@ fun AppNavHost(
                 CommunityScreen(
                     onFeedback = onSupportFeedback,
                     avatarId = profile.avatarId,
-                    onOpenSettings = { navigateInternal(Routes.Settings) },
+                    onOpenSettings = ::navigateToSettingsProfile,
                     onOpenNotifications = { navigateInternal(Routes.Notifications) },
-                    onOpenMealPlan = { navigateInternal(Routes.MealPlan) { tabNavigationOptions() } },
+                    onOpenMealPlan = { navigateInternal(Routes.MealPlan) { tabNavigationOptions(Routes.MealPlan) } },
                     modifier = Modifier.padding(contentPadding),
                 )
             }
@@ -574,16 +620,25 @@ fun AppNavHost(
                 onBack = {
                     if (!navController.popBackStack()) {
                         navigateInternal(Routes.Dashboard) {
-                            tabNavigationOptions()
+                            tabNavigationOptions(Routes.MealPlan)
                         }
                     }
                 },
-                onOpenSettings = { navigateInternal(Routes.Settings) },
+                onOpenSettings = ::navigateToSettingsProfile,
                 modifier = Modifier.fillMaxSize(),
             )
         }
 
-        composable(Routes.Settings) {
+        composable(
+            route = Routes.SettingsRoutePattern,
+            arguments = listOf(
+                navArgument(Routes.SettingsSectionArg) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
+        ) { backStackEntry ->
             SettingsScreen(
                 userViewModel = userViewModel,
                 authViewModel = authViewModel,
@@ -594,12 +649,13 @@ fun AppNavHost(
                 onBack = {
                     if (!navController.popBackStack()) {
                         navigateInternal(Routes.Dashboard) {
-                            tabNavigationOptions()
+                            tabNavigationOptions(Routes.Dashboard)
                         }
                     }
                 },
                 onNavigateToProfileEdit = { navigateInternal(Routes.UserProfileEdit) },
                 onOpenNotifications = { navigateInternal(Routes.Notifications) },
+                initialSection = backStackEntry.arguments?.getString(Routes.SettingsSectionArg),
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -609,12 +665,12 @@ fun AppNavHost(
                 onBack = { navController.popBackStack() },
                 onOpenSupport = {
                     navigateInternal(Routes.Ipo) {
-                        tabNavigationOptions()
+                        tabNavigationOptions(Routes.Dashboard)
                     }
                 },
                 onFeedback = {
                     navigateInternal(Routes.Ipo) {
-                        tabNavigationOptions()
+                        tabNavigationOptions(Routes.Dashboard)
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -647,7 +703,7 @@ fun AppNavHost(
                         Routes.MealPlan,
                         Routes.GroceryList,
                         Routes.Progress,
-                        Routes.Ipo -> navigateInternal(route) { tabNavigationOptions() }
+                        Routes.Ipo -> navigateInternal(route) { tabNavigationOptions(route) }
                         else -> navigateInternal(route)
                     }
                 },
@@ -679,13 +735,13 @@ private fun TabScaffold(
                         return@BottomNavBar
                     }
                     navController.navigateKnown(route) {
-                        tabNavigationOptions()
+                        tabNavigationOptions(route)
                     }
                 },
                 enabledRoutes = enabledRoutes,
                 onDisabledRouteClick = {
                     Toast.makeText(context, "Generate a plan to unlock this tab.", Toast.LENGTH_SHORT).show()
-                    navController.navigateKnown(Routes.MealPlan) { tabNavigationOptions() }
+                    navController.navigateKnown(Routes.MealPlan) { tabNavigationOptions(Routes.MealPlan) }
                 }
             )
         },
@@ -694,10 +750,11 @@ private fun TabScaffold(
     }
 }
 
-private fun NavOptionsBuilder.tabNavigationOptions() {
-    popUpTo(Routes.Dashboard) { saveState = true }
+private fun NavOptionsBuilder.tabNavigationOptions(targetRoute: String? = null) {
+    popUpTo(Routes.Dashboard) {
+        inclusive = Routes.baseRoute(targetRoute) == Routes.Dashboard
+    }
     launchSingleTop = true
-    restoreState = true
 }
 
 private fun NavHostController.clearSetupFlowBackStack() {

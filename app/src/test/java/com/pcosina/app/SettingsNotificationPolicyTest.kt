@@ -48,7 +48,7 @@ class SettingsNotificationPolicyTest {
     }
 
     @Test
-    fun reminderSettings_explainDeliveryGatesWithoutDisplayOnlySwitches() {
+    fun reminderSettings_hideDisplayOnlyReminderStatusRows() {
         val source = read(
             resolve(
                 "app",
@@ -64,17 +64,25 @@ class SettingsNotificationPolicyTest {
             )
         )
 
-        assertTrue(
-            "Settings should show phone notification readiness in user-facing copy.",
-            source.contains("Phone notifications ready")
+        assertFalse(
+            "Settings should not show a display-only phone notification status row in Reminder control.",
+            source.contains("label = \"Phone notifications\"")
         )
-        assertTrue(
-            "Settings should explain that delivery history starts only after Android posts a notification.",
-            source.contains("History starts only after Android posts a notification.")
+        assertFalse(
+            "Settings should not show a display-only delivery history row in Reminder control.",
+            source.contains("label = \"Delivery history\"")
         )
-        assertTrue(
-            "Settings should show scheduled reminders as a status row.",
+        assertFalse(
+            "Settings should not show scheduled reminders as a display-only status row.",
             source.contains("label = \"Scheduled reminders\"")
+        )
+        assertFalse(
+            "Settings should not show delivery-log explanation copy in Reminder control.",
+            source.contains("Delivery logs appear only after Android posts a notification.")
+        )
+        assertFalse(
+            "Settings should not show Android delivery timing copy in Routine.",
+            source.contains("Quiet hours and Android delivery timing can still affect when it appears.")
         )
         assertFalse(
             "Settings should not use display-only Switch rows with null handlers.",

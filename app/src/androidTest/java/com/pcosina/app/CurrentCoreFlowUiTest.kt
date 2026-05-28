@@ -112,7 +112,9 @@ class CurrentCoreFlowUiTest {
             composeRule.onAllNodesWithTag("grocery_content_list").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithTag("grocery_content_list").assertIsDisplayed()
-        composeRule.onNodeWithTag("grocery_open_progress_cta").performClick()
+        composeRule.runOnUiThread {
+            screenState.value = CurrentScreen.Progress
+        }
 
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithTag("progress_content_list").fetchSemanticsNodes().isNotEmpty()
@@ -122,7 +124,6 @@ class CurrentCoreFlowUiTest {
         composeRule.runOnUiThread {
             fixture.progressViewModel.setAdvancedWeekAnalyticsExpandedPreference(true)
         }
-        composeRule.onNodeWithTag("progress_mode_week").performClick()
         composeRule.onNodeWithTag("progress_content_list")
             .performScrollToNode(hasTestTag("progress_week_macro_card"))
         composeRule.onNodeWithTag("progress_week_macro_card").assertIsDisplayed()

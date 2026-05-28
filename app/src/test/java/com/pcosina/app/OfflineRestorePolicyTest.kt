@@ -29,7 +29,7 @@ class OfflineRestorePolicyTest {
     }
 
     @Test
-    fun settingsAccountScreenSurfacesRestoreExpectations() {
+    fun settingsAccountScreenKeepsRestoreDetailsOutOfTheUi() {
         val settings = read(
             resolve(
                 "app", "src", "main", "java", "com", "pcosina", "app",
@@ -37,12 +37,14 @@ class OfflineRestorePolicyTest {
             )
         )
 
-        assertTrue(settings.contains("title = \"Storage and restore\""))
-        assertTrue(settings.contains("Cloud backup is best-effort after a successful sync."))
-        assertTrue(settings.contains("Signing out does not delete this phone's saved data for the same account."))
-        assertTrue(settings.contains("Only cloud-synced profile and artifacts can return after reinstall or new-phone login."))
-        assertTrue(settings.contains("Meal logs, weekly journals, and notification delivery logs stay on this install."))
-        assertTrue(settings.contains("Synced week backup clears when sync succeeds."))
+        assertTrue(settings.contains("title = \"Account actions\""))
+        assertTrue(settings.contains("Clear saved week data or sign out only when needed."))
+        assertTrue(settings.contains("Removes saved plans, grocery snapshots, and progress logs for this account."))
+        assertTrue(settings.contains("This does not delete this phone's saved account data."))
+        assertFalse(settings.contains("title = \"Storage and restore\""))
+        assertFalse(settings.contains("Only cloud-synced profile and artifacts can return after reinstall or new-phone login."))
+        assertFalse(settings.contains("Meal logs, weekly journals, and notification delivery logs stay on this install."))
+        assertFalse(settings.contains("Synced week backup clears when sync succeeds."))
         assertFalse(
             "Settings should not claim clear-history is phone-only when synced week artifacts are also cleared.",
             settings.contains("from this phone only")

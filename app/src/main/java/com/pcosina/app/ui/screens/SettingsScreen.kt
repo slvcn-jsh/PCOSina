@@ -58,6 +58,10 @@ import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.AppFeedbackBanner
+import com.pcosina.app.ui.components.ArtworkAlignmentKeys
+import com.pcosina.app.ui.components.ArtworkAlignmentTarget
+import com.pcosina.app.ui.components.DevArtworkAlignmentHotspot
+import com.pcosina.app.ui.components.DevEditableArtworkImage
 import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
 import com.pcosina.app.ui.components.PcosinaAvatar
@@ -66,15 +70,10 @@ import com.pcosina.app.ui.components.PcosinaDesignIcon
 import com.pcosina.app.data.model.NotificationPreferences
 import com.pcosina.app.notifications.NotificationScheduler
 import com.pcosina.app.ui.theme.UiSpacingTokens
+import com.pcosina.app.ui.util.parseGoalOptions
 import com.pcosina.app.ui.util.primaryGoalLabel
 import android.Manifest
 import android.os.Build
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.temporal.TemporalAdjusters
-import java.time.temporal.WeekFields
 import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -84,6 +83,14 @@ private enum class SettingsScreenFocus {
     Reminders,
     Account,
 }
+
+private fun settingsFocusFromRouteSection(section: String?): SettingsScreenFocus? =
+    when (section?.lowercase(Locale.ENGLISH)) {
+        "profile" -> SettingsScreenFocus.Profile
+        "reminders" -> SettingsScreenFocus.Reminders
+        "account" -> SettingsScreenFocus.Account
+        else -> null
+    }
 
 private enum class ReminderSettingsFocus {
     Control,
@@ -119,21 +126,29 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onNavigateToProfileEdit: () -> Unit,
     onOpenNotifications: () -> Unit = {},
+    initialSection: String? = null,
     modifier: Modifier = Modifier
 ) {
     val profile by userViewModel.userProfile.collectAsState()
     val session by authViewModel.session.collectAsState()
     val notificationPrefs by userViewModel.notificationPreferences.collectAsState()
-    val notificationLogs by userViewModel.notificationLogs.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
     val userName = profile.displayName.ifBlank { "Your account" }
-    var settingsFocusKey by rememberSaveable { mutableStateOf(SettingsScreenFocus.Profile.name) }
+    val requestedSettingsFocus = remember(initialSection) {
+        settingsFocusFromRouteSection(initialSection)
+    }
+    var settingsFocusKey by rememberSaveable {
+        mutableStateOf((requestedSettingsFocus ?: SettingsScreenFocus.Profile).name)
+    }
     val settingsFocus = remember(settingsFocusKey) {
         runCatching { SettingsScreenFocus.valueOf(settingsFocusKey) }
             .getOrDefault(SettingsScreenFocus.Profile)
+    }
+    LaunchedEffect(requestedSettingsFocus) {
+        requestedSettingsFocus?.let { settingsFocusKey = it.name }
     }
     var reminderFocusKey by rememberSaveable { mutableStateOf(ReminderSettingsFocus.Control.name) }
     val reminderFocus = remember(reminderFocusKey) {
@@ -159,7 +174,6 @@ fun SettingsScreen(
             Manifest.permission.POST_NOTIFICATIONS
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
     val appNotificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
-    val phoneNotificationReady = appNotificationsEnabled && runtimeNotificationPermissionGranted
     val permissionStateLabel = when {
         !appNotificationsEnabled -> "Blocked in phone settings"
         runtimeNotificationPermissionGranted -> "Phone notifications ready"
@@ -181,13 +195,6 @@ fun SettingsScreen(
         nextReminderSummaries.isNotEmpty() -> "Next reminder: ${nextReminderSummaries.first()}"
         else -> "No reminder type is enabled."
     }
-    val lastNotificationLog = notificationLogs.firstOrNull()
-    val lastDeliveredLabel = lastNotificationLog?.let { log ->
-        formatNotificationEventLabel(log.type)
-    } ?: "No delivery yet"
-    val deliveryHistoryDescription = lastNotificationLog?.let { log ->
-        "Last delivered at ${formatNotificationDeliveredAt(log.deliveredAt)} on this phone."
-    } ?: "History starts only after Android posts a notification."
     val reminderOverviewLabel = if (notificationPrefs.masterEnabled) {
         "Reminders on"
     } else {
@@ -220,7 +227,7 @@ fun SettingsScreen(
             "Finish your profile so planning feels more personal."
         }
         SettingsScreenFocus.Reminders -> notificationStatusSummary
-        SettingsScreenFocus.Account -> "Local data is primary; cloud backup is best-effort when sync succeeds."
+        SettingsScreenFocus.Account -> "Choose only the account action you need."
     }
     val settingsSyncLabel = when (settingsFocus) {
         SettingsScreenFocus.Profile -> "Saved food rules: ${profile.dietaryRestrictions.size + profile.allergies.size}"
@@ -236,9 +243,9 @@ fun SettingsScreen(
         }
     }
     val settingsPlanRangeLabel = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> "Main goal: $mainGoalLabel"
+        SettingsScreenFocus.Profile -> if (mainGoalLabel == "Not set") "Goals: Not set" else "Goals saved"
         SettingsScreenFocus.Reminders -> "Phone notifications: $permissionStateLabel"
-        SettingsScreenFocus.Account -> "Clear saved week data removes local week data and synced week backup when sync succeeds."
+        SettingsScreenFocus.Account -> "Clear saved week data removes meal plans, groceries, and progress logs for this account."
     }
     val settingsNextLabel = when (settingsFocus) {
         SettingsScreenFocus.Profile -> "Next focus: review the details that affect budget, time, and food rules."
@@ -408,33 +415,10 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
                 SettingsDivider()
-                FigmaSettingsStatusRow(
-                    icon = Icons.Default.Warning,
-                    label = "Symptom support",
-                    value = if (profile.goal.contains("symptom", ignoreCase = true) || profile.symptoms.isNotEmpty()) {
-                        "Active"
-                    } else {
-                        "Not set"
-                    },
-                    description = "Based on saved goals and symptom details.",
-                    emphasized = profile.goal.contains("symptom", ignoreCase = true) || profile.symptoms.isNotEmpty()
+                SettingsMainGoalItem(
+                    icon = Icons.Default.Info,
+                    goal = profile.goal,
                 )
-                FigmaSettingsStatusRow(
-                    icon = Icons.Default.Notifications,
-                    label = "Reminders",
-                    value = if (notificationPrefs.masterEnabled) "On" else "Paused",
-                    description = "Change meal and weekly nudges from the Reminders tab.",
-                    emphasized = notificationPrefs.masterEnabled
-                )
-                FigmaSettingsStatusRow(
-                    icon = Icons.Default.Warning,
-                    label = "Plan and grocery alerts",
-                    value = if (notificationPrefs.grocerySyncEnabled || notificationPrefs.planReadyEnabled) "On" else "Off",
-                    description = "Status notifications for plan-ready and grocery updates.",
-                    emphasized = notificationPrefs.grocerySyncEnabled || notificationPrefs.planReadyEnabled
-                )
-                SettingsDivider()
-                SettingsItem(icon = Icons.Default.Info, label = "Main goal", value = mainGoalLabel)
                 SettingsDivider()
                 SettingsItem(icon = Icons.Default.Info, label = "Weekly budget", value = budgetLabel)
                 SettingsDivider()
@@ -471,48 +455,15 @@ fun SettingsScreen(
 
         if (settingsFocus == SettingsScreenFocus.Account) {
             SettingsSection(
-                title = "Storage and restore",
-                summary = "Local data is the source of truth. Cloud backup is best-effort after a successful sync."
-            ) {
-                SettingsRestoreExpectationRow(
-                    icon = Icons.Default.Check,
-                    label = "App close",
-                    value = "Saved locally",
-                    description = "Profile, saved plans, groceries, pantry, progress logs, feedback queue, and reminders load from this phone."
-                )
-                SettingsDivider()
-                SettingsRestoreExpectationRow(
-                    icon = Icons.Default.History,
-                    label = "Sign out",
-                    value = "Kept here",
-                    description = "Signing out does not delete this phone's saved data for the same account."
-                )
-                SettingsDivider()
-                SettingsRestoreExpectationRow(
-                    icon = Icons.Default.Info,
-                    label = "Reinstall or new phone",
-                    value = "Best effort",
-                    description = "Only cloud-synced profile and artifacts can return after reinstall or new-phone login."
-                )
-                SettingsDivider()
-                SettingsRestoreExpectationRow(
-                    icon = Icons.Default.Warning,
-                    label = "Local-only history",
-                    value = "This install",
-                    description = "Meal logs, weekly journals, and notification delivery logs stay on this install."
-                )
-            }
-
-            SettingsSection(
-                title = "Account and device actions",
-                summary = "Use these only when you need a clean reset or want to leave this phone signed out.",
+                title = "Account actions",
+                summary = "Clear saved week data or sign out only when needed.",
                 titleColor = colorScheme.error,
                 containerColor = colorScheme.errorContainer
             ) {
                 SettingsActionItem(
                     icon = Icons.Default.History,
                     label = "Clear saved week data",
-                    description = "Removes saved plans, grocery snapshots, and local logs for this account. Synced week backup clears when sync succeeds.",
+                    description = "Removes saved plans, grocery snapshots, and progress logs for this account.",
                     color = colorScheme.error,
                     destructive = true
                 ) {
@@ -586,40 +537,6 @@ fun SettingsScreen(
                             notificationPermissionHint = "Notifications paused."
                         }
                     }
-                )
-                FigmaSettingsStatusRow(
-                    icon = Icons.Default.Notifications,
-                    label = "Phone notifications",
-                    value = permissionStateLabel,
-                    description = if (phoneNotificationReady) {
-                        "Android can post PCOSina reminders from this phone."
-                    } else {
-                        "Android must allow notifications before scheduled reminders can appear."
-                    },
-                    emphasized = phoneNotificationReady,
-                    accentColor = if (phoneNotificationReady) colorScheme.primary else colorScheme.error
-                )
-                FigmaSettingsStatusRow(
-                    icon = Icons.Default.History,
-                    label = "Delivery history",
-                    value = lastDeliveredLabel,
-                    description = deliveryHistoryDescription,
-                    emphasized = lastNotificationLog != null
-                )
-                FigmaSettingsStatusRow(
-                    icon = Icons.Default.Info,
-                    label = "Scheduled reminders",
-                    value = scheduledWorkersSummary,
-                    description = if (notificationPrefs.masterEnabled && phoneNotificationReady) {
-                        nextReminderSummary
-                    } else {
-                        "Schedules are created after reminders are on and phone notifications are ready."
-                    },
-                    emphasized = scheduledWorkSummaries.isNotEmpty()
-                )
-                SettingsInlineNotice(
-                    message = "Delivery logs appear only after Android posts a notification.",
-                    isError = false
                 )
                 if (!appNotificationsEnabled) {
                     SettingsActionItem(
@@ -806,22 +723,11 @@ fun SettingsScreen(
                         }
                     }
                 }
-                FigmaSettingsStatusRow(
-                    icon = Icons.Default.Info,
-                    label = "Next reminder",
-                    value = if (notificationPrefs.masterEnabled) nextReminderSummary else "Reminders are paused",
-                    description = if (notificationPrefs.masterEnabled) {
-                        "Quiet hours and Android delivery timing can still affect when it appears."
-                    } else {
-                        "Turn reminders on before routine nudges can run."
-                    },
-                    emphasized = notificationPrefs.masterEnabled
-                )
             }
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(12.dp))
         Text(
             text = "PCOSINA • Calm planning, private reminders, and easy routines",
             modifier = Modifier.fillMaxWidth(),
@@ -829,7 +735,7 @@ fun SettingsScreen(
             style = MaterialTheme.typography.labelSmall,
             color = colorScheme.onSurfaceVariant
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(6.dp))
     }
 
     if (showClearDialog) {
@@ -861,7 +767,7 @@ fun SettingsScreen(
             text = {
                 Text(
                     "This removes saved plans, grocery snapshots, and local adherence logs for this account. " +
-                        "Synced week backup clears when sync succeeds."
+                        "Your profile settings stay saved."
                 )
             }
         )
@@ -1128,6 +1034,7 @@ private fun FigmaSettingsHero(
     subtitle: String,
     onBack: () -> Unit,
 ) {
+    var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1158,7 +1065,8 @@ private fun FigmaSettingsHero(
                 )
             }
         }
-        Image(
+        DevEditableArtworkImage(
+            alignmentKey = ArtworkAlignmentKeys.SettingsHeroGear,
             painter = painterResource(id = R.drawable.pcosina_settings_gear),
             contentDescription = null,
             modifier = Modifier
@@ -1166,6 +1074,10 @@ private fun FigmaSettingsHero(
                 .align(Alignment.CenterEnd)
                 .offset(x = 58.dp, y = (-2).dp),
             contentScale = ContentScale.Fit,
+            externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.SettingsHeroGear,
+            onExternalEditingChange = { editing ->
+                activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.SettingsHeroGear else null
+            },
         )
         Column(
             modifier = Modifier
@@ -1189,6 +1101,19 @@ private fun FigmaSettingsHero(
                 lineHeight = 16.sp
             )
         }
+        DevArtworkAlignmentHotspot(
+            targets = listOf(
+                ArtworkAlignmentTarget(
+                    key = ArtworkAlignmentKeys.SettingsHeroGear,
+                    label = "Settings gear",
+                ),
+            ),
+            onEditTarget = { activeArtworkEditorKey = it },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(64.dp)
+                .zIndex(2f),
+        )
     }
 }
 
@@ -1199,6 +1124,7 @@ private fun FigmaSettingsProfileBand(
     email: String,
     onAvatarClick: () -> Unit,
 ) {
+    var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1206,17 +1132,20 @@ private fun FigmaSettingsProfileBand(
             .background(Color.White)
             .clipToBounds()
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.pcosina_settings_burger_background),
+        DevEditableArtworkImage(
+            alignmentKey = ArtworkAlignmentKeys.SettingsProfileBackgroundBand,
+            painter = painterResource(id = R.drawable.pcosina_settings_burger_background_band),
             contentDescription = null,
             modifier = Modifier
-                .fillMaxWidth()
-                .height(228.dp)
-                .align(Alignment.TopCenter)
-                .offset(y = 10.dp),
-            contentScale = ContentScale.Crop,
-            alignment = Alignment.TopCenter,
+                .fillMaxSize()
+                .align(Alignment.Center),
+            contentScale = ContentScale.FillBounds,
+            alignment = Alignment.Center,
             alpha = 0.92f,
+            externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.SettingsProfileBackgroundBand,
+            onExternalEditingChange = { editing ->
+                activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.SettingsProfileBackgroundBand else null
+            },
         )
         Column(
             modifier = Modifier
@@ -1280,6 +1209,18 @@ private fun FigmaSettingsProfileBand(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        DevArtworkAlignmentHotspot(
+            targets = listOf(
+                ArtworkAlignmentTarget(
+                    key = ArtworkAlignmentKeys.SettingsProfileBackgroundBand,
+                    label = "Settings profile background",
+                ),
+            ),
+            onEditTarget = { activeArtworkEditorKey = it },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(64.dp),
+        )
     }
 }
 
@@ -1845,63 +1786,69 @@ fun SettingsItem(icon: ImageVector, label: String, value: String) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SettingsRestoreExpectationRow(
-    icon: ImageVector,
-    label: String,
-    value: String,
-    description: String
-) {
-    Row(
+private fun SettingsMainGoalItem(icon: ImageVector, goal: String) {
+    val goalLabels = parseGoalOptions(goal)
+        .takeIf { it.isNotEmpty() }
+        ?.sortedBy { it.ordinal }
+        ?.map { it.label }
+        ?: listOf(goal.trim().takeIf { it.isNotBlank() } ?: "Not set")
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 2.dp),
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-            contentColor = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(36.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                contentColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(36.dp)
             ) {
-                Text(
-                    text = label,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                SettingsStatePill(
-                    text = value,
-                    emphasized = true
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
+            Spacer(Modifier.width(12.dp))
             Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
+                text = "Main goal",
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
             )
+        }
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 48.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            goalLabels.forEach { label ->
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = Color(0xFFFFDFE6),
+                    border = BorderStroke(1.dp, Color(0xFFFFC2CE))
+                ) {
+                    Text(
+                        text = label,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color(0xFFFF7A92),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
     }
 }
@@ -2114,25 +2061,6 @@ private fun formatTime(hour: Int, minute: Int): String {
         else -> h
     }
     return String.format(Locale.ENGLISH, "%d:%02d %s", displayHour, normalizedMinute, amPm)
-}
-
-private fun formatNotificationDeliveredAt(epochMs: Long): String {
-    val formatter = DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.ENGLISH)
-    return Instant.ofEpochMilli(epochMs)
-        .atZone(ZoneId.systemDefault())
-        .format(formatter)
-}
-
-private fun formatNotificationEventLabel(type: String): String {
-    return type
-        .split("_")
-        .filter { it.isNotBlank() }
-        .joinToString(" ") { part ->
-            part.replaceFirstChar { char ->
-                if (char.isLowerCase()) char.titlecase(Locale.ENGLISH) else char.toString()
-            }
-        }
-        .ifBlank { "Notification" }
 }
 
 private fun formatDayOfWeek(day: Int): String {

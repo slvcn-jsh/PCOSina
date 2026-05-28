@@ -30,6 +30,12 @@ class GuidedProfileRoutePolicyTest {
             "Edit mode should stay available only from the settings profile edit action.",
             source.contains("onNavigateToProfileEdit = { navigateInternal(Routes.UserProfileEdit) }")
         )
+        assertTrue(
+            "Profile edit save should still reach Settings when Settings is not already in the back stack.",
+            source.contains("if (!navController.popBackStack(Routes.Settings, false))") &&
+                source.contains("navigateInternal(Routes.Settings)") &&
+                source.contains("popUpTo(Routes.UserProfileEdit) { inclusive = true }")
+        )
     }
 
     @Test

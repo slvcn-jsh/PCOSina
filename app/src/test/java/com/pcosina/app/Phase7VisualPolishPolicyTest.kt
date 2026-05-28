@@ -10,7 +10,7 @@ import org.junit.Test
 class Phase7VisualPolishPolicyTest {
 
     @Test
-    fun sharedAvatarHeader_growsWithContentAndCoversTransparentAvatarAlpha() {
+    fun sharedAvatarHeader_growsWithContentAndPreservesTransparentAvatarAlpha() {
         val source = readMainSource("ui", "components", "PcosinaSharedChrome.kt")
 
         assertTrue(
@@ -22,7 +22,11 @@ class Phase7VisualPolishPolicyTest {
             source.contains(".height(if (compact) 76.dp else 84.dp)")
         )
         assertTrue(
-            "SharedAvatarHeader should render avatars inside a badge surface so transparent PNG areas have a consistent backing.",
+            "SharedAvatarHeader should render the avatar PNG directly so transparent areas stay transparent.",
+            source.contains("PcosinaAvatar(")
+        )
+        assertFalse(
+            "SharedAvatarHeader should not force the avatar into the circular badge surface.",
             source.contains("PcosinaAvatarBadge(")
         )
         assertTrue(

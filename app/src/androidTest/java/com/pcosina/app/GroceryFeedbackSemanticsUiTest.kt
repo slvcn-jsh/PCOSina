@@ -1,9 +1,9 @@
 package com.pcosina.app
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -44,8 +44,8 @@ class GroceryFeedbackSemanticsUiTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun goToPlan_offline_showsInternetRequiredBanner() {
-        val fixture = createFixture("grocery_offline_blocked", seedPlan = false)
+    fun topCategoriesShortcutCard_isRemovedFromGroceryScreen() {
+        val fixture = createFixture("grocery_removed_top_categories", seedPlan = false)
 
         composeRule.setContent {
             MaterialTheme {
@@ -61,16 +61,14 @@ class GroceryFeedbackSemanticsUiTest {
         }
         waitForGroceryContent()
 
-        composeRule.onNodeWithText("Go to Plan").performClick()
-        composeRule.onNodeWithTag("grocery_content_list")
-            .performScrollToNode(hasText("Internet required for this action. Connect to open plan generation."))
-        composeRule.onNodeWithText("Internet required for this action. Connect to open plan generation.")
-            .assertIsDisplayed()
+        composeRule.onAllNodesWithTag("grocery_next_steps_card").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("grocery_expand_toggle_all").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Go to Plan").assertCountEquals(0)
     }
 
     @Test
-    fun expandCollapseAll_showsConfirmationBanner() {
-        val fixture = createFixture("grocery_expand_feedback")
+    fun groceryBudgetAppearsBeforeKitchenHubWithoutTopCategoriesCard() {
+        val fixture = createFixture("grocery_budget_first")
         fixture.groceryViewModel.addItems(
             listOf(
                 DummyData.GroceryItem("Spinach", "2 bundles", 80, "Produce"),
@@ -97,14 +95,9 @@ class GroceryFeedbackSemanticsUiTest {
             composeRule.onAllNodesWithTag("grocery_content_list").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithTag("grocery_content_list")
-            .performScrollToNode(hasTestTag("grocery_expand_toggle_all"))
-        composeRule.onNodeWithTag("grocery_expand_toggle_all").performClick()
-        composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Collapsed all categories.").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onNodeWithTag("grocery_content_list")
-            .performScrollToNode(hasText("Collapsed all categories."))
-        composeRule.onNodeWithText("Collapsed all categories.").assertIsDisplayed()
+            .performScrollToNode(hasText("Total Estimated Spending"))
+        composeRule.onNodeWithText("Total Estimated Spending").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("grocery_next_steps_card").assertCountEquals(0)
     }
 
     @Test

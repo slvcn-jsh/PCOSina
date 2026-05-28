@@ -81,7 +81,6 @@ class TraversalAndCtaBannerUiTest {
         val fixture = createFixture("progress_week_seed_${System.currentTimeMillis()}")
         val seeds = fixture.mealPlanViewModel.seedDemoWeeks(fixture.userViewModel.userProfile.value)
         fixture.progressViewModel.seedDemoWeeks(seeds)
-        fixture.progressViewModel.setProgressModePreference("Week")
         fixture.progressViewModel.setAdvancedWeekAnalyticsExpandedPreference(true)
 
         composeRule.setContent {
@@ -102,7 +101,6 @@ class TraversalAndCtaBannerUiTest {
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithTag("progress_content_list").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("progress_mode_week").performClick()
         composeRule.onNodeWithTag("progress_content_list")
             .performScrollToNode(hasTestTag("progress_week_spending_card"))
         composeRule.onNodeWithTag("progress_week_spending_card")
@@ -113,11 +111,6 @@ class TraversalAndCtaBannerUiTest {
         composeRule.onNodeWithTag("progress_week_macro_card")
             .assertIsDisplayed()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 7f))
-        composeRule.onNodeWithTag("progress_content_list")
-            .performScrollToNode(hasTestTag("progress_next_plan_adjustment_card"))
-        composeRule.onNodeWithTag("progress_next_plan_adjustment_card")
-            .assertIsDisplayed()
-            .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 8.5f))
     }
 
     private fun createFixture(userId: String): Fixture {

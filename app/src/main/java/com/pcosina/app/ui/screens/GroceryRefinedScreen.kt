@@ -136,6 +136,11 @@ fun GroceryRefinedScreen(
     }
     val planHistory by mealPlanViewModel.planHistory.collectAsState()
     val planState by mealPlanViewModel.uiState.collectAsState()
+    val activePlanResponse = remember(planState, planHistory, activePlanId) {
+        (planState as? MealPlanUiState.Success)?.response
+            ?: planHistory.firstOrNull { it.id == activePlanId }?.response
+            ?: planHistory.lastOrNull()?.response
+    }
     val today = remember { LocalDate.now() }
     val groupedEntries = remember(groceryItems) {
         buildGroceryListEntries(groceryItems)
@@ -255,7 +260,12 @@ fun GroceryRefinedScreen(
     val totalCount = groupedEntries.size
     val coveredCount = groupedEntries.count { it.name in effectiveChecked }
     val remainingCount = (totalCount - coveredCount).coerceAtLeast(0)
-    val totalEstimated = groupedEntries.filter { it.name !in effectiveChecked }.sumOf { it.estimatedCostPhp }
+    val localTotalEstimated = groupedEntries.filter { it.name !in effectiveChecked }.sumOf { it.estimatedCostPhp }
+    val authoritativeTotalEstimated = activePlanResponse
+        ?.groceryOutput
+        ?.estimatedTotalPhp
+        ?.takeIf { it > 0 }
+    val totalEstimated = authoritativeTotalEstimated ?: localTotalEstimated
     val weeklyBudget = userProfile.weeklyBudgetPhp.takeIf { it > 0 }
     val remainingBudget = weeklyBudget?.minus(totalEstimated)
     val budgetProgress = weeklyBudget?.let { budget ->

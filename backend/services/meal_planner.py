@@ -11,6 +11,7 @@ from ortools.sat.python import cp_model
 
 from domain.models import GeneratePlanRequest, PlannedMeal, DayPlan, UserProfile
 from price_catalog import PricingContext, create_pricing_context, estimate_recipe_cost
+from services.grocery_aggregator import aggregate_grocery_list, price_grocery_buckets
 from services.ml_features import complete_stage1_feature_vector, zero_reason_feedback_features
 from services.ml_ranker import get_stage1_ranker
 
@@ -1100,6 +1101,48 @@ def resolve_budget_weekly(profile: UserProfile) -> Optional[float]:
     if profile.budgetMonthly and profile.budgetMonthly > 0:
         return float(profile.budgetMonthly) / 4.33
     return None
+
+
+def _rough_budget_cap(
+    budget_weekly: Optional[float],
+    policy: Optional[Dict[str, Any]] = None,
+) -> Optional[int]:
+    if not budget_weekly or budget_weekly <= 0:
+        return None
+    try:
+        multiplier = float(_policy_get(policy, "planning.rough_budget_cap_multiplier", 1.5))
+    except Exception:
+        multiplier = 1.5
+    multiplier = max(1.0, multiplier)
+    try:
+        min_slack_php = float(_policy_get(policy, "planning.rough_budget_cap_min_slack_php", 0))
+    except Exception:
+        min_slack_php = 0.0
+    cap = max(float(budget_weekly), float(budget_weekly) * multiplier, float(budget_weekly) + max(0.0, min_slack_php))
+    return int(round(cap))
+
+
+def _build_selected_grocery_output(
+    selected: List[Dict[str, Any]],
+    *,
+    budget_weekly: Optional[float],
+) -> Dict[str, Any]:
+    plan_payload: List[Dict[str, Any]] = []
+    for recipe in selected:
+        serving_scale = serving_cost_multiplier(recipe)
+        ingredients = []
+        for ingredient in recipe.get("ingredients", []) or []:
+            if isinstance(ingredient, dict):
+                scaled = dict(ingredient)
+            else:
+                scaled = {"name": str(ingredient), "quantity": ""}
+            scaled["scale"] = serving_scale
+            ingredients.append(scaled)
+        plan_payload.append({"meals": [{"ingredients": ingredients}]})
+    buckets = aggregate_grocery_list(plan_payload)
+    output = price_grocery_buckets(buckets, weekly_budget_php=budget_weekly)
+    output["selectedMealCount"] = len(selected)
+    return output
 
 
 def macro_ratios(_: str | None = None) -> tuple[float, float, float]:
@@ -2734,6 +2777,11 @@ def solve_meal_plan(
             telemetry_out["solve_pair_diagnostics"] = []
         return None, "Catalog nutrition coverage is insufficient for this profile.", None
     budget_weekly = resolve_budget_weekly(profile)
+    rough_budget_cap = _rough_budget_cap(budget_weekly, policy)
+    if budget_weekly:
+        solver_budget["budgetWeeklyPhp"] = int(round(float(budget_weekly)))
+        solver_budget["roughMealBudgetCapPhp"] = int(rough_budget_cap or budget_weekly)
+        solver_budget["finalBudgetAuthority"] = "backend_aggregated_grocery"
     rule_effects = profile_rule_summary(profile, budget_weekly)
     max_per_week_list = repeat_sequence_for_profile(
         [
@@ -2799,6 +2847,7 @@ def solve_meal_plan(
 
     solver_started_at = time.time()
     budget_exceeded_stage: Optional[str] = None
+    final_grocery_budget_rejected = False
     for pair_index, (tol, max_per_week) in enumerate(solve_pairs):
         pair_diag: Dict[str, Any] = {
             "tol": round(float(tol), 4),
@@ -2929,7 +2978,7 @@ def solve_meal_plan(
 
         total_cost = sum(x[s, i] * int(pool[i].get("_cost_est", 0)) for s in range(slot_count) for i in range(len(pool)))
         if budget_weekly:
-            model.Add(total_cost <= int(budget_weekly))
+            model.Add(total_cost <= int(rough_budget_cap or budget_weekly))
 
         err_vars = []
         sodium_over_vars = []
@@ -3018,7 +3067,7 @@ def solve_meal_plan(
         acceptance_w = int(_policy_get(policy, "planning.acceptance_score_weight", 1))
         macro_mult = int(priority.get("macro_mult", 1))
         budget_mult = int(priority.get("budget_mult", 1))
-        cost_objective = total_cost if _should_optimize_cost(profile) else 0
+        cost_objective = total_cost if (budget_weekly or _should_optimize_cost(profile)) else 0
         prep_time_penalty = sum(x[s, i] * int(pool[i].get("minutes", 0)) for s in range(slot_count) for i in range(len(pool)))
         model.Minimize(
             (macro_mult * total_err) + (macro_mult * total_meal_err) +
@@ -3153,6 +3202,25 @@ def solve_meal_plan(
                             total += int(r.get("calories", 0))
                             break
                 res_plan.append(DayPlan(dayLabel=day_names[d], meals=meals, totalCalories=total))
+            rough_est_cost = sum(int(r.get("_cost_est", 0)) for r in selected)
+            grocery_output = _build_selected_grocery_output(selected, budget_weekly=budget_weekly)
+            grocery_total = int(grocery_output.get("estimatedTotalPhp") or 0)
+            grocery_output["plannerMealEstimatePhp"] = int(rough_est_cost)
+            grocery_output["roughMealBudgetCapPhp"] = int(rough_budget_cap or budget_weekly or 0) or None
+            pair_diag["finalGroceryBudget"] = {
+                "estimatedTotalPhp": grocery_total,
+                "weeklyBudgetPhp": int(round(float(budget_weekly))) if budget_weekly else None,
+                "withinBudget": grocery_output.get("withinBudget"),
+                "plannerMealEstimatePhp": int(rough_est_cost),
+            }
+            if budget_weekly and grocery_total > int(round(float(budget_weekly))):
+                final_grocery_budget_rejected = True
+                pair_diag["solverStatus"] = status_name
+                pair_diag["status"] = "GROCERY_BUDGET_EXCEEDED"
+                if telemetry_out is not None:
+                    telemetry_out["grocery_output"] = grocery_output
+                    telemetry_out["budget_exceeded_stage"] = "final_grocery_budget"
+                continue
             explanation = _build_explanation(
                 selected,
                 num_days,
@@ -3174,6 +3242,18 @@ def solve_meal_plan(
                 fiber_min_target=fiber_min_target,
                 sugar_max_target=sugar_max_target,
             )
+            explanation["roughMealEstimatedWeeklyCost"] = int(rough_est_cost)
+            explanation["estimatedWeeklyCost"] = int(grocery_total)
+            explanation["estimatedWeeklyCostSource"] = "backend_aggregated_grocery"
+            explanation["roughMealBudgetCapPhp"] = int(rough_budget_cap or budget_weekly or 0) or None
+            explanation["groceryBudgetAuthority"] = {
+                "authority": grocery_output.get("authority"),
+                "estimatedTotalPhp": int(grocery_total),
+                "weeklyBudgetPhp": grocery_output.get("weeklyBudgetPhp"),
+                "withinBudget": grocery_output.get("withinBudget"),
+                "budgetDeltaPhp": grocery_output.get("budgetDeltaPhp"),
+                "plannerMealEstimatePhp": int(rough_est_cost),
+            }
             explanation["solverStatus"] = status_name
             explanation["retryAttemptsUsed"] = attempts_used
             _record_phase_timing(phase_timings_ms, "solver", solver_started_at)
@@ -3188,6 +3268,7 @@ def solve_meal_plan(
                 telemetry_out["solver_budget"] = dict(solver_budget)
                 telemetry_out["stage1_diag"] = dict(stage1_diag)
                 telemetry_out["solve_pair_diagnostics"] = solve_pair_diagnostics[-6:]
+                telemetry_out["grocery_output"] = grocery_output
             return res_plan, "Success", explanation
         if (time.time() - planner_started_at) >= total_time_limit:
             if status == cp_model.UNKNOWN:
@@ -3217,6 +3298,8 @@ def solve_meal_plan(
         telemetry_out["solver_budget"] = dict(solver_budget)
         telemetry_out["stage1_diag"] = dict(stage1_diag)
         telemetry_out["solve_pair_diagnostics"] = solve_pair_diagnostics[-6:]
+    if final_grocery_budget_rejected:
+        return None, "Final grocery estimate exceeds weekly budget.", None
     if budget_exceeded_stage:
         return None, "Planner timed out while pricing, filtering, or optimizing recipes.", None
     return None, "Infeasible", None

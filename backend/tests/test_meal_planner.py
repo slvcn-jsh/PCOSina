@@ -2182,6 +2182,66 @@ def test_solve_meal_plan_enforces_budget_as_hard_cap():
     assert budget_row["active"] is True
 
 
+def test_solve_meal_plan_accepts_final_grocery_total_over_rough_meal_proxy(monkeypatch):
+    monkeypatch.setattr(meal_planner, "estimate_cost", lambda recipe, **kwargs: 100)
+    profile = UserProfile(
+        displayName="FinalGroceryAuthority",
+        age=27,
+        heightCm=160,
+        weightKg=60,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        weeklyBudgetPhp=150,
+        maxCookingTimeMinutes=60,
+        planningPriority="Budget First",
+    )
+    request = meal_planner.GeneratePlanRequest(profile=profile, days=1, mealsPerDay=3)
+    recipes = [
+        _recipe("b1", "Breakfast", "Breakfast", ingredients=[{"name": "tap water", "quantity": "1 cup"}]),
+        _recipe("l1", "Lunch", "Lunch", ingredients=[{"name": "tap water", "quantity": "1 cup"}]),
+        _recipe("d1", "Dinner", "Dinner", ingredients=[{"name": "tap water", "quantity": "1 cup"}]),
+    ]
+    policy = {
+        "planning": {
+            "planning_horizon_days": 1,
+            "meals_per_day": 3,
+            "recipe_repeat_limits": [3],
+            "rough_budget_cap_multiplier": 3.0,
+        },
+        "stage1": {
+            "max_candidates_per_slot": 10,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "restricted_shortlist_multiplier": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "pantry_match_threshold": 0,
+            "minimum_candidates_required": 1,
+            "pool_cap_top_share": 1.0,
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+        },
+        "solver": {
+            "solver_time_limit_seconds": 1.0,
+            "solver_max_seconds": 2.0,
+            "total_solver_seconds": 3.0,
+            "retry_attempts": 0,
+            "optimality_gap_target": 0.1,
+            "solver_workers": 1,
+        },
+    }
+    telemetry = {}
+
+    plan, msg, explanation = meal_planner.solve_meal_plan(request, recipes, policy=policy, telemetry_out=telemetry)
+
+    assert msg == "Success"
+    assert plan is not None
+    assert explanation["roughMealEstimatedWeeklyCost"] == 300
+    assert explanation["estimatedWeeklyCost"] <= 150
+    assert explanation["groceryBudgetAuthority"]["withinBudget"] is True
+    assert telemetry["grocery_output"]["estimatedTotalPhp"] == explanation["estimatedWeeklyCost"]
+
+
 def test_solve_meal_plan_returns_no_safe_plan_when_budget_makes_model_infeasible():
     profile = UserProfile(
         displayName="BudgetTooLow",

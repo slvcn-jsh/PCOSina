@@ -16,6 +16,8 @@ class PriceRule:
     source: str = "static"
     source_label: str = "Static PCOSina baseline"
     confidence: str = "medium"
+    apply_category_multiplier: bool = True
+    allow_zero_price: bool = False
 
 
 @dataclass
@@ -30,6 +32,7 @@ class PriceEstimate:
     quantity_value: Optional[float]
     quantity_unit: Optional[str]
     quantity_factor: float
+    category_multiplier: float
     market_multiplier: float
     tingi_multiplier: float
     safety_buffer_multiplier: float
@@ -200,7 +203,9 @@ _UNIT_ALIASES = {
     "ml": "ml",
     "l": "l",
     "liter": "l",
+    "liters": "l",
     "litre": "l",
+    "litres": "l",
     "cup": "cup",
     "cups": "cup",
     "tbsp": "tbsp",
@@ -215,6 +220,21 @@ _UNIT_ALIASES = {
     "pcs": "piece",
     "clove": "piece",
     "cloves": "piece",
+    "bunch": "bunch",
+    "bunches": "bunch",
+    "tali": "bunch",
+    "stalk": "stalk",
+    "stalks": "stalk",
+    "head": "head",
+    "heads": "head",
+    "can": "can",
+    "cans": "can",
+    "pack": "pack",
+    "packs": "pack",
+    "packet": "pack",
+    "packets": "pack",
+    "tray": "tray",
+    "trays": "tray",
 }
 
 _CATEGORY_DEFAULT_UNIT = {
@@ -293,7 +313,9 @@ def _category_averages() -> Dict[str, int]:
 
 _CATEGORY_AVG = _category_averages()
 _OVERRIDE_CACHE_TTL_SECONDS = int(os.getenv("PCOSINA_PRICE_RULE_CACHE_TTL_SECONDS", "30"))
-_override_cache: Dict[str, object] = {"loaded_at": 0.0, "rules": None}
+_PRICE_RULE_LOAD_LIMIT = int(os.getenv("PCOSINA_PRICE_RULE_LOAD_LIMIT", "5000"))
+_override_cache: Dict[str, object] = {"loaded_at": 0.0, "rules": None, "active_rules": None, "rule_index": None}
+_RULE_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 
 
 def infer_category(name: str) -> str:
@@ -360,7 +382,7 @@ def _parse_number(text: str) -> Optional[float]:
 
 
 _QTY_PATTERN = re.compile(
-    r"(?P<num>\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(?P<unit>kg|kilo|kilogram|g|gram|grams|lb|lbs|pound|pounds|oz|ml|l|liter|litre|cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|piece|pieces|pc|pcs|clove|cloves)"
+    r"(?P<num>\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(?P<unit>kg|kilo|kilogram|g|gram|grams|lb|lbs|pound|pounds|oz|ml|l|liter|liters|litre|litres|cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|piece|pieces|pc|pcs|clove|cloves|bunch|bunches|tali|stalk|stalks|head|heads|can|cans|pack|packs|packet|packets|tray|trays)"
 )
 
 
@@ -395,16 +417,19 @@ def _parse_rule_notes(notes: Any) -> Dict[str, str]:
 
 def _rule_metadata_from_notes(notes: Any) -> Tuple[str, str, str]:
     parsed = _parse_rule_notes(notes)
-    source = parsed.get("source", "").strip() or "database"
+    explicit_source = parsed.get("source", "").strip()
+    source = (explicit_source or "database").lower().replace(" ", "_").replace("-", "_")
     effective = parsed.get("effective", "").strip()
     confidence = parsed.get("confidence", "").strip().lower()
     raw_notes = str(notes or "")
-    if "dti" in raw_notes.lower() or "srp" in raw_notes.lower():
+    if not explicit_source and ("dti" in raw_notes.lower() or "srp" in raw_notes.lower()):
         source = "dti_srp"
         confidence = confidence or "high"
     confidence = confidence if confidence in {"high", "medium", "low"} else "medium"
     if source == "dti_srp":
         source_label = "DTI SRP baseline"
+    elif source == "reviewed_market":
+        source_label = "Reviewed market price"
     elif source == "admin_market":
         source_label = "Admin market override"
     else:
@@ -412,6 +437,28 @@ def _rule_metadata_from_notes(notes: Any) -> Tuple[str, str, str]:
     if effective:
         source_label = f"{source_label} ({effective})"
     return source, source_label, confidence
+
+
+def _rule_uses_market_unit_pricing(notes: Any, source: str) -> bool:
+    parsed = _parse_rule_notes(notes)
+    basis = parsed.get("pricing_basis", "").strip().lower()
+    if basis in {"market_unit", "real_market_unit", "reviewed_market_unit"}:
+        return True
+    if parsed.get("category_multiplier", "").strip().lower() in {"none", "bypass", "1", "1.0"}:
+        return True
+    return source in {"reviewed_market"}
+
+
+def _rule_allows_zero_price(notes: Any) -> bool:
+    parsed = _parse_rule_notes(notes)
+    return parsed.get("zero_price", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _normalize_rule_unit(unit: Any) -> Optional[str]:
+    token = str(unit or "").strip().lower()
+    if not token:
+        return None
+    return _UNIT_ALIASES.get(token, token)
 
 
 def _unit_to_kg(value: float, unit: str) -> Optional[float]:
@@ -450,6 +497,9 @@ def _quantity_factor(value: Optional[float], unit: Optional[str], target_unit: s
     if value is None or unit is None:
         return 1.0
     unit = _UNIT_ALIASES.get(unit, unit)
+    target_unit = _normalize_rule_unit(target_unit) or target_unit
+    if unit == target_unit:
+        return value
     if target_unit == "kg":
         kg = _unit_to_kg(value, unit)
         if kg is None and unit == "piece":
@@ -481,10 +531,17 @@ def _clamp_factor(value: float, category: str) -> float:
 
 def _rule_for_name(name: str) -> Optional[PriceRule]:
     lower = (name or "").lower()
-    for rule in _active_rules():
-        if any(keyword in lower for keyword in rule.keywords):
-            return rule
-    return None
+    best_rule: Optional[PriceRule] = None
+    best_priority: Tuple[int, int, int] = (-1, -1, -1)
+    for rule in _candidate_rules_for_name(lower):
+        matched_keywords = [keyword for keyword in rule.keywords if keyword in lower]
+        if not matched_keywords:
+            continue
+        priority = _matched_price_rule_priority(rule, matched_keywords)
+        if priority > best_priority:
+            best_rule = rule
+            best_priority = priority
+    return best_rule
 
 
 def _fallback_rule_for_category(category: str) -> PriceRule:
@@ -502,6 +559,8 @@ def _fallback_rule_for_category(category: str) -> PriceRule:
 def invalidate_override_cache() -> None:
     _override_cache["loaded_at"] = 0.0
     _override_cache["rules"] = None
+    _override_cache["active_rules"] = None
+    _override_cache["rule_index"] = None
 
 
 def _load_override_rules() -> List[PriceRule]:
@@ -514,26 +573,31 @@ def _load_override_rules() -> List[PriceRule]:
     try:
         import database  # noqa: WPS433
 
-        for item in database.list_active_price_rules(limit=500):
+        for item in database.list_active_price_rules(limit=_PRICE_RULE_LOAD_LIMIT):
             keywords = [str(keyword).strip().lower() for keyword in (item.get("keywords") or []) if str(keyword).strip()]
             if not keywords:
                 continue
             source, source_label, confidence = _rule_metadata_from_notes(item.get("notes"))
+            allow_zero_price = _rule_allows_zero_price(item.get("notes"))
             rules.append(
                 PriceRule(
                     keywords=keywords,
-                    price_php=max(1, int(item.get("pricePhp") or 0)),
+                    price_php=0 if allow_zero_price else max(1, int(item.get("pricePhp") or 0)),
                     category=str(item.get("category") or "Others"),
-                    unit=(str(item.get("unit") or "").strip() or None),
+                    unit=_normalize_rule_unit(item.get("unit")),
                     source=source,
                     source_label=source_label,
                     confidence=confidence,
+                    apply_category_multiplier=not _rule_uses_market_unit_pricing(item.get("notes"), source),
+                    allow_zero_price=allow_zero_price,
                 )
             )
     except Exception:
         rules = []
     _override_cache["loaded_at"] = current
-    _override_cache["rules"] = rules
+    _override_cache["rules"] = sorted(rules, key=_price_rule_priority, reverse=True)
+    _override_cache["active_rules"] = None
+    _override_cache["rule_index"] = None
     return rules
 
 
@@ -546,8 +610,59 @@ def _active_rules() -> List[PriceRule]:
     overrides = _load_override_rules()
     if not overrides:
         return _RULES
+    cached_active_rules = _override_cache.get("active_rules")
+    if isinstance(cached_active_rules, list):
+        return cached_active_rules
     # Merge overrides first so they are checked before static defaults
-    return overrides + _RULES
+    active_rules = sorted(overrides, key=_price_rule_priority, reverse=True) + _RULES
+    _override_cache["active_rules"] = active_rules
+    return active_rules
+
+
+def _candidate_rules_for_name(lower_name: str) -> List[PriceRule]:
+    rules = _active_rules()
+    if len(rules) <= 100:
+        return rules
+    rule_index = _active_rule_index(rules)
+    candidate_indexes: set[int] = set()
+    for token in _RULE_TOKEN_PATTERN.findall(lower_name):
+        candidate_indexes.update(rule_index.get(token, ()))
+    if not candidate_indexes:
+        return rules
+    return [rules[index] for index in sorted(candidate_indexes)]
+
+
+def _active_rule_index(rules: List[PriceRule]) -> Dict[str, set[int]]:
+    cached = _override_cache.get("rule_index")
+    if isinstance(cached, dict) and cached.get("rules") is rules:
+        return cached["index"]
+    index: Dict[str, set[int]] = {}
+    for rule_index, rule in enumerate(rules):
+        for keyword in rule.keywords:
+            for token in _RULE_TOKEN_PATTERN.findall(str(keyword or "").lower()):
+                if len(token) < 2:
+                    continue
+                index.setdefault(token, set()).add(rule_index)
+    _override_cache["rule_index"] = {"rules": rules, "index": index}
+    return index
+
+
+def _price_rule_priority(rule: PriceRule) -> Tuple[int, int, int]:
+    return _matched_price_rule_priority(rule, rule.keywords)
+
+
+def _matched_price_rule_priority(rule: PriceRule, keywords: List[str]) -> Tuple[int, int, int]:
+    source_priority = {
+        "admin_market": 5,
+        "reviewed_market": 4,
+        "dti_srp": 3,
+        "database": 2,
+        "static": 1,
+    }.get(rule.source, 0)
+    keywords = [str(keyword or "").strip() for keyword in keywords if str(keyword or "").strip()]
+    longest_keyword = max((len(keyword) for keyword in keywords), default=0)
+    longest_token_count = max((len(keyword.split()) for keyword in keywords), default=0)
+    return longest_token_count, longest_keyword, source_priority
 
 
 def _market_multiplier(
@@ -592,6 +707,7 @@ def estimate_price_explained(
     month_index: Optional[int] = None,
     include_safety_buffer: bool = False,
     pricing_context: Optional[PricingContext] = None,
+    clamp_quantity: bool = True,
 ) -> PriceEstimate:
     rule = _rule_for_name(name)
     category = rule.category if rule else infer_category(name)
@@ -601,19 +717,23 @@ def estimate_price_explained(
     qty_value, qty_unit = _parse_quantity(f"{quantity_text} {name}".strip())
 
     factor = _quantity_factor(qty_value, qty_unit, target_unit, category)
-    factor = _clamp_factor(factor, category)
+    if clamp_quantity:
+        factor = _clamp_factor(factor, category)
+    else:
+        factor = max(0.0, factor)
 
     seasonal_multiplier = _market_multiplier(category, month_index, pricing_context=pricing_context)
     tingi = _tingi_multiplier(qty_unit, target_unit, qty_value)
     safety = 1.10 if include_safety_buffer else 1.0
 
     price = base_price * factor
-    price *= _CATEGORY_MULTIPLIER.get(category, 0.7)
+    category_multiplier = _CATEGORY_MULTIPLIER.get(category, 0.7) if resolved_rule.apply_category_multiplier else 1.0
+    price *= category_multiplier
     price *= seasonal_multiplier
     price *= tingi
     price *= safety
 
-    price = max(5.0, price)
+    price = 0.0 if resolved_rule.allow_zero_price else max(5.0, price)
     return PriceEstimate(
         price_php=int(round(price)),
         category=category,
@@ -625,6 +745,7 @@ def estimate_price_explained(
         quantity_value=qty_value,
         quantity_unit=qty_unit,
         quantity_factor=factor,
+        category_multiplier=category_multiplier,
         market_multiplier=seasonal_multiplier,
         tingi_multiplier=tingi,
         safety_buffer_multiplier=safety,

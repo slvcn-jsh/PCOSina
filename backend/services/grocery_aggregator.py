@@ -7,8 +7,10 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from price_catalog import _parse_quantity  # noqa: E402
+import price_catalog  # noqa: E402
 from database import _normalize_token  # noqa: E402
+
+_parse_quantity = price_catalog._parse_quantity
 
 
 LOCAL_SYNONYMS = {
@@ -110,10 +112,12 @@ def aggregate_grocery_list(plan: List[Dict[str, Any]]) -> Dict[str, Dict[str, An
             for ingredient in meal.get("ingredients", []) or []:
                 name = str(ingredient.get("name", "") if isinstance(ingredient, dict) else ingredient)
                 quantity = str(ingredient.get("quantity", "") if isinstance(ingredient, dict) else "")
+                scale = _quantity_scale(ingredient)
                 key, display_name = _canonical_name(name)
                 if not key:
                     continue
                 value, unit = _parse_source_quantity(name, quantity)
+                value *= scale
                 base_value, base_unit = _to_base_quantity(key, value, unit)
                 bucket = aggregated.setdefault(
                     key,
@@ -134,6 +138,68 @@ def aggregate_grocery_list(plan: List[Dict[str, Any]]) -> Dict[str, Dict[str, An
         bucket["displayQuantity"] = _format_quantity(bucket["totalValue"], bucket["unit"])
         bucket["totalValue"] = round(bucket["totalValue"], 2)
     return aggregated
+
+
+def price_grocery_buckets(
+    buckets: Dict[str, Dict[str, Any]],
+    *,
+    weekly_budget_php: Optional[float] = None,
+    pricing_context: Optional[price_catalog.PricingContext] = None,
+) -> Dict[str, Any]:
+    """Price an already aggregated grocery list with the backend price catalog."""
+    context = pricing_context or price_catalog.create_pricing_context()
+    priced_items: List[Dict[str, Any]] = []
+    total_php = 0
+    for key, bucket in sorted((buckets or {}).items(), key=lambda item: str(item[1].get("name") or item[0]).lower()):
+        name = str(bucket.get("name") or key).strip()
+        quantity = str(bucket.get("displayQuantity") or "").strip()
+        estimate = price_catalog.estimate_price_explained(
+            name,
+            quantity,
+            include_safety_buffer=True,
+            pricing_context=context,
+            clamp_quantity=False,
+        )
+        price_php = int(estimate.price_php)
+        total_php += price_php
+        priced_items.append(
+            {
+                "key": key,
+                "name": name,
+                "quantity": quantity,
+                "estimatedCostPhp": price_php,
+                "category": estimate.category,
+                "source": estimate.source,
+                "sourceLabel": estimate.source_label,
+                "confidence": estimate.confidence,
+                "originalNames": list(bucket.get("originalNames") or []),
+            }
+        )
+
+    budget_value = float(weekly_budget_php or 0.0)
+    has_budget = budget_value > 0
+    budget_delta = int(round(budget_value - total_php)) if has_budget else None
+    return {
+        "authority": "backend_aggregated_grocery",
+        "pricingAuthority": "reviewed_market_price_rules",
+        "estimatedTotalPhp": int(total_php),
+        "weeklyBudgetPhp": int(round(budget_value)) if has_budget else None,
+        "withinBudget": bool(total_php <= budget_value) if has_budget else None,
+        "budgetDeltaPhp": budget_delta,
+        "itemCount": len(priced_items),
+        "items": priced_items,
+    }
+
+
+def _quantity_scale(ingredient: Any) -> float:
+    if not isinstance(ingredient, dict):
+        return 1.0
+    raw = ingredient.get("scale", ingredient.get("quantityScale", 1.0))
+    try:
+        scale = float(raw)
+    except Exception:
+        scale = 1.0
+    return max(0.0, scale)
 
 
 def _canonical_name(raw: str) -> Tuple[str, str]:

@@ -35,6 +35,11 @@ NUTRITION_CORRECTION_SEED_FILES = [
     os.path.join(os.path.dirname(__file__), "seed_data", "panlasang_pinoy_nutrition_corrections.csv"),
     os.path.join(os.path.dirname(__file__), "seed_data", "local_reference_nutrition_estimates.csv"),
 ]
+REVIEWED_PRICE_RULE_SEED_FILE = os.path.join(
+    os.path.dirname(__file__),
+    "seed_data",
+    "reviewed_market_price_rules.csv",
+)
 PLACEHOLDER_NUTRITION_PROFILE = (350, 20, 40, 12, 5)
 PLACEHOLDER_NUTRITION_PROFILES = {
     PLACEHOLDER_NUTRITION_PROFILE,
@@ -3975,6 +3980,149 @@ def seed_nutrition_corrections(source_paths: Optional[Iterable[str]] = None) -> 
     }
 
 
+def seed_reviewed_price_rules(source_path: str | None = None) -> Dict[str, Any]:
+    path = str(source_path or REVIEWED_PRICE_RULE_SEED_FILE).strip()
+    if not path or not os.path.exists(path):
+        return {
+            "sourcePath": path or None,
+            "sourceCount": 0,
+            "insertedCount": 0,
+            "updatedCount": 0,
+            "missing": bool(path),
+        }
+
+    rows: list[Dict[str, Any]] = []
+    with open(path, "r", encoding="utf-8-sig", newline="") as handle:
+        for row in csv.DictReader(handle):
+            rule = _reviewed_price_rule_seed_row(row)
+            if rule is not None:
+                rows.append(rule)
+
+    inserted_count = 0
+    updated_count = 0
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        if _use_postgres() and dict_row is not None:
+            existing_cur = conn.cursor(row_factory=dict_row)
+            existing_cur.execute("SELECT id FROM ingredient_price_rules")
+            existing_ids = {str(row["id"]) for row in existing_cur.fetchall()}
+        else:
+            conn.row_factory = sqlite3.Row
+            existing_cur = conn.cursor()
+            existing_cur.execute("SELECT id FROM ingredient_price_rules")
+            existing_ids = {str(row["id"]) for row in existing_cur.fetchall()}
+            cur = conn.cursor()
+
+        now = int(time.time() * 1000)
+        for index, rule in enumerate(rows):
+            rule_id = str(rule["id"])
+            keywords_json = json.dumps(rule["keywords"], ensure_ascii=True)
+            values = (
+                rule_id,
+                keywords_json,
+                rule["pricePhp"],
+                rule.get("priceMinPhp"),
+                rule.get("priceMaxPhp"),
+                rule["category"],
+                rule.get("unit"),
+                bool(rule.get("active", True)),
+                rule.get("notes"),
+                now,
+                now + index,
+            )
+            if _use_postgres():
+                cur.execute(
+                    """
+                    INSERT INTO ingredient_price_rules (
+                        id, keywords_json, price_php, price_min_php, price_max_php, category, unit, active, notes, created_at, updated_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (id) DO UPDATE SET
+                        keywords_json = EXCLUDED.keywords_json,
+                        price_php = EXCLUDED.price_php,
+                        price_min_php = EXCLUDED.price_min_php,
+                        price_max_php = EXCLUDED.price_max_php,
+                        category = EXCLUDED.category,
+                        unit = EXCLUDED.unit,
+                        active = EXCLUDED.active,
+                        notes = EXCLUDED.notes,
+                        updated_at = EXCLUDED.updated_at
+                    """,
+                    values,
+                )
+            else:
+                cur.execute(
+                    """
+                    INSERT OR REPLACE INTO ingredient_price_rules (
+                        id, keywords_json, price_php, price_min_php, price_max_php, category, unit, active, notes, created_at, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM ingredient_price_rules WHERE id = ?), ?), ?)
+                    """,
+                    (*values[:9], rule_id, values[9], values[10]),
+                )
+            if rule_id in existing_ids:
+                updated_count += 1
+            else:
+                inserted_count += 1
+                existing_ids.add(rule_id)
+        conn.commit()
+    finally:
+        conn.close()
+
+    if rows:
+        print(
+            "REVIEWED PRICE RULES SYNCED: "
+            f"{inserted_count} inserted, {updated_count} updated."
+        )
+    return {
+        "sourcePath": path,
+        "sourceCount": len(rows),
+        "insertedCount": inserted_count,
+        "updatedCount": updated_count,
+        "missing": False,
+    }
+
+
+def _reviewed_price_rule_seed_row(row: Dict[str, Any]) -> Dict[str, Any] | None:
+    keywords = [part.strip().lower() for part in str(row.get("keywords") or "").split(",") if part.strip()]
+    rule_id = str(row.get("id") or "").strip()
+    if not keywords or not rule_id:
+        return None
+    price_php = max(1, int(float(str(row.get("price_php") or "0").strip() or "0")))
+    price_min_php = _optional_positive_int(row.get("price_min_php"))
+    price_max_php = _optional_positive_int(row.get("price_max_php"))
+    if price_min_php is not None and price_max_php is not None and price_max_php < price_min_php:
+        price_min_php, price_max_php = price_max_php, price_min_php
+    active = str(row.get("active") or "true").strip().lower() not in {"0", "false", "no"}
+    notes = str(row.get("notes") or "").strip() or _reviewed_price_rule_seed_notes(row)
+    return {
+        "id": rule_id,
+        "keywords": keywords,
+        "pricePhp": price_php,
+        "priceMinPhp": price_min_php,
+        "priceMaxPhp": price_max_php,
+        "category": str(row.get("category") or "Others").strip() or "Others",
+        "unit": str(row.get("unit") or "").strip() or None,
+        "active": active,
+        "notes": notes[:2000],
+    }
+
+
+def _reviewed_price_rule_seed_notes(row: Dict[str, Any]) -> str:
+    chunks = [
+        f"source={str(row.get('source') or 'reviewed_market').strip() or 'reviewed_market'}",
+        f"confidence={str(row.get('confidence') or 'medium').strip().lower() or 'medium'}",
+        f"pricing_basis={str(row.get('pricing_basis') or 'market_unit').strip() or 'market_unit'}",
+        "category_multiplier=none",
+    ]
+    for key in ("effective", "zero_price", "market_source", "source_url", "review_status", "needs_manual_validation"):
+        value = str(row.get(key) or "").strip().replace(";", ",")
+        if value:
+            chunks.append(f"{key}={value}")
+    return "; ".join(chunks)[:2000]
+
+
 def _nutrition_seed_row_to_correction(row: Dict[str, Any]) -> Dict[str, Any] | None:
     values = {
         "calories": _non_negative_int(row.get("calories")),
@@ -4503,7 +4651,7 @@ def list_admin_price_rules(
     limit: int = 100,
     active_only: bool = False,
 ) -> List[Dict[str, Any]]:
-    limit = max(1, min(int(limit or 100), 500))
+    limit = max(1, min(int(limit or 100), 5000))
     query = (q or "").strip()
     category_value = (category or "").strip()
     conn = _connect()

@@ -11,6 +11,9 @@ from services.meal_planner import planner_contract_summary, profile_rule_summary
 def _reason_codes_from_message(msg: str, *, budget_exceeded_stage: str | None = None) -> list[str]:
     text = (msg or "").lower()
     codes: list[str] = []
+    if budget_exceeded_stage == "final_grocery_budget" or "grocery estimate exceeds" in text:
+        codes.append("BUDGET_TOO_LOW")
+        return codes
     if budget_exceeded_stage or "timed out" in text or "time budget" in text:
         codes.append("PLANNER_TIMEOUT")
         return codes
@@ -80,6 +83,9 @@ def _guidance_from_profile(
         guidance.append(
             "Planner timed out while pricing, filtering, or optimizing recipes. Please retry or relax non-safety constraints if this continues."
         )
+    if "BUDGET_TOO_LOW" in reason_codes:
+        guidance.append("The final grocery estimate is above the weekly budget after combining ingredients.")
+        relaxations.append("Increase weekly budget or choose a stronger Budget First plan.")
     if "CONFLICTING_RESTRICTIONS" in reason_codes:
         guidance.append("Your current restriction combination conflicts. Remove one conflicting restriction and retry.")
     if "CATALOG_NUTRITION_GAP" in reason_codes:
@@ -104,7 +110,7 @@ def _guidance_from_profile(
     if profile.maxCookingTimeMinutes and profile.maxCookingTimeMinutes < 20:
         guidance.append("Very strict cooking-time limits can prevent feasible planning.")
         relaxations.append("Increase max cooking time by 10-15 minutes.")
-    if budget_exceeded_stage and "PLANNER_TIMEOUT" not in reason_codes:
+    if budget_exceeded_stage and "PLANNER_TIMEOUT" not in reason_codes and "BUDGET_TOO_LOW" not in reason_codes:
         guidance.append(f"Planner hit its time budget during {budget_exceeded_stage.replace('_', ' ')}.")
     if not guidance:
         guidance.append("No safe plan was found with the current hard constraints.")

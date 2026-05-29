@@ -28,6 +28,17 @@ def test_seed_nutrition_corrections_on_startup_skips_pytest_by_default(monkeypat
     assert main._seed_nutrition_corrections_on_startup() is True
 
 
+def test_seed_reviewed_price_rules_on_startup_uses_same_pytest_default_policy(monkeypatch):
+    monkeypatch.delenv("PCOSINA_SEED_REVIEWED_PRICE_RULES", raising=False)
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "backend/tests/test_runtime_readiness.py::test")
+
+    assert main._seed_reviewed_price_rules_on_startup() is False
+
+    monkeypatch.setenv("PCOSINA_SEED_REVIEWED_PRICE_RULES", "true")
+
+    assert main._seed_reviewed_price_rules_on_startup() is True
+
+
 def test_runtime_readiness_reports_production_errors(monkeypatch):
     monkeypatch.setattr(main, "IS_PRODUCTION", True)
     monkeypatch.setattr(main, "ENVIRONMENT", "production")

@@ -143,6 +143,15 @@ def _seed_nutrition_corrections_on_startup() -> bool:
     return True
 
 
+def _seed_reviewed_price_rules_on_startup() -> bool:
+    configured = os.getenv("PCOSINA_SEED_REVIEWED_PRICE_RULES", "").strip().lower()
+    if configured:
+        return configured in ("1", "true", "yes", "on")
+    if os.getenv("PYTEST_CURRENT_TEST", "").strip():
+        return False
+    return True
+
+
 def _log_app_check_mode(enforced: bool) -> None:
     mode = "enforced" if enforced else "skipped"
     if mode in _APP_CHECK_MODE_LOGGED:
@@ -321,6 +330,9 @@ async def lifespan(app: FastAPI):
     
     database.init_db()
     database.seed_recipes()
+    if _seed_reviewed_price_rules_on_startup():
+        database.seed_reviewed_price_rules()
+        invalidate_price_rule_cache()
     if _seed_nutrition_corrections_on_startup():
         database.seed_nutrition_corrections()
     policy_store.init_policy_store()
@@ -5261,12 +5273,14 @@ def _run_job(job_id: str, request: GeneratePlanRequest, owner_uid: str | None = 
                 explanation=explanation,
                 requestId=job_id,
                 planId=uuid.uuid4().hex,
+                groceryOutput=telemetry.get("grocery_output"),
                 policyVersion=policy_version,
                 diagnosticsSummary={
                     "reasonCodes": [],
                     "summary": "success",
                     "pricingDiagnostics": telemetry.get("pricing_diagnostics") or {},
                     "phaseTimingsMs": telemetry.get("phase_timings_ms") or {},
+                    "groceryBudgetAuthority": (explanation or {}).get("groceryBudgetAuthority") if isinstance(explanation, dict) else None,
                 },
                 solverMetadata={
                     "solverName": "OR-Tools CP-SAT",
@@ -5486,12 +5500,14 @@ async def generate_plan(
                 explanation=explanation,
                 requestId=request_id,
                 planId=uuid.uuid4().hex,
+                groceryOutput=telemetry.get("grocery_output"),
                 policyVersion=policy_version,
                 diagnosticsSummary={
                     "reasonCodes": [],
                     "summary": "success",
                     "pricingDiagnostics": telemetry.get("pricing_diagnostics") or {},
                     "phaseTimingsMs": telemetry.get("phase_timings_ms") or {},
+                    "groceryBudgetAuthority": (explanation or {}).get("groceryBudgetAuthority") if isinstance(explanation, dict) else None,
                 },
                 solverMetadata={
                     "solverName": "OR-Tools CP-SAT",

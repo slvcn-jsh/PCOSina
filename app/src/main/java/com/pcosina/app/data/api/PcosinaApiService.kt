@@ -43,12 +43,39 @@ data class GeneratePlanResponse(
     val explanation: PlanExplanation? = null,
     val requestId: String? = null,
     val planId: String? = null,
+    val groceryOutput: GroceryOutputDto? = null,
     val policyVersion: String? = null,
     val machineReasonCodes: List<String> = emptyList(),
     val humanGuidance: List<String> = emptyList(),
     val suggestedRelaxations: List<String> = emptyList(),
     val diagnosticsReference: String? = null,
     val timestamps: PlannerTimestamps? = null
+)
+
+data class GroceryOutputDto(
+    val authority: String? = null,
+    val pricingAuthority: String? = null,
+    val estimatedTotalPhp: Int? = null,
+    val weeklyBudgetPhp: Int? = null,
+    val withinBudget: Boolean? = null,
+    val budgetDeltaPhp: Int? = null,
+    val itemCount: Int? = null,
+    val selectedMealCount: Int? = null,
+    val plannerMealEstimatePhp: Int? = null,
+    val roughMealBudgetCapPhp: Int? = null,
+    val items: List<GroceryOutputItemDto> = emptyList()
+)
+
+data class GroceryOutputItemDto(
+    val key: String? = null,
+    val name: String,
+    val quantity: String? = null,
+    val estimatedCostPhp: Int? = null,
+    val category: String? = null,
+    val source: String? = null,
+    val sourceLabel: String? = null,
+    val confidence: String? = null,
+    val originalNames: List<String> = emptyList()
 )
 
 data class PlannerTimestamps(

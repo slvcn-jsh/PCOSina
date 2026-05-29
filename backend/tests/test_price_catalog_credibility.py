@@ -47,6 +47,105 @@ def test_dti_srp_import_drives_explainable_price_estimates():
     assert estimate.matched_keywords == ["garlic", "bawang"]
 
 
+def test_reviewed_market_unit_rule_uses_real_price_without_category_discount():
+    database.DATABASE_URL = ""
+    database.DB_NAME = str(_temp_db_path())
+    database.init_db()
+    database.upsert_price_rule(
+        {
+            "id": "reviewed_garlic",
+            "keywords": ["garlic", "bawang"],
+            "pricePhp": 146,
+            "category": "Produce",
+            "unit": "kg",
+            "active": True,
+            "notes": "source=reviewed_market; confidence=high; pricing_basis=market_unit; category_multiplier=none; source_url=https://www.dti.gov.ph/konsyumer/e-presyo/",
+        }
+    )
+    price_catalog.invalidate_override_cache()
+
+    estimate = price_catalog.estimate_price_explained("garlic", "1 kg", month_index=5)
+
+    assert estimate.source == "reviewed_market"
+    assert estimate.category_multiplier == 1.0
+    assert estimate.price_php == 146
+
+
+def test_reviewed_rule_priority_uses_matched_keyword_not_unmatched_synonyms():
+    database.DATABASE_URL = ""
+    database.DB_NAME = str(_temp_db_path())
+    database.init_db()
+    database.upsert_price_rule(
+        {
+            "id": "legacy_egg",
+            "keywords": ["egg", "itlog"],
+            "pricePhp": 9,
+            "category": "Eggs & Dairy",
+            "unit": "piece",
+            "active": True,
+            "notes": "source=DTI SRP; confidence=high",
+        }
+    )
+    database.upsert_price_rule(
+        {
+            "id": "reviewed_egg",
+            "keywords": ["egg"],
+            "pricePhp": 8,
+            "category": "Eggs & Dairy",
+            "unit": "piece",
+            "active": True,
+            "notes": "source=reviewed_market; confidence=high; pricing_basis=market_unit; category_multiplier=none",
+        }
+    )
+    price_catalog.invalidate_override_cache()
+
+    estimate = price_catalog.estimate_price_explained("egg", "1 piece", month_index=5)
+
+    assert estimate.source == "reviewed_market"
+    assert estimate.base_price_php == 8
+    assert estimate.category_multiplier == 1.0
+
+
+def test_reviewed_zero_price_rule_can_represent_tap_water():
+    database.DATABASE_URL = ""
+    database.DB_NAME = str(_temp_db_path())
+    database.init_db()
+    database.upsert_price_rule(
+        {
+            "id": "reviewed_water",
+            "keywords": ["water", "tap water"],
+            "pricePhp": 1,
+            "category": "Beverages",
+            "unit": "l",
+            "active": True,
+            "notes": "source=reviewed_market; confidence=medium; pricing_basis=market_unit; category_multiplier=none; zero_price=true",
+        }
+    )
+    price_catalog.invalidate_override_cache()
+
+    estimate = price_catalog.estimate_price_explained("tap water", "1 L", month_index=5)
+
+    assert estimate.source == "reviewed_market"
+    assert estimate.base_price_php == 0
+    assert estimate.price_php == 0
+
+
+def test_price_catalog_loads_more_than_legacy_500_rule_cap(monkeypatch):
+    price_catalog.invalidate_override_cache()
+    requested_limits: list[int] = []
+
+    def fake_rules(limit: int = 500):
+        requested_limits.append(limit)
+        return []
+
+    monkeypatch.setattr(database, "list_active_price_rules", fake_rules)
+
+    price_catalog.estimate_price_explained("tomato", "1 kg", month_index=5)
+
+    assert requested_limits
+    assert requested_limits[0] > 500
+
+
 def test_price_estimate_applies_default_seasonality_and_tingi_factor():
     database.DATABASE_URL = ""
     database.DB_NAME = str(_temp_db_path())

@@ -64,6 +64,34 @@ data class PlannerPlanExplanation(
 )
 
 @Immutable
+data class PlannerGroceryOutput(
+    val authority: String? = null,
+    val pricingAuthority: String? = null,
+    val estimatedTotalPhp: Int? = null,
+    val weeklyBudgetPhp: Int? = null,
+    val withinBudget: Boolean? = null,
+    val budgetDeltaPhp: Int? = null,
+    val itemCount: Int? = null,
+    val selectedMealCount: Int? = null,
+    val plannerMealEstimatePhp: Int? = null,
+    val roughMealBudgetCapPhp: Int? = null,
+    val items: List<PlannerGroceryOutputItem> = emptyList()
+)
+
+@Immutable
+data class PlannerGroceryOutputItem(
+    val key: String? = null,
+    val name: String,
+    val quantity: String? = null,
+    val estimatedCostPhp: Int? = null,
+    val category: String? = null,
+    val source: String? = null,
+    val sourceLabel: String? = null,
+    val confidence: String? = null,
+    val originalNames: List<String> = emptyList()
+)
+
+@Immutable
 data class PlannerPlanResponse(
     val weekLabel: String,
     val days: List<PlannerDayPlan>,
@@ -72,6 +100,7 @@ data class PlannerPlanResponse(
     val explanation: PlannerPlanExplanation? = null,
     val requestId: String? = null,
     val planId: String? = null,
+    val groceryOutput: PlannerGroceryOutput? = null,
     val policyVersion: String? = null,
     val machineReasonCodes: List<String> = emptyList(),
     val humanGuidance: List<String> = emptyList(),

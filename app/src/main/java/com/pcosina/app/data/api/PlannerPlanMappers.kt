@@ -2,6 +2,8 @@ package com.pcosina.app.data.api
 
 import com.pcosina.app.data.model.PlannerDayPlan
 import com.pcosina.app.data.model.PlannerContractItem
+import com.pcosina.app.data.model.PlannerGroceryOutput
+import com.pcosina.app.data.model.PlannerGroceryOutputItem
 import com.pcosina.app.data.model.PlannerPlanExplanation
 import com.pcosina.app.data.model.PlannerPlanResponse
 import com.pcosina.app.data.model.PlannerPlannedMeal
@@ -62,6 +64,34 @@ fun PlanExplanation.toPlannerPlanExplanation(): PlannerPlanExplanation =
         goalStrategy = goalStrategy,
     )
 
+fun GroceryOutputItemDto.toPlannerGroceryOutputItem(): PlannerGroceryOutputItem =
+    PlannerGroceryOutputItem(
+        key = key,
+        name = name,
+        quantity = quantity,
+        estimatedCostPhp = estimatedCostPhp,
+        category = category,
+        source = source,
+        sourceLabel = sourceLabel,
+        confidence = confidence,
+        originalNames = originalNames,
+    )
+
+fun GroceryOutputDto.toPlannerGroceryOutput(): PlannerGroceryOutput =
+    PlannerGroceryOutput(
+        authority = authority,
+        pricingAuthority = pricingAuthority,
+        estimatedTotalPhp = estimatedTotalPhp,
+        weeklyBudgetPhp = weeklyBudgetPhp,
+        withinBudget = withinBudget,
+        budgetDeltaPhp = budgetDeltaPhp,
+        itemCount = itemCount,
+        selectedMealCount = selectedMealCount,
+        plannerMealEstimatePhp = plannerMealEstimatePhp,
+        roughMealBudgetCapPhp = roughMealBudgetCapPhp,
+        items = items.map { it.toPlannerGroceryOutputItem() },
+    )
+
 fun PlannerTimestamps?.toPlannerTimestampsModel(): PlannerTimestampsModel? =
     this?.let {
         PlannerTimestampsModel(
@@ -79,6 +109,7 @@ fun GeneratePlanResponse.toPlannerPlanResponse(): PlannerPlanResponse =
         explanation = explanation?.toPlannerPlanExplanation(),
         requestId = requestId,
         planId = planId,
+        groceryOutput = groceryOutput?.toPlannerGroceryOutput(),
         policyVersion = policyVersion,
         machineReasonCodes = machineReasonCodes,
         humanGuidance = humanGuidance,

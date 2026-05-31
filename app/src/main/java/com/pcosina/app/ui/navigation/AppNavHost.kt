@@ -529,7 +529,7 @@ fun AppNavHost(
                     } else {
                         navController.clearSetupFlowBackStack()
                         navigateInternal(Routes.MealPlan) {
-                            tabNavigationOptions(Routes.Dashboard)
+                            tabNavigationOptions()
                         }
                     }
                 },

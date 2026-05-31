@@ -534,7 +534,7 @@ fun ProgressRefinedScreen(
                         )
                     }
                     Text(
-                        text = "Tune next plan",
+                        text = "Help tune your next plan",
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         color = PcosinaDeepRose
                     )

@@ -32,6 +32,21 @@ data class PantryCoverage(
     val autoCovered: Boolean = status == PantryCoverageStatus.Full
 }
 
+fun estimateGroceryCostAfterPantry(
+    entry: GroceryListEntry,
+    pantryCoverage: PantryCoverage?,
+    coveredOrBought: Boolean,
+): Int {
+    if (coveredOrBought) return 0
+    if (pantryCoverage?.status != PantryCoverageStatus.Partial) return entry.estimatedCostPhp
+    val remainingQuantity = pantryCoverage.remainingQuantityDisplay
+        ?.takeIf { it.isNotBlank() }
+        ?: return entry.estimatedCostPhp
+    val remainingEstimate = PriceCatalog.estimatePriceDetail(entry.name, remainingQuantity).first
+        .coerceAtLeast(1)
+    return remainingEstimate.coerceAtMost(entry.estimatedCostPhp)
+}
+
 private data class ParsedQuantity(
     val value: Double,
     val unit: String,
@@ -150,6 +165,11 @@ private val knownIngredientTokens = setOf(
 )
 
 private val countUnitWords = setOf("piece", "clove", "bunch", "stalk", "can", "pack", "head")
+private val pantryStructuredUnits = setOf(
+    "kg", "g", "lb", "oz",
+    "l", "ml", "cup", "tbsp", "tsp",
+    "piece", "clove", "bunch", "stalk", "can", "pack", "head",
+)
 
 private val ingredientPieceWeightGrams = mapOf(
     "garlic:clove" to 5.0,
@@ -196,10 +216,10 @@ fun buildGroceryListEntries(
                 .flatMap { splitQuantitySegments(it) }
                 .filter { it.isNotBlank() }
             val quantityDisplay = aggregateQuantitySegments(displayName, category, primaryUserSegments)
-            val estimatedCost = primaryUserSegments
-                .sumOf { segment -> PriceCatalog.estimatePriceDetail(displayName, segment).first }
-                .takeIf { it > 0 }
-                ?: PriceCatalog.estimatePriceDetail(displayName, quantityDisplay).first
+            val estimatedCost = PriceCatalog.estimatePriceDetail(
+                displayName,
+                quantityDisplay.ifBlank { "As needed" }
+            ).first
             GroceryListEntry(
                 key = key,
                 name = displayName,
@@ -294,7 +314,7 @@ fun buildPantryCoverage(
                 status = PantryCoverageStatus.NameOnly,
                 pantryQuantityDisplay = null,
                 remainingQuantityDisplay = grocery.quantityDisplay,
-                detail = "Pantry name matches, but quantity is not saved.",
+                detail = "Pantry name matches; add a compatible amount and unit to auto-cover it.",
             )
         }
         grocery.name to coverage
@@ -350,6 +370,8 @@ private fun quantitySegmentsForItem(name: String, quantity: String): List<String
 }
 
 private fun pantryQuantitySegments(entry: PantryEntry): List<String> {
+    val structured = pantryStructuredQuantitySegment(entry)
+    if (structured != null) return listOf(structured)
     val quantity = entry.quantity?.trim().orEmpty()
     if (quantity.isNotBlank()) {
         val explicit = splitQuantitySegments(quantity)
@@ -357,6 +379,19 @@ private fun pantryQuantitySegments(entry: PantryEntry): List<String> {
     }
     val fromName = quantityPattern.find(entry.name)?.value?.trim()
     return if (fromName.isNullOrBlank()) emptyList() else listOf(fromName)
+}
+
+private fun pantryStructuredQuantitySegment(entry: PantryEntry): String? {
+    val amount = entry.amount
+        ?.takeIf { it > 0.0 && !it.isNaN() && !it.isInfinite() }
+        ?: return null
+    val unit = entry.unit
+        ?.trim()
+        ?.lowercase(Locale.ENGLISH)
+        ?.let { unitAliases[it] ?: it }
+        ?.takeIf { it in pantryStructuredUnits }
+        ?: return null
+    return "${formatScaledValue(amount)} $unit"
 }
 
 private fun parseNumber(text: String): Double? {
@@ -565,6 +600,7 @@ private fun displayUnit(unit: String, value: Double): String {
         "stalk" -> "stalk"
         "can" -> "can"
         "pack" -> "pack"
+        "head" -> "head"
         else -> unit
     }
     return if (value == 1.0) singular else when (singular) {
@@ -574,6 +610,7 @@ private fun displayUnit(unit: String, value: Double): String {
         "stalk" -> "stalks"
         "can" -> "cans"
         "pack" -> "packs"
+        "head" -> "heads"
         else -> singular
     }
 }

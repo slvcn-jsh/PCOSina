@@ -128,7 +128,7 @@ object NotificationScheduler {
         val repository = notificationLocalRepository(context)
         val prefs = repository.getNotificationPreferences(userId).first()
         val title = "Notification test"
-        val body = "This is a local debug notification from PCOSINA."
+        val body = "This is a local notification test from PCOSina."
         dispatchAndTrackNotification(
             context = context,
             repository = repository,

@@ -47,6 +47,96 @@ class SettingsNotificationPolicyTest {
         )
     }
 
+    @Test
+    fun reminderSettings_hideDisplayOnlyReminderStatusRows() {
+        val source = read(
+            resolve(
+                "app",
+                "src",
+                "main",
+                "java",
+                "com",
+                "pcosina",
+                "app",
+                "ui",
+                "screens",
+                "SettingsScreen.kt"
+            )
+        )
+
+        assertFalse(
+            "Settings should not show a display-only phone notification status row in Reminder control.",
+            source.contains("label = \"Phone notifications\"")
+        )
+        assertFalse(
+            "Settings should not show a display-only delivery history row in Reminder control.",
+            source.contains("label = \"Delivery history\"")
+        )
+        assertFalse(
+            "Settings should not show scheduled reminders as a display-only status row.",
+            source.contains("label = \"Scheduled reminders\"")
+        )
+        assertFalse(
+            "Settings should not show delivery-log explanation copy in Reminder control.",
+            source.contains("Delivery logs appear only after Android posts a notification.")
+        )
+        assertFalse(
+            "Settings should not show Android delivery timing copy in Routine.",
+            source.contains("Quiet hours and Android delivery timing can still affect when it appears.")
+        )
+        assertFalse(
+            "Settings should not use display-only Switch rows with null handlers.",
+            source.contains("onCheckedChange = null")
+        )
+        assertFalse(
+            "Settings should not keep the redundant saved meal times footer.",
+            source.contains("Saved meal times:")
+        )
+        assertFalse(
+            "Settings should not surface raw permission copy as a prominent reminder status.",
+            source.contains("Reminder status:")
+        )
+    }
+
+    @Test
+    fun notificationScreen_emptyStateExplainsDeliveredOnlyHistory() {
+        val source = read(
+            resolve(
+                "app",
+                "src",
+                "main",
+                "java",
+                "com",
+                "pcosina",
+                "app",
+                "ui",
+                "screens",
+                "NotificationScreen.kt"
+            )
+        )
+
+        assertTrue(
+            "Notification screen should include a phone notification readiness card.",
+            source.contains("title = \"Phone notifications\"")
+        )
+        assertTrue(
+            "Notification screen should include a next scheduled card.",
+            source.contains("title = \"Next scheduled\"")
+        )
+        assertTrue(
+            "Next scheduled copy should respect the phone-notification gate.",
+            source.contains("Phone notifications need to be allowed before reminder work can run.")
+        )
+        assertTrue(
+            "Empty notification history should explain that logs are delivered-only.",
+            source.contains("The log starts only after Android posts a reminder or status notification.")
+        )
+        assertFalse(
+            "Notification screen should not imply an empty log means reminders are broken.",
+            source.contains("No notification has been delivered yet on this device.")
+        )
+    }
+
     private fun resolve(vararg parts: String): Path {
         val first = Paths.get(parts.first(), *parts.drop(1).toTypedArray())
         if (Files.exists(first)) return first

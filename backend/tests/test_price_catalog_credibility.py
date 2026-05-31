@@ -161,6 +161,26 @@ def test_price_estimate_applies_default_seasonality_and_tingi_factor():
     assert tingi.tingi_multiplier > 1.0
 
 
+def test_price_estimate_uses_ingredient_specific_garlic_count_weights(monkeypatch):
+    price_catalog.invalidate_override_cache()
+    monkeypatch.setattr(database, "list_active_price_rules", lambda limit=500: [])
+    monkeypatch.setattr(database, "get_market_multiplier", lambda category, month_index: 1.0)
+
+    clove = price_catalog.estimate_price_explained("garlic", "1 clove", month_index=3)
+    cloves = price_catalog.estimate_price_explained("garlic", "26 cloves", month_index=3)
+    grams = price_catalog.estimate_price_explained("garlic", "130 g", month_index=3)
+    head = price_catalog.estimate_price_explained("bawang", "1 head", month_index=3)
+
+    assert clove.quantity_unit == "clove"
+    assert clove.quantity_factor == 0.02
+    assert clove.price_php <= 8
+    assert abs(cloves.quantity_factor - grams.quantity_factor) < 0.001
+    assert cloves.price_php < 25
+    assert grams.price_php < 25
+    assert head.quantity_factor < 0.06
+    assert head.price_php <= 8
+
+
 def test_market_multiplier_cache_bounds_db_calls(monkeypatch):
     price_catalog.invalidate_override_cache()
     monkeypatch.setattr(database, "list_active_price_rules", lambda limit=500: [])

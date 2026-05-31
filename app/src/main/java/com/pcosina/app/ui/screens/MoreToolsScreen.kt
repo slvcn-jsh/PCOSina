@@ -68,9 +68,9 @@ fun MoreToolsScreen(
         else -> "Open the right guide fast."
     }
     val focusSummaryBody = when (focusKey) {
-        MoreToolsFocus.Guides.name -> "This screen should feel like a quick launcher for help, not a second settings page."
+        MoreToolsFocus.Guides.name -> "Use this as a quick launcher for help, separate from settings."
         MoreToolsFocus.Feedback.name -> "Use this space when something felt confusing, visually off, or harder than it should be."
-        else -> "This screen should feel like a quick launcher for help, not a second settings page."
+        else -> "Use this as a quick launcher for help, separate from settings."
     }
     val focusSummaryHighlights = buildList {
         add("Help and feedback stay separate from planning.")
@@ -133,7 +133,7 @@ fun MoreToolsScreen(
                     accentColor = colorScheme.primary,
                     statusLabel = "Guides",
                     title = "Open help guides",
-                    body = "See quick tips for planning, shopping, and staying on track without leaving the refined shell.",
+                    body = "See quick tips for planning, shopping, and staying on track without leaving the app.",
                     highlights = listOf(
                         "Open support when you need simple planning or grocery guidance.",
                         "Keep help links separate from your plan so the weekly flow stays focused."
@@ -155,7 +155,7 @@ fun MoreToolsScreen(
                     body = "Report confusing screens, missing help, or bugs with a prefilled email draft.",
                     highlights = listOf(
                         "Use this when a screen looks inconsistent or a task takes too many steps.",
-                        "Short, specific notes make the next UI pass easier to verify."
+                        "Short, specific notes help us understand and fix the issue faster."
                     ),
                     actionLabel = "Send feedback",
                     onAction = onFeedback,

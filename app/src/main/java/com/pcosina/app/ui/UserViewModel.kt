@@ -242,7 +242,12 @@ class UserViewModel(
                 entry.copy(
                     name = trimmedName,
                     quantity = entry.quantity?.trim()?.takeIf { it.isNotBlank() },
-                    expiryDate = entry.expiryDate?.trim()?.takeIf { it.isNotBlank() }
+                    expiryDate = entry.expiryDate?.trim()?.takeIf { it.isNotBlank() },
+                    amount = entry.amount?.takeIf { it > 0.0 && !it.isNaN() && !it.isInfinite() },
+                    unit = entry.unit
+                        ?.trim()
+                        ?.lowercase(Locale.ENGLISH)
+                        ?.takeIf { it.isNotBlank() }
                 )
             }
         }.distinctBy { normalizePantryNameKey(it.name) }

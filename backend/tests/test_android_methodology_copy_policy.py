@@ -14,8 +14,8 @@ def test_community_screen_feels_product_ready_even_with_placeholder_content() ->
     source = _read(COMMUNITY_SCREEN)
     assert "title = \"Support\"" in source
     assert "Clear help for planning, logging, and sending feedback." in source
-    assert "Start with the next useful step." in source
-    assert "Make the week feel lighter" in source
+    assert "Review meals, grocery, and progress from one place." in source
+    assert "Open this week's plan" in source
     assert "Need a hand?" in source
     assert "Send feedback now" in source
 

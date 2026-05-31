@@ -8,7 +8,8 @@ Applies to account-backed recovery and multi-device continuity for offline-first
 - Pantry entries
 - Grocery checklist state
 - Saved plan snapshots
-- Progress/log entries
+- Progress UI preferences and feedback artifacts
+- Daily logs and weekly journals are local-only in the current Android implementation.
 
 ## Conflict Rules
 1. **UID boundary first**: never merge across different UID scopes.
@@ -31,6 +32,8 @@ After reinstall/login:
 1. Pull active UID snapshot
 2. Rehydrate local persistence
 3. Emit recovery-complete telemetry event
+
+Android restore expectations are bounded by `docs/data-models/offline_restore_matrix.md`. Daily meal logs, weekly journals, plan history, and notification delivery history are not currently promised as cloud-restored artifacts.
 
 ## Current Implementation Evidence
 - Conflict/recovery merge helper: `backend/services/sync_recovery.py`

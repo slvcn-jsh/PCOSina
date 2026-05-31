@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -55,7 +54,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.pcosina.app.R
 import com.pcosina.app.data.model.GroceryItemSource
-import com.pcosina.app.data.model.PlannerContractItem
 import com.pcosina.app.data.model.PlannerPlannedMeal
 import com.pcosina.app.data.model.PlannerRecipeDetail
 import com.pcosina.app.data.model.PlannerRecipeSummary
@@ -65,6 +63,7 @@ import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
+import com.pcosina.app.ui.components.ArtworkAlignmentKeys
 import com.pcosina.app.ui.components.MealCheckInDialog
 import com.pcosina.app.ui.components.MealCheckInDraft
 import com.pcosina.app.ui.components.PcosinaAvatarBadge
@@ -72,7 +71,6 @@ import com.pcosina.app.ui.components.RefinedMetricBar
 import com.pcosina.app.ui.components.RefinedOverviewCard
 import com.pcosina.app.ui.components.RefinedPrimaryButton
 import com.pcosina.app.ui.components.RefinedRingMeter
-import com.pcosina.app.ui.components.RefinedStatusPill
 import com.pcosina.app.ui.components.RefinedTabBrandHeader
 import com.pcosina.app.ui.components.SharedAvatarHeader
 import com.pcosina.app.ui.navigation.Routes
@@ -455,10 +453,27 @@ fun MealPlanRefinedScreen(
             today.isAfter(planEndDate) ||
             (today == lastPlanDayDate && lastPlanDayComplete)
         val planEndLabel = planEndDate.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH))
+        val planRenewalLockedReason = when {
+            uiState is MealPlanUiState.Loading -> null
+            !isOnline -> "Internet connection is needed to generate a new plan. Your saved plan stays available offline."
+            currentPlan == null -> null
+            planRenewalEligible -> null
+            today == lastPlanDayDate && !lastPlanDayComplete ->
+                "Finish or skip the final day's meals to start the next week."
+            else -> "Available after $planEndLabel."
+        }
         val replaceWeekSubtitle = if (planRenewalEligible && currentPlan != null) {
             "Your 7-day plan is complete. Start the next week when you are ready; Grocery will resync automatically."
         } else {
-            "Your grocery list updates automatically from this plan. A new weekly plan unlocks after $planEndLabel or when the final day's meals are logged."
+            val lockCopy = planRenewalLockedReason ?: "A new weekly plan unlocks after $planEndLabel or when the final day's meals are logged."
+            "Your grocery list updates automatically from this plan. $lockCopy"
+        }
+        val planRenewalActionLabel = when {
+            uiState is MealPlanUiState.Loading -> null
+            planRenewalEligible && isOnline -> "Start next week"
+            !isOnline -> "Connect to generate"
+            today == lastPlanDayDate && !lastPlanDayComplete -> "Finish final day first"
+            else -> "Available after $planEndLabel"
         }
         val requestFreshWeek: () -> Unit = {
             if (currentPlan == null) {
@@ -475,7 +490,6 @@ fun MealPlanRefinedScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
-                .navigationBarsPadding()
                 .testTag("mealplan_content_list")
                 .padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 10.dp else 14.dp),
             verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 14.dp)
@@ -495,6 +509,8 @@ fun MealPlanRefinedScreen(
                 modifier = Modifier.testTag("mealplan_top_section_capture"),
                 dateLabel = today.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)),
                 compact = compact,
+                avatarArtworkKey = ArtworkAlignmentKeys.MealPlanHeaderAvatar,
+                onHeaderClick = { onNavigateToRoute(Routes.settingsRoute(Routes.SettingsSectionProfile)) },
             )
 
             if (isGenerating || errorState != null) {
@@ -530,7 +546,7 @@ fun MealPlanRefinedScreen(
                                     text = if (currentPlan != null) {
                                         "Your current saved week stays available below while the next request is running."
                                     } else {
-                                        "This can take a while if the backend queue is busy."
+                                        "This can take a while when many plan requests are running."
                                     },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = PcosinaMuted
@@ -914,22 +930,11 @@ fun MealPlanRefinedScreen(
                         compact = compact
                     )
 
-                    currentPlan.explanation?.plannerContract
-                        ?.takeIf { it.isNotEmpty() }
-                        ?.let { contract ->
-                            MealPlanContractCard(
-                                contract = contract,
-                                compact = compact,
-                            )
-                        }
-
                     MealPlanShoppingCard(
                         title = "Ready to shop?",
                         subtitle = replaceWeekSubtitle,
                         primaryLabel = "Go to Grocery",
-                        secondaryLabel = if (uiState is MealPlanUiState.Loading) null else {
-                            if (planRenewalEligible) "Start next week" else "Generate New Week"
-                        },
+                        secondaryLabel = planRenewalActionLabel,
                         onPrimaryClick = {
                             mealPlanViewModel.extractGrocerySourcesForPlan { sources ->
                                 groceryViewModel.setPlanSources(sources)
@@ -943,6 +948,7 @@ fun MealPlanRefinedScreen(
                         },
                         primaryEnabled = currentPlan.days.isNotEmpty(),
                         secondaryEnabled = isOnline && planRenewalEligible && uiState !is MealPlanUiState.Loading,
+                        secondaryDisabledReason = planRenewalLockedReason,
                         cardTestTag = "mealplan_next_best_action_card",
                         subtitleTestTag = "mealplan_next_best_action_reason",
                         primaryTestTag = "mealplan_next_best_action_cta",
@@ -1110,16 +1116,11 @@ private fun MealPlanDailySummaryCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Daily nutrition summary",
+                    text = "Estimated daily intake",
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF682937)
                     )
-                )
-                RefinedStatusPill(
-                    text = "Primary-user plan",
-                    containerColor = PcosinaBlush.copy(alpha = 0.78f),
-                    contentColor = Color(0xFF682937)
                 )
             }
             Row(
@@ -1129,7 +1130,7 @@ private fun MealPlanDailySummaryCard(
             ) {
                 RefinedRingMeter(
                     valueText = "$dayCalories",
-                    subtitle = "planned of ${targetCalories.coerceAtLeast(1)} kcal",
+                    subtitle = "KCAL",
                     progress = if (targetCalories > 0) dayCalories.toFloat() / targetCalories.toFloat() else 0f,
                     color = PcosinaPink,
                     compact = compact
@@ -1154,107 +1155,24 @@ private fun MealPlanDailySummaryCard(
                     }
                     RefinedMetricBar(
                         label = "Protein",
-                        valueText = "${totalProtein}g/${targetProtein}g",
+                        valueText = "${totalProtein}g",
                         progress = totalProtein.toFloat() / targetProtein.coerceAtLeast(1).toFloat(),
                         color = Color(0xFFFF9BAA)
                     )
                     RefinedMetricBar(
                         label = "Carbs",
-                        valueText = "${totalCarbs}g/${targetCarbs}g",
+                        valueText = "${totalCarbs}g",
                         progress = totalCarbs.toFloat() / targetCarbs.coerceAtLeast(1).toFloat(),
                         color = Color(0xFFD0A069)
                     )
                     RefinedMetricBar(
                         label = "Fiber",
-                        valueText = "${totalFiber}g/${targetFiber}g",
+                        valueText = "${totalFiber}g",
                         progress = totalFiber.toFloat() / targetFiber.coerceAtLeast(1).toFloat(),
                         color = Color(0xFFB9E7A6)
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun MealPlanContractCard(
-    contract: List<PlannerContractItem>,
-    compact: Boolean,
-) {
-    val hardCount = contract.count { it.classification.equals("hard", ignoreCase = true) && it.active }
-    val softCount = contract.count { it.classification.equals("soft", ignoreCase = true) && it.active }
-    val advisoryCount = contract.count { it.classification.equals("advisory", ignoreCase = true) && it.active }
-    val trackingCount = contract.count { it.classification.equals("tracking", ignoreCase = true) && it.active }
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("mealplan_contract_card"),
-        shape = RoundedCornerShape(22.dp),
-        color = Color(0xFFFFF8FB),
-        border = BorderStroke(1.5.dp, PcosinaPink.copy(alpha = 0.20f))
-    ) {
-        Column(
-            modifier = Modifier.padding(
-                horizontal = if (compact) 12.dp else 14.dp,
-                vertical = if (compact) 12.dp else 14.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "Plan rule contract",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
-                color = PcosinaDeepRose,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ContractCountPill("Hard", hardCount, Modifier.weight(1f))
-                ContractCountPill("Soft", softCount, Modifier.weight(1f))
-                ContractCountPill("Advisory", advisoryCount, Modifier.weight(1f))
-                ContractCountPill("Tracking", trackingCount, Modifier.weight(1f))
-            }
-            contract
-                .filter { it.classification.equals("advisory", ignoreCase = true) || it.classification.equals("soft", ignoreCase = true) }
-                .take(2)
-                .forEach { item ->
-                    Text(
-                        text = "${item.field}: ${item.enforcement}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = PcosinaMuted,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-        }
-    }
-}
-
-@Composable
-private fun ContractCountPill(label: String, count: Int, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.18f))
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            Text(
-                text = count.toString(),
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
-                color = PcosinaDeepRose,
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                color = PcosinaMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
         }
     }
 }
@@ -1269,6 +1187,7 @@ private fun MealPlanShoppingCard(
     onSecondaryClick: (() -> Unit)? = null,
     primaryEnabled: Boolean = true,
     secondaryEnabled: Boolean = true,
+    secondaryDisabledReason: String? = null,
     modifier: Modifier = Modifier,
     primaryTestTag: String? = null,
     secondaryTestTag: String? = null,
@@ -1338,6 +1257,15 @@ private fun MealPlanShoppingCard(
                                     fontWeight = FontWeight.Bold,
                                     color = if (secondaryEnabled) PcosinaDeepRose else PcosinaMuted
                                 )
+                            )
+                        }
+                        if (!secondaryEnabled && !secondaryDisabledReason.isNullOrBlank()) {
+                            Text(
+                                text = secondaryDisabledReason,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = PcosinaMuted,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }

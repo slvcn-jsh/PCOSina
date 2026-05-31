@@ -3,10 +3,12 @@ package com.pcosina.app
 import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.PantryEntry
 import com.pcosina.app.domain.PantryCoverageStatus
+import com.pcosina.app.domain.PriceCatalog
 import com.pcosina.app.domain.buildGroceryListEntries
 import com.pcosina.app.domain.buildPantryCoverage
 import com.pcosina.app.domain.canonicalGroceryKey
 import com.pcosina.app.domain.canonicalGroceryName
+import com.pcosina.app.domain.estimateGroceryCostAfterPantry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -63,6 +65,23 @@ class GroceryAggregationTest {
     }
 
     @Test
+    fun buildGroceryListEntries_pricesGarlicFromAggregatedWeightNotRepeatedCloves() {
+        val entries = buildGroceryListEntries(
+            items = listOf(
+                DummyData.GroceryItem("garlic", "26 cloves", 0, "Produce"),
+            )
+        )
+
+        val garlic = entries.single()
+        val aggregatedEstimate = PriceCatalog.estimatePriceDetail("Garlic", "130 g").first
+
+        assertEquals("Garlic", garlic.name)
+        assertEquals("130 g", garlic.quantityDisplay)
+        assertEquals(aggregatedEstimate.coerceAtLeast(5), garlic.estimatedCostPhp)
+        assertTrue("Garlic 130 g should not price like many generic produce pieces.", garlic.estimatedCostPhp < 80)
+    }
+
+    @Test
     fun canonicalGroceryKey_mapsFilipinoSynonymsToSameBaseIngredient() {
         assertEquals("garlic", canonicalGroceryKey("bawang"))
         assertEquals("garlic", canonicalGroceryKey("2 cloves garlic, minced"))
@@ -90,6 +109,80 @@ class GroceryAggregationTest {
         assertEquals(PantryCoverageStatus.Full, coverage["Eggs"]?.status)
         assertEquals(PantryCoverageStatus.Partial, coverage["Rice"]?.status)
         assertEquals("250 g", coverage["Rice"]?.remainingQuantityDisplay)
+    }
+
+    @Test
+    fun buildPantryCoverage_interpretsGarlicPieceAsSmallPartialWeight() {
+        val entries = buildGroceryListEntries(
+            items = listOf(DummyData.GroceryItem("garlic", "100 g", 0, "Produce"))
+        )
+
+        val coverage = buildPantryCoverage(
+            groceryEntries = entries,
+            pantryEntries = listOf(PantryEntry(name = "garlic", quantity = "1 piece")),
+            today = LocalDate.of(2026, 5, 26)
+        )
+
+        assertEquals(PantryCoverageStatus.Partial, coverage["Garlic"]?.status)
+        assertEquals("5 g", coverage["Garlic"]?.pantryQuantityDisplay)
+        assertEquals("95 g", coverage["Garlic"]?.remainingQuantityDisplay)
+    }
+
+    @Test
+    fun buildPantryCoverage_usesStructuredPantryAmountAndUnit() {
+        val entries = buildGroceryListEntries(
+            items = listOf(DummyData.GroceryItem("garlic", "100 g", 0, "Produce"))
+        )
+
+        val coverage = buildPantryCoverage(
+            groceryEntries = entries,
+            pantryEntries = listOf(PantryEntry(name = "garlic", amount = 80.0, unit = "g")),
+            today = LocalDate.of(2026, 5, 26)
+        )
+
+        assertEquals(PantryCoverageStatus.Partial, coverage["Garlic"]?.status)
+        assertEquals("80 g", coverage["Garlic"]?.pantryQuantityDisplay)
+        assertEquals("20 g", coverage["Garlic"]?.remainingQuantityDisplay)
+    }
+
+    @Test
+    fun buildPantryCoverage_prefersStructuredPantryAmountOverLegacyQuantity() {
+        val entries = buildGroceryListEntries(
+            items = listOf(DummyData.GroceryItem("garlic", "100 g", 0, "Produce"))
+        )
+
+        val coverage = buildPantryCoverage(
+            groceryEntries = entries,
+            pantryEntries = listOf(
+                PantryEntry(name = "garlic", quantity = "1 g", amount = 120.0, unit = "g")
+            ),
+            today = LocalDate.of(2026, 5, 26)
+        )
+
+        assertEquals(PantryCoverageStatus.Full, coverage["Garlic"]?.status)
+        assertEquals("120 g", coverage["Garlic"]?.pantryQuantityDisplay)
+    }
+
+    @Test
+    fun estimateGroceryCostAfterPantry_pricesOnlyRemainingPartialQuantity() {
+        val entries = buildGroceryListEntries(
+            items = listOf(DummyData.GroceryItem("Rice", "500 g", 0, "Dry Goods"))
+        )
+        val rice = entries.single()
+        val coverage = buildPantryCoverage(
+            groceryEntries = entries,
+            pantryEntries = listOf(PantryEntry(name = "bigas", quantity = "250 g")),
+            today = LocalDate.of(2026, 5, 26)
+        )
+
+        val remainingCost = estimateGroceryCostAfterPantry(
+            entry = rice,
+            pantryCoverage = coverage["Rice"],
+            coveredOrBought = false
+        )
+
+        assertTrue(remainingCost < rice.estimatedCostPhp)
+        assertEquals(0, estimateGroceryCostAfterPantry(rice, coverage["Rice"], coveredOrBought = true))
     }
 
     @Test

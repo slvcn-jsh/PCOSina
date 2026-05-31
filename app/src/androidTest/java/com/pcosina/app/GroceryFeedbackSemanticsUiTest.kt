@@ -1,18 +1,20 @@
 package com.pcosina.app
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -42,8 +44,8 @@ class GroceryFeedbackSemanticsUiTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun goToPlan_offline_showsInternetRequiredBanner() {
-        val fixture = createFixture("grocery_offline_blocked", seedPlan = false)
+    fun topCategoriesShortcutCard_isRemovedFromGroceryScreen() {
+        val fixture = createFixture("grocery_removed_top_categories", seedPlan = false)
 
         composeRule.setContent {
             MaterialTheme {
@@ -57,18 +59,21 @@ class GroceryFeedbackSemanticsUiTest {
                 )
             }
         }
+        waitForGroceryContent()
 
-        composeRule.onNodeWithText("Go to Plan").performClick()
-        composeRule.onNodeWithText("Internet required for this action. Connect to open plan generation.")
-            .assertIsDisplayed()
+        composeRule.onAllNodesWithTag("grocery_next_steps_card").assertCountEquals(0)
+        composeRule.onAllNodesWithTag("grocery_expand_toggle_all").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Go to Plan").assertCountEquals(0)
     }
 
     @Test
-    fun expandCollapseAll_showsConfirmationBanner() {
-        val fixture = createFixture("grocery_expand_feedback")
+    fun groceryBudgetAppearsBeforeKitchenHubWithoutTopCategoriesCard() {
+        val fixture = createFixture("grocery_budget_first")
         fixture.groceryViewModel.addItems(
             listOf(
                 DummyData.GroceryItem("Spinach", "2 bundles", 80, "Produce"),
+                DummyData.GroceryItem("Tomato", "2 pcs", 30, "Produce"),
+                DummyData.GroceryItem("Onion", "1 pc", 20, "Produce"),
                 DummyData.GroceryItem("Eggs", "1 dozen", 110, "Eggs & Dairy"),
             )
         )
@@ -90,22 +95,19 @@ class GroceryFeedbackSemanticsUiTest {
             composeRule.onAllNodesWithTag("grocery_content_list").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithTag("grocery_content_list")
-            .performScrollToNode(hasTestTag("grocery_expand_toggle_all"))
-        composeRule.onNodeWithTag("grocery_expand_toggle_all").performClick()
-        composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Collapsed all categories.").fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onNodeWithTag("grocery_content_list")
-            .performScrollToNode(hasText("Collapsed all categories."))
-        composeRule.onNodeWithText("Collapsed all categories.").assertIsDisplayed()
+            .performScrollToNode(hasText("Total Estimated Spending"))
+        composeRule.onNodeWithText("Total Estimated Spending").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("grocery_next_steps_card").assertCountEquals(0)
     }
 
     @Test
     fun categoryToggle_exposesTalkBackLabel() {
-        val fixture = createFixture("grocery_category_semantics")
+        val fixture = createFixture("grocery_category_semantics", seedPlan = false)
         fixture.groceryViewModel.addItems(
             listOf(
                 DummyData.GroceryItem("Spinach", "2 bundles", 80, "Produce"),
+                DummyData.GroceryItem("Tomato", "2 pcs", 30, "Produce"),
+                DummyData.GroceryItem("Onion", "1 pc", 20, "Produce"),
                 DummyData.GroceryItem("Eggs", "1 dozen", 110, "Eggs & Dairy"),
             )
         )
@@ -123,15 +125,17 @@ class GroceryFeedbackSemanticsUiTest {
             }
         }
 
+        waitForGroceryContent()
         composeRule.onNodeWithTag("grocery_content_list")
             .performScrollToNode(hasContentDescription("Collapse Produce category"))
-        composeRule.onNodeWithContentDescription("Collapse Produce category")
+        composeRule.onAllNodesWithContentDescription("Collapse Produce category")
+            .onFirst()
             .assertIsDisplayed()
     }
 
     @Test
     fun statusAndCategoryFilters_showResetPathWhenNoResults() {
-        val fixture = createFixture("grocery_filter_flow")
+        val fixture = createFixture("grocery_filter_flow", seedPlan = false)
         fixture.groceryViewModel.addItems(
             listOf(
                 DummyData.GroceryItem("Spinach", "2 bundles", 80, "Produce"),
@@ -152,33 +156,90 @@ class GroceryFeedbackSemanticsUiTest {
             }
         }
 
-        composeRule.onNodeWithTag("grocery_content_list")
-            .performScrollToNode(hasText("Need to buy"))
-        composeRule.onNodeWithText("Need to buy").performScrollTo().performClick()
-        composeRule.onNodeWithTag("grocery_content_list")
-            .performScrollToNode(hasText("Showing items you still need to buy."))
-        composeRule.onNodeWithText("Showing items you still need to buy.").assertIsDisplayed()
+        waitForGroceryContent()
+        scrollToGroceryText("Spinach")
+        openFilters()
+        clickFilterDialogAction("Need to buy")
+        dismissFilters()
+        scrollToGroceryText("Spinach")
+        composeRule.onNodeWithText("Spinach").assertIsDisplayed()
 
-        composeRule.onNodeWithTag("grocery_content_list")
-            .performScrollToNode(hasText("Produce (1)"))
-        composeRule.onNodeWithText("Produce (1)").performScrollTo().performClick()
-        composeRule.onNodeWithTag("grocery_content_list")
-            .performScrollToNode(hasText("Filtered to Produce (1 items)."))
-        composeRule.onNodeWithText("Filtered to Produce (1 items).").assertIsDisplayed()
+        openFilters()
+        clickFilterDialogAction("Produce")
+        dismissFilters()
+        scrollToGroceryText("Spinach")
+        composeRule.onNodeWithText("Spinach").assertIsDisplayed()
 
+        openFilters()
+        clickFilterDialogAction("Bought/Pantry")
+        dismissFilters()
         composeRule.onNodeWithTag("grocery_content_list")
-            .performScrollToNode(hasText("Bought / pantry"))
-        composeRule.onNodeWithText("Bought / pantry").performScrollTo().performClick()
-        composeRule.onNodeWithTag("grocery_content_list")
-            .performScrollToNode(hasText("No items match this filter yet"))
-        composeRule.onNodeWithText("No items match this filter yet").assertIsDisplayed()
+            .performScrollToNode(hasText("No ingredients match your current filters."))
+        composeRule.onNodeWithText("No ingredients match your current filters.").assertIsDisplayed()
 
+        openFilters()
+        clickFilterDialogAction("Clear All")
+        dismissFilters()
+        val visibleResetItem = scrollToAnyGroceryText("Spinach", "Eggs")
+        composeRule.onNodeWithText(visibleResetItem).assertIsDisplayed()
+    }
+
+    private fun waitForGroceryContent() {
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            runCatching {
+                composeRule.onAllNodesWithTag("grocery_content_list").fetchSemanticsNodes().isNotEmpty()
+            }.getOrDefault(false)
+        }
+        composeRule.waitForIdle()
+    }
+
+    private fun openFilters() {
         composeRule.onNodeWithTag("grocery_content_list")
-            .performScrollToNode(hasText("Reset Filters"))
-        composeRule.onNodeWithText("Reset Filters").performScrollTo().performClick()
-        composeRule.onNodeWithTag("grocery_content_list")
-            .performScrollToNode(hasText("Filters reset. Showing all items."))
-        composeRule.onNodeWithText("Filters reset. Showing all items.").assertIsDisplayed()
+            .performScrollToNode(hasContentDescription("Open grocery filters"))
+        composeRule.onNodeWithContentDescription("Open grocery filters").performClick()
+        composeRule.onNodeWithText("Select Filters").assertIsDisplayed()
+    }
+
+    private fun clickFilterDialogAction(text: String) {
+        composeRule.onNode(hasText(text) and hasClickAction()).performClick()
+        composeRule.waitForIdle()
+    }
+
+    private fun dismissFilters() {
+        clickFilterDialogAction("Done")
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            runCatching {
+                composeRule.onAllNodesWithText("Select Filters").fetchSemanticsNodes().isEmpty()
+            }.getOrDefault(false)
+        }
+        composeRule.waitForIdle()
+    }
+
+    private fun scrollToGroceryText(text: String) {
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            runCatching {
+                composeRule.onNodeWithTag("grocery_content_list")
+                    .performScrollToNode(hasText(text))
+                true
+            }.getOrDefault(false)
+        }
+        composeRule.waitForIdle()
+    }
+
+    private fun scrollToAnyGroceryText(vararg texts: String): String {
+        var visibleText = ""
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            texts.any { text ->
+                runCatching {
+                    composeRule.onNodeWithTag("grocery_content_list")
+                        .performScrollToNode(hasText(text))
+                    visibleText = text
+                    true
+                }.getOrDefault(false)
+            }
+        }
+        composeRule.waitForIdle()
+        return visibleText
     }
 
     private fun createFixture(userId: String, seedPlan: Boolean = true): Fixture {

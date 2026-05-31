@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,28 +51,29 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
 import com.pcosina.app.R
+import com.pcosina.app.data.model.UserProfile
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.AppFeedbackBanner
+import com.pcosina.app.ui.components.ArtworkAlignmentKeys
+import com.pcosina.app.ui.components.ArtworkAlignmentTarget
+import com.pcosina.app.ui.components.DevArtworkAlignmentHotspot
+import com.pcosina.app.ui.components.DevEditableArtworkImage
 import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
-import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.components.PcosinaAvatar
 import com.pcosina.app.ui.components.PcosinaAvatarOptions
 import com.pcosina.app.ui.components.PcosinaDesignIcon
 import com.pcosina.app.data.model.NotificationPreferences
 import com.pcosina.app.notifications.NotificationScheduler
 import com.pcosina.app.ui.theme.UiSpacingTokens
+import com.pcosina.app.ui.util.parseGoalOptions
 import com.pcosina.app.ui.util.primaryGoalLabel
 import android.Manifest
 import android.os.Build
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.temporal.TemporalAdjusters
-import java.time.temporal.WeekFields
 import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -82,6 +84,14 @@ private enum class SettingsScreenFocus {
     Account,
 }
 
+private fun settingsFocusFromRouteSection(section: String?): SettingsScreenFocus? =
+    when (section?.lowercase(Locale.ENGLISH)) {
+        "profile" -> SettingsScreenFocus.Profile
+        "reminders" -> SettingsScreenFocus.Reminders
+        "account" -> SettingsScreenFocus.Account
+        else -> null
+    }
+
 private enum class ReminderSettingsFocus {
     Control,
     Meals,
@@ -89,10 +99,20 @@ private enum class ReminderSettingsFocus {
     Routine,
 }
 
+private const val SettingsProfileMinAge = 18
+private const val SettingsProfileMaxAge = 60
+
 private data class SettingsTabIcon(
     val icon: ImageVector? = null,
     @DrawableRes val iconRes: Int? = null,
     val label: String,
+)
+
+private data class SettingsProfileStepState(
+    val stepNumber: Int,
+    val title: String,
+    val detail: String,
+    val complete: Boolean,
 )
 
 @Composable
@@ -106,6 +126,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onNavigateToProfileEdit: () -> Unit,
     onOpenNotifications: () -> Unit = {},
+    initialSection: String? = null,
     modifier: Modifier = Modifier
 ) {
     val profile by userViewModel.userProfile.collectAsState()
@@ -116,10 +137,18 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     
     val userName = profile.displayName.ifBlank { "Your account" }
-    var settingsFocusKey by rememberSaveable { mutableStateOf(SettingsScreenFocus.Profile.name) }
+    val requestedSettingsFocus = remember(initialSection) {
+        settingsFocusFromRouteSection(initialSection)
+    }
+    var settingsFocusKey by rememberSaveable {
+        mutableStateOf((requestedSettingsFocus ?: SettingsScreenFocus.Profile).name)
+    }
     val settingsFocus = remember(settingsFocusKey) {
         runCatching { SettingsScreenFocus.valueOf(settingsFocusKey) }
             .getOrDefault(SettingsScreenFocus.Profile)
+    }
+    LaunchedEffect(requestedSettingsFocus) {
+        requestedSettingsFocus?.let { settingsFocusKey = it.name }
     }
     var reminderFocusKey by rememberSaveable { mutableStateOf(ReminderSettingsFocus.Control.name) }
     val reminderFocus = remember(reminderFocusKey) {
@@ -146,23 +175,26 @@ fun SettingsScreen(
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
     val appNotificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
     val permissionStateLabel = when {
-        !appNotificationsEnabled -> "Blocked in system settings"
-        runtimeNotificationPermissionGranted -> "Allowed"
-        else -> "Permission not granted"
+        !appNotificationsEnabled -> "Blocked in phone settings"
+        runtimeNotificationPermissionGranted -> "Phone notifications ready"
+        else -> "Phone permission needed"
     }
     val notificationStatusSummary = when {
-        !notificationPrefs.masterEnabled -> "Reminders are paused."
-        !appNotificationsEnabled -> "Phone settings are blocking reminders."
-        runtimeNotificationPermissionGranted -> "Reminders are ready for meals and plan updates."
-        else -> "Reminder permission still needs approval."
+        !notificationPrefs.masterEnabled -> "Reminders are paused on this phone."
+        !appNotificationsEnabled -> "Turn on phone notifications before reminders can appear."
+        runtimeNotificationPermissionGranted -> "Reminders are ready on this phone."
+        else -> "Allow phone notifications before reminders can appear."
     }
     val scheduledWorkersSummary = if (scheduledWorkSummaries.isEmpty()) {
-        "No reminder times lined up yet."
+        "No scheduled reminder work yet."
     } else {
         "${scheduledWorkSummaries.size} reminder time(s) lined up"
     }
-    val nextReminderSummary = nextReminderSummaries.firstOrNull()?.let { "Next reminder: $it" }
-        ?: "No reminder time saved yet."
+    val nextReminderSummary = when {
+        !notificationPrefs.masterEnabled -> "Reminders are paused."
+        nextReminderSummaries.isNotEmpty() -> "Next reminder: ${nextReminderSummaries.first()}"
+        else -> "No reminder type is enabled."
+    }
     val reminderOverviewLabel = if (notificationPrefs.masterEnabled) {
         "Reminders on"
     } else {
@@ -185,6 +217,7 @@ fun SettingsScreen(
     } else {
         "${profile.pantryItems.size} saved"
     }
+    val profileStepStates = remember(profile) { buildSettingsProfileSteps(profile) }
     val planningPriorityLabel = profile.planningPriority.ifBlank { "Balanced" }
     val maxCookTimeLabel = "${profile.maxCookingTimeMinutes} min max"
     val settingsStatusLabel = when (settingsFocus) {
@@ -194,7 +227,7 @@ fun SettingsScreen(
             "Finish your profile so planning feels more personal."
         }
         SettingsScreenFocus.Reminders -> notificationStatusSummary
-        SettingsScreenFocus.Account -> "Account actions stay local to this device."
+        SettingsScreenFocus.Account -> "Choose only the account action you need."
     }
     val settingsSyncLabel = when (settingsFocus) {
         SettingsScreenFocus.Profile -> "Saved food rules: ${profile.dietaryRestrictions.size + profile.allergies.size}"
@@ -210,9 +243,9 @@ fun SettingsScreen(
         }
     }
     val settingsPlanRangeLabel = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> "Main goal: $mainGoalLabel"
-        SettingsScreenFocus.Reminders -> "Phone permission: $permissionStateLabel"
-        SettingsScreenFocus.Account -> "Clearing data only affects this phone unless you confirm it."
+        SettingsScreenFocus.Profile -> if (mainGoalLabel == "Not set") "Goals: Not set" else "Goals saved"
+        SettingsScreenFocus.Reminders -> "Phone notifications: $permissionStateLabel"
+        SettingsScreenFocus.Account -> "Clear saved week data removes meal plans, groceries, and progress logs for this account."
     }
     val settingsNextLabel = when (settingsFocus) {
         SettingsScreenFocus.Profile -> "Next focus: review the details that affect budget, time, and food rules."
@@ -334,8 +367,11 @@ fun SettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .testTag("settings_content_scroll")
             .background(Color.White)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .navigationBarsPadding()
+            .imePadding(),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         FigmaSettingsHero(
@@ -365,8 +401,8 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = 32.dp, vertical = UiSpacingTokens.SectionGap),
+            verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap)
         ) {
 
         if (settingsFocus == SettingsScreenFocus.Profile) {
@@ -374,23 +410,15 @@ fun SettingsScreen(
                 title = "Profile",
                 summary = settingsStatusLabel
             ) {
-                FigmaSettingsFeatureToggle(
-                    icon = Icons.Default.Warning,
-                    label = "Symptom Management",
-                    checked = profile.goal.equals("symptom_management", ignoreCase = true) || profile.symptoms.isNotEmpty()
-                )
-                FigmaSettingsFeatureToggle(
-                    icon = Icons.Default.Notifications,
-                    label = "Reminders",
-                    checked = notificationPrefs.masterEnabled
-                )
-                FigmaSettingsFeatureToggle(
-                    icon = Icons.Default.Warning,
-                    label = "Alerts",
-                    checked = notificationPrefs.grocerySyncEnabled || notificationPrefs.planReadyEnabled
+                SettingsProfileProgressLine(
+                    steps = profileStepStates,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 SettingsDivider()
-                SettingsItem(icon = Icons.Default.Info, label = "Main goal", value = mainGoalLabel)
+                SettingsMainGoalItem(
+                    icon = Icons.Default.Info,
+                    goal = profile.goal,
+                )
                 SettingsDivider()
                 SettingsItem(icon = Icons.Default.Info, label = "Weekly budget", value = budgetLabel)
                 SettingsDivider()
@@ -427,15 +455,15 @@ fun SettingsScreen(
 
         if (settingsFocus == SettingsScreenFocus.Account) {
             SettingsSection(
-                title = "Account and device actions",
-                summary = "Use these only when you need a clean reset or want to leave this phone signed out.",
+                title = "Account actions",
+                summary = "Clear saved week data or sign out only when needed.",
                 titleColor = colorScheme.error,
                 containerColor = colorScheme.errorContainer
             ) {
                 SettingsActionItem(
                     icon = Icons.Default.History,
                     label = "Clear saved week data",
-                    description = "Removes saved plans, groceries, and logs from this phone only.",
+                    description = "Removes saved plans, grocery snapshots, and progress logs for this account.",
                     color = colorScheme.error,
                     destructive = true
                 ) {
@@ -453,7 +481,7 @@ fun SettingsScreen(
                 SettingsActionItem(
                     icon = Icons.AutoMirrored.Filled.Logout,
                     label = "Sign out on this phone",
-                    description = "You can sign back in later without changing your planner rules.",
+                    description = "You can sign back in later. This does not delete this phone's saved account data.",
                     color = colorScheme.error,
                     destructive = true
                 ) {
@@ -509,10 +537,6 @@ fun SettingsScreen(
                             notificationPermissionHint = "Notifications paused."
                         }
                     }
-                )
-                SettingsInlineNotice(
-                    message = "Phone permission: $permissionStateLabel",
-                    isError = !runtimeNotificationPermissionGranted || !appNotificationsEnabled
                 )
                 if (!appNotificationsEnabled) {
                     SettingsActionItem(
@@ -576,15 +600,12 @@ fun SettingsScreen(
                         }
                     }
                 }
-                Text(
-                    text = "Saved meal times: B ${formatTime(notificationPrefs.breakfastHour, notificationPrefs.breakfastMinute)} • " +
-                        "L ${formatTime(notificationPrefs.lunchHour, notificationPrefs.lunchMinute)} • " +
-                        "D ${formatTime(notificationPrefs.dinnerHour, notificationPrefs.dinnerMinute)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (!notificationPrefs.masterEnabled || !notificationPrefs.mealRemindersEnabled) {
+                    SettingsInlineNotice(
+                        message = "Meal reminder times are saved, but they will not fire until reminders and meal nudges are on.",
+                        isError = false
+                    )
+                }
             }
             }
 
@@ -643,24 +664,23 @@ fun SettingsScreen(
                         }
                     }
                 }
-                Text(
-                    text = "Weekly reminder: ${formatDayOfWeek(notificationPrefs.weeklyResetDayOfWeek)} ${formatTime(notificationPrefs.weeklyResetHour, notificationPrefs.weeklyResetMinute)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (!notificationPrefs.masterEnabled || !notificationPrefs.weeklyResetEnabled) {
+                    SettingsInlineNotice(
+                        message = "Weekly reminder timing is saved, but it will not fire until reminders and the weekly nudge are on.",
+                        isError = false
+                    )
+                }
             }
             }
 
             if (reminderFocus == ReminderSettingsFocus.Routine) {
             SettingsSection(
-                title = "Gentle routine nudges",
+                title = "Check-in reminders",
                 summary = "Keep check-ins supportive, lightweight, and easy to ignore when you need quiet."
             ) {
                 SettingsToggleItem(
-                    label = "Keep-going nudges",
-                    description = "Gentle routine nudges, goal-aware and non-judgmental.",
+                    label = "Daily check-in reminder",
+                    description = "A gentle reminder to log how your meals and day felt.",
                     checked = notificationPrefs.streakNudgesEnabled,
                     enabled = notificationPrefs.masterEnabled,
                     onCheckedChange = { enabled ->
@@ -703,18 +723,11 @@ fun SettingsScreen(
                         }
                     }
                 }
-                Text(
-                    text = "Upcoming reminders: ${nextReminderSummaries.firstOrNull() ?: "No reminder time saved yet."}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(12.dp))
         Text(
             text = "PCOSINA • Calm planning, private reminders, and easy routines",
             modifier = Modifier.fillMaxWidth(),
@@ -722,7 +735,7 @@ fun SettingsScreen(
             style = MaterialTheme.typography.labelSmall,
             color = colorScheme.onSurfaceVariant
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(6.dp))
     }
 
     if (showClearDialog) {
@@ -751,7 +764,12 @@ fun SettingsScreen(
                 SettingsDialogDismissButton(onClick = { showClearDialog = false })
             },
             title = { Text("Clear meal history?") },
-            text = { Text("This removes plans, grocery snapshots, and adherence logs for this account.") }
+            text = {
+                Text(
+                    "This removes saved plans, grocery snapshots, and local adherence logs for this account. " +
+                        "Your profile settings stay saved."
+                )
+            }
         )
     }
 
@@ -771,7 +789,7 @@ fun SettingsScreen(
                 SettingsDialogDismissButton(onClick = { showLogoutDialog = false })
             },
             title = { Text("Logout?") },
-            text = { Text("You will need to sign in again to access your data.") }
+            text = { Text("You will need to sign in again. This does not delete this phone's saved account data.") }
         )
     }
 
@@ -862,12 +880,161 @@ fun SettingsScreen(
 
 }
 
+private fun buildSettingsProfileSteps(profile: UserProfile): List<SettingsProfileStepState> {
+    val hasPersonalDetails = profile.isProfileCompleted || (
+        profile.age in SettingsProfileMinAge..SettingsProfileMaxAge &&
+            profile.weightKg in 35..180 &&
+            profile.heightCm in 120..200 &&
+            profile.activityLevel.isNotBlank()
+        )
+    val hasMedicalDetails = profile.isProfileCompleted ||
+        profile.symptoms.isNotEmpty() ||
+        profile.comorbidities.isNotEmpty()
+    val hasPlanningRules = profile.isProfileCompleted ||
+        profile.maxCookingTimeMinutes in 10..240
+
+    return listOf(
+        SettingsProfileStepState(
+            stepNumber = 1,
+            title = "Personal",
+            detail = "Body metrics & activity",
+            complete = hasPersonalDetails,
+        ),
+        SettingsProfileStepState(
+            stepNumber = 2,
+            title = "Medical",
+            detail = "Symptoms",
+            complete = hasMedicalDetails,
+        ),
+        SettingsProfileStepState(
+            stepNumber = 3,
+            title = "Preferences",
+            detail = "Food rules & budget",
+            complete = hasPlanningRules,
+        ),
+    )
+}
+
+@Composable
+private fun SettingsProfileProgressLine(
+    steps: List<SettingsProfileStepState>,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val completedCount = steps.count { it.complete }
+    val activeStep = steps.firstOrNull { !it.complete }?.stepNumber ?: steps.lastOrNull()?.stepNumber ?: 1
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Profile setup progress",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                color = colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = colorScheme.primary.copy(alpha = 0.10f),
+                contentColor = colorScheme.primary
+            ) {
+                Text(
+                    text = "$completedCount of ${steps.size} ready",
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    maxLines = 1
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            steps.forEach { step ->
+                val highlighted = step.complete || step.stepNumber == activeStep
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(7.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(
+                            if (highlighted) {
+                                colorScheme.primary
+                            } else {
+                                colorScheme.surfaceVariant
+                            }
+                        )
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            steps.forEach { step ->
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.Start,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = if (step.complete) colorScheme.primary else colorScheme.surfaceVariant,
+                        contentColor = if (step.complete) Color.White else colorScheme.onSurfaceVariant
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (step.complete) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                            Text(
+                                text = "Step ${step.stepNumber}",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                maxLines = 1
+                            )
+                        }
+                    }
+                    Text(
+                        text = step.title,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold),
+                        color = colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = step.detail,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun FigmaSettingsHero(
     title: String,
     subtitle: String,
     onBack: () -> Unit,
 ) {
+    var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -898,7 +1065,8 @@ private fun FigmaSettingsHero(
                 )
             }
         }
-        Image(
+        DevEditableArtworkImage(
+            alignmentKey = ArtworkAlignmentKeys.SettingsHeroGear,
             painter = painterResource(id = R.drawable.pcosina_settings_gear),
             contentDescription = null,
             modifier = Modifier
@@ -906,6 +1074,10 @@ private fun FigmaSettingsHero(
                 .align(Alignment.CenterEnd)
                 .offset(x = 58.dp, y = (-2).dp),
             contentScale = ContentScale.Fit,
+            externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.SettingsHeroGear,
+            onExternalEditingChange = { editing ->
+                activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.SettingsHeroGear else null
+            },
         )
         Column(
             modifier = Modifier
@@ -929,6 +1101,19 @@ private fun FigmaSettingsHero(
                 lineHeight = 16.sp
             )
         }
+        DevArtworkAlignmentHotspot(
+            targets = listOf(
+                ArtworkAlignmentTarget(
+                    key = ArtworkAlignmentKeys.SettingsHeroGear,
+                    label = "Settings gear",
+                ),
+            ),
+            onEditTarget = { activeArtworkEditorKey = it },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(64.dp)
+                .zIndex(2f),
+        )
     }
 }
 
@@ -939,6 +1124,7 @@ private fun FigmaSettingsProfileBand(
     email: String,
     onAvatarClick: () -> Unit,
 ) {
+    var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -946,17 +1132,20 @@ private fun FigmaSettingsProfileBand(
             .background(Color.White)
             .clipToBounds()
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.pcosina_settings_burger_background),
+        DevEditableArtworkImage(
+            alignmentKey = ArtworkAlignmentKeys.SettingsProfileBackgroundBand,
+            painter = painterResource(id = R.drawable.pcosina_settings_burger_background_band),
             contentDescription = null,
             modifier = Modifier
-                .fillMaxWidth()
-                .height(228.dp)
-                .align(Alignment.TopCenter)
-                .offset(y = 10.dp),
-            contentScale = ContentScale.Crop,
-            alignment = Alignment.TopCenter,
+                .fillMaxSize()
+                .align(Alignment.Center),
+            contentScale = ContentScale.FillBounds,
+            alignment = Alignment.Center,
             alpha = 0.92f,
+            externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.SettingsProfileBackgroundBand,
+            onExternalEditingChange = { editing ->
+                activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.SettingsProfileBackgroundBand else null
+            },
         )
         Column(
             modifier = Modifier
@@ -1020,6 +1209,18 @@ private fun FigmaSettingsProfileBand(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        DevArtworkAlignmentHotspot(
+            targets = listOf(
+                ArtworkAlignmentTarget(
+                    key = ArtworkAlignmentKeys.SettingsProfileBackgroundBand,
+                    label = "Settings profile background",
+                ),
+            ),
+            onEditTarget = { activeArtworkEditorKey = it },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(64.dp),
+        )
     }
 }
 
@@ -1127,10 +1328,13 @@ private fun FigmaSettingsReminderTabs(
 }
 
 @Composable
-private fun FigmaSettingsFeatureToggle(
+private fun FigmaSettingsStatusRow(
     icon: ImageVector,
     label: String,
-    checked: Boolean,
+    value: String,
+    description: String,
+    emphasized: Boolean,
+    accentColor: Color = Color(0xFFFF7A92),
 ) {
     Row(
         modifier = Modifier
@@ -1153,18 +1357,29 @@ private fun FigmaSettingsFeatureToggle(
             text = label,
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyLarge,
-            color = Color(0xFF3B3135)
+            color = Color(0xFF3B3135),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
-        Switch(
-            checked = checked,
-            onCheckedChange = null,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color(0xFFFF7A92),
-                checkedTrackColor = Color(0xFFFFC4CE),
-                uncheckedThumbColor = Color(0xFFFF7A92),
-                uncheckedTrackColor = Color(0xFFD7D7D7)
+        Spacer(Modifier.width(10.dp))
+        Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.widthIn(max = 188.dp)
+        ) {
+            SettingsStatePill(
+                text = value,
+                emphasized = emphasized,
+                accentColor = accentColor
             )
-        )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF6F5960),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -1179,6 +1394,9 @@ private fun SettingsAvatarEditorDialog(
     onSave: () -> Unit,
 ) {
     AlertDialog(
+        modifier = Modifier
+            .navigationBarsPadding()
+            .imePadding(),
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(
@@ -1568,6 +1786,73 @@ fun SettingsItem(icon: ImageVector, label: String, value: String) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SettingsMainGoalItem(icon: ImageVector, goal: String) {
+    val goalLabels = parseGoalOptions(goal)
+        .takeIf { it.isNotEmpty() }
+        ?.sortedBy { it.ordinal }
+        ?.map { it.label }
+        ?: listOf(goal.trim().takeIf { it.isNotBlank() } ?: "Not set")
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                contentColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = "Main goal",
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 48.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            goalLabels.forEach { label ->
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = Color(0xFFFFDFE6),
+                    border = BorderStroke(1.dp, Color(0xFFFFC2CE))
+                ) {
+                    Text(
+                        text = label,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color(0xFFFF7A92),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun SettingsActionItem(
     icon: ImageVector,
@@ -1751,7 +2036,9 @@ private fun SettingsStatePill(
         Text(
             text = text,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

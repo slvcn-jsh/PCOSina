@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -44,7 +46,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -57,10 +58,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -77,7 +81,11 @@ import com.pcosina.app.BuildConfig
 import com.pcosina.app.R
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.LoginState
+import com.pcosina.app.ui.components.ArtworkAlignmentKeys
+import com.pcosina.app.ui.components.ArtworkAlignmentTarget
 import com.pcosina.app.ui.components.AppFeedbackBanner
+import com.pcosina.app.ui.components.DevArtworkAlignmentHotspot
+import com.pcosina.app.ui.components.DevEditableArtworkImage
 import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
 import com.pcosina.app.ui.theme.PcosinaBlush
@@ -157,7 +165,7 @@ fun LoginScreen(
                 GoogleSignInStatusCodes.SIGN_IN_CANCELLED -> "Google sign-in cancelled."
                 GoogleSignInStatusCodes.NETWORK_ERROR -> "Network issue during Google sign-in. Please try again."
                 GoogleSignInStatusCodes.DEVELOPER_ERROR ->
-                    "Google sign-in is not available on this build yet. Check the Firebase Google client configuration."
+                    "This build is not registered for Google sign-in yet. Add its signing certificate to Firebase, refresh google-services.json, then reinstall."
                 GoogleSignInStatusCodes.SIGN_IN_FAILED -> "Google sign-in failed. Please try again."
                 else -> "Google sign-in failed (code ${e.statusCode})."
             }
@@ -219,44 +227,49 @@ fun LoginScreen(
             .fillMaxSize()
             .background(Color.White),
     ) {
-        val scrollState = rememberScrollState()
         val compact = maxHeight < 790.dp || maxWidth < 400.dp
-        val allowScroll = maxHeight < 720.dp || maxWidth < 350.dp
-        val contentModifier = if (allowScroll) {
-            Modifier
-                .verticalScroll(scrollState)
-                .imePadding()
-        } else {
-            Modifier.imePadding()
-        }
-        val sheetTop = maxHeight * if (compact) 0.25f else 0.28f
-        val sheetFlatTop = sheetTop + if (compact) 66.dp else 78.dp
-        val outerArcSize = maxWidth * if (compact) 1.5f else 1.64f
-        val innerArcSize = maxWidth * if (compact) 1.34f else 1.46f
-        val outerArcTop = sheetTop - outerArcSize / 5f
-        val innerArcTop = sheetTop - innerArcSize / 4.7f
-        val contentTopPadding = if (compact) 80.dp else 90.dp
+        val headerHeight = maxHeight * 0.25f
+        val pinkFieldTop = headerHeight + if (compact) 132.dp else 152.dp
+        val snackBackgroundWidth = maxWidth * if (compact) 1.16f else 1.12f
+        val outerArcSize = maxWidth * if (compact) 1.36f else 1.44f
+        val innerArcSize = outerArcSize - if (compact) 42.dp else 52.dp
+        val outerArcTop = headerHeight - if (compact) 26.dp else 32.dp
+        val innerArcTop = outerArcTop + if (compact) 22.dp else 26.dp
+        val illustrationSize = (maxWidth * if (compact) 0.84f else 0.82f)
+            .coerceAtMost(if (compact) 320.dp else 360.dp)
+        val illustrationHaloSize = illustrationSize * 0.92f
+        val subtitleGap = if (compact) 8.dp else 10.dp
+        val bottomPadding = if (compact) 34.dp else 42.dp
+        val bottomStackGap = if (compact) 14.dp else 16.dp
+        val logoHaloBrush = Brush.radialGradient(
+            colorStops = arrayOf(
+                0.0f to Color.White.copy(alpha = 0.56f),
+                0.54f to Color.White.copy(alpha = 0.34f),
+                0.78f to Color.White.copy(alpha = 0.14f),
+                1.0f to Color.Transparent,
+            ),
+        )
         val taglineShadow = Shadow(
             color = Color.Black.copy(alpha = 0.12f),
             offset = Offset(0f, 4f),
             blurRadius = 8f,
         )
+        var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
 
-        Box(modifier = Modifier.fillMaxSize()) { Image(
+        Box(modifier = Modifier.fillMaxSize()) {
+            DevEditableArtworkImage(
+                alignmentKey = ArtworkAlignmentKeys.LoginSnacksBackground,
                 painter = painterResource(id = R.drawable.pcosina_auth_snacks_background),
                 contentDescription = null,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(sheetFlatTop + if (compact) 6.dp else 14.dp)
-                    .statusBarsPadding(),
+                    .width(snackBackgroundWidth)
+                    .height(pinkFieldTop)
+                    .align(Alignment.TopCenter),
                 contentScale = ContentScale.Crop,
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = sheetFlatTop)
-                    .background(PcosinaBlush),
+                externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.LoginSnacksBackground,
+                onExternalEditingChange = { editing ->
+                    activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.LoginSnacksBackground else null
+                },
             )
 
             Box(
@@ -275,122 +288,191 @@ fun LoginScreen(
                     .background(PcosinaBlush, CircleShape),
             )
 
-            Column(
-                modifier = contentModifier
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = pinkFieldTop)
+                    .background(PcosinaBlush),
+            )
+
+            Box(
+                modifier = Modifier
                     .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .testTag("login_screen_content")
-                    .padding(horizontal = if (compact) 24.dp else 30.dp)
-                    .padding(top = contentTopPadding, bottom = if (compact) 18.dp else 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 14.dp),
+                    .height(headerHeight)
+                    .statusBarsPadding(),
+                contentAlignment = Alignment.Center,
             ) {
-                Image(
+                DevEditableArtworkImage(
+                    alignmentKey = ArtworkAlignmentKeys.LoginOwnershipWatermark,
                     painter = painterResource(id = R.drawable.login_ownership_watermark),
                     contentDescription = "Developed by Quadrant",
                     modifier = Modifier
-                        .widthIn(max = if (compact) 260.dp else 286.dp)
-                        .fillMaxWidth(if (compact) 0.78f else 0.84f),
+                        .widthIn(max = if (compact) 252.dp else 286.dp)
+                        .fillMaxWidth(if (compact) 0.76f else 0.82f),
                     contentScale = ContentScale.Fit,
+                    externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.LoginOwnershipWatermark,
+                    onExternalEditingChange = { editing ->
+                        activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.LoginOwnershipWatermark else null
+                    },
                 )
+            }
 
-                Spacer(modifier = Modifier.height(if (compact) 108.dp else 126.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .testTag("login_screen_content")
+                    .padding(horizontal = if (compact) 24.dp else 30.dp)
+                    .padding(bottom = bottomPadding),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Spacer(modifier = Modifier.height(headerHeight + if (compact) 18.dp else 24.dp))
 
-                Image(
-                    painter = painterResource(id = R.drawable.login_heart_hands),
-                    contentDescription = "PCOSina",
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .widthIn(max = if (compact) 322.dp else 348.dp),
-                    contentScale = ContentScale.Fit,
-                )
+                        .fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Box(
+                        modifier = Modifier.size(illustrationSize),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(illustrationHaloSize)
+                                .shadow(
+                                    elevation = if (compact) 26.dp else 32.dp,
+                                    shape = CircleShape,
+                                    spotColor = Color.White.copy(alpha = 0.78f),
+                                    ambientColor = Color.White.copy(alpha = 0.58f),
+                                )
+                                .background(brush = logoHaloBrush, shape = CircleShape),
+                        )
 
-                Text(
-                    text = "A wellness decision support tool",
-                    modifier = Modifier.testTag("login_wellness_label"),
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = if (compact) 20.sp else 22.sp,
-                        shadow = taglineShadow,
-                    ),
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                )
+                        Image(
+                            painter = painterResource(id = R.drawable.login_heart_hands),
+                            contentDescription = "PCOSina",
+                            modifier = Modifier
+                                .size(illustrationSize)
+                                .aspectRatio(1f),
+                            contentScale = ContentScale.Fit,
+                        )
+                    }
 
-                bannerData?.let { banner ->
-                    AppFeedbackBanner(
-                        data = banner,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .widthIn(max = 420.dp),
+                    Spacer(modifier = Modifier.height(subtitleGap))
+
+                    Text(
+                        text = "A wellness decision support tool",
+                        modifier = Modifier.testTag("login_wellness_label"),
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = if (compact) 20.sp else 22.sp,
+                            shadow = taglineShadow,
+                        ),
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
                     )
                 }
 
-                Button(
-                    onClick = {
-                        legalNotice = null
-                        loginCompletionHandled = false
-                        analytics.logEvent("google_login_attempt", null)
-                        googleLauncher.launch(googleSignInClient.signInIntent)
-                    },
-                    enabled = !isLoading,
-                    shape = RoundedCornerShape(24.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        disabledContainerColor = Color.White.copy(alpha = 0.72f),
-                        contentColor = PcosinaBlushStrong,
-                        disabledContentColor = PcosinaBlushStrong.copy(alpha = 0.72f),
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .widthIn(max = 420.dp)
-                        .height(if (compact) 58.dp else 60.dp)
-                        .shadow(
-                            elevation = 16.dp,
-                            shape = RoundedCornerShape(24.dp),
-                            spotColor = PcosinaRoseShadow.copy(alpha = 0.32f),
-                            ambientColor = PcosinaRoseShadow.copy(alpha = 0.22f),
-                        )
-                        .testTag("login_primary_cta"),
+                Spacer(modifier = Modifier.weight(1f))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(bottomStackGap),
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = PcosinaBlushStrong,
-                                strokeWidth = 2.4.dp,
-                            )
-                        }
-                        Text(
-                            text = when (loginState) {
-                                LoginState.Loading -> "Signing in..."
-                                LoginState.Success -> "Signed in"
-                                else -> "Continue with Google"
-                            },
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = if (compact) 17.sp else 18.sp,
-                            ),
+                    bannerData?.let { banner ->
+                        AppFeedbackBanner(
+                            data = banner,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .widthIn(max = 420.dp),
                         )
                     }
+
+                    Button(
+                        onClick = {
+                            legalNotice = null
+                            loginCompletionHandled = false
+                            analytics.logEvent("google_login_attempt", null)
+                            googleLauncher.launch(googleSignInClient.signInIntent)
+                        },
+                        enabled = !isLoading,
+                        shape = RoundedCornerShape(24.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            disabledContainerColor = Color.White.copy(alpha = 0.72f),
+                            contentColor = PcosinaBlushStrong,
+                            disabledContentColor = PcosinaBlushStrong.copy(alpha = 0.72f),
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = 420.dp)
+                            .height(if (compact) 58.dp else 60.dp)
+                            .shadow(
+                                elevation = 16.dp,
+                                shape = RoundedCornerShape(24.dp),
+                                spotColor = PcosinaRoseShadow.copy(alpha = 0.32f),
+                                ambientColor = PcosinaRoseShadow.copy(alpha = 0.22f),
+                            )
+                            .testTag("login_primary_cta"),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            if (isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = PcosinaBlushStrong,
+                                    strokeWidth = 2.4.dp,
+                                )
+                            }
+                            Text(
+                                text = when (loginState) {
+                                    LoginState.Loading -> "Signing in..."
+                                    LoginState.Success -> "Signed in"
+                                    else -> "Continue with Google"
+                                },
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = if (compact) 17.sp else 18.sp,
+                                ),
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "By tapping Continue with Google, you agree to PCOSina's Terms of Use and Privacy Policy.",
+                        modifier = Modifier.widthIn(max = 300.dp),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 12.sp,
+                        ),
+                        color = PcosinaDeepRose.copy(alpha = 0.75f),
+                        textAlign = TextAlign.Center,
+                    )
                 }
-
-                Text(
-                    text = "By tapping Continue with Google, you agree to PCOSina's Terms of Use and Privacy Policy.",
-                    modifier = Modifier.widthIn(max = 300.dp),
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 12.sp,
-                    ),
-                    color = PcosinaDeepRose.copy(alpha = 0.75f),
-                    textAlign = TextAlign.Center,
-                )
-
             }
+            DevArtworkAlignmentHotspot(
+                targets = listOf(
+                    ArtworkAlignmentTarget(
+                        key = ArtworkAlignmentKeys.LoginSnacksBackground,
+                        label = "Login background",
+                    ),
+                    ArtworkAlignmentTarget(
+                        key = ArtworkAlignmentKeys.LoginOwnershipWatermark,
+                        label = "Developed by Quadrant",
+                    ),
+                ),
+                onEditTarget = { activeArtworkEditorKey = it },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .size(64.dp),
+            )
         }
 
         if (showTerms) {
@@ -460,18 +542,27 @@ private fun TermsOfServiceOverlay(
         val compact = screenHeight < 790.dp || screenWidth < 400.dp
         val sheetTop = screenHeight * if (compact) 0.26f else 0.29f
         val sheetFlatTop = sheetTop + if (compact) 58.dp else 72.dp
+        val snackBackgroundWidth = screenWidth * if (compact) 1.16f else 1.12f
         val outerArcSize = screenWidth * if (compact) 1.48f else 1.64f
         val innerArcSize = screenWidth * if (compact) 1.32f else 1.46f
         val scrollMaxHeight = screenHeight * if (compact) 0.43f else 0.47f
+        val density = LocalDensity.current
+        var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
 
-        Image(
+        DevEditableArtworkImage(
+            alignmentKey = ArtworkAlignmentKeys.LoginTermsSnacksBackground,
             painter = painterResource(id = R.drawable.pcosina_auth_snacks_background),
             contentDescription = null,
             modifier = Modifier
-                .fillMaxWidth()
+                .width(snackBackgroundWidth)
                 .height(sheetFlatTop + if (compact) 6.dp else 14.dp)
+                .align(Alignment.TopCenter)
                 .statusBarsPadding(),
             contentScale = ContentScale.Crop,
+            externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.LoginTermsSnacksBackground,
+            onExternalEditingChange = { editing ->
+                activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.LoginTermsSnacksBackground else null
+            },
         )
 
         Box(
@@ -506,13 +597,18 @@ private fun TermsOfServiceOverlay(
                 .padding(top = if (compact) 48.dp else 54.dp, bottom = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Image(
+            DevEditableArtworkImage(
+                alignmentKey = ArtworkAlignmentKeys.LoginTermsOwnershipWatermark,
                 painter = painterResource(id = R.drawable.login_ownership_watermark),
                 contentDescription = "Developed by Quadrant",
                 modifier = Modifier
                     .widthIn(max = 238.dp)
                     .fillMaxWidth(0.68f),
                 contentScale = ContentScale.Fit,
+                externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.LoginTermsOwnershipWatermark,
+                onExternalEditingChange = { editing ->
+                    activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.LoginTermsOwnershipWatermark else null
+                },
             )
 
             Spacer(modifier = Modifier.height(if (compact) 22.dp else 28.dp))
@@ -544,12 +640,33 @@ private fun TermsOfServiceOverlay(
                         color = PcosinaMuted
                     )
 
+                    val legalScrollState = rememberScrollState()
+                    var legalTrackHeightPx by remember { mutableStateOf(0) }
+                    val minThumbHeightPx = with(density) { 42.dp.toPx() }
+                    val thumbHeightPx = if (legalScrollState.maxValue > 0 && legalTrackHeightPx > 0) {
+                        val contentHeightPx = legalTrackHeightPx + legalScrollState.maxValue
+                        (legalTrackHeightPx * (legalTrackHeightPx / contentHeightPx.toFloat()))
+                            .coerceIn(minThumbHeightPx, legalTrackHeightPx.toFloat())
+                    } else {
+                        legalTrackHeightPx.toFloat()
+                    }
+                    val thumbOffsetPx = if (
+                        legalScrollState.maxValue > 0 &&
+                        legalTrackHeightPx > thumbHeightPx
+                    ) {
+                        (legalScrollState.value / legalScrollState.maxValue.toFloat()) *
+                            (legalTrackHeightPx - thumbHeightPx)
+                    } else {
+                        0f
+                    }
+                    val thumbHeight = with(density) { thumbHeightPx.toDp() }
+                    val thumbOffset = with(density) { thumbOffsetPx.toDp() }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = scrollMaxHeight),
+                            .heightIn(max = scrollMaxHeight)
+                            .onSizeChanged { legalTrackHeightPx = it.height },
                     ) {
-                        val legalScrollState = rememberScrollState()
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -605,7 +722,8 @@ private fun TermsOfServiceOverlay(
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .height(if (compact) 88.dp else 108.dp)
+                                .offset(y = thumbOffset)
+                                .height(thumbHeight)
                                 .widthIn(min = 5.dp, max = 5.dp)
                                 .background(PcosinaBlushStrong, RoundedCornerShape(50)),
                         )
@@ -644,6 +762,23 @@ private fun TermsOfServiceOverlay(
                 textAlign = TextAlign.Center,
             )
         }
+        DevArtworkAlignmentHotspot(
+            targets = listOf(
+                ArtworkAlignmentTarget(
+                    key = ArtworkAlignmentKeys.LoginTermsSnacksBackground,
+                    label = "Terms background",
+                ),
+                ArtworkAlignmentTarget(
+                    key = ArtworkAlignmentKeys.LoginTermsOwnershipWatermark,
+                    label = "Terms developed by Quadrant",
+                ),
+            ),
+            onEditTarget = { activeArtworkEditorKey = it },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .size(64.dp),
+        )
     }
 }
 

@@ -30,11 +30,13 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
 import java.util.Locale
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
+@Ignore("Legacy feedback retry controls are no longer rendered in Progress; queue persistence remains covered by policy tests.")
 class ProgressRetryBannerUiTest {
 
     @get:Rule

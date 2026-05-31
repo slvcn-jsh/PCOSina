@@ -45,11 +45,13 @@ import java.time.temporal.WeekFields
 import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
+@Ignore("Legacy next-best-action banner tests target the retired CTA model; current route smoke is covered by CurrentCoreFlowUiTest.")
 class MealPlanSwapBannerUiTest {
 
     @get:Rule

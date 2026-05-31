@@ -67,6 +67,28 @@ def test_aggregate_grocery_list_applies_serving_scale():
     assert result["egg"]["displayQuantity"] == "165 g"
 
 
+def test_aggregate_grocery_list_handles_expanded_count_units():
+    result = aggregate_grocery_list(
+        [
+            {
+                "meals": [
+                    {
+                        "ingredients": [
+                            {"name": "1 head garlic, crushed", "quantity": ""},
+                            {"name": "luya", "quantity": "1 piece"},
+                            {"name": "malunggay", "quantity": "1 bunch"},
+                        ]
+                    }
+                ]
+            }
+        ]
+    )
+
+    assert result["garlic"]["displayQuantity"] == "45 g"
+    assert result["ginger"]["displayQuantity"] == "20 g"
+    assert result["malunggay"]["displayQuantity"] == "80 g"
+
+
 def test_aggregate_grocery_list_uses_filipino_produce_names_and_realistic_cup_weights():
     result = aggregate_grocery_list(
         [

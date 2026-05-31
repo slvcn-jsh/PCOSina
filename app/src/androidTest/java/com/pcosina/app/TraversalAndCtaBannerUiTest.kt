@@ -1,6 +1,7 @@
 package com.pcosina.app
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -31,6 +32,7 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
 import java.util.Locale
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -44,6 +46,7 @@ class TraversalAndCtaBannerUiTest {
     @Test
     fun dashboardPrimaryCard_hasTraversalOrder_andPrimaryCtaShowsBanner() {
         val fixture = createFixture("dashboard_traversal_banner_${System.currentTimeMillis()}")
+        val openedPlan = mutableStateOf(false)
 
         composeRule.setContent {
             MaterialTheme {
@@ -54,18 +57,23 @@ class TraversalAndCtaBannerUiTest {
                     groceryViewModel = fixture.groceryViewModel,
                     progressViewModel = fixture.progressViewModel,
                     onRecipeClick = { _, _ -> },
-                    onViewPlan = {},
+                    onViewPlan = { openedPlan.value = true },
                     onNavigateToRoute = {},
                     onlineStateOverride = true
                 )
             }
         }
 
+        composeRule.onNodeWithTag("dashboard_content_list")
+            .performScrollToNode(hasTestTag("dashboard_primary_next_card"))
         composeRule.onNodeWithTag("dashboard_primary_next_card")
             .assertIsDisplayed()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 2f))
-        composeRule.onNodeWithText("Generate My Plan").performClick()
-        composeRule.onNodeWithText("Opening plan generator…").assertIsDisplayed()
+        composeRule.onNodeWithText("Go to Plan").performClick()
+        composeRule.waitUntil(timeoutMillis = 3_000) {
+            openedPlan.value
+        }
+        assertTrue(openedPlan.value)
     }
 
     @Test
@@ -73,7 +81,6 @@ class TraversalAndCtaBannerUiTest {
         val fixture = createFixture("progress_week_seed_${System.currentTimeMillis()}")
         val seeds = fixture.mealPlanViewModel.seedDemoWeeks(fixture.userViewModel.userProfile.value)
         fixture.progressViewModel.seedDemoWeeks(seeds)
-        fixture.progressViewModel.setProgressModePreference("Week")
         fixture.progressViewModel.setAdvancedWeekAnalyticsExpandedPreference(true)
 
         composeRule.setContent {
@@ -94,7 +101,6 @@ class TraversalAndCtaBannerUiTest {
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithTag("progress_content_list").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("progress_mode_week").performClick()
         composeRule.onNodeWithTag("progress_content_list")
             .performScrollToNode(hasTestTag("progress_week_spending_card"))
         composeRule.onNodeWithTag("progress_week_spending_card")
@@ -105,11 +111,6 @@ class TraversalAndCtaBannerUiTest {
         composeRule.onNodeWithTag("progress_week_macro_card")
             .assertIsDisplayed()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 7f))
-        composeRule.onNodeWithTag("progress_content_list")
-            .performScrollToNode(hasTestTag("progress_plan_feedback_card"))
-        composeRule.onNodeWithTag("progress_plan_feedback_card")
-            .assertIsDisplayed()
-            .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 8f))
     }
 
     private fun createFixture(userId: String): Fixture {
@@ -125,6 +126,10 @@ class TraversalAndCtaBannerUiTest {
         )
         val authViewModel = AuthViewModel(AuthRepository(context))
         userViewModel.loadProfileForUser(userId)
+        userViewModel.updateProfileName("Traversal Tester")
+        userViewModel.updatePersonalDetails(age = 29, weight = 64, height = 162, activity = "Lightly Active")
+        userViewModel.updateGoal("Weight Loss")
+        userViewModel.setProfileCompleted(true)
         bindMealPlanCurrentUserIdForTest(mealPlanViewModel, userId)
         bindGroceryCurrentUserIdForTest(groceryViewModel, userId)
         bindProgressCurrentUserIdForTest(progressViewModel, userId)

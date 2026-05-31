@@ -22,7 +22,36 @@ The `staging` Android build keeps Firebase App Check support installed but does 
 3. Confirm Render has deployed the latest `dev` commit.
 4. Confirm `https://pcosina-backend.onrender.com/health` and `/health/ready` are healthy.
 5. Confirm Render testing env vars match [render-testing-env.md](render-testing-env.md).
-6. Confirm no local secret files are staged.
+6. Confirm Google Sign-In fingerprints match the build you will install.
+7. Confirm no local secret files are staged.
+
+## Google Sign-In Fingerprints
+
+Google Sign-In fails with `DEVELOPER_ERROR` when the installed APK's signing certificate is not registered on the Firebase Android app for `com.pcosina.app`.
+
+Run this before sending a phone build:
+
+```powershell
+.\gradlew.bat :app:printGoogleSignInConfig
+.\gradlew.bat :app:verifyGoogleSignInDebugSha
+```
+
+For the current local debug APK on this workstation, the missing debug SHA-1 is:
+
+```text
+A6:6B:AE:5E:31:1F:30:04:49:5F:52:E3:8D:74:32:96:26:BA:33:A3
+```
+
+If Firebase CLI is available and logged in, register it and refresh the Android config:
+
+```powershell
+firebase apps:android:sha:create 1:950408114415:android:0b3c55b663b7638c20ab1a A6:6B:AE:5E:31:1F:30:04:49:5F:52:E3:8D:74:32:96:26:BA:33:A3 --project pcosina
+firebase apps:sdkconfig android 1:950408114415:android:0b3c55b663b7638c20ab1a --project pcosina > app/google-services.json
+```
+
+Manual fallback: Firebase Console -> Project settings -> Your apps -> Android app `com.pcosina.app` -> Add fingerprint. Add the SHA-1 above, then download the refreshed `google-services.json` into `app/google-services.json`.
+
+Rebuild and reinstall the APK after refreshing the file. Existing installed APKs keep the old configuration until replaced.
 
 ## Required Local Inputs
 

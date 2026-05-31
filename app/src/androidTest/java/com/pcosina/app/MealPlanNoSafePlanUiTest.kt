@@ -1,6 +1,7 @@
 package com.pcosina.app
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasTestTag
@@ -8,6 +9,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -57,7 +59,7 @@ class MealPlanNoSafePlanUiTest {
         }
 
         composeRule.onNodeWithText("No safe plan is available yet").assertIsDisplayed()
-        composeRule.onNodeWithText("Increase budget or cooking time and try again.").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Increase budget or cooking time and try again.").assertCountEquals(2)
         composeRule.onNodeWithText("Try adjusting:").assertIsDisplayed()
         composeRule.onNodeWithText("• Increase weekly budget slightly.").assertIsDisplayed()
         composeRule.onNodeWithText("Reference: diag-001").assertIsDisplayed()
@@ -87,7 +89,9 @@ class MealPlanNoSafePlanUiTest {
 
         composeRule.onNodeWithTag("mealplan_no_safe_plan_card").assertIsDisplayed()
         composeRule.onNodeWithText("Your saved week is still available below.").assertIsDisplayed()
-        composeRule.onNodeWithText("Plan range:", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("mealplan_content_list")
+            .performScrollToNode(hasText("Ready to shop?"))
+        composeRule.onNodeWithText("Ready to shop?").assertIsDisplayed()
         composeRule.onNodeWithTag("mealplan_content_list")
             .performScrollToNode(hasTestTag("mealplan_generate_new_week_button"))
         composeRule.onNodeWithTag("mealplan_generate_new_week_button").assertIsDisplayed()

@@ -38,11 +38,27 @@
           }
         },
         {
+          "client_id": "950408114415-elvh30h42cj141a5a8sfndtj018v5e8e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pcosina.app",
+            "certificate_hash": "a66bae5e311f3004495f52e38d74329626ba33a3"
+          }
+        },
+        {
           "client_id": "950408114415-lg04bn93jue346bu5nd7b3jhveqbb8e4.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.pcosina.app",
             "certificate_hash": "4b476e06c6de8e4936a70bb2332614fa37b607c0"
+          }
+        },
+        {
+          "client_id": "950408114415-qto50265eb6e8upgapnv9pdktvhv9sef.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pcosina.app",
+            "certificate_hash": "a5464f711e8e7a15bdf55435945c0af4a66a95de"
           }
         },
         {

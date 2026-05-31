@@ -248,7 +248,9 @@ fun RefinedPrimaryButton(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+            maxLines = 1,
+            textAlign = TextAlign.Center,
         )
     }
 }

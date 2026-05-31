@@ -80,14 +80,20 @@ fun GroceryOutputItemDto.toPlannerGroceryOutputItem(): PlannerGroceryOutputItem 
 fun GroceryOutputDto.toPlannerGroceryOutput(): PlannerGroceryOutput =
     PlannerGroceryOutput(
         authority = authority,
+        budgetAuthority = budgetAuthority,
         pricingAuthority = pricingAuthority,
         estimatedTotalPhp = estimatedTotalPhp,
+        finalGroceryEstimatePhp = finalGroceryEstimatePhp,
         weeklyBudgetPhp = weeklyBudgetPhp,
+        userBudgetPhp = userBudgetPhp,
         withinBudget = withinBudget,
         budgetDeltaPhp = budgetDeltaPhp,
+        budgetGapPhp = budgetGapPhp,
+        displayedEstimateSource = displayedEstimateSource,
         itemCount = itemCount,
         selectedMealCount = selectedMealCount,
         plannerMealEstimatePhp = plannerMealEstimatePhp,
+        solverBudgetEstimatePhp = solverBudgetEstimatePhp,
         roughMealBudgetCapPhp = roughMealBudgetCapPhp,
         items = items.map { it.toPlannerGroceryOutputItem() },
     )

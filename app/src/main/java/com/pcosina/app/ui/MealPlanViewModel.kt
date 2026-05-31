@@ -702,7 +702,16 @@ class MealPlanViewModel(
         val normalized = orderedLabels.map { label ->
             byCanonical[label] ?: PlannerDayPlan(label, emptyList(), 0)
         }
-        return response.copy(days = normalized)
+        val authoritativeEstimate = response.groceryOutput
+            ?.estimatedTotalPhp
+            ?.takeIf { it > 0 }
+            ?: response.groceryOutput?.finalGroceryEstimatePhp?.takeIf { it > 0 }
+        val explanation = if (authoritativeEstimate != null && response.explanation != null) {
+            response.explanation.copy(estimatedWeeklyCost = authoritativeEstimate)
+        } else {
+            response.explanation
+        }
+        return response.copy(days = normalized, explanation = explanation)
     }
 
     private fun canonicalDayLabel(label: String): String? {

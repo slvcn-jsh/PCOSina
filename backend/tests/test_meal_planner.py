@@ -2206,7 +2206,7 @@ def test_solve_meal_plan_accepts_final_grocery_total_over_rough_meal_proxy(monke
             "planning_horizon_days": 1,
             "meals_per_day": 3,
             "recipe_repeat_limits": [3],
-            "rough_budget_cap_multiplier": 3.0,
+            "rough_budget_cap_multiplier": 1.0,
         },
         "stage1": {
             "max_candidates_per_slot": 10,
@@ -2239,7 +2239,248 @@ def test_solve_meal_plan_accepts_final_grocery_total_over_rough_meal_proxy(monke
     assert explanation["roughMealEstimatedWeeklyCost"] == 300
     assert explanation["estimatedWeeklyCost"] <= 150
     assert explanation["groceryBudgetAuthority"]["withinBudget"] is True
+    assert explanation["budgetAuthority"] == "backend_aggregated_grocery"
+    assert explanation["finalGroceryEstimatePhp"] == explanation["estimatedWeeklyCost"]
+    assert telemetry["budget_diagnostics"]["displayedEstimateSource"] == "backend_aggregated_grocery"
     assert telemetry["grocery_output"]["estimatedTotalPhp"] == explanation["estimatedWeeklyCost"]
+
+
+def test_normal_profile_budget_acceptance_is_monotonic_when_final_grocery_is_under_budget(monkeypatch):
+    monkeypatch.setattr(meal_planner, "estimate_cost", lambda recipe, **kwargs: 2000)
+
+    def fake_grocery_output(_selected, *, budget_weekly=None):
+        total = 2235
+        budget = int(budget_weekly or 0)
+        return {
+            "authority": "backend_aggregated_grocery",
+            "pricingAuthority": "reviewed_market_price_rules",
+            "estimatedTotalPhp": total,
+            "weeklyBudgetPhp": budget,
+            "withinBudget": total <= budget,
+            "budgetDeltaPhp": budget - total,
+            "itemCount": 1,
+            "items": [],
+        }
+
+    monkeypatch.setattr(meal_planner, "_build_selected_grocery_output", fake_grocery_output)
+    recipes = [
+        _recipe("b1", "Breakfast", "Breakfast"),
+        _recipe("l1", "Lunch", "Lunch"),
+        _recipe("d1", "Dinner", "Dinner"),
+    ]
+    policy = {
+        "planning": {
+            "planning_horizon_days": 1,
+            "meals_per_day": 3,
+            "recipe_repeat_limits": [3],
+            "rough_budget_cap_multiplier": 1.5,
+        },
+        "stage1": {
+            "max_candidates_per_slot": 10,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "restricted_shortlist_multiplier": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "pantry_match_threshold": 0,
+            "minimum_candidates_required": 1,
+            "pool_cap_top_share": 1.0,
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+        },
+        "solver": {
+            "solver_time_limit_seconds": 1.0,
+            "solver_max_seconds": 2.0,
+            "total_solver_seconds": 3.0,
+            "retry_attempts": 0,
+            "optimality_gap_target": 0.1,
+            "solver_workers": 1,
+        },
+    }
+
+    outcomes = []
+    for budget in (3000, 3500, 4000):
+        profile = UserProfile(
+            displayName="NormalBudgetUser",
+            age=27,
+            heightCm=160,
+            weightKg=60,
+            activityLevel="Lightly Active",
+            goal="General Health",
+            weeklyBudgetPhp=budget,
+            maxCookingTimeMinutes=60,
+            dietaryRestrictions=[],
+            allergies=[],
+            planningPriority="Balanced",
+        )
+        request = meal_planner.GeneratePlanRequest(profile=profile, days=1, mealsPerDay=3)
+        telemetry = {}
+
+        plan, msg, explanation = meal_planner.solve_meal_plan(request, recipes, policy=policy, telemetry_out=telemetry)
+
+        outcomes.append((budget, plan, msg, explanation, telemetry))
+
+    for budget, plan, msg, explanation, telemetry in outcomes:
+        assert msg == "Success", budget
+        assert plan is not None
+        assert explanation["estimatedWeeklyCost"] == 2235
+        assert explanation["solverBudgetEstimatePhp"] == 6000
+        assert telemetry["grocery_output"]["budgetAuthority"] == "backend_aggregated_grocery"
+        assert telemetry["budget_diagnostics"]["budgetGapPhp"] == budget - 2235
+
+
+def test_no_safe_plan_only_after_authoritative_final_grocery_exceeds_budget(monkeypatch):
+    monkeypatch.setattr(meal_planner, "estimate_cost", lambda recipe, **kwargs: 10)
+
+    def fake_grocery_output(_selected, *, budget_weekly=None):
+        total = 3500
+        budget = int(budget_weekly or 0)
+        return {
+            "authority": "backend_aggregated_grocery",
+            "pricingAuthority": "reviewed_market_price_rules",
+            "estimatedTotalPhp": total,
+            "weeklyBudgetPhp": budget,
+            "withinBudget": total <= budget,
+            "budgetDeltaPhp": budget - total,
+            "itemCount": 1,
+            "items": [],
+        }
+
+    monkeypatch.setattr(meal_planner, "_build_selected_grocery_output", fake_grocery_output)
+    profile = UserProfile(
+        displayName="BudgetFinalAuthorityReject",
+        age=27,
+        heightCm=160,
+        weightKg=60,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        weeklyBudgetPhp=3000,
+        maxCookingTimeMinutes=60,
+        planningPriority="Budget First",
+    )
+    request = meal_planner.GeneratePlanRequest(profile=profile, days=1, mealsPerDay=3)
+    recipes = [
+        _recipe("b1", "Breakfast", "Breakfast"),
+        _recipe("l1", "Lunch", "Lunch"),
+        _recipe("d1", "Dinner", "Dinner"),
+    ]
+    policy = {
+        "planning": {
+            "planning_horizon_days": 1,
+            "meals_per_day": 3,
+            "recipe_repeat_limits": [3],
+            "final_grocery_validation_attempts": 2,
+        },
+        "stage1": {
+            "max_candidates_per_slot": 10,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "restricted_shortlist_multiplier": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "pantry_match_threshold": 0,
+            "minimum_candidates_required": 1,
+            "pool_cap_top_share": 1.0,
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+        },
+        "solver": {
+            "solver_time_limit_seconds": 1.0,
+            "solver_max_seconds": 2.0,
+            "total_solver_seconds": 3.0,
+            "retry_attempts": 0,
+            "optimality_gap_target": 0.1,
+            "solver_workers": 1,
+        },
+    }
+    telemetry = {}
+
+    plan, msg, explanation = meal_planner.solve_meal_plan(request, recipes, policy=policy, telemetry_out=telemetry)
+
+    assert plan is None
+    assert explanation is None
+    assert msg == "Final grocery estimate exceeds weekly budget."
+    assert telemetry["budget_exceeded_stage"] == "final_grocery_budget"
+    assert telemetry["budget_diagnostics"]["finalGroceryEstimatePhp"] == 3500
+    assert telemetry["budget_diagnostics"]["budgetGapPhp"] == -500
+
+
+def test_solve_meal_plan_clears_stale_budget_rejection_after_later_success(monkeypatch):
+    monkeypatch.setattr(meal_planner, "estimate_cost", lambda recipe, **kwargs: 10)
+    grocery_totals = iter([99, 10])
+
+    def fake_grocery_output(_selected, *, budget_weekly=None):
+        total = next(grocery_totals)
+        return {
+            "authority": "backend_aggregated_grocery",
+            "pricingAuthority": "reviewed_market_price_rules",
+            "estimatedTotalPhp": total,
+            "weeklyBudgetPhp": budget_weekly,
+            "withinBudget": total <= int(budget_weekly or 0),
+            "budgetDeltaPhp": int(budget_weekly or 0) - total,
+            "itemCount": 1,
+            "items": [],
+        }
+
+    monkeypatch.setattr(meal_planner, "_build_selected_grocery_output", fake_grocery_output)
+    profile = UserProfile(
+        displayName="BudgetTelemetry",
+        age=27,
+        heightCm=160,
+        weightKg=60,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        weeklyBudgetPhp=50,
+        maxCookingTimeMinutes=60,
+        planningPriority="Budget First",
+    )
+    request = meal_planner.GeneratePlanRequest(profile=profile, days=1, mealsPerDay=3)
+    recipes = [
+        _recipe("b1", "Breakfast", "Breakfast"),
+        _recipe("l1", "Lunch", "Lunch"),
+        _recipe("d1", "Dinner", "Dinner"),
+    ]
+    policy = {
+        "planning": {
+            "planning_horizon_days": 1,
+            "meals_per_day": 3,
+            "recipe_repeat_limits": [3, 4],
+            "rough_budget_cap_multiplier": 3.0,
+        },
+        "stage1": {
+            "max_candidates_per_slot": 10,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "restricted_shortlist_multiplier": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "pantry_match_threshold": 0,
+            "minimum_candidates_required": 1,
+            "pool_cap_top_share": 1.0,
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+        },
+        "solver": {
+            "solver_time_limit_seconds": 1.0,
+            "solver_max_seconds": 2.0,
+            "total_solver_seconds": 3.0,
+            "retry_attempts": 0,
+            "optimality_gap_target": 0.1,
+            "solver_workers": 1,
+        },
+    }
+    telemetry = {}
+
+    plan, msg, explanation = meal_planner.solve_meal_plan(request, recipes, policy=policy, telemetry_out=telemetry)
+
+    assert msg == "Success"
+    assert plan is not None
+    assert explanation["estimatedWeeklyCost"] == 10
+    assert telemetry["grocery_output"]["withinBudget"] is True
+    assert telemetry.get("budget_exceeded_stage") is None
+    pair_statuses = [row["status"] for row in telemetry["solve_pair_diagnostics"]]
+    assert pair_statuses[0] == "GROCERY_BUDGET_EXCEEDED"
+    assert pair_statuses[1] in {"FEASIBLE", "OPTIMAL"}
 
 
 def test_solve_meal_plan_returns_no_safe_plan_when_budget_makes_model_infeasible():

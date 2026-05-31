@@ -265,6 +265,7 @@ fun GroceryRefinedScreen(
         ?.groceryOutput
         ?.estimatedTotalPhp
         ?.takeIf { it > 0 }
+        ?: activePlanResponse?.groceryOutput?.finalGroceryEstimatePhp?.takeIf { it > 0 }
     val totalEstimated = authoritativeTotalEstimated ?: localTotalEstimated
     val weeklyBudget = userProfile.weeklyBudgetPhp.takeIf { it > 0 }
     val remainingBudget = weeklyBudget?.minus(totalEstimated)

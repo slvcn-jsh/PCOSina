@@ -54,14 +54,20 @@ data class GeneratePlanResponse(
 
 data class GroceryOutputDto(
     val authority: String? = null,
+    val budgetAuthority: String? = null,
     val pricingAuthority: String? = null,
     val estimatedTotalPhp: Int? = null,
+    val finalGroceryEstimatePhp: Int? = null,
     val weeklyBudgetPhp: Int? = null,
+    val userBudgetPhp: Int? = null,
     val withinBudget: Boolean? = null,
     val budgetDeltaPhp: Int? = null,
+    val budgetGapPhp: Int? = null,
+    val displayedEstimateSource: String? = null,
     val itemCount: Int? = null,
     val selectedMealCount: Int? = null,
     val plannerMealEstimatePhp: Int? = null,
+    val solverBudgetEstimatePhp: Int? = null,
     val roughMealBudgetCapPhp: Int? = null,
     val items: List<GroceryOutputItemDto> = emptyList()
 )

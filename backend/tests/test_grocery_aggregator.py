@@ -67,6 +67,138 @@ def test_aggregate_grocery_list_applies_serving_scale():
     assert result["egg"]["displayQuantity"] == "165 g"
 
 
+def test_aggregate_grocery_list_uses_filipino_produce_names_and_realistic_cup_weights():
+    result = aggregate_grocery_list(
+        [
+            {
+                "meals": [
+                    {
+                        "ingredients": [
+                            {"name": "malunggay/leaves", "quantity": "4 cups"},
+                            {"name": "kalabasa cubed small", "quantity": "2 cups"},
+                        ]
+                    }
+                ]
+            }
+        ]
+    )
+
+    assert "leaves" not in result
+    assert "cubed" not in result
+    assert result["malunggay leaves"]["name"] == "Malunggay Leaves"
+    assert result["malunggay leaves"]["displayQuantity"] == "120 g"
+    assert result["kalabasa"]["name"] == "Kalabasa"
+    assert result["kalabasa"]["displayQuantity"] == "280 g"
+
+
+def test_aggregate_grocery_list_converts_cooked_monggo_to_dry_grocery_equivalent():
+    result = aggregate_grocery_list(
+        [
+            {
+                "meals": [
+                    {
+                        "ingredients": [
+                            {"name": "cooked monggo", "quantity": "3 cups"},
+                            {"name": "monggo", "quantity": "180 g"},
+                        ]
+                    }
+                ]
+            }
+        ]
+    )
+
+    assert "cooked" not in result
+    assert result["monggo"]["name"] == "Monggo"
+    assert result["monggo"]["displayQuantity"] == "420 g"
+    assert result["monggo"]["originalNames"] == ["cooked monggo", "monggo"]
+
+
+def test_aggregate_grocery_list_does_not_parse_large_or_long_as_liters():
+    result = aggregate_grocery_list(
+        [
+            {
+                "meals": [
+                    {
+                        "ingredients": [
+                            {"name": "1 large bangus milkfish, cleaned and sliced", "quantity": ""},
+                            {"name": "12 long green beans cut into 2 inch pieces", "quantity": ""},
+                        ]
+                    }
+                ]
+            }
+        ]
+    )
+
+    assert "and" not in result
+    assert "2" not in result
+    assert result["bangus"]["displayQuantity"] == "450 g"
+    assert result["string beans"]["displayQuantity"] == "120 g"
+
+
+def test_aggregate_grocery_list_keeps_liquid_spoons_volume_based():
+    result = aggregate_grocery_list(
+        [
+            {
+                "meals": [
+                    {
+                        "ingredients": [
+                            {"name": "2 tablespoons soy sauce", "quantity": ""},
+                            {"name": "1 tablespoon canola oil", "quantity": ""},
+                        ]
+                    }
+                ]
+            }
+        ]
+    )
+
+    assert result["soy sauce"]["displayQuantity"] == "30 ml"
+    assert result["canola oil"]["displayQuantity"] == "15 ml"
+
+
+def test_aggregate_grocery_list_uses_small_piece_weight_for_bay_leaves():
+    result = aggregate_grocery_list(
+        [
+            {
+                "meals": [
+                    {
+                        "ingredients": [
+                            {"name": "4 pieces dried bay leaves", "quantity": ""},
+                            {"name": "2 bay leaves dahon ng laurel", "quantity": ""},
+                        ]
+                    }
+                ]
+            }
+        ]
+    )
+
+    assert "bay" not in result
+    assert "laurel" not in result
+    assert result["bay leaves"]["name"] == "Bay Leaves"
+    assert result["bay leaves"]["displayQuantity"] == "1.5 g"
+
+
+def test_aggregate_grocery_list_uses_local_aliases_and_leading_counts():
+    result = aggregate_grocery_list(
+        [
+            {
+                "meals": [
+                    {
+                        "ingredients": [
+                            {"name": "2 medium potatoes peeled and quartered (patatas)", "quantity": ""},
+                            {"name": "3 pieces Finger Chilies (Siling Pangsigang)", "quantity": ""},
+                        ]
+                    }
+                ]
+            }
+        ]
+    )
+
+    assert "quartered" not in result
+    assert "patatas" not in result
+    assert result["potato"]["displayQuantity"] == "300 g"
+    assert result["siling pangsigang"]["displayQuantity"] == "24 g"
+
+
 def test_price_grocery_buckets_returns_budget_authority_payload():
     buckets = aggregate_grocery_list(
         [

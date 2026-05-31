@@ -1145,6 +1145,23 @@ def _build_selected_grocery_output(
     return output
 
 
+def _budget_authority_diagnostics(
+    *,
+    budget_weekly: Optional[float],
+    solver_budget_estimate_php: Optional[float],
+    final_grocery_estimate_php: Optional[float],
+    budget_gap_php: Optional[float],
+) -> Dict[str, Any]:
+    return {
+        "userBudgetPhp": int(round(float(budget_weekly))) if budget_weekly else None,
+        "solverBudgetEstimatePhp": int(round(float(solver_budget_estimate_php or 0))),
+        "finalGroceryEstimatePhp": int(round(float(final_grocery_estimate_php or 0))),
+        "displayedEstimateSource": "backend_aggregated_grocery",
+        "budgetAuthority": "backend_aggregated_grocery",
+        "budgetGapPhp": int(round(float(budget_gap_php))) if budget_gap_php is not None else None,
+    }
+
+
 def macro_ratios(_: str | None = None) -> tuple[float, float, float]:
     """Return the final PCOS wellness macro policy.
 
@@ -2782,6 +2799,10 @@ def solve_meal_plan(
         solver_budget["budgetWeeklyPhp"] = int(round(float(budget_weekly)))
         solver_budget["roughMealBudgetCapPhp"] = int(rough_budget_cap or budget_weekly)
         solver_budget["finalBudgetAuthority"] = "backend_aggregated_grocery"
+        solver_budget["budgetAuthority"] = "backend_aggregated_grocery"
+        solver_budget["roughBudgetHardCapApplied"] = bool(
+            _policy_get(policy, "planning.enforce_rough_budget_cap", False)
+        )
     rule_effects = profile_rule_summary(profile, budget_weekly)
     max_per_week_list = repeat_sequence_for_profile(
         [
@@ -2977,7 +2998,7 @@ def solve_meal_plan(
                 pantry_match_total = sum(pantry_bonus_vars)
 
         total_cost = sum(x[s, i] * int(pool[i].get("_cost_est", 0)) for s in range(slot_count) for i in range(len(pool)))
-        if budget_weekly:
+        if budget_weekly and bool(_policy_get(policy, "planning.enforce_rough_budget_cap", False)):
             model.Add(total_cost <= int(rough_budget_cap or budget_weekly))
 
         err_vars = []
@@ -3186,90 +3207,146 @@ def solve_meal_plan(
         solve_pair_diagnostics.append(pair_diag)
 
         if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
-            res_plan = []
+            final_attempt_limit = max(1, int(_policy_get(policy, "planning.final_grocery_validation_attempts", 6)))
+            final_attempts: List[Dict[str, Any]] = []
+            final_attempt_index = 0
             day_names = build_plan_day_labels(num_days, getattr(request, "startDate", None))
-            selected = []
-            for d in range(num_days):
-                meals = []
-                total = 0
-                for m in range(configured_meals_per_day):
-                    idx = d * configured_meals_per_day + m
-                    for i in range(len(pool)):
-                        if solver.Value(x[idx, i]):
-                            r = pool[i]
-                            selected.append(r)
-                            meals.append(PlannedMeal(mealLabel=slot_labels[m], recipeId=r["id"], title=r["title"]))
-                            total += int(r.get("calories", 0))
-                            break
-                res_plan.append(DayPlan(dayLabel=day_names[d], meals=meals, totalCalories=total))
-            rough_est_cost = sum(int(r.get("_cost_est", 0)) for r in selected)
-            grocery_output = _build_selected_grocery_output(selected, budget_weekly=budget_weekly)
-            grocery_total = int(grocery_output.get("estimatedTotalPhp") or 0)
-            grocery_output["plannerMealEstimatePhp"] = int(rough_est_cost)
-            grocery_output["roughMealBudgetCapPhp"] = int(rough_budget_cap or budget_weekly or 0) or None
-            pair_diag["finalGroceryBudget"] = {
-                "estimatedTotalPhp": grocery_total,
-                "weeklyBudgetPhp": int(round(float(budget_weekly))) if budget_weekly else None,
-                "withinBudget": grocery_output.get("withinBudget"),
-                "plannerMealEstimatePhp": int(rough_est_cost),
-            }
-            if budget_weekly and grocery_total > int(round(float(budget_weekly))):
-                final_grocery_budget_rejected = True
-                pair_diag["solverStatus"] = status_name
-                pair_diag["status"] = "GROCERY_BUDGET_EXCEEDED"
+            while status in [cp_model.OPTIMAL, cp_model.FEASIBLE] and final_attempt_index < final_attempt_limit:
+                res_plan = []
+                selected = []
+                selected_indices: List[Tuple[int, int]] = []
+                for d in range(num_days):
+                    meals = []
+                    total = 0
+                    for m in range(configured_meals_per_day):
+                        idx = d * configured_meals_per_day + m
+                        for i in range(len(pool)):
+                            if solver.Value(x[idx, i]):
+                                r = pool[i]
+                                selected.append(r)
+                                selected_indices.append((idx, i))
+                                meals.append(PlannedMeal(mealLabel=slot_labels[m], recipeId=r["id"], title=r["title"]))
+                                total += int(r.get("calories", 0))
+                                break
+                    res_plan.append(DayPlan(dayLabel=day_names[d], meals=meals, totalCalories=total))
+                rough_est_cost = sum(int(r.get("_cost_est", 0)) for r in selected)
+                grocery_output = _build_selected_grocery_output(selected, budget_weekly=budget_weekly)
+                grocery_total = int(grocery_output.get("estimatedTotalPhp") or 0)
+                budget_diag = _budget_authority_diagnostics(
+                    budget_weekly=budget_weekly,
+                    solver_budget_estimate_php=rough_est_cost,
+                    final_grocery_estimate_php=grocery_total,
+                    budget_gap_php=grocery_output.get("budgetDeltaPhp"),
+                )
+                grocery_output.update(budget_diag)
+                grocery_output["plannerMealEstimatePhp"] = int(rough_est_cost)
+                grocery_output["solverBudgetEstimatePhp"] = int(rough_est_cost)
+                grocery_output["roughMealBudgetCapPhp"] = int(rough_budget_cap or budget_weekly or 0) or None
+                final_attempt = {
+                    "attempt": final_attempt_index + 1,
+                    "estimatedTotalPhp": grocery_total,
+                    "weeklyBudgetPhp": int(round(float(budget_weekly))) if budget_weekly else None,
+                    "withinBudget": grocery_output.get("withinBudget"),
+                    "plannerMealEstimatePhp": int(rough_est_cost),
+                    "budgetGapPhp": budget_diag.get("budgetGapPhp"),
+                }
+                final_attempts.append(final_attempt)
+                pair_diag["finalGroceryAttempts"] = final_attempts[-6:]
+                pair_diag["finalGroceryBudget"] = final_attempt
+                if budget_weekly and grocery_total > int(round(float(budget_weekly))):
+                    final_grocery_budget_rejected = True
+                    pair_diag["solverStatus"] = status_name
+                    pair_diag["status"] = "GROCERY_BUDGET_EXCEEDED"
+                    if telemetry_out is not None:
+                        telemetry_out["grocery_output"] = grocery_output
+                        telemetry_out["budget_diagnostics"] = budget_diag
+                        telemetry_out["budget_exceeded_stage"] = "final_grocery_budget"
+                    if final_attempt_index >= final_attempt_limit - 1 or time.time() >= deadline_at:
+                        break
+                    if len(selected_indices) != slot_count:
+                        break
+                    model.Add(sum(x[slot_idx, recipe_idx] for slot_idx, recipe_idx in selected_indices) <= slot_count - 1)
+                    elapsed = time.time() - planner_started_at
+                    remaining = total_time_limit - elapsed
+                    if remaining <= 0:
+                        break
+                    final_retry_started_at = time.time()
+                    solver.parameters.max_time_in_seconds = max(0.2, min(adaptive_time, max_time, remaining))
+                    status = solver.Solve(model)
+                    solve_elapsed_ms = max(0, int((time.time() - final_retry_started_at) * 1000))
+                    try:
+                        status_name = solver.StatusName(status)
+                    except Exception:
+                        status_name = str(status)
+                    attempts_used += 1
+                    pair_attempts.append(
+                        {
+                            "retry": attempts_used - 1,
+                            "attemptTimeSeconds": round(float(solver.parameters.max_time_in_seconds), 3),
+                            "solveMs": solve_elapsed_ms,
+                            "status": status_name,
+                            "stopAfterFirstSolution": bool(stop_after_first_solution),
+                            "finalGroceryRetry": final_attempt_index + 1,
+                        }
+                    )
+                    pair_diag["solveMs"] = max(0, int((time.time() - solve_started_at) * 1000))
+                    pair_diag["attemptsUsed"] = attempts_used
+                    pair_diag["attempts"] = pair_attempts
+                    final_attempt_index += 1
+                    continue
+                explanation = _build_explanation(
+                    selected,
+                    num_days,
+                    configured_meals_per_day,
+                    daily_targets,
+                    target,
+                    target_protein,
+                    target_carbs,
+                    target_fats,
+                    tol,
+                    max_per_week,
+                    profile,
+                    budget_weekly,
+                    candidate_pool_size=len(pool),
+                    profile_rule_effects=rule_effects,
+                    symptom_state=symptom_state,
+                    candidate_exclusion_summary=dict(stage1_diag.get("exclusion_summary") or {}),
+                    budget_hard_cap_applied=bool(budget_weekly),
+                    fiber_min_target=fiber_min_target,
+                    sugar_max_target=sugar_max_target,
+                )
+                explanation["roughMealEstimatedWeeklyCost"] = int(rough_est_cost)
+                explanation["estimatedWeeklyCost"] = int(grocery_total)
+                explanation["estimatedWeeklyCostSource"] = "backend_aggregated_grocery"
+                explanation["roughMealBudgetCapPhp"] = int(rough_budget_cap or budget_weekly or 0) or None
+                explanation["groceryBudgetAuthority"] = {
+                    "authority": grocery_output.get("authority"),
+                    "estimatedTotalPhp": int(grocery_total),
+                    "weeklyBudgetPhp": grocery_output.get("weeklyBudgetPhp"),
+                    "withinBudget": grocery_output.get("withinBudget"),
+                    "budgetDeltaPhp": grocery_output.get("budgetDeltaPhp"),
+                    "plannerMealEstimatePhp": int(rough_est_cost),
+                    **budget_diag,
+                }
+                explanation.update(budget_diag)
+                explanation["solverStatus"] = status_name
+                explanation["retryAttemptsUsed"] = attempts_used
+                _record_phase_timing(phase_timings_ms, "solver", solver_started_at)
+                _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
+                explanation["phaseTimingsMs"] = dict(phase_timings_ms)
+                explanation["solverBudget"] = dict(solver_budget)
+                explanation["solvePairDiagnostics"] = solve_pair_diagnostics[-6:]
                 if telemetry_out is not None:
+                    telemetry_out["selected_recipe_ids"] = [str(r.get("id") or "") for r in selected]
+                    telemetry_out["status"] = "success"
+                    telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
+                    telemetry_out["solver_budget"] = dict(solver_budget)
+                    telemetry_out["stage1_diag"] = dict(stage1_diag)
+                    telemetry_out["solve_pair_diagnostics"] = solve_pair_diagnostics[-6:]
                     telemetry_out["grocery_output"] = grocery_output
-                    telemetry_out["budget_exceeded_stage"] = "final_grocery_budget"
-                continue
-            explanation = _build_explanation(
-                selected,
-                num_days,
-                configured_meals_per_day,
-                daily_targets,
-                target,
-                target_protein,
-                target_carbs,
-                target_fats,
-                tol,
-                max_per_week,
-                profile,
-                budget_weekly,
-                candidate_pool_size=len(pool),
-                profile_rule_effects=rule_effects,
-                symptom_state=symptom_state,
-                candidate_exclusion_summary=dict(stage1_diag.get("exclusion_summary") or {}),
-                budget_hard_cap_applied=bool(budget_weekly),
-                fiber_min_target=fiber_min_target,
-                sugar_max_target=sugar_max_target,
-            )
-            explanation["roughMealEstimatedWeeklyCost"] = int(rough_est_cost)
-            explanation["estimatedWeeklyCost"] = int(grocery_total)
-            explanation["estimatedWeeklyCostSource"] = "backend_aggregated_grocery"
-            explanation["roughMealBudgetCapPhp"] = int(rough_budget_cap or budget_weekly or 0) or None
-            explanation["groceryBudgetAuthority"] = {
-                "authority": grocery_output.get("authority"),
-                "estimatedTotalPhp": int(grocery_total),
-                "weeklyBudgetPhp": grocery_output.get("weeklyBudgetPhp"),
-                "withinBudget": grocery_output.get("withinBudget"),
-                "budgetDeltaPhp": grocery_output.get("budgetDeltaPhp"),
-                "plannerMealEstimatePhp": int(rough_est_cost),
-            }
-            explanation["solverStatus"] = status_name
-            explanation["retryAttemptsUsed"] = attempts_used
-            _record_phase_timing(phase_timings_ms, "solver", solver_started_at)
-            _record_phase_timing(phase_timings_ms, "planner_total", planner_started_at)
-            explanation["phaseTimingsMs"] = dict(phase_timings_ms)
-            explanation["solverBudget"] = dict(solver_budget)
-            explanation["solvePairDiagnostics"] = solve_pair_diagnostics[-6:]
-            if telemetry_out is not None:
-                telemetry_out["selected_recipe_ids"] = [str(r.get("id") or "") for r in selected]
-                telemetry_out["status"] = "success"
-                telemetry_out["phase_timings_ms"] = dict(phase_timings_ms)
-                telemetry_out["solver_budget"] = dict(solver_budget)
-                telemetry_out["stage1_diag"] = dict(stage1_diag)
-                telemetry_out["solve_pair_diagnostics"] = solve_pair_diagnostics[-6:]
-                telemetry_out["grocery_output"] = grocery_output
-            return res_plan, "Success", explanation
+                    telemetry_out["budget_diagnostics"] = budget_diag
+                    telemetry_out.pop("budget_exceeded_stage", None)
+                return res_plan, "Success", explanation
         if (time.time() - planner_started_at) >= total_time_limit:
             if status == cp_model.UNKNOWN:
                 budget_exceeded_stage = "solver_search"

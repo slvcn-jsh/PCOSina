@@ -577,7 +577,12 @@ fun ProgressRefinedScreen(
         val compact = maxHeight < 760.dp || maxWidth < 390.dp
         val budgetTarget = profile.weeklyBudgetPhp.takeIf { it > 0 }
         val weeklySpendValue = weeklySpend
-        val estimatedWeeklyCost = currentPlan?.explanation?.estimatedWeeklyCost
+        val estimatedWeeklyCost = currentPlan
+            ?.groceryOutput
+            ?.estimatedTotalPhp
+            ?.takeIf { it > 0 }
+            ?: currentPlan?.groceryOutput?.finalGroceryEstimatePhp?.takeIf { it > 0 }
+            ?: currentPlan?.explanation?.estimatedWeeklyCost
         val bmiValue = remember(profile.weightKg, profile.heightCm) {
             HealthMetrics.bmi(profile.weightKg, profile.heightCm)
         }

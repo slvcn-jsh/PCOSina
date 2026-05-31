@@ -166,6 +166,7 @@ def _emit_planner_timing_log(
         "stage1Diag": telemetry_payload.get("stage1_diag") or {},
         "pricingDiagnostics": telemetry_payload.get("pricing_diagnostics") or {},
         "solverBudget": telemetry_payload.get("solver_budget") or {},
+        "budgetDiagnostics": telemetry_payload.get("budget_diagnostics") or {},
         "budgetExceededStage": telemetry_payload.get("budget_exceeded_stage"),
         "solvePairDiagnostics": telemetry_payload.get("solve_pair_diagnostics") or [],
     }
@@ -401,6 +402,8 @@ def run_once() -> bool:
                 "summary": "success",
                 "pricingDiagnostics": telemetry.get("pricing_diagnostics") or {},
                 "phaseTimingsMs": telemetry.get("phase_timings_ms") or {},
+                "budgetDiagnostics": telemetry.get("budget_diagnostics") or {},
+                **(telemetry.get("budget_diagnostics") or {}),
                 "groceryBudgetAuthority": (explanation or {}).get("groceryBudgetAuthority") if isinstance(explanation, dict) else None,
             },
             solverMetadata={

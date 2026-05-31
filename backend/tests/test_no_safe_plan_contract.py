@@ -298,7 +298,15 @@ def test_no_safe_response_captures_exclusion_and_budget_diagnostics():
                 "exclusion_detail_counts": {"allergy:fish": 5, "restriction:no_pork": 2},
             },
             "budget_exceeded_stage": "stage1_shortlist",
-            "solver_budget": {"totalTimeLimitSeconds": 14.0},
+            "solver_budget": {"totalTimeLimitSeconds": 14.0, "budgetWeeklyPhp": 700},
+            "budget_diagnostics": {
+                "userBudgetPhp": 700,
+                "solverBudgetEstimatePhp": 820,
+                "finalGroceryEstimatePhp": 760,
+                "displayedEstimateSource": "backend_aggregated_grocery",
+                "budgetAuthority": "backend_aggregated_grocery",
+                "budgetGapPhp": -60,
+            },
             "phase_timings_ms": {"stage1_shortlist": 4200, "stage1_price_estimation": 3900},
             "pricing_diagnostics": {
                 "marketMultiplierDbCalls": 1,
@@ -318,6 +326,12 @@ def test_no_safe_response_captures_exclusion_and_budget_diagnostics():
     assert response.diagnosticsSummary["timeoutStage"] == "stage1_shortlist"
     assert response.diagnosticsSummary["candidateCountPre"] is None
     assert response.diagnosticsSummary["candidateCountPost"] is None
+    assert response.diagnosticsSummary["budgetDiagnostics"]["finalGroceryEstimatePhp"] == 760
+    assert response.diagnosticsSummary["userBudgetPhp"] == 700
+    assert response.diagnosticsSummary["solverBudgetEstimatePhp"] == 820
+    assert response.diagnosticsSummary["displayedEstimateSource"] == "backend_aggregated_grocery"
+    assert response.diagnosticsSummary["budgetAuthority"] == "backend_aggregated_grocery"
+    assert response.diagnosticsSummary["budgetGapPhp"] == -60
     assert response.diagnosticsSummary["pricingDiagnostics"]["marketMultiplierDbCalls"] == 1
     assert response.diagnosticsSummary["phaseTimingsMs"]["stage1_price_estimation"] == 3900
     assert response.machineReasonCodes == ["PLANNER_TIMEOUT"]

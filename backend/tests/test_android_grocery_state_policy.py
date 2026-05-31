@@ -7,6 +7,7 @@ MEAL_PLAN_VIEW_MODEL = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina
 USER_PREFS_REPOSITORY = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "data" / "repository" / "UserPreferencesRepository.kt"
 USER_VIEW_MODEL = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "ui" / "UserViewModel.kt"
 GROCERY_SCREEN = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "ui" / "screens" / "GroceryRefinedScreen.kt"
+PROGRESS_SCREEN = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "ui" / "screens" / "ProgressRefinedScreen.kt"
 GROCERY_AGGREGATION = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "domain" / "GroceryAggregation.kt"
 
 
@@ -62,3 +63,15 @@ def test_pantry_editing_and_matching_use_normalized_name_keys():
     assert "private fun refinedPantryKey(raw: String)" in grocery_screen_source
     assert "private fun refinedPantryMatches(pantryName: String, groceryName: String): Boolean" in grocery_screen_source
     assert "return groceryNamesMatch(pantryName, groceryName)" in grocery_screen_source
+
+
+def test_android_budget_display_prefers_backend_grocery_authority():
+    meal_plan_source = _read(MEAL_PLAN_VIEW_MODEL)
+    grocery_screen_source = _read(GROCERY_SCREEN)
+    progress_screen_source = _read(PROGRESS_SCREEN)
+
+    assert "response.groceryOutput" in meal_plan_source
+    assert "response.explanation.copy(estimatedWeeklyCost = authoritativeEstimate)" in meal_plan_source
+    assert "val authoritativeTotalEstimated = activePlanResponse" in grocery_screen_source
+    assert "val totalEstimated = authoritativeTotalEstimated ?: localTotalEstimated" in grocery_screen_source
+    assert "currentPlan\n            ?.groceryOutput\n            ?.estimatedTotalPhp" in progress_screen_source

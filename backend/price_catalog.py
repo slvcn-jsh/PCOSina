@@ -200,12 +200,18 @@ _UNIT_ALIASES = {
     "pound": "lb",
     "pounds": "lb",
     "oz": "oz",
+    "ounce": "oz",
+    "ounces": "oz",
     "ml": "ml",
+    "milliliter": "ml",
+    "milliliters": "ml",
     "l": "l",
     "liter": "l",
     "liters": "l",
     "litre": "l",
     "litres": "l",
+    "quart": "quart",
+    "quarts": "quart",
     "cup": "cup",
     "cups": "cup",
     "tbsp": "tbsp",
@@ -227,14 +233,30 @@ _UNIT_ALIASES = {
     "stalks": "stalk",
     "head": "head",
     "heads": "head",
+    "bundle": "bunch",
+    "bundles": "bunch",
+    "thumb": "piece",
+    "thumbs": "piece",
+    "slice": "piece",
+    "slices": "piece",
+    "fillet": "piece",
+    "fillets": "piece",
     "can": "can",
     "cans": "can",
+    "sachet": "pack",
+    "sachets": "pack",
+    "package": "pack",
+    "packages": "pack",
     "pack": "pack",
     "packs": "pack",
     "packet": "pack",
     "packets": "pack",
     "tray": "tray",
     "trays": "tray",
+    "block": "piece",
+    "blocks": "piece",
+    "square": "piece",
+    "squares": "piece",
 }
 
 _CATEGORY_DEFAULT_UNIT = {
@@ -382,7 +404,14 @@ def _parse_number(text: str) -> Optional[float]:
 
 
 _QTY_PATTERN = re.compile(
-    r"(?P<num>\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(?P<unit>kg|kilo|kilogram|g|gram|grams|lb|lbs|pound|pounds|oz|ml|l|liter|liters|litre|litres|cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|piece|pieces|pc|pcs|clove|cloves|bunch|bunches|tali|stalk|stalks|head|heads|can|cans|pack|packs|packet|packets|tray|trays)"
+    r"(?P<num>\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*"
+    r"(?P<unit>kilograms|kilogram|kilo|kg|grams|gram|g|pounds|pound|lbs|lb|ounces|ounce|oz|"
+    r"milliliters|milliliter|ml|liters|liter|litres|litre|l|quarts|quart|"
+    r"tablespoons|tablespoon|tbsp|teaspoons|teaspoon|tsp|cups|cup|pieces|piece|pcs|pc|"
+    r"cloves|clove|bunches|bunch|bundles|bundle|tali|stalks|stalk|heads|head|"
+    r"fillets|fillet|slices|slice|thumbs|thumb|cans|can|sachets|sachet|"
+    r"packages|package|packets|packet|packs|pack|blocks|block|squares|square|trays|tray)"
+    r"\.?(?![a-z])"
 )
 
 
@@ -476,6 +505,8 @@ def _unit_to_kg(value: float, unit: str) -> Optional[float]:
         return value * 0.015
     if unit == "tsp":
         return value * 0.005
+    if unit == "quart":
+        return value * 0.946353
     return None
 
 

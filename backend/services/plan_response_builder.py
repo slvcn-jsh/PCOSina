@@ -137,6 +137,28 @@ def build_no_safe_plan_response(
     reason_codes = _reason_codes_from_message(message, budget_exceeded_stage=budget_exceeded_stage)
     profile = request.profile
     budget_weekly = resolve_budget_weekly(profile)
+    grocery_output = dict(telemetry.get("grocery_output") or {})
+    solver_budget = dict(telemetry.get("solver_budget") or {})
+    budget_diagnostics = dict(telemetry.get("budget_diagnostics") or {})
+    if not budget_diagnostics:
+        final_estimate = _optional_int(grocery_output.get("estimatedTotalPhp") or grocery_output.get("finalGroceryEstimatePhp"))
+        solver_estimate = _optional_int(
+            grocery_output.get("plannerMealEstimatePhp")
+            or grocery_output.get("solverBudgetEstimatePhp")
+            or solver_budget.get("solverBudgetEstimatePhp")
+        )
+        raw_budget_gap = grocery_output.get("budgetDeltaPhp")
+        if raw_budget_gap is None:
+            raw_budget_gap = grocery_output.get("budgetGapPhp")
+        budget_gap = _optional_int(raw_budget_gap)
+        budget_diagnostics = {
+            "userBudgetPhp": _optional_int(budget_weekly),
+            "solverBudgetEstimatePhp": solver_estimate,
+            "finalGroceryEstimatePhp": final_estimate,
+            "displayedEstimateSource": "backend_aggregated_grocery" if final_estimate is not None else None,
+            "budgetAuthority": "backend_aggregated_grocery",
+            "budgetGapPhp": budget_gap,
+        }
     diagnostics_summary = {
         "reasonCodes": reason_codes,
         "summary": message,
@@ -158,7 +180,9 @@ def build_no_safe_plan_response(
         },
         "pricingDiagnostics": pricing_diagnostics,
         "timingSummary": _timing_summary(phase_timings, pricing_diagnostics),
-        "solverBudget": telemetry.get("solver_budget") or {},
+        "solverBudget": solver_budget,
+        "budgetDiagnostics": budget_diagnostics,
+        **budget_diagnostics,
         "phaseTimingsMs": phase_timings,
     }
     guidance, relaxations = _guidance_from_profile(request, reason_codes, diagnostics_summary)

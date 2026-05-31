@@ -259,8 +259,8 @@ android {
         applicationId = "com.pcosina.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 46
-        versionName = "1.10.10"
+        versionCode = 47
+        versionName = "1.10.11"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -325,7 +325,7 @@ android {
             buildConfigField("String", "BASE_URL", "\"$releaseBaseUrl\"")
             buildConfigField("String", "SENTRY_DSN", "\"$releaseSentryDsn\"")
             buildConfigField("String", "APP_ENVIRONMENT", "\"staging\"")
-            buildConfigField("boolean", "PCOSINA_SEND_APP_CHECK", "true")
+            buildConfigField("boolean", "PCOSINA_SEND_APP_CHECK", "false")
             signingConfig = signingConfigs.getByName("release")
             firebaseAppDistribution {
                 artifactType = "APK"

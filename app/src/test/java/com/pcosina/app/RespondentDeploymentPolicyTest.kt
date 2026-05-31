@@ -9,13 +9,13 @@ import org.junit.Test
 class RespondentDeploymentPolicyTest {
 
     @Test
-    fun stagingBuild_targetsRenderAndSendsAppCheckLikeRelease() {
+    fun stagingBuild_targetsRenderAndDoesNotSendBackendAppCheck() {
         val source = read(resolve("app", "build.gradle.kts"))
         assertTrue(source.contains("create(\"staging\")"))
         assertTrue(source.contains("versionNameSuffix = \"-staging\""))
         assertTrue(source.contains("buildConfigField(\"String\", \"BASE_URL\", \"\\\"${'$'}releaseBaseUrl\\\"\")"))
         assertTrue(source.contains("buildConfigField(\"String\", \"APP_ENVIRONMENT\", \"\\\"staging\\\"\")"))
-        assertTrue(source.contains("buildConfigField(\"boolean\", \"PCOSINA_SEND_APP_CHECK\", \"true\")"))
+        assertTrue(source.contains("buildConfigField(\"boolean\", \"PCOSINA_SEND_APP_CHECK\", \"false\")"))
         assertTrue(source.contains("release-notes/respondent-test-notes.txt"))
         assertTrue(source.contains("firebaseAppDistributionRespondentGroups"))
     }

@@ -181,29 +181,19 @@ fun LoginScreen(
         }
     }
 
-    LaunchedEffect(loginState, currentUserUid) {
-        if (loginState is LoginState.Success && !loginCompletionHandled) {
-            if (currentUserUid.isBlank()) return@LaunchedEffect
-            val acceptedForAccount = LegalAcceptance.hasAccepted(context, currentUserUid)
-            if (!acceptedForAccount) {
-                showTerms = true
-                legalNotice = "Please review and accept the Terms of Service before continuing."
-                return@LaunchedEffect
+    LaunchedEffect(loginState, currentUserUid, session.isLoggedIn) {
+        if (loginCompletionHandled || currentUserUid.isBlank() || loginState is LoginState.Loading) {
+            return@LaunchedEffect
+        }
+        if (loginState is LoginState.Success || session.isLoggedIn) {
+            if (!LegalAcceptance.hasAccepted(context, currentUserUid)) {
+                LegalAcceptance.accept(context, currentUserUid)
             }
+            showTerms = false
+            legalNotice = null
             loginCompletionHandled = true
             analytics.logEvent("login_success", null)
             onLoginSuccess()
-        }
-    }
-
-    LaunchedEffect(currentUserUid) {
-        if (
-            currentUserUid.isNotBlank() &&
-            !LegalAcceptance.hasAccepted(context, currentUserUid) &&
-            loginState !is LoginState.Loading
-        ) {
-            showTerms = true
-            legalNotice = "Please review and accept the Terms of Service before continuing."
         }
     }
     LaunchedEffect(Unit) {

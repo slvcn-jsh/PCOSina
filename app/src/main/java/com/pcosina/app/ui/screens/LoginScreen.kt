@@ -228,19 +228,51 @@ fun LoginScreen(
             .background(Color.White),
     ) {
         val compact = maxHeight < 790.dp || maxWidth < 400.dp
-        val headerHeight = maxHeight * 0.25f
-        val pinkFieldTop = headerHeight + if (compact) 132.dp else 152.dp
+        val tightHeight = maxHeight < 700.dp
+        val headerHeight = maxHeight * when {
+            tightHeight -> 0.18f
+            compact -> 0.21f
+            else -> 0.25f
+        }
+        val pinkFieldTop = headerHeight + when {
+            tightHeight -> 96.dp
+            compact -> 124.dp
+            else -> 152.dp
+        }
         val snackBackgroundWidth = maxWidth * if (compact) 1.16f else 1.12f
-        val outerArcSize = maxWidth * if (compact) 1.36f else 1.44f
-        val innerArcSize = outerArcSize - if (compact) 42.dp else 52.dp
-        val outerArcTop = headerHeight - if (compact) 26.dp else 32.dp
-        val innerArcTop = outerArcTop + if (compact) 22.dp else 26.dp
-        val illustrationSize = (maxWidth * if (compact) 0.84f else 0.82f)
-            .coerceAtMost(if (compact) 320.dp else 360.dp)
+        val outerArcSize = maxWidth * when {
+            tightHeight -> 1.24f
+            compact -> 1.36f
+            else -> 1.44f
+        }
+        val innerArcSize = outerArcSize - when {
+            tightHeight -> 34.dp
+            compact -> 42.dp
+            else -> 52.dp
+        }
+        val outerArcTop = headerHeight - when {
+            tightHeight -> 18.dp
+            compact -> 26.dp
+            else -> 32.dp
+        }
+        val innerArcTop = outerArcTop + if (tightHeight) 18.dp else if (compact) 22.dp else 26.dp
+        val illustrationSize = (maxWidth * when {
+            tightHeight -> 0.62f
+            compact -> 0.72f
+            else -> 0.82f
+        })
+            .coerceAtMost(
+                when {
+                    tightHeight -> 230.dp
+                    compact -> 280.dp
+                    else -> 360.dp
+                }
+            )
+            .coerceAtMost(maxHeight * if (tightHeight) 0.34f else 0.39f)
         val illustrationHaloSize = illustrationSize * 0.92f
-        val subtitleGap = if (compact) 8.dp else 10.dp
-        val bottomPadding = if (compact) 34.dp else 42.dp
-        val bottomStackGap = if (compact) 14.dp else 16.dp
+        val subtitleGap = if (tightHeight) 6.dp else if (compact) 8.dp else 10.dp
+        val bottomPadding = if (tightHeight) 24.dp else if (compact) 34.dp else 42.dp
+        val bottomStackGap = if (tightHeight) 10.dp else if (compact) 14.dp else 16.dp
         val logoHaloBrush = Brush.radialGradient(
             colorStops = arrayOf(
                 0.0f to Color.White.copy(alpha = 0.56f),
@@ -307,8 +339,8 @@ fun LoginScreen(
                     painter = painterResource(id = R.drawable.login_ownership_watermark),
                     contentDescription = "Developed by Quadrant",
                     modifier = Modifier
-                        .widthIn(max = if (compact) 252.dp else 286.dp)
-                        .fillMaxWidth(if (compact) 0.76f else 0.82f),
+                        .widthIn(max = if (tightHeight) 218.dp else if (compact) 252.dp else 286.dp)
+                        .fillMaxWidth(if (tightHeight) 0.68f else if (compact) 0.76f else 0.82f),
                     contentScale = ContentScale.Fit,
                     externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.LoginOwnershipWatermark,
                     onExternalEditingChange = { editing ->
@@ -327,7 +359,15 @@ fun LoginScreen(
                     .padding(bottom = bottomPadding),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Spacer(modifier = Modifier.height(headerHeight + if (compact) 18.dp else 24.dp))
+                Spacer(
+                    modifier = Modifier.height(
+                        headerHeight + when {
+                            tightHeight -> 8.dp
+                            compact -> 14.dp
+                            else -> 24.dp
+                        }
+                    )
+                )
 
                 Column(
                     modifier = Modifier
@@ -367,7 +407,7 @@ fun LoginScreen(
                         modifier = Modifier.testTag("login_wellness_label"),
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = if (compact) 20.sp else 22.sp,
+                            fontSize = if (tightHeight) 18.sp else if (compact) 20.sp else 22.sp,
                             shadow = taglineShadow,
                         ),
                         color = Color.White,
@@ -438,7 +478,7 @@ fun LoginScreen(
                                 },
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.ExtraBold,
-                                    fontSize = if (compact) 17.sp else 18.sp,
+                                    fontSize = if (tightHeight) 16.sp else if (compact) 17.sp else 18.sp,
                                 ),
                             )
                         }
@@ -540,12 +580,33 @@ private fun TermsOfServiceOverlay(
         val screenHeight = maxHeight
         val screenWidth = maxWidth
         val compact = screenHeight < 790.dp || screenWidth < 400.dp
-        val sheetTop = screenHeight * if (compact) 0.26f else 0.29f
-        val sheetFlatTop = sheetTop + if (compact) 58.dp else 72.dp
+        val tightHeight = screenHeight < 700.dp
+        val sheetTop = screenHeight * when {
+            tightHeight -> 0.20f
+            compact -> 0.26f
+            else -> 0.29f
+        }
+        val sheetFlatTop = sheetTop + when {
+            tightHeight -> 44.dp
+            compact -> 58.dp
+            else -> 72.dp
+        }
         val snackBackgroundWidth = screenWidth * if (compact) 1.16f else 1.12f
-        val outerArcSize = screenWidth * if (compact) 1.48f else 1.64f
-        val innerArcSize = screenWidth * if (compact) 1.32f else 1.46f
-        val scrollMaxHeight = screenHeight * if (compact) 0.43f else 0.47f
+        val outerArcSize = screenWidth * when {
+            tightHeight -> 1.28f
+            compact -> 1.48f
+            else -> 1.64f
+        }
+        val innerArcSize = screenWidth * when {
+            tightHeight -> 1.16f
+            compact -> 1.32f
+            else -> 1.46f
+        }
+        val scrollMaxHeight = screenHeight * when {
+            tightHeight -> 0.34f
+            compact -> 0.43f
+            else -> 0.47f
+        }
         val density = LocalDensity.current
         var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
 
@@ -593,8 +654,11 @@ private fun TermsOfServiceOverlay(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(horizontal = if (compact) 26.dp else 30.dp)
-                .padding(top = if (compact) 48.dp else 54.dp, bottom = 28.dp),
+                .padding(horizontal = if (tightHeight) 22.dp else if (compact) 26.dp else 30.dp)
+                .padding(
+                    top = if (tightHeight) 28.dp else if (compact) 48.dp else 54.dp,
+                    bottom = if (tightHeight) 20.dp else 28.dp
+                ),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             DevEditableArtworkImage(
@@ -602,8 +666,8 @@ private fun TermsOfServiceOverlay(
                 painter = painterResource(id = R.drawable.login_ownership_watermark),
                 contentDescription = "Developed by Quadrant",
                 modifier = Modifier
-                    .widthIn(max = 238.dp)
-                    .fillMaxWidth(0.68f),
+                    .widthIn(max = if (tightHeight) 204.dp else 238.dp)
+                    .fillMaxWidth(if (tightHeight) 0.62f else 0.68f),
                 contentScale = ContentScale.Fit,
                 externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.LoginTermsOwnershipWatermark,
                 onExternalEditingChange = { editing ->
@@ -611,13 +675,13 @@ private fun TermsOfServiceOverlay(
                 },
             )
 
-            Spacer(modifier = Modifier.height(if (compact) 22.dp else 28.dp))
+            Spacer(modifier = Modifier.height(if (tightHeight) 12.dp else if (compact) 22.dp else 28.dp))
 
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .widthIn(max = 358.dp)
-                    .heightIn(max = screenHeight * if (compact) 0.74f else 0.72f),
+                    .heightIn(max = screenHeight * if (tightHeight) 0.66f else if (compact) 0.74f else 0.72f),
                 shape = RoundedCornerShape(18.dp),
                 color = Color.White,
                 shadowElevation = 18.dp

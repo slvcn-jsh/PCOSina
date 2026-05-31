@@ -5201,6 +5201,51 @@ def _emit_async_failure_event(
     )
 
 
+def _record_stage1_candidate_features_best_effort(
+    job_id: str,
+    *,
+    uid: str | None,
+    telemetry: Dict[str, Any],
+) -> None:
+    if not telemetry.get("stage1_candidates"):
+        return
+    started = time.time()
+    try:
+        row_count = database.record_stage1_candidate_features(
+            request_id=job_id,
+            uid_hash=uid_hash(uid),
+            candidates=telemetry.get("stage1_candidates") or [],
+            selected_recipe_ids=telemetry.get("selected_recipe_ids") or [],
+            ranking_strategy=str(telemetry.get("ranking_strategy") or "stage1_heuristic_with_ml_shadow"),
+            model_version=str(telemetry.get("ml_model_version") or "shadow_v0"),
+            generated_at_ms=int(time.time() * 1000),
+        )
+        elapsed_ms = max(0, int((time.time() - started) * 1000))
+        if elapsed_ms > 1000:
+            print(
+                "ML_FEATURE_RECORDING",
+                json.dumps(
+                    {
+                        "requestId": job_id,
+                        "rowCount": int(row_count or 0),
+                        "runtimeMs": elapsed_ms,
+                    },
+                    sort_keys=True,
+                ),
+            )
+    except Exception as exc:
+        print(
+            "ML_FEATURE_RECORDING_ERROR",
+            json.dumps(
+                {
+                    "requestId": job_id,
+                    "error": str(exc)[:240],
+                },
+                sort_keys=True,
+            ),
+        )
+
+
 def _run_job(job_id: str, request: GeneratePlanRequest, owner_uid: str | None = None):
     try:
         _set_job(job_id, "running")
@@ -5230,16 +5275,6 @@ def _run_job(job_id: str, request: GeneratePlanRequest, owner_uid: str | None = 
             policy_payload,
             uid=uid,
         )
-        if telemetry.get("stage1_candidates"):
-            database.record_stage1_candidate_features(
-                request_id=job_id,
-                uid_hash=uid_hash(uid),
-                candidates=telemetry.get("stage1_candidates") or [],
-                selected_recipe_ids=telemetry.get("selected_recipe_ids") or [],
-                ranking_strategy=str(telemetry.get("ranking_strategy") or "stage1_heuristic_with_ml_shadow"),
-                model_version=str(telemetry.get("ml_model_version") or "shadow_v0"),
-                generated_at_ms=int(time.time() * 1000),
-            )
         _emit_ml_event(
             event_name="stage1_candidates_scored",
             payload={
@@ -5324,6 +5359,7 @@ def _run_job(job_id: str, request: GeneratePlanRequest, owner_uid: str | None = 
                 request_id=job_id,
                 policy_version=policy_version,
             )
+            _record_stage1_candidate_features_best_effort(job_id, uid=uid, telemetry=telemetry)
             _inc_plan_job_diag("async_inprocess_jobs_success_total")
         else:
             response = _build_no_safe_plan_response(
@@ -5362,6 +5398,7 @@ def _run_job(job_id: str, request: GeneratePlanRequest, owner_uid: str | None = 
                 request_id=job_id,
                 policy_version=policy_version,
             )
+            _record_stage1_candidate_features_best_effort(job_id, uid=uid, telemetry=telemetry)
             _inc_plan_job_diag("async_inprocess_jobs_no_safe_total")
     except Exception as e:
         _record_solver_outcome(False)

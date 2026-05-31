@@ -1339,9 +1339,9 @@ def _solve_pair_preferences_for_profile(
         }
     if not has_weekly_budget:
         return {
-            "strategy": "broad_no_budget_repeat_three_first",
+            "strategy": "broad_no_budget_repeat_four_first",
             "preferredTolerances": [0.3, 0.4, 0.2, 0.6, 0.8],
-            "preferredRepeats": [3, 2, 4, 10, 6, 8],
+            "preferredRepeats": [4, 3, 2, 10, 6, 8],
         }
     return {
         "strategy": "default_repeat_three_first",

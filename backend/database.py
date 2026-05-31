@@ -1514,6 +1514,7 @@ def record_stage1_candidate_features(
         else:
             cur.execute("DELETE FROM ml_stage1_candidate_features WHERE request_id = ?", (request_id,))
 
+        insert_rows = []
         for row in rows:
             recipe_id = str(row.get("recipe_id") or "")
             if not recipe_id:
@@ -1524,60 +1525,39 @@ def record_stage1_candidate_features(
             feature_json = json.dumps(row.get("features") or {}, sort_keys=True, ensure_ascii=True)
             selected_by_solver = 1 if recipe_id in selected_set else 0
             entry_id = uuid.uuid4().hex
-            if _use_postgres():
-                cur.execute(
-                    """
-                    INSERT INTO ml_stage1_candidate_features (
-                        id, request_id, uid_hash, recipe_id, meal_bucket, generated_at_ms,
-                        selected_by_solver, model_score, heuristic_score, ranking_strategy, model_version,
-                        feature_json, created_at
-                    )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        entry_id,
-                        request_id,
-                        uid_hash,
-                        recipe_id,
-                        meal_bucket,
-                        generated_at_ms,
-                        selected_by_solver,
-                        model_score,
-                        heuristic_score,
-                        ranking_strategy,
-                        model_version,
-                        feature_json,
-                        created_at,
-                    ),
+            insert_rows.append(
+                (
+                    entry_id,
+                    request_id,
+                    uid_hash,
+                    recipe_id,
+                    meal_bucket,
+                    generated_at_ms,
+                    selected_by_solver,
+                    model_score,
+                    heuristic_score,
+                    ranking_strategy,
+                    model_version,
+                    feature_json,
+                    created_at,
                 )
-            else:
-                cur.execute(
-                    """
-                    INSERT INTO ml_stage1_candidate_features (
-                        id, request_id, uid_hash, recipe_id, meal_bucket, generated_at_ms,
-                        selected_by_solver, model_score, heuristic_score, ranking_strategy, model_version,
-                        feature_json, created_at
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        entry_id,
-                        request_id,
-                        uid_hash,
-                        recipe_id,
-                        meal_bucket,
-                        generated_at_ms,
-                        selected_by_solver,
-                        model_score,
-                        heuristic_score,
-                        ranking_strategy,
-                        model_version,
-                        feature_json,
-                        created_at,
-                    ),
+            )
+        if insert_rows:
+            placeholders = "%s" if _use_postgres() else "?"
+            values = ", ".join([placeholders] * 13)
+            cur.executemany(
+                f"""
+                INSERT INTO ml_stage1_candidate_features (
+                    id, request_id, uid_hash, recipe_id, meal_bucket, generated_at_ms,
+                    selected_by_solver, model_score, heuristic_score, ranking_strategy, model_version,
+                    feature_json, created_at
                 )
+                VALUES ({values})
+                """,
+                insert_rows,
+            )
         conn.commit()
-        return len(rows)
+        return len(insert_rows)
     finally:
         conn.close()
 

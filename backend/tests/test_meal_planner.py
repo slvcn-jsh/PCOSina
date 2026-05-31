@@ -956,8 +956,8 @@ def test_profile_solve_pair_preferences_start_near_likely_feasible_path():
     assert strict_time["preferredRepeats"][:2] == [4, 3]
     assert budget_priority["strategy"] == "budget_tolerance_first"
     assert budget_priority["preferredRepeats"][:3] == [6, 8, 10]
-    assert broad_no_budget["strategy"] == "broad_no_budget_repeat_three_first"
-    assert broad_no_budget["preferredRepeats"][:3] == [3, 2, 4]
+    assert broad_no_budget["strategy"] == "broad_no_budget_repeat_four_first"
+    assert broad_no_budget["preferredRepeats"][:3] == [4, 3, 2]
     assert default_with_budget["strategy"] == "default_repeat_three_first"
     assert default_with_budget["preferredRepeats"][:3] == [3, 2, 4]
     assert nutrition_pressure["strategy"] == "nutrition_pressure_tolerance_first"

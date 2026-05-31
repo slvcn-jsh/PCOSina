@@ -12,6 +12,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
@@ -114,7 +115,33 @@ internal fun mapAuthExceptionToMessage(action: AuthMessageAction, error: Excepti
         is UnknownHostException -> AuthFailureKind.Network
         else -> AuthFailureKind.Unknown
     }
-    return mapAuthFailureKindToMessage(action, failureKind)
+    val userMessage = mapAuthFailureKindToMessage(action, failureKind)
+    return appendStagingAuthDiagnostic(action, userMessage, error)
+}
+
+private fun appendStagingAuthDiagnostic(
+    action: AuthMessageAction,
+    userMessage: String,
+    error: Exception
+): String {
+    if (action != AuthMessageAction.GoogleSignIn || BuildConfig.APP_ENVIRONMENT != "staging") {
+        return userMessage
+    }
+    val code = (error as? FirebaseAuthException)
+        ?.errorCode
+        ?.takeIf { it.isNotBlank() }
+    val rawMessage = error.message
+        ?.replace(Regex("\\s+"), " ")
+        ?.take(140)
+        ?.takeIf { it.isNotBlank() }
+    val details = listOfNotNull(code, error.javaClass.simpleName, rawMessage)
+        .distinct()
+        .joinToString(" | ")
+    return if (details.isBlank()) {
+        userMessage
+    } else {
+        "$userMessage Diagnostic: $details"
+    }
 }
 
 class AuthRepository(private val context: Context) {

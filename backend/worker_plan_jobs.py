@@ -27,6 +27,13 @@ def _seed_reviewed_price_rules_on_startup() -> bool:
     return True
 
 
+def _bootstrap_database_on_startup() -> bool:
+    configured = os.getenv("PCOSINA_BOOTSTRAP_ON_STARTUP", "").strip().lower()
+    if configured:
+        return configured in ("1", "true", "yes", "on")
+    return True
+
+
 def _inc_diag(metric_key: str, delta: int = 1) -> None:
     try:
         database.increment_plan_job_diagnostic(metric_key, delta=delta)
@@ -499,13 +506,16 @@ def run_once() -> bool:
 
 
 def main() -> int:
-    database.init_db()
-    database.seed_recipes()
-    if _seed_reviewed_price_rules_on_startup():
-        database.seed_reviewed_price_rules()
-        invalidate_price_rule_cache()
-    policy_store.init_policy_store()
-    policy_store.ensure_default_policy(actor="worker-bootstrap")
+    if _bootstrap_database_on_startup():
+        database.init_db()
+        database.seed_recipes()
+        if _seed_reviewed_price_rules_on_startup():
+            database.seed_reviewed_price_rules()
+            invalidate_price_rule_cache()
+        policy_store.init_policy_store()
+        policy_store.ensure_default_policy(actor="worker-bootstrap")
+    else:
+        print("Database bootstrap skipped; expecting the deploy bootstrap command to have completed.", flush=True)
 
     run_forever = os.getenv("PCOSINA_WORKER_RUN_FOREVER", "true").strip().lower() in ("1", "true", "yes", "on")
     if not run_forever:

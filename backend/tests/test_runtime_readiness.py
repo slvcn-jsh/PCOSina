@@ -10,6 +10,14 @@ from fastapi.testclient import TestClient
 import main
 
 
+def test_database_bootstrap_on_startup_can_be_disabled_for_predeploy(monkeypatch):
+    monkeypatch.delenv("PCOSINA_BOOTSTRAP_ON_STARTUP", raising=False)
+    assert main._bootstrap_database_on_startup() is True
+
+    monkeypatch.setenv("PCOSINA_BOOTSTRAP_ON_STARTUP", "false")
+    assert main._bootstrap_database_on_startup() is False
+
+
 def test_seed_nutrition_corrections_on_startup_defaults_on_outside_pytest(monkeypatch):
     monkeypatch.delenv("PCOSINA_SEED_NUTRITION_CORRECTIONS", raising=False)
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)

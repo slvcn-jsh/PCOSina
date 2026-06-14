@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request, Depends, Header, Form, BackgroundTasks
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse, HTMLResponse, RedirectResponse
 from typing import Dict, Any, Optional
 import base64
@@ -149,6 +150,13 @@ def _seed_reviewed_price_rules_on_startup() -> bool:
         return configured in ("1", "true", "yes", "on")
     if os.getenv("PYTEST_CURRENT_TEST", "").strip():
         return False
+    return True
+
+
+def _bootstrap_database_on_startup() -> bool:
+    configured = os.getenv("PCOSINA_BOOTSTRAP_ON_STARTUP", "").strip().lower()
+    if configured:
+        return configured in ("1", "true", "yes", "on")
     return True
 
 
@@ -328,15 +336,18 @@ async def lifespan(app: FastAPI):
         print(f"WARNING: Firebase initialization failed: {e}")
         print("Backend will continue without Firebase Auth (Local Dev Mode)")
     
-    database.init_db()
-    database.seed_recipes()
-    if _seed_reviewed_price_rules_on_startup():
-        database.seed_reviewed_price_rules()
-        invalidate_price_rule_cache()
-    if _seed_nutrition_corrections_on_startup():
-        database.seed_nutrition_corrections()
-    policy_store.init_policy_store()
-    policy_store.ensure_default_policy(actor="system-bootstrap")
+    if _bootstrap_database_on_startup():
+        database.init_db()
+        database.seed_recipes()
+        if _seed_reviewed_price_rules_on_startup():
+            database.seed_reviewed_price_rules()
+            invalidate_price_rule_cache()
+        if _seed_nutrition_corrections_on_startup():
+            database.seed_nutrition_corrections()
+        policy_store.init_policy_store()
+        policy_store.ensure_default_policy(actor="system-bootstrap")
+    else:
+        print("Database bootstrap skipped; expecting the deploy bootstrap command to have completed.", flush=True)
     _validate_runtime_readiness(include_schema=True)
     yield
 
@@ -554,6 +565,39 @@ elif IS_PRODUCTION:
 else:
     allowed_hosts = ["*"]  # Allow all for local phone testing
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
+
+cors_origins_raw = os.getenv("PCOSINA_CORS_ORIGINS", "").strip()
+if cors_origins_raw:
+    cors_origins = [origin.strip().rstrip("/") for origin in cors_origins_raw.split(",") if origin.strip()]
+    cors_origin_regex = None
+elif IS_PRODUCTION:
+    cors_origins = []
+    cors_origin_regex = None
+else:
+    cors_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+    ]
+    cors_origin_regex = r"^https?://(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$"
+
+if cors_origins or cors_origin_regex:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_origin_regex=cors_origin_regex,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "Idempotency-Key",
+            "X-PCOSINA-Schema-Version",
+            APP_CHECK_HEADER_NAME,
+        ],
+        expose_headers=["X-PCOSINA-Schema-Version"],
+    )
 
 @app.get("/", response_class=HTMLResponse)
 def root(request: Request):

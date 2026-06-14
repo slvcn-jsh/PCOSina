@@ -157,7 +157,7 @@ def _bootstrap_database_on_startup() -> bool:
     configured = os.getenv("PCOSINA_BOOTSTRAP_ON_STARTUP", "").strip().lower()
     if configured:
         return configured in ("1", "true", "yes", "on")
-    return True
+    return not IS_PRODUCTION
 
 
 def _log_app_check_mode(enforced: bool) -> None:

@@ -31,7 +31,8 @@ def _bootstrap_database_on_startup() -> bool:
     configured = os.getenv("PCOSINA_BOOTSTRAP_ON_STARTUP", "").strip().lower()
     if configured:
         return configured in ("1", "true", "yes", "on")
-    return True
+    environment = os.getenv("PCOSINA_ENV", "development").strip().lower()
+    return environment not in ("prod", "production")
 
 
 def _inc_diag(metric_key: str, delta: int = 1) -> None:

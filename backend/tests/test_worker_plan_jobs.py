@@ -39,6 +39,13 @@ def test_worker_main_skips_database_bootstrap_when_predeploy_owns_it(monkeypatch
     assert calls == ["run_once"]
 
 
+def test_worker_defaults_to_predeploy_bootstrap_in_production(monkeypatch):
+    monkeypatch.delenv("PCOSINA_BOOTSTRAP_ON_STARTUP", raising=False)
+    monkeypatch.setenv("PCOSINA_ENV", "production")
+
+    assert worker_plan_jobs._bootstrap_database_on_startup() is False
+
+
 def test_worker_requeues_with_next_attempt_on_solver_exception(monkeypatch):
     captured = {}
     diag = []

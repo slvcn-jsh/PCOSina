@@ -12,7 +12,11 @@ import main
 
 def test_database_bootstrap_on_startup_can_be_disabled_for_predeploy(monkeypatch):
     monkeypatch.delenv("PCOSINA_BOOTSTRAP_ON_STARTUP", raising=False)
+    monkeypatch.setattr(main, "IS_PRODUCTION", False)
     assert main._bootstrap_database_on_startup() is True
+
+    monkeypatch.setattr(main, "IS_PRODUCTION", True)
+    assert main._bootstrap_database_on_startup() is False
 
     monkeypatch.setenv("PCOSINA_BOOTSTRAP_ON_STARTUP", "false")
     assert main._bootstrap_database_on_startup() is False

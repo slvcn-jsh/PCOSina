@@ -12,6 +12,8 @@ import main
 
 def test_database_bootstrap_on_startup_can_be_disabled_for_predeploy(monkeypatch):
     monkeypatch.delenv("PCOSINA_BOOTSTRAP_ON_STARTUP", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("RENDER", raising=False)
     monkeypatch.setattr(main, "IS_PRODUCTION", False)
     assert main._bootstrap_database_on_startup() is True
 
@@ -19,6 +21,14 @@ def test_database_bootstrap_on_startup_can_be_disabled_for_predeploy(monkeypatch
     assert main._bootstrap_database_on_startup() is False
 
     monkeypatch.setenv("PCOSINA_BOOTSTRAP_ON_STARTUP", "false")
+    assert main._bootstrap_database_on_startup() is False
+
+
+def test_database_bootstrap_on_startup_defaults_off_for_postgres_even_without_production_env(monkeypatch):
+    monkeypatch.delenv("PCOSINA_BOOTSTRAP_ON_STARTUP", raising=False)
+    monkeypatch.setenv("DATABASE_URL", "postgres://pcosina:secret@example.render.com/pcosina")
+    monkeypatch.setattr(main, "IS_PRODUCTION", False)
+
     assert main._bootstrap_database_on_startup() is False
 
 

@@ -41,7 +41,17 @@ def test_worker_main_skips_database_bootstrap_when_predeploy_owns_it(monkeypatch
 
 def test_worker_defaults_to_predeploy_bootstrap_in_production(monkeypatch):
     monkeypatch.delenv("PCOSINA_BOOTSTRAP_ON_STARTUP", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("RENDER", raising=False)
     monkeypatch.setenv("PCOSINA_ENV", "production")
+
+    assert worker_plan_jobs._bootstrap_database_on_startup() is False
+
+
+def test_worker_defaults_to_predeploy_bootstrap_for_postgres_without_production_env(monkeypatch):
+    monkeypatch.delenv("PCOSINA_BOOTSTRAP_ON_STARTUP", raising=False)
+    monkeypatch.setenv("PCOSINA_ENV", "development")
+    monkeypatch.setenv("DATABASE_URL", "postgres://pcosina:secret@example.render.com/pcosina")
 
     assert worker_plan_jobs._bootstrap_database_on_startup() is False
 

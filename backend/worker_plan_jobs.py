@@ -5,9 +5,18 @@ import os
 import time
 import uuid
 
+if (
+    os.getenv("RENDER", "").strip()
+    or os.getenv("DATABASE_URL", "").strip().lower().startswith(("postgres://", "postgresql://"))
+):
+    os.environ.setdefault("PCOSINA_DB_POOL_MIN_SIZE", "0")
+    os.environ.setdefault("PCOSINA_DB_POOL_MAX_SIZE", "2")
+    os.environ.setdefault("PCOSINA_DB_POOL_TIMEOUT_SECONDS", "30")
+
 import database
 import policy_store
 import queue_broker
+from db_url import is_postgres_database_url
 from ml_events import build_event, uid_hash, validate_event
 from policy_config import default_policy, resolve_policy_for_environment
 from domain.models import GeneratePlanRequest, GeneratePlanResponse
@@ -31,6 +40,10 @@ def _bootstrap_database_on_startup() -> bool:
     configured = os.getenv("PCOSINA_BOOTSTRAP_ON_STARTUP", "").strip().lower()
     if configured:
         return configured in ("1", "true", "yes", "on")
+    if is_postgres_database_url(os.getenv("DATABASE_URL", "")):
+        return False
+    if os.getenv("RENDER", "").strip():
+        return False
     environment = os.getenv("PCOSINA_ENV", "development").strip().lower()
     return environment not in ("prod", "production")
 

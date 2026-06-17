@@ -16,6 +16,15 @@ import socket
 import uuid
 from contextlib import asynccontextmanager
 from urllib.parse import urlencode
+
+if (
+    os.getenv("RENDER", "").strip()
+    or os.getenv("DATABASE_URL", "").strip().lower().startswith(("postgres://", "postgresql://"))
+):
+    os.environ.setdefault("PCOSINA_DB_POOL_MIN_SIZE", "0")
+    os.environ.setdefault("PCOSINA_DB_POOL_MAX_SIZE", "2")
+    os.environ.setdefault("PCOSINA_DB_POOL_TIMEOUT_SECONDS", "30")
+
 import database
 import policy_store
 import queue_broker
@@ -157,6 +166,10 @@ def _bootstrap_database_on_startup() -> bool:
     configured = os.getenv("PCOSINA_BOOTSTRAP_ON_STARTUP", "").strip().lower()
     if configured:
         return configured in ("1", "true", "yes", "on")
+    if is_postgres_database_url(os.getenv("DATABASE_URL", "")):
+        return False
+    if os.getenv("RENDER", "").strip():
+        return False
     return not IS_PRODUCTION
 
 
@@ -336,7 +349,8 @@ async def lifespan(app: FastAPI):
         print(f"WARNING: Firebase initialization failed: {e}")
         print("Backend will continue without Firebase Auth (Local Dev Mode)")
     
-    if _bootstrap_database_on_startup():
+    bootstrap_on_startup = _bootstrap_database_on_startup()
+    if bootstrap_on_startup:
         database.init_db()
         database.seed_recipes()
         if _seed_reviewed_price_rules_on_startup():
@@ -348,7 +362,7 @@ async def lifespan(app: FastAPI):
         policy_store.ensure_default_policy(actor="system-bootstrap")
     else:
         print("Database bootstrap skipped; expecting the deploy bootstrap command to have completed.", flush=True)
-    _validate_runtime_readiness(include_schema=True)
+    _validate_runtime_readiness(include_schema=bootstrap_on_startup)
     yield
 
 docs_flag = os.getenv("PCOSINA_ENABLE_DOCS")

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request, Depends, Header, Form, BackgroundTasks
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import JSONResponse, HTMLResponse, RedirectResponse
+from starlette.responses import JSONResponse, HTMLResponse, RedirectResponse, Response
 from typing import Dict, Any, Optional
 import base64
 import datetime
@@ -160,6 +160,11 @@ def _seed_reviewed_price_rules_on_startup() -> bool:
     if os.getenv("PYTEST_CURRENT_TEST", "").strip():
         return False
     return True
+
+
+def _deep_readiness_enabled() -> bool:
+    configured = os.getenv("PCOSINA_HEALTH_READY_DEEP", "").strip().lower()
+    return configured in ("1", "true", "yes", "on")
 
 
 def _bootstrap_database_on_startup() -> bool:
@@ -612,6 +617,11 @@ if cors_origins or cors_origin_regex:
         ],
         expose_headers=["X-PCOSINA-Schema-Version"],
     )
+
+@app.head("/")
+def root_head():
+    return Response(status_code=200)
+
 
 @app.get("/", response_class=HTMLResponse)
 def root(request: Request):
@@ -5879,7 +5889,21 @@ def health(): return {"status": "alive"}
 
 @app.get("/health/ready")
 def health_ready():
+    deep = _deep_readiness_enabled()
+    report = _runtime_readiness_report(include_schema=deep)
+    report["readinessMode"] = "deep" if deep else "shallow"
+    report["dependencyChecks"] = "enabled" if deep else "skipped"
+    report["brokerHealth"] = QUEUE_BROKER.health()
+    report["rateLimitHealth"] = RATE_LIMIT_STORE.health()
+    status_code = 200 if report.get("ok") else 503
+    return JSONResponse(status_code=status_code, content=report)
+
+
+@app.get("/health/deep")
+def health_deep():
     report = _runtime_readiness_report(include_schema=True)
+    report["readinessMode"] = "deep"
+    report["dependencyChecks"] = "enabled"
     report["brokerHealth"] = QUEUE_BROKER.health()
     report["rateLimitHealth"] = RATE_LIMIT_STORE.health()
     status_code = 200 if report.get("ok") else 503

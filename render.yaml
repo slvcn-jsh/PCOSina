@@ -20,7 +20,7 @@ services:
     buildCommand: pip install -r requirements.txt
     preDeployCommand: python deploy_bootstrap.py
     startCommand: gunicorn -k uvicorn.workers.UvicornWorker -w 1 -t 120 --access-logfile - --error-logfile - -b 0.0.0.0:$PORT main:app
-    healthCheckPath: /health/ready
+    healthCheckPath: /health
     envVars:
       - key: PCOSINA_ENV
         value: production

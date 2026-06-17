@@ -124,6 +124,69 @@ def test_health_ready_returns_503_when_not_ready():
         main._rate_limit_allowed = original_rate_limit_allowed
 
 
+def test_health_ready_defaults_to_shallow_process_readiness(monkeypatch):
+    main.app.dependency_overrides = {}
+    monkeypatch.delenv("PCOSINA_HEALTH_READY_DEEP", raising=False)
+    monkeypatch.setattr(main, "_validate_runtime_readiness", lambda **kwargs: None)
+    monkeypatch.setattr(main, "_rate_limit_allowed", lambda ip, now=None: True)
+
+    def fail_if_schema_requested(**kwargs):
+        assert kwargs.get("include_schema") is False
+        return {
+            "environment": "development",
+            "asyncMode": "queued",
+            "queueBackend": "db",
+            "errors": [],
+            "warnings": [],
+            "ok": True,
+        }
+
+    monkeypatch.setattr(main, "_runtime_readiness_report", fail_if_schema_requested)
+
+    with TestClient(main.app) as client:
+        response = client.get("/health/ready")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["readinessMode"] == "shallow"
+    assert body["dependencyChecks"] == "skipped"
+
+
+def test_health_deep_runs_dependency_readiness(monkeypatch):
+    main.app.dependency_overrides = {}
+    monkeypatch.setattr(main, "_validate_runtime_readiness", lambda **kwargs: None)
+    monkeypatch.setattr(main, "_rate_limit_allowed", lambda ip, now=None: True)
+
+    def report(**kwargs):
+        assert kwargs.get("include_schema") is True
+        return {
+            "environment": "development",
+            "asyncMode": "queued",
+            "queueBackend": "db",
+            "errors": ["db unavailable"],
+            "warnings": [],
+            "ok": False,
+        }
+
+    monkeypatch.setattr(main, "_runtime_readiness_report", report)
+
+    with TestClient(main.app) as client:
+        response = client.get("/health/deep")
+
+    assert response.status_code == 503
+    assert response.json()["readinessMode"] == "deep"
+
+
+def test_root_head_probe_succeeds(monkeypatch):
+    monkeypatch.setattr(main, "_validate_runtime_readiness", lambda **kwargs: None)
+    monkeypatch.setattr(main, "_rate_limit_allowed", lambda ip, now=None: True)
+
+    with TestClient(main.app) as client:
+        response = client.head("/")
+
+    assert response.status_code == 200
+
+
 def test_runtime_readiness_includes_schema_status_and_flags_pending(monkeypatch):
     monkeypatch.setattr(main, "IS_PRODUCTION", False)
     monkeypatch.setattr(main, "ENVIRONMENT", "development")

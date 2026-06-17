@@ -7,7 +7,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import policy_store
-from policy_config import load_policy
+from policy_config import default_policy, load_policy
 
 
 def test_policy_versioning_activation_and_rollback(monkeypatch):
@@ -88,6 +88,32 @@ def test_ensure_default_policy_bootstraps_production_canary(monkeypatch):
     assert staging["solver"]["total_solver_seconds"] == policy_store.PRODUCTION_TOTAL_SOLVER_SECONDS
     assert staging["solver"]["retry_attempts"] == policy_store.PRODUCTION_SOLVER_RETRY_ATTEMPTS
     assert staging["solver"]["solver_workers"] == policy_store.PRODUCTION_SOLVER_WORKERS
+
+
+def test_ensure_default_policy_upgrades_canonical_stage1_to_on(monkeypatch):
+    tmp_root = ROOT / "tests" / ".tmp_policy_store"
+    tmp_root.mkdir(parents=True, exist_ok=True)
+    test_db = tmp_root / f"policy_store_canonical_{uuid.uuid4().hex}.db"
+    monkeypatch.setattr(policy_store, "DATABASE_URL", "")
+    monkeypatch.setattr(policy_store, "DB_NAME", str(test_db))
+
+    policy_store.init_policy_store()
+    payload = default_policy().to_runtime_dict()
+    payload["stage1"]["canonical_features_enabled"] = False
+    payload["environment_overrides"]["staging"]["stage1"]["canonical_features_enabled"] = False
+    payload["environment_overrides"]["production"]["stage1"]["canonical_features_enabled"] = False
+    policy_store.create_policy_version(
+        policy_input=payload,
+        actor="test",
+        notes="legacy-canonical-off",
+        activate=True,
+    )
+
+    upgraded = policy_store.ensure_default_policy(actor="test")
+
+    for environment in ("development", "staging", "production"):
+        resolved = load_policy(upgraded["policy"]).to_runtime_dict(environment=environment)
+        assert resolved["stage1"]["canonical_features_enabled"] is True
 
 
 def test_ensure_default_policy_upgrades_default_staging_performance(monkeypatch):

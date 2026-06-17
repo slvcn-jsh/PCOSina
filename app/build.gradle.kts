@@ -10,6 +10,13 @@ plugins {
     id("com.google.firebase.crashlytics")
 }
 
+tasks.register<Exec>("verifyDesignContract") {
+    group = "verification"
+    description = "Verifies generated Android/web design tokens and screen parity metadata."
+    workingDir(rootProject.projectDir)
+    commandLine("python", "scripts/generate_design_contract.py", "--check")
+}
+
 val googleServicesConfig = file("google-services.json")
 val canLoadGoogleServicesConfig = googleServicesConfig.exists() &&
     googleServicesConfig.isFile &&

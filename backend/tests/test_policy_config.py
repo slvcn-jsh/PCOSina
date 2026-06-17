@@ -30,6 +30,7 @@ def test_default_policy_is_strict_and_valid():
         "recipe_repeat_limits",
     ]
     assert policy.stage1.max_candidates_per_slot >= 10
+    assert policy.stage1.canonical_features_enabled is True
     production = policy.to_runtime_dict(environment="production")
     assert production["stage1"]["max_candidates_per_slot"] <= policy.stage1.max_candidates_per_slot
     assert production["solver"]["total_solver_seconds"] <= policy.solver.total_solver_seconds

@@ -9,6 +9,7 @@ import time
 
 from ortools.sat.python import cp_model
 
+from canonical_ingredients import resolve_ingredient
 from domain.models import GeneratePlanRequest, PlannedMeal, DayPlan, UserProfile
 from price_catalog import PricingContext, create_pricing_context, estimate_recipe_cost
 from services.grocery_aggregator import aggregate_grocery_list, price_grocery_buckets
@@ -666,29 +667,53 @@ def _ingredient_cache_name(ingredient: Any) -> str:
     return str(ingredient)
 
 
-def _recipe_static_feature_cache_key(recipe: Dict[str, Any]) -> Tuple[Any, ...]:
+def _recipe_static_feature_cache_key(
+    recipe: Dict[str, Any],
+    canonical_features_enabled: bool = False,
+) -> Tuple[Any, ...]:
     recipe_id = str(recipe.get("id") or "").strip()
     meal_type = str(recipe.get("mealType") or "").strip().lower()
     correction_id = str(recipe.get("nutritionCorrectionId") or "").strip()
     if recipe_id and correction_id:
+        if canonical_features_enabled:
+            canonical = recipe.get("_canonical_stage1") or {}
+            canonical_ids = tuple(canonical.get("curatedIngredientIds") or [])
+            return ("catalog_canonical", recipe_id, correction_id, meal_type, canonical_ids)
         return ("catalog", recipe_id, correction_id, meal_type)
     tags = tuple(str(tag or "").strip().lower() for tag in (recipe.get("tags") or []))
     ingredients = tuple(_ingredient_cache_name(item) for item in (recipe.get("ingredients") or []))
-    return ("adhoc", recipe_id, meal_type, tags, ingredients)
+    return ("adhoc", recipe_id, meal_type, tags, ingredients, bool(canonical_features_enabled))
 
 
-def _recipe_static_features(recipe: Dict[str, Any]) -> Dict[str, Any]:
-    cache_key = _recipe_static_feature_cache_key(recipe)
+def _recipe_static_features(
+    recipe: Dict[str, Any],
+    canonical_features_enabled: bool = False,
+) -> Dict[str, Any]:
+    cache_key = _recipe_static_feature_cache_key(recipe, canonical_features_enabled)
     cached = _RECIPE_STATIC_FEATURE_CACHE.get(cache_key)
     if cached is not None:
         return cached
 
     ing_tokens = normalize_ingredients(recipe.get("ingredients", []))
+    canonical = recipe.get("_canonical_stage1") or {}
+    canonical_ids = set(canonical.get("curatedIngredientIds") or []) if canonical_features_enabled else set()
+    canonical_names = list(canonical.get("curatedCanonicalNames") or []) if canonical_features_enabled else []
+    canonical_tokens = normalize_ingredients(canonical_names) if canonical_names else []
+    effective_tokens = sorted(set(ing_tokens) | set(canonical_tokens))
+    canonical_allergens = (
+        set(str(value).strip().lower() for value in (canonical.get("allergenFamilies") or []) if str(value).strip())
+        if canonical_features_enabled
+        else set()
+    )
     features = {
-        "tags": infer_tags(recipe, ing_tokens),
-        "ing_tokens": ing_tokens,
-        "protein_group": infer_protein_group(ing_tokens),
-        "veg_tokens": infer_veg_tokens(ing_tokens),
+        "tags": infer_tags(recipe, effective_tokens),
+        "ing_tokens": effective_tokens,
+        "legacy_ing_tokens": ing_tokens,
+        "canonical_ingredient_ids": canonical_ids,
+        "canonical_allergen_families": canonical_allergens,
+        "canonical_feature_available": bool(canonical_ids),
+        "protein_group": infer_protein_group(effective_tokens),
+        "veg_tokens": infer_veg_tokens(effective_tokens),
         "allowed_meals": infer_allowed_meals(recipe.get("mealType")),
     }
     if len(_RECIPE_STATIC_FEATURE_CACHE) >= _RECIPE_STATIC_FEATURE_CACHE_MAX:
@@ -1033,12 +1058,18 @@ def _finalize_stage1_scoring(
     recipe["_stage1_score_boost"] = preserved_boost + (bounded_ml_score * effective_weight * 10.0) - float(prep_penalty or 0.0)
 
 
-def restriction_failure_reasons(profile: UserProfile, tags: List[str], ing_tokens: List[str]) -> List[str]:
+def restriction_failure_reasons(
+    profile: UserProfile,
+    tags: List[str],
+    ing_tokens: List[str],
+    canonical_allergen_families: Optional[set[str]] = None,
+) -> List[str]:
     restrictions = set(profile.dietaryRestrictions or [])
     tagset = set(tags)
     toks = set(ing_tokens)
     allergy_families, custom_allergy_tokens = normalize_allergy_constraints(profile.allergies or [])
     allergen_exposures = derive_allergen_exposures(tags, ing_tokens)
+    allergen_exposures.update(canonical_allergen_families or set())
     failures: List[str] = []
     matched_allergies = sorted(allergy_families & allergen_exposures)
     if matched_allergies:
@@ -1667,6 +1698,13 @@ def shortlist_candidates(
     budget_weekly = resolve_budget_weekly(profile)
     max_cook = profile.maxCookingTimeMinutes if profile.maxCookingTimeMinutes and profile.maxCookingTimeMinutes > 0 else None
     pantry_tokens = set(normalize_pantry(profile.pantryItems or []))
+    canonical_features_enabled = bool(_policy_get(policy, "stage1.canonical_features_enabled", False))
+    canonical_pantry_ids: set[str] = set()
+    if canonical_features_enabled:
+        for pantry_item in profile.pantryItems or []:
+            resolution = resolve_ingredient(str(pantry_item or ""))
+            if resolution.status == "mapped" and resolution.ingredient_id:
+                canonical_pantry_ids.add(resolution.ingredient_id)
     stage1_max = int(
         _policy_get_legacy_aware(
             policy,
@@ -1723,10 +1761,15 @@ def shortlist_candidates(
                     stage1_diag["processed_recipe_count"] = processed_recipe_count
                     stage1_diag["timeout_stage"] = "stage1_price_estimation"
                 raise _PlannerBudgetExceeded("stage1_price_estimation")
-        static_features = _recipe_static_features(r)
+        static_features = _recipe_static_features(r, canonical_features_enabled)
         tags = static_features["tags"]
         ing_tokens = static_features["ing_tokens"]
-        restriction_failures = restriction_failure_reasons(profile, tags, ing_tokens)
+        restriction_failures = restriction_failure_reasons(
+            profile,
+            tags,
+            ing_tokens,
+            static_features["canonical_allergen_families"],
+        )
         if restriction_failures:
             for reason in sorted(set(restriction_failures)):
                 _increment_count(exclusion_detail_counts, reason)
@@ -1751,13 +1794,27 @@ def shortlist_candidates(
             prep_penalty = max(0.0, (float(minutes) - max_cook) / float(max_cook)) * prep_penalty_weight
         r["_tags"] = tags
         r["_ing_tokens"] = ing_tokens
+        r["_canonical_ingredient_ids"] = sorted(static_features["canonical_ingredient_ids"])
+        r["_canonical_feature_available"] = bool(static_features["canonical_feature_available"])
         r["_protein_group"] = static_features["protein_group"]
         r["_veg_tokens"] = static_features["veg_tokens"]
         r["_allowed_meals"] = static_features["allowed_meals"]
         if pantry_tokens:
-            r["_pantry_match"] = len(set(ing_tokens) & pantry_tokens)
+            canonical_match = len(static_features["canonical_ingredient_ids"] & canonical_pantry_ids)
+            legacy_match = len(set(static_features["legacy_ing_tokens"]) & pantry_tokens)
+            if canonical_features_enabled and canonical_pantry_ids and static_features["canonical_feature_available"]:
+                r["_pantry_match"] = max(canonical_match, legacy_match)
+                r["_pantry_match_method"] = (
+                    "canonical_plus_legacy"
+                    if canonical_match != legacy_match
+                    else "canonical"
+                )
+            else:
+                r["_pantry_match"] = legacy_match
+                r["_pantry_match_method"] = "legacy_tokens"
         else:
             r["_pantry_match"] = 0
+            r["_pantry_match_method"] = "none"
         r["_stage1_prep_penalty"] = prep_penalty
         r["_ml_shadow_score"] = 0.0
         r["_ml_model_version"] = ml_model_version
@@ -1909,6 +1966,10 @@ def shortlist_candidates(
         stage1_diag["restricted_nutrition_anchor_reserve"] = bool(restricted_catalog)
         stage1_diag["restricted_nutrition_anchor_count_post_trim"] = int(restricted_anchor_count_post_trim)
         stage1_diag["goal_symptom_strategy"] = list(symptom_state.get("notes") or [])
+        stage1_diag["canonical_features_enabled"] = canonical_features_enabled
+        stage1_diag["canonical_feature_recipe_count"] = sum(
+            1 for recipe in safe_candidates if recipe.get("_canonical_feature_available")
+        )
     return buckets
 
 

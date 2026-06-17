@@ -62,6 +62,8 @@ backend/tests/.tmp_pytest_run2/
 .kotlin-daemon/
 .kotlin/errors/
 hs_err_pid*.log
+backend-dev-server.log
+backend-dev-server.err.log
 analytics.settings
 pcosina.db
 tmp/pytest_registry/

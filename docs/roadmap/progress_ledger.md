@@ -1,6 +1,6 @@
 # PCOSINA Roadmap Progress Ledger
 
-Updated: 2026-05-26
+Updated: 2026-06-14
 
 | Roadmap Item | Status | Evidence | Tests Added | Key Risk | Next Action |
 |---|---|---|---|---|---|
@@ -68,3 +68,36 @@ Updated: 2026-05-26
 - Profile and Progress now support optional target weight/date/weekly pace guardrails and structured symptom severity logs. These are progress-support signals only; they do not prove weight loss or clinical symptom improvement.
 - Android Grocery now separates full pantry coverage, partial quantity coverage, and name-only pantry matches. Only full saved-quantity coverage auto-counts as pantry-covered; partial/name-only matches stay visible as shopping guidance.
 - Full local verification passed on 2026-05-26: `.\gradlew.bat testDebugUnitTest` and `python -m pytest backend/tests -q`.
+
+## 2026-06-14 Canonical Ingredient Shadow Layer
+
+- Added additive schema for `canonical_ingredients`, `ingredient_aliases`, `ingredient_unit_conversions`, `ingredient_nutrition_refs`, `ingredient_price_refs`, and `recipe_ingredient_links`, plus many-to-many `ingredient_allergen_links`.
+- Seeded conservative canonical identities and aliases from existing ingredient synonyms, allergen terms, and static price rules. Generic terms remain generic; for example, `manok` does not guess a chicken cut, and `patis` maps to fish sauce rather than generic fish.
+- Seeded only exact metric conversions and provenance-marked static price baselines. Ingredient nutrition references remain empty until reviewed per-100g sources are attached.
+- Added deterministic `mapped`/`unmapped`/`ambiguous` resolution and a read-only audit script. Existing planner token normalization, allergen matching, keyword pricing, recipe nutrition corrections, and `ingredients_json` remain unchanged fallbacks.
+- Initial JSON catalog audit: 1,130 recipes, 12,487 ingredient occurrences, 7,570 mapped, 4,781 unmapped, 136 ambiguous, and 60.62% seed coverage.
+- Expanded high-frequency canonical identities and completed autonomous classification. All 12,487 occurrences now have stable IDs: 9,833 curated and 2,654 provisional, for 100% classification coverage and 78.75% curated identity coverage.
+- Persisted 12,487 idempotent `recipe_ingredient_links` across all 1,130 active recipes with zero null ingredient IDs. Provisional compound identities retain low-confidence provenance rather than being presented as verified nutrition or pricing facts.
+- The post-persistence frozen 20-profile planner parity benchmark passed 20/20 with average 316 ms, P95 432 ms, maximum 478 ms, and zero failures. The shadow layer causes no current planner runtime regression.
+- Added canonical Stage 1 feature extraction behind validated policy flag `stage1.canonical_features_enabled`, now defaulting to on for all environments and older policies missing the field. Recipe features are loaded in one bulk query; curated tokens/allergen families supplement legacy hard filters, and provisional IDs cannot introduce hard allergen claims.
+- Three-run comparison across all 20 frozen profiles: canonical off passed 60/60 at average 311 ms, P95 472 ms, max 567 ms; canonical on passed 60/60 at average 312 ms, P95 471 ms, max 568 ms. Both modes had zero hard-constraint violations.
+- Canonical pantry matching is monotonic: the planner keeps the greater of canonical and legacy overlap, so partial canonical coverage cannot remove a legacy pantry match. The flag remains available as an explicit rollback control.
+- Final sequential validation: default-on passed 60/60 with average 328 ms, P95 472 ms, max 1,167 ms, zero failures and zero hard violations; explicit legacy-off passed 60/60 with average 291 ms, P95 434 ms, max 459 ms. Both remain within gates.
+- Added ingredient-level nutrition reference seeding and a recipe validation
+  audit using persisted normalized grams. Current coverage is 84.98% for
+  quantities and 56.36% for nutrition references; 4 recipes are fully
+  computable from estimates, but 0 are fully backed by reviewed/source-verified
+  references.
+- Added versioned NCR wet-market references, labeled grocery estimates,
+  monthly source-date history support, and deterministic user/admin/market/
+  baseline override precedence. All 26 priority price ingredients pass the
+  wet-market and grocery readiness audit.
+- Removed a canonical pricing runtime regression by reusing the immutable
+  default alias index instead of rebuilding it per ingredient. The final
+  three-run frozen benchmark passed 60/60 plans at average 345 ms, P95 486 ms,
+  and maximum 527 ms.
+- Recipe expansion remains gated. At least 100 recipes must be fully
+  quantity-computable with reviewed/source-verified nutrition references
+  before adding new recipe categories.
+- Next action: resolve missing quantity conversions and attach reviewed
+  nutrition provenance to the first 100 high-frequency recipes.

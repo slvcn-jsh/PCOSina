@@ -131,6 +131,7 @@ class PlanningPolicy(BaseModel):
 
 
 class Stage1Policy(BaseModel):
+    canonical_features_enabled: bool = True
     max_candidates_per_slot: int = Field(default=120, ge=10, le=5000)
     ranking_cutoff: float = Field(default=0.80, ge=0.01, le=1.0)
     similarity_threshold: float = Field(default=0.85, ge=0.0, le=1.0)

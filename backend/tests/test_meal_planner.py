@@ -83,6 +83,113 @@ def test_recipe_static_features_cache_reuses_catalog_version():
     assert "egg" in first["ing_tokens"]
 
 
+def test_canonical_stage1_features_can_be_disabled_and_strengthen_allergen_filter_when_enabled():
+    meal_planner._RECIPE_STATIC_FEATURE_CACHE.clear()
+    profile = UserProfile(allergies=["soy"])
+    recipe = _recipe(
+        "canonical-soy",
+        "Canonical Soy",
+        "Lunch",
+        ingredients=[{"name": "seasoning liquid", "quantity": ""}],
+    )
+    recipe["_canonical_stage1"] = {
+        "curatedIngredientIds": ["ing_soy_sauce"],
+        "curatedCanonicalNames": ["soy sauce"],
+        "allergenFamilies": ["soy"],
+    }
+
+    legacy = meal_planner._recipe_static_features(recipe, canonical_features_enabled=False)
+    canonical = meal_planner._recipe_static_features(recipe, canonical_features_enabled=True)
+
+    assert meal_planner.restriction_failure_reasons(
+        profile,
+        legacy["tags"],
+        legacy["ing_tokens"],
+        legacy["canonical_allergen_families"],
+    ) == []
+    assert "allergy:soy" in meal_planner.restriction_failure_reasons(
+        profile,
+        canonical["tags"],
+        canonical["ing_tokens"],
+        canonical["canonical_allergen_families"],
+    )
+
+
+def test_canonical_stage1_pantry_matching_handles_local_aliases():
+    profile = UserProfile(
+        pantryItems=["bawang"],
+        allergies=[],
+        dietaryRestrictions=[],
+        maxCookingTimeMinutes=60,
+    )
+    recipe = _recipe(
+        "canonical-pantry",
+        "Canonical Pantry",
+        "Lunch",
+        ingredients=[{"name": "garlic", "quantity": "2 cloves"}],
+    )
+    recipe["_canonical_stage1"] = {
+        "curatedIngredientIds": ["ing_garlic"],
+        "curatedCanonicalNames": ["garlic"],
+        "allergenFamilies": [],
+    }
+    policy = {
+        "stage1": {
+            "canonical_features_enabled": True,
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+        }
+    }
+
+    buckets = meal_planner.shortlist_candidates(profile, [recipe], policy=policy)
+    selected = [item for bucket in buckets.values() for item in bucket]
+
+    assert selected
+    assert selected[0]["_pantry_match"] == 1
+    assert selected[0]["_pantry_match_method"] == "canonical_plus_legacy"
+
+
+def test_canonical_stage1_pantry_matching_never_reduces_legacy_overlap():
+    profile = UserProfile(
+        pantryItems=["bawang", "mystery herb"],
+        allergies=[],
+        dietaryRestrictions=[],
+        maxCookingTimeMinutes=60,
+    )
+    recipe = _recipe(
+        "canonical-mixed-pantry",
+        "Canonical Mixed Pantry",
+        "Lunch",
+        ingredients=[
+            {"name": "garlic", "quantity": "2 cloves"},
+            {"name": "mystery herb", "quantity": "1 bunch"},
+        ],
+    )
+    recipe["_canonical_stage1"] = {
+        "curatedIngredientIds": ["ing_garlic"],
+        "curatedCanonicalNames": ["garlic"],
+        "allergenFamilies": [],
+    }
+    policy = {
+        "stage1": {
+            "canonical_features_enabled": True,
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+        }
+    }
+
+    buckets = meal_planner.shortlist_candidates(profile, [recipe], policy=policy)
+    selected = [item for bucket in buckets.values() for item in bucket]
+
+    assert selected
+    assert selected[0]["_pantry_match"] == 2
+    assert selected[0]["_pantry_match_method"] == "canonical_plus_legacy"
+
+
 def test_custom_allergy_token_excludes_matching_ingredient():
     profile = UserProfile(allergies=["chicken"])
     recipe = _recipe(

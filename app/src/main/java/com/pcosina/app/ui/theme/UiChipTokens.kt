@@ -4,7 +4,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 object UiChipTokens {
-    val CompactBreakpoint = 380
+    val CompactBreakpoint = GeneratedBreakpoints.Compact
     val MinTouchHeight = 36.dp
 
     fun widthByClass(

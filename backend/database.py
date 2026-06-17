@@ -9,6 +9,16 @@ from collections import Counter
 from contextlib import contextmanager
 from typing import Any, Dict, Iterable, List, Optional
 
+from canonical_ingredients import (
+    CANONICAL_INGREDIENTS,
+    INGREDIENT_ALIASES,
+    INGREDIENT_ALLERGEN_LINKS,
+    INGREDIENT_PRICE_REFS,
+    ingredient_name_and_quantity,
+    normalize_ingredient_text,
+    provisional_ingredient,
+    resolve_ingredient,
+)
 from db_url import is_postgres_database_url
 
 try:
@@ -1268,6 +1278,285 @@ def _migration_market_heuristics(conn) -> None:
     cur.execute("CREATE INDEX IF NOT EXISTS idx_market_seasonality_cat_month ON market_seasonality_rules(category, month_index)")
 
 
+def _canonical_ingredient_table_statements() -> list[str]:
+    timestamp_type = "BIGINT" if _use_postgres() else "INTEGER"
+    return [
+        f"""
+        CREATE TABLE IF NOT EXISTS canonical_ingredients (
+            ingredient_id TEXT PRIMARY KEY,
+            canonical_name TEXT NOT NULL UNIQUE,
+            category TEXT NOT NULL,
+            default_unit TEXT NOT NULL,
+            default_form TEXT NOT NULL DEFAULT 'unspecified',
+            quality_status TEXT NOT NULL DEFAULT 'seeded',
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at {timestamp_type} NOT NULL,
+            updated_at {timestamp_type} NOT NULL
+        )
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS ingredient_aliases (
+            alias_id TEXT PRIMARY KEY,
+            ingredient_id TEXT NOT NULL REFERENCES canonical_ingredients(ingredient_id),
+            alias_text TEXT NOT NULL,
+            normalized_alias TEXT NOT NULL,
+            language TEXT NOT NULL DEFAULT 'en',
+            region TEXT NOT NULL DEFAULT '',
+            confidence TEXT NOT NULL DEFAULT 'high',
+            source TEXT NOT NULL,
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at {timestamp_type} NOT NULL,
+            updated_at {timestamp_type} NOT NULL,
+            UNIQUE (ingredient_id, normalized_alias, language, region)
+        )
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS ingredient_unit_conversions (
+            conversion_id TEXT PRIMARY KEY,
+            ingredient_id TEXT NOT NULL REFERENCES canonical_ingredients(ingredient_id),
+            from_unit TEXT NOT NULL,
+            to_unit TEXT NOT NULL,
+            factor REAL NOT NULL CHECK (factor > 0),
+            confidence TEXT NOT NULL,
+            source TEXT NOT NULL,
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at {timestamp_type} NOT NULL,
+            updated_at {timestamp_type} NOT NULL,
+            UNIQUE (ingredient_id, from_unit, to_unit)
+        )
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS ingredient_nutrition_refs (
+            nutrition_ref_id TEXT PRIMARY KEY,
+            ingredient_id TEXT NOT NULL REFERENCES canonical_ingredients(ingredient_id),
+            source_name TEXT NOT NULL,
+            source_food_id TEXT,
+            food_form TEXT NOT NULL DEFAULT 'unspecified',
+            calories_per_100g REAL,
+            protein_per_100g REAL,
+            carbs_per_100g REAL,
+            fat_per_100g REAL,
+            fiber_per_100g REAL,
+            sodium_mg_per_100g REAL,
+            sugar_per_100g REAL,
+            confidence TEXT NOT NULL,
+            review_status TEXT NOT NULL DEFAULT 'pending_review',
+            source_url TEXT,
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at {timestamp_type} NOT NULL,
+            updated_at {timestamp_type} NOT NULL
+        )
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS ingredient_price_refs (
+            price_ref_id TEXT PRIMARY KEY,
+            ingredient_id TEXT NOT NULL REFERENCES canonical_ingredients(ingredient_id),
+            location TEXT NOT NULL DEFAULT 'Philippines',
+            market_type TEXT NOT NULL DEFAULT 'baseline',
+            unit TEXT NOT NULL,
+            price_php REAL NOT NULL CHECK (price_php >= 0),
+            price_min_php REAL,
+            price_max_php REAL,
+            source TEXT NOT NULL,
+            source_date TEXT,
+            confidence TEXT NOT NULL,
+            valid_until TEXT,
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at {timestamp_type} NOT NULL,
+            updated_at {timestamp_type} NOT NULL
+        )
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS recipe_ingredient_links (
+            link_id TEXT PRIMARY KEY,
+            recipe_id TEXT NOT NULL REFERENCES recipes(id),
+            ingredient_index INTEGER NOT NULL CHECK (ingredient_index >= 0),
+            ingredient_id TEXT REFERENCES canonical_ingredients(ingredient_id),
+            raw_ingredient_text TEXT NOT NULL,
+            raw_quantity_text TEXT,
+            quantity_value REAL,
+            quantity_unit TEXT,
+            normalized_grams REAL,
+            preparation TEXT,
+            mapping_status TEXT NOT NULL,
+            mapping_method TEXT NOT NULL,
+            mapping_confidence TEXT NOT NULL,
+            needs_review INTEGER NOT NULL DEFAULT 1,
+            created_at {timestamp_type} NOT NULL,
+            updated_at {timestamp_type} NOT NULL,
+            UNIQUE (recipe_id, ingredient_index)
+        )
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS ingredient_allergen_links (
+            ingredient_id TEXT NOT NULL REFERENCES canonical_ingredients(ingredient_id),
+            allergen_family TEXT NOT NULL,
+            relationship TEXT NOT NULL DEFAULT 'contains',
+            confidence TEXT NOT NULL,
+            source TEXT NOT NULL,
+            created_at {timestamp_type} NOT NULL,
+            updated_at {timestamp_type} NOT NULL,
+            PRIMARY KEY (ingredient_id, allergen_family)
+        )
+        """,
+    ]
+
+
+def _seed_canonical_ingredients(conn) -> None:
+    cur = conn.cursor()
+    now = int(time.time() * 1000)
+    placeholder = "%s" if _use_postgres() else "?"
+
+    def insert_ignore(table: str, columns: list[str], values: tuple) -> None:
+        column_sql = ", ".join(columns)
+        value_sql = ", ".join([placeholder] * len(columns))
+        if _use_postgres():
+            sql = f"INSERT INTO {table} ({column_sql}) VALUES ({value_sql}) ON CONFLICT DO NOTHING"
+        else:
+            sql = f"INSERT OR IGNORE INTO {table} ({column_sql}) VALUES ({value_sql})"
+        cur.execute(sql, values)
+
+    for item in CANONICAL_INGREDIENTS:
+        insert_ignore(
+            "canonical_ingredients",
+            [
+                "ingredient_id", "canonical_name", "category", "default_unit",
+                "default_form", "quality_status", "active", "created_at", "updated_at",
+            ],
+            (
+                item.ingredient_id, item.canonical_name, item.category, item.default_unit,
+                item.default_form, item.quality_status, 1, now, now,
+            ),
+        )
+
+    for item in INGREDIENT_ALIASES:
+        normalized = " ".join(re.findall(r"[a-z0-9]+", item.alias_text.casefold()))
+        alias_slug = re.sub(r"[^a-z0-9]+", "_", normalized).strip("_")
+        insert_ignore(
+            "ingredient_aliases",
+            [
+                "alias_id", "ingredient_id", "alias_text", "normalized_alias",
+                "language", "region", "confidence", "source", "active",
+                "created_at", "updated_at",
+            ],
+            (
+                f"alias_{item.ingredient_id}_{alias_slug}",
+                item.ingredient_id,
+                item.alias_text,
+                normalized,
+                item.language,
+                item.region,
+                item.confidence,
+                item.source,
+                1,
+                now,
+                now,
+            ),
+        )
+
+    for ingredient_id, allergen_family, relationship, confidence in INGREDIENT_ALLERGEN_LINKS:
+        insert_ignore(
+            "ingredient_allergen_links",
+            [
+                "ingredient_id", "allergen_family", "relationship", "confidence",
+                "source", "created_at", "updated_at",
+            ],
+            (
+                ingredient_id, allergen_family, relationship, confidence,
+                "allergen_synonyms_seed_v1", now, now,
+            ),
+        )
+
+    for item in INGREDIENT_PRICE_REFS:
+        insert_ignore(
+            "ingredient_price_refs",
+            [
+                "price_ref_id", "ingredient_id", "location", "market_type", "unit",
+                "price_php", "source", "confidence", "active", "created_at", "updated_at",
+            ],
+            (
+                f"price_{item.ingredient_id}_static_v1",
+                item.ingredient_id,
+                "Philippines",
+                "baseline",
+                item.unit,
+                item.price_php,
+                item.source,
+                item.confidence,
+                1,
+                now,
+                now,
+            ),
+        )
+
+    for item in CANONICAL_INGREDIENTS:
+        conversions = []
+        if item.default_unit == "kg":
+            conversions = [("kg", "g", 1000.0), ("g", "kg", 0.001)]
+        elif item.default_unit == "l":
+            conversions = [("l", "ml", 1000.0), ("ml", "l", 0.001)]
+        for from_unit, to_unit, factor in conversions:
+            insert_ignore(
+                "ingredient_unit_conversions",
+                [
+                    "conversion_id", "ingredient_id", "from_unit", "to_unit", "factor",
+                    "confidence", "source", "active", "created_at", "updated_at",
+                ],
+                (
+                    f"conversion_{item.ingredient_id}_{from_unit}_{to_unit}",
+                    item.ingredient_id,
+                    from_unit,
+                    to_unit,
+                    factor,
+                    "exact",
+                    "metric_definition",
+                    1,
+                    now,
+                    now,
+                ),
+            )
+
+
+def _migration_canonical_ingredient_layer(conn) -> None:
+    cur = conn.cursor()
+    for statement in _canonical_ingredient_table_statements():
+        cur.execute(statement)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_ingredient_aliases_normalized ON ingredient_aliases(normalized_alias)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_ingredient_price_refs_lookup ON ingredient_price_refs(ingredient_id, active)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_ingredient_nutrition_refs_lookup ON ingredient_nutrition_refs(ingredient_id, active)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_recipe_ingredient_links_recipe ON recipe_ingredient_links(recipe_id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_recipe_ingredient_links_ingredient ON recipe_ingredient_links(ingredient_id)")
+    _seed_canonical_ingredients(conn)
+
+
+def _migration_canonical_ingredient_seed_v2(conn) -> None:
+    _seed_canonical_ingredients(conn)
+
+
+def _migration_canonical_reference_precedence(conn) -> None:
+    cur = conn.cursor()
+    if _use_postgres():
+        cur.execute("ALTER TABLE ingredient_price_refs ADD COLUMN IF NOT EXISTS price_scope TEXT NOT NULL DEFAULT 'baseline'")
+        cur.execute("ALTER TABLE ingredient_price_refs ADD COLUMN IF NOT EXISTS owner_uid TEXT")
+        cur.execute("ALTER TABLE ingredient_price_refs ADD COLUMN IF NOT EXISTS priority INTEGER NOT NULL DEFAULT 100")
+        cur.execute("ALTER TABLE ingredient_price_refs ADD COLUMN IF NOT EXISTS notes TEXT")
+    else:
+        cur.execute("PRAGMA table_info(ingredient_price_refs)")
+        columns = {str(row[1]) for row in cur.fetchall()}
+        if "price_scope" not in columns:
+            cur.execute("ALTER TABLE ingredient_price_refs ADD COLUMN price_scope TEXT NOT NULL DEFAULT 'baseline'")
+        if "owner_uid" not in columns:
+            cur.execute("ALTER TABLE ingredient_price_refs ADD COLUMN owner_uid TEXT")
+        if "priority" not in columns:
+            cur.execute("ALTER TABLE ingredient_price_refs ADD COLUMN priority INTEGER NOT NULL DEFAULT 100")
+        if "notes" not in columns:
+            cur.execute("ALTER TABLE ingredient_price_refs ADD COLUMN notes TEXT")
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ingredient_price_refs_precedence "
+        "ON ingredient_price_refs(ingredient_id, price_scope, owner_uid, active, priority)"
+    )
+
+
 def _registered_schema_migrations():
     return [
         ("20260319_app_001_core_tables", "Create core application tables", _migration_create_core_tables),
@@ -1286,6 +1575,9 @@ def _registered_schema_migrations():
         ("20260319_app_014_recipe_catalog_metadata", "Add recipe catalog metadata and soft-delete columns", _migration_recipe_catalog_metadata),
         ("20260319_app_015_admin_content_constraints", "Enforce admin content bounds for planner data", _migration_admin_content_constraints),
         ("20260319_app_016_recipe_nutrition_metadata", "Track recipe nutrition provenance and review status", _migration_recipe_nutrition_metadata),
+        ("20260614_app_017_canonical_ingredient_layer", "Create and seed canonical ingredient reference tables", _migration_canonical_ingredient_layer),
+        ("20260614_app_018_canonical_ingredient_seed_v2", "Expand canonical ingredient seed coverage", _migration_canonical_ingredient_seed_v2),
+        ("20260614_app_019_canonical_reference_precedence", "Add canonical price scope and override precedence", _migration_canonical_reference_precedence),
     ]
 
 
@@ -2694,6 +2986,436 @@ def init_db():
         conn.commit()
     finally:
         conn.close()
+
+
+def sync_recipe_ingredient_links(recipes: list[dict[str, Any]]) -> Dict[str, Any]:
+    """Replace shadow canonical links for the provided database recipes."""
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        now = int(time.time() * 1000)
+        placeholder = "%s" if _use_postgres() else "?"
+        existing_recipe_ids = _recipe_id_set(conn)
+        summary = Counter()
+        touched_recipe_ids: list[str] = []
+
+        def insert_ignore(table: str, columns: list[str], values: tuple) -> None:
+            column_sql = ", ".join(columns)
+            value_sql = ", ".join([placeholder] * len(columns))
+            if _use_postgres():
+                sql = f"INSERT INTO {table} ({column_sql}) VALUES ({value_sql}) ON CONFLICT DO NOTHING"
+            else:
+                sql = f"INSERT OR IGNORE INTO {table} ({column_sql}) VALUES ({value_sql})"
+            cur.execute(sql, values)
+
+        for recipe in recipes:
+            recipe_id = str(recipe.get("id") or "").strip()
+            if not recipe_id or recipe_id not in existing_recipe_ids:
+                summary["recipes_missing_from_database"] += 1
+                continue
+            touched_recipe_ids.append(recipe_id)
+            if _use_postgres():
+                cur.execute("DELETE FROM recipe_ingredient_links WHERE recipe_id = %s", (recipe_id,))
+            else:
+                cur.execute("DELETE FROM recipe_ingredient_links WHERE recipe_id = ?", (recipe_id,))
+
+            for ingredient_index, ingredient in enumerate(recipe.get("ingredients") or []):
+                raw_name, raw_quantity = ingredient_name_and_quantity(ingredient)
+                if not raw_name:
+                    continue
+                combined_text = f"{raw_quantity} {raw_name}".strip()
+                resolution = resolve_ingredient(combined_text)
+                try:
+                    from draft_nutrition_from_fdc import parse_ingredient
+
+                    parsed_ingredient = parse_ingredient(combined_text)
+                    normalized_grams = (
+                        float(parsed_ingredient.grams)
+                        if parsed_ingredient.grams is not None and parsed_ingredient.grams > 0
+                        else None
+                    )
+                except Exception:
+                    normalized_grams = None
+                if resolution.status == "mapped" and resolution.ingredient_id:
+                    ingredient_id = resolution.ingredient_id
+                    mapping_status = "mapped"
+                    mapping_method = "curated_alias"
+                    mapping_confidence = resolution.confidence
+                    summary["mapped"] += 1
+                else:
+                    provisional = provisional_ingredient(combined_text, resolution.status)
+                    ingredient_id = provisional.ingredient_id
+                    mapping_status = "provisional"
+                    mapping_method = (
+                        "provisional_ambiguous_phrase"
+                        if resolution.status == "ambiguous"
+                        else "provisional_full_phrase"
+                    )
+                    mapping_confidence = "low"
+                    summary["provisional"] += 1
+                    if resolution.status == "ambiguous":
+                        summary["source_ambiguous"] += 1
+                    else:
+                        summary["source_unmapped"] += 1
+                    insert_ignore(
+                        "canonical_ingredients",
+                        [
+                            "ingredient_id", "canonical_name", "category", "default_unit",
+                            "default_form", "quality_status", "active", "created_at", "updated_at",
+                        ],
+                        (
+                            provisional.ingredient_id,
+                            provisional.canonical_name,
+                            provisional.category,
+                            provisional.default_unit,
+                            "unspecified",
+                            provisional.quality_status,
+                            1,
+                            now,
+                            now,
+                        ),
+                    )
+                    normalized_alias = normalize_ingredient_text(combined_text)
+                    alias_digest = uuid.uuid5(
+                        uuid.NAMESPACE_URL,
+                        f"{ingredient_id}:{normalized_alias}",
+                    ).hex
+                    insert_ignore(
+                        "ingredient_aliases",
+                        [
+                            "alias_id", "ingredient_id", "alias_text", "normalized_alias",
+                            "language", "region", "confidence", "source", "active",
+                            "created_at", "updated_at",
+                        ],
+                        (
+                            f"alias_provisional_{alias_digest}",
+                            ingredient_id,
+                            raw_name,
+                            normalized_alias,
+                            "und",
+                            "",
+                            "low",
+                            "catalog_provisional_v1",
+                            1,
+                            now,
+                            now,
+                        ),
+                    )
+
+                link_id = f"ril_{uuid.uuid5(uuid.NAMESPACE_URL, f'{recipe_id}:{ingredient_index}').hex}"
+                insert_ignore(
+                    "recipe_ingredient_links",
+                    [
+                        "link_id", "recipe_id", "ingredient_index", "ingredient_id",
+                        "raw_ingredient_text", "raw_quantity_text", "quantity_value",
+                        "quantity_unit", "normalized_grams", "preparation", "mapping_status",
+                        "mapping_method", "mapping_confidence", "needs_review",
+                        "created_at", "updated_at",
+                    ],
+                    (
+                        link_id,
+                        recipe_id,
+                        ingredient_index,
+                        ingredient_id,
+                        raw_name,
+                        raw_quantity,
+                        resolution.quantity_value,
+                        resolution.quantity_unit,
+                        normalized_grams,
+                        None,
+                        mapping_status,
+                        mapping_method,
+                        mapping_confidence,
+                        0,
+                        now,
+                        now,
+                    ),
+                )
+                summary["links"] += 1
+
+        summary["recipes"] = len(set(touched_recipe_ids))
+        summary["classified"] = summary["mapped"] + summary["provisional"]
+        summary["classification_coverage_pct"] = round(
+            100 * summary["classified"] / max(1, summary["links"]),
+            2,
+        )
+        conn.commit()
+        return dict(summary)
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def upsert_canonical_price_override(
+    *,
+    ingredient_id: str,
+    price_php: float,
+    unit: str,
+    scope: str,
+    owner_uid: str | None = None,
+    location: str = "NCR",
+    source: str = "manual_override",
+    notes: str = "",
+) -> Dict[str, Any]:
+    normalized_scope = str(scope or "").strip().lower()
+    if normalized_scope not in {"admin_override", "user_override"}:
+        raise ValueError("scope must be admin_override or user_override")
+    normalized_owner = str(owner_uid or "").strip()
+    if normalized_scope == "user_override" and not normalized_owner:
+        raise ValueError("owner_uid is required for user_override")
+    normalized_ingredient = str(ingredient_id or "").strip()
+    normalized_unit = str(unit or "").strip().lower()
+    price = float(price_php)
+    if not normalized_ingredient or not normalized_unit or price < 0:
+        raise ValueError("ingredient_id, unit, and non-negative price_php are required")
+
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        now = int(time.time() * 1000)
+        priority = 500 if normalized_scope == "user_override" else 400
+        owner_key = normalized_owner or "global"
+        ref_id = f"price_{normalized_ingredient}_{normalized_scope}_{uuid.uuid5(uuid.NAMESPACE_URL, owner_key).hex[:12]}"
+        values = (
+            ref_id, normalized_ingredient, location, normalized_scope, normalized_unit,
+            price, None, None, source, time.strftime("%Y-%m-%d"), "high", "",
+            1, now, now, normalized_scope, normalized_owner or None, priority, notes,
+        )
+        if _use_postgres():
+            cur.execute(
+                """
+                INSERT INTO ingredient_price_refs (
+                    price_ref_id, ingredient_id, location, market_type, unit,
+                    price_php, price_min_php, price_max_php, source, source_date,
+                    confidence, valid_until, active, created_at, updated_at,
+                    price_scope, owner_uid, priority, notes
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (price_ref_id) DO UPDATE SET
+                    price_php = EXCLUDED.price_php,
+                    unit = EXCLUDED.unit,
+                    location = EXCLUDED.location,
+                    source = EXCLUDED.source,
+                    source_date = EXCLUDED.source_date,
+                    active = EXCLUDED.active,
+                    updated_at = EXCLUDED.updated_at,
+                    notes = EXCLUDED.notes
+                """,
+                values,
+            )
+        else:
+            cur.execute(
+                """
+                INSERT INTO ingredient_price_refs (
+                    price_ref_id, ingredient_id, location, market_type, unit,
+                    price_php, price_min_php, price_max_php, source, source_date,
+                    confidence, valid_until, active, created_at, updated_at,
+                    price_scope, owner_uid, priority, notes
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(price_ref_id) DO UPDATE SET
+                    price_php = excluded.price_php,
+                    unit = excluded.unit,
+                    location = excluded.location,
+                    source = excluded.source,
+                    source_date = excluded.source_date,
+                    active = excluded.active,
+                    updated_at = excluded.updated_at,
+                    notes = excluded.notes
+                """,
+                values,
+            )
+        conn.commit()
+        return {
+            "priceRefId": ref_id,
+            "ingredientId": normalized_ingredient,
+            "pricePhp": price,
+            "unit": normalized_unit,
+            "scope": normalized_scope,
+            "ownerUid": normalized_owner or None,
+            "priority": priority,
+        }
+    finally:
+        conn.close()
+
+
+def resolve_canonical_price_ref(
+    ingredient_id: str,
+    *,
+    owner_uid: str | None = None,
+    market_type: str = "wet_market",
+    location: str = "NCR",
+) -> Dict[str, Any] | None:
+    token = str(ingredient_id or "").strip()
+    owner = str(owner_uid or "").strip()
+    market = str(market_type or "wet_market").strip().lower()
+    conn = _connect()
+    try:
+        if _use_postgres() and dict_row is not None:
+            cur = conn.cursor(row_factory=dict_row)
+            cur.execute(
+                """
+                SELECT *
+                FROM ingredient_price_refs
+                WHERE ingredient_id = %s
+                  AND active = 1
+                  AND (location = %s OR location = 'Philippines')
+                  AND (
+                    (price_scope = 'user_override' AND owner_uid = %s) OR
+                    (price_scope = 'admin_override') OR
+                    (price_scope = %s) OR
+                    (price_scope = 'baseline')
+                  )
+                ORDER BY
+                    CASE
+                        WHEN price_scope = 'user_override' AND owner_uid = %s THEN 500
+                        WHEN price_scope = 'admin_override' THEN 400
+                        WHEN price_scope = %s THEN 300
+                        ELSE priority
+                    END DESC,
+                    source_date DESC,
+                    updated_at DESC
+                LIMIT 1
+                """,
+                (token, location, owner, market, owner, market),
+            )
+        else:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT *
+                FROM ingredient_price_refs
+                WHERE ingredient_id = ?
+                  AND active = 1
+                  AND (location = ? OR location = 'Philippines')
+                  AND (
+                    (price_scope = 'user_override' AND owner_uid = ?) OR
+                    (price_scope = 'admin_override') OR
+                    (price_scope = ?) OR
+                    (price_scope = 'baseline')
+                  )
+                ORDER BY
+                    CASE
+                        WHEN price_scope = 'user_override' AND owner_uid = ? THEN 500
+                        WHEN price_scope = 'admin_override' THEN 400
+                        WHEN price_scope = ? THEN 300
+                        ELSE priority
+                    END DESC,
+                    source_date DESC,
+                    updated_at DESC
+                LIMIT 1
+                """,
+                (token, location, owner, market, owner, market),
+            )
+        row = cur.fetchone()
+        if not row:
+            return None
+        raw = dict(row)
+        return {
+            "priceRefId": raw.get("price_ref_id"),
+            "ingredientId": raw.get("ingredient_id"),
+            "location": raw.get("location"),
+            "marketType": raw.get("market_type"),
+            "unit": raw.get("unit"),
+            "pricePhp": float(raw.get("price_php") or 0),
+            "priceMinPhp": raw.get("price_min_php"),
+            "priceMaxPhp": raw.get("price_max_php"),
+            "source": raw.get("source"),
+            "sourceDate": raw.get("source_date"),
+            "confidence": raw.get("confidence"),
+            "scope": raw.get("price_scope"),
+            "ownerUid": raw.get("owner_uid"),
+            "notes": raw.get("notes"),
+        }
+    finally:
+        conn.close()
+
+
+def list_effective_canonical_price_refs(
+    *,
+    owner_uid: str | None = None,
+    market_type: str = "wet_market",
+    location: str = "NCR",
+) -> Dict[str, Dict[str, Any]]:
+    owner = str(owner_uid or "").strip()
+    market = str(market_type or "wet_market").strip().lower()
+    conn = _connect()
+    try:
+        if _use_postgres() and dict_row is not None:
+            cur = conn.cursor(row_factory=dict_row)
+            cur.execute(
+                """
+                SELECT ipr.*, ci.category AS canonical_category
+                FROM ingredient_price_refs ipr
+                JOIN canonical_ingredients ci ON ci.ingredient_id = ipr.ingredient_id
+                WHERE ipr.active = 1 AND (ipr.location = %s OR ipr.location = 'Philippines')
+                """,
+                (location,),
+            )
+        else:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT ipr.*, ci.category AS canonical_category
+                FROM ingredient_price_refs ipr
+                JOIN canonical_ingredients ci ON ci.ingredient_id = ipr.ingredient_id
+                WHERE ipr.active = 1 AND (ipr.location = ? OR ipr.location = 'Philippines')
+                """,
+                (location,),
+            )
+        rows = [dict(row) for row in cur.fetchall()]
+    finally:
+        conn.close()
+
+    result: Dict[str, Dict[str, Any]] = {}
+    ranked: Dict[str, tuple[tuple[int, str, int], dict[str, Any]]] = {}
+    for raw in rows:
+        scope = str(raw.get("price_scope") or "baseline").strip().lower()
+        row_owner = str(raw.get("owner_uid") or "").strip()
+        if scope == "user_override":
+            if not owner or row_owner != owner:
+                continue
+            precedence = 500
+        elif scope == "admin_override":
+            precedence = 400
+        elif scope == market:
+            precedence = 300
+        elif scope == "baseline":
+            precedence = int(raw.get("priority") or 100)
+        else:
+            continue
+        ingredient_id = str(raw.get("ingredient_id") or "").strip()
+        key = (
+            precedence,
+            str(raw.get("source_date") or ""),
+            int(raw.get("updated_at") or 0),
+        )
+        if ingredient_id and (ingredient_id not in ranked or key > ranked[ingredient_id][0]):
+            ranked[ingredient_id] = (key, raw)
+    for ingredient_id, (_, raw) in ranked.items():
+        result[ingredient_id] = {
+            "priceRefId": raw.get("price_ref_id"),
+            "ingredientId": ingredient_id,
+            "location": raw.get("location"),
+            "marketType": raw.get("market_type"),
+            "unit": raw.get("unit"),
+            "pricePhp": float(raw.get("price_php") or 0),
+            "priceMinPhp": raw.get("price_min_php"),
+            "priceMaxPhp": raw.get("price_max_php"),
+            "source": raw.get("source"),
+            "sourceDate": raw.get("source_date"),
+            "confidence": raw.get("confidence"),
+            "scope": raw.get("price_scope"),
+            "ownerUid": raw.get("owner_uid"),
+            "notes": raw.get("notes"),
+            "canonicalCategory": raw.get("canonical_category"),
+        }
+    return result
+
 
 def create_plan_job(
     job_id: str,
@@ -4324,13 +5046,100 @@ def get_all_recipes():
         cursor.execute("SELECT * FROM recipes WHERE COALESCE(active, 1) = 1")
         rows = cursor.fetchall()
         correction_map = _list_active_nutrition_corrections_map(conn)
+        canonical_feature_map = _list_canonical_stage1_features(conn)
         recipes = []
         for row in rows:
             recipe = _recipe_row_to_detail(row)
-            recipes.append(_apply_nutrition_correction(recipe, correction_map.get(str(row["id"]))))
+            recipe = _apply_nutrition_correction(recipe, correction_map.get(str(row["id"])))
+            canonical_features = canonical_feature_map.get(str(row["id"]))
+            if canonical_features:
+                recipe["_canonical_stage1"] = canonical_features
+            recipes.append(recipe)
         return recipes
     finally:
         conn.close()
+
+
+def _list_canonical_stage1_features(conn) -> Dict[str, Dict[str, Any]]:
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            SELECT
+                ril.recipe_id,
+                ril.ingredient_id,
+                ril.mapping_status,
+                ril.mapping_confidence,
+                ci.canonical_name,
+                ci.category,
+                ci.quality_status,
+                ial.allergen_family
+            FROM recipe_ingredient_links ril
+            JOIN canonical_ingredients ci ON ci.ingredient_id = ril.ingredient_id
+            LEFT JOIN ingredient_allergen_links ial ON ial.ingredient_id = ril.ingredient_id
+            ORDER BY ril.recipe_id, ril.ingredient_index, ial.allergen_family
+            """
+        )
+    except Exception:
+        return {}
+
+    result: Dict[str, Dict[str, Any]] = {}
+    for row in cur.fetchall():
+        if isinstance(row, dict):
+            raw = row
+        elif hasattr(row, "keys"):
+            raw = {key: row[key] for key in row.keys()}
+        else:
+            raw = {
+                "recipe_id": row[0],
+                "ingredient_id": row[1],
+                "mapping_status": row[2],
+                "mapping_confidence": row[3],
+                "canonical_name": row[4],
+                "category": row[5],
+                "quality_status": row[6],
+                "allergen_family": row[7],
+            }
+        recipe_id = str(raw.get("recipe_id") or "").strip()
+        ingredient_id = str(raw.get("ingredient_id") or "").strip()
+        if not recipe_id or not ingredient_id:
+            continue
+        item = result.setdefault(
+            recipe_id,
+            {
+                "ingredientIds": [],
+                "curatedIngredientIds": [],
+                "canonicalNames": [],
+                "curatedCanonicalNames": [],
+                "allergenFamilies": [],
+                "provisionalCount": 0,
+                "linkCount": 0,
+            },
+        )
+        if ingredient_id not in item["ingredientIds"]:
+            item["ingredientIds"].append(ingredient_id)
+            item["linkCount"] += 1
+        mapping_status = str(raw.get("mapping_status") or "").strip().lower()
+        quality_status = str(raw.get("quality_status") or "").strip().lower()
+        is_curated = mapping_status == "mapped" and not quality_status.startswith("provisional_")
+        canonical_name = str(raw.get("canonical_name") or "").strip()
+        if canonical_name and canonical_name not in item["canonicalNames"]:
+            item["canonicalNames"].append(canonical_name)
+        if is_curated:
+            if ingredient_id not in item["curatedIngredientIds"]:
+                item["curatedIngredientIds"].append(ingredient_id)
+            if canonical_name and canonical_name not in item["curatedCanonicalNames"]:
+                item["curatedCanonicalNames"].append(canonical_name)
+            allergen_family = str(raw.get("allergen_family") or "").strip().lower()
+            if allergen_family and allergen_family not in item["allergenFamilies"]:
+                item["allergenFamilies"].append(allergen_family)
+        elif ingredient_id in item["ingredientIds"]:
+            item["provisionalCount"] = sum(
+                1
+                for candidate in item["ingredientIds"]
+                if str(candidate).startswith("ing_provisional_")
+            )
+    return result
 
 
 def get_recipe_by_id(recipe_id: str) -> Dict[str, Any] | None:

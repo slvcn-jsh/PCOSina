@@ -5,6 +5,7 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Any, List, Dict, Optional, Tuple
 import database
+from canonical_ingredients import resolve_ingredient
 
 
 @dataclass
@@ -59,9 +60,31 @@ def _normalize_category_key(category: str) -> str:
     return value
 
 
+def _price_category_from_canonical(value: Any, fallback_name: str) -> str:
+    normalized = str(value or "").strip().lower()
+    mapping = {
+        "produce": "Produce",
+        "fruit": "Produce",
+        "meat": "Meat/Seafood",
+        "fish_seafood": "Meat/Seafood",
+        "egg_dairy": "Eggs & Dairy",
+        "dairy": "Eggs & Dairy",
+        "dry_goods": "Dry Goods",
+        "legume": "Dry Goods",
+        "nuts_seeds": "Dry Goods",
+        "condiment": "Spices & Condiments",
+        "spice": "Spices & Condiments",
+        "beverage": "Beverages",
+    }
+    return mapping.get(normalized, infer_category(fallback_name))
+
+
 @dataclass
 class PricingContext:
     month_index: Optional[int] = None
+    owner_uid: Optional[str] = None
+    market_type: str = "wet_market"
+    location: str = "NCR"
     _market_multiplier_cache: Dict[Tuple[str, int], float] = field(default_factory=dict)
     _ingredient_price_cache: Dict[Tuple[str, str, bool, int], PriceEstimate] = field(default_factory=dict)
     _preloaded_months: set[int] = field(default_factory=set)
@@ -74,6 +97,10 @@ class PricingContext:
     recipe_cost_estimates: int = 0
     ingredient_cost_estimates: int = 0
     price_cost_estimation_ms: int = 0
+    _canonical_price_refs: Optional[Dict[str, Dict[str, Any]]] = None
+    canonical_price_ref_db_calls: int = 0
+    canonical_price_ref_hits: int = 0
+    canonical_price_ref_misses: int = 0
 
     def _default_market_multiplier(self, category_key: str, month: int) -> float:
         return _DEFAULT_SEASONAL_MULTIPLIER.get(category_key, {}).get(month, 1.0)
@@ -128,6 +155,24 @@ class PricingContext:
         self.recipe_cost_estimates += 1
         self.price_cost_estimation_ms += max(0, int((time.time() - started_at) * 1000))
 
+    def canonical_price_ref(self, ingredient_id: str) -> Optional[Dict[str, Any]]:
+        if self._canonical_price_refs is None:
+            self.canonical_price_ref_db_calls += 1
+            try:
+                self._canonical_price_refs = database.list_effective_canonical_price_refs(
+                    owner_uid=self.owner_uid,
+                    market_type=self.market_type,
+                    location=self.location,
+                )
+            except Exception:
+                self._canonical_price_refs = {}
+        item = self._canonical_price_refs.get(str(ingredient_id or ""))
+        if item:
+            self.canonical_price_ref_hits += 1
+        else:
+            self.canonical_price_ref_misses += 1
+        return item
+
     def snapshot(self) -> Dict[str, int]:
         return {
             "marketMultiplierDbCalls": int(self.market_multiplier_db_calls),
@@ -142,11 +187,25 @@ class PricingContext:
             "ingredientCostEstimates": int(self.ingredient_cost_estimates),
             "distinctMarketMultiplierKeys": int(len(self._market_multiplier_cache)),
             "distinctIngredientPriceKeys": int(len(self._ingredient_price_cache)),
+            "canonicalPriceRefDbCalls": int(self.canonical_price_ref_db_calls),
+            "canonicalPriceRefHits": int(self.canonical_price_ref_hits),
+            "canonicalPriceRefMisses": int(self.canonical_price_ref_misses),
         }
 
 
-def create_pricing_context(month_index: Optional[int] = None) -> PricingContext:
-    return PricingContext(month_index=_normalize_month_index(month_index))
+def create_pricing_context(
+    month_index: Optional[int] = None,
+    *,
+    owner_uid: Optional[str] = None,
+    market_type: str = "wet_market",
+    location: str = "NCR",
+) -> PricingContext:
+    return PricingContext(
+        month_index=_normalize_month_index(month_index),
+        owner_uid=owner_uid,
+        market_type=str(market_type or "wet_market"),
+        location=str(location or "NCR"),
+    )
 
 
 _RULES = [
@@ -779,7 +838,29 @@ def estimate_price_explained(
     pricing_context: Optional[PricingContext] = None,
     clamp_quantity: bool = True,
 ) -> PriceEstimate:
-    rule = _rule_for_name(name)
+    canonical_ref = None
+    resolution = resolve_ingredient(name)
+    if pricing_context is not None and resolution.status == "mapped" and resolution.ingredient_id:
+        canonical_ref = pricing_context.canonical_price_ref(resolution.ingredient_id)
+    rule = None
+    if canonical_ref:
+        canonical_source = str(canonical_ref.get("scope") or "canonical_reference")
+        rule = PriceRule(
+            keywords=[resolution.matched_alias or resolution.canonical_name or name],
+            price_php=max(0, int(round(float(canonical_ref.get("pricePhp") or 0)))),
+            category=_price_category_from_canonical(canonical_ref.get("canonicalCategory"), name),
+            unit=_normalize_rule_unit(canonical_ref.get("unit")),
+            source=f"canonical_{canonical_source}",
+            source_label=(
+                f"Canonical {canonical_ref.get('marketType') or canonical_source} "
+                f"({canonical_ref.get('location') or 'NCR'}, {canonical_ref.get('sourceDate') or 'undated'})"
+            ),
+            confidence=str(canonical_ref.get("confidence") or "medium"),
+            apply_category_multiplier=False,
+            allow_zero_price=float(canonical_ref.get("pricePhp") or 0) == 0,
+        )
+    if rule is None:
+        rule = _rule_for_name(name)
     category = rule.category if rule else infer_category(name)
     resolved_rule = rule or _fallback_rule_for_category(category)
     base_price = resolved_rule.price_php

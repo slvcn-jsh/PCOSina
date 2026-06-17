@@ -294,12 +294,35 @@ def _apply_production_canary_bootstrap(policy_payload: Dict[str, Any]) -> Dict[s
     return load_policy(upgraded).to_runtime_dict()
 
 
+def _requires_canonical_stage1_bootstrap(policy_payload: Dict[str, Any]) -> bool:
+    raw_policy_name = str((policy_payload or {}).get("policy_name") or "").strip().lower()
+    if raw_policy_name != "default":
+        return False
+    validated = load_policy(policy_payload)
+    return any(
+        not bool(validated.to_runtime_dict(environment=environment)["stage1"].get("canonical_features_enabled"))
+        for environment in ("development", "staging", "production")
+    )
+
+
+def _canonical_stage1_bootstrap_overlay() -> Dict[str, Any]:
+    return {
+        "stage1": {"canonical_features_enabled": True},
+        "environment_overrides": {
+            "staging": {"stage1": {"canonical_features_enabled": True}},
+            "production": {"stage1": {"canonical_features_enabled": True}},
+        },
+    }
+
+
 def _apply_runtime_bootstrap(policy_payload: Dict[str, Any]) -> Dict[str, Any]:
     upgraded = deepcopy(load_policy(policy_payload).to_runtime_dict())
     if _requires_production_canary_bootstrap(policy_payload):
         _deep_merge(upgraded, _production_canary_bootstrap_overlay())
     if _requires_staging_performance_bootstrap(policy_payload):
         _deep_merge(upgraded, _staging_performance_bootstrap_overlay())
+    if _requires_canonical_stage1_bootstrap(policy_payload):
+        _deep_merge(upgraded, _canonical_stage1_bootstrap_overlay())
     return load_policy(upgraded).to_runtime_dict()
 
 
@@ -478,7 +501,11 @@ def ensure_default_policy(actor: str = "system") -> Dict[str, Any]:
     active = get_active_policy()
     if active:
         active_payload = active.get("policy") if isinstance(active.get("policy"), dict) else {}
-        if _requires_production_canary_bootstrap(active_payload) or _requires_staging_performance_bootstrap(active_payload):
+        if (
+            _requires_production_canary_bootstrap(active_payload)
+            or _requires_staging_performance_bootstrap(active_payload)
+            or _requires_canonical_stage1_bootstrap(active_payload)
+        ):
             upgraded_payload = _apply_runtime_bootstrap(active_payload)
             upgraded_hash = _policy_hash(upgraded_payload)
             if upgraded_hash != str(active.get("policy_hash") or ""):

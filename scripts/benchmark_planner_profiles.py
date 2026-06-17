@@ -39,6 +39,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--runs", type=int, default=1, help="Runs per profile case.")
     parser.add_argument("--environment", default="production", help="Policy environment to resolve.")
     parser.add_argument("--policy-json", default="", help="Optional policy payload JSON file.")
+    canonical_group = parser.add_mutually_exclusive_group()
+    canonical_group.add_argument(
+        "--canonical-features",
+        action="store_true",
+        default=None,
+        help="Enable canonical Stage 1 features for local parity benchmarking.",
+    )
+    canonical_group.add_argument(
+        "--no-canonical-features",
+        dest="canonical_features",
+        action="store_false",
+        help="Disable canonical Stage 1 features for legacy comparison.",
+    )
     parser.add_argument("--report-prefix", default="planner_realistic_profiles.local", help="Report filename prefix.")
     parser.add_argument("--max-runtime-ms", type=int, default=15000, help="Per-run max runtime threshold.")
     parser.add_argument("--p95-runtime-ms", type=int, default=12000, help="Suite P95 runtime threshold.")
@@ -304,8 +317,14 @@ def _validate_plan_constraints(
 
 def _policy_payload(args: argparse.Namespace) -> Dict[str, Any]:
     if args.policy_json:
-        return load_policy(_load_json(Path(args.policy_json))).to_runtime_dict(environment=args.environment)
-    return default_policy().to_runtime_dict(environment=args.environment)
+        policy = load_policy(_load_json(Path(args.policy_json))).to_runtime_dict(environment=args.environment)
+    else:
+        policy = default_policy().to_runtime_dict(environment=args.environment)
+    if args.canonical_features is not None:
+        stage1 = dict(policy.get("stage1") or {})
+        stage1["canonical_features_enabled"] = bool(args.canonical_features)
+        policy["stage1"] = stage1
+    return policy
 
 
 def _live_headers(args: argparse.Namespace) -> Dict[str, str]:

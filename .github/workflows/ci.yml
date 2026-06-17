@@ -7,6 +7,35 @@ on:
     branches: [ "dev" ]
 
 jobs:
+  design-contract:
+    name: Shared Design Contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Verify generated tokens and screen parity
+        run: python scripts/generate_design_contract.py --check
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Test and build web app
+        working-directory: web
+        run: |
+          npm ci
+          npm test -- --run
+          npm run build
+
   android-build:
     name: Android Build
     runs-on: ubuntu-latest

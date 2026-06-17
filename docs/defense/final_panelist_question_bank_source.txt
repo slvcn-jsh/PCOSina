@@ -1,0 +1,1010 @@
+Final Panelist-God Question Bank for PCOSina
+A. Most Dangerous Opening Questions
+What is the main contribution of this thesis: the mobile application, the optimization algorithm, the pantry feature, the offline-first architecture, or the PCOS nutrition framework?
+If you had to defend this as a Computer Science thesis in one sentence, what exactly is the CS contribution?
+Why should this thesis be approved as BS Computer Science and not as an applied nutrition project?
+What problem does your system solve that a normal Filipino recipe app cannot solve?
+What problem does your system solve that a simple Google Sheet meal planner cannot solve?
+What makes PCOSina intelligent?
+What makes PCOSina optimized?
+What makes PCOSina PCOS-oriented?
+What makes PCOSina Filipino-context?
+What makes PCOSina offline-first?
+What makes PCOSina pantry-constrained instead of merely pantry-aware?
+What exactly did you prove in Chapter 4?
+What did you not prove in Chapter 4?
+What is your strongest result?
+What is your weakest result?
+Which part of the system is most defensible?
+Which part of the system is most vulnerable to criticism?
+If the panel rejects one claim in your thesis, which claim would be most likely rejected?
+What claim in your manuscript should be weakened before final defense?
+What is the single biggest limitation of your study?
+B. Title Defense Questions
+Why is the title “MILP-based” if the implementation uses OR-Tools CP-SAT?
+Is CP-SAT a MILP solver?
+Is your model truly MILP, or only MILP-style?
+Should your title say “MILP-formulated” instead of “MILP-based”?
+Should your title say “CP-SAT-solved” to avoid technical ambiguity?
+Why use “two-stage” in the title?
+What are the two stages?
+Is LightGBM a separate stage or only part of Stage 1?
+If LightGBM is part of Stage 1, why do some parts of the manuscript describe it almost like a separate stage?
+What does “offline-first” mean in the title?
+Can a user generate a new optimized meal plan fully offline?
+If not, is “offline-first” misleading?
+Should the title say “offline-accessible” instead?
+What exactly is “pantry-constrained”?
+If pantry information is used as a reward or planning signal, is it truly a constraint?
+Does the optimizer require all selected recipes to use pantry items?
+Can the system recommend recipes with zero pantry overlap?
+If yes, why call it pantry-constrained?
+What does “for Filipinos with PCOS” mean in your title?
+Did all primary users have confirmed PCOS diagnosis?
+C. Scope and Delimitation Attack Questions
+Is PCOSina a medical application?
+Is PCOSina a wellness application?
+Is PCOSina a decision-support system?
+Is PCOSina a clinical decision-support system?
+What is the difference between wellness decision-support and clinical decision-support?
+Does the app diagnose PCOS?
+Does the app treat PCOS?
+Does the app prescribe diet therapy?
+Does the app provide medical nutrition therapy?
+Does the app replace a registered nutritionist-dietitian?
+Does the app replace an OB-GYN?
+How do you prevent users from treating the app as medical advice?
+Is the non-diagnostic disclaimer visible inside the app or only in the thesis?
+At what point in the app does the user see the disclaimer?
+Do users have to accept the disclaimer?
+What happens if a user has diabetes?
+What happens if a user has kidney disease?
+What happens if a user is pregnant?
+What happens if a user is breastfeeding?
+What happens if a user has an eating disorder?
+What happens if a user is underweight?
+What happens if a user is below 18?
+What happens if a user is above 60?
+Does the app block unsupported users?
+Does the app only warn unsupported users?
+Are unsupported users mentioned in the app UI?
+Are unsupported conditions handled technically or only stated in the manuscript?
+What are the boundaries of the app’s dietary recommendations?
+Does the app personalize based on PCOS phenotype?
+Does the app personalize based on insulin resistance diagnosis?
+Does the app require lab results?
+Does the app use fasting glucose?
+Does the app use HbA1c?
+Does the app use hormonal markers?
+If not, how can it be PCOS-supportive?
+Is it more accurate to call the app “healthy meal planner for PCOS context” rather than “PCOS meal planner”?
+What health claims are excluded from the study?
+What long-term outcomes are excluded?
+What biological outcomes are excluded?
+Why is this still useful without clinical outcome validation?
+D. Statement of the Problem Questions
+Which SOP is the strongest?
+Which SOP is the weakest?
+Did each SOP receive equal evidence in Chapter 4?
+Which SOP relies most on user perception?
+Which SOP relies most on algorithm testing?
+Which SOP relies most on literature?
+Which SOP relies most on expert validation?
+Which SOP is not fully answered?
+Did your Chapter 4 directly answer SOP 1?
+Did your Chapter 4 directly answer SOP 2?
+Did your Chapter 4 directly answer SOP 3?
+Did your Chapter 4 directly answer SOP 4?
+Did your Chapter 4 directly answer SOP 5?
+What evidence shows the system generates nutritionally adequate meal plans?
+What evidence shows the system integrates user preferences?
+What evidence shows the system integrates cultural food practices?
+What evidence shows the system integrates dietary restrictions?
+What evidence shows pantry inventory encourages practical food choices?
+What evidence shows offline-first support works?
+What evidence shows computational efficiency?
+What evidence shows usability?
+What evidence shows cultural relevance?
+What evidence shows nutritional quality?
+What evidence shows pantry utilization?
+What evidence shows performance?
+Which SOP is only partially supported?
+Which SOP would require a longer study?
+Which SOP would require clinical validation?
+Which SOP would require actual household monitoring?
+Which SOP would require food-waste measurement?
+E. Objectives Questions
+Did you achieve the general objective?
+Did you achieve Specific Objective 1?
+Did you achieve Specific Objective 2?
+Did you achieve Specific Objective 3?
+Did you achieve Specific Objective 4?
+Did you achieve Specific Objective 5?
+What objective is best supported by test data?
+What objective is best supported by survey data?
+What objective is best supported by expert validation?
+What objective is weakest?
+What objective has the most overclaiming risk?
+Does your objective say “develop and evaluate” or “prove effectiveness”?
+Did you evaluate clinical effectiveness?
+Did you evaluate software effectiveness?
+Did you evaluate algorithmic correctness?
+Did you evaluate user satisfaction?
+Did you evaluate long-term adherence?
+Did you evaluate actual diet improvement?
+Did you evaluate real grocery savings?
+Did you evaluate real food-waste reduction?
+F. Chapter 2 RRL/RRS Questions
+What is the strongest literature support for PCOSina?
+What is the weakest literature support?
+Which sources directly justify PCOS nutrition rules?
+Which sources directly justify optimization-based meal planning?
+Which sources directly justify Filipino localization?
+Which sources directly justify offline-first design?
+Which sources directly justify pantry-aware planning?
+Which sources directly justify LightGBM?
+Which sources are merely background?
+Did you include too many AI studies that are not actually implemented?
+Why cite LLM or VAE studies if your system does not use LLMs or VAEs?
+Are all cited 2025 studies real, accessible, and peer-reviewed?
+Which cited study is closest to PCOSina?
+What is your research gap?
+Is the research gap local, technical, medical, or usability-based?
+Did you compare PCOSina against existing apps?
+Did you actually evaluate existing apps or only describe them?
+What exact weakness of existing apps does PCOSina address?
+How do you know Filipino users need this app?
+How do you know PCOS users need pantry-aware planning?
+How do you know offline-first matters for your target users?
+How do you know cultural relevance matters?
+What local literature supports Filipino food-context design?
+What local literature supports unstable connectivity concerns?
+What local literature supports budget constraints?
+What literature supports low-GI or high-fiber PCOS nutrition?
+Did your system directly implement GI?
+Did your system directly implement GL?
+Did your literature support match your implementation?
+Where did the RRL end and your actual contribution begin?
+G. Methodology Questions
+Why did you use developmental research?
+Why did you use descriptive research?
+Why not experimental research?
+Why not quasi-experimental research?
+Why not compare pre-test and post-test behavior?
+Why not compare against an existing app?
+Why not compare against a dietitian-made plan?
+Why not compare against random meal selection?
+Why not compare against a commercial app?
+What type of evidence does your methodology produce?
+Does your methodology support causal claims?
+Does your methodology support effectiveness claims?
+Does your methodology support usability claims?
+Does your methodology support feasibility claims?
+Does your methodology support clinical claims?
+What is the unit of analysis?
+Are you evaluating users, meal plans, algorithms, or the software product?
+What is the difference between system testing and user evaluation?
+What is the difference between expert validation and clinical validation?
+What is the difference between benchmark testing and real-world deployment?
+What was your development methodology?
+Why Agile/Scrum?
+Did you really implement Scrum, or did you only describe it?
+Where are your sprint artifacts?
+Where is your backlog?
+Where are your sprint reviews?
+Where are your user stories?
+What changed after expert feedback?
+What changed after user feedback?
+What changed after testing?
+H. Respondents and Sampling Questions
+Why 50 respondents?
+Why 25 primary and 25 secondary users?
+Why equal numbers if the app primarily targets PCOS users?
+How were primary users defined?
+Were primary users diagnosed or suspected?
+If suspected users were included, does that weaken PCOS-specific evaluation?
+How were secondary users defined?
+Why include family members or meal planners?
+Did secondary users actually use the app for PCOS meal planning?
+How long did respondents use the app?
+Did they use it for one day?
+Did they use it for one week?
+Did they generate real plans?
+Did they cook any meals?
+Did they follow any plans?
+Did they buy groceries using the grocery list?
+Did they update pantry records over time?
+Did they test offline behavior?
+Did they test plan generation?
+Did they test the same features equally?
+How did you verify that respondents actually tested the app?
+Did you use screen recordings?
+Did you use logs?
+Did you use Firebase analytics?
+Did you only rely on self-report?
+What recruitment bias exists?
+Did respondents know the researchers personally?
+Could social desirability bias affect ratings?
+Could respondents give high ratings to help the researchers?
+Did you anonymize responses?
+Was the sample geographically representative?
+Does 20 NCR and 30 non-NCR prove national coverage?
+Were rural users included?
+Were low-connectivity users included?
+Were low-income users included?
+Did nearly half preferring not to disclose budget weaken budget analysis?
+Did you screen for Android device compatibility before testing?
+Does pre-screening supported Android users inflate compatibility results?
+Did you exclude users whose phones might expose compatibility problems?
+Does the sample generalize to all Filipino PCOS users?
+I. Survey Instrument Questions
+Who created the survey questionnaire?
+Was it adapted from ISO/IEC 25010?
+Was it validated by experts?
+Did you pilot test it?
+Did you revise items after pilot testing?
+How many items per category?
+Why five items per category?
+Why eight ISO/IEC 25010 categories?
+Why use users to rate maintainability?
+Are ordinary users qualified to evaluate maintainability?
+Are ordinary users qualified to evaluate security?
+Are ordinary users qualified to evaluate compatibility?
+Are ordinary users qualified to evaluate portability?
+Should CS/IT experts have rated technical categories separately?
+Did you separate perceived security from actual security?
+Did you separate perceived reliability from tested reliability?
+Did you separate perceived performance from benchmark performance?
+Did you separate perceived usability from task-completion success?
+Did the questionnaire measure satisfaction or quality?
+Did the questionnaire measure actual effectiveness?
+Were items leading?
+Were items too positive?
+Were negative items included?
+Did you check acquiescence bias?
+Did you check response consistency?
+Did you include open-ended feedback?
+How did you analyze open-ended feedback?
+Did you code qualitative responses?
+Did you report negative comments?
+Did you report neutral comments?
+J. Cronbach’s Alpha Questions
+What is Cronbach’s Alpha?
+Why did you use Cronbach’s Alpha?
+What does Cronbach’s Alpha prove?
+What does Cronbach’s Alpha not prove?
+Does Cronbach’s Alpha prove validity?
+Does Cronbach’s Alpha prove the app works?
+Does Cronbach’s Alpha prove PCOS suitability?
+Does Cronbach’s Alpha prove clinical safety?
+What threshold did you use?
+Why is 0.70 acceptable?
+What does 0.962 for Maintainability mean?
+Could a very high alpha indicate redundant items?
+Did you check item-total correlations?
+Did you check whether removing one item improves alpha?
+Did you compute alpha per subscale or overall?
+Were primary and secondary instruments separate?
+Were alpha values computed from pilot respondents or final respondents?
+If final respondents were used, is that acceptable?
+Was the sample size enough for Cronbach’s Alpha?
+Did you report confidence intervals for alpha?
+Did you use Excel correctly?
+Did you compute alpha manually?
+Did you verify the formula?
+Did you fix the incomplete formula in the manuscript?
+Did the statistician validate the computation?
+Did alpha results support internal consistency only?
+Why call the instruments “valid” if alpha only measures reliability?
+What other validity evidence did you collect?
+Did expert validation establish content validity?
+Did you distinguish reliability from validity in Chapter 4?
+
+Your manuscript reports Cronbach’s Alpha across ISO subscales, with all values above 0.700, but panelists can still attack whether you interpret it correctly. It supports internal consistency, not proof of effectiveness.
+
+K. Weighted Mean and Likert Questions
+Why use weighted mean for Likert data?
+Is Likert data ordinal or interval?
+Why not median?
+Why not mode?
+Why not standard deviation?
+Why not confidence intervals?
+Did you report distribution of responses?
+Did you hide disagreement inside the mean?
+Could a mean of 4.02 hide divided opinions?
+Did you analyze primary and secondary users separately?
+Did you test whether primary and secondary ratings differ?
+Why are all interpretations simply “Agree”?
+Is “Agree” enough to claim success?
+What is the difference between “Very Good” and “Agree”?
+Your interpretation table has “Excellent/Very Good/Good” and “Strongly Agree/Agree/Neutral.” Why combine quality labels and agreement labels?
+Does 3.89 mean functional suitability is strong or only acceptable?
+Why did Functional Suitability receive only 3.89 overall?
+Why did Maintainability receive 3.91 overall?
+Why did secondary users give Maintainability only 3.62?
+What does 3.62 mean in practical terms?
+Which item pulled down the score?
+Did you analyze weakest items?
+Did you report only category averages?
+Why not report item-level weaknesses in the discussion?
+Did you overinterpret “Agree” as “highly successful”?
+Does “Agree” prove performance efficiency?
+Does “Agree” prove software quality?
+Does “Agree” prove readiness for real deployment?
+Does “Agree” prove health usefulness?
+What is your minimum acceptable weighted mean?
+
+The manuscript’s ISO summary shows an overall mean of 4.02, interpreted as “Agree,” not “Strongly Agree.” A strict panel can attack any conclusion that treats “Agree” as overwhelming proof.
+
+L. Chapter 4 Table and Data Integrity Questions
+How did you ensure every table matches the correct data?
+Did you audit all table numbers?
+Did you audit all captions?
+Did you audit all averages?
+Did you audit all formulas?
+Did you compare every table against raw data?
+Who encoded the survey results?
+Who checked the computations?
+Did the statistician check Chapter 4 final tables?
+Did you use spreadsheet formulas or manual computation?
+Could there be copy-paste errors?
+How did you prevent copy-paste errors?
+Were all figures mentioned in the text?
+Were all tables explained?
+Were all table claims supported by data?
+Did you fix the Compatibility table issue?
+If Table 45 was wrong before, how can we trust the other tables?
+Did you confirm Table 42 and Table 45 are no longer duplicated?
+Did you confirm the List of Tables is updated?
+Did you confirm Table 4 appears in the List of Tables?
+Did you confirm figure numbers match captions?
+Did you confirm all appendix labels match references?
+Did you check that “Table 33” references are correct?
+Did you check if Chapter 4 refers to the wrong table number?
+Did you check if claims like “as shown in Table X” point to the right table?
+Did you verify all percentages sum to 100%?
+Did you verify all averages match item means?
+Did you verify primary and secondary totals?
+Did you verify all formula symbols are defined?
+Did you verify that p-values are not mentioned unnecessarily?
+
+The previous Table 45 issue was especially dangerous because the manuscript snippet shows budget categories under “Compatibility of PCOSina.” Even if you fix it, panelists may still ask how you ensured the rest of Chapter 4 is clean.
+
+M. Chapter 4 SOP 1: Nutritional Adequacy Questions
+What is your definition of “nutritionally adequate”?
+Is adequacy based on calories?
+Is adequacy based on macronutrients?
+Is adequacy based on micronutrients?
+Is adequacy based on fiber?
+Is adequacy based on carbohydrate limits?
+Is adequacy based on Pinggang Pinoy?
+Is adequacy based on PCOS literature?
+Is adequacy based on RND validation?
+Did you evaluate sodium?
+Did you evaluate sugar?
+Did you evaluate saturated fat?
+Did you evaluate cholesterol?
+Did you evaluate fiber?
+Did you evaluate glycemic index?
+Did you evaluate glycemic load?
+If not, why mention low-glycemic support?
+Did your system compute GI per meal?
+Did your system compute GL per meal?
+Did your system use GI values in optimization?
+Did your system use carbohydrate and fiber as proxies?
+Is proxy-based glycemic control enough for PCOS claims?
+How were calorie targets calculated?
+How were macro targets calculated?
+Were calorie targets manually validated?
+Were macro targets validated by the RND?
+Were the generated meal plans reviewed by the RND?
+Did the RND validate the system logic or actual outputs?
+How many meal plans did the RND review?
+Did the OB-GYN review meal plans?
+Is an OB-GYN qualified to validate meal nutrition?
+What was the role of the OB-GYN?
+What was the role of the RND?
+What was the role of CS/IT validators?
+What was the role of the statistician?
+What happens if the app’s nutrition output differs from an RND’s recommendation?
+Can the system handle individualized medical nutrition therapy?
+If not, what exactly does it provide?
+Did you test underweight, normal, overweight, and obese profiles?
+Did you test users with strict restrictions?
+Did you test users with allergies?
+Did you test users with vegetarian restrictions?
+Did you test lactose intolerance?
+Did you test no-beef restrictions?
+Did you test religious restrictions?
+Did you test low-budget profiles?
+Did you test high-budget profiles?
+Did you test conflicting preferences?
+Did you test impossible profiles?
+Did you show no-safe-plan cases in Chapter 4?
+N. Chapter 4 SOP 2: Personalization, Culture, and Restrictions Questions
+How does the system personalize meal plans?
+Which user inputs affect personalization?
+Which inputs affect filtering?
+Which inputs affect ranking?
+Which inputs affect CP-SAT optimization?
+Which inputs affect only explanation text?
+How are allergies handled?
+How are dietary restrictions handled?
+How are disliked ingredients handled?
+How are preferred foods handled?
+How are cooking-time preferences handled?
+How are budget preferences handled?
+How are pantry items handled?
+How are PCOS symptoms handled?
+Are symptoms used computationally?
+Are symptoms used only for profile context?
+Does the system risk giving different nutrition advice based on self-reported symptoms?
+How do you prevent unsafe personalization?
+What happens when preferences conflict with nutrition?
+What happens when preferences conflict with allergies?
+What happens when preferences conflict with budget?
+What happens when preferences conflict with pantry availability?
+What happens when cultural familiarity conflicts with nutrition?
+What happens when Filipino dishes are high-carb?
+Does the system modify Filipino dishes?
+Does the system reduce rice?
+Does the system recommend brown rice?
+Does the system allow white rice?
+Why is there no dedicated rice-tracking feature?
+Why is rice control only a recommendation for future work?
+How does the app avoid reinforcing high-carbohydrate Filipino eating patterns?
+What makes a recipe culturally relevant?
+Who decided cultural relevance?
+Are CTS and CIS validated metrics?
+Did you create CTS and CIS yourself?
+If you created them, how did you validate them?
+What is a culturally recognizable meal title?
+What is a locally familiar ingredient set?
+Can a dish be Filipino but unhealthy?
+Can a dish be healthy but culturally unfamiliar?
+How does the system balance cultural relevance and nutrition?
+Does the recipe database represent all Filipino regions?
+Does it overrepresent Tagalog/NCR foods?
+Does it include Visayan dishes?
+Does it include Mindanao dishes?
+Does it include Muslim dietary patterns?
+Does it include vegetarian Filipino dishes?
+Does it include low-budget local meals?
+Does it include rural food availability?
+How do you handle regional ingredient names?
+
+The manuscript defines cultural relevance using CTS and CIS as software-evaluation indicators, but it also admits cultural relevance inferred from meal titles may overestimate true cultural fit. That is a strong panel attack point.
+
+O. Chapter 4 SOP 3: Pantry and Grocery Questions
+What is the pantry module’s purpose?
+Is pantry data mandatory?
+Can the system generate plans without pantry data?
+If yes, how important is the pantry feature?
+Is pantry overlap a hard constraint?
+Is pantry overlap a soft objective?
+Is pantry overlap only a reward?
+Why call it pantry-constrained if pantry is subordinate to nutrition and safety?
+Does the system require selected meals to use pantry ingredients?
+How is pantry overlap calculated?
+Is it based on ingredient count?
+Is it based on ingredient quantity?
+Is it based on cost savings?
+Is it based on percentage of recipe ingredients already available?
+Does it account for serving size?
+Does it account for household scaling?
+Does it account for expiration?
+Does it account for freshness?
+Does it account for partial quantities?
+Does it account for unit conversion?
+Does it account for substitutions?
+Does it account for brands?
+Does it handle “sibuyas” vs “onion”?
+Does it handle “manok” vs “chicken”?
+Does it handle “toyo” vs “soy sauce”?
+Does it handle ingredient synonyms?
+Does it handle compound ingredients?
+Does it handle sauces?
+Does it handle allergens hidden in processed ingredients?
+Can token matching miss allergens?
+Can token matching overmatch ingredients?
+Can the app recommend a recipe because one ingredient matches but many expensive ingredients are missing?
+How does grocery guidance compute missing ingredients?
+Does the grocery list include quantities?
+Does the grocery list include prices?
+Are prices current?
+Are prices location-specific?
+Are prices store-specific?
+Are prices season-sensitive?
+How accurate are price estimates?
+Did you validate price estimates?
+Did users actually buy groceries using the list?
+Did you measure actual savings?
+Did you measure actual reduced duplicate purchases?
+Did you measure actual food-waste reduction?
+Did you measure actual pantry turnover?
+Did you measure adherence to grocery guidance?
+Does user perception prove reduced purchases?
+Does user perception prove food-waste reduction?
+Should your conclusion say “may help reduce unnecessary purchases” instead of “reduces food waste”?
+
+The manuscript itself states pantry data is a planning signal and shopping-list helper, not proof of long-term food-waste reduction. This is one of your biggest protection lines, but it also exposes overclaiming if your oral defense says “we reduced food waste.”
+
+P. Chapter 4 SOP 4: Offline-First Questions
+What exactly works offline?
+What exactly does not work offline?
+Can users create an account offline?
+Can users log in offline?
+Can users recover accounts offline?
+Can users view saved profiles offline?
+Can users edit saved profiles offline?
+Can users view pantry records offline?
+Can users edit pantry records offline?
+Can users view generated meal plans offline?
+Can users generate new optimized plans offline?
+Can users view grocery lists offline?
+Can users view recipe details offline?
+Can users swap meals offline?
+Can users submit feedback offline?
+Can users sync offline changes later?
+What happens when connection drops during plan generation?
+What happens when backend fails?
+What happens when CP-SAT times out?
+What happens when Firebase is unavailable?
+What happens when Google Sign-In fails?
+What happens when local storage is corrupted?
+What happens when app data is cleared?
+What happens when device storage is full?
+What happens when the app updates?
+What happens when recipe database updates?
+What happens when old saved plans conflict with updated profile restrictions?
+If a user adds a new allergy, are old meal plans invalidated?
+Does the app warn users that saved plans may no longer match updated profiles?
+Is offline-first tested objectively or rated by users?
+Did you simulate no internet?
+Did you simulate unstable internet?
+Did you simulate slow mobile data?
+Did you simulate airplane mode?
+Did you simulate app force-close?
+Did you simulate backend timeout?
+Did you simulate authentication failure?
+Did you simulate sync conflict?
+Did you test offline mode on multiple Android versions?
+Did you test offline mode on low-end devices?
+What logs prove offline functionality works?
+What test cases prove offline functionality works?
+How many respondents tested offline mode?
+Did respondents understand which features are offline?
+Did respondents overrate offline-first because they only viewed saved screens?
+Is offline-first mainly architecture-based or user-perception-based?
+Why not run CP-SAT locally on-device?
+Why use a remote optimizer?
+Does remote optimization contradict offline-first?
+How do you defend hybrid offline-first?
+
+Your own manuscript says saved data are available offline, but new optimized generation needs backend execution and recipe details/swap alternatives may be partial or online-dependent. Memorize that boundary exactly.
+
+Q. Chapter 4 SOP 5: Performance and Computational Efficiency Questions
+What is the measured average runtime?
+Is the runtime backend-only?
+Is the runtime end-to-end?
+Does runtime include network latency?
+Does runtime include Firebase authentication?
+Does runtime include database access?
+Does runtime include request serialization?
+Does runtime include mobile UI rendering?
+Does runtime include grocery list generation?
+Does runtime include LightGBM ranking?
+Does runtime include CP-SAT solving only?
+What hardware was used for benchmark testing?
+What server environment was used?
+Was it local machine or deployed backend?
+Was it tested under production server conditions?
+Was it tested under concurrent users?
+Was it tested under 100 simultaneous requests?
+Was it tested under weak internet?
+Was it tested under mobile data?
+Was it tested under real deployment?
+What does P95 mean?
+Why report P95?
+Why not report P99?
+Why not report median?
+Why not report standard deviation?
+Why not report memory usage?
+Why not report CPU usage?
+Why not report battery usage?
+Why not report API failure rate?
+Why not report timeout rate?
+What was the initial runtime?
+What was the final runtime?
+What optimization steps reduced runtime?
+Did reducing runtime reduce candidate diversity?
+Did reducing runtime reduce optimality?
+Did reducing runtime reduce nutrition quality?
+Did reducing runtime reduce pantry matching?
+Did reducing runtime reduce cultural diversity?
+Did reducing runtime reduce search completeness?
+Does the final fast planner always find the optimum?
+Does CP-SAT return optimal or feasible status?
+Did you prove optimality?
+If not, why say “optimized”?
+What is the optimality gap?
+Was time limit used?
+What happens when time limit is reached?
+Is a feasible solution accepted?
+Are users told if the solution is feasible but not optimal?
+How many attempts does adaptive retry allow?
+What exactly is relaxed during retry?
+
+The manuscript reports a final average runtime of 257 ms, P95 of 313 ms, and max of 357 ms under standard local benchmark conditions, but the phrase “local benchmark conditions” matters. A panelist can attack whether that represents real user-perceived runtime.
+
+R. Algorithm and Optimization Questions
+Explain Stage 1.
+Explain Stage 2.
+Why use two stages?
+Why not pass all recipes directly to CP-SAT?
+Why reduce the candidate pool?
+How many recipes are in the full dataset?
+How many candidates enter Stage 2?
+How is the candidate cap selected?
+Can candidate reduction remove the best recipe?
+Can candidate reduction make the final plan less optimal?
+How do you prevent near-duplicate meals?
+How does similarity deduplication work?
+What is the Jaccard threshold?
+Why that threshold?
+How are protein groups used?
+How are calorie bands used?
+How is round-robin refill done?
+What is the objective function?
+What are the decision variables?
+What is xᵣ,ₛ?
+What is yᵣ?
+What are deviation variables?
+What are hard constraints?
+What are soft constraints?
+What are policy-dependent constraints?
+What constraints are never relaxed?
+What constraints can be relaxed?
+Why is nutrition tolerance relaxable?
+At what tolerance does nutrition become unacceptable?
+Who set the tolerance levels?
+Who set the repeat limit?
+Who set the budget behavior?
+Who set the pantry reward?
+Who set the diversity reward?
+Who set the penalty weights?
+Are weights evidence-based?
+Are weights empirically tuned?
+Are weights arbitrary?
+Did the RND validate weights?
+Did you perform sensitivity analysis?
+If pantry reward doubles, what changes?
+If budget penalty increases, what changes?
+If diversity reward increases, what changes?
+If nutrition penalty decreases, what changes?
+How do you know the chosen weights are best?
+What is the fallback logic?
+When does no-safe-plan trigger?
+Is no-safe-plan a failure?
+Is no-safe-plan a safety feature?
+How do you report no-safe-plan cases in results?
+
+The manuscript distinguishes deterministic filtering, LightGBM-assisted candidate ranking, and CP-SAT final assignment. That is good, but panelists can press you on whether the mathematical formulation, solver status, and optimization weights are actually justified.
+
+S. LightGBM Questions
+Why use LightGBM?
+Why not use Random Forest?
+Why not use XGBoost?
+Why not use neural networks?
+Why not use collaborative filtering?
+Why not use content-based filtering?
+Why not use heuristic ranking only?
+What does LightGBM rank?
+What are LightGBM input features?
+What is the LightGBM target label?
+Who labeled the data?
+Is the dataset real, synthetic, or generated?
+How many users were in the LightGBM dataset?
+How many requests?
+How many recipe rows?
+How was the train-test split done?
+Was it user-level split?
+Was it request-level split?
+Could the same user appear in train and test?
+Could that cause leakage?
+Could similar recipes appear in train and test?
+Could that inflate NDCG?
+What is NDCG@10?
+Why use NDCG@10?
+What does NDCG@10 mean in practical meal planning?
+Is 0.9211 good?
+Is improvement from 0.8838 to 0.9211 meaningful?
+What is the percentage improvement?
+Did you test statistical significance of improvement?
+Did you compare against heuristic ranking?
+Was the baseline unranked?
+Is unranked baseline too weak?
+Did you compare against your own heuristic?
+Did LightGBM actually improve final weekly plans?
+Did LightGBM improve nutrition quality?
+Did LightGBM improve cultural relevance?
+Did LightGBM improve runtime?
+Did LightGBM reduce candidate search space?
+If LightGBM is unavailable, does the system still work?
+If yes, why is LightGBM necessary?
+Is LightGBM only cosmetic?
+Is LightGBM included mainly to make the system sound AI-based?
+Why call it non-authoritative?
+Can LightGBM override allergies?
+Can LightGBM override budget?
+Can LightGBM override dietary restrictions?
+Can LightGBM override final CP-SAT output?
+Does LightGBM decide the meal plan?
+If not, what is its actual contribution?
+What risks does ML introduce?
+
+The manuscript says LightGBM is non-authoritative and only supports candidate ordering. That saves you from safety attacks, but it creates a necessity attack: “If it cannot decide final plans, why is it important?”
+
+T. Baseline Comparison Questions
+What baseline did you compare against?
+Why that baseline?
+Is the baseline realistic?
+Is the baseline too weak?
+Was the baseline a greedy planner?
+Was the baseline unranked?
+Did the baseline enforce the same constraints?
+Did the baseline use the same recipe pool?
+Did the baseline use the same nutrition targets?
+Did the baseline use the same hard restrictions?
+Did the baseline use pantry data?
+Did the baseline use budget caps?
+Did the baseline use variety controls?
+Did the baseline use repetition limits?
+If not, is the comparison fair?
+Why not compare against a commercial app?
+Why not compare against dietitian-created plans?
+Why not compare against random selection?
+Why not compare against pure CP-SAT without Stage 1?
+Why not compare against heuristic-only ranking?
+Why not compare against LightGBM-only selection?
+Which component actually improves results?
+Did you perform ablation testing?
+What happens without LightGBM?
+What happens without pantry reward?
+What happens without diversity reward?
+What happens without budget constraint?
+What happens without CP-SAT?
+What happens without similarity deduplication?
+What happens without adaptive retry?
+Can you prove the two-stage design is better than one-stage?
+Can you prove LightGBM improves the final plan?
+Can you prove pantry overlap improves practicality?
+Can you prove offline-first improves usability?
+Can you prove CP-SAT improves diversity?
+Can you prove your model is better than greedy?
+If the baseline also had zero hard-rule issues, what exactly did PCOSina improve?
+If calorie gaps were only slightly lower, is the improvement meaningful?
+If macro gaps were only slightly lower, is the improvement meaningful?
+Is variety the main advantage?
+
+In your baseline comparison, PCOSina improved variety but calorie and macro gaps appear only slightly lower in the shown scenarios, while both baseline and PCOSina recorded zero hard-rule issues. A sharp panelist can ask whether the algorithm’s practical improvement is mostly variety, not nutritional safety.
+
+U. Nutrition Data Questions
+Where did recipe nutrition data come from?
+Did you use Philippine Food Composition Tables?
+Did you use DOST-FNRI?
+Did you use recipe blogs?
+Did you estimate nutrition manually?
+Did you decompose recipes into ingredients?
+How accurate are the estimates?
+Did the RND verify nutrition estimates?
+How many recipes were verified?
+What happens when nutrition data is missing?
+What happens when recipe serving size is unclear?
+How do you handle cooking yield?
+How do you handle oil absorption?
+How do you handle sauces?
+How do you handle seasoning?
+How do you handle sugar in sauces?
+How do you handle sodium?
+How do you handle rice portions?
+How do you handle household scaling?
+How do you handle recipe variants?
+Filipino dishes vary widely by household. How does your system handle that?
+Adobo can be cooked differently. Which nutrition value is used?
+Sinigang can vary. Which version is used?
+How do you account for portion sizes?
+Are portions realistic?
+Did users understand portion sizes?
+Did the app show grams, cups, or household measures?
+Did the app show serving sizes clearly?
+Did the app allow portion adjustment?
+Did portion adjustment update nutrition totals?
+Does the grocery list update with portion scaling?
+Does household scaling preserve nutritional adequacy for the primary user?
+Does the system plan for one user or family meals?
+If family scaling is used, whose nutrition target is prioritized?
+Can family scaling conflict with PCOS-specific needs?
+Did you validate family scaling?
+Did you test family-of-five planning?
+Did you test individual-only planning?
+Did you test nutrition after scaling?
+Did you test grocery guidance after scaling?
+V. Safety and Allergy Questions
+How are allergies stored?
+How are allergies matched?
+Are allergies matched by exact string?
+Are allergies matched by normalized tokens?
+Are allergies matched by ingredient category?
+Are allergens hidden in ingredients detected?
+Can “peanut butter” be detected if allergy is “peanut”?
+Can “bagoong” be detected for shellfish allergy?
+Can “fish sauce” be detected for fish allergy?
+Can “milk powder” be detected for dairy allergy?
+Can “cheese” be detected for dairy restriction?
+Can “butter” be detected for lactose intolerance?
+Can “egg noodles” be detected for egg allergy?
+Can “soy sauce” be detected for soy allergy?
+How do you handle cross-contamination?
+Does the app warn about cross-contamination?
+Does the app rely only on recipe ingredients?
+What if ingredient data is incomplete?
+What is your most dangerous false-negative case?
+What is your most dangerous false-positive case?
+How did you test allergy filtering?
+How many allergy cases were tested?
+How many restriction cases were tested?
+Did any test fail?
+Were failed tests reported?
+Were hard-rule violations truly zero?
+Zero in tested cases or zero universally?
+Why say “absolute” if only tested?
+Is “0% hard-rule violation” limited to benchmark profiles?
+Can you guarantee zero allergy risk in real use?
+W. Security and Privacy Questions
+What personal data does the app collect?
+Does it collect diagnosis status?
+Does it collect height?
+Does it collect weight?
+Does it collect age?
+Does it collect symptoms?
+Does it collect allergies?
+Does it collect pantry data?
+Does it collect budget data?
+Does it collect location?
+Does it collect health goals?
+Where is this data stored?
+What data stays local?
+What data is sent to backend?
+Is backend data stored?
+Is backend data temporary?
+Is data encrypted locally?
+Is SQLite encrypted?
+Are SharedPreferences encrypted?
+Are API requests encrypted?
+Is HTTPS used?
+How are API keys protected?
+How is Firebase configured?
+What authentication method is used?
+Can offline users access sensitive data without re-authentication?
+What happens if the phone is stolen?
+Can family members see sensitive data?
+Is there app lock?
+Is there logout?
+Is there account deletion?
+Is there data deletion?
+Does the app comply with the Data Privacy Act?
+Did you secure informed consent?
+How were survey responses anonymized?
+Who had access to raw data?
+How long will data be stored?
+Did respondents consent to health-related data processing?
+Is PCOS status sensitive personal information?
+How did you protect it?
+Are security ratings from users enough to claim security?
+X. ISO/IEC 25010 Questions
+Why use ISO/IEC 25010?
+Which ISO/IEC 25010 characteristics did you use?
+Did you use all eight product quality characteristics?
+Why not use quality-in-use characteristics?
+Why not use task success rate?
+Why not use SUS for usability?
+Why not use MARS for mobile health app quality?
+Why not use TAM for acceptance?
+Why not use UEQ?
+Why not use ISO/IEC 25023 metrics?
+Are your ISO/IEC 25010 items standard or researcher-made?
+Did you validate item mapping?
+How does Functional Suitability apply to PCOSina?
+How does Performance Efficiency apply?
+How does Compatibility apply?
+How does Usability apply?
+How does Reliability apply?
+How does Security apply?
+How does Maintainability apply?
+How does Portability apply?
+Which categories should users evaluate?
+Which categories should experts evaluate?
+Did experts evaluate separately?
+Did CS/IT validators execute test cases?
+Did health experts use ISO/IEC 25010?
+Is ISO/IEC 25010 enough for health-adjacent software?
+Does ISO/IEC 25010 measure clinical appropriateness?
+Does ISO/IEC 25010 measure nutrition adequacy?
+Does ISO/IEC 25010 measure algorithmic optimality?
+Does ISO/IEC 25010 measure pantry usefulness?
+Y. Chapter 5 Conclusion Questions
+Why does your conclusion say the study is successful?
+What criteria define success?
+Did you meet those criteria?
+Is “success” too broad?
+Should you say “technically feasible” instead?
+Should you say “positively evaluated” instead?
+Should you say “within tested scenarios”?
+Should you remove “absolute mathematical integrity”?
+Should you remove “complete algorithmic reliability”?
+Should you remove “proving”?
+Should you replace “proves” with “indicates”?
+Should you replace “manages PCOS” with “supports PCOS-oriented meal planning”?
+Did your conclusion overstate NDCG?
+Did your conclusion overstate 100% feasibility?
+Did your conclusion overstate food-waste reduction?
+Did your conclusion overstate offline-first operation?
+Did your conclusion overstate medical safety?
+Did your conclusion overstate user satisfaction?
+Did your conclusion overstate generalizability?
+What should the final conclusion be if rewritten cautiously?
+
+Your Chapter 5 language is aggressive: “considered a success,” “absolute mathematical integrity,” “100% plan feasibility,” “strict 0% hard-rule safety violation,” and “help Filipino individuals manage PCOS.” Those phrases are panel bait unless you always add “within tested scenarios” and “software decision-support scope.”
+
+Z. Final Ultra-Brutal Questions
+Is your app truly PCOS-specific, or is it a healthy meal planner branded for PCOS?
+Is your app truly offline-first, or only offline-readable after online generation?
+Is your optimizer truly pantry-constrained, or only pantry-rewarded?
+Is your algorithm truly MILP-based, or only MILP-style with CP-SAT?
+Is LightGBM truly necessary, or only added to make the system look AI-driven?
+Is your baseline comparison fair?
+Is your sample size enough?
+Is your user evaluation too short?
+Is your survey too perception-based?
+Is your conclusion too strong?
+Is your nutrition validation enough?
+Is your allergy matching safe enough?
+Is your pantry matching realistic enough?
+Is your price estimation realistic enough?
+Is your offline-first claim precise enough?
+Is your cultural relevance metric valid enough?
+Is your Chapter 4 data clean enough?
+Is your app deployment realistic enough?
+Is your study generalizable enough?
+Is your research contribution original enough?
+If a dietitian can make better plans manually, why use your app?
+If a user does not maintain pantry data, does your app lose value?
+If internet is needed for optimization, why not just make it a web app?
+If LightGBM is non-authoritative, why emphasize it?
+If CP-SAT is remote, why call it mobile optimization?
+If results are only “Agree,” why call them highly favorable?
+If clinical outcomes are out of scope, why mention PCOS management strongly?
+If food waste is out of scope, why mention reduction strongly?
+If long-term adherence is out of scope, how do you know users will follow plans?
+If users only tested briefly, how do you know the app is practical long term?
+If recipe data is estimated, how do you know nutrition is accurate?
+If ingredient matching is token-based, how do you know allergies are safe?
+If prices vary, how do you know budget guidance is accurate?
+If respondents were pre-screened for Android compatibility, how do you know compatibility is strong?
+If no inferential statistics were used, how do you know group differences matter?
+If the sample is quota-based, how do you generalize?
+If many respondents preferred not to disclose budget, how strong is your budget analysis?
+If baseline respondents already check pantry often, what new behavior did your app create?
+If the baseline also had zero hard-rule violations, what did your system improve?
+If calorie gaps remain around 500–600 kcal in some comparisons, how tight is nutritional optimization?
+If macro gaps remain above 33%, how strong is the nutrition quality claim?
+If your system returns no-safe-plan, is that a success or failure?
+If the app cannot generate plans offline, what happens to users with no internet for a week?
+If the backend shuts down after the thesis, is the app still useful?
+If the recipe database is static, how will it stay updated?
+If future work includes major improvements, what are the current weaknesses?
+If the app needs better pantry matching, how reliable is current pantry guidance?
+If the app needs expanded recipe coverage, how complete is current cultural representation?
+If the app needs rice preference controls, how PCOS-specific is the current Filipino diet logic?
+If the app needs accessibility improvements, how inclusive is the current version?

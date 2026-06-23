@@ -110,7 +110,7 @@ SUPPORTED_SCHEMA_VERSIONS = {
 
 ENVIRONMENT = os.getenv("PCOSINA_ENV", "development").lower()
 IS_MANAGED_POSTGRES_RUNTIME = bool(os.getenv("RENDER", "").strip()) and is_postgres_database_url(os.getenv("DATABASE_URL", ""))
-IS_PRODUCTION = ENVIRONMENT in ("prod", "production") or IS_MANAGED_POSTGRES_RUNTIME
+IS_PRODUCTION = ENVIRONMENT in ("prod", "production")
 ASYNC_MODE = os.getenv("PCOSINA_ASYNC_MODE", "queued").strip().lower()
 QUEUE_BROKER = queue_broker.build_broker_from_env()
 

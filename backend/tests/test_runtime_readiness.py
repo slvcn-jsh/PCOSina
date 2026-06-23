@@ -193,6 +193,31 @@ def test_health_ready_defaults_to_deep_dependency_readiness_on_render_postgres(m
     assert main._deep_readiness_enabled() is True
 
 
+def test_render_postgres_staging_does_not_require_production_security(monkeypatch):
+    monkeypatch.setattr(main, "IS_PRODUCTION", False)
+    monkeypatch.setattr(main, "IS_MANAGED_POSTGRES_RUNTIME", True)
+    monkeypatch.setattr(main, "ENVIRONMENT", "staging")
+    monkeypatch.setattr(main, "ASYNC_MODE", "queued")
+    monkeypatch.setattr(main, "RATE_LIMIT_BACKEND", "redis")
+    monkeypatch.setattr(main, "sentry_dsn", "")
+    monkeypatch.setattr(main, "QUEUE_BROKER", type("Broker", (), {"backend": "redis", "health": lambda self: {"backend": "redis"}})())
+    monkeypatch.setenv("PCOSINA_ENFORCE_APP_CHECK", "false")
+    monkeypatch.setenv("PCOSINA_REQUIRE_OPERATOR_MFA", "false")
+    monkeypatch.setenv("PCOSINA_ADMIN_SESSION_SECRET", "")
+    monkeypatch.setenv("FIREBASE_AUTH_DISABLED", "false")
+    monkeypatch.setenv("DATABASE_URL", "postgres://pcosina:secret@db.internal/pcosina")
+    monkeypatch.setenv("PCOSINA_REDIS_URL", "redis://cache.internal")
+    monkeypatch.setenv("PCOSINA_ALLOWED_HOSTS", "*")
+
+    report = main._runtime_readiness_report()
+
+    assert report["ok"] is True
+    assert report["managedPostgresRuntime"] is True
+    assert report["productionRuntime"] is False
+    assert not any("APP_CHECK" in item for item in report["errors"])
+    assert not any("MFA" in item for item in report["errors"])
+
+
 def test_runtime_readiness_deep_reports_database_connectivity_failure(monkeypatch):
     monkeypatch.setattr(main, "IS_PRODUCTION", False)
     monkeypatch.setattr(main, "ENVIRONMENT", "development")

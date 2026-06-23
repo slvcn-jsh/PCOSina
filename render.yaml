@@ -20,7 +20,7 @@ services:
     buildCommand: pip install -r requirements.txt
     preDeployCommand: python deploy_bootstrap.py
     startCommand: gunicorn -k uvicorn.workers.UvicornWorker -w 1 -t 120 --access-logfile - --error-logfile - -b 0.0.0.0:$PORT main:app
-    healthCheckPath: /health
+    healthCheckPath: /health/ready
     envVars:
       - key: PCOSINA_ENV
         value: production
@@ -50,7 +50,9 @@ services:
       - key: PCOSINA_RATE_LIMIT_MAX
         value: "60"
       - key: PCOSINA_BOOTSTRAP_ON_STARTUP
-        value: "false"
+        value: "true"
+      - key: PCOSINA_HEALTH_READY_DEEP
+        value: "true"
       - key: PCOSINA_DB_POOL_MIN_SIZE
         value: "1"
       - key: PCOSINA_DB_POOL_MAX_SIZE

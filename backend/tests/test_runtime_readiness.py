@@ -124,9 +124,10 @@ def test_health_ready_returns_503_when_not_ready():
         main._rate_limit_allowed = original_rate_limit_allowed
 
 
-def test_health_ready_defaults_to_shallow_process_readiness(monkeypatch):
+def test_health_ready_defaults_to_shallow_process_readiness_outside_production(monkeypatch):
     main.app.dependency_overrides = {}
     monkeypatch.delenv("PCOSINA_HEALTH_READY_DEEP", raising=False)
+    monkeypatch.setattr(main, "IS_PRODUCTION", False)
     monkeypatch.setattr(main, "_validate_runtime_readiness", lambda **kwargs: None)
     monkeypatch.setattr(main, "_rate_limit_allowed", lambda ip, now=None: True)
 
@@ -150,6 +151,124 @@ def test_health_ready_defaults_to_shallow_process_readiness(monkeypatch):
     body = response.json()
     assert body["readinessMode"] == "shallow"
     assert body["dependencyChecks"] == "skipped"
+
+
+def test_health_ready_defaults_to_deep_dependency_readiness_in_production(monkeypatch):
+    main.app.dependency_overrides = {}
+    monkeypatch.delenv("PCOSINA_HEALTH_READY_DEEP", raising=False)
+    monkeypatch.setattr(main, "IS_PRODUCTION", True)
+    monkeypatch.setattr(main, "_validate_runtime_readiness", lambda **kwargs: None)
+    monkeypatch.setattr(main, "_rate_limit_allowed", lambda ip, now=None: True)
+    monkeypatch.setattr(main, "init_firebase", lambda: None)
+
+    def report(**kwargs):
+        assert kwargs.get("include_schema") is True
+        return {
+            "environment": "production",
+            "asyncMode": "queued",
+            "queueBackend": "redis",
+            "errors": ["db unavailable"],
+            "warnings": [],
+            "ok": False,
+        }
+
+    monkeypatch.setattr(main, "_runtime_readiness_report", report)
+
+    with TestClient(main.app) as client:
+        response = client.get("/health/ready")
+
+    assert response.status_code == 503
+    body = response.json()
+    assert body["readinessMode"] == "deep"
+    assert body["dependencyChecks"] == "enabled"
+
+
+def test_health_ready_defaults_to_deep_dependency_readiness_on_render_postgres(monkeypatch):
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.setenv("DATABASE_URL", "postgres://pcosina:secret@db.internal/pcosina")
+    monkeypatch.setattr(main, "IS_PRODUCTION", False)
+    monkeypatch.setattr(main, "IS_MANAGED_POSTGRES_RUNTIME", True)
+    monkeypatch.delenv("PCOSINA_HEALTH_READY_DEEP", raising=False)
+
+    assert main._deep_readiness_enabled() is True
+
+
+def test_runtime_readiness_deep_reports_database_connectivity_failure(monkeypatch):
+    monkeypatch.setattr(main, "IS_PRODUCTION", False)
+    monkeypatch.setattr(main, "ENVIRONMENT", "development")
+    monkeypatch.setattr(main.database, "check_database_connectivity", lambda: {
+        "ok": False,
+        "mode": "postgres",
+        "latencyMs": 12,
+        "error": "failed to resolve host 'db.internal'",
+    })
+    monkeypatch.setattr(main, "_schema_readiness_report", lambda: {
+        "ok": True,
+        "application": {"pending": []},
+        "policy": {"pending": []},
+        "pending": [],
+    })
+    monkeypatch.setattr(main.database, "get_recipe_catalog_nutrition_status", lambda: {
+        "ok": True,
+        "errors": [],
+        "warnings": [],
+    })
+
+    report = main._runtime_readiness_report(include_schema=True)
+
+    assert report["ok"] is False
+    assert report["database"]["connectivity"]["ok"] is False
+    assert any("Database connectivity check failed" in item for item in report["errors"])
+
+
+def test_runtime_schema_bootstrap_needed_when_schema_probe_fails(monkeypatch):
+    monkeypatch.setattr(main, "_schema_readiness_report", lambda: (_ for _ in ()).throw(RuntimeError("missing table")))
+
+    assert main._runtime_schema_bootstrap_needed() is True
+
+
+def test_runtime_schema_bootstrap_needed_when_migrations_pending(monkeypatch):
+    monkeypatch.setattr(main, "_schema_readiness_report", lambda: {
+        "ok": False,
+        "pending": ["20260623_missing"],
+    })
+
+    assert main._runtime_schema_bootstrap_needed() is True
+
+
+def test_runtime_policy_load_bootstraps_missing_policy_table(monkeypatch):
+    monkeypatch.setattr(main, "ENVIRONMENT", "staging")
+    main._policy_cache.clear()
+    calls = []
+    policy = main.default_policy().to_runtime_dict(environment="staging")
+
+    def missing_policy_table_once():
+        calls.append("get_active")
+        if len(calls) == 1:
+            raise RuntimeError('relation "policy_versions" does not exist')
+        return {
+            "id": "policy-test",
+            "version_number": 1,
+            "policy": policy,
+        }
+
+    monkeypatch.setattr(main.policy_store, "get_active_policy", missing_policy_table_once)
+    monkeypatch.setattr(main.policy_store, "init_policy_store", lambda: calls.append("init_policy_store"))
+    monkeypatch.setattr(
+        main.policy_store,
+        "ensure_default_policy",
+        lambda actor: {
+            "id": "policy-test",
+            "version_number": 1,
+            "policy": policy,
+        },
+    )
+
+    policy_payload, version = main._load_runtime_policy(force_refresh=True)
+
+    assert policy_payload
+    assert version == "policy-v1:policy-test"
+    assert calls == ["get_active", "init_policy_store"]
 
 
 def test_health_deep_runs_dependency_readiness(monkeypatch):

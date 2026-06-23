@@ -109,7 +109,8 @@ SUPPORTED_SCHEMA_VERSIONS = {
 }
 
 ENVIRONMENT = os.getenv("PCOSINA_ENV", "development").lower()
-IS_PRODUCTION = ENVIRONMENT in ("prod", "production")
+IS_MANAGED_POSTGRES_RUNTIME = bool(os.getenv("RENDER", "").strip()) and is_postgres_database_url(os.getenv("DATABASE_URL", ""))
+IS_PRODUCTION = ENVIRONMENT in ("prod", "production") or IS_MANAGED_POSTGRES_RUNTIME
 ASYNC_MODE = os.getenv("PCOSINA_ASYNC_MODE", "queued").strip().lower()
 QUEUE_BROKER = queue_broker.build_broker_from_env()
 
@@ -164,6 +165,8 @@ def _seed_reviewed_price_rules_on_startup() -> bool:
 
 def _deep_readiness_enabled() -> bool:
     configured = os.getenv("PCOSINA_HEALTH_READY_DEEP", "").strip().lower()
+    if not configured:
+        return IS_PRODUCTION or IS_MANAGED_POSTGRES_RUNTIME
     return configured in ("1", "true", "yes", "on")
 
 
@@ -176,6 +179,31 @@ def _bootstrap_database_on_startup() -> bool:
     if os.getenv("RENDER", "").strip():
         return False
     return not IS_PRODUCTION
+
+
+def _run_database_bootstrap(actor: str) -> None:
+    database.init_db()
+    database.seed_recipes()
+    if _seed_reviewed_price_rules_on_startup():
+        database.seed_reviewed_price_rules()
+        invalidate_price_rule_cache()
+    if _seed_nutrition_corrections_on_startup():
+        database.seed_nutrition_corrections()
+    policy_store.init_policy_store()
+    policy_store.ensure_default_policy(actor=actor)
+
+
+def _runtime_schema_bootstrap_needed() -> bool:
+    try:
+        schema_status = _schema_readiness_report()
+    except Exception as exc:
+        print(f"Database schema readiness probe failed; startup bootstrap will run: {exc}", flush=True)
+        return True
+    pending = list(schema_status.get("pending") or [])
+    if pending:
+        print(f"Database schema has pending migrations; startup bootstrap will run: {pending}", flush=True)
+        return True
+    return False
 
 
 def _log_app_check_mode(enforced: bool) -> None:
@@ -270,6 +298,8 @@ def _runtime_readiness_report(*, include_schema: bool = False) -> Dict[str, Any]
 
     report = {
         "environment": ENVIRONMENT,
+        "productionRuntime": IS_PRODUCTION,
+        "managedPostgresRuntime": IS_MANAGED_POSTGRES_RUNTIME,
         "asyncMode": ASYNC_MODE,
         "queueBackend": queue_backend,
         "rateLimitBackend": RATE_LIMIT_BACKEND,
@@ -284,6 +314,10 @@ def _runtime_readiness_report(*, include_schema: bool = False) -> Dict[str, Any]
         "warnings": warnings,
     }
     if include_schema:
+        connectivity_status = database.check_database_connectivity()
+        if not connectivity_status.get("ok"):
+            errors.append(f"Database connectivity check failed: {connectivity_status.get('error')}")
+        report["database"]["connectivity"] = connectivity_status
         try:
             schema_status = _schema_readiness_report()
         except Exception as exc:
@@ -355,19 +389,17 @@ async def lifespan(app: FastAPI):
         print("Backend will continue without Firebase Auth (Local Dev Mode)")
     
     bootstrap_on_startup = _bootstrap_database_on_startup()
-    if bootstrap_on_startup:
-        database.init_db()
-        database.seed_recipes()
-        if _seed_reviewed_price_rules_on_startup():
-            database.seed_reviewed_price_rules()
-            invalidate_price_rule_cache()
-        if _seed_nutrition_corrections_on_startup():
-            database.seed_nutrition_corrections()
-        policy_store.init_policy_store()
-        policy_store.ensure_default_policy(actor="system-bootstrap")
+    bootstrap_due_to_missing_schema = (
+        not bootstrap_on_startup
+        and is_postgres_database_url(os.getenv("DATABASE_URL", ""))
+        and _runtime_schema_bootstrap_needed()
+    )
+    if bootstrap_on_startup or bootstrap_due_to_missing_schema:
+        actor = "system-bootstrap" if bootstrap_on_startup else "runtime-schema-recovery"
+        _run_database_bootstrap(actor=actor)
     else:
         print("Database bootstrap skipped; expecting the deploy bootstrap command to have completed.", flush=True)
-    _validate_runtime_readiness(include_schema=bootstrap_on_startup)
+    _validate_runtime_readiness(include_schema=_deep_readiness_enabled())
     yield
 
 docs_flag = os.getenv("PCOSINA_ENABLE_DOCS")
@@ -1342,7 +1374,14 @@ def _load_runtime_policy(force_refresh: bool = False) -> tuple[Dict[str, Any], s
     if not force_refresh and cached_value and (now - loaded_at) <= POLICY_CACHE_TTL_SECONDS:
         return cached_value["policy"], cached_value["version"]
 
-    active = policy_store.get_active_policy()
+    try:
+        active = policy_store.get_active_policy()
+    except Exception as exc:
+        if "policy_versions" not in str(exc):
+            raise
+        print(f"Policy store missing during runtime policy load; bootstrapping policy schema: {exc}", flush=True)
+        policy_store.init_policy_store()
+        active = policy_store.ensure_default_policy(actor="runtime-policy-recovery")
     if active and isinstance(active.get("policy"), dict):
         policy_payload = resolve_policy_for_environment(active["policy"], ENVIRONMENT)
         version = f"policy-v{active.get('version_number')}:{active.get('id')}"

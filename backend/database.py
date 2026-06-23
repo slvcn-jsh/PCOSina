@@ -8,6 +8,7 @@ import uuid
 from collections import Counter
 from contextlib import contextmanager
 from typing import Any, Dict, Iterable, List, Optional
+from urllib.parse import urlparse
 
 from canonical_ingredients import (
     CANONICAL_INGREDIENTS,
@@ -290,14 +291,48 @@ def get_database_connection_pool_status(database_url: str | None = None) -> Dict
     effective_url = DATABASE_URL if database_url is None else str(database_url or "").strip()
     mode = "postgres" if is_postgres_database_url(effective_url) else "sqlite"
     min_size, max_size, timeout = _postgres_pool_config()
+    parsed = urlparse(effective_url) if effective_url else None
     return {
         "mode": mode,
+        "host": parsed.hostname if parsed else None,
+        "port": parsed.port if parsed else None,
+        "database": parsed.path.lstrip("/") if parsed and parsed.path else None,
         "enabled": bool(mode == "postgres" and _postgres_pool_enabled()),
         "driverAvailable": bool(ConnectionPool is not None),
         "minSize": min_size,
         "maxSize": max_size,
         "timeoutSeconds": timeout,
         "open": bool(_POSTGRES_POOL is not None),
+    }
+
+
+def check_database_connectivity(timeout_seconds: float = 3.0) -> Dict[str, Any]:
+    mode = db_mode()
+    started = time.monotonic()
+    try:
+        if _use_postgres():
+            if psycopg is None:
+                raise RuntimeError("psycopg is not installed. Add psycopg[binary] to requirements.")
+            conn = psycopg.connect(DATABASE_URL, connect_timeout=max(1, int(timeout_seconds)))
+        else:
+            conn = sqlite3.connect(DB_NAME, timeout=max(1.0, float(timeout_seconds)))
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT 1")
+            cur.fetchone()
+        finally:
+            conn.close()
+    except Exception as exc:
+        return {
+            "ok": False,
+            "mode": mode,
+            "latencyMs": int((time.monotonic() - started) * 1000),
+            "error": str(exc),
+        }
+    return {
+        "ok": True,
+        "mode": mode,
+        "latencyMs": int((time.monotonic() - started) * 1000),
     }
 
 

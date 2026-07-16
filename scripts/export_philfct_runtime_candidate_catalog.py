@@ -69,6 +69,9 @@ ADDON_FCT = {
 }
 
 NUTRIENT_KEYS = ("calories", "protein_g", "carbs_g", "fat_g", "fiber_g")
+MAX_RUNTIME_MEAL_CALORIES = 1200
+MAX_RUNTIME_MEAL_FAT_G = 80
+MAX_RUNTIME_MEAL_CARBS_G = 180
 
 
 def tokens(text: str) -> set[str]:
@@ -304,7 +307,17 @@ def export(threshold: float, out_path: Path) -> dict:
         cost = float((meal.get("portionPricing") or {}).get("estimatedMealCostPhp") or 0)
         tags = set((raw.get("tags") or []) + safety_tags(raw, meal) + ["philfct_portioned_runtime_candidate"])
         addon_ingredients, updated_nutrition, addon_cost, additions = addon_rows(ingredients, nutrition, tags)
-        if float(updated_nutrition.get("calories") or 0) < 400 or float(updated_nutrition.get("protein_g") or 0) < 10:
+        calories = float(updated_nutrition.get("calories") or 0)
+        protein = float(updated_nutrition.get("protein_g") or 0)
+        fat = float(updated_nutrition.get("fat_g") or 0)
+        carbs = float(updated_nutrition.get("carbs_g") or 0)
+        if (
+            calories < 400
+            or protein < 10
+            or calories > MAX_RUNTIME_MEAL_CALORIES
+            or fat > MAX_RUNTIME_MEAL_FAT_G
+            or carbs > MAX_RUNTIME_MEAL_CARBS_G
+        ):
             continue
         ingredients = ingredients + addon_ingredients
         clean_name = sanitize_recipe_name(raw.get("name") or raw.get("title"), raw.get("mealType", "Universal"))

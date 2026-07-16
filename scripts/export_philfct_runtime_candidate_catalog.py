@@ -69,7 +69,7 @@ ADDON_FCT = {
 }
 
 NUTRIENT_KEYS = ("calories", "protein_g", "carbs_g", "fat_g", "fiber_g")
-MAX_RUNTIME_MEAL_CALORIES = 1200
+MAX_RUNTIME_MEAL_CALORIES = 900
 MAX_RUNTIME_MEAL_FAT_G = 80
 MAX_RUNTIME_MEAL_CARBS_G = 180
 

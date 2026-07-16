@@ -69,9 +69,10 @@ ADDON_FCT = {
 }
 
 NUTRIENT_KEYS = ("calories", "protein_g", "carbs_g", "fat_g", "fiber_g")
-MAX_RUNTIME_MEAL_CALORIES = 900
-MAX_RUNTIME_MEAL_FAT_G = 80
-MAX_RUNTIME_MEAL_CARBS_G = 180
+MAX_RUNTIME_MEAL_CALORIES = 750
+MAX_RUNTIME_MEAL_FAT_G = 35
+MAX_RUNTIME_MEAL_CARBS_G = 110
+MIN_RUNTIME_MEAL_FIBER_G = 5
 
 
 def tokens(text: str) -> set[str]:
@@ -317,6 +318,7 @@ def export(threshold: float, out_path: Path) -> dict:
             or calories > MAX_RUNTIME_MEAL_CALORIES
             or fat > MAX_RUNTIME_MEAL_FAT_G
             or carbs > MAX_RUNTIME_MEAL_CARBS_G
+            or float(updated_nutrition.get("fiber_g") or 0) < MIN_RUNTIME_MEAL_FIBER_G
         ):
             continue
         ingredients = ingredients + addon_ingredients

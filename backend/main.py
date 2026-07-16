@@ -193,6 +193,41 @@ def _run_database_bootstrap(actor: str) -> None:
     policy_store.ensure_default_policy(actor=actor)
 
 
+def _ensure_recipe_catalog_current_on_startup() -> None:
+    configured = os.getenv("PCOSINA_ENSURE_RECIPE_CATALOG_ON_STARTUP", "").strip().lower()
+    if configured in ("0", "false", "no", "off"):
+        return
+    if not configured and not is_postgres_database_url(os.getenv("DATABASE_URL", "")):
+        return
+
+    try:
+        status = database.get_recipe_catalog_status()
+    except Exception as exc:
+        print(f"Recipe catalog startup check failed; attempting forced recipe seed: {exc}", flush=True)
+        database.seed_recipes(force_reseed=True, deactivate_missing_seed=True)
+        return
+
+    seed_count = int(status.get("seedSourceCount") or 0)
+    active_count = int(status.get("databaseActiveCount") or 0)
+    missing_count = int(status.get("missingSeedCount") or 0)
+    inactive_count = int(status.get("databaseInactiveCount") or 0)
+    extra_count = int(status.get("extraDatabaseCount") or 0)
+    needs_sync = bool(seed_count) and (
+        active_count != seed_count
+        or missing_count > 0
+        or extra_count > inactive_count
+    )
+    print(
+        "Recipe catalog startup check: "
+        f"seed={seed_count} active={active_count} missing={missing_count} "
+        f"extra={extra_count} inactive={inactive_count} needsSync={needs_sync}",
+        flush=True,
+    )
+    if needs_sync:
+        summary = database.seed_recipes(force_reseed=True, deactivate_missing_seed=True)
+        print(f"Recipe catalog startup sync completed: {summary}", flush=True)
+
+
 def _runtime_schema_bootstrap_needed() -> bool:
     try:
         schema_status = _schema_readiness_report()
@@ -399,6 +434,7 @@ async def lifespan(app: FastAPI):
         _run_database_bootstrap(actor=actor)
     else:
         print("Database bootstrap skipped; expecting the deploy bootstrap command to have completed.", flush=True)
+    _ensure_recipe_catalog_current_on_startup()
     _validate_runtime_readiness(include_schema=_deep_readiness_enabled())
     yield
 

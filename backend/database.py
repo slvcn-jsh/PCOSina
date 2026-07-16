@@ -63,15 +63,38 @@ def _is_production_env() -> bool:
 
 ING_SYNONYMS = {
     "baboy": "pork",
+    "pig": "pork",
     "liempo": "pork",
     "lechon": "pork",
     "litson": "pork",
+    "bacon": "pork",
+    "ham": "pork",
+    "hamhock": "pork",
+    "pata": "pork",
     "baka": "beef",
     "bulalo": "beef",
     "tapa": "beef",
     "manok": "chicken",
     "isda": "fish",
+    "bangus": "fish",
+    "milkfish": "fish",
+    "tilapia": "fish",
+    "galunggong": "fish",
+    "bisugo": "fish",
+    "bream": "fish",
+    "sardinas": "fish",
+    "sardine": "fish",
+    "sardines": "fish",
+    "tambakol": "fish",
+    "tulingan": "fish",
+    "tanigue": "fish",
+    "dilis": "fish",
+    "dulong": "fish",
+    "tinapa": "fish",
+    "tuyo": "fish",
+    "daing": "fish",
     "hipon": "shrimp",
+    "crabmeat": "crab",
     "pusit": "squid",
     "gatas": "dairy",
     "keso": "cheese",
@@ -80,7 +103,12 @@ ING_SYNONYMS = {
 }
 
 MEAT_TOKENS = {"pork", "beef", "chicken", "meat", "lamb", "goat", "duck"}
-SEAFOOD_TOKENS = {"fish", "shrimp", "squid", "tuna", "salmon", "crab", "seafood"}
+SEAFOOD_TOKENS = {
+    "fish", "shrimp", "squid", "tuna", "salmon", "crab", "seafood",
+    "bangus", "milkfish", "tilapia", "galunggong", "bisugo", "bream",
+    "sardinas", "sardine", "sardines", "tambakol", "tulingan", "tanigue",
+    "dilis", "dulong", "tinapa", "tuyo", "daing",
+}
 DAIRY_TOKENS = {"dairy", "milk", "cheese", "yogurt", "cream", "butter"}
 EGG_TOKENS = {"egg"}
 
@@ -91,9 +119,19 @@ def _normalize_token(t: str) -> str:
 def _normalize_ingredients(ings):
     tokens = []
     for ing in ings or []:
-        name = ""
         if isinstance(ing, dict):
-            name = str(ing.get("name", ""))
+            text_parts = [
+                ing.get("name", ""),
+                ing.get("sourceText", ""),
+                ing.get("source_text", ""),
+                ing.get("philfctName", ""),
+                ing.get("philfct_name", ""),
+                ing.get("philfctCode", ""),
+                ing.get("category", ""),
+                ing.get("canonicalName", ""),
+                ing.get("canonical_name", ""),
+            ]
+            name = " ".join(str(part or "") for part in text_parts)
         else:
             name = str(ing)
         for raw in name.replace("/", " ").replace("-", " ").split():
@@ -192,6 +230,17 @@ def _seed_has_complete_nutrition(recipe: dict) -> bool:
 
 
 def _seed_nutrition_metadata(recipe: dict) -> tuple[str, str, str, str]:
+    explicit_source = str(recipe.get("nutritionDataSource") or "").strip()
+    explicit_confidence = str(recipe.get("nutritionConfidence") or "").strip()
+    explicit_review_status = str(recipe.get("nutritionReviewStatus") or "").strip()
+    explicit_notes = str(recipe.get("nutritionNotes") or "").strip()
+    if explicit_source or explicit_confidence or explicit_review_status or explicit_notes:
+        return (
+            explicit_source or "seed_file",
+            explicit_confidence or "estimated",
+            explicit_review_status or "needs_review",
+            explicit_notes or "Nutrition metadata came from the bundled recipe seed.",
+        )
     if _seed_has_complete_nutrition(recipe):
         return (
             "seed_file",
@@ -4527,7 +4576,11 @@ def get_recipe_catalog_nutrition_status(source_path: str | None = None) -> Dict[
     }
 
 
-def seed_recipes(source_path: str | None = None, force_reseed: bool | None = None) -> Dict[str, Any]:
+def seed_recipes(
+    source_path: str | None = None,
+    force_reseed: bool | None = None,
+    deactivate_missing_seed: bool | None = None,
+) -> Dict[str, Any]:
     recipes_path, recipes = _load_seed_recipes(source_path)
     if not recipes_path:
         before_count = get_recipe_count()
@@ -4544,13 +4597,22 @@ def seed_recipes(source_path: str | None = None, force_reseed: bool | None = Non
 
     if force_reseed is None:
         force_reseed = os.getenv("PCOSINA_FORCE_RESEED", "").strip().lower() in ("1", "true", "yes")
+    if deactivate_missing_seed is None:
+        deactivate_missing_seed = os.getenv("PCOSINA_DEACTIVATE_MISSING_SEED_RECIPES", "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
 
     medians = _compute_nutrition_medians(recipes)
+    seed_ids = {str(r.get("id") or "").strip() for r in recipes if str(r.get("id") or "").strip()}
 
     conn = _connect()
     inserted_count = 0
     updated_count = 0
     skipped_existing_count = 0
+    deactivated_missing_count = 0
     try:
         before_count = _recipe_count(conn)
         existing_ids = _recipe_id_set(conn)
@@ -4646,6 +4708,25 @@ def seed_recipes(source_path: str | None = None, force_reseed: bool | None = Non
                 inserted_count += 1
                 existing_ids.add(recipe_id)
 
+        if deactivate_missing_seed and seed_ids:
+            active_before_deactivate = _recipe_id_set(conn, active_only=True)
+            stale_active_ids = sorted(active_before_deactivate - seed_ids)
+            if stale_active_ids:
+                placeholders = ",".join(["%s" if _use_postgres() else "?"] * len(stale_active_ids))
+                cursor.execute(
+                    f"""
+                    UPDATE recipes
+                    SET active = 0, updated_at = ?, deleted_at = ?
+                    WHERE id IN ({placeholders})
+                    """ if not _use_postgres() else f"""
+                    UPDATE recipes
+                    SET active = 0, updated_at = %s, deleted_at = %s
+                    WHERE id IN ({placeholders})
+                    """,
+                    (now_ms, now_ms, *stale_active_ids),
+                )
+                deactivated_missing_count = len(stale_active_ids)
+
         conn.commit()
         after_count = _recipe_count(conn)
         summary = {
@@ -4656,12 +4737,15 @@ def seed_recipes(source_path: str | None = None, force_reseed: bool | None = Non
             "insertedCount": inserted_count,
             "updatedCount": updated_count,
             "skippedExistingCount": skipped_existing_count,
+            "deactivatedMissingSeedCount": deactivated_missing_count,
             "forceReseed": bool(force_reseed),
+            "deactivateMissingSeed": bool(deactivate_missing_seed),
         }
         print(
             "DATABASE SYNCED: "
             f"{after_count} recipes ready for MILP Brain "
-            f"({inserted_count} inserted, {updated_count} updated, {skipped_existing_count} kept)."
+            f"({inserted_count} inserted, {updated_count} updated, {skipped_existing_count} kept, "
+            f"{deactivated_missing_count} deactivated)."
         )
         return summary
     finally:
@@ -5026,13 +5110,26 @@ def _list_active_nutrition_corrections_map(conn, recipe_ids: Optional[Iterable[s
 def _apply_nutrition_correction(recipe: Dict[str, Any], correction: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     if not correction or not correction.get("active", True):
         return recipe
+    metadata = _parse_nutrition_correction_notes(correction.get("notes"))
+    seed_source = str(recipe.get("nutritionDataSource") or "").strip().lower()
+    correction_source = str(metadata.get("source") or "").strip().lower()
+    correction_status = str(metadata.get("review_status") or metadata.get("reviewStatus") or "").strip().lower()
+    seed_is_promoted_philfct = seed_source in {
+        "philfct_ingredient_sum_auto",
+        "philfct_budget_support_ingredient_sum",
+    }
+    correction_is_authoritative = (
+        correction_source.startswith("philfct")
+        or correction_status in {"reviewed", "nutritionist_reviewed", "dietitian_reviewed", "verified"}
+    )
+    if seed_is_promoted_philfct and not correction_is_authoritative:
+        return recipe
     updated = dict(recipe)
     for key in ("calories", "proteinGrams", "carbsGrams", "fatsGrams", "fiberGrams", "sodiumMg", "sugarGrams"):
         value = correction.get(key)
         if value is not None:
             updated[key] = int(value)
     updated["nutritionCorrectionId"] = correction.get("id")
-    metadata = _parse_nutrition_correction_notes(correction.get("notes"))
     updated["nutritionDataSource"] = metadata.get("source") or "manual_correction"
     updated["nutritionConfidence"] = metadata.get("confidence") or "reviewed"
     updated["nutritionReviewStatus"] = metadata.get("review_status") or metadata.get("reviewStatus") or "reviewed"

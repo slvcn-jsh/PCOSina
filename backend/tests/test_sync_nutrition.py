@@ -137,18 +137,16 @@ def test_bundled_catalog_nutrition_seed_has_no_fixed_placeholder_profiles():
     status = database.get_recipe_catalog_nutrition_status(str(ROOT / "recipes.json"))
 
     assert status["ok"] is True
-    assert status["activeRecipeCount"] == 1130
-    assert status["completeNutritionProfileCount"] == 1130
+    assert status["activeRecipeCount"] == 800
+    assert status["completeNutritionProfileCount"] == 800
     assert status["imputedNutritionCount"] == 0
     assert status["placeholderNutritionProfileCounts"] == {
         "350/20/40/12/5": 0,
         "357/10/49/8/7": 0,
     }
     assert status["dominantActiveNutritionProfile"]["count"] <= 5
-    assert status["sourceCounts"]["local_reference_ingredient_sum_draft"] == 876
-    assert status["sourceCounts"]["local_reference_missing_quantity_draft"] == 1
-    assert status["sourceCounts"]["panlasang_pinoy_recipe_card_per_serving"] == 141
-    assert status["sourceCounts"]["panlasang_pinoy_recipe_card_yield_normalized"] == 36
+    assert status["sourceCounts"]["philfct_ingredient_sum_auto"] == 730
+    assert status["sourceCounts"]["philfct_budget_support_ingredient_sum"] == 70
 
     profile = UserProfile(
         dietaryRestrictions=["Vegetarian", "No Pork", "No Beef", "Lactose Intolerant"],
@@ -229,7 +227,7 @@ def test_bundled_catalog_nutrition_seed_has_no_fixed_placeholder_profiles():
     assert telemetry["stage1_diag"]["repeat_sequence"] == [6, 8, 10]
     assert telemetry["solve_pair_diagnostics"][0]["tol"] == 0.4
     assert telemetry["solve_pair_diagnostics"][0]["maxPerWeek"] == 10
-    assert set(telemetry["selected_recipe_ids"]) & {f"ph_qk_{idx:03d}" for idx in range(61, 77)}
+    assert set(telemetry["selected_recipe_ids"]) & {f"ph_budget_{idx:03d}" for idx in range(1, 71)}
 
 
 def test_review_queue_exports_missing_nutrition_with_source_metadata():

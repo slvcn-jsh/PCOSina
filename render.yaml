@@ -51,6 +51,10 @@ services:
         value: "60"
       - key: PCOSINA_BOOTSTRAP_ON_STARTUP
         value: "true"
+      - key: PCOSINA_FORCE_RESEED
+        value: "true"
+      - key: PCOSINA_DEACTIVATE_MISSING_SEED_RECIPES
+        value: "true"
       - key: PCOSINA_HEALTH_READY_DEEP
         value: "true"
       - key: PCOSINA_DB_POOL_MIN_SIZE

@@ -111,9 +111,14 @@ def _policy_get_legacy_aware(
 # -------------------------
 ING_SYNONYMS = {
     "baboy": "pork",
+    "pig": "pork",
     "liempo": "pork",
     "lechon": "pork",
     "litson": "pork",
+    "bacon": "pork",
+    "ham": "pork",
+    "hamhock": "pork",
+    "pata": "pork",
     "baka": "beef",
     "bulalo": "beef",
     "tapa": "beef",
@@ -123,6 +128,8 @@ ING_SYNONYMS = {
     "milkfish": "milkfish",
     "tilapia": "tilapia",
     "galunggong": "galunggong",
+    "bisugo": "fish",
+    "bream": "fish",
     "tambakol": "tuna",
     "tulingan": "tuna",
     "tanigue": "fish",
@@ -131,6 +138,7 @@ ING_SYNONYMS = {
     "hipon": "shrimp",
     "alimango": "crab",
     "alimasag": "crab",
+    "crabmeat": "crab",
     "pusit": "squid",
     "gatas": "dairy",
     "keso": "cheese",
@@ -211,7 +219,7 @@ ALLERGEN_SYNONYMS = {
 MEAT_TOKENS = {"pork", "beef", "chicken", "meat", "lamb", "goat", "duck"}
 FISH_FAMILY_TOKENS = {
     "fish", "isda", "bangus", "milkfish", "tilapia", "galunggong",
-    "salmon", "tuna", "tambakol", "tulingan", "tanigue", "seafood",
+    "salmon", "tuna", "tambakol", "tulingan", "tanigue", "bisugo", "bream", "seafood",
     "sardine", "sardines", "sardinas", "dilis", "dulong", "tinapa",
     "tuyo", "daing", "lapu", "maya",
 }
@@ -288,9 +296,19 @@ def _normalize_token(t: str) -> str:
 def normalize_ingredients(ings: List[Any]) -> List[str]:
     tokens = []
     for ing in ings:
-        name = ""
         if isinstance(ing, dict):
-            name = str(ing.get("name", ""))
+            text_parts = [
+                ing.get("name", ""),
+                ing.get("sourceText", ""),
+                ing.get("source_text", ""),
+                ing.get("philfctName", ""),
+                ing.get("philfct_name", ""),
+                ing.get("philfctCode", ""),
+                ing.get("category", ""),
+                ing.get("canonicalName", ""),
+                ing.get("canonical_name", ""),
+            ]
+            name = " ".join(str(part or "") for part in text_parts)
         else:
             name = str(ing)
         for raw in name.replace("/", " ").replace("-", " ").split():
@@ -389,6 +407,10 @@ def derive_allergen_exposures(tags: List[str], ing_tokens: List[str]) -> set[str
         exposures.add("egg")
     if "contains_seafood" in tagset and not (exposures & {"fish", "shellfish"}):
         exposures.add("fish")
+    if "contains_fish" in tagset:
+        exposures.add("fish")
+    if "contains_shellfish" in tagset:
+        exposures.add("shellfish")
     return exposures
 
 
@@ -1077,11 +1099,15 @@ def restriction_failure_reasons(
     matched_custom_allergies = sorted(custom_allergy_tokens & toks)
     if matched_custom_allergies:
         failures.extend(f"allergy:{token}" for token in matched_custom_allergies)
-    if "No Pork" in restrictions and "pork" in toks:
+    if "No Pork" in restrictions and ("pork" in toks or "contains_pork" in tagset):
         failures.append("restriction:no_pork")
-    if "No Beef" in restrictions and "beef" in toks:
+    if "No Beef" in restrictions and ("beef" in toks or "contains_beef" in tagset):
         failures.append("restriction:no_beef")
-    if "Vegetarian" in restrictions and (("contains_meat" in tagset) or ("contains_seafood" in tagset)):
+    if "Vegetarian" in restrictions and (
+        ("contains_meat" in tagset)
+        or ("contains_seafood" in tagset)
+        or ("pescatarian" in tagset)
+    ):
         failures.append("restriction:vegetarian")
     if "Pescatarian" in restrictions and ("contains_meat" in tagset):
         failures.append("restriction:pescatarian")

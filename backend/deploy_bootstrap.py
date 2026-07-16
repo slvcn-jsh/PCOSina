@@ -23,6 +23,7 @@ def _result_summary(result) -> str:
         "insertedCount",
         "updatedCount",
         "skippedExistingCount",
+        "deactivatedMissingSeedCount",
     )
     parts = [f"{key}={result[key]}" for key in keys if key in result]
     return ",".join(parts) or f"dict_keys={len(result)}"
@@ -56,7 +57,10 @@ def main() -> int:
     started = time.perf_counter()
     print("DEPLOY_BOOTSTRAP status=started", flush=True)
     _run_stage("application_schema", database.init_db)
-    _run_stage("recipe_seed", database.seed_recipes)
+    _run_stage(
+        "recipe_seed",
+        lambda: database.seed_recipes(force_reseed=True, deactivate_missing_seed=True),
+    )
     _run_stage("reviewed_price_seed", database.seed_reviewed_price_rules)
     invalidate_price_rule_cache()
     _run_stage("nutrition_correction_seed", database.seed_nutrition_corrections)

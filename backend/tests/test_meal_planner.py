@@ -204,6 +204,24 @@ def test_custom_allergy_token_excludes_matching_ingredient():
     assert "allergy:chicken" in meal_planner.restriction_failure_reasons(profile, tags, ing_tokens)
 
 
+def test_runtime_ingredient_tokenization_uses_philfct_and_source_metadata():
+    ingredients = [
+        {
+            "name": "cooked edible portion",
+            "quantity": "95 g",
+            "sourceText": "grilled bangus/milkfish",
+            "philfctName": "Milkfish, broiled - G075",
+            "philfctCode": "G075",
+        }
+    ]
+
+    tokens = set(meal_planner.normalize_ingredients(ingredients))
+
+    assert "bangus" in tokens
+    assert "milkfish" in tokens
+    assert "broiled" in tokens
+
+
 def test_stage1_pricing_uses_request_scoped_market_multiplier_cache(monkeypatch):
     price_catalog.invalidate_override_cache()
     monkeypatch.setattr(database, "list_active_price_rules", lambda limit=500: [])
@@ -1227,6 +1245,7 @@ def test_allergy_filter_blocks_recipe():
         ("fish", "tinapa flakes"),
         ("shellfish", "shrimp"),
         ("shellfish", "crab"),
+        ("shellfish", "crabmeat"),
         ("shellfish", "squid"),
         ("dairy", "cheese"),
         ("dairy", "milk"),
@@ -1256,6 +1275,57 @@ def test_allergy_filter_blocks_descendant_ingredients(allergy, ingredient_name):
     assert all(len(v) == 0 for v in buckets.values())
     assert stage1_diag["exclusion_summary"]["allergy"] == 1
     assert stage1_diag["exclusion_detail_counts"][f"allergy:{allergy}"] == 1
+
+
+@pytest.mark.parametrize(
+    "ingredient_name",
+    [
+        "salted dried bisugo",
+        "threadfin bream",
+        "sardines in tomato sauce",
+        "sardinas in tomato sauce",
+        "bangus fillet",
+        "crabmeat omelet",
+        "pig parts with coconut milk",
+    ],
+)
+def test_vegetarian_filter_blocks_local_seafood_tokens(ingredient_name):
+    profile = UserProfile(dietaryRestrictions=["Vegetarian"], maxCookingTimeMinutes=45)
+    stage1_diag = {}
+    buckets = meal_planner.shortlist_candidates(
+        profile,
+        [
+            _recipe(
+                "r1",
+                "Local Seafood Recipe",
+                "Lunch",
+                ingredients=[{"name": ingredient_name, "quantity": "1 cup"}],
+            )
+        ],
+        stage1_diag=stage1_diag,
+    )
+
+    assert all(len(v) == 0 for v in buckets.values())
+    assert stage1_diag["exclusion_summary"]["restriction"] == 1
+    assert stage1_diag["exclusion_detail_counts"]["restriction:vegetarian"] == 1
+
+
+def test_vegetarian_filter_blocks_pescatarian_tag():
+    profile = UserProfile(dietaryRestrictions=["Vegetarian"], maxCookingTimeMinutes=45)
+    stage1_diag = {}
+    recipe = _recipe(
+        "r1",
+        "Tagged Pescatarian Recipe",
+        "Lunch",
+        ingredients=[{"name": "vegetable broth", "quantity": "1 cup"}],
+    )
+    recipe["tags"] = ["pescatarian"]
+
+    buckets = meal_planner.shortlist_candidates(profile, [recipe], stage1_diag=stage1_diag)
+
+    assert all(len(v) == 0 for v in buckets.values())
+    assert stage1_diag["exclusion_summary"]["restriction"] == 1
+    assert stage1_diag["exclusion_detail_counts"]["restriction:vegetarian"] == 1
 
 
 def test_custom_allergy_filter_blocks_direct_ingredient_token():

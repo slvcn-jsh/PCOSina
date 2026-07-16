@@ -27,6 +27,10 @@ FCT = {
     "squash": (47, 0.4, 10.8, 0.2, 1.1),
     "banana": (104, 0.9, 23.1, 0.9, 2.7),
     "papaya": (24, 0.7, 4.9, 0.2, 0.7),
+    "peanuts": (617, 25.8, 17.1, 49.5, 8.6),
+    "chicken breast": (131, 21.6, 0, 5.0, 0),
+    "milkfish": (137, 23.4, 0, 4.8, 0),
+    "pineapple": (55, 0.4, 13.0, 0.2, 1.4),
     "sardines": (180, 22.0, 0, 10.0, 0),
     "tuna": (132, 28.0, 0, 1.0, 0),
     "tofu": (80, 8.0, 2.0, 5.0, 1.0),
@@ -64,6 +68,10 @@ PHP_PER_KG = {
         "squash": 70,
         "banana": 90,
         "papaya": 100,
+        "peanuts": 2778,
+        "chicken breast": 260,
+        "milkfish": 260,
+        "pineapple": 60,
         "sardines": 180,
         "tuna": 260,
         "tofu": 120,
@@ -101,6 +109,60 @@ TEMPLATES = [
     ("Egg Tofu Talong Budget Plate", "Breakfast", [("cooked white rice", 120), ("egg", 50), ("tofu", 120), ("eggplant", 140), ("tomato", 60), ("onion", 25), ("cooking oil", 8), ("banana", 60)]),
     ("Munggo Okra Malunggay Dinner Plate", "Dinner", [("cooked white rice", 130), ("cooked munggo", 230), ("okra", 90), ("malunggay", 45), ("tomato", 60), ("onion", 25), ("garlic", 5), ("cooking oil", 10), ("papaya", 80)]),
     ("Tofu Sitaw Squash Dinner Plate", "Dinner", [("cooked white rice", 120), ("tofu", 160), ("sitaw", 100), ("squash", 160), ("malunggay", 35), ("tomato", 50), ("onion", 25), ("garlic", 5), ("cooking oil", 10), ("banana", 60)]),
+]
+
+RND_TEMPLATES = [
+    (
+        "ph_rnd_001",
+        "Tortang Talong Breakfast Plate",
+        "Breakfast",
+        [
+            ("cooked white rice", 100),
+            ("egg", 50),
+            ("eggplant", 150),
+            ("tomato", 85),
+            ("onion", 30),
+            ("cooking oil", 5),
+            ("banana", 120),
+            ("peanuts", 25),
+        ],
+        ["contains_egg", "contains_peanut"],
+    ),
+    (
+        "ph_rnd_002",
+        "Grilled Chicken Pinakbet Plate",
+        "Lunch",
+        [
+            ("cooked white rice", 100),
+            ("chicken breast", 110),
+            ("squash", 120),
+            ("okra", 70),
+            ("sitaw", 70),
+            ("eggplant", 55),
+            ("tomato", 70),
+            ("onion", 30),
+            ("cooking oil", 9),
+            ("papaya", 180),
+        ],
+        ["contains_chicken", "contains_meat"],
+    ),
+    (
+        "ph_rnd_003",
+        "Bangus with Monggo-Malunggay Plate",
+        "Dinner",
+        [
+            ("cooked white rice", 100),
+            ("milkfish", 95),
+            ("cooked munggo", 150),
+            ("malunggay", 50),
+            ("tomato", 70),
+            ("onion", 30),
+            ("garlic", 7),
+            ("cooking oil", 13),
+            ("pineapple", 150),
+        ],
+        ["contains_fish", "contains_seafood"],
+    ),
 ]
 
 
@@ -158,6 +220,62 @@ def make_recipe(index: int, name: str, meal_type: str, ingredients):
     }
 
 
+def make_rnd_recipe(recipe_id: str, name: str, meal_type: str, ingredients, extra_tags):
+    tags = [
+        "complete_plate",
+        "includes_water",
+        "includes_fruit",
+        "includes_glow_vegetables",
+        "philfct_rnd_evaluated",
+        "philfct_portioned_runtime_candidate",
+    ] + list(extra_tags)
+    return {
+        "id": recipe_id,
+        "name": name,
+        "title": name,
+        "mealType": meal_type,
+        "tags": sorted(set(tags)),
+        "nutrition": nutrient(ingredients),
+        "ingredients": [
+            {
+                "name": ingredient_name,
+                "quantity": f"{grams} g",
+                "priceCostPhp": ingredient_cost(ingredient_name, grams),
+                "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+                "philfctRndEvaluated": True,
+            }
+            for ingredient_name, grams in ingredients
+        ] + [
+            {
+                "name": "water",
+                "quantity": "1 glass",
+                "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+                "philfctName": "Water",
+                "philfctCode": "PCOSINA-WATER",
+                "priceCostPhp": 0.0,
+                "completePlateAddon": True,
+                "excludedFromNutritionTotals": True,
+            }
+        ],
+        "instructions": [
+            "Prepare the listed ingredients for one serving.",
+            f"Cook {name} using standard safe cooking practices.",
+            "Serve with one glass of water. Water is not included in the nutrition totals.",
+        ],
+        "sourceServings": "1",
+        "sourceDataset": "PCOSina RND evaluated three-meal seed",
+        "nutritionDataSource": "philfct_rnd_evaluated_ingredient_sum",
+        "nutritionConfidence": "high",
+        "nutritionReviewStatus": "rnd_representative_meal_reviewed",
+        "nutritionNotes": (
+            "Representative meal adapted from the RND consultation packet; nutrition computed "
+            "from one-person ingredient portions using PhilFCT per-100g values."
+        ),
+        "philfctCoverage": 1.0,
+        "estimatedCostPhp": cost(ingredients),
+    }
+
+
 def main() -> int:
     base = json.loads(BASE.read_text(encoding="utf-8"))
     extra = []
@@ -166,6 +284,8 @@ def main() -> int:
         for name, meal_type, ingredients in TEMPLATES:
             extra.append(make_recipe(idx, name, meal_type, ingredients))
             idx += 1
+    for recipe_id, name, meal_type, ingredients, tags in RND_TEMPLATES:
+        extra.append(make_rnd_recipe(recipe_id, name, meal_type, ingredients, tags))
     merged = base + extra
     OUT.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({"base": len(base), "added": len(extra), "total": len(merged), "path": str(OUT)}, indent=2))

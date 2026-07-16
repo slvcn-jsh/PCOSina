@@ -98279,5 +98279,338 @@
     "nutritionNotes": "Generated one-person budget support plate computed from PhilFCT-style ingredient values and consumed-portion price rules.",
     "philfctCoverage": 1.0,
     "estimatedCostPhp": 60.77
+  },
+  {
+    "id": "ph_rnd_001",
+    "name": "Tortang Talong Breakfast Plate",
+    "title": "Tortang Talong Breakfast Plate",
+    "mealType": "Breakfast",
+    "tags": [
+      "complete_plate",
+      "contains_egg",
+      "contains_peanut",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "philfct_rnd_evaluated"
+    ],
+    "nutrition": {
+      "calories": 597,
+      "protein_g": 18,
+      "carbs_g": 77,
+      "fat_g": 24,
+      "fiber_g": 9
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "100 g",
+        "priceCostPhp": 2.04,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "egg",
+        "quantity": "50 g",
+        "priceCostPhp": 10.0,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "eggplant",
+        "quantity": "150 g",
+        "priceCostPhp": 7.5,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "85 g",
+        "priceCostPhp": 5.44,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "30 g",
+        "priceCostPhp": 2.97,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "5 g",
+        "priceCostPhp": 1.06,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "banana",
+        "quantity": "120 g",
+        "priceCostPhp": 10.8,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "peanuts",
+        "quantity": "25 g",
+        "priceCostPhp": 69.45,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the listed ingredients for one serving.",
+      "Cook Tortang Talong Breakfast Plate using standard safe cooking practices.",
+      "Serve with one glass of water. Water is not included in the nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina RND evaluated three-meal seed",
+    "nutritionDataSource": "philfct_rnd_evaluated_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "rnd_representative_meal_reviewed",
+    "nutritionNotes": "Representative meal adapted from the RND consultation packet; nutrition computed from one-person ingredient portions using PhilFCT per-100g values.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 109.26
+  },
+  {
+    "id": "ph_rnd_002",
+    "name": "Grilled Chicken Pinakbet Plate",
+    "title": "Grilled Chicken Pinakbet Plate",
+    "mealType": "Lunch",
+    "tags": [
+      "complete_plate",
+      "contains_chicken",
+      "contains_meat",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "philfct_rnd_evaluated"
+    ],
+    "nutrition": {
+      "calories": 558,
+      "protein_g": 33,
+      "carbs_g": 71,
+      "fat_g": 16,
+      "fiber_g": 8
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "100 g",
+        "priceCostPhp": 2.04,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "chicken breast",
+        "quantity": "110 g",
+        "priceCostPhp": 28.6,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "squash",
+        "quantity": "120 g",
+        "priceCostPhp": 8.4,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "okra",
+        "quantity": "70 g",
+        "priceCostPhp": 4.9,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "sitaw",
+        "quantity": "70 g",
+        "priceCostPhp": 4.9,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "eggplant",
+        "quantity": "55 g",
+        "priceCostPhp": 2.75,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "70 g",
+        "priceCostPhp": 4.48,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "30 g",
+        "priceCostPhp": 2.97,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "9 g",
+        "priceCostPhp": 1.9,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "papaya",
+        "quantity": "180 g",
+        "priceCostPhp": 18.0,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the listed ingredients for one serving.",
+      "Cook Grilled Chicken Pinakbet Plate using standard safe cooking practices.",
+      "Serve with one glass of water. Water is not included in the nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina RND evaluated three-meal seed",
+    "nutritionDataSource": "philfct_rnd_evaluated_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "rnd_representative_meal_reviewed",
+    "nutritionNotes": "Representative meal adapted from the RND consultation packet; nutrition computed from one-person ingredient portions using PhilFCT per-100g values.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 78.94
+  },
+  {
+    "id": "ph_rnd_003",
+    "name": "Bangus with Monggo-Malunggay Plate",
+    "title": "Bangus with Monggo-Malunggay Plate",
+    "mealType": "Dinner",
+    "tags": [
+      "complete_plate",
+      "contains_fish",
+      "contains_seafood",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "philfct_rnd_evaluated"
+    ],
+    "nutrition": {
+      "calories": 635,
+      "protein_g": 39,
+      "carbs_g": 75,
+      "fat_g": 20,
+      "fiber_g": 9
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "100 g",
+        "priceCostPhp": 2.04,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "milkfish",
+        "quantity": "95 g",
+        "priceCostPhp": 24.7,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "150 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "50 g",
+        "priceCostPhp": 10.0,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "70 g",
+        "priceCostPhp": 4.48,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "30 g",
+        "priceCostPhp": 2.97,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "garlic",
+        "quantity": "7 g",
+        "priceCostPhp": 1.02,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "13 g",
+        "priceCostPhp": 2.75,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "pineapple",
+        "quantity": "150 g",
+        "priceCostPhp": 9.0,
+        "pricingSource": "PCOSina RND evaluated consumed portion estimate",
+        "philfctRndEvaluated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the listed ingredients for one serving.",
+      "Cook Bangus with Monggo-Malunggay Plate using standard safe cooking practices.",
+      "Serve with one glass of water. Water is not included in the nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina RND evaluated three-meal seed",
+    "nutritionDataSource": "philfct_rnd_evaluated_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "rnd_representative_meal_reviewed",
+    "nutritionNotes": "Representative meal adapted from the RND consultation packet; nutrition computed from one-person ingredient portions using PhilFCT per-100g values.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 64.16
   }
 ]

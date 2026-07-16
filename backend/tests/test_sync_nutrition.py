@@ -137,8 +137,8 @@ def test_bundled_catalog_nutrition_seed_has_no_fixed_placeholder_profiles():
     status = database.get_recipe_catalog_nutrition_status(str(ROOT / "recipes.json"))
 
     assert status["ok"] is True
-    assert status["activeRecipeCount"] == 738
-    assert status["completeNutritionProfileCount"] == 738
+    assert status["activeRecipeCount"] == 741
+    assert status["completeNutritionProfileCount"] == 741
     assert status["imputedNutritionCount"] == 0
     assert status["placeholderNutritionProfileCounts"] == {
         "350/20/40/12/5": 0,
@@ -147,6 +147,7 @@ def test_bundled_catalog_nutrition_seed_has_no_fixed_placeholder_profiles():
     assert status["dominantActiveNutritionProfile"]["count"] <= 5
     assert status["sourceCounts"]["philfct_ingredient_sum_auto"] == 668
     assert status["sourceCounts"]["philfct_budget_support_ingredient_sum"] == 70
+    assert status["sourceCounts"]["philfct_rnd_evaluated_ingredient_sum"] == 3
 
     profile = UserProfile(
         dietaryRestrictions=["Vegetarian", "No Pork", "No Beef", "Lactose Intolerant"],

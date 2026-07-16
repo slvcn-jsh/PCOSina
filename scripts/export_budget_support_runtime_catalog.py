@@ -48,8 +48,7 @@ def nutrient(ingredients):
     }
 
 
-def cost(ingredients):
-    php_per_kg = {
+PHP_PER_KG = {
         "cooked white rice": 60,
         "cooked munggo": 120,
         "egg": 200,
@@ -68,15 +67,22 @@ def cost(ingredients):
         "sardines": 180,
         "tuna": 260,
         "tofu": 120,
-    }
+}
+
+
+def ingredient_cost(name: str, grams: float) -> float:
+    priced_grams = grams
+    if name == "cooked white rice":
+        priced_grams = grams * 0.34
+    if name == "cooked munggo":
+        priced_grams = grams * 0.40
+    return round(priced_grams / 1000 * PHP_PER_KG[name], 2)
+
+
+def cost(ingredients):
     total = 0.0
     for name, grams in ingredients:
-        priced_grams = grams
-        if name == "cooked white rice":
-            priced_grams = grams * 0.34
-        if name == "cooked munggo":
-            priced_grams = grams * 0.40
-        total += priced_grams / 1000 * php_per_kg[name]
+        total += ingredient_cost(name, grams)
     return round(total, 2)
 
 
@@ -104,20 +110,39 @@ def make_recipe(index: int, name: str, meal_type: str, ingredients):
         tags += ["contains_fish", "contains_seafood"]
     if any(n == "egg" for n, _ in ingredients):
         tags += ["contains_egg"]
+    display_name = name if "Complete Plate" in name else name.replace("Budget Plate", "Complete Plate")
     return {
         "id": f"ph_budget_{index:03d}",
-        "name": name,
-        "title": name,
+        "name": display_name,
+        "title": display_name,
         "mealType": meal_type,
-        "tags": sorted(set(tags)),
+        "tags": sorted(set(tags + ["complete_plate", "includes_water", "includes_fruit", "includes_glow_vegetables"])),
         "nutrition": nutrient(ingredients),
         "ingredients": [
-            {"name": name, "quantity": f"{grams} g", "philfctBudgetSupport": True}
+            {
+                "name": name,
+                "quantity": f"{grams} g",
+                "priceCostPhp": ingredient_cost(name, grams),
+                "pricingSource": "PCOSina budget-support consumed portion estimate",
+                "philfctBudgetSupport": True,
+            }
             for name, grams in ingredients
+        ] + [
+            {
+                "name": "water",
+                "quantity": "1 glass",
+                "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+                "philfctName": "Water",
+                "philfctCode": "PCOSINA-WATER",
+                "priceCostPhp": 0.0,
+                "completePlateAddon": True,
+                "excludedFromNutritionTotals": True,
+            }
         ],
         "instructions": [
-            "Cook ingredients using the measured one-person portions.",
-            "Serve as a complete Filipino budget plate with water.",
+            "Prepare the measured one-person portions listed for this complete plate.",
+            f"Cook the main components for {display_name} using standard safe cooking practices.",
+            "Serve the plate with the listed fruit or vegetable companion and one glass of water.",
         ],
         "sourceServings": "1",
         "sourceDataset": "PCOSina PhilFCT budget-support generated plates",
@@ -139,8 +164,7 @@ def main() -> int:
     idx = 1
     for cycle in range(5):
         for name, meal_type, ingredients in TEMPLATES:
-            variant = f"{name} {cycle + 1}" if cycle else name
-            extra.append(make_recipe(idx, variant, meal_type, ingredients))
+            extra.append(make_recipe(idx, name, meal_type, ingredients))
             idx += 1
     merged = base + extra
     OUT.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")

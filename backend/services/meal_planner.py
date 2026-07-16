@@ -2781,6 +2781,21 @@ def solve_meal_plan(
         return None, "No safe recipes found.", None
 
     pool = candidates
+    resolved_budget_weekly = resolve_budget_weekly(profile)
+    tight_budget_support_pool = [
+        recipe
+        for recipe in pool
+        if "philfct_budget_support" in set(recipe.get("tags") or [])
+    ]
+    if (
+        resolved_budget_weekly
+        and float(resolved_budget_weekly) <= 2000.0
+        and not (profile.allergies or [])
+        and len(tight_budget_support_pool) >= slot_count
+    ):
+        pool = tight_budget_support_pool
+        stage1_diag["tight_budget_support_pool_applied"] = True
+        stage1_diag["tight_budget_support_pool_count"] = len(pool)
     restricted_solver_catalog = int(len(profile.dietaryRestrictions or []) + len(profile.allergies or [])) >= 6 or (
         int(stage1_diag.get("safe_recipe_count_pre_pricing") or 0) <= 96
     )

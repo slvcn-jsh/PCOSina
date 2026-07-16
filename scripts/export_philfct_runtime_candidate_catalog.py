@@ -275,12 +275,12 @@ def display_ingredient_name(name: str) -> str:
 def english_instructions(title: str, additions: list[str]) -> list[str]:
     companion_text = ", ".join(item for item in additions if item != "water")
     steps = [
-        "Prepare the measured one-person portions listed for this complete plate.",
-        f"Cook or reheat the main dish for {title} using standard safe cooking practices.",
+        "Prepare the listed ingredients for one serving.",
+        f"Cook or reheat {title} using standard safe cooking practices.",
     ]
     if companion_text:
-        steps.append(f"Serve the main dish with the listed complete-plate companions: {companion_text}.")
-    steps.append("Serve with one glass of water. Water is listed for meal completeness but excluded from nutrient totals.")
+        steps.append(f"Serve with the listed side items: {companion_text}.")
+    steps.append("Serve with one glass of water. Water is not included in the nutrition totals.")
     return steps
 
 

@@ -2791,7 +2791,7 @@ def solve_meal_plan(
         resolved_budget_weekly
         and float(resolved_budget_weekly) <= 2000.0
         and not (profile.allergies or [])
-        and len(tight_budget_support_pool) >= slot_count
+        and len(tight_budget_support_pool) >= max(configured_meals_per_day, 10)
     ):
         pool = tight_budget_support_pool
         stage1_diag["tight_budget_support_pool_applied"] = True

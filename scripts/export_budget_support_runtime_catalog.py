@@ -140,9 +140,9 @@ def make_recipe(index: int, name: str, meal_type: str, ingredients):
             }
         ],
         "instructions": [
-            "Prepare the measured one-person portions listed for this complete plate.",
-            f"Cook the main components for {display_name} using standard safe cooking practices.",
-            "Serve the plate with the listed fruit or vegetable companion and one glass of water.",
+            "Prepare the listed ingredients for one serving.",
+            f"Cook {display_name} using standard safe cooking practices.",
+            "Serve with the listed fruit or vegetable side and one glass of water.",
         ],
         "sourceServings": "1",
         "sourceDataset": "PCOSina PhilFCT budget-support generated plates",

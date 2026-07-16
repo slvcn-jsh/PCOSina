@@ -36962,5 +36962,3836 @@
     "nutritionNotes": "Representative meal adapted from the RND consultation packet; nutrition computed from one-person ingredient portions using PhilFCT per-100g values.",
     "philfctCoverage": 1.0,
     "estimatedCostPhp": 64.16
+  },
+  {
+    "id": "ph_form_001",
+    "name": "Munggo Malunggay Banana Breakfast Plate",
+    "title": "Munggo Malunggay Banana Breakfast Plate",
+    "mealType": "Breakfast",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 532,
+      "protein_g": 21,
+      "carbs_g": 84,
+      "fat_g": 11,
+      "fiber_g": 11
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "120 g",
+        "priceCostPhp": 2.45,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "240 g",
+        "priceCostPhp": 11.52,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "60 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "8 g",
+        "priceCostPhp": 1.69,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "banana",
+        "quantity": "80 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Munggo Malunggay Banana Breakfast Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 41.18
+  },
+  {
+    "id": "ph_form_002",
+    "name": "Okra Sitaw Munggo Breakfast Plate",
+    "title": "Okra Sitaw Munggo Breakfast Plate",
+    "mealType": "Breakfast",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 530,
+      "protein_g": 19,
+      "carbs_g": 88,
+      "fat_g": 11,
+      "fiber_g": 12
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "120 g",
+        "priceCostPhp": 2.45,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "230 g",
+        "priceCostPhp": 11.04,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "okra",
+        "quantity": "90 g",
+        "priceCostPhp": 6.3,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "sitaw",
+        "quantity": "80 g",
+        "priceCostPhp": 5.6,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "8 g",
+        "priceCostPhp": 1.69,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "banana",
+        "quantity": "80 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Okra Sitaw Munggo Breakfast Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 40.6
+  },
+  {
+    "id": "ph_form_003",
+    "name": "Kalabasa Munggo Papaya Breakfast Plate",
+    "title": "Kalabasa Munggo Papaya Breakfast Plate",
+    "mealType": "Breakfast",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 523,
+      "protein_g": 20,
+      "carbs_g": 84,
+      "fat_g": 11,
+      "fiber_g": 10
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "120 g",
+        "priceCostPhp": 2.45,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "230 g",
+        "priceCostPhp": 11.04,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "squash",
+        "quantity": "160 g",
+        "priceCostPhp": 11.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "45 g",
+        "priceCostPhp": 9.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "garlic",
+        "quantity": "5 g",
+        "priceCostPhp": 0.73,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "8 g",
+        "priceCostPhp": 1.69,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "papaya",
+        "quantity": "120 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Kalabasa Munggo Papaya Breakfast Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 50.59
+  },
+  {
+    "id": "ph_form_004",
+    "name": "Pechay Munggo Pineapple Breakfast Plate",
+    "title": "Pechay Munggo Pineapple Breakfast Plate",
+    "mealType": "Breakfast",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 489,
+      "protein_g": 18,
+      "carbs_g": 80,
+      "fat_g": 10,
+      "fiber_g": 9
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "120 g",
+        "priceCostPhp": 2.45,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "240 g",
+        "priceCostPhp": 11.52,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pechay",
+        "quantity": "160 g",
+        "priceCostPhp": 9.6,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "garlic",
+        "quantity": "5 g",
+        "priceCostPhp": 0.73,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "8 g",
+        "priceCostPhp": 1.69,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pineapple",
+        "quantity": "120 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Pechay Munggo Pineapple Breakfast Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 39.51
+  },
+  {
+    "id": "ph_form_005",
+    "name": "Eggplant Munggo Banana Breakfast Plate",
+    "title": "Eggplant Munggo Banana Breakfast Plate",
+    "mealType": "Breakfast",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 502,
+      "protein_g": 18,
+      "carbs_g": 83,
+      "fat_g": 10,
+      "fiber_g": 9
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "120 g",
+        "priceCostPhp": 2.45,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "250 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "eggplant",
+        "quantity": "150 g",
+        "priceCostPhp": 7.5,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "70 g",
+        "priceCostPhp": 4.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "8 g",
+        "priceCostPhp": 1.69,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "banana",
+        "quantity": "70 g",
+        "priceCostPhp": 6.3,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Eggplant Munggo Banana Breakfast Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 36.9
+  },
+  {
+    "id": "ph_form_006",
+    "name": "Sitaw Kalabasa Munggo Breakfast Plate",
+    "title": "Sitaw Kalabasa Munggo Breakfast Plate",
+    "mealType": "Breakfast",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 505,
+      "protein_g": 20,
+      "carbs_g": 82,
+      "fat_g": 10,
+      "fiber_g": 9
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "115 g",
+        "priceCostPhp": 2.35,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "240 g",
+        "priceCostPhp": 11.52,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "sitaw",
+        "quantity": "90 g",
+        "priceCostPhp": 6.3,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "squash",
+        "quantity": "120 g",
+        "priceCostPhp": 8.4,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "8 g",
+        "priceCostPhp": 1.69,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "papaya",
+        "quantity": "100 g",
+        "priceCostPhp": 10.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Sitaw Kalabasa Munggo Breakfast Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 46.58
+  },
+  {
+    "id": "ph_form_007",
+    "name": "Malunggay Okra Munggo Breakfast Plate",
+    "title": "Malunggay Okra Munggo Breakfast Plate",
+    "mealType": "Breakfast",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 523,
+      "protein_g": 22,
+      "carbs_g": 82,
+      "fat_g": 11,
+      "fiber_g": 12
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "115 g",
+        "priceCostPhp": 2.35,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "250 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "60 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "okra",
+        "quantity": "90 g",
+        "priceCostPhp": 6.3,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "garlic",
+        "quantity": "5 g",
+        "priceCostPhp": 0.73,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "8 g",
+        "priceCostPhp": 1.69,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pineapple",
+        "quantity": "100 g",
+        "priceCostPhp": 6.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Malunggay Okra Munggo Breakfast Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 44.91
+  },
+  {
+    "id": "ph_form_008",
+    "name": "Vegetable Munggo Banana Breakfast Plate",
+    "title": "Vegetable Munggo Banana Breakfast Plate",
+    "mealType": "Breakfast",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 528,
+      "protein_g": 21,
+      "carbs_g": 85,
+      "fat_g": 11,
+      "fiber_g": 12
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "110 g",
+        "priceCostPhp": 2.24,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "250 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pechay",
+        "quantity": "120 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "okra",
+        "quantity": "70 g",
+        "priceCostPhp": 4.9,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "sitaw",
+        "quantity": "70 g",
+        "priceCostPhp": 4.9,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "8 g",
+        "priceCostPhp": 1.69,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "banana",
+        "quantity": "80 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Vegetable Munggo Banana Breakfast Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 43.97
+  },
+  {
+    "id": "ph_form_009",
+    "name": "Munggo Pinakbet-Style Lunch Plate",
+    "title": "Munggo Pinakbet-Style Lunch Plate",
+    "mealType": "Lunch",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 590,
+      "protein_g": 21,
+      "carbs_g": 96,
+      "fat_g": 13,
+      "fiber_g": 13
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "130 g",
+        "priceCostPhp": 2.65,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "240 g",
+        "priceCostPhp": 11.52,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "squash",
+        "quantity": "140 g",
+        "priceCostPhp": 9.8,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "okra",
+        "quantity": "80 g",
+        "priceCostPhp": 5.6,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "sitaw",
+        "quantity": "80 g",
+        "priceCostPhp": 5.6,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "eggplant",
+        "quantity": "80 g",
+        "priceCostPhp": 4.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "papaya",
+        "quantity": "100 g",
+        "priceCostPhp": 10.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Munggo Pinakbet-Style Lunch Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 57.6
+  },
+  {
+    "id": "ph_form_010",
+    "name": "Malunggay Munggo Vegetable Lunch Plate",
+    "title": "Malunggay Munggo Vegetable Lunch Plate",
+    "mealType": "Lunch",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 594,
+      "protein_g": 25,
+      "carbs_g": 91,
+      "fat_g": 14,
+      "fiber_g": 13
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "130 g",
+        "priceCostPhp": 2.65,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "260 g",
+        "priceCostPhp": 12.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "60 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pechay",
+        "quantity": "120 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "garlic",
+        "quantity": "5 g",
+        "priceCostPhp": 0.73,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "banana",
+        "quantity": "70 g",
+        "priceCostPhp": 6.3,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Malunggay Munggo Vegetable Lunch Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 49.79
+  },
+  {
+    "id": "ph_form_011",
+    "name": "Okra Sitaw Munggo Lunch Plate",
+    "title": "Okra Sitaw Munggo Lunch Plate",
+    "mealType": "Lunch",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 564,
+      "protein_g": 21,
+      "carbs_g": 90,
+      "fat_g": 13,
+      "fiber_g": 12
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "130 g",
+        "priceCostPhp": 2.65,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "260 g",
+        "priceCostPhp": 12.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "okra",
+        "quantity": "100 g",
+        "priceCostPhp": 7.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "sitaw",
+        "quantity": "90 g",
+        "priceCostPhp": 6.3,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "garlic",
+        "quantity": "5 g",
+        "priceCostPhp": 0.73,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pineapple",
+        "quantity": "100 g",
+        "priceCostPhp": 6.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Okra Sitaw Munggo Lunch Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 43.59
+  },
+  {
+    "id": "ph_form_012",
+    "name": "Kalabasa Pechay Munggo Lunch Plate",
+    "title": "Kalabasa Pechay Munggo Lunch Plate",
+    "mealType": "Lunch",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 578,
+      "protein_g": 22,
+      "carbs_g": 92,
+      "fat_g": 13,
+      "fiber_g": 12
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "130 g",
+        "priceCostPhp": 2.65,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "250 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "squash",
+        "quantity": "170 g",
+        "priceCostPhp": 11.9,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pechay",
+        "quantity": "130 g",
+        "priceCostPhp": 7.8,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "35 g",
+        "priceCostPhp": 7.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "papaya",
+        "quantity": "120 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Kalabasa Pechay Munggo Lunch Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 57.94
+  },
+  {
+    "id": "ph_form_013",
+    "name": "Eggplant Okra Munggo Lunch Plate",
+    "title": "Eggplant Okra Munggo Lunch Plate",
+    "mealType": "Lunch",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 567,
+      "protein_g": 19,
+      "carbs_g": 92,
+      "fat_g": 13,
+      "fiber_g": 12
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "125 g",
+        "priceCostPhp": 2.55,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "260 g",
+        "priceCostPhp": 12.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "eggplant",
+        "quantity": "140 g",
+        "priceCostPhp": 7.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "okra",
+        "quantity": "90 g",
+        "priceCostPhp": 6.3,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "70 g",
+        "priceCostPhp": 4.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "banana",
+        "quantity": "80 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Eggplant Okra Munggo Lunch Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 44.6
+  },
+  {
+    "id": "ph_form_014",
+    "name": "Sitaw Malunggay Munggo Lunch Plate",
+    "title": "Sitaw Malunggay Munggo Lunch Plate",
+    "mealType": "Lunch",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 590,
+      "protein_g": 26,
+      "carbs_g": 90,
+      "fat_g": 13,
+      "fiber_g": 13
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "125 g",
+        "priceCostPhp": 2.55,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "260 g",
+        "priceCostPhp": 12.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "sitaw",
+        "quantity": "100 g",
+        "priceCostPhp": 7.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "55 g",
+        "priceCostPhp": 11.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "garlic",
+        "quantity": "5 g",
+        "priceCostPhp": 0.73,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pineapple",
+        "quantity": "120 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Sitaw Malunggay Munggo Lunch Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 46.91
+  },
+  {
+    "id": "ph_form_015",
+    "name": "Pechay Okra Munggo Lunch Plate",
+    "title": "Pechay Okra Munggo Lunch Plate",
+    "mealType": "Lunch",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 505,
+      "protein_g": 20,
+      "carbs_g": 77,
+      "fat_g": 12,
+      "fiber_g": 11
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "125 g",
+        "priceCostPhp": 2.55,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "260 g",
+        "priceCostPhp": 12.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pechay",
+        "quantity": "150 g",
+        "priceCostPhp": 9.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "okra",
+        "quantity": "90 g",
+        "priceCostPhp": 6.3,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "papaya",
+        "quantity": "120 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Pechay Okra Munggo Lunch Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 50.76
+  },
+  {
+    "id": "ph_form_016",
+    "name": "Kalabasa Sitaw Munggo Lunch Plate",
+    "title": "Kalabasa Sitaw Munggo Lunch Plate",
+    "mealType": "Lunch",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 659,
+      "protein_g": 25,
+      "carbs_g": 107,
+      "fat_g": 14,
+      "fiber_g": 14
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "125 g",
+        "priceCostPhp": 2.55,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "250 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "squash",
+        "quantity": "160 g",
+        "priceCostPhp": 11.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "sitaw",
+        "quantity": "100 g",
+        "priceCostPhp": 7.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "40 g",
+        "priceCostPhp": 8.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "garlic",
+        "quantity": "5 g",
+        "priceCostPhp": 0.73,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "banana",
+        "quantity": "80 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Kalabasa Sitaw Munggo Lunch Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 53.27
+  },
+  {
+    "id": "ph_form_017",
+    "name": "Munggo Malunggay Dinner Plate",
+    "title": "Munggo Malunggay Dinner Plate",
+    "mealType": "Dinner",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 538,
+      "protein_g": 24,
+      "carbs_g": 79,
+      "fat_g": 13,
+      "fiber_g": 11
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "125 g",
+        "priceCostPhp": 2.55,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "270 g",
+        "priceCostPhp": 12.96,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "65 g",
+        "priceCostPhp": 13.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "70 g",
+        "priceCostPhp": 4.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "30 g",
+        "priceCostPhp": 2.97,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "garlic",
+        "quantity": "7 g",
+        "priceCostPhp": 1.02,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "papaya",
+        "quantity": "120 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Munggo Malunggay Dinner Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 51.09
+  },
+  {
+    "id": "ph_form_018",
+    "name": "Okra Kalabasa Munggo Dinner Plate",
+    "title": "Okra Kalabasa Munggo Dinner Plate",
+    "mealType": "Dinner",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 605,
+      "protein_g": 19,
+      "carbs_g": 103,
+      "fat_g": 12,
+      "fiber_g": 12
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "125 g",
+        "priceCostPhp": 2.55,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "260 g",
+        "priceCostPhp": 12.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "okra",
+        "quantity": "100 g",
+        "priceCostPhp": 7.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "squash",
+        "quantity": "160 g",
+        "priceCostPhp": 11.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "70 g",
+        "priceCostPhp": 4.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "30 g",
+        "priceCostPhp": 2.97,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "garlic",
+        "quantity": "7 g",
+        "priceCostPhp": 1.02,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pineapple",
+        "quantity": "120 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Okra Kalabasa Munggo Dinner Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 51.01
+  },
+  {
+    "id": "ph_form_019",
+    "name": "Sitaw Pechay Munggo Dinner Plate",
+    "title": "Sitaw Pechay Munggo Dinner Plate",
+    "mealType": "Dinner",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 609,
+      "protein_g": 26,
+      "carbs_g": 94,
+      "fat_g": 14,
+      "fiber_g": 14
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "125 g",
+        "priceCostPhp": 2.55,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "260 g",
+        "priceCostPhp": 12.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "sitaw",
+        "quantity": "100 g",
+        "priceCostPhp": 7.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pechay",
+        "quantity": "150 g",
+        "priceCostPhp": 9.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "35 g",
+        "priceCostPhp": 7.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "banana",
+        "quantity": "80 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Sitaw Pechay Munggo Dinner Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 51.18
+  },
+  {
+    "id": "ph_form_020",
+    "name": "Eggplant Malunggay Munggo Dinner Plate",
+    "title": "Eggplant Malunggay Munggo Dinner Plate",
+    "mealType": "Dinner",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 549,
+      "protein_g": 24,
+      "carbs_g": 82,
+      "fat_g": 13,
+      "fiber_g": 12
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "120 g",
+        "priceCostPhp": 2.45,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "270 g",
+        "priceCostPhp": 12.96,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "eggplant",
+        "quantity": "150 g",
+        "priceCostPhp": 7.5,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "55 g",
+        "priceCostPhp": 11.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "70 g",
+        "priceCostPhp": 4.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "30 g",
+        "priceCostPhp": 2.97,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "papaya",
+        "quantity": "120 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Eggplant Malunggay Munggo Dinner Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 55.47
+  },
+  {
+    "id": "ph_form_021",
+    "name": "Pinakbet-Style Munggo Dinner Plate",
+    "title": "Pinakbet-Style Munggo Dinner Plate",
+    "mealType": "Dinner",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 624,
+      "protein_g": 22,
+      "carbs_g": 104,
+      "fat_g": 13,
+      "fiber_g": 14
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "120 g",
+        "priceCostPhp": 2.45,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "260 g",
+        "priceCostPhp": 12.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "squash",
+        "quantity": "140 g",
+        "priceCostPhp": 9.8,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "okra",
+        "quantity": "80 g",
+        "priceCostPhp": 5.6,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "sitaw",
+        "quantity": "80 g",
+        "priceCostPhp": 5.6,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "eggplant",
+        "quantity": "80 g",
+        "priceCostPhp": 4.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "70 g",
+        "priceCostPhp": 4.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "30 g",
+        "priceCostPhp": 2.97,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pineapple",
+        "quantity": "100 g",
+        "priceCostPhp": 6.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Pinakbet-Style Munggo Dinner Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 55.49
+  },
+  {
+    "id": "ph_form_022",
+    "name": "Pechay Malunggay Munggo Dinner Plate",
+    "title": "Pechay Malunggay Munggo Dinner Plate",
+    "mealType": "Dinner",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 591,
+      "protein_g": 25,
+      "carbs_g": 90,
+      "fat_g": 14,
+      "fiber_g": 13
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "120 g",
+        "priceCostPhp": 2.45,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "270 g",
+        "priceCostPhp": 12.96,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pechay",
+        "quantity": "160 g",
+        "priceCostPhp": 9.6,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "55 g",
+        "priceCostPhp": 11.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "70 g",
+        "priceCostPhp": 4.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "garlic",
+        "quantity": "7 g",
+        "priceCostPhp": 1.02,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "banana",
+        "quantity": "80 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Pechay Malunggay Munggo Dinner Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 50.82
+  },
+  {
+    "id": "ph_form_023",
+    "name": "Okra Sitaw Malunggay Munggo Dinner Plate",
+    "title": "Okra Sitaw Malunggay Munggo Dinner Plate",
+    "mealType": "Dinner",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 559,
+      "protein_g": 26,
+      "carbs_g": 83,
+      "fat_g": 13,
+      "fiber_g": 14
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "120 g",
+        "priceCostPhp": 2.45,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "260 g",
+        "priceCostPhp": 12.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "okra",
+        "quantity": "100 g",
+        "priceCostPhp": 7.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "sitaw",
+        "quantity": "100 g",
+        "priceCostPhp": 7.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "45 g",
+        "priceCostPhp": 9.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "papaya",
+        "quantity": "120 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Okra Sitaw Malunggay Munggo Dinner Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 55.88
+  },
+  {
+    "id": "ph_form_024",
+    "name": "Kalabasa Eggplant Munggo Dinner Plate",
+    "title": "Kalabasa Eggplant Munggo Dinner Plate",
+    "mealType": "Dinner",
+    "tags": [
+      "allergy_safe_fallback",
+      "complete_plate",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate",
+      "vegetarian_fallback"
+    ],
+    "nutrition": {
+      "calories": 601,
+      "protein_g": 19,
+      "carbs_g": 102,
+      "fat_g": 12,
+      "fiber_g": 11
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "120 g",
+        "priceCostPhp": 2.45,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "260 g",
+        "priceCostPhp": 12.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "squash",
+        "quantity": "160 g",
+        "priceCostPhp": 11.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "eggplant",
+        "quantity": "130 g",
+        "priceCostPhp": 6.5,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "70 g",
+        "priceCostPhp": 4.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "30 g",
+        "priceCostPhp": 2.97,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "garlic",
+        "quantity": "7 g",
+        "priceCostPhp": 1.02,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pineapple",
+        "quantity": "120 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Kalabasa Eggplant Munggo Dinner Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 50.41
+  },
+  {
+    "id": "ph_form_025",
+    "name": "Chicken Pechay Munggo Breakfast Plate",
+    "title": "Chicken Pechay Munggo Breakfast Plate",
+    "mealType": "Breakfast",
+    "tags": [
+      "complete_plate",
+      "contains_chicken",
+      "contains_meat",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate"
+    ],
+    "nutrition": {
+      "calories": 536,
+      "protein_g": 31,
+      "carbs_g": 71,
+      "fat_g": 14,
+      "fiber_g": 7
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "120 g",
+        "priceCostPhp": 2.45,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "chicken breast",
+        "quantity": "90 g",
+        "priceCostPhp": 23.4,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "100 g",
+        "priceCostPhp": 4.8,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pechay",
+        "quantity": "130 g",
+        "priceCostPhp": 7.8,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "8 g",
+        "priceCostPhp": 1.69,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "banana",
+        "quantity": "80 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Chicken Pechay Munggo Breakfast Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 53.66
+  },
+  {
+    "id": "ph_form_026",
+    "name": "Chicken Kalabasa Okra Lunch Plate",
+    "title": "Chicken Kalabasa Okra Lunch Plate",
+    "mealType": "Lunch",
+    "tags": [
+      "complete_plate",
+      "contains_chicken",
+      "contains_meat",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate"
+    ],
+    "nutrition": {
+      "calories": 553,
+      "protein_g": 30,
+      "carbs_g": 71,
+      "fat_g": 17,
+      "fiber_g": 6
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "130 g",
+        "priceCostPhp": 2.65,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "chicken breast",
+        "quantity": "110 g",
+        "priceCostPhp": 28.6,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "squash",
+        "quantity": "150 g",
+        "priceCostPhp": 10.5,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "okra",
+        "quantity": "80 g",
+        "priceCostPhp": 5.6,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "papaya",
+        "quantity": "120 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Chicken Kalabasa Okra Lunch Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 67.78
+  },
+  {
+    "id": "ph_form_027",
+    "name": "Chicken Sitaw Malunggay Dinner Plate",
+    "title": "Chicken Sitaw Malunggay Dinner Plate",
+    "mealType": "Dinner",
+    "tags": [
+      "complete_plate",
+      "contains_chicken",
+      "contains_meat",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate"
+    ],
+    "nutrition": {
+      "calories": 596,
+      "protein_g": 36,
+      "carbs_g": 73,
+      "fat_g": 18,
+      "fiber_g": 9
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "125 g",
+        "priceCostPhp": 2.55,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "chicken breast",
+        "quantity": "110 g",
+        "priceCostPhp": 28.6,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "sitaw",
+        "quantity": "100 g",
+        "priceCostPhp": 7.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "45 g",
+        "priceCostPhp": 9.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "garlic",
+        "quantity": "5 g",
+        "priceCostPhp": 0.73,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pineapple",
+        "quantity": "120 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Chicken Sitaw Malunggay Dinner Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 63.51
+  },
+  {
+    "id": "ph_form_028",
+    "name": "Bangus Pechay Papaya Breakfast Plate",
+    "title": "Bangus Pechay Papaya Breakfast Plate",
+    "mealType": "Breakfast",
+    "tags": [
+      "complete_plate",
+      "contains_fish",
+      "contains_seafood",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate"
+    ],
+    "nutrition": {
+      "calories": 456,
+      "protein_g": 28,
+      "carbs_g": 56,
+      "fat_g": 13,
+      "fiber_g": 6
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "120 g",
+        "priceCostPhp": 2.45,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "milkfish",
+        "quantity": "90 g",
+        "priceCostPhp": 23.4,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pechay",
+        "quantity": "140 g",
+        "priceCostPhp": 8.4,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "okra",
+        "quantity": "70 g",
+        "priceCostPhp": 4.9,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "8 g",
+        "priceCostPhp": 1.69,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "papaya",
+        "quantity": "120 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Bangus Pechay Papaya Breakfast Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 59.16
+  },
+  {
+    "id": "ph_form_029",
+    "name": "Bangus Pinakbet Lunch Plate",
+    "title": "Bangus Pinakbet Lunch Plate",
+    "mealType": "Lunch",
+    "tags": [
+      "complete_plate",
+      "contains_fish",
+      "contains_seafood",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate"
+    ],
+    "nutrition": {
+      "calories": 644,
+      "protein_g": 33,
+      "carbs_g": 90,
+      "fat_g": 17,
+      "fiber_g": 10
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "130 g",
+        "priceCostPhp": 2.65,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "milkfish",
+        "quantity": "100 g",
+        "priceCostPhp": 26.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "squash",
+        "quantity": "140 g",
+        "priceCostPhp": 9.8,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "okra",
+        "quantity": "80 g",
+        "priceCostPhp": 5.6,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "sitaw",
+        "quantity": "80 g",
+        "priceCostPhp": 5.6,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "eggplant",
+        "quantity": "80 g",
+        "priceCostPhp": 4.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "banana",
+        "quantity": "80 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Bangus Pinakbet Lunch Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 66.8
+  },
+  {
+    "id": "ph_form_030",
+    "name": "Tuna Malunggay Dinner Plate",
+    "title": "Tuna Malunggay Dinner Plate",
+    "mealType": "Dinner",
+    "tags": [
+      "complete_plate",
+      "contains_fish",
+      "contains_seafood",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate"
+    ],
+    "nutrition": {
+      "calories": 549,
+      "protein_g": 40,
+      "carbs_g": 71,
+      "fat_g": 11,
+      "fiber_g": 8
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "125 g",
+        "priceCostPhp": 2.55,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tuna",
+        "quantity": "100 g",
+        "priceCostPhp": 26.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "55 g",
+        "priceCostPhp": 11.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pechay",
+        "quantity": "120 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "garlic",
+        "quantity": "5 g",
+        "priceCostPhp": 0.73,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "8 g",
+        "priceCostPhp": 1.69,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pineapple",
+        "quantity": "120 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Tuna Malunggay Dinner Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 62.69
+  },
+  {
+    "id": "ph_form_031",
+    "name": "Egg Pechay Banana Breakfast Plate",
+    "title": "Egg Pechay Banana Breakfast Plate",
+    "mealType": "Breakfast",
+    "tags": [
+      "complete_plate",
+      "contains_egg",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate"
+    ],
+    "nutrition": {
+      "calories": 520,
+      "protein_g": 19,
+      "carbs_g": 69,
+      "fat_g": 19,
+      "fiber_g": 6
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "120 g",
+        "priceCostPhp": 2.45,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "egg",
+        "quantity": "100 g",
+        "priceCostPhp": 20.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pechay",
+        "quantity": "150 g",
+        "priceCostPhp": 9.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "70 g",
+        "priceCostPhp": 4.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "8 g",
+        "priceCostPhp": 1.69,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "banana",
+        "quantity": "90 g",
+        "priceCostPhp": 8.1,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Egg Pechay Banana Breakfast Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 48.2
+  },
+  {
+    "id": "ph_form_032",
+    "name": "Eggplant Egg Malunggay Lunch Plate",
+    "title": "Eggplant Egg Malunggay Lunch Plate",
+    "mealType": "Lunch",
+    "tags": [
+      "complete_plate",
+      "contains_egg",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate"
+    ],
+    "nutrition": {
+      "calories": 523,
+      "protein_g": 23,
+      "carbs_g": 64,
+      "fat_g": 19,
+      "fiber_g": 8
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "125 g",
+        "priceCostPhp": 2.55,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "egg",
+        "quantity": "100 g",
+        "priceCostPhp": 20.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "eggplant",
+        "quantity": "150 g",
+        "priceCostPhp": 7.5,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "50 g",
+        "priceCostPhp": 10.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "70 g",
+        "priceCostPhp": 4.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "8 g",
+        "priceCostPhp": 1.69,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "papaya",
+        "quantity": "120 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Eggplant Egg Malunggay Lunch Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 60.7
+  },
+  {
+    "id": "ph_form_033",
+    "name": "Tofu Pechay Banana Breakfast Plate",
+    "title": "Tofu Pechay Banana Breakfast Plate",
+    "mealType": "Breakfast",
+    "tags": [
+      "complete_plate",
+      "contains_soy",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate"
+    ],
+    "nutrition": {
+      "calories": 498,
+      "protein_g": 19,
+      "carbs_g": 70,
+      "fat_g": 17,
+      "fiber_g": 7
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "120 g",
+        "priceCostPhp": 2.45,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tofu",
+        "quantity": "150 g",
+        "priceCostPhp": 18.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pechay",
+        "quantity": "150 g",
+        "priceCostPhp": 9.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "8 g",
+        "priceCostPhp": 1.69,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "banana",
+        "quantity": "90 g",
+        "priceCostPhp": 8.1,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Tofu Pechay Banana Breakfast Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 45.56
+  },
+  {
+    "id": "ph_form_034",
+    "name": "Tofu Sitaw Kalabasa Lunch Plate",
+    "title": "Tofu Sitaw Kalabasa Lunch Plate",
+    "mealType": "Lunch",
+    "tags": [
+      "complete_plate",
+      "contains_soy",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate"
+    ],
+    "nutrition": {
+      "calories": 566,
+      "protein_g": 23,
+      "carbs_g": 76,
+      "fat_g": 20,
+      "fiber_g": 8
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "125 g",
+        "priceCostPhp": 2.55,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tofu",
+        "quantity": "170 g",
+        "priceCostPhp": 20.4,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "sitaw",
+        "quantity": "100 g",
+        "priceCostPhp": 7.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "squash",
+        "quantity": "150 g",
+        "priceCostPhp": 10.5,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "papaya",
+        "quantity": "120 g",
+        "priceCostPhp": 12.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Tofu Sitaw Kalabasa Lunch Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 60.88
+  },
+  {
+    "id": "ph_form_035",
+    "name": "Tofu Malunggay Munggo Dinner Plate",
+    "title": "Tofu Malunggay Munggo Dinner Plate",
+    "mealType": "Dinner",
+    "tags": [
+      "complete_plate",
+      "contains_soy",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate"
+    ],
+    "nutrition": {
+      "calories": 577,
+      "protein_g": 27,
+      "carbs_g": 75,
+      "fat_g": 20,
+      "fiber_g": 9
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "120 g",
+        "priceCostPhp": 2.45,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tofu",
+        "quantity": "150 g",
+        "priceCostPhp": 18.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooked munggo",
+        "quantity": "130 g",
+        "priceCostPhp": 6.24,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "malunggay",
+        "quantity": "45 g",
+        "priceCostPhp": 9.0,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "60 g",
+        "priceCostPhp": 3.84,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "10 g",
+        "priceCostPhp": 2.11,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pineapple",
+        "quantity": "120 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Tofu Malunggay Munggo Dinner Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 51.32
+  },
+  {
+    "id": "ph_form_036",
+    "name": "Sardines Okra Pechay Lunch Plate",
+    "title": "Sardines Okra Pechay Lunch Plate",
+    "mealType": "Lunch",
+    "tags": [
+      "complete_plate",
+      "contains_fish",
+      "contains_seafood",
+      "formulated_complete_plate",
+      "includes_fruit",
+      "includes_glow_vegetables",
+      "includes_water",
+      "philfct_portioned_runtime_candidate"
+    ],
+    "nutrition": {
+      "calories": 541,
+      "protein_g": 27,
+      "carbs_g": 71,
+      "fat_g": 17,
+      "fiber_g": 7
+    },
+    "ingredients": [
+      {
+        "name": "cooked white rice",
+        "quantity": "125 g",
+        "priceCostPhp": 2.55,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "sardines",
+        "quantity": "90 g",
+        "priceCostPhp": 16.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "okra",
+        "quantity": "80 g",
+        "priceCostPhp": 5.6,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "pechay",
+        "quantity": "130 g",
+        "priceCostPhp": 7.8,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "tomato",
+        "quantity": "70 g",
+        "priceCostPhp": 4.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "onion",
+        "quantity": "25 g",
+        "priceCostPhp": 2.48,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "cooking oil",
+        "quantity": "6 g",
+        "priceCostPhp": 1.27,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "banana",
+        "quantity": "80 g",
+        "priceCostPhp": 7.2,
+        "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+        "philfctFormulated": true
+      },
+      {
+        "name": "water",
+        "quantity": "1 glass",
+        "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+        "philfctName": "Water",
+        "philfctCode": "PCOSINA-WATER",
+        "priceCostPhp": 0.0,
+        "completePlateAddon": true,
+        "excludedFromNutritionTotals": true
+      }
+    ],
+    "instructions": [
+      "Prepare the measured one-person portions listed for this complete plate.",
+      "Cook Sardines Okra Pechay Lunch Plate using standard safe cooking practices.",
+      "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+      "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals."
+    ],
+    "sourceServings": "1",
+    "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+    "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+    "nutritionConfidence": "high",
+    "nutritionReviewStatus": "source_mapped_needs_final_review",
+    "nutritionNotes": "Generated one-person complete plate formulated after the RND consultation pattern. Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style per-100g component references as the budget-support/RND seed plates. Designed to expand runtime variety without replacing the existing 277-meal baseline.",
+    "philfctCoverage": 1.0,
+    "estimatedCostPhp": 47.58
   }
 ]

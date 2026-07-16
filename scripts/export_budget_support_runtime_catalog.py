@@ -165,6 +165,137 @@ RND_TEMPLATES = [
     ),
 ]
 
+FORMULATED_TEMPLATE_NOTES = (
+    "Generated one-person complete plate formulated after the RND consultation pattern. "
+    "Nutrition is computed from explicit ingredient gram portions using the same PhilFCT-style "
+    "per-100g component references as the budget-support/RND seed plates. Designed to expand "
+    "runtime variety without replacing the existing 277-meal baseline."
+)
+
+
+def formulated_templates():
+    """Return additive complete-plate templates for variety and restrictive fallback coverage."""
+    allergen_safe_breakfast = [
+        ("Munggo Malunggay Banana Breakfast Plate", [("cooked white rice", 120), ("cooked munggo", 240), ("malunggay", 60), ("tomato", 60), ("onion", 25), ("cooking oil", 8), ("banana", 80)]),
+        ("Okra Sitaw Munggo Breakfast Plate", [("cooked white rice", 120), ("cooked munggo", 230), ("okra", 90), ("sitaw", 80), ("tomato", 60), ("onion", 25), ("cooking oil", 8), ("banana", 80)]),
+        ("Kalabasa Munggo Papaya Breakfast Plate", [("cooked white rice", 120), ("cooked munggo", 230), ("squash", 160), ("malunggay", 45), ("onion", 25), ("garlic", 5), ("cooking oil", 8), ("papaya", 120)]),
+        ("Pechay Munggo Pineapple Breakfast Plate", [("cooked white rice", 120), ("cooked munggo", 240), ("pechay", 160), ("tomato", 60), ("onion", 25), ("garlic", 5), ("cooking oil", 8), ("pineapple", 120)]),
+        ("Eggplant Munggo Banana Breakfast Plate", [("cooked white rice", 120), ("cooked munggo", 250), ("eggplant", 150), ("tomato", 70), ("onion", 25), ("cooking oil", 8), ("banana", 70)]),
+        ("Sitaw Kalabasa Munggo Breakfast Plate", [("cooked white rice", 115), ("cooked munggo", 240), ("sitaw", 90), ("squash", 120), ("tomato", 60), ("onion", 25), ("cooking oil", 8), ("papaya", 100)]),
+        ("Malunggay Okra Munggo Breakfast Plate", [("cooked white rice", 115), ("cooked munggo", 250), ("malunggay", 60), ("okra", 90), ("tomato", 60), ("garlic", 5), ("cooking oil", 8), ("pineapple", 100)]),
+        ("Vegetable Munggo Banana Breakfast Plate", [("cooked white rice", 110), ("cooked munggo", 250), ("pechay", 120), ("okra", 70), ("sitaw", 70), ("tomato", 60), ("cooking oil", 8), ("banana", 80)]),
+    ]
+    allergen_safe_lunch = [
+        ("Munggo Pinakbet-Style Lunch Plate", [("cooked white rice", 130), ("cooked munggo", 240), ("squash", 140), ("okra", 80), ("sitaw", 80), ("eggplant", 80), ("tomato", 60), ("onion", 25), ("cooking oil", 10), ("papaya", 100)]),
+        ("Malunggay Munggo Vegetable Lunch Plate", [("cooked white rice", 130), ("cooked munggo", 260), ("malunggay", 60), ("pechay", 120), ("tomato", 60), ("onion", 25), ("garlic", 5), ("cooking oil", 10), ("banana", 70)]),
+        ("Okra Sitaw Munggo Lunch Plate", [("cooked white rice", 130), ("cooked munggo", 260), ("okra", 100), ("sitaw", 90), ("tomato", 60), ("onion", 25), ("garlic", 5), ("cooking oil", 10), ("pineapple", 100)]),
+        ("Kalabasa Pechay Munggo Lunch Plate", [("cooked white rice", 130), ("cooked munggo", 250), ("squash", 170), ("pechay", 130), ("malunggay", 35), ("onion", 25), ("cooking oil", 10), ("papaya", 120)]),
+        ("Eggplant Okra Munggo Lunch Plate", [("cooked white rice", 125), ("cooked munggo", 260), ("eggplant", 140), ("okra", 90), ("tomato", 70), ("onion", 25), ("cooking oil", 10), ("banana", 80)]),
+        ("Sitaw Malunggay Munggo Lunch Plate", [("cooked white rice", 125), ("cooked munggo", 260), ("sitaw", 100), ("malunggay", 55), ("tomato", 60), ("garlic", 5), ("cooking oil", 10), ("pineapple", 120)]),
+        ("Pechay Okra Munggo Lunch Plate", [("cooked white rice", 125), ("cooked munggo", 260), ("pechay", 150), ("okra", 90), ("tomato", 60), ("onion", 25), ("cooking oil", 10), ("papaya", 120)]),
+        ("Kalabasa Sitaw Munggo Lunch Plate", [("cooked white rice", 125), ("cooked munggo", 250), ("squash", 160), ("sitaw", 100), ("malunggay", 40), ("onion", 25), ("garlic", 5), ("cooking oil", 10), ("banana", 80)]),
+    ]
+    allergen_safe_dinner = [
+        ("Munggo Malunggay Dinner Plate", [("cooked white rice", 125), ("cooked munggo", 270), ("malunggay", 65), ("tomato", 70), ("onion", 30), ("garlic", 7), ("cooking oil", 10), ("papaya", 120)]),
+        ("Okra Kalabasa Munggo Dinner Plate", [("cooked white rice", 125), ("cooked munggo", 260), ("okra", 100), ("squash", 160), ("tomato", 70), ("onion", 30), ("garlic", 7), ("cooking oil", 10), ("pineapple", 120)]),
+        ("Sitaw Pechay Munggo Dinner Plate", [("cooked white rice", 125), ("cooked munggo", 260), ("sitaw", 100), ("pechay", 150), ("malunggay", 35), ("tomato", 60), ("cooking oil", 10), ("banana", 80)]),
+        ("Eggplant Malunggay Munggo Dinner Plate", [("cooked white rice", 120), ("cooked munggo", 270), ("eggplant", 150), ("malunggay", 55), ("tomato", 70), ("onion", 30), ("cooking oil", 10), ("papaya", 120)]),
+        ("Pinakbet-Style Munggo Dinner Plate", [("cooked white rice", 120), ("cooked munggo", 260), ("squash", 140), ("okra", 80), ("sitaw", 80), ("eggplant", 80), ("tomato", 70), ("onion", 30), ("cooking oil", 10), ("pineapple", 100)]),
+        ("Pechay Malunggay Munggo Dinner Plate", [("cooked white rice", 120), ("cooked munggo", 270), ("pechay", 160), ("malunggay", 55), ("tomato", 70), ("garlic", 7), ("cooking oil", 10), ("banana", 80)]),
+        ("Okra Sitaw Malunggay Munggo Dinner Plate", [("cooked white rice", 120), ("cooked munggo", 260), ("okra", 100), ("sitaw", 100), ("malunggay", 45), ("tomato", 60), ("cooking oil", 10), ("papaya", 120)]),
+        ("Kalabasa Eggplant Munggo Dinner Plate", [("cooked white rice", 120), ("cooked munggo", 260), ("squash", 160), ("eggplant", 130), ("tomato", 70), ("onion", 30), ("garlic", 7), ("cooking oil", 10), ("pineapple", 120)]),
+    ]
+    general_extra = [
+        ("Chicken Pechay Munggo Breakfast Plate", "Breakfast", [("cooked white rice", 120), ("chicken breast", 90), ("cooked munggo", 100), ("pechay", 130), ("tomato", 60), ("onion", 25), ("cooking oil", 8), ("banana", 80)], ["contains_chicken", "contains_meat"]),
+        ("Chicken Kalabasa Okra Lunch Plate", "Lunch", [("cooked white rice", 130), ("chicken breast", 110), ("squash", 150), ("okra", 80), ("tomato", 60), ("onion", 25), ("cooking oil", 10), ("papaya", 120)], ["contains_chicken", "contains_meat"]),
+        ("Chicken Sitaw Malunggay Dinner Plate", "Dinner", [("cooked white rice", 125), ("chicken breast", 110), ("sitaw", 100), ("malunggay", 45), ("tomato", 60), ("onion", 25), ("garlic", 5), ("cooking oil", 10), ("pineapple", 120)], ["contains_chicken", "contains_meat"]),
+        ("Bangus Pechay Papaya Breakfast Plate", "Breakfast", [("cooked white rice", 120), ("milkfish", 90), ("pechay", 140), ("okra", 70), ("tomato", 60), ("onion", 25), ("cooking oil", 8), ("papaya", 120)], ["contains_fish", "contains_seafood"]),
+        ("Bangus Pinakbet Lunch Plate", "Lunch", [("cooked white rice", 130), ("milkfish", 100), ("squash", 140), ("okra", 80), ("sitaw", 80), ("eggplant", 80), ("tomato", 60), ("cooking oil", 10), ("banana", 80)], ["contains_fish", "contains_seafood"]),
+        ("Tuna Malunggay Dinner Plate", "Dinner", [("cooked white rice", 125), ("tuna", 100), ("malunggay", 55), ("pechay", 120), ("tomato", 60), ("onion", 25), ("garlic", 5), ("cooking oil", 8), ("pineapple", 120)], ["contains_fish", "contains_seafood"]),
+        ("Egg Pechay Banana Breakfast Plate", "Breakfast", [("cooked white rice", 120), ("egg", 100), ("pechay", 150), ("tomato", 70), ("onion", 25), ("cooking oil", 8), ("banana", 90)], ["contains_egg"]),
+        ("Eggplant Egg Malunggay Lunch Plate", "Lunch", [("cooked white rice", 125), ("egg", 100), ("eggplant", 150), ("malunggay", 50), ("tomato", 70), ("onion", 25), ("cooking oil", 8), ("papaya", 120)], ["contains_egg"]),
+        ("Tofu Pechay Banana Breakfast Plate", "Breakfast", [("cooked white rice", 120), ("tofu", 150), ("pechay", 150), ("tomato", 60), ("onion", 25), ("cooking oil", 8), ("banana", 90)], ["contains_soy"]),
+        ("Tofu Sitaw Kalabasa Lunch Plate", "Lunch", [("cooked white rice", 125), ("tofu", 170), ("sitaw", 100), ("squash", 150), ("tomato", 60), ("onion", 25), ("cooking oil", 10), ("papaya", 120)], ["contains_soy"]),
+        ("Tofu Malunggay Munggo Dinner Plate", "Dinner", [("cooked white rice", 120), ("tofu", 150), ("cooked munggo", 130), ("malunggay", 45), ("tomato", 60), ("onion", 25), ("cooking oil", 10), ("pineapple", 120)], ["contains_soy"]),
+        ("Sardines Okra Pechay Lunch Plate", "Lunch", [("cooked white rice", 125), ("sardines", 90), ("okra", 80), ("pechay", 130), ("tomato", 70), ("onion", 25), ("cooking oil", 6), ("banana", 80)], ["contains_fish", "contains_seafood"]),
+    ]
+    result = []
+    for meal_type, group in [
+        ("Breakfast", allergen_safe_breakfast),
+        ("Lunch", allergen_safe_lunch),
+        ("Dinner", allergen_safe_dinner),
+    ]:
+        for name, ingredients in group:
+            result.append((name, meal_type, ingredients, ["allergy_safe_fallback", "vegetarian_fallback"]))
+    result.extend(general_extra)
+    return result
+
+
+def formulated_tags(ingredients, extra_tags):
+    tags = [
+        "complete_plate",
+        "formulated_complete_plate",
+        "includes_fruit",
+        "includes_glow_vegetables",
+        "includes_water",
+        "philfct_portioned_runtime_candidate",
+    ] + list(extra_tags or [])
+    if any(n in {"sardines", "tuna", "milkfish"} for n, _ in ingredients):
+        tags += ["contains_fish", "contains_seafood"]
+    if any(n == "egg" for n, _ in ingredients):
+        tags.append("contains_egg")
+    if any(n == "tofu" for n, _ in ingredients):
+        tags.append("contains_soy")
+    if any(n == "chicken breast" for n, _ in ingredients):
+        tags += ["contains_chicken", "contains_meat"]
+    return sorted(set(tags))
+
+
+def make_formulated_recipe(index: int, name: str, meal_type: str, ingredients, extra_tags):
+    return {
+        "id": f"ph_form_{index:03d}",
+        "name": name,
+        "title": name,
+        "mealType": meal_type,
+        "tags": formulated_tags(ingredients, extra_tags),
+        "nutrition": nutrient(ingredients),
+        "ingredients": [
+            {
+                "name": ingredient_name,
+                "quantity": f"{grams} g",
+                "priceCostPhp": ingredient_cost(ingredient_name, grams),
+                "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
+                "philfctFormulated": True,
+            }
+            for ingredient_name, grams in ingredients
+        ] + [
+            {
+                "name": "water",
+                "quantity": "1 glass",
+                "sourceText": "PCOSina complete-plate companion: water; excluded from nutrient totals",
+                "philfctName": "Water",
+                "philfctCode": "PCOSINA-WATER",
+                "priceCostPhp": 0.0,
+                "completePlateAddon": True,
+                "excludedFromNutritionTotals": True,
+            }
+        ],
+        "instructions": [
+            "Prepare the measured one-person portions listed for this complete plate.",
+            f"Cook {name} using standard safe cooking practices.",
+            "Season lightly with salt and pepper to taste if allowed by the user's preference.",
+            "Serve with the listed fruit and one glass of water. Water is not included in nutrition totals.",
+        ],
+        "sourceServings": "1",
+        "sourceDataset": "PCOSina formulated PhilFCT complete-plate expansion",
+        "nutritionDataSource": "philfct_formulated_complete_plate_ingredient_sum",
+        "nutritionConfidence": "high",
+        "nutritionReviewStatus": "source_mapped_needs_final_review",
+        "nutritionNotes": FORMULATED_TEMPLATE_NOTES,
+        "philfctCoverage": 1.0,
+        "estimatedCostPhp": cost(ingredients),
+    }
+
 
 def make_recipe(index: int, name: str, meal_type: str, ingredients):
     tags = ["philfct_budget_support", "philfct_portioned_runtime_candidate"]
@@ -286,6 +417,8 @@ def main() -> int:
             idx += 1
     for recipe_id, name, meal_type, ingredients, tags in RND_TEMPLATES:
         extra.append(make_rnd_recipe(recipe_id, name, meal_type, ingredients, tags))
+    for form_idx, (name, meal_type, ingredients, tags) in enumerate(formulated_templates(), start=1):
+        extra.append(make_formulated_recipe(form_idx, name, meal_type, ingredients, tags))
     merged = base + extra
     OUT.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({"base": len(base), "added": len(extra), "total": len(merged), "path": str(OUT)}, indent=2))

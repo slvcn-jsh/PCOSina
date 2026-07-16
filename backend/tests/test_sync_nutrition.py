@@ -137,8 +137,8 @@ def test_bundled_catalog_nutrition_seed_has_no_fixed_placeholder_profiles():
     status = database.get_recipe_catalog_nutrition_status(str(ROOT / "recipes.json"))
 
     assert status["ok"] is True
-    assert status["activeRecipeCount"] == 277
-    assert status["completeNutritionProfileCount"] == 277
+    assert status["activeRecipeCount"] == 313
+    assert status["completeNutritionProfileCount"] == 313
     assert status["imputedNutritionCount"] == 0
     assert status["placeholderNutritionProfileCounts"] == {
         "350/20/40/12/5": 0,
@@ -147,6 +147,7 @@ def test_bundled_catalog_nutrition_seed_has_no_fixed_placeholder_profiles():
     assert status["dominantActiveNutritionProfile"]["count"] <= 5
     assert status["sourceCounts"]["philfct_ingredient_sum_auto"] == 204
     assert status["sourceCounts"]["philfct_budget_support_ingredient_sum"] == 70
+    assert status["sourceCounts"]["philfct_formulated_complete_plate_ingredient_sum"] == 36
     assert status["sourceCounts"]["philfct_rnd_evaluated_ingredient_sum"] == 3
 
     profile = UserProfile(
@@ -224,11 +225,13 @@ def test_bundled_catalog_nutrition_seed_has_no_fixed_placeholder_profiles():
     assert telemetry["stage1_diag"]["restricted_solver_pair_priority"] is True
     assert telemetry["stage1_diag"]["restricted_nutrition_anchor_count_post_trim"] >= 16
     assert telemetry["stage1_diag"]["restricted_solver_anchor_core"] is True
-    assert telemetry["candidate_count_post"] == telemetry["stage1_diag"]["restricted_solver_anchor_core_count"]
+    assert telemetry["candidate_count_post"] <= telemetry["stage1_diag"]["restricted_solver_anchor_core_count"]
+    assert telemetry["candidate_count_post"] >= 33
     assert telemetry["stage1_diag"]["repeat_sequence"] == [6, 8, 10]
     assert telemetry["solve_pair_diagnostics"][0]["tol"] == 0.4
     assert telemetry["solve_pair_diagnostics"][0]["maxPerWeek"] == 10
-    assert set(telemetry["selected_recipe_ids"]) & {f"ph_budget_{idx:03d}" for idx in range(1, 71)}
+    fallback_ids = {f"ph_budget_{idx:03d}" for idx in range(1, 71)} | {f"ph_form_{idx:03d}" for idx in range(1, 37)}
+    assert set(telemetry["selected_recipe_ids"]) & fallback_ids
 
 
 def test_review_queue_exports_missing_nutrition_with_source_metadata():

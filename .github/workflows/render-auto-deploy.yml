@@ -1,0 +1,72 @@
+name: Render Auto Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["dev"]
+    paths:
+      - "backend/**"
+      - "render.yaml"
+      - ".github/workflows/render-auto-deploy.yml"
+
+jobs:
+  deploy:
+    name: Trigger Render Deploys
+    runs-on: ubuntu-latest
+    env:
+      BACKEND_DEPLOY_HOOK_URL: ${{ secrets.RENDER_BACKEND_DEPLOY_HOOK_URL }}
+      WORKER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_WORKER_DEPLOY_HOOK_URL }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      RENDER_BACKEND_SERVICE_ID: ${{ secrets.RENDER_BACKEND_SERVICE_ID }}
+      RENDER_WORKER_SERVICE_ID: ${{ secrets.RENDER_WORKER_SERVICE_ID }}
+    steps:
+      - name: Check deploy trigger configuration
+        id: config
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -n "${BACKEND_DEPLOY_HOOK_URL}" || -n "${WORKER_DEPLOY_HOOK_URL}" ]]; then
+            echo "configured=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if [[ -n "${RENDER_API_KEY}" && ( -n "${RENDER_BACKEND_SERVICE_ID}" || -n "${RENDER_WORKER_SERVICE_ID}" ) ]]; then
+            echo "configured=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "::warning::Render deploy secrets are not configured. Add deploy hook URL secrets or RENDER_API_KEY plus service ID secrets."
+          echo "configured=false" >> "${GITHUB_OUTPUT}"
+
+      - name: Trigger Render deployments
+        if: steps.config.outputs.configured == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          deploy_service() {
+            local service_name="$1"
+            local hook_url="$2"
+            local service_id="$3"
+
+            if [[ -n "${hook_url}" ]]; then
+              curl -fsS -X POST "${hook_url}" >/dev/null
+              echo "Triggered ${service_name} through Render deploy hook."
+              return 0
+            fi
+
+            if [[ -n "${RENDER_API_KEY}" && -n "${service_id}" ]]; then
+              curl -fsS -X POST "https://api.render.com/v1/services/${service_id}/deploys" \
+                -H "Authorization: Bearer ${RENDER_API_KEY}" \
+                -H "Content-Type: application/json" \
+                -d '{"clearCache":"do_not_clear"}' >/dev/null
+              echo "Triggered ${service_name} through Render API."
+              return 0
+            fi
+
+            echo "::notice::No Render deploy trigger configured for ${service_name}; skipped."
+          }
+
+          deploy_service "pcosina-backend" "${BACKEND_DEPLOY_HOOK_URL}" "${RENDER_BACKEND_SERVICE_ID}"
+          deploy_service "pcosina-worker" "${WORKER_DEPLOY_HOOK_URL}" "${RENDER_WORKER_SERVICE_ID}"

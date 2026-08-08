@@ -1271,6 +1271,33 @@ def test_solver_caps_munggo_family_repetition_when_alternatives_exist(monkeypatc
     assert telemetry["solve_pair_diagnostics"][0]["ingredientFamilyRepeatCapsEnforced"] is True
 
 
+def test_semantic_ingredient_family_cap_relaxes_before_final_escape():
+    profile = UserProfile(varietyPreference="Balanced")
+
+    strict_cap = meal_planner._semantic_ingredient_family_cap_for_attempt(
+        profile,
+        num_days=7,
+        slot_count=21,
+        max_per_week=4,
+    )
+    relaxed_cap = meal_planner._semantic_ingredient_family_cap_for_attempt(
+        profile,
+        num_days=7,
+        slot_count=21,
+        max_per_week=6,
+    )
+    escape_cap = meal_planner._semantic_ingredient_family_cap_for_attempt(
+        profile,
+        num_days=7,
+        slot_count=21,
+        max_per_week=10,
+    )
+
+    assert strict_cap == 5
+    assert relaxed_cap == 9
+    assert escape_cap is None
+
+
 def test_solver_honors_single_solution_policy_for_latency():
     recipes = [
         _recipe(

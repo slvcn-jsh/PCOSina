@@ -2420,10 +2420,14 @@ def _semantic_ingredient_family_cap_for_attempt(
 ) -> Optional[int]:
     if not bool(_policy_get(policy, "planning.semantic_ingredient_family_caps_enabled", True)):
         return None
-    if int(max_per_week or 0) > 4 or int(num_days or 0) <= 1:
+    normalized_max_per_week = int(max_per_week or 0)
+    if int(num_days or 0) <= 1:
         return None
     variety_preference = str(profile.varietyPreference or "").strip().lower()
     if "low" in variety_preference:
+        return None
+    escape_repeat_limit = int(_policy_get(policy, "planning.semantic_ingredient_family_escape_repeat_limit", 10))
+    if escape_repeat_limit > 0 and normalized_max_per_week >= escape_repeat_limit:
         return None
     priority = str(profile.planningPriority or "").strip().lower()
     default_ratio = 0.5 if ("high" in variety_preference or "variety" in priority) else 0.7
@@ -2436,8 +2440,20 @@ def _semantic_ingredient_family_cap_for_attempt(
     configured_cap = _policy_get(policy, "planning.semantic_ingredient_family_max_per_week", None)
     if configured_cap is not None:
         cap = int(configured_cap)
+    elif normalized_max_per_week > 4:
+        relaxed_day_ratio = float(_policy_get(policy, "planning.semantic_ingredient_family_relaxed_day_share", 1.15))
+        relaxed_slot_share = float(_policy_get(policy, "planning.semantic_ingredient_family_relaxed_slot_share", 0.40))
+        relaxed_day_ratio = max(ratio, min(3.0, relaxed_day_ratio))
+        relaxed_slot_share = max(0.05, min(1.0, relaxed_slot_share))
+        relaxed_day_cap = int(float(num_days) * relaxed_day_ratio)
+        if float(relaxed_day_cap) < (float(num_days) * relaxed_day_ratio):
+            relaxed_day_cap += 1
+        relaxed_slot_cap = int(float(slot_count) * relaxed_slot_share)
+        if float(relaxed_slot_cap) < (float(slot_count) * relaxed_slot_share):
+            relaxed_slot_cap += 1
+        cap = max(cap + 1, relaxed_day_cap, relaxed_slot_cap)
     cap = max(1, min(int(slot_count or 1), cap))
-    return max(cap, min(int(max_per_week or 1), int(slot_count or 1)))
+    return cap
 
 
 def _semantic_ingredient_family_caps_for_attempt(

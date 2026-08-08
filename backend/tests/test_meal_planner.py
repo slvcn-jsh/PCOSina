@@ -1178,6 +1178,99 @@ def test_solver_blocks_same_meal_label_repeats_on_consecutive_days(monkeypatch):
     assert telemetry["solve_pair_diagnostics"][0]["sameSlotConsecutiveRepeatBlocked"] is True
 
 
+def test_solver_caps_munggo_family_repetition_when_alternatives_exist(monkeypatch):
+    monkeypatch.setattr(meal_planner, "estimate_recipe_cost", lambda ingredients, pricing_context=None: 100)
+    profile = UserProfile(
+        displayName="Semantic Variety",
+        age=28,
+        heightCm=160,
+        weightKg=65,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        maxCookingTimeMinutes=45,
+        varietyPreference="Balanced",
+    )
+    recipes = []
+    for meal_type, calories in [("Breakfast", 500), ("Lunch", 600), ("Dinner", 520)]:
+        for idx in range(5):
+            recipes.append(
+                _recipe(
+                    f"{meal_type.lower()}_munggo_{idx}",
+                    f"{meal_type} Munggo {idx}",
+                    meal_type,
+                    calories=calories,
+                    protein=30,
+                    carbs=60,
+                    fats=16,
+                    fiber=8,
+                    ingredients=[
+                        {"name": "cooked munggo", "quantity": "1 cup"},
+                        {"name": f"{meal_type} vegetable {idx}", "quantity": "1 cup"},
+                    ],
+                )
+            )
+        for idx in range(5):
+            recipes.append(
+                _recipe(
+                    f"{meal_type.lower()}_alt_{idx}",
+                    f"{meal_type} Alt {idx}",
+                    meal_type,
+                    calories=calories,
+                    protein=30,
+                    carbs=60,
+                    fats=16,
+                    fiber=8,
+                    ingredients=[
+                        {"name": "chicken", "quantity": "1 cup"},
+                        {"name": f"{meal_type} alternative vegetable {idx}", "quantity": "1 cup"},
+                    ],
+                )
+            )
+    policy = {
+        "planning": {
+            "planning_horizon_days": 3,
+            "meals_per_day": 3,
+            "recipe_repeat_limits": [3],
+        },
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "max_candidates_per_slot": 20,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "minimum_candidates_required": 1,
+            "pool_cap_top_share": 1.0,
+        },
+        "solver": {
+            "solver_time_limit_seconds": 1.0,
+            "solver_max_seconds": 2.0,
+            "total_solver_seconds": 4.0,
+            "timeout_ms": 4000,
+            "retry_attempts": 0,
+            "optimality_gap_target": 0.1,
+            "solver_workers": 1,
+        },
+    }
+    telemetry: dict = {}
+
+    plan, msg, explanation = meal_planner.solve_meal_plan(
+        meal_planner.GeneratePlanRequest(profile=profile, days=3, mealsPerDay=3),
+        recipes,
+        policy=policy,
+        telemetry_out=telemetry,
+    )
+
+    assert msg == "Success"
+    assert plan is not None
+    assert explanation is not None
+    assert explanation["ingredientFamilyCounts"].get("munggo", 0) <= 3
+    assert explanation["dominantIngredientFamilyCount"] <= 3
+    assert telemetry["solve_pair_diagnostics"][0]["ingredientFamilyRepeatCaps"] == {"munggo": 3}
+    assert telemetry["solve_pair_diagnostics"][0]["ingredientFamilyRepeatCapsEnforced"] is True
+
+
 def test_solver_honors_single_solution_policy_for_latency():
     recipes = [
         _recipe(

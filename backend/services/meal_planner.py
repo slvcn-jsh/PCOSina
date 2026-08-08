@@ -263,7 +263,11 @@ PROTEIN_GROUP_TOKENS = {
     "chicken": {"chicken"},
     "fish": FISH_FAMILY_TOKENS | SHELLFISH_FAMILY_TOKENS | {"squid"},
     "egg": {"egg"},
+    "munggo": {"munggo", "monggo"},
     "tofu": {"tofu"},
+}
+SEMANTIC_VARIETY_FAMILY_TOKENS = {
+    "munggo": {"munggo", "monggo"},
 }
 VEG_TOKENS = {
     "pechay", "sitaw", "ampalaya", "talong", "kamatis", "okra",
@@ -321,6 +325,16 @@ def normalize_ingredients(ings: List[Any]) -> List[str]:
 
 def infer_veg_tokens(ing_tokens: List[str]) -> List[str]:
     return list(set(ing_tokens or []) & VEG_TOKENS)
+
+
+def infer_ingredient_variety_families(ing_tokens: List[str]) -> List[str]:
+    toks = set(ing_tokens or [])
+    families = [
+        family
+        for family, family_tokens in SEMANTIC_VARIETY_FAMILY_TOKENS.items()
+        if toks & family_tokens
+    ]
+    return sorted(set(families))
 
 
 def normalize_pantry(pantry: List[str]) -> List[str]:
@@ -737,6 +751,7 @@ def _recipe_static_features(
         "canonical_feature_available": bool(canonical_ids),
         "protein_group": infer_protein_group(effective_tokens),
         "veg_tokens": infer_veg_tokens(effective_tokens),
+        "ingredient_variety_families": infer_ingredient_variety_families(effective_tokens),
         "allowed_meals": infer_allowed_meals(recipe.get("mealType")),
     }
     if len(_RECIPE_STATIC_FEATURE_CACHE) >= _RECIPE_STATIC_FEATURE_CACHE_MAX:
@@ -1830,6 +1845,7 @@ def shortlist_candidates(
         r["_canonical_feature_available"] = bool(static_features["canonical_feature_available"])
         r["_protein_group"] = static_features["protein_group"]
         r["_veg_tokens"] = static_features["veg_tokens"]
+        r["_ingredient_variety_families"] = static_features["ingredient_variety_families"]
         r["_allowed_meals"] = static_features["allowed_meals"]
         if pantry_tokens:
             canonical_match = len(static_features["canonical_ingredient_ids"] & canonical_pantry_ids)
@@ -1935,6 +1951,9 @@ def shortlist_candidates(
         stage1_diag["pre_pricing_retained_count"] = len(safe_candidates)
         stage1_diag["cost_estimated_recipe_count"] = int(cost_estimated_recipe_count)
         stage1_diag["recipe_cost_cache"] = dict(cost_cache_stats)
+        stage1_diag["safe_ingredient_family_counts"] = dict(
+            sorted(_ingredient_variety_family_counts(safe_candidates).items())
+        )
 
     if ml_scored_recipes:
         ml_started_at = time.time()
@@ -2365,6 +2384,112 @@ def _selection_reason_payload(selected: List[Dict[str, Any]]) -> tuple[Dict[str,
     return by_recipe, counts
 
 
+def _recipe_ingredient_variety_families(recipe: Dict[str, Any]) -> List[str]:
+    families = recipe.get("_ingredient_variety_families")
+    if families is not None:
+        return sorted({str(family).strip() for family in families if str(family).strip()})
+    tokens = recipe.get("_ing_tokens")
+    if not tokens:
+        tokens = normalize_ingredients(recipe.get("ingredients", []))
+    return infer_ingredient_variety_families(tokens)
+
+
+def _ingredient_variety_family_counts(recipes: List[Dict[str, Any]]) -> Counter:
+    counts = Counter()
+    for recipe in recipes or []:
+        for family in _recipe_ingredient_variety_families(recipe):
+            counts[family] += 1
+    return counts
+
+
+def _ingredient_variety_family_indices(pool: List[Dict[str, Any]]) -> Dict[str, List[int]]:
+    indices: Dict[str, List[int]] = {}
+    for index, recipe in enumerate(pool or []):
+        for family in _recipe_ingredient_variety_families(recipe):
+            indices.setdefault(family, []).append(index)
+    return indices
+
+
+def _semantic_ingredient_family_cap_for_attempt(
+    profile: UserProfile,
+    *,
+    num_days: int,
+    slot_count: int,
+    max_per_week: int,
+    policy: Optional[Dict[str, Any]] = None,
+) -> Optional[int]:
+    if not bool(_policy_get(policy, "planning.semantic_ingredient_family_caps_enabled", True)):
+        return None
+    if int(max_per_week or 0) > 4 or int(num_days or 0) <= 1:
+        return None
+    variety_preference = str(profile.varietyPreference or "").strip().lower()
+    if "low" in variety_preference:
+        return None
+    priority = str(profile.planningPriority or "").strip().lower()
+    default_ratio = 0.5 if ("high" in variety_preference or "variety" in priority) else 0.7
+    ratio = float(_policy_get(policy, "planning.semantic_ingredient_family_max_share", default_ratio))
+    ratio = max(0.05, min(1.0, ratio))
+    raw_cap = max(1.0, float(num_days) * ratio)
+    cap = int(raw_cap)
+    if float(cap) < raw_cap:
+        cap += 1
+    configured_cap = _policy_get(policy, "planning.semantic_ingredient_family_max_per_week", None)
+    if configured_cap is not None:
+        cap = int(configured_cap)
+    cap = max(1, min(int(slot_count or 1), cap))
+    return max(cap, min(int(max_per_week or 1), int(slot_count or 1)))
+
+
+def _semantic_ingredient_family_caps_for_attempt(
+    pool: List[Dict[str, Any]],
+    family_indices: Dict[str, List[int]],
+    meal_to_allowed: Dict[str, set],
+    slot_labels: List[str],
+    *,
+    profile: UserProfile,
+    num_days: int,
+    slot_count: int,
+    max_per_week: int,
+    policy: Optional[Dict[str, Any]] = None,
+) -> Dict[str, int]:
+    cap = _semantic_ingredient_family_cap_for_attempt(
+        profile,
+        num_days=num_days,
+        slot_count=slot_count,
+        max_per_week=max_per_week,
+        policy=policy,
+    )
+    if cap is None:
+        return {}
+
+    caps: Dict[str, int] = {}
+    all_indices = set(range(len(pool or [])))
+    for family, indices in (family_indices or {}).items():
+        family_set = set(indices)
+        if not family_set:
+            continue
+        family_capacity = 0
+        non_family_capacity = 0
+        for index in all_indices:
+            allowed_slots = 0
+            for label in slot_labels:
+                if index in meal_to_allowed.get(label, set()):
+                    allowed_slots += int(num_days)
+            if allowed_slots <= 0:
+                continue
+            recipe_capacity = min(int(max_per_week), allowed_slots)
+            if index in family_set:
+                family_capacity += recipe_capacity
+            else:
+                non_family_capacity += recipe_capacity
+        if family_capacity <= cap:
+            continue
+        if non_family_capacity < max(0, int(slot_count) - cap):
+            continue
+        caps[str(family)] = int(cap)
+    return caps
+
+
 def _build_explanation(
     selected: List[Dict[str, Any]],
     num_days: int,
@@ -2410,6 +2535,14 @@ def _build_explanation(
     unique_recipe_count = len(recipe_repeat_counts)
     max_recipe_repeat_count = max(recipe_repeat_counts.values(), default=0)
     repeated_recipe_count = sum(1 for count in recipe_repeat_counts.values() if count > 1)
+    ingredient_family_counts = _ingredient_variety_family_counts(selected)
+    dominant_ingredient_family = None
+    dominant_ingredient_family_count = 0
+    if ingredient_family_counts:
+        dominant_ingredient_family, dominant_ingredient_family_count = max(
+            ingredient_family_counts.items(),
+            key=lambda item: (int(item[1]), str(item[0])),
+        )
     est_cost = sum(int(r.get("_cost_est", 0)) for r in selected)
     confidence = 100
     confidence -= min(30, int(avg_dev / 10))
@@ -2441,6 +2574,9 @@ def _build_explanation(
         "uniqueRecipeCount": unique_recipe_count,
         "maxRecipeRepeatCount": max_recipe_repeat_count,
         "repeatedRecipeCount": repeated_recipe_count,
+        "ingredientFamilyCounts": dict(sorted(ingredient_family_counts.items())),
+        "dominantIngredientFamily": dominant_ingredient_family,
+        "dominantIngredientFamilyCount": dominant_ingredient_family_count,
         "budgetWeekly": budget_weekly,
         "estimatedWeeklyCost": est_cost,
         "restrictionCount": len(profile.dietaryRestrictions or []),
@@ -2866,6 +3002,12 @@ def solve_meal_plan(
         meal_to_allowed[label] = allowed
     if debug_solver:
         debug_summary["allowed_sizes"] = {k: len(v) for k, v in meal_to_allowed.items()}
+    semantic_family_indices = _ingredient_variety_family_indices(pool)
+    if stage1_diag is not None:
+        stage1_diag["candidate_ingredient_family_counts"] = {
+            family: len(indices)
+            for family, indices in sorted(semantic_family_indices.items())
+        }
     base_scores = []
     for r in pool:
         base_scores.append(_base_score(r))
@@ -3009,6 +3151,19 @@ def solve_meal_plan(
             x = {}
             same_slot_repeat_blocked = int(max_per_week) <= 4 and num_days > 1
             pair_diag["sameSlotConsecutiveRepeatBlocked"] = bool(same_slot_repeat_blocked)
+            semantic_family_caps = _semantic_ingredient_family_caps_for_attempt(
+                pool,
+                semantic_family_indices,
+                meal_to_allowed,
+                slot_labels,
+                profile=profile,
+                num_days=num_days,
+                slot_count=slot_count,
+                max_per_week=int(max_per_week),
+                policy=policy,
+            )
+            pair_diag["ingredientFamilyRepeatCaps"] = dict(semantic_family_caps)
+            pair_diag["ingredientFamilyRepeatCapsEnforced"] = bool(semantic_family_caps)
             for s in range(slot_count):
                 _check_planner_budget(deadline_at, "solver_model_x_vars", telemetry_out=telemetry_out)
                 for i in range(len(pool)):
@@ -3062,6 +3217,14 @@ def solve_meal_plan(
                                     "solver_model_same_slot_repeat",
                                     telemetry_out=telemetry_out,
                                 )
+            if semantic_family_caps:
+                for family, cap in semantic_family_caps.items():
+                    _check_planner_budget(deadline_at, "solver_model_ingredient_family_repeat", telemetry_out=telemetry_out)
+                    family_idxs = semantic_family_indices.get(family, [])
+                    if family_idxs:
+                        model.Add(
+                            sum(x[s, i] for s in range(slot_count) for i in family_idxs) <= int(cap)
+                        )
             for i in range(len(pool)):
                 if (i & 15) == 0:
                     _check_planner_budget(deadline_at, "solver_model_repeat", telemetry_out=telemetry_out)

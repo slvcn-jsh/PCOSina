@@ -1,5 +1,6 @@
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import date, timedelta
+from collections import Counter
 import json
 import hashlib
 import os
@@ -1271,9 +1272,14 @@ def repeat_sequence_for_profile(
     restricted_catalog = int(hard_filter_count or 0) >= 6 or (
         safe_candidate_count is not None and int(safe_candidate_count or 0) <= 96
     )
+    enough_for_variety = safe_candidate_count is None or int(safe_candidate_count or 0) >= 21
     if restricted_catalog:
+        if "low" not in raw_preference and enough_for_variety:
+            return sorted(set(sequence + [3, 4, 6, 8, 10]))
         return sorted(set([value for value in sequence if value >= 6] + [6, 8, 10]))
     if "budget" in raw_priority and "high" not in raw_preference:
+        if "low" not in raw_preference and enough_for_variety:
+            return sorted(set([value for value in sequence if value >= 3] + [3, 4, 6, 8, 10]))
         return sorted(set([value for value in sequence if value >= 6] + [6, 8, 10]))
     return sequence
 
@@ -1315,7 +1321,7 @@ def solve_pair_sequence_for_profile(
         return [(tol, max_repeat) for tol in tol_sequence for max_repeat in repeat_sequence]
     if restricted_catalog:
         tol_sequence = _ordered_values_by_preference(tol_sequence, [0.4, 0.6, 0.8, 0.3, 0.2])
-        repeat_sequence = _ordered_values_by_preference(repeat_sequence, [10, 8, 6, 4, 3, 2])
+        repeat_sequence = _ordered_values_by_preference(repeat_sequence, [3, 4, 6, 8, 10, 2])
         return [(tol, max_repeat) for tol in tol_sequence for max_repeat in repeat_sequence]
 
     outer_key = (str(relaxation_order[0]).strip().lower() if relaxation_order else "daily_tolerance_percent")
@@ -1344,7 +1350,7 @@ def _solve_pair_preferences_for_profile(
         return {
             "strategy": "restricted_or_major_diet",
             "preferredTolerances": [0.4, 0.6, 0.3, 0.8, 0.2],
-            "preferredRepeats": [10, 8, 6, 4, 3, 2],
+            "preferredRepeats": [3, 4, 6, 8, 10, 2],
         }
     if strict_time_limit:
         return {
@@ -1362,7 +1368,7 @@ def _solve_pair_preferences_for_profile(
         return {
             "strategy": "budget_tolerance_first",
             "preferredTolerances": [0.3, 0.4, 0.2, 0.6, 0.8],
-            "preferredRepeats": [6, 8, 10, 4, 3, 2],
+            "preferredRepeats": [3, 4, 6, 8, 10, 2],
         }
     if "quick" in priority or "prep" in priority:
         return {
@@ -1387,7 +1393,7 @@ def _solve_pair_preferences_for_profile(
             return {
                 "strategy": "nutrition_pressure_tight_budget_relaxed_first",
                 "preferredTolerances": [0.6, 0.8, 0.4, 0.3, 0.2],
-                "preferredRepeats": [10, 8, 6, 4, 3, 2],
+                "preferredRepeats": [3, 4, 6, 8, 10, 2],
             }
         return {
             "strategy": "nutrition_pressure_tolerance_first",
@@ -2400,6 +2406,10 @@ def _build_explanation(
     avg_dev = int(sum(abs(daily_cals[i] - daily_targets[i]) for i in range(num_days)) / num_days)
     pantry_matches = sum(int(r.get("_pantry_match", 0)) for r in selected)
     unique_veg = len({t for r in selected for t in r.get("_veg_tokens", [])})
+    recipe_repeat_counts = Counter(str(r.get("id") or "") for r in selected if str(r.get("id") or ""))
+    unique_recipe_count = len(recipe_repeat_counts)
+    max_recipe_repeat_count = max(recipe_repeat_counts.values(), default=0)
+    repeated_recipe_count = sum(1 for count in recipe_repeat_counts.values() if count > 1)
     est_cost = sum(int(r.get("_cost_est", 0)) for r in selected)
     confidence = 100
     confidence -= min(30, int(avg_dev / 10))
@@ -2428,6 +2438,9 @@ def _build_explanation(
         "maxPerWeek": max_per_week,
         "pantryMatches": pantry_matches,
         "uniqueVegTokens": unique_veg,
+        "uniqueRecipeCount": unique_recipe_count,
+        "maxRecipeRepeatCount": max_recipe_repeat_count,
+        "repeatedRecipeCount": repeated_recipe_count,
         "budgetWeekly": budget_weekly,
         "estimatedWeeklyCost": est_cost,
         "restrictionCount": len(profile.dietaryRestrictions or []),
@@ -2994,6 +3007,8 @@ def solve_meal_plan(
         try:
             model = cp_model.CpModel()
             x = {}
+            same_slot_repeat_blocked = int(max_per_week) <= 4 and num_days > 1
+            pair_diag["sameSlotConsecutiveRepeatBlocked"] = bool(same_slot_repeat_blocked)
             for s in range(slot_count):
                 _check_planner_budget(deadline_at, "solver_model_x_vars", telemetry_out=telemetry_out)
                 for i in range(len(pool)):
@@ -3033,6 +3048,20 @@ def solve_meal_plan(
                     model.Add(x[s, i] + x[s + 1, i] <= 1)
                     if (i & 31) == 0:
                         _check_planner_budget(deadline_at, "solver_model_adjacent", telemetry_out=telemetry_out)
+            if same_slot_repeat_blocked:
+                for d in range(num_days - 1):
+                    _check_planner_budget(deadline_at, "solver_model_same_slot_repeat", telemetry_out=telemetry_out)
+                    for m in range(configured_meals_per_day):
+                        current_slot = d * configured_meals_per_day + m
+                        next_slot = (d + 1) * configured_meals_per_day + m
+                        for i in range(len(pool)):
+                            model.Add(x[current_slot, i] + x[next_slot, i] <= 1)
+                            if (i & 31) == 0:
+                                _check_planner_budget(
+                                    deadline_at,
+                                    "solver_model_same_slot_repeat",
+                                    telemetry_out=telemetry_out,
+                                )
             for i in range(len(pool)):
                 if (i & 15) == 0:
                     _check_planner_budget(deadline_at, "solver_model_repeat", telemetry_out=telemetry_out)

@@ -211,7 +211,7 @@ def test_bundled_catalog_nutrition_seed_has_no_fixed_placeholder_profiles():
         },
     }
     telemetry = {}
-    plan, msg, _explanation = meal_planner.solve_meal_plan(
+    plan, msg, explanation = meal_planner.solve_meal_plan(
         meal_planner.GeneratePlanRequest(profile=solve_profile, days=7, mealsPerDay=3),
         database.get_all_recipes(),
         policy=policy,
@@ -227,9 +227,10 @@ def test_bundled_catalog_nutrition_seed_has_no_fixed_placeholder_profiles():
     assert telemetry["stage1_diag"]["restricted_solver_anchor_core"] is True
     assert telemetry["candidate_count_post"] <= telemetry["stage1_diag"]["restricted_solver_anchor_core_count"]
     assert telemetry["candidate_count_post"] >= 33
-    assert telemetry["stage1_diag"]["repeat_sequence"] == [6, 8, 10]
+    assert telemetry["stage1_diag"]["repeat_sequence"] == [2, 3, 4, 6, 8, 10]
     assert telemetry["solve_pair_diagnostics"][0]["tol"] == 0.4
-    assert telemetry["solve_pair_diagnostics"][0]["maxPerWeek"] == 10
+    assert explanation["maxPerWeek"] <= 4
+    assert explanation["uniqueRecipeCount"] >= 6
     fallback_ids = {f"ph_budget_{idx:03d}" for idx in range(1, 71)} | {f"ph_form_{idx:03d}" for idx in range(1, 37)}
     assert set(telemetry["selected_recipe_ids"]) & fallback_ids
 

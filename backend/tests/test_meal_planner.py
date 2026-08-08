@@ -1007,33 +1007,43 @@ def test_low_variety_repeat_sequence_starts_with_relaxed_repeat_limit():
     assert meal_planner.adjust_max_per_week([2, 3, 4, 10], "Low") == [3, 4, 6, 8, 10]
 
 
-def test_budget_first_repeat_sequence_prefers_reliable_repeat_limits():
-    assert meal_planner.repeat_sequence_for_profile([2, 3, 4, 10], "Balanced", "Budget First") == [6, 8, 10]
+def test_budget_first_repeat_sequence_prefers_variety_when_pool_can_support_it():
+    assert meal_planner.repeat_sequence_for_profile([2, 3, 4, 10], "Balanced", "Budget First") == [3, 4, 6, 8, 10]
     assert meal_planner.repeat_sequence_for_profile([2, 3, 4, 10], "Low", "Budget First") == [6, 8, 10]
     assert meal_planner.repeat_sequence_for_profile([2, 3, 4, 10], "High", "Budget First") == [2, 3, 4]
 
 
-def test_restricted_profile_repeat_sequence_prefers_reliable_repeat_limits():
+def test_restricted_profile_repeat_sequence_prefers_variety_when_pool_can_support_it():
     assert meal_planner.repeat_sequence_for_profile(
         [2, 3, 4, 10],
         "Balanced",
         "Nutrition First",
         hard_filter_count=12,
         safe_candidate_count=72,
+    ) == [2, 3, 4, 6, 8, 10]
+
+
+def test_restricted_profile_repeat_sequence_keeps_relaxed_fallback_for_tiny_pool():
+    assert meal_planner.repeat_sequence_for_profile(
+        [2, 3, 4, 10],
+        "Balanced",
+        "Nutrition First",
+        hard_filter_count=12,
+        safe_candidate_count=12,
     ) == [6, 8, 10]
 
 
-def test_restricted_profile_solve_pairs_try_reliable_middle_path_first():
+def test_restricted_profile_solve_pairs_try_variety_before_relaxed_repeats():
     pairs = meal_planner.solve_pair_sequence_for_profile(
         [0.2, 0.3, 0.4, 0.6000000000000001, 0.8],
-        [6, 8, 10],
+        [3, 4, 6, 8, 10],
         ["daily_tolerance_percent", "recipe_repeat_limits"],
         restricted_catalog=True,
     )
 
-    assert pairs[:3] == [(0.4, 10), (0.4, 8), (0.4, 6)]
-    assert len(pairs) == 15
-    assert len(set(pairs)) == 15
+    assert pairs[:5] == [(0.4, 3), (0.4, 4), (0.4, 6), (0.4, 8), (0.4, 10)]
+    assert len(pairs) == 25
+    assert len(set(pairs)) == 25
 
 
 def test_profile_solve_pair_preferences_start_near_likely_feasible_path():
@@ -1072,7 +1082,7 @@ def test_profile_solve_pair_preferences_start_near_likely_feasible_path():
 
     assert major_diet["strategy"] == "restricted_or_major_diet"
     assert major_diet["preferredTolerances"][:2] == [0.4, 0.6]
-    assert major_diet["preferredRepeats"][:2] == [10, 8]
+    assert major_diet["preferredRepeats"][:3] == [3, 4, 6]
     assert allergy["strategy"] == "allergy_repeat_first"
     assert allergy["preferredTolerances"][0] == 0.3
     assert allergy["preferredRepeats"][0] == 4
@@ -1080,7 +1090,7 @@ def test_profile_solve_pair_preferences_start_near_likely_feasible_path():
     assert strict_time["preferredTolerances"][:2] == [0.3, 0.4]
     assert strict_time["preferredRepeats"][:2] == [4, 3]
     assert budget_priority["strategy"] == "budget_tolerance_first"
-    assert budget_priority["preferredRepeats"][:3] == [6, 8, 10]
+    assert budget_priority["preferredRepeats"][:3] == [3, 4, 6]
     assert broad_no_budget["strategy"] == "broad_no_budget_repeat_four_first"
     assert broad_no_budget["preferredRepeats"][:3] == [4, 3, 2]
     assert default_with_budget["strategy"] == "default_repeat_three_first"
@@ -1089,7 +1099,83 @@ def test_profile_solve_pair_preferences_start_near_likely_feasible_path():
     assert nutrition_pressure["preferredTolerances"][0] == 0.3
     assert nutrition_pressure_tight_budget["strategy"] == "nutrition_pressure_tight_budget_relaxed_first"
     assert nutrition_pressure_tight_budget["preferredTolerances"][:2] == [0.6, 0.8]
-    assert nutrition_pressure_tight_budget["preferredRepeats"][:3] == [10, 8, 6]
+    assert nutrition_pressure_tight_budget["preferredRepeats"][:3] == [3, 4, 6]
+
+
+def test_solver_blocks_same_meal_label_repeats_on_consecutive_days(monkeypatch):
+    monkeypatch.setattr(meal_planner, "estimate_recipe_cost", lambda ingredients, pricing_context=None: 100)
+    profile = UserProfile(
+        displayName="Consecutive Slot Variety",
+        age=28,
+        heightCm=160,
+        weightKg=65,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        maxCookingTimeMinutes=45,
+    )
+    recipes = []
+    for meal_type, calories in [("Breakfast", 500), ("Lunch", 600), ("Dinner", 520)]:
+        for idx in range(8):
+            recipes.append(
+                _recipe(
+                    f"{meal_type.lower()}_{idx}",
+                    f"{meal_type} {idx}",
+                    meal_type,
+                    calories=calories,
+                    protein=30,
+                    carbs=60,
+                    fats=16,
+                    fiber=8,
+                    ingredients=[{"name": f"{meal_type} ingredient {idx}", "quantity": "1 cup"}],
+                )
+            )
+    policy = {
+        "planning": {
+            "planning_horizon_days": 3,
+            "meals_per_day": 3,
+            "recipe_repeat_limits": [3],
+        },
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "max_candidates_per_slot": 20,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "minimum_candidates_required": 1,
+            "pool_cap_top_share": 1.0,
+        },
+        "solver": {
+            "solver_time_limit_seconds": 1.0,
+            "solver_max_seconds": 2.0,
+            "total_solver_seconds": 4.0,
+            "timeout_ms": 4000,
+            "retry_attempts": 0,
+            "optimality_gap_target": 0.1,
+            "solver_workers": 1,
+        },
+    }
+    telemetry: dict = {}
+
+    plan, msg, explanation = meal_planner.solve_meal_plan(
+        meal_planner.GeneratePlanRequest(profile=profile, days=3, mealsPerDay=3),
+        recipes,
+        policy=policy,
+        telemetry_out=telemetry,
+    )
+
+    assert msg == "Success"
+    assert plan is not None
+    assert explanation is not None
+    for day_index in range(len(plan) - 1):
+        current = {meal.mealLabel: meal.recipeId for meal in plan[day_index].meals}
+        next_day = {meal.mealLabel: meal.recipeId for meal in plan[day_index + 1].meals}
+        assert current["Breakfast"] != next_day["Breakfast"]
+        assert current["Lunch"] != next_day["Lunch"]
+        assert current["Dinner"] != next_day["Dinner"]
+    assert explanation["uniqueRecipeCount"] >= 9
+    assert telemetry["solve_pair_diagnostics"][0]["sameSlotConsecutiveRepeatBlocked"] is True
 
 
 def test_solver_honors_single_solution_policy_for_latency():

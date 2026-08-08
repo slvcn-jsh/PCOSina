@@ -14,6 +14,7 @@ services:
     name: pcosina-backend
     runtime: python
     branch: dev
+    autoDeploy: true
     pythonVersion: 3.12.8
     plan: starter
     rootDir: backend
@@ -86,6 +87,7 @@ services:
     name: pcosina-worker
     runtime: python
     branch: dev
+    autoDeploy: true
     pythonVersion: 3.12.8
     plan: starter
     rootDir: backend

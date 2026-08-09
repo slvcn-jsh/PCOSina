@@ -11,8 +11,11 @@ import deploy_bootstrap
 def test_deploy_bootstrap_runs_schema_and_seed_stages_once(monkeypatch):
     calls = []
 
+    def seed_recipes(**kwargs):
+        calls.append(("recipe_seed", kwargs))
+
     monkeypatch.setattr(deploy_bootstrap.database, "init_db", lambda: calls.append("application_schema"))
-    monkeypatch.setattr(deploy_bootstrap.database, "seed_recipes", lambda: calls.append("recipe_seed"))
+    monkeypatch.setattr(deploy_bootstrap.database, "seed_recipes", seed_recipes)
     monkeypatch.setattr(
         deploy_bootstrap.database,
         "seed_reviewed_price_rules",
@@ -42,7 +45,7 @@ def test_deploy_bootstrap_runs_schema_and_seed_stages_once(monkeypatch):
     assert deploy_bootstrap.main() == 0
     assert calls == [
         "application_schema",
-        "recipe_seed",
+        ("recipe_seed", {"force_reseed": True, "deactivate_missing_seed": True}),
         "reviewed_price_seed",
         "invalidate_price_cache",
         "nutrition_correction_seed",

@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 
 def _write_split(path: Path, rows: list[dict[str, object]]) -> None:
     fieldnames = list(rows[0].keys())
@@ -64,7 +66,7 @@ def _request_rows(
 
 
 def test_train_lightgbm_script_emits_cohort_metrics():
-    base = Path("backend/tests/.tmp_lightgbm_training")
+    base = REPO_ROOT / "backend" / "tests" / ".tmp_lightgbm_training"
     shutil.rmtree(base, ignore_errors=True)
     dataset_dir = base / "dataset"
     output_dir = base / "model"
@@ -108,7 +110,7 @@ def test_train_lightgbm_script_emits_cohort_metrics():
         encoding="utf-8",
     )
 
-    script = Path("ml/offline_training/train_lightgbm_v1.py")
+    script = REPO_ROOT / "ml" / "offline_training" / "train_lightgbm_v1.py"
     result = subprocess.run(
         [
             sys.executable,
@@ -127,6 +129,7 @@ def test_train_lightgbm_script_emits_cohort_metrics():
         check=False,
         capture_output=True,
         text=True,
+        cwd=REPO_ROOT,
     )
     assert result.returncode == 0, result.stderr or result.stdout
 
@@ -161,7 +164,7 @@ def test_train_lightgbm_script_emits_cohort_metrics():
 
 
 def test_regressed_cohort_request_confusion_rows_filters_non_regressions():
-    module_path = Path("ml/offline_training/train_lightgbm_v1.py")
+    module_path = REPO_ROOT / "ml" / "offline_training" / "train_lightgbm_v1.py"
     spec = importlib.util.spec_from_file_location("train_lightgbm_v1", module_path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)

@@ -805,16 +805,20 @@ def _quantity_scale(ingredient: Any) -> float:
 def _canonical_name(raw: str) -> Tuple[str, str]:
     cleaned = QTY_RE.sub(" ", raw or "").lower()
     raw_tokens = [
-        _normalize_token(tok)
+        tok
         for tok in re.sub(r"[^a-z0-9]+", " ", cleaned).split()
         if tok
     ]
-    normalized_all = [LOCAL_SYNONYMS.get(tok, tok) for tok in raw_tokens]
-    joined_all = " ".join(normalized_all)
+    phrase_tokens = [LOCAL_SYNONYMS.get(tok, tok) for tok in raw_tokens]
+    joined_all = " ".join(phrase_tokens)
     for phrase in sorted(KNOWN_INGREDIENT_PHRASES, key=lambda item: (len(item.split()), len(item)), reverse=True):
         if re.search(rf"(^|\s){re.escape(phrase)}(\s|$)", joined_all):
             selected_phrase = LOCAL_SYNONYMS.get(phrase, phrase)
             return selected_phrase, _display_name(selected_phrase)
+    normalized_all = [
+        LOCAL_SYNONYMS.get(tok, LOCAL_SYNONYMS.get(_normalize_token(tok), _normalize_token(tok)))
+        for tok in raw_tokens
+    ]
     tokens = [
         tok
         for tok in normalized_all

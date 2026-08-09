@@ -5,9 +5,11 @@ import sys
 from pathlib import Path
 import shutil
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 
 def test_build_reason_feedback_dataset_script():
-    base = Path("backend/tests/.tmp_reason_feedback_builder")
+    base = REPO_ROOT / "backend" / "tests" / ".tmp_reason_feedback_builder"
     shutil.rmtree(base, ignore_errors=True)
     base.mkdir(parents=True, exist_ok=True)
     db_path = base / "ml.db"
@@ -92,7 +94,7 @@ def test_build_reason_feedback_dataset_script():
     finally:
         conn.close()
 
-    script = Path("ml/offline_training/build_reason_feedback_dataset_v1.py")
+    script = REPO_ROOT / "ml" / "offline_training" / "build_reason_feedback_dataset_v1.py"
     result = subprocess.run(
         [
             sys.executable,
@@ -105,6 +107,7 @@ def test_build_reason_feedback_dataset_script():
         check=False,
         capture_output=True,
         text=True,
+        cwd=REPO_ROOT,
     )
     assert result.returncode == 0, result.stderr or result.stdout
     summary_path = out_dir / "reason_feedback_summary.json"

@@ -5,9 +5,11 @@ import sys
 from pathlib import Path
 from uuid import uuid4
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 
 def _load_module():
-    module_path = Path("scripts/automate_ml_retraining.py")
+    module_path = REPO_ROOT / "scripts" / "automate_ml_retraining.py"
     spec = importlib.util.spec_from_file_location("automate_ml_retraining", module_path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -17,7 +19,7 @@ def _load_module():
 
 
 def _temp_dir() -> Path:
-    base = Path("backend/tests/.tmp_ml_retraining_orchestrator")
+    base = REPO_ROOT / "backend" / "tests" / ".tmp_ml_retraining_orchestrator"
     path = base / uuid4().hex
     path.mkdir(parents=True, exist_ok=True)
     return path

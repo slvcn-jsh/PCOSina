@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 import shutil
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 
 def _bucket(request_id: str) -> int:
     import hashlib
@@ -22,7 +24,7 @@ def _find_request_for_bucket(target: int) -> str:
 
 
 def test_build_training_dataset_script():
-    base = Path("backend/tests/.tmp_ml_dataset_builder")
+    base = REPO_ROOT / "backend" / "tests" / ".tmp_ml_dataset_builder"
     shutil.rmtree(base, ignore_errors=True)
     base.mkdir(parents=True, exist_ok=True)
     db_path = base / "ml.db"
@@ -176,7 +178,7 @@ def test_build_training_dataset_script():
     finally:
         conn.close()
 
-    script = Path("ml/offline_training/build_training_dataset_v1.py")
+    script = REPO_ROOT / "ml" / "offline_training" / "build_training_dataset_v1.py"
     result = subprocess.run(
         [
             sys.executable,
@@ -191,6 +193,7 @@ def test_build_training_dataset_script():
         check=False,
         capture_output=True,
         text=True,
+        cwd=REPO_ROOT,
     )
     assert result.returncode == 0, result.stderr or result.stdout
     manifest_path = out_dir / "dataset_manifest.json"

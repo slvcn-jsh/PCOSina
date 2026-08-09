@@ -1534,6 +1534,74 @@ def test_vegetarian_filter_blocks_pescatarian_tag():
     assert stage1_diag["exclusion_detail_counts"]["restriction:vegetarian"] == 1
 
 
+def test_restriction_aliases_block_excluded_beef_and_pork():
+    profile = UserProfile(
+        dietaryRestrictions=["Exclude Beef", "Exclude Pork"],
+        maxCookingTimeMinutes=45,
+    )
+    stage1_diag = {}
+    recipes = [
+        _recipe(
+            "beef",
+            "Beef Tapa",
+            "Lunch",
+            ingredients=[{"name": "beef tapa", "quantity": "120 g"}],
+        ),
+        _recipe(
+            "pork",
+            "Pork Adobo",
+            "Lunch",
+            ingredients=[{"name": "pork belly", "quantity": "120 g"}],
+        ),
+        _recipe(
+            "safe",
+            "Vegetable Rice",
+            "Lunch",
+            ingredients=[{"name": "brown rice pechay", "quantity": "1 plate"}],
+        ),
+    ]
+
+    buckets = meal_planner.shortlist_candidates(profile, recipes, stage1_diag=stage1_diag)
+
+    assert [recipe["id"] for recipe in buckets["Lunch"]] == ["safe"]
+    assert stage1_diag["exclusion_summary"]["restriction"] == 2
+    assert stage1_diag["exclusion_detail_counts"]["restriction:no_beef"] == 1
+    assert stage1_diag["exclusion_detail_counts"]["restriction:no_pork"] == 1
+
+
+@pytest.mark.parametrize(
+    ("restriction", "ingredient_name", "expected_reason"),
+    [
+        ("Dairy-Free", "milk", "restriction:lactose_intolerant"),
+        ("No Eggs", "egg", "restriction:no_eggs"),
+        ("Gluten-Free", "wheat flour", "restriction:gluten_free"),
+        ("No Fish", "bangus fillet", "restriction:no_fish"),
+        ("No Shellfish", "shrimp", "restriction:no_shellfish"),
+        ("No Seafood", "tilapia", "restriction:no_seafood"),
+    ],
+)
+def test_restriction_aliases_block_food_families(restriction, ingredient_name, expected_reason):
+    profile = UserProfile(dietaryRestrictions=[restriction], maxCookingTimeMinutes=45)
+    stage1_diag = {}
+
+    buckets = meal_planner.shortlist_candidates(
+        profile,
+        [
+            _recipe(
+                "unsafe",
+                "Unsafe Recipe",
+                "Lunch",
+                ingredients=[{"name": ingredient_name, "quantity": "1 cup"}],
+            )
+        ],
+        stage1_diag=stage1_diag,
+    )
+
+    assert all(len(v) == 0 for v in buckets.values())
+    assert stage1_diag["exclusion_summary"]["restriction"] == 1
+    assert stage1_diag["exclusion_detail_counts"][expected_reason] == 1
+
+
 def test_custom_allergy_filter_blocks_direct_ingredient_token():
     profile = UserProfile(allergies=["chicken"], maxCookingTimeMinutes=45)
     stage1_diag = {}
@@ -1593,6 +1661,61 @@ def test_known_allergy_phrase_does_not_promote_generic_descriptor_to_custom_alle
     )
 
     assert [recipe["id"] for recipe in buckets["Lunch"]] == ["tomato_sauce"]
+
+
+def test_custom_allergy_phrase_ignores_generic_descriptor_when_specific_token_present():
+    profile = UserProfile(allergies=["chicken meat"], maxCookingTimeMinutes=45)
+    stage1_diag = {}
+    recipes = [
+        _recipe(
+            "unsafe",
+            "Chicken Bowl",
+            "Lunch",
+            ingredients=[{"name": "chicken meat", "quantity": "120 g"}],
+        ),
+        _recipe(
+            "safe",
+            "Beef Bowl",
+            "Lunch",
+            ingredients=[{"name": "beef meat", "quantity": "120 g"}],
+        ),
+    ]
+
+    buckets = meal_planner.shortlist_candidates(profile, recipes, stage1_diag=stage1_diag)
+
+    assert [recipe["id"] for recipe in buckets["Lunch"]] == ["safe"]
+    assert stage1_diag["exclusion_summary"]["allergy"] == 1
+    assert stage1_diag["exclusion_detail_counts"]["allergy:chicken"] == 1
+    assert "allergy:meat" not in stage1_diag["exclusion_detail_counts"]
+
+
+@pytest.mark.parametrize(
+    ("allergy", "ingredient_name", "expected_reason"),
+    [
+        ("tree nuts", "cashew", "allergy:nuts"),
+        ("gluten/wheat", "wheat flour", "allergy:gluten"),
+    ],
+)
+def test_known_allergy_phrases_normalize_to_families(allergy, ingredient_name, expected_reason):
+    profile = UserProfile(allergies=[allergy], maxCookingTimeMinutes=45)
+    stage1_diag = {}
+
+    buckets = meal_planner.shortlist_candidates(
+        profile,
+        [
+            _recipe(
+                "unsafe",
+                "Allergen Recipe",
+                "Lunch",
+                ingredients=[{"name": ingredient_name, "quantity": "1 cup"}],
+            )
+        ],
+        stage1_diag=stage1_diag,
+    )
+
+    assert all(len(v) == 0 for v in buckets.values())
+    assert stage1_diag["exclusion_summary"]["allergy"] == 1
+    assert stage1_diag["exclusion_detail_counts"][expected_reason] == 1
 
 
 def test_seafood_allergy_blocks_fish_and_shellfish_families():
@@ -2366,6 +2489,14 @@ def test_validate_profile_rejects_semantically_conflicting_inputs():
     assert meal_planner.validate_profile(
         UserProfile(dietaryRestrictions=["Pescatarian"], allergies=["fish", "shellfish"])
     ) == "Conflicting profile: Pescatarian cannot be combined with both fish and shellfish allergies."
+
+    assert meal_planner.validate_profile(
+        UserProfile(dietaryRestrictions=["Pescatarian", "Exclude Fish"])
+    ) == "Conflicting restrictions: Pescatarian + No Seafood."
+
+    assert meal_planner.validate_profile(
+        UserProfile(dietaryRestrictions=["Vegetarian", "No Egg", "Dairy-Free"])
+    ) == "Very restrictive: Vegetarian + No Eggs + No Dairy."
 
     assert meal_planner.validate_profile(
         UserProfile(planningPriority="Budget First", weeklyBudgetPhp=0)

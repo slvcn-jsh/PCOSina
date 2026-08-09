@@ -217,6 +217,66 @@ ALLERGEN_SYNONYMS = {
     "sesame": "sesame",
 }
 
+RESTRICTION_ALIASES = {
+    "vegetarian": "Vegetarian",
+    "plant based": "Vegetarian",
+    "plant only": "Vegetarian",
+    "budget vegetarian": "Vegetarian",
+    "pescatarian": "Pescatarian",
+    "lactose intolerant": "Lactose Intolerant",
+    "lactose intolerance": "Lactose Intolerant",
+    "no dairy": "No Dairy",
+    "dairy free": "No Dairy",
+    "exclude dairy": "No Dairy",
+    "no milk": "No Dairy",
+    "milk free": "No Dairy",
+    "gluten free": "Gluten-Free",
+    "no gluten": "Gluten-Free",
+    "wheat free": "Gluten-Free",
+    "no wheat": "Gluten-Free",
+    "exclude gluten": "Gluten-Free",
+    "exclude wheat": "Gluten-Free",
+    "no pork": "No Pork",
+    "exclude pork": "No Pork",
+    "pork free": "No Pork",
+    "no beef": "No Beef",
+    "exclude beef": "No Beef",
+    "beef free": "No Beef",
+    "no egg": "No Eggs",
+    "no eggs": "No Eggs",
+    "egg free": "No Eggs",
+    "eggs free": "No Eggs",
+    "exclude egg": "No Eggs",
+    "exclude eggs": "No Eggs",
+    "no fish": "No Fish",
+    "fish free": "No Fish",
+    "exclude fish": "No Fish",
+    "no seafood": "No Seafood",
+    "seafood free": "No Seafood",
+    "exclude seafood": "No Seafood",
+    "no shellfish": "No Shellfish",
+    "shellfish free": "No Shellfish",
+    "exclude shellfish": "No Shellfish",
+}
+
+CUSTOM_ALLERGY_DESCRIPTOR_TOKENS = {
+    "allergen",
+    "allergic",
+    "allergy",
+    "avoid",
+    "exclude",
+    "food",
+    "foods",
+    "free",
+    "intolerant",
+    "intolerance",
+    "meat",
+    "protein",
+    "sensitive",
+    "sensitivity",
+    "to",
+}
+
 MEAT_TOKENS = {"pork", "beef", "chicken", "meat", "lamb", "goat", "duck"}
 FISH_FAMILY_TOKENS = {
     "fish", "isda", "bangus", "milkfish", "tilapia", "galunggong",
@@ -296,6 +356,21 @@ SYMPTOM_ALIASES = {
 def _normalize_token(t: str) -> str:
     t = "".join(ch for ch in t.lower() if ch.isalnum() or ch in ("_", "-"))
     return ING_SYNONYMS.get(t, t)
+
+
+def _normalize_phrase(value: Any) -> str:
+    cleaned = re.sub(r"[^a-z0-9]+", " ", str(value or "").strip().lower())
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def normalize_dietary_restrictions(restrictions: List[str]) -> set[str]:
+    normalized: set[str] = set()
+    for raw in restrictions or []:
+        raw_text = str(raw or "").strip()
+        if not raw_text:
+            continue
+        normalized.add(RESTRICTION_ALIASES.get(_normalize_phrase(raw_text), raw_text))
+    return normalized
 
 
 def normalize_ingredients(ings: List[Any]) -> List[str]:
@@ -380,6 +455,9 @@ def normalize_allergy_constraints(allergies: List[str]) -> tuple[set[str], set[s
         families.update(item_families)
         if item_families:
             continue
+        specific_custom_tokens = item_custom_tokens - CUSTOM_ALLERGY_DESCRIPTOR_TOKENS
+        if specific_custom_tokens:
+            item_custom_tokens = specific_custom_tokens
         custom_tokens.update(item_custom_tokens)
     return families, custom_tokens
 
@@ -426,6 +504,14 @@ def derive_allergen_exposures(tags: List[str], ing_tokens: List[str]) -> set[str
         exposures.add("fish")
     if "contains_shellfish" in tagset:
         exposures.add("shellfish")
+    if "contains_gluten" in tagset:
+        exposures.add("gluten")
+    if "contains_soy" in tagset:
+        exposures.add("soy")
+    if "contains_peanut" in tagset:
+        exposures.add("peanut")
+    if "contains_nuts" in tagset or "contains_tree_nuts" in tagset:
+        exposures.add("nuts")
     return exposures
 
 
@@ -1102,7 +1188,7 @@ def restriction_failure_reasons(
     ing_tokens: List[str],
     canonical_allergen_families: Optional[set[str]] = None,
 ) -> List[str]:
-    restrictions = set(profile.dietaryRestrictions or [])
+    restrictions = normalize_dietary_restrictions(profile.dietaryRestrictions or [])
     tagset = set(tags)
     toks = set(ing_tokens)
     allergy_families, custom_allergy_tokens = normalize_allergy_constraints(profile.allergies or [])
@@ -1127,8 +1213,24 @@ def restriction_failure_reasons(
         failures.append("restriction:vegetarian")
     if "Pescatarian" in restrictions and ("contains_meat" in tagset):
         failures.append("restriction:pescatarian")
-    if "Lactose Intolerant" in restrictions and ("contains_dairy" in tagset):
+    if {"Lactose Intolerant", "No Dairy"} & restrictions and "dairy" in allergen_exposures:
         failures.append("restriction:lactose_intolerant")
+    if "No Eggs" in restrictions and "egg" in allergen_exposures:
+        failures.append("restriction:no_eggs")
+    if "Gluten-Free" in restrictions and "gluten" in allergen_exposures:
+        failures.append("restriction:gluten_free")
+    if "No Fish" in restrictions and (
+        "fish" in allergen_exposures or "contains_seafood" in tagset
+    ):
+        failures.append("restriction:no_fish")
+    if "No Shellfish" in restrictions and (
+        "shellfish" in allergen_exposures or "contains_seafood" in tagset
+    ):
+        failures.append("restriction:no_shellfish")
+    if "No Seafood" in restrictions and (
+        bool({"fish", "shellfish"} & allergen_exposures) or "contains_seafood" in tagset
+    ):
+        failures.append("restriction:no_seafood")
     return failures
 
 
@@ -1143,7 +1245,7 @@ def _increment_count(counter: Dict[str, int], key: str, amount: int = 1) -> None
 
 
 def validate_profile(profile: UserProfile) -> Optional[str]:
-    restrictions = set(profile.dietaryRestrictions or [])
+    restrictions = normalize_dietary_restrictions(profile.dietaryRestrictions or [])
     allergy_tokens = set(normalize_allergies(profile.allergies or []))
     max_cook_raw = getattr(profile, "maxCookingTimeMinutes", 0)
     max_cook = int(0 if max_cook_raw is None else max_cook_raw)

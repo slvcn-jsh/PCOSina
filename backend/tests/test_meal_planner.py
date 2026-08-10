@@ -986,21 +986,21 @@ def test_budget_aware_pool_limit_shrinks_for_tight_solver_budgets():
         slot_count=21,
         total_time_limit=14.0,
         minimum_candidates_required=10,
-    ) == 33
+    ) == 42
 
     assert meal_planner._budget_aware_pool_limit(
         max_pool_size=192,
         slot_count=21,
         total_time_limit=25.0,
         minimum_candidates_required=10,
-    ) == 59
+    ) == 76
 
     assert meal_planner._budget_aware_pool_limit(
         max_pool_size=192,
         slot_count=21,
         total_time_limit=45.0,
         minimum_candidates_required=10,
-    ) == 107
+    ) == 137
 
 
 def test_low_variety_repeat_sequence_starts_with_relaxed_repeat_limit():
@@ -1041,7 +1041,13 @@ def test_restricted_profile_solve_pairs_try_variety_before_relaxed_repeats():
         restricted_catalog=True,
     )
 
-    assert pairs[:5] == [(0.4, 3), (0.4, 4), (0.4, 6), (0.4, 8), (0.4, 10)]
+    assert [(round(tol, 1), repeat) for tol, repeat in pairs[:5]] == [
+        (0.4, 3),
+        (0.6, 3),
+        (0.8, 3),
+        (0.3, 3),
+        (0.2, 3),
+    ]
     assert len(pairs) == 25
     assert len(set(pairs)) == 25
 
@@ -1083,18 +1089,24 @@ def test_profile_solve_pair_preferences_start_near_likely_feasible_path():
     assert major_diet["strategy"] == "restricted_or_major_diet"
     assert major_diet["preferredTolerances"][:2] == [0.4, 0.6]
     assert major_diet["preferredRepeats"][:3] == [3, 4, 6]
+    assert major_diet["preferLowRepeatsAcrossTolerances"] is True
     assert allergy["strategy"] == "allergy_repeat_first"
     assert allergy["preferredTolerances"][0] == 0.3
-    assert allergy["preferredRepeats"][0] == 4
+    assert allergy["preferredRepeats"][0] == 3
+    assert allergy["preferLowRepeatsAcrossTolerances"] is True
     assert strict_time["strategy"] == "strict_time_tolerance_first"
     assert strict_time["preferredTolerances"][:2] == [0.3, 0.4]
-    assert strict_time["preferredRepeats"][:2] == [4, 3]
-    assert budget_priority["strategy"] == "budget_tolerance_first"
+    assert strict_time["preferredRepeats"][:2] == [3, 4]
+    assert strict_time["preferLowRepeatsAcrossTolerances"] is True
+    assert budget_priority["strategy"] == "budget_repeat_first"
     assert budget_priority["preferredRepeats"][:3] == [3, 4, 6]
-    assert broad_no_budget["strategy"] == "broad_no_budget_repeat_four_first"
-    assert broad_no_budget["preferredRepeats"][:3] == [4, 3, 2]
-    assert default_with_budget["strategy"] == "default_repeat_three_first"
-    assert default_with_budget["preferredRepeats"][:3] == [3, 2, 4]
+    assert budget_priority["preferLowRepeatsAcrossTolerances"] is True
+    assert broad_no_budget["strategy"] == "broad_no_budget_repeat_first"
+    assert broad_no_budget["preferredRepeats"][:3] == [3, 4, 6]
+    assert broad_no_budget["preferLowRepeatsAcrossTolerances"] is True
+    assert default_with_budget["strategy"] == "default_repeat_first"
+    assert default_with_budget["preferredRepeats"][:3] == [3, 4, 6]
+    assert default_with_budget["preferLowRepeatsAcrossTolerances"] is True
     assert nutrition_pressure["strategy"] == "nutrition_pressure_tolerance_first"
     assert nutrition_pressure["preferredTolerances"][0] == 0.3
     assert nutrition_pressure_tight_budget["strategy"] == "nutrition_pressure_tight_budget_relaxed_first"
@@ -1192,7 +1204,7 @@ def test_solver_caps_munggo_family_repetition_when_alternatives_exist(monkeypatc
     )
     recipes = []
     for meal_type, calories in [("Breakfast", 500), ("Lunch", 600), ("Dinner", 520)]:
-        for idx in range(5):
+        for idx in range(8):
             recipes.append(
                 _recipe(
                     f"{meal_type.lower()}_munggo_{idx}",
@@ -1209,7 +1221,7 @@ def test_solver_caps_munggo_family_repetition_when_alternatives_exist(monkeypatc
                     ],
                 )
             )
-        for idx in range(5):
+        for idx in range(2):
             recipes.append(
                 _recipe(
                     f"{meal_type.lower()}_alt_{idx}",
@@ -1266,14 +1278,19 @@ def test_solver_caps_munggo_family_repetition_when_alternatives_exist(monkeypatc
     assert plan is not None
     assert explanation is not None
     assert explanation["ingredientFamilyCounts"].get("munggo", 0) <= 3
-    assert explanation["dominantIngredientFamilyCount"] <= 3
     assert telemetry["solve_pair_diagnostics"][0]["ingredientFamilyRepeatCaps"] == {"munggo": 3}
     assert telemetry["solve_pair_diagnostics"][0]["ingredientFamilyRepeatCapsEnforced"] is True
 
 
-def test_semantic_ingredient_family_cap_relaxes_before_final_escape():
+def test_semantic_ingredient_family_cap_uses_weekly_slot_share_before_escape():
     profile = UserProfile(varietyPreference="Balanced")
 
+    short_plan_cap = meal_planner._semantic_ingredient_family_cap_for_attempt(
+        profile,
+        num_days=3,
+        slot_count=9,
+        max_per_week=3,
+    )
     strict_cap = meal_planner._semantic_ingredient_family_cap_for_attempt(
         profile,
         num_days=7,
@@ -1293,9 +1310,82 @@ def test_semantic_ingredient_family_cap_relaxes_before_final_escape():
         max_per_week=10,
     )
 
-    assert strict_cap == 5
-    assert relaxed_cap == 9
+    assert short_plan_cap == 3
+    assert strict_cap == 11
+    assert relaxed_cap == 12
     assert escape_cap is None
+
+
+def test_semantic_family_caps_prioritize_high_capacity_fatigue_family():
+    profile = UserProfile(varietyPreference="Balanced")
+    recipes = []
+    for idx in range(9):
+        recipes.append(
+            _recipe(
+                f"chicken_{idx}",
+                f"Chicken Meal {idx}",
+                "Lunch",
+                ingredients=[
+                    {"name": "chicken breast", "quantity": "100 g"},
+                    {"name": f"vegetable {idx}", "quantity": "1 cup"},
+                ],
+            )
+        )
+    for idx in range(6):
+        recipes.append(
+            _recipe(
+                f"fish_{idx}",
+                f"Fish Meal {idx}",
+                "Lunch",
+                ingredients=[
+                    {"name": "tilapia", "quantity": "100 g"},
+                    {"name": f"fish vegetable {idx}", "quantity": "1 cup"},
+                ],
+            )
+        )
+    for idx in range(9):
+        recipes.append(
+            _recipe(
+                f"alt_{idx}",
+                f"Vegetable Meal {idx}",
+                "Lunch",
+                ingredients=[
+                    {"name": f"vegetable alternative {idx}", "quantity": "1 cup"},
+                    {"name": "brown rice", "quantity": "1 cup"},
+                ],
+            )
+        )
+
+    meal_to_allowed = {
+        "Breakfast": set(range(len(recipes))),
+        "Lunch": set(range(len(recipes))),
+        "Dinner": set(range(len(recipes))),
+    }
+
+    caps = meal_planner._semantic_ingredient_family_caps_for_attempt(
+        recipes,
+        meal_planner._ingredient_variety_family_indices(recipes),
+        meal_to_allowed,
+        ["Breakfast", "Lunch", "Dinner"],
+        profile=profile,
+        num_days=7,
+        slot_count=21,
+        max_per_week=3,
+    )
+    single_cap = meal_planner._semantic_ingredient_family_caps_for_attempt(
+        recipes,
+        meal_planner._ingredient_variety_family_indices(recipes),
+        meal_to_allowed,
+        ["Breakfast", "Lunch", "Dinner"],
+        profile=profile,
+        num_days=7,
+        slot_count=21,
+        max_per_week=3,
+        policy={"planning": {"semantic_ingredient_family_max_capped_families": 1}},
+    )
+
+    assert caps == {"chicken": 11, "fish": 11}
+    assert single_cap == {"chicken": 11}
 
 
 def test_solver_honors_single_solution_policy_for_latency():

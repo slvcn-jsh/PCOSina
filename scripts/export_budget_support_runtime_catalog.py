@@ -14,6 +14,8 @@ OUT = BACKEND_ROOT / "seed_data" / "pcosina_philfct_runtime_candidate_catalog_v2
 FCT = {
     "cooked white rice": (129, 2.1, 29.7, 0.2, 0.4),
     "cooked munggo": (54, 4.8, 7.0, 0.5, 1.6),
+    "cooked chickpeas": (198, 5.7, 39.2, 2.0, 9.1),
+    "red kidney beans boiled": (138, 7.9, 24.6, 0.9, 7.9),
     "egg": (139, 12.3, 1.4, 9.4, 0.0),
     "malunggay": (108, 9.7, 12.7, 2.0, 6.7),
     "tomato": (25, 0.8, 5.2, 0.1, 0.3),
@@ -22,6 +24,7 @@ FCT = {
     "cooking oil": (896, 0, 0, 99.6, 0),
     "eggplant": (25, 1.0, 4.9, 0.1, 1.5),
     "pechay": (20, 1.7, 3.2, 0.2, 1.5),
+    "mushroom": (48, 3.8, 6.9, 0.6, 1.6),
     "okra": (30, 1.0, 6.1, 0.2, 2.6),
     "sitaw": (52, 4.0, 7.9, 0.5, 2.7),
     "squash": (47, 0.4, 10.8, 0.2, 1.1),
@@ -33,7 +36,39 @@ FCT = {
     "pineapple": (55, 0.4, 13.0, 0.2, 1.4),
     "sardines": (180, 22.0, 0, 10.0, 0),
     "tuna": (132, 28.0, 0, 1.0, 0),
+    "shrimp": (91, 19.0, 2.0, 0.8, 0.0),
+    "squid": (80, 17.4, 0.0, 1.2, 0.0),
     "tofu": (80, 8.0, 2.0, 5.0, 1.0),
+}
+
+FCT_REF = {
+    "cooked white rice": ("Rice, well-milled, boiled", "A020"),
+    "cooked munggo": ("Mung bean, boiled", "D132"),
+    "cooked chickpeas": ("Chickpea, dried, boiled", "C005"),
+    "red kidney beans boiled": ("Kidney bean seed, red, dried, boiled", "C021"),
+    "egg": ("Egg, chicken, whole", None),
+    "malunggay": ("Horseradish tree lvs", "D094"),
+    "tomato": ("Tomato", "D257"),
+    "onion": ("Onion, Bombay bulb", "D141"),
+    "garlic": ("Garlic bulb", "D084"),
+    "cooking oil": ("Vegetable cooking oil", None),
+    "eggplant": ("Eggplant", "D073"),
+    "pechay": ("Pechay lvs", "D160"),
+    "mushroom": ("Mushroom, fresh", "D133"),
+    "okra": ("Okra", "D139"),
+    "sitaw": ("String beans", None),
+    "squash": ("Squash, stringy", "S019"),
+    "banana": ("Saging, cavendish, hinog", "E085"),
+    "papaya": ("Papaya fruit", None),
+    "peanuts": ("Peanut", None),
+    "chicken breast": ("Chicken breast", "F093"),
+    "milkfish": ("Milkfish", None),
+    "pineapple": ("Pineapple", "E073"),
+    "sardines": ("Sardines", None),
+    "tuna": ("Tuna", None),
+    "shrimp": ("Shrimp, banana prawn", "G113"),
+    "squid": ("Squid, boiled", "G132"),
+    "tofu": ("Soybean cheese, soft curd", "C063"),
 }
 
 
@@ -52,9 +87,81 @@ def nutrient(ingredients):
     }
 
 
+def rebalance_formulated_support_ingredients(ingredients, extra_tags):
+    tags = set(extra_tags or [])
+    if tags & {"strict_profile_non_munggo", "no_red_meat_fish_allergy_support", "pescatarian_variety_support"}:
+        carb_target = 70
+    elif "soy_free_vegetarian" in tags:
+        carb_target = 72
+    else:
+        return list(ingredients)
+
+    adjusted = [(name, float(grams)) for name, grams in ingredients]
+
+    def grams_for(items, ingredient_name):
+        for name, grams in items:
+            if name == ingredient_name:
+                return float(grams)
+        return 0.0
+
+    def set_grams(items, ingredient_name, grams):
+        found = False
+        result = []
+        for name, current_grams in items:
+            if name == ingredient_name:
+                result.append((name, round(max(0.0, grams), 2)))
+                found = True
+            else:
+                result.append((name, current_grams))
+        if not found and grams > 0:
+            result.append((ingredient_name, round(grams, 2)))
+        return result
+
+    def viable(items):
+        values = nutrient(items)
+        return (
+            400 <= values["calories"] <= 650
+            and values["protein_g"] >= 18
+            and 45 <= values["carbs_g"] <= 90
+            and 8 <= values["fat_g"] <= 25
+            and values["fiber_g"] >= 8
+        )
+
+    for _ in range(40):
+        if nutrient(adjusted)["carbs_g"] <= carb_target:
+            break
+        source = None
+        source_floor = 0.0
+        if grams_for(adjusted, "cooked white rice") > 35.0:
+            source = "cooked white rice"
+            source_floor = 35.0
+        else:
+            legume_options = [
+                (grams_for(adjusted, "cooked chickpeas"), "cooked chickpeas"),
+                (grams_for(adjusted, "red kidney beans boiled"), "red kidney beans boiled"),
+            ]
+            source_grams, source_name = max(legume_options)
+            if source_grams > 55.0:
+                source = source_name
+                source_floor = 55.0
+        if source is None:
+            break
+        reduction = min(5.0, grams_for(adjusted, source) - source_floor)
+        if reduction <= 0:
+            break
+        proposed = set_grams(adjusted, source, grams_for(adjusted, source) - reduction)
+        proposed = set_grams(proposed, "cooking oil", grams_for(proposed, "cooking oil") + 0.8)
+        if not viable(proposed):
+            break
+        adjusted = proposed
+    return adjusted
+
+
 PHP_PER_KG = {
         "cooked white rice": 60,
         "cooked munggo": 120,
+        "cooked chickpeas": 86,
+        "red kidney beans boiled": 120,
         "egg": 200,
         "malunggay": 200,
         "tomato": 64,
@@ -63,6 +170,7 @@ PHP_PER_KG = {
         "cooking oil": 211.26,
         "eggplant": 50,
         "pechay": 60,
+        "mushroom": 180,
         "okra": 70,
         "sitaw": 70,
         "squash": 70,
@@ -74,6 +182,8 @@ PHP_PER_KG = {
         "pineapple": 60,
         "sardines": 180,
         "tuna": 260,
+        "shrimp": 450,
+        "squid": 320,
         "tofu": 120,
 }
 
@@ -84,6 +194,8 @@ def ingredient_cost(name: str, grams: float) -> float:
         priced_grams = grams * 0.34
     if name == "cooked munggo":
         priced_grams = grams * 0.40
+    if name in {"cooked chickpeas", "red kidney beans boiled"}:
+        priced_grams = grams * 0.45
     return round(priced_grams / 1000 * PHP_PER_KG[name], 2)
 
 
@@ -219,6 +331,88 @@ def formulated_templates():
         ("Tofu Malunggay Munggo Dinner Plate", "Dinner", [("cooked white rice", 120), ("tofu", 150), ("cooked munggo", 130), ("malunggay", 45), ("tomato", 60), ("onion", 25), ("cooking oil", 10), ("pineapple", 120)], ["contains_soy"]),
         ("Sardines Okra Pechay Lunch Plate", "Lunch", [("cooked white rice", 125), ("sardines", 90), ("okra", 80), ("pechay", 130), ("tomato", 70), ("onion", 25), ("cooking oil", 6), ("banana", 80)], ["contains_fish", "contains_seafood"]),
     ]
+    no_pork_no_dairy_no_egg_no_fish = [
+        ("Chicken Pechay Garbanzo Breakfast Plate", "Breakfast", [("cooked white rice", 70), ("chicken breast", 90), ("cooked chickpeas", 100), ("pechay", 120), ("tomato", 60), ("onion", 25), ("cooking oil", 8), ("papaya", 100)], ["contains_chicken", "contains_meat", "strict_profile_non_munggo"]),
+        ("Chicken Okra Kidney Breakfast Plate", "Breakfast", [("cooked white rice", 80), ("chicken breast", 75), ("red kidney beans boiled", 110), ("okra", 100), ("tomato", 60), ("onion", 25), ("cooking oil", 8), ("banana", 70)], ["contains_chicken", "contains_meat", "strict_profile_non_munggo"]),
+        ("Chicken Kalabasa Chickpea Breakfast Plate", "Breakfast", [("cooked white rice", 70), ("chicken breast", 80), ("cooked chickpeas", 110), ("squash", 140), ("malunggay", 30), ("cooking oil", 8), ("papaya", 80)], ["contains_chicken", "contains_meat", "strict_profile_non_munggo"]),
+        ("Chicken Sitaw Chickpea Breakfast Plate", "Breakfast", [("cooked white rice", 60), ("chicken breast", 70), ("cooked chickpeas", 110), ("sitaw", 100), ("pechay", 100), ("tomato", 60), ("cooking oil", 8), ("banana", 60)], ["contains_chicken", "contains_meat", "strict_profile_non_munggo"]),
+        ("Chicken Eggplant Kidney Breakfast Plate", "Breakfast", [("cooked white rice", 80), ("chicken breast", 75), ("red kidney beans boiled", 110), ("eggplant", 140), ("tomato", 60), ("onion", 25), ("cooking oil", 8), ("papaya", 100)], ["contains_chicken", "contains_meat", "strict_profile_non_munggo"]),
+        ("Chicken Mushroom Chickpea Breakfast Plate", "Breakfast", [("cooked white rice", 70), ("chicken breast", 70), ("cooked chickpeas", 105), ("mushroom", 120), ("pechay", 100), ("tomato", 60), ("cooking oil", 8), ("papaya", 80)], ["contains_chicken", "contains_meat", "strict_profile_non_munggo"]),
+        ("Chicken Garbanzo Pinakbet Lunch Plate", "Lunch", [("cooked white rice", 60), ("chicken breast", 80), ("cooked chickpeas", 100), ("squash", 130), ("okra", 90), ("sitaw", 80), ("tomato", 60), ("cooking oil", 8), ("papaya", 80)], ["contains_chicken", "contains_meat", "strict_profile_non_munggo"]),
+        ("Chicken Kidney Pechay Lunch Plate", "Lunch", [("cooked white rice", 80), ("chicken breast", 70), ("red kidney beans boiled", 120), ("pechay", 140), ("tomato", 70), ("onion", 25), ("cooking oil", 8), ("banana", 60)], ["contains_chicken", "contains_meat", "strict_profile_non_munggo"]),
+        ("Chicken Mushroom Okra Lunch Plate", "Lunch", [("cooked white rice", 90), ("chicken breast", 75), ("cooked chickpeas", 85), ("mushroom", 120), ("okra", 100), ("tomato", 60), ("cooking oil", 8), ("papaya", 80)], ["contains_chicken", "contains_meat", "strict_profile_non_munggo"]),
+        ("Chicken Sitaw Kidney Lunch Plate", "Lunch", [("cooked white rice", 80), ("chicken breast", 55), ("red kidney beans boiled", 110), ("sitaw", 100), ("malunggay", 30), ("tomato", 60), ("cooking oil", 8), ("pineapple", 80)], ["contains_chicken", "contains_meat", "strict_profile_non_munggo"]),
+        ("Chicken Chickpea Malunggay Dinner Plate", "Dinner", [("cooked white rice", 75), ("chicken breast", 70), ("cooked chickpeas", 105), ("malunggay", 45), ("pechay", 120), ("tomato", 60), ("cooking oil", 8), ("papaya", 80)], ["contains_chicken", "contains_meat", "strict_profile_non_munggo"]),
+        ("Chicken Kidney Kalabasa Dinner Plate", "Dinner", [("cooked white rice", 80), ("chicken breast", 70), ("red kidney beans boiled", 120), ("squash", 140), ("okra", 80), ("tomato", 60), ("cooking oil", 8), ("banana", 60)], ["contains_chicken", "contains_meat", "strict_profile_non_munggo"]),
+        ("Chicken Mushroom Pechay Dinner Plate", "Dinner", [("cooked white rice", 90), ("chicken breast", 70), ("cooked chickpeas", 85), ("mushroom", 120), ("pechay", 130), ("tomato", 60), ("onion", 25), ("cooking oil", 8), ("papaya", 80)], ["contains_chicken", "contains_meat", "strict_profile_non_munggo"]),
+        ("Chicken Garbanzo Sitaw Dinner Plate", "Dinner", [("cooked white rice", 50), ("chicken breast", 80), ("cooked chickpeas", 100), ("sitaw", 100), ("squash", 110), ("tomato", 60), ("cooking oil", 8), ("pineapple", 80)], ["contains_chicken", "contains_meat", "strict_profile_non_munggo"]),
+    ]
+    vegetarian_non_soy = [
+        ("Garbanzo Kidney Malunggay Breakfast Plate", "Breakfast", [("cooked chickpeas", 110), ("red kidney beans boiled", 120), ("malunggay", 40), ("tomato", 70), ("onion", 25), ("cooking oil", 9), ("papaya", 80)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Kidney Mushroom Pechay Breakfast Plate", "Breakfast", [("red kidney beans boiled", 180), ("cooked chickpeas", 70), ("mushroom", 100), ("pechay", 100), ("tomato", 60), ("cooking oil", 10), ("papaya", 60)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Garbanzo Okra Squash Breakfast Plate", "Breakfast", [("cooked chickpeas", 90), ("red kidney beans boiled", 100), ("okra", 100), ("squash", 120), ("malunggay", 45), ("tomato", 50), ("cooking oil", 9), ("papaya", 50)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Kidney Garbanzo Sitaw Breakfast Plate", "Breakfast", [("red kidney beans boiled", 75), ("cooked chickpeas", 65), ("sitaw", 150), ("pechay", 160), ("tomato", 60), ("cooking oil", 21), ("malunggay", 45), ("papaya", 20)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Garbanzo Mushroom Kalabasa Breakfast Plate", "Breakfast", [("cooked chickpeas", 65), ("red kidney beans boiled", 65), ("mushroom", 230), ("squash", 35), ("malunggay", 65), ("tomato", 45), ("cooking oil", 20.5), ("papaya", 15)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Kidney Okra Pechay Breakfast Plate", "Breakfast", [("red kidney beans boiled", 80), ("cooked chickpeas", 60), ("okra", 150), ("pechay", 180), ("tomato", 60), ("onion", 15), ("cooking oil", 21), ("pineapple", 20), ("malunggay", 25)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Garbanzo Malunggay Mushroom Breakfast Plate", "Breakfast", [("cooked chickpeas", 65), ("red kidney beans boiled", 65), ("malunggay", 70), ("mushroom", 200), ("tomato", 50), ("cooking oil", 21), ("papaya", 20)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Garbanzo Kidney Pinakbet Lunch Plate", "Lunch", [("cooked chickpeas", 75), ("red kidney beans boiled", 120), ("squash", 130), ("okra", 90), ("sitaw", 70), ("tomato", 60), ("cooking oil", 9), ("papaya", 60)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Kidney Malunggay Pechay Lunch Plate", "Lunch", [("red kidney beans boiled", 140), ("cooked chickpeas", 80), ("malunggay", 45), ("pechay", 130), ("tomato", 60), ("onion", 25), ("cooking oil", 10), ("pineapple", 60)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Garbanzo Mushroom Sitaw Lunch Plate", "Lunch", [("cooked chickpeas", 100), ("red kidney beans boiled", 100), ("mushroom", 120), ("sitaw", 100), ("tomato", 60), ("onion", 25), ("cooking oil", 9), ("papaya", 60)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Kidney Squash Sitaw Lunch Plate", "Lunch", [("red kidney beans boiled", 70), ("cooked chickpeas", 60), ("squash", 55), ("sitaw", 165), ("tomato", 45), ("onion", 10), ("cooking oil", 21), ("papaya", 15), ("malunggay", 50)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Garbanzo Pechay Okra Lunch Plate", "Lunch", [("cooked chickpeas", 65), ("red kidney beans boiled", 60), ("pechay", 200), ("okra", 160), ("malunggay", 55), ("tomato", 50), ("cooking oil", 21), ("pineapple", 20)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Kidney Mushroom Kalabasa Lunch Plate", "Lunch", [("red kidney beans boiled", 75), ("cooked chickpeas", 55), ("mushroom", 230), ("squash", 45), ("pechay", 170), ("tomato", 45), ("cooking oil", 21), ("papaya", 15)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Garbanzo Sitaw Eggplant Lunch Plate", "Lunch", [("cooked chickpeas", 60), ("red kidney beans boiled", 60), ("sitaw", 170), ("eggplant", 180), ("tomato", 60), ("onion", 15), ("cooking oil", 21), ("pineapple", 20), ("malunggay", 25)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Kidney Garbanzo Kalabasa Dinner Plate", "Dinner", [("red kidney beans boiled", 170), ("cooked chickpeas", 55), ("squash", 130), ("okra", 90), ("tomato", 60), ("cooking oil", 10), ("papaya", 60)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Garbanzo Pechay Mushroom Dinner Plate", "Dinner", [("cooked chickpeas", 95), ("red kidney beans boiled", 100), ("pechay", 150), ("mushroom", 120), ("tomato", 70), ("onion", 25), ("cooking oil", 9), ("pineapple", 60)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Kidney Sitaw Malunggay Dinner Plate", "Dinner", [("red kidney beans boiled", 145), ("cooked chickpeas", 90), ("sitaw", 100), ("malunggay", 45), ("tomato", 60), ("cooking oil", 10), ("papaya", 50)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Kidney Pechay Okra Dinner Plate", "Dinner", [("red kidney beans boiled", 80), ("cooked chickpeas", 55), ("pechay", 200), ("okra", 150), ("tomato", 60), ("onion", 15), ("cooking oil", 21), ("papaya", 20), ("malunggay", 20)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Garbanzo Kalabasa Malunggay Dinner Plate", "Dinner", [("cooked chickpeas", 65), ("red kidney beans boiled", 60), ("squash", 70), ("malunggay", 75), ("tomato", 50), ("cooking oil", 21), ("pineapple", 20), ("mushroom", 120)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Kidney Mushroom Sitaw Dinner Plate", "Dinner", [("red kidney beans boiled", 70), ("cooked chickpeas", 60), ("mushroom", 230), ("sitaw", 155), ("tomato", 45), ("cooking oil", 21), ("papaya", 15)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+        ("Garbanzo Eggplant Pechay Dinner Plate", "Dinner", [("cooked chickpeas", 60), ("red kidney beans boiled", 60), ("eggplant", 190), ("pechay", 180), ("malunggay", 50), ("tomato", 50), ("cooking oil", 21), ("pineapple", 20)], ["vegetarian_fallback", "soy_free_vegetarian"]),
+    ]
+    shellfish_non_fish = [
+        ("Shrimp Pechay Garbanzo Breakfast Plate", "Breakfast", [("cooked white rice", 75), ("shrimp", 100), ("cooked chickpeas", 95), ("pechay", 120), ("tomato", 60), ("onion", 25), ("cooking oil", 9), ("papaya", 80)], ["strict_profile_non_munggo"]),
+        ("Squid Okra Kidney Lunch Plate", "Lunch", [("cooked white rice", 80), ("squid", 80), ("red kidney beans boiled", 115), ("okra", 100), ("sitaw", 80), ("tomato", 60), ("cooking oil", 9), ("banana", 60)], ["strict_profile_non_munggo"]),
+        ("Shrimp Kalabasa Chickpea Dinner Plate", "Dinner", [("cooked white rice", 75), ("shrimp", 95), ("cooked chickpeas", 100), ("squash", 130), ("pechay", 120), ("tomato", 60), ("cooking oil", 9), ("papaya", 80)], ["strict_profile_non_munggo"]),
+    ]
+    fish_allergy_no_red_meat_support = [
+        ("Egg Garbanzo Pechay Breakfast Plate", "Breakfast", [("cooked white rice", 65), ("egg", 75), ("cooked chickpeas", 95), ("pechay", 130), ("tomato", 60), ("onion", 25), ("cooking oil", 6), ("papaya", 80)], ["no_red_meat_fish_allergy_support"]),
+        ("Egg Kidney Mushroom Breakfast Plate", "Breakfast", [("cooked white rice", 70), ("egg", 75), ("red kidney beans boiled", 115), ("mushroom", 100), ("pechay", 100), ("tomato", 60), ("cooking oil", 6), ("banana", 60)], ["no_red_meat_fish_allergy_support"]),
+        ("Tofu Garbanzo Tomato Breakfast Plate", "Breakfast", [("cooked white rice", 70), ("tofu", 140), ("cooked chickpeas", 100), ("pechay", 120), ("tomato", 70), ("onion", 25), ("cooking oil", 5), ("papaya", 80)], ["no_red_meat_fish_allergy_support"]),
+        ("Tofu Egg Garbanzo Breakfast Plate", "Breakfast", [("cooked white rice", 45), ("tofu", 120), ("egg", 55), ("cooked chickpeas", 70), ("pechay", 140), ("mushroom", 100), ("tomato", 60), ("cooking oil", 8), ("papaya", 50)], ["no_red_meat_fish_allergy_support"]),
+        ("Kidney Egg Pechay Breakfast Plate", "Breakfast", [("cooked white rice", 45), ("egg", 75), ("red kidney beans boiled", 100), ("pechay", 150), ("mushroom", 100), ("tomato", 60), ("cooking oil", 8), ("papaya", 50)], ["no_red_meat_fish_allergy_support"]),
+        ("Shrimp Egg Pechay Breakfast Plate", "Breakfast", [("cooked white rice", 75), ("shrimp", 75), ("egg", 50), ("cooked chickpeas", 40), ("pechay", 140), ("tomato", 70), ("onion", 25), ("cooking oil", 7), ("banana", 70)], ["no_red_meat_fish_allergy_support"]),
+        ("Tofu Kidney Pinakbet Lunch Plate", "Lunch", [("cooked white rice", 70), ("tofu", 150), ("red kidney beans boiled", 100), ("squash", 130), ("okra", 90), ("sitaw", 80), ("tomato", 60), ("cooking oil", 7), ("papaya", 70)], ["no_red_meat_fish_allergy_support"]),
+        ("Egg Garbanzo Sitaw Lunch Plate", "Lunch", [("cooked white rice", 65), ("egg", 75), ("cooked chickpeas", 95), ("sitaw", 100), ("pechay", 120), ("tomato", 60), ("cooking oil", 6), ("pineapple", 70)], ["no_red_meat_fish_allergy_support"]),
+        ("Tofu Garbanzo Mushroom Lunch Plate", "Lunch", [("cooked white rice", 45), ("tofu", 150), ("cooked chickpeas", 80), ("mushroom", 130), ("sitaw", 90), ("pechay", 100), ("tomato", 60), ("cooking oil", 8), ("papaya", 50)], ["no_red_meat_fish_allergy_support"]),
+        ("Egg Kidney Sitaw Lunch Plate", "Lunch", [("cooked white rice", 45), ("egg", 75), ("red kidney beans boiled", 100), ("sitaw", 110), ("squash", 100), ("tomato", 60), ("cooking oil", 8), ("papaya", 50)], ["no_red_meat_fish_allergy_support"]),
+        ("Shrimp Okra Garbanzo Lunch Plate", "Lunch", [("cooked white rice", 75), ("shrimp", 95), ("cooked chickpeas", 95), ("okra", 100), ("pechay", 100), ("tomato", 60), ("cooking oil", 8), ("papaya", 80)], ["no_red_meat_fish_allergy_support"]),
+        ("Squid Pechay Kidney Lunch Plate", "Lunch", [("cooked white rice", 80), ("squid", 85), ("red kidney beans boiled", 110), ("pechay", 140), ("tomato", 60), ("onion", 25), ("cooking oil", 8), ("banana", 60)], ["no_red_meat_fish_allergy_support"]),
+        ("Egg Kidney Pechay Lunch Plate", "Lunch", [("cooked white rice", 45), ("egg", 75), ("red kidney beans boiled", 100), ("pechay", 150), ("mushroom", 100), ("tomato", 60), ("cooking oil", 8), ("papaya", 50)], ["no_red_meat_fish_allergy_support"]),
+        ("Tofu Eggplant Garbanzo Lunch Plate", "Lunch", [("cooked white rice", 45), ("tofu", 150), ("cooked chickpeas", 80), ("eggplant", 150), ("pechay", 100), ("tomato", 60), ("cooking oil", 8), ("papaya", 50)], ["no_red_meat_fish_allergy_support"]),
+        ("Tofu Chickpea Malunggay Dinner Plate", "Dinner", [("cooked white rice", 65), ("tofu", 150), ("cooked chickpeas", 100), ("malunggay", 40), ("pechay", 120), ("tomato", 60), ("cooking oil", 7), ("papaya", 80)], ["no_red_meat_fish_allergy_support"]),
+        ("Egg Kidney Kalabasa Dinner Plate", "Dinner", [("cooked white rice", 70), ("egg", 75), ("red kidney beans boiled", 115), ("squash", 130), ("okra", 90), ("tomato", 60), ("cooking oil", 7), ("pineapple", 70)], ["no_red_meat_fish_allergy_support"]),
+        ("Tofu Eggplant Chickpea Dinner Plate", "Dinner", [("cooked white rice", 45), ("tofu", 150), ("cooked chickpeas", 80), ("eggplant", 150), ("pechay", 100), ("tomato", 60), ("cooking oil", 8), ("papaya", 50)], ["no_red_meat_fish_allergy_support"]),
+        ("Egg Pechay Kidney Dinner Plate", "Dinner", [("cooked white rice", 45), ("egg", 75), ("red kidney beans boiled", 100), ("pechay", 150), ("mushroom", 100), ("tomato", 60), ("cooking oil", 8), ("pineapple", 50)], ["no_red_meat_fish_allergy_support"]),
+        ("Shrimp Mushroom Pechay Dinner Plate", "Dinner", [("cooked white rice", 80), ("shrimp", 90), ("cooked chickpeas", 30), ("mushroom", 120), ("pechay", 140), ("tomato", 70), ("onion", 25), ("cooking oil", 9), ("banana", 70)], ["no_red_meat_fish_allergy_support"]),
+        ("Squid Garbanzo Sitaw Dinner Plate", "Dinner", [("cooked white rice", 70), ("squid", 85), ("cooked chickpeas", 100), ("sitaw", 100), ("squash", 120), ("tomato", 60), ("cooking oil", 8), ("papaya", 80)], ["no_red_meat_fish_allergy_support"]),
+        ("Egg Tofu Pechay Dinner Plate", "Dinner", [("cooked white rice", 45), ("egg", 70), ("tofu", 120), ("cooked chickpeas", 60), ("pechay", 150), ("mushroom", 100), ("tomato", 60), ("cooking oil", 8), ("pineapple", 50)], ["no_red_meat_fish_allergy_support"]),
+        ("Tofu Kidney Mushroom Dinner Plate", "Dinner", [("cooked white rice", 45), ("tofu", 150), ("red kidney beans boiled", 100), ("mushroom", 130), ("pechay", 130), ("tomato", 70), ("cooking oil", 9), ("papaya", 50)], ["no_red_meat_fish_allergy_support"]),
+    ]
+    pescatarian_variety_support = [
+        ("Sardines Egg Pechay Breakfast Plate", "Breakfast", [("cooked white rice", 45), ("sardines", 55), ("egg", 35), ("cooked chickpeas", 80), ("pechay", 140), ("tomato", 70), ("onion", 25), ("cooking oil", 7), ("papaya", 70)], ["pescatarian_variety_support"]),
+        ("Tuna Eggplant Okra Breakfast Plate", "Breakfast", [("cooked white rice", 45), ("tuna", 65), ("red kidney beans boiled", 70), ("eggplant", 130), ("okra", 90), ("tomato", 60), ("cooking oil", 8), ("papaya", 60)], ["pescatarian_variety_support"]),
+        ("Bangus Garbanzo Pechay Breakfast Plate", "Breakfast", [("cooked white rice", 40), ("milkfish", 80), ("cooked chickpeas", 70), ("pechay", 140), ("tomato", 70), ("onion", 25), ("cooking oil", 8), ("papaya", 60)], ["pescatarian_variety_support"]),
+        ("Shrimp Egg Mushroom Breakfast Plate", "Breakfast", [("cooked white rice", 45), ("shrimp", 80), ("egg", 35), ("cooked chickpeas", 40), ("mushroom", 120), ("pechay", 120), ("tomato", 70), ("cooking oil", 8), ("banana", 50)], ["pescatarian_variety_support"]),
+        ("Tuna Garbanzo Pinakbet Lunch Plate", "Lunch", [("cooked white rice", 40), ("tuna", 65), ("cooked chickpeas", 75), ("squash", 130), ("okra", 90), ("sitaw", 80), ("tomato", 60), ("cooking oil", 9), ("papaya", 60)], ["pescatarian_variety_support"]),
+        ("Sardines Eggplant Pechay Lunch Plate", "Lunch", [("cooked white rice", 45), ("sardines", 80), ("red kidney beans boiled", 70), ("eggplant", 130), ("pechay", 120), ("tomato", 70), ("cooking oil", 8), ("pineapple", 60)], ["pescatarian_variety_support"]),
+        ("Shrimp Kidney Okra Lunch Plate", "Lunch", [("cooked white rice", 45), ("shrimp", 100), ("red kidney beans boiled", 80), ("okra", 100), ("pechay", 120), ("tomato", 60), ("cooking oil", 9), ("papaya", 60)], ["pescatarian_variety_support"]),
+        ("Squid Egg Sitaw Lunch Plate", "Lunch", [("cooked white rice", 45), ("squid", 85), ("egg", 55), ("cooked chickpeas", 35), ("sitaw", 110), ("squash", 110), ("tomato", 60), ("cooking oil", 8), ("papaya", 60)], ["pescatarian_variety_support"]),
+        ("Bangus Okra Malunggay Dinner Plate", "Dinner", [("cooked white rice", 40), ("milkfish", 85), ("cooked chickpeas", 70), ("okra", 100), ("malunggay", 40), ("tomato", 60), ("cooking oil", 9), ("papaya", 60)], ["pescatarian_variety_support"]),
+        ("Tuna Pechay Chickpea Dinner Plate", "Dinner", [("cooked white rice", 40), ("tuna", 60), ("cooked chickpeas", 80), ("pechay", 140), ("mushroom", 100), ("tomato", 70), ("cooking oil", 9), ("pineapple", 60)], ["pescatarian_variety_support"]),
+        ("Shrimp Eggplant Kidney Dinner Plate", "Dinner", [("cooked white rice", 45), ("shrimp", 90), ("red kidney beans boiled", 80), ("eggplant", 130), ("pechay", 120), ("tomato", 60), ("cooking oil", 9), ("papaya", 60)], ["pescatarian_variety_support"]),
+        ("Squid Mushroom Garbanzo Dinner Plate", "Dinner", [("cooked white rice", 45), ("squid", 80), ("cooked chickpeas", 80), ("mushroom", 130), ("sitaw", 90), ("tomato", 60), ("cooking oil", 9), ("papaya", 60)], ["pescatarian_variety_support"]),
+    ]
     result = []
     for meal_type, group in [
         ("Breakfast", allergen_safe_breakfast),
@@ -228,6 +422,11 @@ def formulated_templates():
         for name, ingredients in group:
             result.append((name, meal_type, ingredients, ["allergy_safe_fallback", "vegetarian_fallback"]))
     result.extend(general_extra)
+    result.extend(no_pork_no_dairy_no_egg_no_fish)
+    result.extend(vegetarian_non_soy)
+    result.extend(shellfish_non_fish)
+    result.extend(fish_allergy_no_red_meat_support)
+    result.extend(pescatarian_variety_support)
     return result
 
 
@@ -242,16 +441,21 @@ def formulated_tags(ingredients, extra_tags):
     ] + list(extra_tags or [])
     if any(n in {"sardines", "tuna", "milkfish"} for n, _ in ingredients):
         tags += ["contains_fish", "contains_seafood"]
+    if any(n in {"shrimp", "squid"} for n, _ in ingredients):
+        tags += ["contains_shellfish", "contains_seafood"]
     if any(n == "egg" for n, _ in ingredients):
         tags.append("contains_egg")
     if any(n == "tofu" for n, _ in ingredients):
         tags.append("contains_soy")
     if any(n == "chicken breast" for n, _ in ingredients):
         tags += ["contains_chicken", "contains_meat"]
+    if any(n in {"cooked chickpeas", "red kidney beans boiled"} for n, _ in ingredients):
+        tags.append("contains_legume")
     return sorted(set(tags))
 
 
 def make_formulated_recipe(index: int, name: str, meal_type: str, ingredients, extra_tags):
+    ingredients = rebalance_formulated_support_ingredients(ingredients, extra_tags)
     return {
         "id": f"ph_form_{index:03d}",
         "name": name,
@@ -266,6 +470,8 @@ def make_formulated_recipe(index: int, name: str, meal_type: str, ingredients, e
                 "priceCostPhp": ingredient_cost(ingredient_name, grams),
                 "pricingSource": "PCOSina formulated complete-plate consumed portion estimate",
                 "philfctFormulated": True,
+                "philfctName": FCT_REF.get(ingredient_name, (ingredient_name, None))[0],
+                "philfctCode": FCT_REF.get(ingredient_name, (ingredient_name, None))[1],
             }
             for ingredient_name, grams in ingredients
         ] + [
@@ -318,6 +524,8 @@ def make_recipe(index: int, name: str, meal_type: str, ingredients):
                 "priceCostPhp": ingredient_cost(name, grams),
                 "pricingSource": "PCOSina budget-support consumed portion estimate",
                 "philfctBudgetSupport": True,
+                "philfctName": FCT_REF.get(name, (name, None))[0],
+                "philfctCode": FCT_REF.get(name, (name, None))[1],
             }
             for name, grams in ingredients
         ] + [
@@ -374,6 +582,8 @@ def make_rnd_recipe(recipe_id: str, name: str, meal_type: str, ingredients, extr
                 "priceCostPhp": ingredient_cost(ingredient_name, grams),
                 "pricingSource": "PCOSina RND evaluated consumed portion estimate",
                 "philfctRndEvaluated": True,
+                "philfctName": FCT_REF.get(ingredient_name, (ingredient_name, None))[0],
+                "philfctCode": FCT_REF.get(ingredient_name, (ingredient_name, None))[1],
             }
             for ingredient_name, grams in ingredients
         ] + [

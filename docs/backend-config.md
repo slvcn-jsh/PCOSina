@@ -27,9 +27,9 @@ It keeps MILP/CP-SAT authoritative, but reduces search pressure before and durin
 - `solver.total_solver_seconds = 14`
 - `solver.retry_attempts = 1`
 - `solver.max_solution_count = 1`
-- `solver.solver_workers = 4`
+- `solver.solver_workers = 1`
 
-The planner also applies a wall-clock pool cap before CP-SAT. With the 14-second production budget, the effective solve pool is about 33 recipes even when the policy shortlist is larger; this keeps the hosted Render worker from timing out on 21-slot weekly plans. Profile-specific solve ordering starts strict-time, allergy, Budget First, restriction-only, high nutrition-pressure, default, and no-budget profiles from the tolerance/repetition pairs that are most likely to be feasible. Stage 1 caches static recipe tags, ingredient tokens, protein groups, vegetable tokens, and meal-slot eligibility by recipe identity/version. The CP-SAT model avoids redundant helper variables for constraints that are already hard. When `solver.max_solution_count` is `1`, CP-SAT stops after the first feasible hard-safe plan instead of spending the rest of the time box polishing the objective.
+The planner also applies a wall-clock pool cap before CP-SAT. With the 14-second production budget, the effective solve pool is about 42 recipes even when the policy shortlist is larger; this gives the 385-recipe runtime catalog enough non-dominant-family alternatives for 21-slot weekly plans while keeping the hosted worker inside the deadline. Profile-specific solve ordering starts strict-time, allergy, Budget First, restriction-only, high nutrition-pressure, default, and no-budget profiles from the tolerance/repetition pairs that are most likely to be feasible. Stage 1 caches static recipe tags, ingredient tokens, protein groups, vegetable tokens, and meal-slot eligibility by recipe identity/version. The CP-SAT model avoids redundant helper variables for constraints that are already hard. When `solver.max_solution_count` is `1`, CP-SAT stops after the first feasible hard-safe plan instead of spending the rest of the time box polishing the objective.
 
 These values are bootstrap defaults for production-like environments, not a replacement for explicit operator tuning.
 Customized active policies should keep their explicit values.
@@ -51,7 +51,7 @@ Top-level policy namespaces:
 
 2. `planning`
 - `planning_horizon_days`, `meals_per_day`, `snack_rules`, `recipe_repeat_limits`, `cuisine_diversity_weight`, `pantry_utilization_weight`, `grocery_cost_weight`, `prep_time_weight`, `acceptance_score_weight`, `substitution_penalty`, `infeasibility_relaxation_order`
-- Additional controls migrated from hardcoded logic: `meal_min_calorie_target`, `group_limit_floor`, `diversity_min_token_target`
+- Additional controls migrated from hardcoded logic: `meal_min_calorie_target`, `group_limit_floor`, `diversity_min_token_target`, `semantic_ingredient_family_caps_enabled`, `semantic_ingredient_family_max_share`, `semantic_ingredient_family_relaxed_slot_share`, `semantic_ingredient_family_max_capped_families`, `semantic_family_soft_limit_per_week`, `semantic_family_diversity_weight`, `same_title_max_per_week`
 
 3. `stage1`
 - `max_candidates_per_slot`, `ranking_cutoff`, `similarity_threshold`, `pantry_match_threshold`, `exclusion_penalty_weights`, `cold_start_defaults`, `ML_shadow_enabled`, `ML_canary_enabled`, `ML_score_weight`, `ML_score_cap`

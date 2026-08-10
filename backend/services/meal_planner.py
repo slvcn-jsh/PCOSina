@@ -325,10 +325,29 @@ PROTEIN_GROUP_TOKENS = {
     "egg": {"egg"},
     "munggo": {"munggo", "monggo"},
     "tofu": {"tofu"},
+    "legume": {"chickpea", "chickpeas", "garbanzo", "garbanzos", "kidney", "bean", "beans"},
 }
 SEMANTIC_VARIETY_FAMILY_TOKENS = {
     "munggo": {"munggo", "monggo"},
+    "chicken": {"chicken"},
+    "fish": FISH_FAMILY_TOKENS,
+    "shellfish": SHELLFISH_FAMILY_TOKENS,
+    "tofu_soy": {"tofu", "tokwa", "soy", "soya", "soybean", "soybeans", "taho"},
+    "egg": EGG_FAMILY_TOKENS,
+    "pork": {"pork"},
+    "beef": {"beef"},
 }
+SEMANTIC_VARIETY_FAMILY_CAP_PRIORITY = {
+    "munggo": 0,
+    "shellfish": 1,
+    "fish": 2,
+    "chicken": 3,
+    "tofu_soy": 4,
+    "egg": 5,
+    "pork": 6,
+    "beef": 7,
+}
+SEMANTIC_VARIETY_FATIGUE_FAMILIES = {"munggo", "shellfish", "fish", "chicken", "tofu_soy"}
 VEG_TOKENS = {
     "pechay", "sitaw", "ampalaya", "talong", "kamatis", "okra",
     "kalabasa", "sayote", "saluyot", "kangkong", "malunggay",
@@ -1398,6 +1417,8 @@ def repeat_sequence_for_profile(
         if "low" not in raw_preference and enough_for_variety:
             return sorted(set([value for value in sequence if value >= 3] + [3, 4, 6, 8, 10]))
         return sorted(set([value for value in sequence if value >= 6] + [6, 8, 10]))
+    if hard_filter_count > 0 and "low" not in raw_preference and enough_for_variety:
+        return sorted(set(sequence + [3, 4, 6, 8, 10]))
     return sequence
 
 
@@ -1427,19 +1448,34 @@ def solve_pair_sequence_for_profile(
     restricted_catalog: bool = False,
     preferred_tolerances: Optional[List[float]] = None,
     preferred_repeats: Optional[List[int]] = None,
+    prefer_low_repeats_across_tolerances: bool = False,
 ) -> List[Tuple[float, int]]:
     tol_sequence = [float(v) for v in tolerance_levels]
     repeat_sequence = [int(v) for v in max_per_week_list]
+    def low_repeat_first_pairs() -> List[Tuple[float, int]]:
+        pairs: List[Tuple[float, int]] = []
+        strict_repeats = [value for value in repeat_sequence if int(value) <= 4]
+        relaxed_repeats = [value for value in repeat_sequence if int(value) > 4]
+        for max_repeat in strict_repeats:
+            for tol in tol_sequence:
+                pairs.append((tol, max_repeat))
+        for tol in tol_sequence:
+            for max_repeat in relaxed_repeats:
+                pairs.append((tol, max_repeat))
+        return list(dict.fromkeys(pairs))
+
     if preferred_tolerances or preferred_repeats:
         if preferred_tolerances:
             tol_sequence = _ordered_values_by_preference(tol_sequence, preferred_tolerances)
         if preferred_repeats:
             repeat_sequence = _ordered_values_by_preference(repeat_sequence, preferred_repeats)
+        if prefer_low_repeats_across_tolerances:
+            return low_repeat_first_pairs()
         return [(tol, max_repeat) for tol in tol_sequence for max_repeat in repeat_sequence]
     if restricted_catalog:
         tol_sequence = _ordered_values_by_preference(tol_sequence, [0.4, 0.6, 0.8, 0.3, 0.2])
         repeat_sequence = _ordered_values_by_preference(repeat_sequence, [3, 4, 6, 8, 10, 2])
-        return [(tol, max_repeat) for tol in tol_sequence for max_repeat in repeat_sequence]
+        return low_repeat_first_pairs()
 
     outer_key = (str(relaxation_order[0]).strip().lower() if relaxation_order else "daily_tolerance_percent")
     if "recipe_repeat_limits" in outer_key:
@@ -1468,36 +1504,42 @@ def _solve_pair_preferences_for_profile(
             "strategy": "restricted_or_major_diet",
             "preferredTolerances": [0.4, 0.6, 0.3, 0.8, 0.2],
             "preferredRepeats": [3, 4, 6, 8, 10, 2],
+            "preferLowRepeatsAcrossTolerances": True,
         }
     if strict_time_limit:
         return {
             "strategy": "strict_time_tolerance_first",
             "preferredTolerances": [0.3, 0.4, 0.2, 0.6, 0.8],
-            "preferredRepeats": [4, 3, 6, 8, 10, 2],
+            "preferredRepeats": [3, 4, 6, 8, 10, 2],
+            "preferLowRepeatsAcrossTolerances": True,
         }
     if allergies:
         return {
             "strategy": "allergy_repeat_first",
             "preferredTolerances": [0.3, 0.2, 0.4, 0.6, 0.8],
-            "preferredRepeats": [4, 10, 3, 2, 6, 8],
+            "preferredRepeats": [3, 4, 6, 8, 10, 2],
+            "preferLowRepeatsAcrossTolerances": True,
         }
     if "budget" in priority:
         return {
-            "strategy": "budget_tolerance_first",
+            "strategy": "budget_repeat_first",
             "preferredTolerances": [0.3, 0.4, 0.2, 0.6, 0.8],
             "preferredRepeats": [3, 4, 6, 8, 10, 2],
+            "preferLowRepeatsAcrossTolerances": True,
         }
     if "quick" in priority or "prep" in priority:
         return {
-            "strategy": "quick_prep_tolerance_first",
+            "strategy": "quick_prep_repeat_first",
             "preferredTolerances": [0.3, 0.4, 0.2, 0.6, 0.8],
-            "preferredRepeats": [4, 3, 6, 8, 10, 2],
+            "preferredRepeats": [3, 4, 6, 8, 10, 2],
+            "preferLowRepeatsAcrossTolerances": True,
         }
     if restrictions and "budget" not in priority:
         return {
             "strategy": "dietary_restriction_repeat_first",
             "preferredTolerances": [0.3, 0.2, 0.4, 0.6, 0.8],
-            "preferredRepeats": [3, 4, 10, 2, 6, 8],
+            "preferredRepeats": [3, 4, 6, 8, 10, 2],
+            "preferLowRepeatsAcrossTolerances": True,
         }
     high_nutrition_pressure = (
         "nutrition" in priority
@@ -1511,22 +1553,26 @@ def _solve_pair_preferences_for_profile(
                 "strategy": "nutrition_pressure_tight_budget_relaxed_first",
                 "preferredTolerances": [0.6, 0.8, 0.4, 0.3, 0.2],
                 "preferredRepeats": [3, 4, 6, 8, 10, 2],
+                "preferLowRepeatsAcrossTolerances": True,
             }
         return {
             "strategy": "nutrition_pressure_tolerance_first",
             "preferredTolerances": [0.3, 0.4, 0.2, 0.6, 0.8],
-            "preferredRepeats": [3, 4, 10, 2, 6, 8],
+            "preferredRepeats": [3, 4, 6, 8, 10, 2],
+            "preferLowRepeatsAcrossTolerances": True,
         }
     if not has_weekly_budget:
         return {
-            "strategy": "broad_no_budget_repeat_four_first",
+            "strategy": "broad_no_budget_repeat_first",
             "preferredTolerances": [0.3, 0.4, 0.2, 0.6, 0.8],
-            "preferredRepeats": [4, 3, 2, 10, 6, 8],
+            "preferredRepeats": [3, 4, 6, 8, 10, 2],
+            "preferLowRepeatsAcrossTolerances": True,
         }
     return {
-        "strategy": "default_repeat_three_first",
-        "preferredTolerances": None,
-        "preferredRepeats": [3, 2, 4, 10],
+        "strategy": "default_repeat_first",
+        "preferredTolerances": [0.3, 0.4, 0.2, 0.6, 0.8],
+        "preferredRepeats": [3, 4, 6, 8, 10, 2],
+        "preferLowRepeatsAcrossTolerances": True,
     }
 
 
@@ -2081,7 +2127,9 @@ def shortlist_candidates(
             stage1_diag["ml_score_ms"] = max(0, int((time.time() - ml_started_at) * 1000))
 
     finalize_started_at = time.time()
-    restricted_catalog = hard_filter_count >= 6 or safe_candidates_count <= 96
+    normalized_restrictions = normalize_dietary_restrictions(profile.dietaryRestrictions or [])
+    major_diet_profile = bool(normalized_restrictions & {"Vegetarian", "Pescatarian"})
+    restricted_catalog = major_diet_profile or hard_filter_count >= 6 or safe_candidates_count <= 96
     for k in buckets:
         buckets[k].sort(key=_base_score, reverse=True)
         if restricted_catalog:
@@ -2512,6 +2560,27 @@ def _ingredient_variety_family_indices(pool: List[Dict[str, Any]]) -> Dict[str, 
     return indices
 
 
+def _recipe_title_signature(recipe: Dict[str, Any]) -> str:
+    raw = str(recipe.get("title") or recipe.get("name") or recipe.get("id") or "").strip().lower()
+    cleaned = re.sub(r"[^a-z0-9]+", " ", raw)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
+def _recipe_title_family_indices(pool: List[Dict[str, Any]]) -> Dict[str, List[int]]:
+    grouped: Dict[str, List[int]] = {}
+    for index, recipe in enumerate(pool or []):
+        signature = _recipe_title_signature(recipe)
+        if not signature:
+            continue
+        grouped.setdefault(signature, []).append(index)
+    return {
+        signature: indices
+        for signature, indices in grouped.items()
+        if len(indices) > 1
+    }
+
+
 def _semantic_ingredient_family_cap_for_attempt(
     profile: UserProfile,
     *,
@@ -2526,14 +2595,13 @@ def _semantic_ingredient_family_cap_for_attempt(
     if int(num_days or 0) <= 1:
         return None
     variety_preference = str(profile.varietyPreference or "").strip().lower()
-    if "low" in variety_preference:
-        return None
     escape_repeat_limit = int(_policy_get(policy, "planning.semantic_ingredient_family_escape_repeat_limit", 10))
     if escape_repeat_limit > 0 and normalized_max_per_week >= escape_repeat_limit:
         return None
     priority = str(profile.planningPriority or "").strip().lower()
     default_ratio = 0.5 if ("high" in variety_preference or "variety" in priority) else 0.7
-    ratio = float(_policy_get(policy, "planning.semantic_ingredient_family_max_share", default_ratio))
+    configured_ratio = _policy_get(policy, "planning.semantic_ingredient_family_max_share", None)
+    ratio = default_ratio if configured_ratio is None else float(configured_ratio)
     ratio = max(0.05, min(1.0, ratio))
     raw_cap = max(1.0, float(num_days) * ratio)
     cap = int(raw_cap)
@@ -2542,9 +2610,19 @@ def _semantic_ingredient_family_cap_for_attempt(
     configured_cap = _policy_get(policy, "planning.semantic_ingredient_family_max_per_week", None)
     if configured_cap is not None:
         cap = int(configured_cap)
-    elif normalized_max_per_week > 4:
+    else:
+        if int(slot_count or 0) >= 14:
+            weekly_slot_share = float(
+                _policy_get(policy, "planning.semantic_ingredient_family_relaxed_slot_share", 0.50)
+            )
+            weekly_slot_share = max(0.05, min(1.0, weekly_slot_share))
+            weekly_slot_cap = int(float(slot_count) * weekly_slot_share)
+            if float(weekly_slot_cap) < (float(slot_count) * weekly_slot_share):
+                weekly_slot_cap += 1
+            cap = max(cap, weekly_slot_cap)
+    if configured_cap is None and normalized_max_per_week > 4:
         relaxed_day_ratio = float(_policy_get(policy, "planning.semantic_ingredient_family_relaxed_day_share", 1.15))
-        relaxed_slot_share = float(_policy_get(policy, "planning.semantic_ingredient_family_relaxed_slot_share", 0.40))
+        relaxed_slot_share = float(_policy_get(policy, "planning.semantic_ingredient_family_relaxed_slot_share", 0.50))
         relaxed_day_ratio = max(ratio, min(3.0, relaxed_day_ratio))
         relaxed_slot_share = max(0.05, min(1.0, relaxed_slot_share))
         relaxed_day_cap = int(float(num_days) * relaxed_day_ratio)
@@ -2580,31 +2658,91 @@ def _semantic_ingredient_family_caps_for_attempt(
     if cap is None:
         return {}
 
-    caps: Dict[str, int] = {}
+    candidate_caps: List[Tuple[str, int, set[int], int]] = []
+    recipe_slot_capacity: Dict[int, int] = {}
     all_indices = set(range(len(pool or [])))
+    for index in all_indices:
+        allowed_slots = 0
+        for label in slot_labels:
+            if index in meal_to_allowed.get(label, set()):
+                allowed_slots += int(num_days)
+        if allowed_slots > 0:
+            recipe_slot_capacity[index] = min(int(max_per_week), allowed_slots)
+
     for family, indices in (family_indices or {}).items():
         family_set = set(indices)
         if not family_set:
             continue
-        family_capacity = 0
-        non_family_capacity = 0
-        for index in all_indices:
-            allowed_slots = 0
-            for label in slot_labels:
-                if index in meal_to_allowed.get(label, set()):
-                    allowed_slots += int(num_days)
-            if allowed_slots <= 0:
-                continue
-            recipe_capacity = min(int(max_per_week), allowed_slots)
-            if index in family_set:
-                family_capacity += recipe_capacity
-            else:
-                non_family_capacity += recipe_capacity
+        min_pool_share = float(
+            _policy_get(policy, "planning.semantic_ingredient_family_min_candidate_share", 0.75)
+        )
+        if str(family) in SEMANTIC_VARIETY_FATIGUE_FAMILIES:
+            min_pool_share = min(
+                min_pool_share,
+                float(
+                    _policy_get(
+                        policy,
+                        "planning.semantic_fatigue_family_min_candidate_share",
+                        0.25,
+                    )
+                ),
+            )
+        min_pool_share = max(0.0, min(1.0, min_pool_share))
+        if len(pool or []) > 0 and (len(family_set) / float(len(pool))) < min_pool_share:
+            continue
+        family_capacity = sum(recipe_slot_capacity.get(index, 0) for index in family_set)
+        non_family_capacity = sum(
+            recipe_slot_capacity.get(index, 0)
+            for index in all_indices - family_set
+        )
         if family_capacity <= cap:
             continue
         if non_family_capacity < max(0, int(slot_count) - cap):
             continue
-        caps[str(family)] = int(cap)
+        candidate_caps.append((str(family), int(cap), family_set, family_capacity))
+
+    hard_filter_count = len(profile.dietaryRestrictions or []) + len(profile.allergies or [])
+    normalized_restrictions = normalize_dietary_restrictions(profile.dietaryRestrictions or [])
+    variety_preference = str(profile.varietyPreference or "").strip().lower()
+    planning_priority = str(profile.planningPriority or "").strip().lower()
+    major_diet = bool(normalized_restrictions & {"Vegetarian", "Pescatarian"})
+    default_max_capped_families = 3 if (
+        hard_filter_count >= 1 or major_diet or "high" in variety_preference or "variety" in planning_priority
+    ) else 2
+    configured_max_capped_families = _policy_get(
+        policy,
+        "planning.semantic_ingredient_family_max_capped_families",
+        None,
+    )
+    max_capped_families = (
+        default_max_capped_families
+        if configured_max_capped_families is None
+        else int(configured_max_capped_families)
+    )
+    max_capped_families = max(1, min(max_capped_families, len(candidate_caps) or 1))
+    caps: Dict[str, int] = {}
+    capped_union: set[int] = set()
+    capped_cap_total = 0
+    for family, family_cap, family_set, family_capacity in sorted(
+        candidate_caps,
+        key=lambda item: (
+            -int(item[3]),
+            SEMANTIC_VARIETY_FAMILY_CAP_PRIORITY.get(str(item[0]), 100),
+            str(item[0]),
+        ),
+    ):
+        if len(caps) >= max_capped_families:
+            break
+        next_union = capped_union | family_set
+        uncapped_capacity = sum(
+            recipe_slot_capacity.get(index, 0)
+            for index in all_indices - next_union
+        )
+        if capped_cap_total + family_cap + uncapped_capacity < int(slot_count):
+            continue
+        caps[family] = int(family_cap)
+        capped_union = next_union
+        capped_cap_total += int(family_cap)
     return caps
 
 
@@ -2810,11 +2948,9 @@ def _budget_aware_pool_limit(
     minimum_candidates = max(1, int(minimum_candidates_required or 1))
     minimum_assignments = normalized_slots * minimum_candidates
     # Tight hosted-worker budgets cannot afford unbounded slot x recipe assignment
-    # growth. For a 21-slot, 14-second production solve, 60 candidates still
-    # left CP-SAT spending the whole deadline in UNKNOWN on Render starter.
-    # About 33 candidates was the fastest reliable point in the 20-profile
-    # benchmark while preserving hard-rule validation.
-    assignment_budget = max(minimum_assignments, int(max(1.0, float(total_time_limit or 0.0)) * 50.0))
+    # growth. The current runtime catalog needs about 42 candidates for 21-slot
+    # plans so semantic variety has enough non-dominant-family alternatives.
+    assignment_budget = max(minimum_assignments, int(max(1.0, float(total_time_limit or 0.0)) * 64.0))
     budget_limited_pool = max(minimum_candidates, assignment_budget // normalized_slots)
     return min(normalized_max_pool, budget_limited_pool)
 
@@ -3121,10 +3257,15 @@ def solve_meal_plan(
     if debug_solver:
         debug_summary["allowed_sizes"] = {k: len(v) for k, v in meal_to_allowed.items()}
     semantic_family_indices = _ingredient_variety_family_indices(pool)
+    title_family_indices = _recipe_title_family_indices(pool)
     if stage1_diag is not None:
         stage1_diag["candidate_ingredient_family_counts"] = {
             family: len(indices)
             for family, indices in sorted(semantic_family_indices.items())
+        }
+        stage1_diag["candidate_duplicate_title_counts"] = {
+            title: len(indices)
+            for title, indices in sorted(title_family_indices.items())
         }
     base_scores = []
     for r in pool:
@@ -3212,6 +3353,9 @@ def solve_meal_plan(
         restricted_catalog=bool(restricted_solver_catalog),
         preferred_tolerances=solve_pair_preferences.get("preferredTolerances"),
         preferred_repeats=solve_pair_preferences.get("preferredRepeats"),
+        prefer_low_repeats_across_tolerances=bool(
+            solve_pair_preferences.get("preferLowRepeatsAcrossTolerances")
+        ),
     )
     stage1_diag["solve_pair_strategy"] = str(solve_pair_preferences.get("strategy") or "default")
     if restricted_solver_catalog:
@@ -3300,13 +3444,28 @@ def solve_meal_plan(
                         model.Add(x[s, i] == 0)
                         if (i & 31) == 0:
                             _check_planner_budget(deadline_at, "solver_model_allowed", telemetry_out=telemetry_out)
-            # Greedy warm-start (hint)
+            # Greedy warm-start (hint): prefer unused recipes/titles/families so
+            # the low-latency first feasible solution is not seeded with repeats.
+            hint_recipe_usage: Counter[int] = Counter()
+            hint_title_usage: Counter[str] = Counter()
+            hint_family_usage: Counter[str] = Counter()
             prev_idx = None
             for s in range(slot_count):
                 _check_planner_budget(deadline_at, "solver_model_hints", telemetry_out=telemetry_out)
                 meal_label = slot_labels[s % configured_meals_per_day]
                 allowed = list(meal_to_allowed.get(meal_label, set(range(len(pool)))))
-                allowed.sort(key=lambda i: base_scores[i], reverse=True)
+                allowed.sort(
+                    key=lambda i: (
+                        hint_recipe_usage[i],
+                        hint_title_usage[_recipe_title_signature(pool[i])],
+                        max(
+                            [hint_family_usage[family] for family in _recipe_ingredient_variety_families(pool[i])]
+                            or [0]
+                        ),
+                        -base_scores[i],
+                        str(pool[i].get("id") or ""),
+                    )
+                )
                 pick = None
                 for idx in allowed:
                     if idx != prev_idx:
@@ -3314,6 +3473,10 @@ def solve_meal_plan(
                         break
                 if pick is not None:
                     model.AddHint(x[s, pick], 1)
+                    hint_recipe_usage[pick] += 1
+                    hint_title_usage[_recipe_title_signature(pool[pick])] += 1
+                    for family in _recipe_ingredient_variety_families(pool[pick]):
+                        hint_family_usage[family] += 1
                     prev_idx = pick
             for s in range(slot_count - 1):
                 _check_planner_budget(deadline_at, "solver_model_adjacent", telemetry_out=telemetry_out)
@@ -3342,6 +3505,20 @@ def solve_meal_plan(
                     if family_idxs:
                         model.Add(
                             sum(x[s, i] for s in range(slot_count) for i in family_idxs) <= int(cap)
+                        )
+            escape_repeat_limit = int(_policy_get(policy, "planning.semantic_ingredient_family_escape_repeat_limit", 10))
+            title_caps_enabled = not (
+                escape_repeat_limit > 0 and int(max_per_week) >= escape_repeat_limit
+            )
+            if title_family_indices and title_caps_enabled:
+                title_cap = int(max_per_week)
+                if "low" not in str(profile.varietyPreference or "").strip().lower():
+                    title_cap = min(title_cap, int(_policy_get(policy, "planning.same_title_max_per_week", 3)))
+                for title, title_idxs in title_family_indices.items():
+                    _check_planner_budget(deadline_at, "solver_model_same_title_repeat", telemetry_out=telemetry_out)
+                    if title_idxs:
+                        model.Add(
+                            sum(x[s, i] for s in range(slot_count) for i in title_idxs) <= int(title_cap)
                         )
             for i in range(len(pool)):
                 if (i & 15) == 0:
@@ -3378,6 +3555,29 @@ def solve_meal_plan(
             model.Add(count - group_limit <= over)
             model.Add(over >= 0)
             group_over_vars.append(over)
+
+        # Semantic ingredient-family fatigue is softer than hard allergy or
+        # diet constraints. It nudges away from plans dominated by one protein
+        # family while keeping feasibility intact for restricted profiles.
+        semantic_family_over_vars = []
+        semantic_family_soft_limit = int(
+            _policy_get(
+                policy,
+                "planning.semantic_family_soft_limit_per_week",
+                int(num_days),
+            )
+            or int(num_days)
+        )
+        semantic_family_soft_limit = max(1, min(int(slot_count), semantic_family_soft_limit))
+        for family, idxs in semantic_family_indices.items():
+            if not idxs:
+                continue
+            count = sum(x[s, i] for s in range(slot_count) for i in idxs)
+            over = model.NewIntVar(0, slot_count, f"semantic_family_over_{family}")
+            model.Add(count - semantic_family_soft_limit <= over)
+            model.Add(over >= 0)
+            semantic_family_over_vars.append(over)
+        pair_diag["semanticFamilySoftLimit"] = int(semantic_family_soft_limit)
 
         # Ingredient diversity (soft) based on vegetable tokens
         veg_tokens = set()
@@ -3466,6 +3666,7 @@ def solve_meal_plan(
         total_meal_err = sum(meal_err_vars) if meal_err_vars else 0
         total_repeat_over = sum(repeat_over_vars)
         total_group_over = sum(group_over_vars) if group_over_vars else 0
+        total_semantic_family_over = sum(semantic_family_over_vars) if semantic_family_over_vars else 0
         budget_penalty = 0
         pantry_reward = sum(pantry_bonus_vars) if pantry_bonus_vars else 0
         diversity_reward = sum(veg_cov.values()) if veg_cov else 0
@@ -3493,6 +3694,7 @@ def solve_meal_plan(
             weights["diversity_weight"] = priority["diversity_weight"]
         repeat_w = int(_policy_get(policy, "planning.substitution_penalty", weights.get("repeat_weight", 5))) * int(priority.get("variety_mult", 1))
         group_w = int(_policy_get(policy, "planning.cuisine_diversity_weight", weights.get("group_weight", 2))) * int(priority.get("variety_mult", 1))
+        semantic_family_w = int(_policy_get(policy, "planning.semantic_family_diversity_weight", 12)) * int(priority.get("variety_mult", 1))
         diversity_w = int(_policy_get(policy, "planning.cuisine_diversity_weight", weights.get("diversity_weight", 1))) * int(priority.get("variety_mult", 1))
         pantry_w = int(_policy_get(policy, "planning.pantry_utilization_weight", weights.get("pantry_weight", 1)))
         prep_time_w = int(priority.get("prep_time_mult", 1)) * int(_policy_get(policy, "planning.prep_time_weight", 1))
@@ -3506,7 +3708,7 @@ def solve_meal_plan(
             (macro_mult * total_err) + (macro_mult * total_meal_err) +
             (macro_mult * total_sodium_over) + (macro_mult * total_sugar_over) +
             (budget_mult * cost_w * cost_objective) + (budget_mult * cost_w * budget_penalty) + (prep_time_w * prep_time_penalty) +
-            (repeat_w * total_repeat_over) + (group_w * total_group_over) + (acceptance_w * total_meal_err) +
+            (repeat_w * total_repeat_over) + (group_w * total_group_over) + (semantic_family_w * total_semantic_family_over) + (acceptance_w * total_meal_err) +
             diversity_penalty - (pantry_w * pantry_reward) - (diversity_w * diversity_reward)
             + pantry_min_penalty
         )
@@ -3521,6 +3723,11 @@ def solve_meal_plan(
             break
 
         solver = cp_model.CpSolver()
+        solver_seed = int(hashlib.sha256(seed_key.encode("utf-8")).hexdigest()[:8], 16) & 0x7FFFFFFF
+        if hasattr(solver.parameters, "random_seed"):
+            solver.parameters.random_seed = solver_seed
+        if hasattr(solver.parameters, "randomize_search"):
+            solver.parameters.randomize_search = False
         base_time = float(
             _policy_get_legacy_aware(
                 policy,

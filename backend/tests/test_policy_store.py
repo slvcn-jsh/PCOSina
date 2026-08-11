@@ -116,6 +116,49 @@ def test_ensure_default_policy_upgrades_canonical_stage1_to_on(monkeypatch):
         assert resolved["stage1"]["canonical_features_enabled"] is True
 
 
+def test_ensure_default_policy_upgrades_default_semantic_variety(monkeypatch):
+    tmp_root = ROOT / "tests" / ".tmp_policy_store"
+    tmp_root.mkdir(parents=True, exist_ok=True)
+    test_db = tmp_root / f"policy_store_semantic_variety_{uuid.uuid4().hex}.db"
+    monkeypatch.setattr(policy_store, "DATABASE_URL", "")
+    monkeypatch.setattr(policy_store, "DB_NAME", str(test_db))
+
+    policy_store.init_policy_store()
+    payload = default_policy().to_runtime_dict()
+    payload["planning"].update(
+        {
+            "semantic_ingredient_family_escape_repeat_limit": 10,
+            "semantic_ingredient_family_max_share": 0.70,
+            "semantic_ingredient_family_max_per_week": None,
+            "semantic_ingredient_family_min_candidate_share": 0.15,
+            "semantic_fatigue_family_min_candidate_share": 0.25,
+            "semantic_ingredient_family_max_capped_families": 8,
+            "semantic_family_soft_limit_per_week": 10,
+            "semantic_family_diversity_weight": 12,
+        }
+    )
+    created = policy_store.create_policy_version(
+        policy_input=payload,
+        actor="test",
+        notes="legacy-semantic-variety",
+        activate=True,
+    )
+
+    upgraded = policy_store.ensure_default_policy(actor="test")
+
+    assert upgraded["id"] != created["id"]
+    assert upgraded["rollback_of"] == created["id"]
+    planning = load_policy(upgraded["policy"]).to_runtime_dict()["planning"]
+    assert planning["semantic_ingredient_family_escape_repeat_limit"] == 0
+    assert planning["semantic_ingredient_family_max_share"] is None
+    assert planning["semantic_ingredient_family_max_per_week"] == 8
+    assert planning["semantic_ingredient_family_min_candidate_share"] == 0.0
+    assert planning["semantic_fatigue_family_min_candidate_share"] == 0.0
+    assert planning["semantic_ingredient_family_max_capped_families"] == 16
+    assert planning["semantic_family_soft_limit_per_week"] == 6
+    assert planning["semantic_family_diversity_weight"] == 36
+
+
 def test_ensure_default_policy_upgrades_default_staging_performance(monkeypatch):
     tmp_root = ROOT / "tests" / ".tmp_policy_store"
     tmp_root.mkdir(parents=True, exist_ok=True)

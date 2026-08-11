@@ -222,6 +222,21 @@ def test_runtime_ingredient_tokenization_uses_philfct_and_source_metadata():
     assert "broiled" in tokens
 
 
+def test_runtime_ingredient_tokenization_does_not_inherit_false_animal_family_from_specific_name():
+    ingredients = [
+        {
+            "name": "egg",
+            "quantity": "75 g",
+            "philfctName": "Egg, chicken, whole",
+        }
+    ]
+
+    tokens = set(meal_planner.normalize_ingredients(ingredients))
+
+    assert "egg" in tokens
+    assert "chicken" not in tokens
+
+
 def test_stage1_pricing_uses_request_scoped_market_multiplier_cache(monkeypatch):
     price_catalog.invalidate_override_cache()
     monkeypatch.setattr(database, "list_active_price_rules", lambda limit=500: [])
@@ -1243,6 +1258,7 @@ def test_solver_caps_munggo_family_repetition_when_alternatives_exist(monkeypatc
             "planning_horizon_days": 3,
             "meals_per_day": 3,
             "recipe_repeat_limits": [3],
+            "semantic_ingredient_family_max_per_week": 3,
         },
         "stage1": {
             "ML_shadow_enabled": False,
@@ -1282,7 +1298,7 @@ def test_solver_caps_munggo_family_repetition_when_alternatives_exist(monkeypatc
     assert telemetry["solve_pair_diagnostics"][0]["ingredientFamilyRepeatCapsEnforced"] is True
 
 
-def test_semantic_ingredient_family_cap_uses_weekly_slot_share_before_escape():
+def test_semantic_ingredient_family_cap_uses_configured_weekly_cap_without_escape():
     profile = UserProfile(varietyPreference="Balanced")
 
     short_plan_cap = meal_planner._semantic_ingredient_family_cap_for_attempt(
@@ -1310,10 +1326,10 @@ def test_semantic_ingredient_family_cap_uses_weekly_slot_share_before_escape():
         max_per_week=10,
     )
 
-    assert short_plan_cap == 3
-    assert strict_cap == 11
-    assert relaxed_cap == 12
-    assert escape_cap is None
+    assert short_plan_cap == 8
+    assert strict_cap == 8
+    assert relaxed_cap == 8
+    assert escape_cap == 8
 
 
 def test_semantic_family_caps_prioritize_high_capacity_fatigue_family():
@@ -1384,8 +1400,8 @@ def test_semantic_family_caps_prioritize_high_capacity_fatigue_family():
         policy={"planning": {"semantic_ingredient_family_max_capped_families": 1}},
     )
 
-    assert caps == {"chicken": 11, "fish": 11}
-    assert single_cap == {"chicken": 11}
+    assert caps == {"chicken": 8, "fish": 8}
+    assert single_cap == {"chicken": 8}
 
 
 def test_solver_honors_single_solution_policy_for_latency():

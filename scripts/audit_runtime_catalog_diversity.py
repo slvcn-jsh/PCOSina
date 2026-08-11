@@ -320,7 +320,12 @@ def run_scenario(
     }
 
 
-def apply_audit_requirements(summary: Dict[str, Any], *, max_repeat_limit: int) -> Dict[str, Any]:
+def apply_audit_requirements(
+    summary: Dict[str, Any],
+    *,
+    max_repeat_limit: int,
+    max_semantic_family_limit: int,
+) -> Dict[str, Any]:
     violations: List[str] = []
     if summary.get("status") != "success":
         violations.append("plan_generation_failed")
@@ -328,7 +333,10 @@ def apply_audit_requirements(summary: Dict[str, Any], *, max_repeat_limit: int) 
         violations.append("slot_count_not_filled")
     if int(summary.get("selectedMaxRecipeRepeatCount") or 0) > int(max_repeat_limit):
         violations.append("repeat_limit_exceeded")
+    if int(summary.get("dominantIngredientFamilyCount") or 0) > int(max_semantic_family_limit):
+        violations.append("semantic_family_limit_exceeded")
     summary["auditMaxRepeatLimit"] = int(max_repeat_limit)
+    summary["auditMaxSemanticFamilyLimit"] = int(max_semantic_family_limit)
     summary["auditPass"] = not violations
     summary["auditViolations"] = violations
     return summary
@@ -340,6 +348,7 @@ def csv_row(summary: Dict[str, Any]) -> Dict[str, Any]:
         "auditPass": summary.get("auditPass"),
         "auditViolations": json.dumps(summary.get("auditViolations") or []),
         "auditMaxRepeatLimit": summary.get("auditMaxRepeatLimit"),
+        "auditMaxSemanticFamilyLimit": summary.get("auditMaxSemanticFamilyLimit"),
         "status": summary["status"],
         "message": summary["message"],
         "catalogRecipeCount": summary["catalogRecipeCount"],
@@ -371,6 +380,7 @@ def write_outputs(
     *,
     suite: str,
     max_repeat_limit: int,
+    max_semantic_family_limit: int,
 ) -> None:
     json_path.parent.mkdir(parents=True, exist_ok=True)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
@@ -387,6 +397,7 @@ def write_outputs(
         "requirements": {
             "slotCountMustBeFilled": True,
             "maxRecipeRepeatCount": int(max_repeat_limit),
+            "maxSemanticFamilyCount": int(max_semantic_family_limit),
         },
         "scenarios": summaries,
     }
@@ -408,6 +419,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--days", type=int, default=7)
     parser.add_argument("--meals-per-day", type=int, default=3)
     parser.add_argument("--max-repeat-limit", type=int, default=3)
+    parser.add_argument("--max-semantic-family-limit", type=int, default=8)
     parser.add_argument("--scenario", action="append", help="Run only the named scenario. Can be repeated.")
     parser.add_argument("--no-write", action="store_true", help="Print summaries without writing JSON/CSV files.")
     return parser.parse_args()
@@ -434,6 +446,7 @@ def main() -> int:
                 meals_per_day=int(args.meals_per_day),
             ),
             max_repeat_limit=int(args.max_repeat_limit),
+            max_semantic_family_limit=int(args.max_semantic_family_limit),
         )
         for name in scenarios
         if name in selected_names
@@ -447,6 +460,7 @@ def main() -> int:
             csv_out,
             suite=str(args.suite),
             max_repeat_limit=int(args.max_repeat_limit),
+            max_semantic_family_limit=int(args.max_semantic_family_limit),
         )
 
     print(json.dumps({

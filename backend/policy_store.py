@@ -39,6 +39,17 @@ DB_NAME = os.getenv("PCOSINA_DB_NAME", "pcosina.db").strip() or "pcosina.db"
 SCHEMA_MIGRATION_SCOPE = "policy"
 SCHEMA_BOOTSTRAP_LOCK_KEY = 2026032902
 POLICY_WRITE_LOCK_KEY = 2026041301
+SEMANTIC_VARIETY_BOOTSTRAP_FIELDS = (
+    "semantic_ingredient_family_caps_enabled",
+    "semantic_ingredient_family_escape_repeat_limit",
+    "semantic_ingredient_family_max_share",
+    "semantic_ingredient_family_max_per_week",
+    "semantic_ingredient_family_min_candidate_share",
+    "semantic_fatigue_family_min_candidate_share",
+    "semantic_ingredient_family_max_capped_families",
+    "semantic_family_soft_limit_per_week",
+    "semantic_family_diversity_weight",
+)
 
 def _is_production_env() -> bool:
     return os.getenv("PCOSINA_ENV", "development").strip().lower() in ("prod", "production")
@@ -315,6 +326,53 @@ def _canonical_stage1_bootstrap_overlay() -> Dict[str, Any]:
     }
 
 
+def _semantic_variety_bootstrap_defaults() -> Dict[str, Any]:
+    planning = default_policy().to_runtime_dict().get("planning")
+    if not isinstance(planning, dict):
+        return {}
+    return {
+        field: planning.get(field)
+        for field in SEMANTIC_VARIETY_BOOTSTRAP_FIELDS
+        if field in planning
+    }
+
+
+def _semantic_variety_bootstrap_overlay() -> Dict[str, Any]:
+    return {"planning": _semantic_variety_bootstrap_defaults()}
+
+
+def _policy_value_matches(actual: Any, expected: Any) -> bool:
+    if expected is None:
+        return actual is None
+    if isinstance(expected, bool):
+        return bool(actual) is expected
+    if isinstance(expected, int) and not isinstance(expected, bool):
+        try:
+            return int(actual) == int(expected)
+        except Exception:
+            return False
+    if isinstance(expected, float):
+        try:
+            return abs(float(actual) - float(expected)) < 0.000001
+        except Exception:
+            return False
+    return actual == expected
+
+
+def _requires_semantic_variety_bootstrap(policy_payload: Dict[str, Any]) -> bool:
+    raw_policy_name = str((policy_payload or {}).get("policy_name") or "").strip().lower()
+    if raw_policy_name not in ("", "default"):
+        return False
+    validated = load_policy(policy_payload)
+    resolved = validated.to_runtime_dict()
+    planning = resolved.get("planning") if isinstance(resolved.get("planning"), dict) else {}
+    expected = _semantic_variety_bootstrap_defaults()
+    return any(
+        not _policy_value_matches(planning.get(field), value)
+        for field, value in expected.items()
+    )
+
+
 def _apply_runtime_bootstrap(policy_payload: Dict[str, Any]) -> Dict[str, Any]:
     upgraded = deepcopy(load_policy(policy_payload).to_runtime_dict())
     if _requires_production_canary_bootstrap(policy_payload):
@@ -323,6 +381,8 @@ def _apply_runtime_bootstrap(policy_payload: Dict[str, Any]) -> Dict[str, Any]:
         _deep_merge(upgraded, _staging_performance_bootstrap_overlay())
     if _requires_canonical_stage1_bootstrap(policy_payload):
         _deep_merge(upgraded, _canonical_stage1_bootstrap_overlay())
+    if _requires_semantic_variety_bootstrap(policy_payload):
+        _deep_merge(upgraded, _semantic_variety_bootstrap_overlay())
     return load_policy(upgraded).to_runtime_dict()
 
 
@@ -505,6 +565,7 @@ def ensure_default_policy(actor: str = "system") -> Dict[str, Any]:
             _requires_production_canary_bootstrap(active_payload)
             or _requires_staging_performance_bootstrap(active_payload)
             or _requires_canonical_stage1_bootstrap(active_payload)
+            or _requires_semantic_variety_bootstrap(active_payload)
         ):
             upgraded_payload = _apply_runtime_bootstrap(active_payload)
             upgraded_hash = _policy_hash(upgraded_payload)

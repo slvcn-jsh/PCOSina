@@ -24,7 +24,7 @@ It keeps MILP/CP-SAT authoritative, but reduces search pressure before and durin
 - `stage1.pool_cap_top_share = 0.45`
 - `solver.solver_time_limit_seconds = 4`
 - `solver.solver_max_seconds = 7`
-- `solver.total_solver_seconds = 14`
+- `solver.total_solver_seconds = 18`
 - `solver.retry_attempts = 1`
 - `solver.max_solution_count = 1`
 - `solver.solver_workers = 1`
@@ -51,7 +51,8 @@ Top-level policy namespaces:
 
 2. `planning`
 - `planning_horizon_days`, `meals_per_day`, `snack_rules`, `recipe_repeat_limits`, `cuisine_diversity_weight`, `pantry_utilization_weight`, `grocery_cost_weight`, `prep_time_weight`, `acceptance_score_weight`, `substitution_penalty`, `infeasibility_relaxation_order`
-- Additional controls migrated from hardcoded logic: `meal_min_calorie_target`, `group_limit_floor`, `diversity_min_token_target`, `semantic_ingredient_family_caps_enabled`, `semantic_ingredient_family_max_share`, `semantic_ingredient_family_relaxed_slot_share`, `semantic_ingredient_family_max_capped_families`, `semantic_family_soft_limit_per_week`, `semantic_family_diversity_weight`, `same_title_max_per_week`
+- Additional controls migrated from hardcoded logic: `meal_min_calorie_target`, `group_limit_floor`, `diversity_min_token_target`, `semantic_ingredient_family_caps_enabled`, `semantic_ingredient_family_escape_repeat_limit`, `semantic_ingredient_family_max_share`, `semantic_ingredient_family_max_per_week`, `semantic_ingredient_family_relaxed_slot_share`, `semantic_ingredient_family_min_candidate_share`, `semantic_fatigue_family_min_candidate_share`, `semantic_ingredient_family_max_capped_families`, `semantic_family_soft_limit_per_week`, `semantic_family_diversity_weight`, `same_title_max_per_week`
+- Current semantic variety defaults cap tracked ingredient families at 8 uses per 7-day/21-meal plan, keep semantic caps enabled across all repeat attempts (`semantic_ingredient_family_escape_repeat_limit=0`), allow up to 16 capped families when feasible, and apply a soft fatigue target of 6 uses per week with diversity weight 36.
 
 3. `stage1`
 - `max_candidates_per_slot`, `ranking_cutoff`, `similarity_threshold`, `pantry_match_threshold`, `exclusion_penalty_weights`, `cold_start_defaults`, `ML_shadow_enabled`, `ML_canary_enabled`, `ML_score_weight`, `ML_score_cap`

@@ -30,11 +30,14 @@ def test_default_policy_is_strict_and_valid():
         "recipe_repeat_limits",
     ]
     assert policy.planning.semantic_ingredient_family_caps_enabled is True
-    assert policy.planning.semantic_ingredient_family_min_candidate_share == 0.75
-    assert policy.planning.semantic_fatigue_family_min_candidate_share == 0.25
+    assert policy.planning.semantic_ingredient_family_escape_repeat_limit == 0
+    assert policy.planning.semantic_ingredient_family_max_per_week == 8
+    assert policy.planning.semantic_ingredient_family_min_candidate_share == 0.0
+    assert policy.planning.semantic_fatigue_family_min_candidate_share == 0.0
+    assert policy.planning.semantic_ingredient_family_max_capped_families == 16
     assert policy.planning.semantic_ingredient_family_relaxed_slot_share == 0.50
-    assert policy.planning.semantic_family_soft_limit_per_week is None
-    assert policy.planning.semantic_family_diversity_weight == 12
+    assert policy.planning.semantic_family_soft_limit_per_week == 6
+    assert policy.planning.semantic_family_diversity_weight == 36
     assert policy.planning.same_title_max_per_week == 3
     assert policy.stage1.max_candidates_per_slot >= 10
     assert policy.stage1.canonical_features_enabled is True

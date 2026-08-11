@@ -13,7 +13,7 @@ PRODUCTION_STAGE1_RESTRICTED_MULTIPLIER = 1.15
 PRODUCTION_STAGE1_POOL_CAP_TOP_SHARE = 0.45
 PRODUCTION_SOLVER_TIME_LIMIT_SECONDS = 4.0
 PRODUCTION_SOLVER_MAX_SECONDS = 7.0
-PRODUCTION_TOTAL_SOLVER_SECONDS = 14.0
+PRODUCTION_TOTAL_SOLVER_SECONDS = 18.0
 PRODUCTION_SOLVER_RETRY_ATTEMPTS = 1
 PRODUCTION_SOLVER_WORKERS = 1
 
@@ -104,16 +104,16 @@ class PlanningPolicy(BaseModel):
     snack_rules: SnackRules = Field(default_factory=SnackRules)
     recipe_repeat_limits: List[int] = Field(default_factory=lambda: [2, 3, 4, 10])
     semantic_ingredient_family_caps_enabled: bool = True
-    semantic_ingredient_family_escape_repeat_limit: int = Field(default=10, ge=0, le=50)
+    semantic_ingredient_family_escape_repeat_limit: int = Field(default=0, ge=0, le=50)
     semantic_ingredient_family_max_share: Optional[float] = Field(default=None, ge=0.05, le=1.0)
-    semantic_ingredient_family_max_per_week: Optional[int] = Field(default=None, ge=1, le=50)
+    semantic_ingredient_family_max_per_week: Optional[int] = Field(default=8, ge=1, le=50)
     semantic_ingredient_family_relaxed_day_share: float = Field(default=1.15, ge=0.05, le=3.0)
     semantic_ingredient_family_relaxed_slot_share: float = Field(default=0.50, ge=0.05, le=1.0)
-    semantic_ingredient_family_min_candidate_share: float = Field(default=0.75, ge=0.0, le=1.0)
-    semantic_fatigue_family_min_candidate_share: float = Field(default=0.25, ge=0.0, le=1.0)
-    semantic_ingredient_family_max_capped_families: Optional[int] = Field(default=None, ge=1, le=16)
-    semantic_family_soft_limit_per_week: Optional[int] = Field(default=None, ge=1, le=50)
-    semantic_family_diversity_weight: int = Field(default=12, ge=0, le=500)
+    semantic_ingredient_family_min_candidate_share: float = Field(default=0.0, ge=0.0, le=1.0)
+    semantic_fatigue_family_min_candidate_share: float = Field(default=0.0, ge=0.0, le=1.0)
+    semantic_ingredient_family_max_capped_families: Optional[int] = Field(default=16, ge=1, le=16)
+    semantic_family_soft_limit_per_week: Optional[int] = Field(default=6, ge=1, le=50)
+    semantic_family_diversity_weight: int = Field(default=36, ge=0, le=500)
     same_title_max_per_week: int = Field(default=3, ge=1, le=50)
     cuisine_diversity_weight: int = Field(default=2, ge=0, le=100)
     pantry_utilization_weight: int = Field(default=1, ge=0, le=100)

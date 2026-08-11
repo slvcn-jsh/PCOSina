@@ -392,21 +392,47 @@ def normalize_dietary_restrictions(restrictions: List[str]) -> set[str]:
     return normalized
 
 
+GENERIC_INGREDIENT_NAME_TOKENS = {
+    "cooked",
+    "edible",
+    "portion",
+    "ingredient",
+    "component",
+    "item",
+    "food",
+    "serving",
+    "estimate",
+}
+
+
+def _ingredient_name_is_generic(value: Any) -> bool:
+    normalized = _normalize_phrase(str(value or ""))
+    if not normalized:
+        return True
+    tokens = set(normalized.split())
+    return bool(tokens) and tokens <= GENERIC_INGREDIENT_NAME_TOKENS
+
+
 def normalize_ingredients(ings: List[Any]) -> List[str]:
     tokens = []
     for ing in ings:
         if isinstance(ing, dict):
+            primary_name = str(ing.get("name", "") or "")
             text_parts = [
-                ing.get("name", ""),
+                primary_name,
                 ing.get("sourceText", ""),
                 ing.get("source_text", ""),
-                ing.get("philfctName", ""),
-                ing.get("philfct_name", ""),
-                ing.get("philfctCode", ""),
                 ing.get("category", ""),
                 ing.get("canonicalName", ""),
                 ing.get("canonical_name", ""),
             ]
+            if _ingredient_name_is_generic(primary_name):
+                text_parts.extend(
+                    [
+                        ing.get("philfctName", ""),
+                        ing.get("philfct_name", ""),
+                    ]
+                )
             name = " ".join(str(part or "") for part in text_parts)
         else:
             name = str(ing)
@@ -1747,6 +1773,32 @@ def _reinsert_restricted_nutrition_anchors(
         present_ids.add(recipe_id)
 
 
+def _reinsert_tight_budget_support_candidates(
+    buckets: Dict[str, List[Dict[str, Any]]],
+    candidates: List[Dict[str, Any]],
+) -> int:
+    present_ids = {
+        str(recipe.get("id") or "")
+        for bucket in buckets.values()
+        for recipe in bucket
+        if str(recipe.get("id") or "")
+    }
+    added = 0
+    for recipe in candidates:
+        if "philfct_budget_support" not in set(recipe.get("tags") or []):
+            continue
+        recipe_id = str(recipe.get("id") or "")
+        if not recipe_id or recipe_id in present_ids:
+            continue
+        bucket_key = _pre_pricing_bucket_key(recipe)
+        if bucket_key not in buckets:
+            bucket_key = "Universal"
+        buckets[bucket_key].append(recipe)
+        present_ids.add(recipe_id)
+        added += 1
+    return added
+
+
 def _pre_pricing_bucket_key(recipe: Dict[str, Any]) -> str:
     allowed = [str(label) for label in (recipe.get("_allowed_meals") or []) if str(label) in MEAL_LABELS]
     if len(allowed) == 1:
@@ -2152,6 +2204,14 @@ def shortlist_candidates(
         for k in buckets:
             for recipe in buckets[k]:
                 recipe["_stage1_bucket"] = k
+    if tight_budget_profile and not (profile.allergies or []):
+        budget_support_added = _reinsert_tight_budget_support_candidates(buckets, safe_candidates)
+        if stage1_diag is not None:
+            stage1_diag["tight_budget_support_reinserted"] = budget_support_added
+        if budget_support_added:
+            for k in buckets:
+                for recipe in buckets[k]:
+                    recipe["_stage1_bucket"] = k
     restricted_anchor_count_post_trim = sum(
         1 for recipe in (buckets["Breakfast"] + buckets["Lunch"] + buckets["Dinner"] + buckets["Universal"])
         if _is_restricted_nutrition_anchor(recipe)
@@ -2595,7 +2655,7 @@ def _semantic_ingredient_family_cap_for_attempt(
     if int(num_days or 0) <= 1:
         return None
     variety_preference = str(profile.varietyPreference or "").strip().lower()
-    escape_repeat_limit = int(_policy_get(policy, "planning.semantic_ingredient_family_escape_repeat_limit", 10))
+    escape_repeat_limit = int(_policy_get(policy, "planning.semantic_ingredient_family_escape_repeat_limit", 0))
     if escape_repeat_limit > 0 and normalized_max_per_week >= escape_repeat_limit:
         return None
     priority = str(profile.planningPriority or "").strip().lower()
@@ -2607,7 +2667,7 @@ def _semantic_ingredient_family_cap_for_attempt(
     cap = int(raw_cap)
     if float(cap) < raw_cap:
         cap += 1
-    configured_cap = _policy_get(policy, "planning.semantic_ingredient_family_max_per_week", None)
+    configured_cap = _policy_get(policy, "planning.semantic_ingredient_family_max_per_week", 8)
     if configured_cap is not None:
         cap = int(configured_cap)
     else:
@@ -2674,7 +2734,7 @@ def _semantic_ingredient_family_caps_for_attempt(
         if not family_set:
             continue
         min_pool_share = float(
-            _policy_get(policy, "planning.semantic_ingredient_family_min_candidate_share", 0.75)
+            _policy_get(policy, "planning.semantic_ingredient_family_min_candidate_share", 0.0)
         )
         if str(family) in SEMANTIC_VARIETY_FATIGUE_FAMILIES:
             min_pool_share = min(
@@ -2683,7 +2743,7 @@ def _semantic_ingredient_family_caps_for_attempt(
                     _policy_get(
                         policy,
                         "planning.semantic_fatigue_family_min_candidate_share",
-                        0.25,
+                        0.0,
                     )
                 ),
             )
@@ -2712,7 +2772,7 @@ def _semantic_ingredient_family_caps_for_attempt(
     configured_max_capped_families = _policy_get(
         policy,
         "planning.semantic_ingredient_family_max_capped_families",
-        None,
+        16,
     )
     max_capped_families = (
         default_max_capped_families
@@ -2948,8 +3008,8 @@ def _budget_aware_pool_limit(
     minimum_candidates = max(1, int(minimum_candidates_required or 1))
     minimum_assignments = normalized_slots * minimum_candidates
     # Tight hosted-worker budgets cannot afford unbounded slot x recipe assignment
-    # growth. The current runtime catalog needs about 42 candidates for 21-slot
-    # plans so semantic variety has enough non-dominant-family alternatives.
+    # growth. The current runtime catalog needs about 54 candidates for 21-slot
+    # plans so exact-repeat and semantic-family limits have enough alternatives.
     assignment_budget = max(minimum_assignments, int(max(1.0, float(total_time_limit or 0.0)) * 64.0))
     budget_limited_pool = max(minimum_candidates, assignment_budget // normalized_slots)
     return min(normalized_max_pool, budget_limited_pool)
@@ -3196,9 +3256,8 @@ def solve_meal_plan(
         and not (profile.allergies or [])
         and len(tight_budget_support_pool) >= max(configured_meals_per_day, 10)
     ):
-        pool = tight_budget_support_pool
-        stage1_diag["tight_budget_support_pool_applied"] = True
-        stage1_diag["tight_budget_support_pool_count"] = len(pool)
+        stage1_diag["tight_budget_support_pool_available"] = True
+        stage1_diag["tight_budget_support_pool_count"] = len(tight_budget_support_pool)
     restricted_solver_catalog = int(len(profile.dietaryRestrictions or []) + len(profile.allergies or [])) >= 6 or (
         int(stage1_diag.get("safe_recipe_count_pre_pricing") or 0) <= 96
     )
@@ -3506,7 +3565,7 @@ def solve_meal_plan(
                         model.Add(
                             sum(x[s, i] for s in range(slot_count) for i in family_idxs) <= int(cap)
                         )
-            escape_repeat_limit = int(_policy_get(policy, "planning.semantic_ingredient_family_escape_repeat_limit", 10))
+            escape_repeat_limit = int(_policy_get(policy, "planning.semantic_ingredient_family_escape_repeat_limit", 0))
             title_caps_enabled = not (
                 escape_repeat_limit > 0 and int(max_per_week) >= escape_repeat_limit
             )
@@ -3564,7 +3623,7 @@ def solve_meal_plan(
             _policy_get(
                 policy,
                 "planning.semantic_family_soft_limit_per_week",
-                int(num_days),
+                6,
             )
             or int(num_days)
         )
@@ -3694,7 +3753,7 @@ def solve_meal_plan(
             weights["diversity_weight"] = priority["diversity_weight"]
         repeat_w = int(_policy_get(policy, "planning.substitution_penalty", weights.get("repeat_weight", 5))) * int(priority.get("variety_mult", 1))
         group_w = int(_policy_get(policy, "planning.cuisine_diversity_weight", weights.get("group_weight", 2))) * int(priority.get("variety_mult", 1))
-        semantic_family_w = int(_policy_get(policy, "planning.semantic_family_diversity_weight", 12)) * int(priority.get("variety_mult", 1))
+        semantic_family_w = int(_policy_get(policy, "planning.semantic_family_diversity_weight", 36)) * int(priority.get("variety_mult", 1))
         diversity_w = int(_policy_get(policy, "planning.cuisine_diversity_weight", weights.get("diversity_weight", 1))) * int(priority.get("variety_mult", 1))
         pantry_w = int(_policy_get(policy, "planning.pantry_utilization_weight", weights.get("pantry_weight", 1)))
         prep_time_w = int(priority.get("prep_time_mult", 1)) * int(_policy_get(policy, "planning.prep_time_weight", 1))

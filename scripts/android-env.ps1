@@ -15,15 +15,22 @@ function Add-OptionFlag {
     return "$Flag $CurrentValue".Trim()
 }
 
-$defaultJavaHome = "C:\\Program Files\\Android\\Android Studio\\jbr"
+$defaultJavaHomeCandidates = @(
+    "C:\Program Files\Android\Android Studio\jbr",
+    "C:\Program Files\Android\Android Studio1\jbr",
+    "C:\Program Files\JetBrains\IntelliJ IDEA 2026.1.3\jbr"
+)
+$defaultJavaHome = $defaultJavaHomeCandidates |
+    Where-Object { Test-Path (Join-Path $_ "bin\java.exe") } |
+    Select-Object -First 1
 if ([string]::IsNullOrWhiteSpace($env:JAVA_HOME)) {
-    if (Test-Path $defaultJavaHome) {
+    if ($defaultJavaHome) {
         $env:JAVA_HOME = $defaultJavaHome
     } else {
-        throw "JAVA_HOME is not set and Android Studio JBR was not found at $defaultJavaHome"
+        throw "JAVA_HOME is not set and no usable Android Studio/JetBrains JBR was found."
     }
-} elseif (-not (Test-Path $env:JAVA_HOME)) {
-    throw "JAVA_HOME points to a missing path: $env:JAVA_HOME"
+} elseif (-not (Test-Path (Join-Path $env:JAVA_HOME "bin\java.exe"))) {
+    throw "JAVA_HOME does not contain bin\java.exe: $env:JAVA_HOME"
 }
 
 $javaBin = Join-Path $env:JAVA_HOME "bin"

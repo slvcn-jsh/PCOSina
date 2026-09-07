@@ -232,8 +232,25 @@ def _runtime_schema_bootstrap_needed() -> bool:
     try:
         schema_status = _schema_readiness_report()
     except Exception as exc:
-        print(f"Database schema readiness probe failed; startup bootstrap will run: {exc}", flush=True)
-        return True
+        message = str(exc).strip()
+        normalized = message.lower()
+        recoverable_schema_markers = (
+            "missing table",
+            "no such table",
+            "undefined table",
+            "undefinedtable",
+        )
+        relation_missing = "relation " in normalized and " does not exist" in normalized
+        if relation_missing or any(marker in normalized for marker in recoverable_schema_markers):
+            print(
+                f"Database schema objects are missing; startup recovery will run: {message}",
+                flush=True,
+            )
+            return True
+        raise RuntimeError(
+            "Database schema readiness could not reach PostgreSQL. Verify the Render "
+            f"DATABASE_URL and database availability; schema migration cannot repair connectivity: {message}"
+        ) from exc
     pending = list(schema_status.get("pending") or [])
     if pending:
         print(f"Database schema has pending migrations; startup bootstrap will run: {pending}", flush=True)

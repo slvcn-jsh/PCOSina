@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -250,6 +252,17 @@ def test_runtime_schema_bootstrap_needed_when_schema_probe_fails(monkeypatch):
     monkeypatch.setattr(main, "_schema_readiness_report", lambda: (_ for _ in ()).throw(RuntimeError("missing table")))
 
     assert main._runtime_schema_bootstrap_needed() is True
+
+
+def test_runtime_schema_bootstrap_fails_fast_when_database_is_unreachable(monkeypatch):
+    monkeypatch.setattr(
+        main,
+        "_schema_readiness_report",
+        lambda: (_ for _ in ()).throw(RuntimeError("couldn't get a connection after 30.00 sec")),
+    )
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL.*migration cannot repair connectivity"):
+        main._runtime_schema_bootstrap_needed()
 
 
 def test_runtime_schema_bootstrap_needed_when_migrations_pending(monkeypatch):

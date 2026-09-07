@@ -52,3 +52,12 @@ def test_deploy_bootstrap_runs_schema_and_seed_stages_once(monkeypatch):
         "policy_schema",
         ("default_policy", "render-predeploy"),
     ]
+
+
+def test_render_web_does_not_repeat_predeploy_bootstrap_on_process_start():
+    blueprint = (ROOT.parent / "render.yaml").read_text(encoding="utf-8")
+    web_service = blueprint.split("  - type: web", 1)[1].split("  - type: worker", 1)[0]
+
+    assert "preDeployCommand: python deploy_bootstrap.py" in web_service
+    assert "- key: PCOSINA_BOOTSTRAP_ON_STARTUP\n        value: \"false\"" in web_service
+    assert "- key: PCOSINA_FORCE_RESEED\n        value: \"false\"" in web_service

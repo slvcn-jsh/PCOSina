@@ -50,10 +50,12 @@ services:
         value: "60"
       - key: PCOSINA_RATE_LIMIT_MAX
         value: "60"
+      # preDeployCommand owns migrations and forced seed refreshes. The web
+      # process retains schema-recovery and catalog-consistency fallbacks.
       - key: PCOSINA_BOOTSTRAP_ON_STARTUP
-        value: "true"
+        value: "false"
       - key: PCOSINA_FORCE_RESEED
-        value: "true"
+        value: "false"
       - key: PCOSINA_DEACTIVATE_MISSING_SEED_RECIPES
         value: "true"
       - key: PCOSINA_HEALTH_READY_DEEP

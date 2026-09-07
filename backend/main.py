@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request, Depends, Header, Form, BackgroundTasks
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.requests import ClientDisconnect
 from starlette.responses import JSONResponse, HTMLResponse, RedirectResponse, Response
 from typing import Dict, Any, Optional
 import base64
@@ -619,17 +620,23 @@ async def limit_request_size(request: Request, call_next):
                 status_code=400,
                 content={"detail": "Invalid Content-Length"},
             )
+    if request.method.upper() in {"GET", "HEAD", "OPTIONS"}:
+        return await call_next(request)
+
     received = 0
     body_parts: list[bytes] = []
-    async for chunk in request.stream():
-        received += len(chunk or b"")
-        if received > MAX_REQUEST_BYTES:
-            return JSONResponse(
-                status_code=413,
-                content={"detail": "Request too large"},
-            )
-        if chunk:
-            body_parts.append(chunk)
+    try:
+        async for chunk in request.stream():
+            received += len(chunk or b"")
+            if received > MAX_REQUEST_BYTES:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "Request too large"},
+                )
+            if chunk:
+                body_parts.append(chunk)
+    except ClientDisconnect:
+        return Response(status_code=499)
 
     body = b"".join(body_parts)
     request._body = body

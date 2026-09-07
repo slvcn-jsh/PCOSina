@@ -73,7 +73,7 @@ import com.pcosina.app.domain.alignGroceryEntriesWithAuthority
 import com.pcosina.app.domain.alignGroceryEstimateWithAuthority
 import com.pcosina.app.domain.buildGroceryListEntries
 import com.pcosina.app.domain.buildGroceryListEntriesFromPlanner
-import com.pcosina.app.domain.correctedAuthoritativeGroceryEstimate
+import com.pcosina.app.domain.resolveDisplayGroceryEstimate
 import com.pcosina.app.domain.shouldTrustBackendGroceryPricing
 import com.pcosina.app.domain.buildPantryCoverage
 import com.pcosina.app.domain.canonicalGroceryKey
@@ -161,18 +161,7 @@ fun GroceryRefinedScreen(
         catalogVersion = activeGroceryOutput?.pricingCatalogVersion,
         referenceDate = activeGroceryOutput?.pricingReferenceDate,
     )
-    val rawAuthoritativePlanEstimate = activeGroceryOutput
-        ?.estimatedTotalPhp
-        ?.takeIf { it >= 0 }
-        ?: activeGroceryOutput?.finalGroceryEstimatePhp?.takeIf { it >= 0 }
-    val authoritativePlanEstimate = if (trustBackendPricing) {
-        correctedAuthoritativeGroceryEstimate(
-            items = activeGroceryOutput?.items.orEmpty(),
-            authoritativeEstimatePhp = rawAuthoritativePlanEstimate,
-        )
-    } else {
-        null
-    }
+    val authoritativePlanEstimate = resolveDisplayGroceryEstimate(activeGroceryOutput)
     val rawGroupedEntries = remember(groceryItems, activeGroceryOutput, trustBackendPricing) {
         val plannerItems = activeGroceryOutput?.items.orEmpty()
         if (plannerItems.isNotEmpty()) {

@@ -2,6 +2,7 @@ package com.pcosina.app.domain
 
 import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.PantryEntry
+import com.pcosina.app.data.model.PlannerGroceryOutput
 import com.pcosina.app.data.model.PlannerGroceryOutputItem
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -407,6 +408,38 @@ fun shouldTrustBackendGroceryPricing(
     val backendDate = runCatching { LocalDate.parse(referenceDate) }.getOrNull() ?: return false
     val localDate = LocalDate.parse(PriceCatalog.CURRENT_REFERENCE_DATE)
     return !backendDate.isBefore(localDate)
+}
+
+fun resolveDisplayGroceryEstimate(output: PlannerGroceryOutput?): Int? {
+    output ?: return null
+    val authoritativeEstimate = output.estimatedTotalPhp?.takeIf { it >= 0 }
+        ?: output.finalGroceryEstimatePhp?.takeIf { it >= 0 }
+    if (shouldTrustBackendGroceryPricing(output.pricingCatalogVersion, output.pricingReferenceDate)) {
+        return correctedAuthoritativeGroceryEstimate(output.items, authoritativeEstimate)
+    }
+    val refreshedEntries = buildGroceryListEntriesFromPlanner(
+        items = output.items,
+        trustBackendPrices = false,
+    )
+    return refreshedEntries
+        .takeIf { it.isNotEmpty() }
+        ?.sumOf { it.estimatedCostPhp.coerceAtLeast(0) }
+        ?: correctedAuthoritativeGroceryEstimate(output.items, authoritativeEstimate)
+}
+
+fun normalizeGroceryOutputPricingForDisplay(output: PlannerGroceryOutput?): PlannerGroceryOutput? {
+    output ?: return null
+    val estimate = resolveDisplayGroceryEstimate(output) ?: return output
+    val budget = output.weeklyBudgetPhp?.takeIf { it > 0 }
+        ?: output.userBudgetPhp?.takeIf { it > 0 }
+    val budgetDelta = budget?.minus(estimate)
+    return output.copy(
+        estimatedTotalPhp = estimate,
+        finalGroceryEstimatePhp = estimate,
+        withinBudget = budget?.let { estimate <= it } ?: output.withinBudget,
+        budgetDeltaPhp = budgetDelta ?: output.budgetDeltaPhp,
+        budgetGapPhp = budgetDelta ?: output.budgetGapPhp,
+    )
 }
 
 fun correctedAuthoritativeGroceryEstimate(

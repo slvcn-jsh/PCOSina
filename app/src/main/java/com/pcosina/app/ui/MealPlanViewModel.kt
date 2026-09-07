@@ -21,6 +21,7 @@ import com.pcosina.app.data.repository.PlannerLocalRepository
 import com.pcosina.app.data.repository.UserPreferencesPlannerLocalRepository
 import com.pcosina.app.data.repository.UserPreferencesRepository
 import com.pcosina.app.domain.PlannerProfilePreparationUseCase
+import com.pcosina.app.domain.normalizeGroceryOutputPricingForDisplay
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -702,16 +703,18 @@ class MealPlanViewModel(
         val normalized = orderedLabels.map { label ->
             byCanonical[label] ?: PlannerDayPlan(label, emptyList(), 0)
         }
-        val authoritativeEstimate = response.groceryOutput
-            ?.estimatedTotalPhp
-            ?.takeIf { it > 0 }
-            ?: response.groceryOutput?.finalGroceryEstimatePhp?.takeIf { it > 0 }
+        val normalizedGroceryOutput = normalizeGroceryOutputPricingForDisplay(response.groceryOutput)
+        val authoritativeEstimate = normalizedGroceryOutput?.estimatedTotalPhp?.takeIf { it >= 0 }
         val explanation = if (authoritativeEstimate != null && response.explanation != null) {
             response.explanation.copy(estimatedWeeklyCost = authoritativeEstimate)
         } else {
             response.explanation
         }
-        return response.copy(days = normalized, explanation = explanation)
+        return response.copy(
+            days = normalized,
+            explanation = explanation,
+            groceryOutput = normalizedGroceryOutput,
+        )
     }
 
     private fun canonicalDayLabel(label: String): String? {

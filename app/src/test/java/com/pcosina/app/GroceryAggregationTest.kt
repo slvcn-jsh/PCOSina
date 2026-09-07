@@ -1,6 +1,7 @@
 package com.pcosina.app
 
 import com.pcosina.app.data.model.PlannerGroceryOutputItem
+import com.pcosina.app.data.model.PlannerGroceryOutput
 import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.PantryEntry
 import com.pcosina.app.domain.PantryCoverageStatus
@@ -15,6 +16,8 @@ import com.pcosina.app.domain.canonicalGroceryKey
 import com.pcosina.app.domain.canonicalGroceryName
 import com.pcosina.app.domain.correctedAuthoritativeGroceryEstimate
 import com.pcosina.app.domain.shouldTrustBackendGroceryPricing
+import com.pcosina.app.domain.normalizeGroceryOutputPricingForDisplay
+import com.pcosina.app.domain.resolveDisplayGroceryEstimate
 import com.pcosina.app.domain.estimateGroceryCostAfterPantry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -215,6 +218,45 @@ class GroceryAggregationTest {
             )
         )
         assertTrue(shouldTrustBackendGroceryPricing("future-v2", "2026-09-13"))
+    }
+
+    @Test
+    fun normalizeGroceryOutputPricingForDisplay_updatesLegacyTotalsAndBudgetState() {
+        val output = PlannerGroceryOutput(
+            estimatedTotalPhp = 2_267,
+            finalGroceryEstimatePhp = 2_267,
+            weeklyBudgetPhp = 2_200,
+            withinBudget = false,
+            budgetDeltaPhp = -67,
+            items = listOf(
+                PlannerGroceryOutputItem(
+                    key = "pechay",
+                    name = "Pechay",
+                    quantity = "1.39 kg",
+                    estimatedCostPhp = 139,
+                    category = "Produce",
+                    originalNames = listOf("pechay"),
+                ),
+                PlannerGroceryOutputItem(
+                    key = "water",
+                    name = "Water",
+                    quantity = "2.1 kg",
+                    estimatedCostPhp = 185,
+                    category = "Beverages",
+                    originalNames = listOf("water"),
+                ),
+            ),
+        )
+
+        val normalized = normalizeGroceryOutputPricingForDisplay(output)!!
+
+        assertEquals(282, resolveDisplayGroceryEstimate(output))
+        assertEquals(282, normalized.estimatedTotalPhp)
+        assertEquals(282, normalized.finalGroceryEstimatePhp)
+        assertTrue(normalized.withinBudget == true)
+        assertEquals(1_918, normalized.budgetDeltaPhp)
+        assertEquals(1_918, normalized.budgetGapPhp)
+        assertEquals(null, normalized.pricingCatalogVersion)
     }
 
     @Test

@@ -588,8 +588,9 @@ def test_check_operator_auth_policy_passes_with_hardened_settings():
 
 def test_check_schema_migrations_script_writes_gate_report():
     case = _case_dir("schema_gate")
-    db_path = case / "schema_gate.sqlite3"
+    db_path = case / "missing" / "nested" / "schema_gate.sqlite3"
     output = case / "schema_gate_report.json"
+    assert not db_path.parent.exists()
 
     proc = _run(
         [
@@ -601,6 +602,7 @@ def test_check_schema_migrations_script_writes_gate_report():
         ]
     )
     assert proc.returncode == 0, proc.stderr or proc.stdout
+    assert db_path.is_file()
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["status"] == "ok"
     assert payload["application"]["pending"] == []

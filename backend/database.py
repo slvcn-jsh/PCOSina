@@ -4953,6 +4953,7 @@ def seed_reviewed_price_rules(source_path: str | None = None) -> Dict[str, Any]:
             "sourceCount": 0,
             "insertedCount": 0,
             "updatedCount": 0,
+            "skippedExistingCount": 0,
             "missing": bool(path),
         }
 
@@ -4965,34 +4966,57 @@ def seed_reviewed_price_rules(source_path: str | None = None) -> Dict[str, Any]:
 
     inserted_count = 0
     updated_count = 0
+    skipped_existing_count = 0
     conn = _connect()
     try:
         cur = conn.cursor()
+        select_columns = (
+            "id, keywords_json, price_php, price_min_php, price_max_php, "
+            "category, unit, active, notes"
+        )
         if _use_postgres() and dict_row is not None:
             existing_cur = conn.cursor(row_factory=dict_row)
-            existing_cur.execute("SELECT id FROM ingredient_price_rules")
-            existing_ids = {str(row["id"]) for row in existing_cur.fetchall()}
+            existing_cur.execute(f"SELECT {select_columns} FROM ingredient_price_rules")
+            existing_rows = {str(row["id"]): row for row in existing_cur.fetchall()}
         else:
             conn.row_factory = sqlite3.Row
             existing_cur = conn.cursor()
-            existing_cur.execute("SELECT id FROM ingredient_price_rules")
-            existing_ids = {str(row["id"]) for row in existing_cur.fetchall()}
+            existing_cur.execute(f"SELECT {select_columns} FROM ingredient_price_rules")
+            existing_rows = {str(row["id"]): row for row in existing_cur.fetchall()}
             cur = conn.cursor()
 
         now = int(time.time() * 1000)
         for index, rule in enumerate(rows):
             rule_id = str(rule["id"])
             keywords_json = json.dumps(rule["keywords"], ensure_ascii=True)
-            values = (
-                rule_id,
+            incoming_payload = (
                 keywords_json,
-                rule["pricePhp"],
+                int(rule["pricePhp"]),
                 rule.get("priceMinPhp"),
                 rule.get("priceMaxPhp"),
-                rule["category"],
+                str(rule["category"]),
                 rule.get("unit"),
                 bool(rule.get("active", True)),
-                rule.get("notes"),
+                str(rule.get("notes") or ""),
+            )
+            existing = existing_rows.get(rule_id)
+            if existing is not None:
+                existing_payload = (
+                    str(existing["keywords_json"] or ""),
+                    int(existing["price_php"] or 0),
+                    int(existing["price_min_php"]) if existing["price_min_php"] is not None else None,
+                    int(existing["price_max_php"]) if existing["price_max_php"] is not None else None,
+                    str(existing["category"] or ""),
+                    str(existing["unit"]) if existing["unit"] is not None else None,
+                    bool(existing["active"]),
+                    str(existing["notes"] or ""),
+                )
+                if existing_payload == incoming_payload:
+                    skipped_existing_count += 1
+                    continue
+            values = (
+                rule_id,
+                *incoming_payload,
                 now,
                 now + index,
             )
@@ -5026,11 +5050,10 @@ def seed_reviewed_price_rules(source_path: str | None = None) -> Dict[str, Any]:
                     """,
                     (*values[:9], rule_id, values[9], values[10]),
                 )
-            if rule_id in existing_ids:
+            if existing is not None:
                 updated_count += 1
             else:
                 inserted_count += 1
-                existing_ids.add(rule_id)
         conn.commit()
     finally:
         conn.close()
@@ -5038,13 +5061,15 @@ def seed_reviewed_price_rules(source_path: str | None = None) -> Dict[str, Any]:
     if rows:
         print(
             "REVIEWED PRICE RULES SYNCED: "
-            f"{inserted_count} inserted, {updated_count} updated."
+            f"{inserted_count} inserted, {updated_count} updated, "
+            f"{skipped_existing_count} kept."
         )
     return {
         "sourcePath": path,
         "sourceCount": len(rows),
         "insertedCount": inserted_count,
         "updatedCount": updated_count,
+        "skippedExistingCount": skipped_existing_count,
         "missing": False,
     }
 

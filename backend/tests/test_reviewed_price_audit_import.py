@@ -94,11 +94,14 @@ def test_reviewed_price_seed_csv_updates_database_and_price_catalog(tmp_path):
     )
 
     summary = database.seed_reviewed_price_rules(str(seed_path))
+    unchanged = database.seed_reviewed_price_rules(str(seed_path))
     price_catalog.invalidate_override_cache()
     estimate = price_catalog.estimate_price_explained("kamatis", "1 kg", month_index=5)
 
     assert summary["sourceCount"] == 1
     assert summary["insertedCount"] == 1
+    assert unchanged["updatedCount"] == 0
+    assert unchanged["skippedExistingCount"] == 1
     assert estimate.source == "reviewed_market"
     assert estimate.price_php == 64
     assert estimate.category_multiplier == 1.0

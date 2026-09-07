@@ -74,6 +74,7 @@ import com.pcosina.app.domain.alignGroceryEstimateWithAuthority
 import com.pcosina.app.domain.buildGroceryListEntries
 import com.pcosina.app.domain.buildGroceryListEntriesFromPlanner
 import com.pcosina.app.domain.resolveDisplayGroceryEstimate
+import com.pcosina.app.domain.requiresGroceryPurchase
 import com.pcosina.app.domain.shouldTrustBackendGroceryPricing
 import com.pcosina.app.domain.buildPantryCoverage
 import com.pcosina.app.domain.canonicalGroceryKey
@@ -176,6 +177,9 @@ fun GroceryRefinedScreen(
     val groupedEntries = remember(rawGroupedEntries, authoritativePlanEstimate) {
         alignGroceryEntriesWithAuthority(rawGroupedEntries, authoritativePlanEstimate)
     }
+    val purchaseEntries = remember(groupedEntries) {
+        groupedEntries.filter { it.requiresGroceryPurchase() }
+    }
     val pantryCoverageByName = remember(groupedEntries, effectivePantryEntries, today) {
         buildPantryCoverage(groupedEntries, effectivePantryEntries, today)
     }
@@ -268,8 +272,8 @@ fun GroceryRefinedScreen(
             val isCovered = item.name in checkedNames || (item.name in pantryMatches && item.name !in pantryOptOut)
             val matchesScope = when (activeFilterScope) {
                 GroceryFilterScope.AllItems -> true
-                GroceryFilterScope.NeedToBuy -> !isCovered
-                GroceryFilterScope.BoughtOrPantry -> isCovered
+                GroceryFilterScope.NeedToBuy -> item.requiresGroceryPurchase() && !isCovered
+                GroceryFilterScope.BoughtOrPantry -> item.requiresGroceryPurchase() && isCovered
             }
             matchesSearch && matchesCategory && matchesScope
         }
@@ -293,8 +297,8 @@ fun GroceryRefinedScreen(
         if (index >= 0) index else 0
     }
     val todayLabel = remember(today) { today.format(DateTimeFormatter.ofPattern("MMM dd", Locale.ENGLISH)) }
-    val totalCount = groupedEntries.size
-    val coveredCount = groupedEntries.count { it.name in effectiveChecked }
+    val totalCount = purchaseEntries.size
+    val coveredCount = purchaseEntries.count { it.name in effectiveChecked }
     val remainingCount = (totalCount - coveredCount).coerceAtLeast(0)
     val localRemainingEstimate = groupedEntries.sumOf { item ->
         estimateGroceryCostAfterPantry(
@@ -356,7 +360,11 @@ fun GroceryRefinedScreen(
     val budgetProgress = weeklyBudget?.let { budget ->
         totalShoppingEstimate.toFloat() / budget.toFloat()
     } ?: 0f
-    val listProgress = if (totalCount > 0) coveredCount.toFloat() / totalCount.toFloat() else 0f
+    val listProgress = when {
+        totalCount > 0 -> coveredCount.toFloat() / totalCount.toFloat()
+        groupedEntries.isNotEmpty() -> 1f
+        else -> 0f
+    }
     val tipLine = remember(userProfile.goal) {
         when {
             userProfile.goal.contains("Symptom", ignoreCase = true) ->
@@ -566,7 +574,9 @@ fun GroceryRefinedScreen(
                     val body = buildString {
                         append("PCOSina Grocery List\n\n")
                         groupedEntries.forEach { item ->
-                            val pantryTag = when (pantryCoverageByName[item.name]?.status) {
+                            val pantryTag = if (!item.requiresGroceryPurchase()) {
+                                " • household supply"
+                            } else when (pantryCoverageByName[item.name]?.status) {
                                 PantryCoverageStatus.Full -> " • pantry covered"
                                 PantryCoverageStatus.Partial -> " • pantry partial"
                                 PantryCoverageStatus.NameOnly -> " • pantry match"
@@ -628,6 +638,7 @@ fun GroceryRefinedScreen(
                     }
                 },
                 onToggleItem = { item ->
+                    if (!item.requiresGroceryPurchase()) return@GroceryCategoryPanel
                     val wasComplete = totalCount > 0 && coveredCount >= totalCount
                     val nextPantryOptOut: Set<String>
                     val nextCheckedNames: Set<String>
@@ -641,7 +652,7 @@ fun GroceryRefinedScreen(
                     pantryOptOut = nextPantryOptOut
                     checkedNames = nextCheckedNames
                     val nextEffectiveChecked = nextCheckedNames + pantryMatches.filter { it !in nextPantryOptOut }
-                    val isComplete = totalCount > 0 && groupedEntries.all { it.name in nextEffectiveChecked }
+                    val isComplete = totalCount > 0 && purchaseEntries.all { it.name in nextEffectiveChecked }
                     if (!wasComplete && isComplete) {
                         mealPlanViewModel.trackMlEvent(
                             eventName = "grocery_completed",
@@ -1214,11 +1225,12 @@ private fun GroceryPreviewRow(
     checked: Boolean,
     onToggle: () -> Unit,
 ) {
+    val householdSupply = !item.requiresGroceryPurchase()
     val hasPantrySignal = pantryCoverage != null
-    val isComplete = checked || pantryCovered
+    val isComplete = checked || pantryCovered || householdSupply
     val statusColor = when {
         checked -> PcosinaPink
-        pantryCovered || hasPantrySignal -> PcosinaSuccess
+        pantryCovered || hasPantrySignal || householdSupply -> PcosinaSuccess
         else -> PcosinaMuted
     }
     val remainingCostPhp = estimateGroceryCostAfterPantry(
@@ -1239,7 +1251,7 @@ private fun GroceryPreviewRow(
         ),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onToggle)
+            .then(if (householdSupply) Modifier else Modifier.clickable(onClick = onToggle))
     ) {
         Row(
             modifier = Modifier
@@ -1253,14 +1265,14 @@ private fun GroceryPreviewRow(
                 shape = RoundedCornerShape(12.dp),
                 color = when {
                     checked -> PcosinaPink
-                    pantryCovered -> PcosinaSuccess.copy(alpha = 0.14f)
+                    pantryCovered || householdSupply -> PcosinaSuccess.copy(alpha = 0.14f)
                     else -> Color.White
                 },
                 border = BorderStroke(
                     1.dp,
                     when {
                         checked -> PcosinaPink
-                        pantryCovered -> PcosinaSuccess.copy(alpha = 0.54f)
+                        pantryCovered || householdSupply -> PcosinaSuccess.copy(alpha = 0.54f)
                         else -> PcosinaMuted.copy(alpha = 0.4f)
                     }
                 )
@@ -1270,7 +1282,7 @@ private fun GroceryPreviewRow(
                     contentDescription = null,
                     tint = when {
                         checked -> Color.White
-                        pantryCovered -> PcosinaSuccess
+                        pantryCovered || householdSupply -> PcosinaSuccess
                         else -> Color.Transparent
                     },
                     modifier = Modifier
@@ -1326,14 +1338,15 @@ private fun GroceryPreviewRow(
                 )
                 RefinedStatusPill(
                     text = when {
+                        householdSupply -> "Household"
                         pantryCovered -> "In pantry"
                         checked -> "Bought"
                         pantryCoverage?.status == PantryCoverageStatus.Partial -> "Buy remaining"
                         pantryCoverage?.status == PantryCoverageStatus.NameOnly -> "Review pantry"
                         else -> "To Buy"
                     },
-                    containerColor = if (pantryCovered) PcosinaSuccess.copy(alpha = 0.14f) else PcosinaSurfaceAlt,
-                    contentColor = if (pantryCovered) statusColor else PcosinaMuted
+                    containerColor = if (pantryCovered || householdSupply) PcosinaSuccess.copy(alpha = 0.14f) else PcosinaSurfaceAlt,
+                    contentColor = if (pantryCovered || householdSupply) statusColor else PcosinaMuted
                 )
             }
         }
@@ -1592,7 +1605,7 @@ private fun GroceryProgressCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RefinedRingMeter(
-                            valueText = "${remainingCount.coerceAtLeast(0)}/${totalCount.coerceAtLeast(1)}",
+                            valueText = "${remainingCount.coerceAtLeast(0)}/${totalCount.coerceAtLeast(0)}",
                             subtitle = "to buy",
                             progress = listProgress,
                             color = PcosinaPink,
@@ -1899,7 +1912,9 @@ private fun GroceryCategoryPanel(
                     val title = category
                     val categoryExpanded = category in expandedCategories
                     val displayedItems = if (categoryExpanded) items else items.take(collapsedCount)
-                    val coveredInCategory = items.count { item ->
+                    val purchasableItems = items.filter { it.requiresGroceryPurchase() }
+                    val householdSupplyCount = items.size - purchasableItems.size
+                    val coveredInCategory = purchasableItems.count { item ->
                         item.name in checkedNames || (item.name in pantryMatches && item.name !in pantryOptOut)
                     }
                     val toggleCategoryLabel = if (categoryExpanded) {
@@ -1955,7 +1970,13 @@ private fun GroceryCategoryPanel(
                                         }
                                     )
                                     Text(
-                                        text = "$coveredInCategory of ${items.size} items bought or in pantry",
+                                        text = when {
+                                            purchasableItems.isEmpty() && householdSupplyCount > 0 ->
+                                                "$householdSupplyCount household supply required by plan"
+                                            householdSupplyCount > 0 ->
+                                                "$coveredInCategory of ${purchasableItems.size} shopping items covered • $householdSupplyCount household supply"
+                                            else -> "$coveredInCategory of ${purchasableItems.size} items bought or in pantry"
+                                        },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = PcosinaMuted
                                     )

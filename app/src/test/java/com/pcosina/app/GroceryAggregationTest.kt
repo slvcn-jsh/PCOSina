@@ -18,6 +18,7 @@ import com.pcosina.app.domain.correctedAuthoritativeGroceryEstimate
 import com.pcosina.app.domain.shouldTrustBackendGroceryPricing
 import com.pcosina.app.domain.normalizeGroceryOutputPricingForDisplay
 import com.pcosina.app.domain.resolveDisplayGroceryEstimate
+import com.pcosina.app.domain.requiresGroceryPurchase
 import com.pcosina.app.domain.estimateGroceryCostAfterPantry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -174,6 +175,8 @@ class GroceryAggregationTest {
         assertEquals("Household tap water baseline", water.priceSourceLabel)
         assertEquals("high", water.priceConfidence)
         assertEquals("household_not_purchased", water.purchaseMode)
+        assertFalse(water.requiresGroceryPurchase())
+        assertTrue(entries.first { it.key == "kangkong" }.requiresGroceryPurchase())
     }
 
     @Test

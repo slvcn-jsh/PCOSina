@@ -23,6 +23,9 @@ data class GroceryListEntry(
     val purchaseMode: String? = null,
 )
 
+fun GroceryListEntry.requiresGroceryPurchase(): Boolean =
+    purchaseMode != "household_not_purchased"
+
 enum class PantryCoverageStatus {
     Full,
     Partial,

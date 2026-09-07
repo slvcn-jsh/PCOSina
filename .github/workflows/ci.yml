@@ -171,24 +171,13 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             adb shell settings put system font_scale 1.0
-            if [ -f app/src/androidTest/assets/visual_baselines/compact_profile_step3.png ] && \
-               [ -f app/src/androidTest/assets/visual_baselines/compact_chip_row.png ] && \
-               [ -f app/src/androidTest/assets/visual_baselines/compact_dashboard_today_outcome.png ] && \
-               [ -f app/src/androidTest/assets/visual_baselines/compact_progress_top_section.png ] && \
-               [ -f app/src/androidTest/assets/visual_baselines/compact_mealplan_top_section.png ]; then
-              ./gradlew :app:connectedDebugAndroidTest \
-                -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest \
-                -Pandroid.testInstrumentationRunnerArguments.require_visual_baseline=true \
-                -Pandroid.testInstrumentationRunnerArguments.visual_delta_threshold=6.0
+            if [ -f app/src/androidTest/assets/visual_baselines/compact_profile_step3.png ] && [ -f app/src/androidTest/assets/visual_baselines/compact_chip_row.png ] && [ -f app/src/androidTest/assets/visual_baselines/compact_dashboard_today_outcome.png ] && [ -f app/src/androidTest/assets/visual_baselines/compact_progress_top_section.png ] && [ -f app/src/androidTest/assets/visual_baselines/compact_mealplan_top_section.png ]; then
+              ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest -Pandroid.testInstrumentationRunnerArguments.require_visual_baseline=true -Pandroid.testInstrumentationRunnerArguments.visual_delta_threshold=6.0
 
-              ./gradlew :app:connectedDebugAndroidTest \
-                -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest \
-                -Pandroid.testInstrumentationRunnerArguments.refresh_visual_baseline=true
+              ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest -Pandroid.testInstrumentationRunnerArguments.refresh_visual_baseline=true
             else
               echo "Full compact baseline set not committed yet; strict verify skipped."
-              ./gradlew :app:connectedDebugAndroidTest \
-                -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest \
-                -Pandroid.testInstrumentationRunnerArguments.refresh_visual_baseline=true
+              ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest -Pandroid.testInstrumentationRunnerArguments.refresh_visual_baseline=true
             fi
 
       - name: Upload compact visual regression artifacts
@@ -230,10 +219,8 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             adb shell settings put system font_scale 1.0
-            ./gradlew :app:connectedDebugAndroidTest \
-              -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CurrentCoreFlowUiTest
-            ./gradlew :app:connectedDebugAndroidTest \
-              -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.MealPlanSwapBannerUiTest#statusCenter_showsReminderSummaryWhenNotificationsEnabled
+            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CurrentCoreFlowUiTest
+            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.MealPlanSwapBannerUiTest#statusCenter_showsReminderSummaryWhenNotificationsEnabled
 
       - name: Upload UX critical flow artifacts
         if: always()

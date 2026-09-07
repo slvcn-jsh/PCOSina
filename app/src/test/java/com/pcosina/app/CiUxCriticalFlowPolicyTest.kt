@@ -31,6 +31,10 @@ class CiUxCriticalFlowPolicyTest {
                 "com.pcosina.app.MealPlanSwapBannerUiTest#statusCenter_showsReminderSummaryWhenNotificationsEnabled"
             )
         )
+        assertTrue(
+            "Emulator-runner Gradle commands must not pass a literal line-continuation token as a task.",
+            !source.contains(":app:connectedDebugAndroidTest \\")
+        )
     }
 
     private fun resolve(vararg parts: String): Path {

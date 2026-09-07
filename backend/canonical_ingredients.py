@@ -81,6 +81,7 @@ CANONICAL_INGREDIENTS: tuple[CanonicalIngredientSeed, ...] = (
     CanonicalIngredientSeed("ing_apple", "apple", "fruit", "kg"),
     CanonicalIngredientSeed("ing_banana", "banana", "fruit", "kg"),
     CanonicalIngredientSeed("ing_bangus", "bangus", "fish_seafood", "kg", "raw"),
+    CanonicalIngredientSeed("ing_bangus_fillet", "bangus fillet", "fish_seafood", "kg", "raw_boneless"),
     CanonicalIngredientSeed("ing_beef_generic", "beef", "meat", "kg", "raw"),
     CanonicalIngredientSeed("ing_bitter_melon", "bitter melon", "produce", "kg", "raw"),
     CanonicalIngredientSeed("ing_bok_choy", "bok choy", "produce", "kg", "raw"),
@@ -165,6 +166,15 @@ INGREDIENT_ALIASES: tuple[IngredientAliasSeed, ...] = tuple(
         _aliases("ing_apple", "apple"),
         _aliases("ing_banana", "banana"),
         _aliases("ing_bangus", "bangus", "milkfish", "milk fish"),
+        _aliases(
+            "ing_bangus_fillet",
+            "bangus fillet",
+            "milkfish fillet",
+            "boneless bangus",
+            "boneless milkfish",
+            "deboned bangus",
+            "deboned milkfish",
+        ),
         _aliases("ing_beef_generic", "beef", "baka", language="fil"),
         _aliases("ing_bitter_melon", "bitter melon", "bitter gourd", "ampalaya"),
         _aliases("ing_bok_choy", "bok choy", "pechay", "napa cabbage", "chinese cabbage"),
@@ -243,6 +253,7 @@ INGREDIENT_ALIASES: tuple[IngredientAliasSeed, ...] = tuple(
 
 INGREDIENT_ALLERGEN_LINKS: tuple[tuple[str, str, str, str], ...] = (
     ("ing_bangus", "fish", "contains", "high"),
+    ("ing_bangus_fillet", "fish", "contains", "high"),
     ("ing_cheese_generic", "dairy", "contains", "high"),
     ("ing_butter", "dairy", "contains", "high"),
     ("ing_crab", "shellfish", "contains", "high"),
@@ -283,6 +294,14 @@ INGREDIENT_PRICE_REFS: tuple[IngredientPriceSeed, ...] = (
     IngredientPriceSeed("ing_beef_generic", "kg", 320, "Meat/Seafood"),
     IngredientPriceSeed("ing_pork_generic", "kg", 260, "Meat/Seafood"),
     IngredientPriceSeed("ing_fish_generic", "kg", 220, "Meat/Seafood"),
+    IngredientPriceSeed(
+        "ing_bangus_fillet",
+        "kg",
+        388,
+        "Meat/Seafood",
+        source="metro_retail_fresh_boneless_listing",
+        confidence="medium",
+    ),
     IngredientPriceSeed("ing_shrimp", "kg", 300, "Meat/Seafood"),
     IngredientPriceSeed("ing_tomato", "kg", 60, "Produce"),
     IngredientPriceSeed("ing_onion_generic", "kg", 80, "Produce"),
@@ -322,6 +341,10 @@ DA_NCR_WEEKLY_PRICE_SOURCE_URL = (
     "Weekly-Average-Prices-August-31-September-6-2026.pdf"
 )
 DA_NCR_WEEKLY_PRICE_SOURCE_DATE = "2026-09-06"
+
+BANGUS_FILLET_RETAIL_SOURCE_URL = "https://shopmetro.ph/product/boneless-bangus-1kg/"
+BANGUS_FILLET_RETAIL_SOURCE_DATE = "2026-09-08"
+BANGUS_FILLET_RETAIL_PRICE_PHP_PER_KG = 388.0
 
 # DA-AMAS NCR weekly average retail observations. These are purchase-market
 # references, not nutrition values and not forecasts.
@@ -406,8 +429,8 @@ UNIT_ALIASES = {
 }
 
 DESCRIPTOR_WORDS = {
-    "about", "boneless", "chopped", "cleaned", "coarsely", "cooked",
-    "crushed", "cubed", "cut", "deboned", "diced", "divided", "drained",
+    "about", "chopped", "cleaned", "coarsely", "cooked",
+    "crushed", "cubed", "cut", "diced", "divided", "drained",
     "finely", "fresh", "freshly", "fried", "frozen", "grated", "ground",
     "halved", "julienned", "large", "lean", "medium", "minced", "optional",
     "peeled", "raw", "roughly", "seeded", "shredded", "sliced", "small",

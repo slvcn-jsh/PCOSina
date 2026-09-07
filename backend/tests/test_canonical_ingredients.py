@@ -37,6 +37,16 @@ def test_resolver_maps_generic_terms_without_guessing_specific_food_form():
     assert resolution.ingredient_id != "ing_chicken_breast_raw"
 
 
+def test_resolver_keeps_bangus_fillet_distinct_from_whole_bangus():
+    fillet = resolve_ingredient("110 g fresh bangus fillet")
+    boneless = resolve_ingredient("boneless milkfish")
+    whole = resolve_ingredient("1 kg bangus")
+
+    assert fillet.ingredient_id == "ing_bangus_fillet"
+    assert boneless.ingredient_id == "ing_bangus_fillet"
+    assert whole.ingredient_id == "ing_bangus"
+
+
 def test_resolver_reports_ambiguous_aliases_instead_of_selecting_one():
     aliases = (
         IngredientAliasSeed("ing_onion_red", "special onion"),
@@ -283,6 +293,25 @@ def test_latest_da_ncr_market_prices_override_static_baselines(tmp_path, monkeyp
     assert estimate.price_php == 109
     assert estimate.market_multiplier == 1.0
     assert estimate.tingi_multiplier == 1.0
+
+
+def test_bangus_fillet_retail_migration_seeds_product_specific_reference(tmp_path, monkeypatch):
+    db_path = tmp_path / "canonical_bangus_fillet.db"
+    monkeypatch.setattr(database, "DATABASE_URL", "")
+    monkeypatch.setattr(database, "DB_NAME", str(db_path))
+    database.init_db()
+
+    fillet = database.resolve_canonical_price_ref("ing_bangus_fillet")
+    whole = database.resolve_canonical_price_ref("ing_bangus")
+
+    assert fillet is not None
+    assert fillet["pricePhp"] == 388
+    assert fillet["unit"] == "kg"
+    assert fillet["marketType"] == "supermarket"
+    assert fillet["source"] == "metro_retail_fresh_boneless_listing"
+    assert fillet["sourceDate"] == "2026-09-08"
+    assert fillet["confidence"] == "medium"
+    assert whole is not None and whole["pricePhp"] == 243.62
 
 
 def test_water_price_migration_repairs_existing_paid_baseline(tmp_path, monkeypatch):

@@ -762,13 +762,29 @@ def price_grocery_buckets(
             clamp_quantity=False,
         )
         price_php = int(estimate.price_php)
+        if estimate.source == "canonical_retail_observation" or (
+            key == "bangus fillet" and "boneless bangus" in estimate.source_label.lower()
+        ):
+            purchase_mode = "weighed_to_order"
+            purchase_quantity = quantity
+        elif key == "water" and price_php == 0:
+            purchase_mode = "household_not_purchased"
+            purchase_quantity = None
+        else:
+            purchase_mode = "required_quantity_retail_equivalent"
+            purchase_quantity = None
         total_php += price_php
         priced_items.append(
             {
                 "key": key,
                 "name": name,
                 "quantity": quantity,
+                "requiredQuantity": quantity,
+                "purchaseQuantity": purchase_quantity,
+                "purchaseMode": purchase_mode,
                 "estimatedCostPhp": price_php,
+                "unitPricePhp": round(float(estimate.base_price_php), 2),
+                "priceUnit": estimate.target_unit,
                 "category": estimate.category,
                 "source": estimate.source,
                 "sourceLabel": estimate.source_label,

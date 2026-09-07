@@ -19,15 +19,18 @@ data class PriceEstimate(
     val category: String,
     val sourceLabel: String,
     val confidence: String,
+    val basePricePhp: Double,
+    val targetUnit: String,
     val marketMultiplier: Double,
     val tingiMultiplier: Double,
     val quantityFactor: Double,
 )
 
 object PriceCatalog {
-    const val CURRENT_CATALOG_VERSION = "pcosina-ncr-retail-2026-09-06-v1"
-    const val CURRENT_REFERENCE_DATE = "2026-09-06"
+    const val CURRENT_CATALOG_VERSION = "pcosina-ncr-retail-2026-09-08-v2"
+    const val CURRENT_REFERENCE_DATE = "2026-09-08"
     private const val currentDaSource = "DA-AMAS NCR weekly average (Aug 31-Sep 6, 2026)"
+    private const val bangusFilletRetailSource = "Metro Retail fresh boneless bangus listing (Sep 8, 2026)"
 
     private val rules = listOf(
         PriceRule(listOf("egg", "itlog"), 8, "Eggs & Dairy", "piece", currentDaSource, "high", true),
@@ -44,6 +47,15 @@ object PriceCatalog {
         PriceRule(listOf("beef"), 441, "Meat/Seafood", "kg", currentDaSource, "medium", true),
         PriceRule(listOf("pork belly", "liempo"), 379, "Meat/Seafood", "kg", currentDaSource, "high", true),
         PriceRule(listOf("pork", "baboy"), 325, "Meat/Seafood", "kg", currentDaSource, "medium", true),
+        PriceRule(
+            listOf("bangus fillet", "milkfish fillet", "boneless bangus", "boneless milkfish"),
+            388,
+            "Meat/Seafood",
+            "kg",
+            bangusFilletRetailSource,
+            "medium",
+            true,
+        ),
         PriceRule(listOf("bangus", "milkfish"), 244, "Meat/Seafood", "kg", currentDaSource, "high", true),
         PriceRule(listOf("galunggong"), 323, "Meat/Seafood", "kg", currentDaSource, "high", true),
         PriceRule(listOf("tilapia"), 157, "Meat/Seafood", "kg", currentDaSource, "high", true),
@@ -232,6 +244,8 @@ object PriceCatalog {
             category = category,
             sourceLabel = rule?.sourceLabel ?: "Offline category average fallback",
             confidence = confidence,
+            basePricePhp = basePrice.toDouble(),
+            targetUnit = targetUnit,
             marketMultiplier = marketMultiplier,
             tingiMultiplier = tingiMultiplier,
             quantityFactor = factor,

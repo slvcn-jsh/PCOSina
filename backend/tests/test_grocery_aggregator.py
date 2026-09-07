@@ -277,10 +277,10 @@ def test_price_grocery_buckets_returns_budget_authority_payload():
     output = price_grocery_buckets(buckets, weekly_budget_php=100)
 
     assert output["authority"] == "backend_aggregated_grocery"
-    assert output["pricingCatalogVersion"] == "pcosina-ncr-retail-2026-09-06-v1"
-    assert output["pricingReferenceDate"] == "2026-09-06"
+    assert output["pricingCatalogVersion"] == "pcosina-ncr-retail-2026-09-08-v2"
+    assert output["pricingReferenceDate"] == "2026-09-08"
     assert output["pricingReferenceLocation"] == "NCR"
-    assert output["pricingBasis"] == "required_quantity_retail_equivalent"
+    assert output["pricingBasis"] == "required_quantity_at_item_specific_retail_reference"
     assert sum(output["pricingSourceCounts"].values()) == output["itemCount"]
     assert output["estimatedTotalPhp"] > 0
     assert output["withinBudget"] is True
@@ -328,3 +328,28 @@ def test_price_grocery_buckets_keeps_water_free_and_total_equal_to_items(tmp_pat
     assert water["estimatedCostPhp"] == 0
     assert output["estimatedTotalPhp"] == sum(item["estimatedCostPhp"] for item in output["items"])
     assert output["finalGroceryEstimatePhp"] == output["estimatedTotalPhp"]
+
+
+def test_price_grocery_buckets_explains_bangus_fillet_retail_math(tmp_path, monkeypatch):
+    monkeypatch.setattr(database, "DATABASE_URL", "")
+    monkeypatch.setattr(database, "DB_NAME", str(tmp_path / "bangus_fillet_grocery.db"))
+    database.init_db()
+    price_catalog.invalidate_override_cache()
+    buckets = aggregate_grocery_list(
+        [{"meals": [{"ingredients": [{"name": "Bangus Fillet", "quantity": "110 g"}]}]}]
+    )
+
+    output = price_grocery_buckets(buckets, weekly_budget_php=100)
+    item = output["items"][0]
+
+    assert item["key"] == "bangus fillet"
+    assert item["quantity"] == "110 g"
+    assert item["requiredQuantity"] == "110 g"
+    assert item["purchaseQuantity"] == "110 g"
+    assert item["purchaseMode"] == "weighed_to_order"
+    assert item["unitPricePhp"] == 388
+    assert item["priceUnit"] == "kg"
+    assert item["estimatedCostPhp"] == 43
+    assert "boneless bangus" in item["sourceLabel"].lower()
+    assert output["estimatedTotalPhp"] == 43
+    assert output["withinBudget"] is True

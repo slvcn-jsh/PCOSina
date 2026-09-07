@@ -5,13 +5,17 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Any, List, Dict, Optional, Tuple
 import database
-from canonical_ingredients import DA_NCR_WEEKLY_PRICE_SOURCE_DATE, resolve_ingredient
+from canonical_ingredients import (
+    BANGUS_FILLET_RETAIL_SOURCE_DATE,
+    DA_NCR_WEEKLY_PRICE_SOURCE_DATE,
+    resolve_ingredient,
+)
 
 
-PRICE_CATALOG_VERSION = f"pcosina-ncr-retail-{DA_NCR_WEEKLY_PRICE_SOURCE_DATE}-v1"
-PRICE_REFERENCE_DATE = DA_NCR_WEEKLY_PRICE_SOURCE_DATE
+PRICE_REFERENCE_DATE = max(DA_NCR_WEEKLY_PRICE_SOURCE_DATE, BANGUS_FILLET_RETAIL_SOURCE_DATE)
+PRICE_CATALOG_VERSION = f"pcosina-ncr-retail-{PRICE_REFERENCE_DATE}-v2"
 PRICE_REFERENCE_LOCATION = "NCR"
-PRICE_BASIS = "required_quantity_retail_equivalent"
+PRICE_BASIS = "required_quantity_at_item_specific_retail_reference"
 
 
 @dataclass
@@ -229,6 +233,17 @@ _RULES = [
     PriceRule(["chicken", "manok"], 180, "Meat/Seafood", "kg"),
     PriceRule(["beef"], 320, "Meat/Seafood", "kg"),
     PriceRule(["pork", "liempo", "baboy"], 260, "Meat/Seafood", "kg"),
+    PriceRule(
+        ["bangus fillet", "milkfish fillet", "boneless bangus", "boneless milkfish"],
+        388,
+        "Meat/Seafood",
+        "kg",
+        source="reviewed_market",
+        source_label="Metro Retail fresh boneless bangus listing (2026-09-08)",
+        confidence="medium",
+        apply_category_multiplier=False,
+        apply_market_adjustments=False,
+    ),
     PriceRule(["fish", "tilapia", "bangus", "salmon", "galunggong"], 220, "Meat/Seafood", "kg"),
     PriceRule(["tuna", "sardines"], 35, "Canned/Packaged", "piece"),
     PriceRule(["shrimp", "hipon"], 300, "Meat/Seafood", "kg"),
@@ -904,8 +919,11 @@ def estimate_price_explained(
     if canonical_ref:
         canonical_source = str(canonical_ref.get("scope") or "canonical_reference")
         reference_source = str(canonical_ref.get("source") or "").strip().lower()
+        retailer_observation = reference_source == "metro_retail_fresh_boneless_listing"
         if reference_source == "da_amas_ncr_weekly_average":
             source_label = f"DA-AMAS NCR weekly average retail price ({canonical_ref.get('sourceDate')})"
+        elif retailer_observation:
+            source_label = f"Metro Retail fresh boneless bangus listing ({canonical_ref.get('sourceDate')})"
         elif reference_source == "household_tap_water_baseline":
             source_label = "Household tap water baseline"
         else:
@@ -918,11 +936,11 @@ def estimate_price_explained(
             price_php=max(0.0, float(canonical_ref.get("pricePhp") or 0)),
             category=_price_category_from_canonical(canonical_ref.get("canonicalCategory"), name),
             unit=_normalize_rule_unit(canonical_ref.get("unit")),
-            source=f"canonical_{canonical_source}",
+            source="canonical_retail_observation" if retailer_observation else f"canonical_{canonical_source}",
             source_label=source_label,
             confidence=str(canonical_ref.get("confidence") or "medium"),
             apply_category_multiplier=False,
-            apply_market_adjustments=canonical_source == "baseline",
+            apply_market_adjustments=canonical_source == "baseline" and not retailer_observation,
             allow_zero_price=float(canonical_ref.get("pricePhp") or 0) == 0,
         )
     if rule is None:
@@ -992,6 +1010,7 @@ def estimate_recipe_cost(
 ) -> int:
     if not ingredients:
         return 0
+    pricing_context = pricing_context or create_pricing_context()
     started_at = time.time()
     total = 0.0
     try:

@@ -16,6 +16,11 @@ data class GroceryListEntry(
     val quantityDisplay: String,
     val estimatedCostPhp: Int,
     val sourceCount: Int,
+    val unitPricePhp: Double? = null,
+    val priceUnit: String? = null,
+    val priceSourceLabel: String? = null,
+    val priceConfidence: String? = null,
+    val purchaseMode: String? = null,
 )
 
 enum class PantryCoverageStatus {
@@ -237,11 +242,15 @@ private val ingredientSynonyms = mapOf(
 
 private val descriptorWords = setOf(
     "fresh", "minced", "chopped", "sliced", "diced", "crushed", "ground", "whole", "small", "medium",
-    "large", "raw", "cooked", "lean", "skinless", "boneless", "optional", "about", "approx", "approximately",
+    "large", "raw", "cooked", "lean", "skinless", "optional", "about", "approx", "approximately",
     "peeled", "grated", "shredded", "thinly", "finely", "ripe", "dried", "drained", "canned", "native"
 )
 
 private val knownIngredientPhrases = listOf(
+    "bangus fillet",
+    "milkfish fillet",
+    "boneless bangus",
+    "boneless milkfish",
     "soy sauce",
     "fish sauce",
     "coconut milk",
@@ -267,7 +276,7 @@ private val knownIngredientTokens = setOf(
 )
 
 private val countUnitWords = setOf(
-    "piece", "clove", "bunch", "stalk", "can", "pack", "head", "fillet", "slice", "thumb",
+    "piece", "clove", "bunch", "stalk", "can", "pack", "head", "slice", "thumb",
     "tray", "sachet", "package", "packet", "block", "square", "bundle",
 )
 private val pantryStructuredUnits = setOf(
@@ -325,18 +334,23 @@ fun buildGroceryListEntries(
                 .flatMap { splitQuantitySegments(it) }
                 .filter { it.isNotBlank() }
             val quantityDisplay = aggregateQuantitySegments(displayName, category, primaryUserSegments)
-            val estimatedCost = PriceCatalog.estimatePriceDetail(
+            val estimate = PriceCatalog.estimatePriceExplanation(
                 displayName,
                 quantityDisplay.ifBlank { "As needed" },
                 clampQuantity = false,
-            ).first
+            )
             GroceryListEntry(
                 key = key,
                 name = displayName,
                 category = category,
                 quantityDisplay = quantityDisplay.ifBlank { "As needed" },
-                estimatedCostPhp = if (estimatedCost == 0) 0 else estimatedCost.coerceAtLeast(5),
+                estimatedCostPhp = if (estimate.pricePhp == 0) 0 else estimate.pricePhp.coerceAtLeast(5),
                 sourceCount = primaryUserSegments.size.coerceAtLeast(1),
+                unitPricePhp = estimate.basePricePhp,
+                priceUnit = estimate.targetUnit,
+                priceSourceLabel = estimate.sourceLabel,
+                priceConfidence = estimate.confidence,
+                purchaseMode = if (key == "bangus fillet") "weighed_to_order" else "required_quantity_retail_equivalent",
             )
         }
         .sortedWith(compareBy<GroceryListEntry> { it.category }.thenBy { it.name.lowercase(Locale.ENGLISH) })
@@ -382,10 +396,38 @@ fun buildGroceryListEntriesFromPlanner(
                 add(key)
                 groupedItems.forEach { item -> addAll(item.originalNames) }
             }.joinToString(" ")
-            val estimatedCost = if (trustBackendPrices && itemizedCosts.isNotEmpty()) {
-                itemizedCosts.sum()
+            val localEstimate = if (trustBackendPrices && itemizedCosts.isNotEmpty()) {
+                null
             } else {
-                PriceCatalog.estimatePriceDetail(pricingIdentity, quantityDisplay, clampQuantity = false).first
+                PriceCatalog.estimatePriceExplanation(pricingIdentity, quantityDisplay, clampQuantity = false)
+            }
+            val estimatedCost = localEstimate?.pricePhp ?: itemizedCosts.sum()
+            val unitPricePhp = if (trustBackendPrices) {
+                groupedItems.firstNotNullOfOrNull { item -> item.unitPricePhp?.takeIf { it >= 0.0 } }
+            } else {
+                localEstimate?.basePricePhp
+            }
+            val priceUnit = if (trustBackendPrices) {
+                groupedItems.firstNotNullOfOrNull { item -> item.priceUnit?.trim()?.takeIf { it.isNotBlank() } }
+            } else {
+                localEstimate?.targetUnit
+            }
+            val priceSourceLabel = if (trustBackendPrices) {
+                groupedItems.firstNotNullOfOrNull { item -> item.sourceLabel?.trim()?.takeIf { it.isNotBlank() } }
+            } else {
+                localEstimate?.sourceLabel
+            }
+            val priceConfidence = if (trustBackendPrices) {
+                groupedItems.firstNotNullOfOrNull { item -> item.confidence?.trim()?.takeIf { it.isNotBlank() } }
+            } else {
+                localEstimate?.confidence
+            }
+            val purchaseMode = if (trustBackendPrices) {
+                groupedItems.firstNotNullOfOrNull { item -> item.purchaseMode?.trim()?.takeIf { it.isNotBlank() } }
+            } else if (key == "bangus fillet" || pricingIdentity.contains("boneless bangus", ignoreCase = true)) {
+                "weighed_to_order"
+            } else {
+                "required_quantity_retail_equivalent"
             }
             val sourceCount = groupedItems.sumOf { item -> item.originalNames.size.coerceAtLeast(1) }
             GroceryListEntry(
@@ -395,6 +437,11 @@ fun buildGroceryListEntriesFromPlanner(
                 quantityDisplay = quantityDisplay,
                 estimatedCostPhp = if (companionWater) 0 else estimatedCost.coerceAtLeast(0),
                 sourceCount = sourceCount.coerceAtLeast(1),
+                unitPricePhp = unitPricePhp,
+                priceUnit = priceUnit,
+                priceSourceLabel = priceSourceLabel,
+                priceConfidence = priceConfidence,
+                purchaseMode = purchaseMode,
             )
         }
         .sortedWith(compareBy<GroceryListEntry> { it.category }.thenBy { it.name.lowercase(Locale.ENGLISH) })

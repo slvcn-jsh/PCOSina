@@ -11,6 +11,9 @@ from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import urlparse
 
 from canonical_ingredients import (
+    BANGUS_FILLET_RETAIL_PRICE_PHP_PER_KG,
+    BANGUS_FILLET_RETAIL_SOURCE_DATE,
+    BANGUS_FILLET_RETAIL_SOURCE_URL,
     CANONICAL_INGREDIENTS,
     DA_NCR_WEEKLY_MARKET_PRICES,
     DA_NCR_WEEKLY_PRICE_SOURCE_DATE,
@@ -1783,6 +1786,89 @@ def _migration_da_ncr_weekly_market_prices(conn) -> None:
             f"INSERT INTO ingredient_price_refs ({column_sql}) VALUES ({values_sql}) {conflict_sql}",
             values,
         )
+
+
+def _migration_bangus_fillet_retail_price(conn) -> None:
+    _seed_canonical_ingredients(conn)
+    cur = conn.cursor()
+    now = int(time.time() * 1000)
+    placeholder = "%s" if _use_postgres() else "?"
+    columns = (
+        "price_ref_id", "ingredient_id", "location", "market_type", "unit",
+        "price_php", "price_min_php", "price_max_php", "source", "source_date",
+        "confidence", "valid_until", "active", "created_at", "updated_at",
+        "price_scope", "owner_uid", "priority", "notes",
+    )
+    values_sql = ", ".join([placeholder] * len(columns))
+    column_sql = ", ".join(columns)
+    if _use_postgres():
+        conflict_sql = """
+            ON CONFLICT (price_ref_id) DO UPDATE SET
+                location = EXCLUDED.location,
+                market_type = EXCLUDED.market_type,
+                unit = EXCLUDED.unit,
+                price_php = EXCLUDED.price_php,
+                price_min_php = EXCLUDED.price_min_php,
+                price_max_php = EXCLUDED.price_max_php,
+                source = EXCLUDED.source,
+                source_date = EXCLUDED.source_date,
+                confidence = EXCLUDED.confidence,
+                active = EXCLUDED.active,
+                updated_at = EXCLUDED.updated_at,
+                price_scope = EXCLUDED.price_scope,
+                priority = EXCLUDED.priority,
+                notes = EXCLUDED.notes
+        """
+    else:
+        conflict_sql = """
+            ON CONFLICT(price_ref_id) DO UPDATE SET
+                location = excluded.location,
+                market_type = excluded.market_type,
+                unit = excluded.unit,
+                price_php = excluded.price_php,
+                price_min_php = excluded.price_min_php,
+                price_max_php = excluded.price_max_php,
+                source = excluded.source,
+                source_date = excluded.source_date,
+                confidence = excluded.confidence,
+                active = excluded.active,
+                updated_at = excluded.updated_at,
+                price_scope = excluded.price_scope,
+                priority = excluded.priority,
+                notes = excluded.notes
+        """
+    notes = (
+        "Metro Retail direct fresh-counter listing for boneless bangus; "
+        "sold by kilogram, smaller requested portions accepted, and final billing "
+        f"follows actual weight; source_url={BANGUS_FILLET_RETAIL_SOURCE_URL}"
+    )
+    values = (
+        "price_ing_bangus_fillet_metro_retail_2026_09_08",
+        "ing_bangus_fillet",
+        "NCR",
+        "supermarket",
+        "kg",
+        BANGUS_FILLET_RETAIL_PRICE_PHP_PER_KG,
+        None,
+        None,
+        "metro_retail_fresh_boneless_listing",
+        BANGUS_FILLET_RETAIL_SOURCE_DATE,
+        "medium",
+        None,
+        1,
+        now,
+        now,
+        "baseline",
+        None,
+        250,
+        notes,
+    )
+    cur.execute(
+        f"INSERT INTO ingredient_price_refs ({column_sql}) VALUES ({values_sql}) {conflict_sql}",
+        values,
+    )
+
+
 def _registered_schema_migrations():
     return [
         ("20260319_app_001_core_tables", "Create core application tables", _migration_create_core_tables),
@@ -1806,6 +1892,7 @@ def _registered_schema_migrations():
         ("20260614_app_019_canonical_reference_precedence", "Add canonical price scope and override precedence", _migration_canonical_reference_precedence),
         ("20260614_app_020_canonical_water_baseline_zero_price", "Treat complete-plate companion water as zero-cost tap water", _migration_canonical_water_baseline_zero_price),
         ("20260907_app_021_da_ncr_weekly_market_prices", "Seed dated DA-AMAS NCR weekly retail price references", _migration_da_ncr_weekly_market_prices),
+        ("20260908_app_022_bangus_fillet_retail_price", "Separate fresh boneless bangus pricing from whole bangus", _migration_bangus_fillet_retail_price),
     ]
 
 

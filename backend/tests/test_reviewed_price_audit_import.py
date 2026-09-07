@@ -1,3 +1,4 @@
+import csv
 import sys
 from pathlib import Path
 from uuid import uuid4
@@ -107,6 +108,22 @@ def test_reviewed_price_seed_csv_updates_database_and_price_catalog(tmp_path):
     assert estimate.category_multiplier == 1.0
     assert estimate.market_multiplier == 1.0
     assert estimate.tingi_multiplier == 1.0
+
+
+def test_bundled_bangus_fillet_rule_uses_product_specific_retail_source():
+    seed_path = BACKEND_ROOT / "seed_data" / "reviewed_market_price_rules.csv"
+    with seed_path.open("r", encoding="utf-8-sig", newline="") as handle:
+        rows = {row["id"]: row for row in csv.DictReader(handle)}
+
+    fillet = rows["reviewed_bangus_fillet"]
+
+    assert fillet["category"] == "Meat/Seafood"
+    assert fillet["unit"] == "kg"
+    assert fillet["price_php"] == "388"
+    assert fillet["confidence"] == "medium"
+    assert fillet["effective"] == "2026-09-08"
+    assert fillet["source_url"] == "https://shopmetro.ph/product/boneless-bangus-1kg/"
+    assert "whole bangus" in fillet["notes"]
 
 
 def test_reviewed_price_seed_keeps_unvalidated_and_zero_rows_inactive():

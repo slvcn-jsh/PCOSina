@@ -142,6 +142,36 @@ def test_static_tap_water_price_is_zero_without_database_override(monkeypatch):
     assert estimate.target_unit == "l"
 
 
+def test_bangus_fillet_uses_product_specific_retail_rate(tmp_path, monkeypatch):
+    monkeypatch.setattr(database, "DATABASE_URL", "")
+    monkeypatch.setattr(database, "DB_NAME", str(tmp_path / "bangus_fillet_prices.db"))
+    database.init_db()
+    price_catalog.invalidate_override_cache()
+    context = price_catalog.create_pricing_context(month_index=9)
+
+    fillet = price_catalog.estimate_price_explained(
+        "Bangus Fillet",
+        "110 g",
+        pricing_context=context,
+        clamp_quantity=False,
+    )
+    whole = price_catalog.estimate_price_explained(
+        "Bangus",
+        "110 g",
+        pricing_context=context,
+        clamp_quantity=False,
+    )
+
+    assert fillet.price_php == 43
+    assert fillet.base_price_php == 388
+    assert fillet.target_unit == "kg"
+    assert fillet.category == "Meat/Seafood"
+    assert fillet.source == "canonical_retail_observation"
+    assert fillet.confidence == "medium"
+    assert whole.price_php == 27
+    assert whole.base_price_php == 243.62
+
+
 def test_zero_water_rule_never_prices_compound_ingredients_as_free(monkeypatch):
     price_catalog.invalidate_override_cache()
     monkeypatch.setattr(database, "list_active_price_rules", lambda limit=500: [])

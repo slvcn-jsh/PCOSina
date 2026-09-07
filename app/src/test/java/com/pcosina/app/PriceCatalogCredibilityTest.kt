@@ -36,6 +36,20 @@ class PriceCatalogCredibilityTest {
     }
 
     @Test
+    fun estimatePriceExplanation_pricesBangusFilletAsFreshBonelessProduct() {
+        val fillet = PriceCatalog.estimatePriceExplanation("Bangus Fillet", "110 g", monthIndex = 9, clampQuantity = false)
+        val whole = PriceCatalog.estimatePriceExplanation("Bangus", "110 g", monthIndex = 9, clampQuantity = false)
+
+        assertEquals(43, fillet.pricePhp)
+        assertEquals(388.0, fillet.basePricePhp, 0.0)
+        assertEquals("kg", fillet.targetUnit)
+        assertEquals("Meat/Seafood", fillet.category)
+        assertEquals("medium", fillet.confidence)
+        assertTrue(fillet.sourceLabel.contains("fresh boneless bangus"))
+        assertEquals(27, whole.pricePhp)
+    }
+
+    @Test
     fun estimatePriceExplanation_labelsFallbacksAsLowConfidence() {
         val estimate = PriceCatalog.estimatePriceExplanation("unknown ingredient", "1 pack", monthIndex = 3)
 

@@ -1299,6 +1299,15 @@ private fun GroceryPreviewRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = PcosinaMuted
                 )
+                groceryPriceReferenceText(item)?.let { referenceText ->
+                    Text(
+                        text = referenceText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = PcosinaMuted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 if (pantryCoverage != null && !pantryCovered) {
                     Text(
                         text = pantryCoverage.detail,
@@ -2273,6 +2282,26 @@ private fun groceryCategoryEmoji(category: String?): String =
         "Beverages" -> "🥤"
         else -> "🧺"
     }
+
+private fun groceryPriceReferenceText(item: GroceryListEntry): String? {
+    val unitPrice = item.unitPricePhp?.takeIf { it >= 0.0 } ?: return null
+    val unit = item.priceUnit?.trim()?.takeIf { it.isNotBlank() } ?: return null
+    val amount = if (unitPrice % 1.0 == 0.0) {
+        "₱%,d".format(Locale.ENGLISH, unitPrice.toInt())
+    } else {
+        "₱%,.2f".format(Locale.ENGLISH, unitPrice)
+    }
+    val purchaseLabel = when (item.purchaseMode) {
+        "weighed_to_order" -> "weighed to order"
+        "household_not_purchased" -> "household supply"
+        else -> null
+    }
+    return buildList {
+        add("$amount/$unit reference")
+        purchaseLabel?.let(::add)
+        item.priceSourceLabel?.takeIf { it.isNotBlank() }?.let(::add)
+    }.joinToString(" • ")
+}
 
 private fun formatPhp(value: Int): String = "₱%,d".format(Locale.ENGLISH, value)
 

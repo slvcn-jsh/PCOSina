@@ -171,6 +171,56 @@ class GroceryAggregationTest {
     }
 
     @Test
+    fun buildGroceryListEntriesFromPlanner_preservesBangusFilletPriceEvidence() {
+        val entry = buildGroceryListEntriesFromPlanner(
+            listOf(
+                PlannerGroceryOutputItem(
+                    key = "bangus fillet",
+                    name = "Bangus Fillet",
+                    quantity = "110 g",
+                    requiredQuantity = "110 g",
+                    purchaseQuantity = "110 g",
+                    purchaseMode = "weighed_to_order",
+                    estimatedCostPhp = 43,
+                    unitPricePhp = 388.0,
+                    priceUnit = "kg",
+                    category = "Meat/Seafood",
+                    sourceLabel = "Metro Retail fresh boneless bangus listing (2026-09-08)",
+                    confidence = "medium",
+                )
+            )
+        ).single()
+
+        assertEquals("bangus fillet", entry.key)
+        assertEquals("110 g", entry.quantityDisplay)
+        assertEquals(43, entry.estimatedCostPhp)
+        assertEquals(388.0, entry.unitPricePhp!!, 0.0)
+        assertEquals("kg", entry.priceUnit)
+        assertEquals("weighed_to_order", entry.purchaseMode)
+        assertTrue(entry.priceSourceLabel.orEmpty().contains("fresh boneless bangus"))
+    }
+
+    @Test
+    fun buildGroceryListEntriesFromPlanner_repricesLegacyBangusFillet() {
+        val entry = buildGroceryListEntriesFromPlanner(
+            items = listOf(
+                PlannerGroceryOutputItem(
+                    key = "bangus fillet",
+                    name = "Bangus Fillet",
+                    quantity = "110 g",
+                    estimatedCostPhp = 27,
+                    category = "Meat/Seafood",
+                )
+            ),
+            trustBackendPrices = false,
+        ).single()
+
+        assertEquals(43, entry.estimatedCostPhp)
+        assertEquals(388.0, entry.unitPricePhp!!, 0.0)
+        assertEquals("weighed_to_order", entry.purchaseMode)
+    }
+
+    @Test
     fun buildGroceryListEntriesFromPlanner_repricesLegacyRowsFromCurrentOfflineCatalog() {
         val legacyItems = listOf(
             PlannerGroceryOutputItem(

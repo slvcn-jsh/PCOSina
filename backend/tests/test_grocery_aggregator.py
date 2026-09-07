@@ -5,6 +5,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import database
+import price_catalog
 from services.grocery_aggregator import aggregate_grocery_list, price_grocery_buckets
 
 
@@ -221,6 +223,42 @@ def test_aggregate_grocery_list_uses_local_aliases_and_leading_counts():
     assert result["siling pangsigang"]["displayQuantity"] == "24 g"
 
 
+def test_aggregate_grocery_list_keeps_water_spinach_separate_from_water():
+    result = aggregate_grocery_list(
+        [
+            {
+                "meals": [
+                    {
+                        "ingredients": [
+                            {"name": "water spinach", "quantity": "1 bunch"},
+                            {"name": "water", "quantity": "1 L"},
+                        ]
+                    }
+                ]
+            }
+        ]
+    )
+
+    assert set(result.keys()) == {"kangkong", "water"}
+    assert result["kangkong"]["name"] == "Kangkong"
+    assert result["kangkong"]["displayQuantity"] == "180 g"
+    assert result["water"]["name"] == "Water"
+    assert result["water"]["displayQuantity"] == "1 L"
+
+
+def test_aggregate_grocery_list_treats_recipe_glasses_as_water_volume():
+    plan = [
+        {"meals": [{"ingredients": [{"name": "water", "quantity": "1 glass"}]}]}
+        for _ in range(21)
+    ]
+
+    result = aggregate_grocery_list(plan)
+
+    assert result["water"]["unit"] == "ml"
+    assert result["water"]["totalValue"] == 5040.0
+    assert result["water"]["displayQuantity"] == "5.04 L"
+
+
 def test_price_grocery_buckets_returns_budget_authority_payload():
     buckets = aggregate_grocery_list(
         [
@@ -242,3 +280,46 @@ def test_price_grocery_buckets_returns_budget_authority_payload():
     assert output["estimatedTotalPhp"] > 0
     assert output["withinBudget"] is True
     assert output["items"][0]["estimatedCostPhp"] > 0
+
+
+def test_price_grocery_buckets_does_not_cap_weekly_piece_quantities(tmp_path, monkeypatch):
+    monkeypatch.setattr(database, "DATABASE_URL", "")
+    monkeypatch.setattr(database, "DB_NAME", str(tmp_path / "weekly_piece_prices.db"))
+    database.init_db()
+    price_catalog.invalidate_override_cache()
+    buckets = aggregate_grocery_list(
+        [{"meals": [{"ingredients": [{"name": "egg", "quantity": "12 pcs"}]}]}]
+    )
+
+    output = price_grocery_buckets(buckets)
+    eggs = next(item for item in output["items"] if item["key"] == "egg")
+
+    assert eggs["estimatedCostPhp"] == 97
+
+
+def test_price_grocery_buckets_keeps_water_free_and_total_equal_to_items(tmp_path, monkeypatch):
+    monkeypatch.setattr(database, "DATABASE_URL", "")
+    monkeypatch.setattr(database, "DB_NAME", str(tmp_path / "grocery_prices.db"))
+    database.init_db()
+    price_catalog.invalidate_override_cache()
+    buckets = aggregate_grocery_list(
+        [
+            {
+                "meals": [
+                    {
+                        "ingredients": [
+                            {"name": "water", "quantity": "1 L"},
+                            {"name": "egg", "quantity": "3 pcs"},
+                        ]
+                    }
+                ]
+            }
+        ]
+    )
+
+    output = price_grocery_buckets(buckets, weekly_budget_php=100)
+    water = next(item for item in output["items"] if item["key"] == "water")
+
+    assert water["estimatedCostPhp"] == 0
+    assert output["estimatedTotalPhp"] == sum(item["estimatedCostPhp"] for item in output["items"])
+    assert output["finalGroceryEstimatePhp"] == output["estimatedTotalPhp"]

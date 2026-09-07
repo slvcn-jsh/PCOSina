@@ -11,6 +11,7 @@ data class PriceRule(
     val unit: String,
     val sourceLabel: String = "Offline SRP-style baseline",
     val confidence: String = "medium",
+    val isObservedRetailPrice: Boolean = false,
 )
 
 data class PriceEstimate(
@@ -24,41 +25,57 @@ data class PriceEstimate(
 )
 
 object PriceCatalog {
+    private const val currentDaSource = "DA-AMAS NCR weekly average (Aug 31-Sep 6, 2026)"
+
     private val rules = listOf(
-        PriceRule(listOf("egg", "itlog"), 7, "Eggs & Dairy", "piece"),
+        PriceRule(listOf("egg", "itlog"), 8, "Eggs & Dairy", "piece", currentDaSource, "high", true),
         PriceRule(listOf("milk", "gatas"), 90, "Eggs & Dairy", "l"),
         PriceRule(listOf("cheese", "keso"), 300, "Eggs & Dairy", "kg"),
         PriceRule(listOf("yogurt"), 60, "Eggs & Dairy", "piece"),
         PriceRule(listOf("gata", "coconut milk"), 70, "Eggs & Dairy", "l"),
-        PriceRule(listOf("rice", "bigas"), 60, "Dry Goods", "kg"),
+        PriceRule(listOf("rice", "bigas"), 49, "Dry Goods", "kg", currentDaSource, "high", true),
         PriceRule(listOf("oat"), 140, "Dry Goods", "kg"),
         PriceRule(listOf("bread", "tinapay"), 80, "Dry Goods", "piece"),
         PriceRule(listOf("pasta", "noodles", "bihon", "miki", "pancit"), 90, "Dry Goods", "kg"),
         PriceRule(listOf("flour"), 60, "Dry Goods", "kg"),
-        PriceRule(listOf("chicken", "manok"), 180, "Meat/Seafood", "kg"),
-        PriceRule(listOf("beef"), 320, "Meat/Seafood", "kg"),
-        PriceRule(listOf("pork", "liempo", "baboy"), 260, "Meat/Seafood", "kg"),
-        PriceRule(listOf("fish", "tilapia", "bangus", "salmon", "galunggong"), 220, "Meat/Seafood", "kg"),
-        PriceRule(listOf("tuna", "sardines"), 35, "Canned/Packaged", "piece"),
+        PriceRule(listOf("chicken", "manok"), 205, "Meat/Seafood", "kg", currentDaSource, "medium", true),
+        PriceRule(listOf("beef"), 441, "Meat/Seafood", "kg", currentDaSource, "medium", true),
+        PriceRule(listOf("pork belly", "liempo"), 379, "Meat/Seafood", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("pork", "baboy"), 325, "Meat/Seafood", "kg", currentDaSource, "medium", true),
+        PriceRule(listOf("bangus", "milkfish"), 244, "Meat/Seafood", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("galunggong"), 323, "Meat/Seafood", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("tilapia"), 157, "Meat/Seafood", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("tuna", "tambakol"), 321, "Meat/Seafood", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("fish", "salmon"), 220, "Meat/Seafood", "kg"),
+        PriceRule(listOf("canned tuna", "canned sardines"), 35, "Canned/Packaged", "piece"),
         PriceRule(listOf("shrimp", "hipon"), 300, "Meat/Seafood", "kg"),
-        PriceRule(listOf("tomato", "kamatis"), 60, "Produce", "kg"),
-        PriceRule(listOf("onion", "sibuyas"), 80, "Produce", "kg"),
-        PriceRule(listOf("garlic", "bawang"), 120, "Produce", "kg"),
-        PriceRule(listOf("carrot"), 70, "Produce", "kg"),
-        PriceRule(listOf("cabbage", "repolyo"), 55, "Produce", "kg"),
-        PriceRule(listOf("pechay", "spinach", "kale", "malunggay", "kangkong"), 60, "Produce", "kg"),
-        PriceRule(listOf("okra", "ampalaya", "talong", "sayote", "kalabasa"), 70, "Produce", "kg"),
-        PriceRule(listOf("sili", "chili"), 140, "Produce", "kg"),
-        PriceRule(listOf("banana"), 60, "Produce", "kg"),
+        PriceRule(listOf("tomato", "kamatis"), 109, "Produce", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("onion", "sibuyas"), 116, "Produce", "kg", currentDaSource, "medium", true),
+        PriceRule(listOf("garlic", "bawang"), 151, "Produce", "kg", currentDaSource, "medium", true),
+        PriceRule(listOf("carrot"), 117, "Produce", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("cabbage", "repolyo"), 148, "Produce", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("pechay"), 203, "Produce", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("string beans", "sitaw"), 185, "Produce", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("ampalaya", "bitter melon"), 192, "Produce", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("talong", "eggplant"), 186, "Produce", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("sayote"), 102, "Produce", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("kalabasa", "squash"), 67, "Produce", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("spinach", "kale", "malunggay", "kangkong", "okra"), 80, "Produce", "kg"),
+        PriceRule(listOf("sili", "chili"), 197, "Produce", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("banana", "saging"), 77, "Produce", "kg", currentDaSource, "medium", true),
         PriceRule(listOf("apple"), 120, "Produce", "kg"),
         PriceRule(listOf("orange"), 80, "Produce", "kg"),
-        PriceRule(listOf("ginger", "luya"), 140, "Produce", "kg"),
+        PriceRule(listOf("papaya"), 78, "Produce", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("calamansi"), 111, "Produce", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("ginger", "luya"), 188, "Produce", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("cooking oil"), 100, "Spices & Condiments", "l", currentDaSource, "medium", true),
         PriceRule(listOf("oil", "olive", "coconut"), 120, "Spices & Condiments", "l"),
         PriceRule(listOf("soy", "toyo", "sauce", "vinegar", "suka", "patis"), 40, "Spices & Condiments", "piece"),
-        PriceRule(listOf("salt", "asin", "pepper", "paminta", "spice"), 20, "Spices & Condiments", "piece"),
+        PriceRule(listOf("salt", "asin"), 42, "Spices & Condiments", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("pepper", "paminta", "spice"), 20, "Spices & Condiments", "piece"),
         PriceRule(listOf("coffee", "tea"), 90, "Beverages", "piece"),
         PriceRule(listOf("juice", "soda"), 40, "Beverages", "piece"),
-        PriceRule(listOf("water"), 20, "Beverages", "piece"),
+        PriceRule(listOf("tap water", "water"), 0, "Beverages", "l", sourceLabel = "Household tap water baseline", confidence = "high"),
         PriceRule(listOf("canned", "packaged", "instant"), 45, "Canned/Packaged", "piece")
     )
 
@@ -78,6 +95,7 @@ object PriceCatalog {
         "liter" to "l",
         "litre" to "l",
         "cups" to "cup",
+        "glasses" to "glass",
         "tablespoon" to "tbsp",
         "tablespoons" to "tbsp",
         "teaspoon" to "tsp",
@@ -151,7 +169,7 @@ object PriceCatalog {
     )
 
     private val quantityPattern = Regex(
-        """(?i)(\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(kg|kilo|kilogram|g|gram|grams|lb|lbs|pound|pounds|oz|ml|l|liter|litre|cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|piece|pieces|pc|pcs|clove|cloves|bunch|bunches|stalk|stalks|can|cans|pack|packs|head|heads)"""
+        """(?i)(\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(kg|kilo|kilogram|g|gram|grams|lb|lbs|pound|pounds|oz|ml|l|liter|litre|cup|cups|glass|glasses|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|piece|pieces|pc|pcs|clove|cloves|bunch|bunches|stalk|stalks|can|cans|pack|packs|head|heads)\.?(?![a-z])"""
     )
 
     fun estimatePrice(name: String): Int = estimatePriceDetail(name).first
@@ -163,24 +181,34 @@ object PriceCatalog {
         quantityText: String = "",
         monthIndex: Int = LocalDate.now().monthValue,
         includeSafetyBuffer: Boolean = false,
+        clampQuantity: Boolean = true,
     ): PriceEstimate {
         val rule = ruleForName(name)
         val category = rule?.category ?: inferCategory(name)
         val basePrice = rule?.pricePhp ?: (categoryAverages[category] ?: 60)
         val targetUnit = rule?.unit ?: (categoryDefaultUnit[category] ?: "piece")
         val (qtyValue, qtyUnit) = extractQuantity("$quantityText $name".trim())
-        val factor = clampFactor(quantityFactor(qtyValue, qtyUnit, targetUnit, category, name), category)
-        val marketMultiplier = defaultSeasonalMultiplier[category]?.get(monthIndex.coerceIn(1, 12)) ?: 1.0
-        val tingiMultiplier = tingiMultiplier(qtyValue, qtyUnit, targetUnit)
+        val rawFactor = quantityFactor(qtyValue, qtyUnit, targetUnit, category, name)
+        val factor = if (clampQuantity) clampFactor(rawFactor, category) else rawFactor.coerceAtLeast(0.0)
+        val marketMultiplier = if (rule?.isObservedRetailPrice == true) {
+            1.0
+        } else {
+            defaultSeasonalMultiplier[category]?.get(monthIndex.coerceIn(1, 12)) ?: 1.0
+        }
+        val tingiMultiplier = if (rule?.isObservedRetailPrice == true) 1.0 else tingiMultiplier(qtyValue, qtyUnit, targetUnit)
         val safetyBuffer = if (includeSafetyBuffer) 1.10 else 1.0
-        val scaledPrice = (
-            basePrice *
-                factor *
-                (categoryMultiplier[category] ?: 0.75) *
-                marketMultiplier *
-                tingiMultiplier *
-                safetyBuffer
-            ).coerceAtLeast(5.0)
+        val scaledPrice = if (basePrice <= 0) {
+            0.0
+        } else {
+            (
+                basePrice *
+                    factor *
+                    (if (rule?.isObservedRetailPrice == true) 1.0 else categoryMultiplier[category] ?: 0.75) *
+                    marketMultiplier *
+                    tingiMultiplier *
+                    safetyBuffer
+                ).coerceAtLeast(5.0)
+        }
         val confidence = when {
             rule == null -> "low"
             volatileIngredientTokens.any { name.lowercase(Locale.getDefault()).contains(it) } -> "medium"
@@ -197,8 +225,12 @@ object PriceCatalog {
         )
     }
 
-    fun estimatePriceDetail(name: String, quantityText: String = ""): Pair<Int, String> {
-        val estimate = estimatePriceExplanation(name, quantityText)
+    fun estimatePriceDetail(
+        name: String,
+        quantityText: String = "",
+        clampQuantity: Boolean = true,
+    ): Pair<Int, String> {
+        val estimate = estimatePriceExplanation(name, quantityText, clampQuantity = clampQuantity)
         return estimate.pricePhp to estimate.category
     }
 
@@ -277,6 +309,7 @@ object PriceCatalog {
         "l" -> value
         "ml" -> value / 1000.0
         "cup" -> value * 0.24
+        "glass" -> value * 0.24
         "tbsp" -> value * 0.015
         "tsp" -> value * 0.005
         else -> null
@@ -344,7 +377,44 @@ object PriceCatalog {
     }
 
     private fun ruleForName(name: String): PriceRule? {
-        val lower = name.lowercase(Locale.getDefault())
-        return rules.firstOrNull { rule -> rule.keywords.any { lower.contains(it) } }
+        val normalizedName = normalizePriceTokens(name)
+        return rules.firstOrNull { rule ->
+            if (rule.pricePhp == 0 && normalizedName !in setOf("water", "tap water")) {
+                return@firstOrNull false
+            }
+            rule.keywords.any { keyword ->
+                pricePhraseMatches(normalizedName, normalizePriceTokens(keyword))
+            }
+        }
     }
+
+    private fun pricePhraseMatches(name: String, phrase: String): Boolean {
+        val nameTokens = name.split(" ").filter { it.isNotBlank() }
+        val phraseTokens = phrase.split(" ").filter { it.isNotBlank() }
+        if (phraseTokens.isEmpty() || phraseTokens.size > nameTokens.size) return false
+        return nameTokens.windowed(phraseTokens.size).any { candidate ->
+            candidate.zip(phraseTokens).all { (left, right) -> priceTokenMatches(left, right) }
+        }
+    }
+
+    private fun priceTokenMatches(left: String, right: String): Boolean {
+        if (left == right) return true
+        return left in pluralForms(right) || right in pluralForms(left)
+    }
+
+    private fun pluralForms(value: String): Set<String> = buildSet {
+        add(value + "s")
+        if (value.length > 1 && value.endsWith("y") && value[value.lastIndex - 1] !in "aeiou") {
+            add(value.dropLast(1) + "ies")
+        }
+        if (listOf("s", "x", "z", "ch", "sh", "o").any(value::endsWith)) {
+            add(value + "es")
+        }
+    }
+
+    private fun normalizePriceTokens(value: String): String = value
+        .lowercase(Locale.ENGLISH)
+        .replace(Regex("[^a-z0-9]+"), " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
 }

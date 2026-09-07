@@ -202,9 +202,9 @@ def test_canonical_price_override_precedence(tmp_path, monkeypatch):
     monkeypatch.setattr(database, "DB_NAME", str(db_path))
     database.init_db()
 
-    baseline = database.resolve_canonical_price_ref("ing_garlic")
-    assert baseline is not None
-    assert baseline["scope"] == "baseline"
+    market = database.resolve_canonical_price_ref("ing_garlic")
+    assert market is not None
+    assert market["scope"] == "wet_market"
 
     database.upsert_canonical_price_override(
         ingredient_id="ing_garlic",
@@ -246,3 +246,82 @@ def test_canonical_price_override_precedence(tmp_path, monkeypatch):
     assert estimate.source == "canonical_user_override"
     assert second.source == "canonical_user_override"
     assert context.canonical_price_ref_db_calls == 1
+
+
+def test_canonical_water_baseline_is_zero_cost_tap_water(tmp_path, monkeypatch):
+    db_path = tmp_path / "canonical_water.db"
+    monkeypatch.setattr(database, "DATABASE_URL", "")
+    monkeypatch.setattr(database, "DB_NAME", str(db_path))
+    database.init_db()
+
+    baseline = database.resolve_canonical_price_ref("ing_water")
+
+    assert baseline is not None
+    assert baseline["scope"] == "baseline"
+    assert baseline["unit"] == "l"
+    assert baseline["pricePhp"] == 0
+    assert baseline["confidence"] == "high"
+
+
+def test_latest_da_ncr_market_prices_override_static_baselines(tmp_path, monkeypatch):
+    db_path = tmp_path / "canonical_da_market.db"
+    monkeypatch.setattr(database, "DATABASE_URL", "")
+    monkeypatch.setattr(database, "DB_NAME", str(db_path))
+    database.init_db()
+
+    tomato = database.resolve_canonical_price_ref("ing_tomato")
+    papaya = database.resolve_canonical_price_ref("ing_papaya")
+    context = price_catalog.create_pricing_context(month_index=9)
+    estimate = price_catalog.estimate_price_explained("tomato", "1 kg", pricing_context=context)
+
+    assert tomato is not None
+    assert tomato["scope"] == "wet_market"
+    assert tomato["pricePhp"] == 108.50
+    assert tomato["sourceDate"] == "2026-09-06"
+    assert papaya is not None and papaya["pricePhp"] == 78.49
+    assert estimate.source == "canonical_wet_market"
+    assert estimate.price_php == 109
+    assert estimate.market_multiplier == 1.0
+    assert estimate.tingi_multiplier == 1.0
+
+
+def test_water_price_migration_repairs_existing_paid_baseline(tmp_path, monkeypatch):
+    db_path = tmp_path / "canonical_water_upgrade.db"
+    monkeypatch.setattr(database, "DATABASE_URL", "")
+    monkeypatch.setattr(database, "DB_NAME", str(db_path))
+    database.init_db()
+
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            """
+            UPDATE ingredient_price_refs
+            SET unit = 'piece',
+                price_php = 20,
+                source = 'static_catalog',
+                confidence = 'medium',
+                market_type = 'baseline',
+                notes = NULL
+            WHERE ingredient_id = 'ing_water'
+              AND price_ref_id = 'price_ing_water_static_v1'
+            """
+        )
+        conn.execute(
+            """
+            DELETE FROM schema_migrations
+            WHERE scope = 'app'
+              AND migration_id = '20260614_app_020_canonical_water_baseline_zero_price'
+            """
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    database.init_db()
+    baseline = database.resolve_canonical_price_ref("ing_water")
+
+    assert baseline is not None
+    assert baseline["unit"] == "l"
+    assert baseline["pricePhp"] == 0
+    assert baseline["source"] == "household_tap_water_baseline"
+    assert baseline["confidence"] == "high"

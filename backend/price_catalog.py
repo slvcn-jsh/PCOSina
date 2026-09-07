@@ -11,13 +11,14 @@ from canonical_ingredients import resolve_ingredient
 @dataclass
 class PriceRule:
     keywords: List[str]
-    price_php: int
+    price_php: float
     category: str
     unit: Optional[str] = None  # kg, l, piece
     source: str = "static"
     source_label: str = "Static PCOSina baseline"
     confidence: str = "medium"
     apply_category_multiplier: bool = True
+    apply_market_adjustments: bool = True
     allow_zero_price: bool = False
 
 
@@ -28,7 +29,7 @@ class PriceEstimate:
     source: str
     source_label: str
     confidence: str
-    base_price_php: int
+    base_price_php: float
     target_unit: str
     quantity_value: Optional[float]
     quantity_unit: Optional[str]
@@ -242,7 +243,16 @@ _RULES = [
     PriceRule(["salt", "asin", "pepper", "paminta", "spice"], 20, "Spices & Condiments", "piece"),
     PriceRule(["coffee", "tea"], 90, "Beverages", "piece"),
     PriceRule(["juice", "soda"], 40, "Beverages", "piece"),
-    PriceRule(["water"], 20, "Beverages", "piece"),
+    PriceRule(
+        ["tap water", "water"],
+        0,
+        "Beverages",
+        "l",
+        source_label="Household tap water baseline",
+        confidence="high",
+        apply_category_multiplier=False,
+        allow_zero_price=True,
+    ),
     PriceRule(["canned", "packaged", "instant"], 45, "Canned/Packaged", "piece"),
 ]
 
@@ -273,6 +283,8 @@ _UNIT_ALIASES = {
     "quarts": "quart",
     "cup": "cup",
     "cups": "cup",
+    "glass": "glass",
+    "glasses": "glass",
     "tbsp": "tbsp",
     "tablespoon": "tbsp",
     "tablespoons": "tbsp",
@@ -479,7 +491,7 @@ _QTY_PATTERN = re.compile(
     r"(?P<num>\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*"
     r"(?P<unit>kilograms|kilogram|kilo|kg|grams|gram|g|pounds|pound|lbs|lb|ounces|ounce|oz|"
     r"milliliters|milliliter|ml|liters|liter|litres|litre|l|quarts|quart|"
-    r"tablespoons|tablespoon|tbsp|teaspoons|teaspoon|tsp|cups|cup|pieces|piece|pcs|pc|"
+    r"tablespoons|tablespoon|tbsp|teaspoons|teaspoon|tsp|cups|cup|glasses|glass|pieces|piece|pcs|pc|"
     r"cloves|clove|bunches|bunch|bundles|bundle|tali|stalks|stalk|heads|head|"
     r"fillets|fillet|slices|slice|thumbs|thumb|cans|can|sachets|sachet|"
     r"packages|package|packets|packet|packs|pack|blocks|block|squares|square|trays|tray)"
@@ -547,7 +559,7 @@ def _rule_uses_market_unit_pricing(notes: Any, source: str) -> bool:
         return True
     if parsed.get("category_multiplier", "").strip().lower() in {"none", "bypass", "1", "1.0"}:
         return True
-    return source in {"reviewed_market"}
+    return source in {"reviewed_market", "dti_srp", "admin_market"}
 
 
 def _rule_allows_zero_price(notes: Any) -> bool:
@@ -588,6 +600,8 @@ def _unit_to_l(value: float, unit: str) -> Optional[float]:
     if unit == "ml":
         return value / 1000.0
     if unit == "cup":
+        return value * 0.24
+    if unit == "glass":
         return value * 0.24
     if unit == "tbsp":
         return value * 0.015
@@ -663,7 +677,9 @@ def _rule_for_name(name: str) -> Optional[PriceRule]:
     best_rule: Optional[PriceRule] = None
     best_priority: Tuple[int, int, int] = (-1, -1, -1)
     for rule in _candidate_rules_for_name(lower):
-        matched_keywords = [keyword for keyword in rule.keywords if keyword in lower]
+        matched_keywords = [keyword for keyword in rule.keywords if _phrase_matches(lower, keyword)]
+        if rule.allow_zero_price and not _is_exact_companion_water_name(lower):
+            matched_keywords = []
         if not matched_keywords:
             continue
         priority = _matched_price_rule_priority(rule, matched_keywords)
@@ -671,6 +687,38 @@ def _rule_for_name(name: str) -> Optional[PriceRule]:
             best_rule = rule
             best_priority = priority
     return best_rule
+
+
+def _phrase_matches(text: str, phrase: str) -> bool:
+    text_tokens = _RULE_TOKEN_PATTERN.findall(str(text or "").lower())
+    phrase_tokens = _RULE_TOKEN_PATTERN.findall(str(phrase or "").lower())
+    if not text_tokens or not phrase_tokens or len(phrase_tokens) > len(text_tokens):
+        return False
+    width = len(phrase_tokens)
+    return any(
+        all(_price_token_matches(left, right) for left, right in zip(text_tokens[index:index + width], phrase_tokens))
+        for index in range(len(text_tokens) - width + 1)
+    )
+
+
+def _price_token_matches(left: str, right: str) -> bool:
+    if left == right:
+        return True
+
+    def plural_forms(value: str) -> set[str]:
+        forms = {value + "s"}
+        if value.endswith("y") and len(value) > 1 and value[-2] not in "aeiou":
+            forms.add(value[:-1] + "ies")
+        if value.endswith(("s", "x", "z", "ch", "sh", "o")):
+            forms.add(value + "es")
+        return forms
+
+    return left in plural_forms(right) or right in plural_forms(left)
+
+
+def _is_exact_companion_water_name(name: str) -> bool:
+    normalized = " ".join(_RULE_TOKEN_PATTERN.findall(str(name or "").lower()))
+    return normalized in {"water", "tap water"}
 
 
 def _fallback_rule_for_category(category: str) -> PriceRule:
@@ -708,16 +756,18 @@ def _load_override_rules() -> List[PriceRule]:
                 continue
             source, source_label, confidence = _rule_metadata_from_notes(item.get("notes"))
             allow_zero_price = _rule_allows_zero_price(item.get("notes"))
+            market_unit_pricing = _rule_uses_market_unit_pricing(item.get("notes"), source)
             rules.append(
                 PriceRule(
                     keywords=keywords,
-                    price_php=0 if allow_zero_price else max(1, int(item.get("pricePhp") or 0)),
+                    price_php=0 if allow_zero_price else max(1.0, float(item.get("pricePhp") or 0)),
                     category=str(item.get("category") or "Others"),
                     unit=_normalize_rule_unit(item.get("unit")),
                     source=source,
                     source_label=source_label,
                     confidence=confidence,
-                    apply_category_multiplier=not _rule_uses_market_unit_pricing(item.get("notes"), source),
+                    apply_category_multiplier=not market_unit_pricing,
+                    apply_market_adjustments=not market_unit_pricing,
                     allow_zero_price=allow_zero_price,
                 )
             )
@@ -824,6 +874,8 @@ def _tingi_multiplier(unit: Optional[str], target_unit: str, quantity_value: Opt
 
 
 def _confidence_for_rule(rule: PriceRule, name: str) -> str:
+    if rule.source == "canonical_wet_market":
+        return rule.confidence
     if rule.confidence == "high" and any(tok in (name or "").lower() for tok in _VOLATILE_INGREDIENT_TOKENS):
         return "medium"
     return rule.confidence
@@ -845,18 +897,26 @@ def estimate_price_explained(
     rule = None
     if canonical_ref:
         canonical_source = str(canonical_ref.get("scope") or "canonical_reference")
+        reference_source = str(canonical_ref.get("source") or "").strip().lower()
+        if reference_source == "da_amas_ncr_weekly_average":
+            source_label = f"DA-AMAS NCR weekly average retail price ({canonical_ref.get('sourceDate')})"
+        elif reference_source == "household_tap_water_baseline":
+            source_label = "Household tap water baseline"
+        else:
+            source_label = (
+                f"Canonical {canonical_ref.get('marketType') or canonical_source} "
+                f"({canonical_ref.get('location') or 'NCR'}, {canonical_ref.get('sourceDate') or 'undated'})"
+            )
         rule = PriceRule(
             keywords=[resolution.matched_alias or resolution.canonical_name or name],
-            price_php=max(0, int(round(float(canonical_ref.get("pricePhp") or 0)))),
+            price_php=max(0.0, float(canonical_ref.get("pricePhp") or 0)),
             category=_price_category_from_canonical(canonical_ref.get("canonicalCategory"), name),
             unit=_normalize_rule_unit(canonical_ref.get("unit")),
             source=f"canonical_{canonical_source}",
-            source_label=(
-                f"Canonical {canonical_ref.get('marketType') or canonical_source} "
-                f"({canonical_ref.get('location') or 'NCR'}, {canonical_ref.get('sourceDate') or 'undated'})"
-            ),
+            source_label=source_label,
             confidence=str(canonical_ref.get("confidence") or "medium"),
             apply_category_multiplier=False,
+            apply_market_adjustments=canonical_source == "baseline",
             allow_zero_price=float(canonical_ref.get("pricePhp") or 0) == 0,
         )
     if rule is None:
@@ -873,8 +933,12 @@ def estimate_price_explained(
     else:
         factor = max(0.0, factor)
 
-    seasonal_multiplier = _market_multiplier(category, month_index, pricing_context=pricing_context)
-    tingi = _tingi_multiplier(qty_unit, target_unit, qty_value)
+    seasonal_multiplier = (
+        _market_multiplier(category, month_index, pricing_context=pricing_context)
+        if resolved_rule.apply_market_adjustments
+        else 1.0
+    )
+    tingi = _tingi_multiplier(qty_unit, target_unit, qty_value) if resolved_rule.apply_market_adjustments else 1.0
     safety = 1.10 if include_safety_buffer else 1.0
 
     price = base_price * factor
@@ -886,7 +950,7 @@ def estimate_price_explained(
 
     price = 0.0 if resolved_rule.allow_zero_price else max(5.0, price)
     return PriceEstimate(
-        price_php=int(round(price)),
+        price_php=int(price + 0.5),
         category=category,
         source=resolved_rule.source,
         source_label=resolved_rule.source_label,

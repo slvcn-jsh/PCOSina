@@ -65,13 +65,16 @@ def test_pantry_editing_and_matching_use_normalized_name_keys():
     assert "return groceryNamesMatch(pantryName, groceryName)" in grocery_screen_source
 
 
-def test_android_budget_display_prefers_backend_grocery_authority():
+def test_android_budget_display_reconciles_pantry_deductions_with_backend_grocery_authority():
     meal_plan_source = _read(MEAL_PLAN_VIEW_MODEL)
     grocery_screen_source = _read(GROCERY_SCREEN)
     progress_screen_source = _read(PROGRESS_SCREEN)
 
     assert "response.groceryOutput" in meal_plan_source
     assert "response.explanation.copy(estimatedWeeklyCost = authoritativeEstimate)" in meal_plan_source
-    assert "val authoritativeTotalEstimated = activePlanResponse" in grocery_screen_source
-    assert "val totalEstimated = authoritativeTotalEstimated ?: localTotalEstimated" in grocery_screen_source
+    assert "val rawAuthoritativePlanEstimate = activePlanResponse" in grocery_screen_source
+    assert "correctedAuthoritativeGroceryEstimate(" in grocery_screen_source
+    assert "alignGroceryEstimateWithAuthority(" in grocery_screen_source
+    assert "localAmountPhp = localShoppingEstimate" in grocery_screen_source
+    assert "if (groupedEntries.isEmpty())" in grocery_screen_source
     assert "currentPlan\n            ?.groceryOutput\n            ?.estimatedTotalPhp" in progress_screen_source

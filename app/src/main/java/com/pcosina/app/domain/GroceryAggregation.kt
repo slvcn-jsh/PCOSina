@@ -2,6 +2,7 @@ package com.pcosina.app.domain
 
 import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.PantryEntry
+import com.pcosina.app.data.model.PlannerGroceryOutputItem
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -28,6 +29,7 @@ data class PantryCoverage(
     val pantryQuantityDisplay: String?,
     val remainingQuantityDisplay: String?,
     val detail: String,
+    val remainingCostRatio: Double? = null,
 ) {
     val autoCovered: Boolean = status == PantryCoverageStatus.Full
 }
@@ -39,12 +41,85 @@ fun estimateGroceryCostAfterPantry(
 ): Int {
     if (coveredOrBought) return 0
     if (pantryCoverage?.status != PantryCoverageStatus.Partial) return entry.estimatedCostPhp
+    pantryCoverage.remainingCostRatio
+        ?.coerceIn(0.0, 1.0)
+        ?.let { ratio ->
+            return (entry.estimatedCostPhp * ratio)
+                .roundToInt()
+                .coerceIn(0, entry.estimatedCostPhp)
+        }
     val remainingQuantity = pantryCoverage.remainingQuantityDisplay
         ?.takeIf { it.isNotBlank() }
         ?: return entry.estimatedCostPhp
-    val remainingEstimate = PriceCatalog.estimatePriceDetail(entry.name, remainingQuantity).first
-        .coerceAtLeast(1)
-    return remainingEstimate.coerceAtMost(entry.estimatedCostPhp)
+    val remainingEstimate = PriceCatalog.estimatePriceDetail(
+        entry.name,
+        remainingQuantity,
+        clampQuantity = false,
+    ).first
+    return remainingEstimate.coerceIn(0, entry.estimatedCostPhp)
+}
+
+fun alignGroceryEstimateWithAuthority(
+    localAmountPhp: Int,
+    localFullEstimatePhp: Int,
+    authoritativeFullEstimatePhp: Int?,
+): Int {
+    val localAmount = localAmountPhp.coerceAtLeast(0)
+    if (localAmount == 0) return 0
+
+    val localFull = localFullEstimatePhp.coerceAtLeast(0)
+    val authoritativeFull = authoritativeFullEstimatePhp?.takeIf { it >= 0 }
+    if (localFull == 0) return authoritativeFull ?: localAmount
+
+    val baseline = authoritativeFull ?: localFull
+    val remainingShare = localAmount.toDouble() / localFull.toDouble()
+    return (baseline * remainingShare)
+        .roundToInt()
+        .coerceIn(0, baseline)
+}
+
+fun alignGroceryEntriesWithAuthority(
+    entries: List<GroceryListEntry>,
+    authoritativeFullEstimatePhp: Int?,
+): List<GroceryListEntry> {
+    val authoritativeFull = authoritativeFullEstimatePhp?.takeIf { it >= 0 } ?: return entries
+    if (entries.isEmpty()) return entries
+    val localFull = entries.sumOf { entry -> entry.estimatedCostPhp.coerceAtLeast(0) }
+    if (localFull == authoritativeFull) return entries
+    if (authoritativeFull == 0) {
+        return entries.map { entry -> entry.copy(estimatedCostPhp = 0) }
+    }
+    if (localFull <= 0) return entries
+
+    val scaledCosts = entries
+        .map { entry ->
+            if (entry.estimatedCostPhp <= 0) {
+                0
+            } else {
+                (entry.estimatedCostPhp.toDouble() * authoritativeFull.toDouble() / localFull.toDouble())
+                    .roundToInt()
+                    .coerceAtLeast(0)
+            }
+        }
+        .toMutableList()
+    var delta = authoritativeFull - scaledCosts.sum()
+    val adjustmentIndexes = entries.indices
+        .filter { index -> entries[index].estimatedCostPhp > 0 || delta > 0 }
+        .sortedByDescending { index -> entries[index].estimatedCostPhp }
+    for (index in adjustmentIndexes) {
+        if (delta == 0) break
+        val adjustment = if (delta > 0) {
+            delta
+        } else {
+            maxOf(delta, -scaledCosts[index])
+        }
+        scaledCosts[index] += adjustment
+        delta -= adjustment
+    }
+
+    return entries.mapIndexed { index, entry ->
+        entry.copy(estimatedCostPhp = scaledCosts[index].coerceAtLeast(0))
+    }
 }
 
 private data class ParsedQuantity(
@@ -76,7 +151,7 @@ private enum class GroceryBaseUnit {
 }
 
 private val quantityPattern = Regex(
-    """(?i)(\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(kg|kilo|kilogram|g|gram|grams|lb|lbs|pound|pounds|oz|ml|l|liter|litre|cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|piece|pieces|piraso|pc|pcs|clove|cloves|bunch|bunches|tali|stalk|stalks|can|cans|pack|packs|head|heads)"""
+    """(?i)(\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(kg|kilo|kilogram|g|gram|grams|lb|lbs|pound|pounds|oz|ml|l|liter|litre|cup|cups|glass|glasses|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|piece|pieces|piraso|pc|pcs|clove|cloves|bunch|bunches|bundle|bundles|tali|stalk|stalks|can|cans|pack|packs|packet|packets|package|packages|sachet|sachets|head|heads|fillet|fillets|slice|slices|thumb|thumbs|tray|trays|block|blocks|square|squares)\.?(?![a-z])"""
 )
 
 private val unitAliases = mapOf(
@@ -90,6 +165,7 @@ private val unitAliases = mapOf(
     "liter" to "l",
     "litre" to "l",
     "cups" to "cup",
+    "glasses" to "glass",
     "tablespoon" to "tbsp",
     "tablespoons" to "tbsp",
     "teaspoon" to "tsp",
@@ -100,11 +176,30 @@ private val unitAliases = mapOf(
     "pcs" to "piece",
     "cloves" to "clove",
     "bunches" to "bunch",
+    "bundle" to "bunch",
+    "bundles" to "bunch",
     "tali" to "bunch",
     "stalks" to "stalk",
     "cans" to "can",
     "packs" to "pack",
+    "packet" to "pack",
+    "packets" to "pack",
+    "package" to "pack",
+    "packages" to "pack",
+    "sachet" to "pack",
+    "sachets" to "pack",
     "heads" to "head",
+    "fillet" to "piece",
+    "fillets" to "piece",
+    "slice" to "piece",
+    "slices" to "piece",
+    "thumbs" to "thumb",
+    "tray" to "tray",
+    "trays" to "tray",
+    "block" to "piece",
+    "blocks" to "piece",
+    "square" to "piece",
+    "squares" to "piece",
 )
 
 private val ingredientSynonyms = mapOf(
@@ -119,9 +214,9 @@ private val ingredientSynonyms = mapOf(
     "liempo" to "pork belly",
     "baka" to "beef",
     "hipon" to "shrimp",
-    "bangus" to "fish",
-    "tilapia" to "fish",
-    "galunggong" to "fish",
+    "bangus" to "bangus",
+    "tilapia" to "tilapia",
+    "galunggong" to "galunggong",
     "bigas" to "rice",
     "gatas" to "milk",
     "keso" to "cheese",
@@ -133,6 +228,10 @@ private val ingredientSynonyms = mapOf(
     "patis" to "fish sauce",
     "asin" to "salt",
     "paminta" to "pepper",
+    "saging" to "banana",
+    "water spinach" to "kangkong",
+    "ong choy" to "kangkong",
+    "ongchoy" to "kangkong",
 )
 
 private val descriptorWords = setOf(
@@ -152,6 +251,8 @@ private val knownIngredientPhrases = listOf(
     "brown rice",
     "white rice",
     "bell pepper",
+    "water spinach",
+    "ong choy",
 )
 
 private val knownIngredientTokens = setOf(
@@ -160,15 +261,19 @@ private val knownIngredientTokens = setOf(
     "shrimp", "hipon", "rice", "bigas", "milk", "gatas", "cheese", "keso", "cabbage", "repolyo",
     "pechay", "spinach", "kale", "malunggay", "kangkong", "okra", "ampalaya", "eggplant", "talong",
     "sayote", "squash", "kalabasa", "chili", "sili", "oil", "vinegar", "suka", "toyo", "patis",
-    "salt", "asin", "pepper", "paminta", "banana", "apple", "orange", "oat", "bread", "flour",
+    "salt", "asin", "pepper", "paminta", "banana", "saging", "apple", "orange", "oat", "bread", "flour",
     "pasta", "noodles", "tuna", "sardines", "water", "coffee", "tea"
 )
 
-private val countUnitWords = setOf("piece", "clove", "bunch", "stalk", "can", "pack", "head")
+private val countUnitWords = setOf(
+    "piece", "clove", "bunch", "stalk", "can", "pack", "head", "fillet", "slice", "thumb",
+    "tray", "sachet", "package", "packet", "block", "square", "bundle",
+)
 private val pantryStructuredUnits = setOf(
     "kg", "g", "lb", "oz",
-    "l", "ml", "cup", "tbsp", "tsp",
-    "piece", "clove", "bunch", "stalk", "can", "pack", "head",
+    "l", "ml", "cup", "glass", "tbsp", "tsp",
+    "piece", "clove", "bunch", "stalk", "can", "pack", "head", "fillet", "slice", "thumb",
+    "tray", "sachet", "package", "packet", "block", "square", "bundle",
 )
 
 private val ingredientPieceWeightGrams = mapOf(
@@ -183,6 +288,9 @@ private val ingredientPieceWeightGrams = mapOf(
     "chicken:piece" to 180.0,
     "pork:piece" to 150.0,
     "fish:piece" to 180.0,
+    "bangus:piece" to 450.0,
+    "tilapia:piece" to 350.0,
+    "galunggong:piece" to 150.0,
     "pechay:bunch" to 180.0,
     "kangkong:bunch" to 180.0,
     "malunggay:bunch" to 80.0,
@@ -218,19 +326,110 @@ fun buildGroceryListEntries(
             val quantityDisplay = aggregateQuantitySegments(displayName, category, primaryUserSegments)
             val estimatedCost = PriceCatalog.estimatePriceDetail(
                 displayName,
-                quantityDisplay.ifBlank { "As needed" }
+                quantityDisplay.ifBlank { "As needed" },
+                clampQuantity = false,
             ).first
             GroceryListEntry(
                 key = key,
                 name = displayName,
                 category = category,
                 quantityDisplay = quantityDisplay.ifBlank { "As needed" },
-                estimatedCostPhp = estimatedCost.coerceAtLeast(5),
+                estimatedCostPhp = if (estimatedCost == 0) 0 else estimatedCost.coerceAtLeast(5),
                 sourceCount = primaryUserSegments.size.coerceAtLeast(1),
             )
         }
         .sortedWith(compareBy<GroceryListEntry> { it.category }.thenBy { it.name.lowercase(Locale.ENGLISH) })
 }
+
+fun buildGroceryListEntriesFromPlanner(
+    items: List<PlannerGroceryOutputItem>,
+): List<GroceryListEntry> {
+    return items
+        .filter { it.name.isNotBlank() }
+        .groupBy { item ->
+            plannerGroceryKey(item).ifBlank { canonicalGroceryKey(item.name) }
+        }
+        .mapNotNull { (key, groupedItems) ->
+            if (key.isBlank()) return@mapNotNull null
+            val first = groupedItems.first()
+            val companionWater = groupedItems.all(::isCompanionWaterItem)
+            val displayName = first.name.trim().ifBlank { canonicalGroceryName(first.name) }
+            if (displayName.isBlank()) return@mapNotNull null
+            val category = groupedItems
+                .firstNotNullOfOrNull { item -> item.category?.trim()?.takeIf { it.isNotBlank() } }
+                ?: PriceCatalog.inferCategory(displayName)
+            val quantitySegments = groupedItems
+                .mapNotNull { item -> item.quantity?.trim()?.takeIf { it.isNotBlank() } }
+                .flatMap { splitQuantitySegments(it) }
+            val aggregatedQuantity = aggregateQuantitySegments(displayName, category, quantitySegments)
+            val singleQuantity = quantitySegments.distinct().singleOrNull()
+            val rawQuantityDisplay = when {
+                aggregatedQuantity.isNotBlank() -> aggregatedQuantity
+                !singleQuantity.isNullOrBlank() -> singleQuantity
+                quantitySegments.isNotEmpty() -> "Mixed amounts from ${quantitySegments.size} meals"
+                else -> "As needed"
+            }
+            val quantityDisplay = if (companionWater) {
+                normalizeLegacyWaterQuantity(rawQuantityDisplay)
+            } else {
+                rawQuantityDisplay
+            }
+            val itemizedCosts = groupedItems.mapNotNull { item -> item.estimatedCostPhp?.coerceAtLeast(0) }
+            val estimatedCost = if (itemizedCosts.isNotEmpty()) {
+                itemizedCosts.sum()
+            } else {
+                PriceCatalog.estimatePriceDetail(displayName, quantityDisplay, clampQuantity = false).first
+            }
+            val sourceCount = groupedItems.sumOf { item -> item.originalNames.size.coerceAtLeast(1) }
+            GroceryListEntry(
+                key = key,
+                name = displayName,
+                category = category,
+                quantityDisplay = quantityDisplay,
+                estimatedCostPhp = if (companionWater) 0 else estimatedCost.coerceAtLeast(0),
+                sourceCount = sourceCount.coerceAtLeast(1),
+            )
+        }
+        .sortedWith(compareBy<GroceryListEntry> { it.category }.thenBy { it.name.lowercase(Locale.ENGLISH) })
+}
+
+fun correctedAuthoritativeGroceryEstimate(
+    items: List<PlannerGroceryOutputItem>,
+    authoritativeEstimatePhp: Int?,
+): Int? {
+    val authoritative = authoritativeEstimatePhp?.takeIf { it >= 0 } ?: return null
+    val staleWaterCharge = items
+        .filter(::isCompanionWaterItem)
+        .sumOf { item -> item.estimatedCostPhp?.coerceAtLeast(0) ?: 0 }
+    return (authoritative - staleWaterCharge).coerceAtLeast(0)
+}
+
+private fun isCompanionWaterItem(item: PlannerGroceryOutputItem): Boolean {
+    if (plannerGroceryKey(item) != "water") return false
+    val identities = (listOf(item.name) + item.originalNames)
+        .map(::normalizeTokenText)
+        .filter { it.isNotBlank() }
+    return identities.isNotEmpty() && identities.all { it == "water" || it == "tap water" }
+}
+
+private fun normalizeLegacyWaterQuantity(quantity: String): String {
+    val parsed = parseQuantitySegment(quantity) ?: return quantity
+    val liters = when (parsed.unit) {
+        "kg" -> parsed.value
+        "g" -> parsed.value / 1000.0
+        else -> return quantity
+    }
+    return formatScaledValue(liters) + " L"
+}
+
+private fun plannerGroceryKey(item: PlannerGroceryOutputItem): String =
+    item.key
+        ?.trim()
+        ?.lowercase(Locale.ENGLISH)
+        ?.replace(Regex("[^a-z0-9]+"), " ")
+        ?.replace(Regex("\\s+"), " ")
+        ?.trim()
+        .orEmpty()
 
 private fun splitQuantitySegments(quantity: String): List<String> =
     quantity.split(",")
@@ -297,16 +496,23 @@ fun buildPantryCoverage(
                     pantryQuantityDisplay = formatBaseQuantity(listOf(pantryQuantity)),
                     remainingQuantityDisplay = null,
                     detail = "Pantry quantity covers the planned amount.",
+                    remainingCostRatio = 0.0,
                 )
             }
             needed != null && pantryQuantity != null && pantryQuantity.unit == needed.unit && pantryQuantity.value > 0.0 -> {
                 val remaining = GroceryBaseQuantity((needed.value - pantryQuantity.value).coerceAtLeast(0.0), needed.unit)
+                val remainingRatio = if (needed.value > 0.0) {
+                    (remaining.value / needed.value).coerceIn(0.0, 1.0)
+                } else {
+                    null
+                }
                 PantryCoverage(
                     itemName = grocery.name,
                     status = PantryCoverageStatus.Partial,
                     pantryQuantityDisplay = formatBaseQuantity(listOf(pantryQuantity)),
                     remainingQuantityDisplay = formatBaseQuantity(listOf(remaining)),
                     detail = "Pantry covers ${formatBaseQuantity(listOf(pantryQuantity))}; still buy ${formatBaseQuantity(listOf(remaining))}.",
+                    remainingCostRatio = remainingRatio,
                 )
             }
             else -> PantryCoverage(
@@ -425,8 +631,8 @@ private fun parseQuantitySegment(segment: String): ParsedQuantity? {
         ?: return null
     val dimension = when (normalizedUnit) {
         "kg", "g", "lb", "oz" -> QuantityDimension.Weight
-        "l", "ml", "cup", "tbsp", "tsp" -> QuantityDimension.Volume
-        "piece", "clove", "bunch", "stalk", "can", "pack", "head" -> QuantityDimension.Count
+        "l", "ml", "cup", "glass", "tbsp", "tsp" -> QuantityDimension.Volume
+        "piece", "clove", "bunch", "stalk", "can", "pack", "head", "thumb", "tray" -> QuantityDimension.Count
         else -> return null
     }
     return ParsedQuantity(value, normalizedUnit, dimension)
@@ -467,9 +673,10 @@ private fun ParsedQuantity.toBaseQuantity(displayName: String, category: String)
         "l" -> GroceryBaseQuantity(value * 1000.0, GroceryBaseUnit.Milliliter)
         "ml" -> GroceryBaseQuantity(value, GroceryBaseUnit.Milliliter)
         "cup" -> volumeSpoonToBase(value, 240.0, key, category)
+        "glass" -> volumeSpoonToBase(value, 240.0, key, category)
         "tbsp" -> volumeSpoonToBase(value, 15.0, key, category)
         "tsp" -> volumeSpoonToBase(value, 5.0, key, category)
-        "piece", "clove", "bunch", "stalk", "can", "pack", "head" -> {
+        "piece", "clove", "bunch", "stalk", "can", "pack", "head", "thumb", "tray" -> {
             if (key == "egg" && unit == "piece") {
                 return GroceryBaseQuantity(value, GroceryBaseUnit.Count)
             }
@@ -508,6 +715,8 @@ private fun defaultPieceWeightGrams(category: String, unit: String): Double = wh
     "can" -> 180.0
     "pack" -> 100.0
     "head" -> 250.0
+    "tray" -> 250.0
+    "thumb" -> 20.0
     else -> when (category) {
         "Meat/Seafood" -> 180.0
         "Eggs & Dairy" -> 55.0
@@ -561,6 +770,7 @@ private fun formatVolume(values: List<ParsedQuantity>): String {
             "l" -> value.value
             "ml" -> value.value / 1000.0
             "cup" -> value.value * 0.24
+            "glass" -> value.value * 0.24
             "tbsp" -> value.value * 0.015
             "tsp" -> value.value * 0.005
             else -> 0.0
@@ -601,6 +811,8 @@ private fun displayUnit(unit: String, value: Double): String {
         "can" -> "can"
         "pack" -> "pack"
         "head" -> "head"
+        "thumb" -> "thumb"
+        "tray" -> "tray"
         else -> unit
     }
     return if (value == 1.0) singular else when (singular) {
@@ -611,6 +823,8 @@ private fun displayUnit(unit: String, value: Double): String {
         "can" -> "cans"
         "pack" -> "packs"
         "head" -> "heads"
+        "thumb" -> "thumbs"
+        "tray" -> "trays"
         else -> singular
     }
 }

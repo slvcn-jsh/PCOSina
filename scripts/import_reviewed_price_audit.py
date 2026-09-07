@@ -259,7 +259,16 @@ def reviewed_price_rule_rows(
                 "price_max_php": str(price_max),
                 "category": _clean(row.get("category")) or "Others",
                 "unit": _unit(row.get("real_unit"), row.get("suggested_unit")),
-                "active": "true",
+                "active": "true" if database.reviewed_price_rule_is_production_eligible(
+                    {
+                        "active": "true",
+                        "confidence": confidence,
+                        "needs_manual_validation": "true" if needs_validation else "false",
+                        "review_status": _clean(row.get("implementation_ready_status")),
+                        "market_source": _clean(row.get("market_source")),
+                        "zero_price": "true" if zero_price else "false",
+                    }
+                ) else "false",
                 "source": "reviewed_market",
                 "confidence": confidence,
                 "effective": _clean(row.get("survey_date")),

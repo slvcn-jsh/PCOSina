@@ -44,6 +44,17 @@ class IngredientPriceSeed:
 
 
 @dataclass(frozen=True)
+class IngredientMarketPriceSeed:
+    ingredient_id: str
+    unit: str
+    price_php: float
+    commodity_label: str
+    confidence: str = "high"
+    price_min_php: float | None = None
+    price_max_php: float | None = None
+
+
+@dataclass(frozen=True)
 class IngredientResolution:
     raw_text: str
     normalized_text: str
@@ -112,6 +123,7 @@ CANONICAL_INGREDIENTS: tuple[CanonicalIngredientSeed, ...] = (
     CanonicalIngredientSeed("ing_onion_red", "red onion", "produce", "kg", "raw"),
     CanonicalIngredientSeed("ing_onion_white", "white onion", "produce", "kg", "raw"),
     CanonicalIngredientSeed("ing_orange", "orange", "fruit", "kg"),
+    CanonicalIngredientSeed("ing_papaya", "papaya", "fruit", "kg", "raw"),
     CanonicalIngredientSeed("ing_pasta", "pasta or noodles", "dry_goods", "kg"),
     CanonicalIngredientSeed("ing_pepper_black", "black pepper", "spice", "kg"),
     CanonicalIngredientSeed("ing_peppercorn_black", "black peppercorn", "spice", "kg"),
@@ -195,6 +207,7 @@ INGREDIENT_ALIASES: tuple[IngredientAliasSeed, ...] = tuple(
         _aliases("ing_onion_red", "red onion"),
         _aliases("ing_onion_white", "white onion"),
         _aliases("ing_orange", "orange"),
+        _aliases("ing_papaya", "papaya"),
         _aliases("ing_pasta", "pasta", "noodles", "egg noodles", "flour stick noodles", "bihon", "miki", "pancit"),
         _aliases("ing_pepper_black", "black pepper", "ground black pepper", "pepper", "paminta"),
         _aliases("ing_peppercorn_black", "black peppercorn", "black peppercorns", "peppercorn", "peppercorns"),
@@ -293,7 +306,61 @@ INGREDIENT_PRICE_REFS: tuple[IngredientPriceSeed, ...] = (
     IngredientPriceSeed("ing_fish_sauce", "piece", 40, "Spices & Condiments"),
     IngredientPriceSeed("ing_salt", "piece", 20, "Spices & Condiments"),
     IngredientPriceSeed("ing_pepper_black", "piece", 20, "Spices & Condiments"),
-    IngredientPriceSeed("ing_water", "piece", 20, "Beverages"),
+    IngredientPriceSeed(
+        "ing_water",
+        "l",
+        0,
+        "Beverages",
+        source="household_tap_water_baseline",
+        confidence="high",
+    ),
+)
+
+
+DA_NCR_WEEKLY_PRICE_SOURCE_URL = (
+    "https://www.da.gov.ph/wp-content/uploads/2026/09/"
+    "Weekly-Average-Prices-August-31-September-6-2026.pdf"
+)
+DA_NCR_WEEKLY_PRICE_SOURCE_DATE = "2026-09-06"
+
+# DA-AMAS NCR weekly average retail observations. These are purchase-market
+# references, not nutrition values and not forecasts.
+DA_NCR_WEEKLY_MARKET_PRICES: tuple[IngredientMarketPriceSeed, ...] = (
+    IngredientMarketPriceSeed("ing_rice_generic", "kg", 48.60, "Local well-milled rice"),
+    IngredientMarketPriceSeed("ing_bangus", "kg", 243.62, "Bangus, medium"),
+    IngredientMarketPriceSeed("ing_galunggong", "kg", 322.56, "Galunggong"),
+    IngredientMarketPriceSeed("ing_tilapia", "kg", 156.88, "Tilapia"),
+    IngredientMarketPriceSeed("ing_squid", "kg", 468.41, "Squid"),
+    IngredientMarketPriceSeed("ing_tuna", "kg", 320.52, "Tambakol/yellowfin tuna"),
+    IngredientMarketPriceSeed("ing_beef_generic", "kg", 441.01, "Beef brisket", "medium"),
+    IngredientMarketPriceSeed("ing_pork_belly_raw", "kg", 379.20, "Local pork belly/liempo"),
+    IngredientMarketPriceSeed("ing_pork_generic", "kg", 325.22, "Local pork kasim", "medium"),
+    IngredientMarketPriceSeed("ing_chicken_generic", "kg", 204.74, "Whole chicken", "medium"),
+    IngredientMarketPriceSeed("ing_chicken_breast_raw", "kg", 204.74, "Whole chicken proxy", "medium"),
+    IngredientMarketPriceSeed("ing_chicken_thigh_raw", "kg", 204.74, "Whole chicken proxy", "medium"),
+    IngredientMarketPriceSeed("ing_egg", "piece", 8.09, "Medium white chicken egg"),
+    IngredientMarketPriceSeed("ing_bitter_melon", "kg", 192.16, "Ampalaya"),
+    IngredientMarketPriceSeed("ing_chili", "kg", 197.20, "Green chili"),
+    IngredientMarketPriceSeed("ing_eggplant", "kg", 186.32, "Eggplant"),
+    IngredientMarketPriceSeed("ing_bok_choy", "kg", 202.65, "Native pechay"),
+    IngredientMarketPriceSeed("ing_string_beans", "kg", 185.41, "Pole sitao/string beans"),
+    IngredientMarketPriceSeed("ing_squash", "kg", 66.87, "Squash"),
+    IngredientMarketPriceSeed("ing_tomato", "kg", 108.50, "Tomato"),
+    IngredientMarketPriceSeed("ing_cabbage", "kg", 147.87, "Cabbage"),
+    IngredientMarketPriceSeed("ing_carrot", "kg", 117.41, "Carrot"),
+    IngredientMarketPriceSeed("ing_sayote", "kg", 101.91, "Sayote"),
+    IngredientMarketPriceSeed("ing_garlic", "kg", 150.77, "Imported garlic", "medium", 150.77, 351.00),
+    IngredientMarketPriceSeed("ing_ginger", "kg", 187.60, "Ginger"),
+    IngredientMarketPriceSeed("ing_onion_generic", "kg", 115.58, "Red onion proxy", "medium", 115.58, 132.69),
+    IngredientMarketPriceSeed("ing_onion_red", "kg", 115.58, "Red onion"),
+    IngredientMarketPriceSeed("ing_onion_white", "kg", 132.69, "White onion"),
+    IngredientMarketPriceSeed("ing_banana", "kg", 77.18, "Latundan banana", "medium", 64.19, 96.49),
+    IngredientMarketPriceSeed("ing_calamansi", "kg", 110.61, "Calamansi"),
+    IngredientMarketPriceSeed("ing_papaya", "kg", 78.49, "Papaya"),
+    IngredientMarketPriceSeed("ing_cooking_oil", "l", 100.06, "Palm cooking oil", "medium"),
+    IngredientMarketPriceSeed("ing_canola_oil", "l", 100.06, "Palm cooking oil proxy", "medium"),
+    IngredientMarketPriceSeed("ing_salt", "kg", 42.31, "Iodized salt"),
+    IngredientMarketPriceSeed("ing_sugar_white", "kg", 81.46, "Refined sugar"),
 )
 
 
@@ -320,6 +387,8 @@ UNIT_ALIASES = {
     "milliliters": "ml",
     "cup": "cup",
     "cups": "cup",
+    "glass": "glass",
+    "glasses": "glass",
     "tbsp": "tbsp",
     "tablespoon": "tbsp",
     "tablespoons": "tbsp",

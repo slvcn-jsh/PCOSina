@@ -1,13 +1,19 @@
 package com.pcosina.app
 
+import com.pcosina.app.data.model.PlannerGroceryOutputItem
 import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.PantryEntry
 import com.pcosina.app.domain.PantryCoverageStatus
 import com.pcosina.app.domain.PriceCatalog
+import com.pcosina.app.domain.GroceryListEntry
+import com.pcosina.app.domain.alignGroceryEntriesWithAuthority
+import com.pcosina.app.domain.alignGroceryEstimateWithAuthority
 import com.pcosina.app.domain.buildGroceryListEntries
+import com.pcosina.app.domain.buildGroceryListEntriesFromPlanner
 import com.pcosina.app.domain.buildPantryCoverage
 import com.pcosina.app.domain.canonicalGroceryKey
 import com.pcosina.app.domain.canonicalGroceryName
+import com.pcosina.app.domain.correctedAuthoritativeGroceryEstimate
 import com.pcosina.app.domain.estimateGroceryCostAfterPantry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -15,6 +21,76 @@ import org.junit.Test
 import java.time.LocalDate
 
 class GroceryAggregationTest {
+
+    @Test
+    fun alignGroceryEstimateWithAuthority_preservesBackendBaselineAndPantryShare() {
+        assertEquals(
+            180,
+            alignGroceryEstimateWithAuthority(
+                localAmountPhp = 200,
+                localFullEstimatePhp = 200,
+                authoritativeFullEstimatePhp = 180,
+            )
+        )
+        assertEquals(
+            45,
+            alignGroceryEstimateWithAuthority(
+                localAmountPhp = 50,
+                localFullEstimatePhp = 200,
+                authoritativeFullEstimatePhp = 180,
+            )
+        )
+    }
+
+    @Test
+    fun alignGroceryEstimateWithAuthority_keepsFullyCoveredListAtZero() {
+        assertEquals(
+            0,
+            alignGroceryEstimateWithAuthority(
+                localAmountPhp = 0,
+                localFullEstimatePhp = 200,
+                authoritativeFullEstimatePhp = 180,
+            )
+        )
+    }
+
+    @Test
+    fun alignGroceryEstimateWithAuthority_usesLocalEstimateWithoutBackendTotal() {
+        assertEquals(
+            50,
+            alignGroceryEstimateWithAuthority(
+                localAmountPhp = 50,
+                localFullEstimatePhp = 200,
+                authoritativeFullEstimatePhp = null,
+            )
+        )
+    }
+
+    @Test
+    fun alignGroceryEstimateWithAuthority_honorsZeroBackendTotal() {
+        assertEquals(
+            0,
+            alignGroceryEstimateWithAuthority(
+                localAmountPhp = 50,
+                localFullEstimatePhp = 200,
+                authoritativeFullEstimatePhp = 0,
+            )
+        )
+    }
+
+    @Test
+    fun alignGroceryEntriesWithAuthority_makesRowsSumToBackendTotalAndKeepsWaterFree() {
+        val entries = listOf(
+            GroceryListEntry("egg", "Eggs", "Eggs & Dairy", "6 pcs", 42, 1),
+            GroceryListEntry("rice", "Rice", "Dry Goods", "1 kg", 60, 1),
+            GroceryListEntry("water", "Water", "Beverages", "7 L", 0, 7),
+        )
+
+        val aligned = alignGroceryEntriesWithAuthority(entries, authoritativeFullEstimatePhp = 150)
+
+        assertEquals(150, aligned.sumOf { it.estimatedCostPhp })
+        assertEquals(0, aligned.first { it.key == "water" }.estimatedCostPhp)
+    }
 
     @Test
     fun buildGroceryListEntries_groupsRepeatedIngredientsForPrimaryUserTotals() {
@@ -36,6 +112,16 @@ class GroceryAggregationTest {
     }
 
     @Test
+    fun buildGroceryListEntries_doesNotCapWeeklyQuantitiesAtTwoUnits() {
+        val entries = buildGroceryListEntries(
+            items = listOf(DummyData.GroceryItem("Eggs", "12 pcs", 0, "Eggs & Dairy"))
+        )
+
+        assertEquals("12 pcs", entries.single().quantityDisplay)
+        assertEquals(96, entries.single().estimatedCostPhp)
+    }
+
+    @Test
     fun buildGroceryListEntries_canonicalizesSynonymsAndPreparationWords() {
         val entries = buildGroceryListEntries(
             items = listOf(
@@ -48,6 +134,108 @@ class GroceryAggregationTest {
         assertEquals(1, entries.size)
         assertEquals("Garlic", entries.single().name)
         assertEquals("50 g", entries.single().quantityDisplay)
+    }
+
+    @Test
+    fun buildGroceryListEntriesFromPlanner_preservesBackendKeysCostsAndWaterSpinachIdentity() {
+        val entries = buildGroceryListEntriesFromPlanner(
+            listOf(
+                PlannerGroceryOutputItem(
+                    key = "kangkong",
+                    name = "Kangkong",
+                    quantity = "180 g",
+                    estimatedCostPhp = 14,
+                    category = "Produce",
+                    originalNames = listOf("water spinach"),
+                ),
+                PlannerGroceryOutputItem(
+                    key = "water",
+                    name = "Water",
+                    quantity = "7 L",
+                    estimatedCostPhp = 0,
+                    category = "Beverages",
+                    originalNames = listOf("water"),
+                ),
+            )
+        )
+
+        assertEquals(setOf("kangkong", "water"), entries.map { it.key }.toSet())
+        assertEquals("Kangkong", entries.first { it.key == "kangkong" }.name)
+        assertEquals(14, entries.first { it.key == "kangkong" }.estimatedCostPhp)
+        assertEquals(0, entries.first { it.key == "water" }.estimatedCostPhp)
+    }
+
+    @Test
+    fun buildGroceryListEntriesFromPlanner_repairsLegacyCompanionWaterOnly() {
+        val water = PlannerGroceryOutputItem(
+            key = "water",
+            name = "Water",
+            quantity = "2.1 kg",
+            estimatedCostPhp = 185,
+            category = "Beverages",
+            originalNames = listOf("water"),
+        )
+        val waterSpinach = PlannerGroceryOutputItem(
+            key = "kangkong",
+            name = "Water Spinach",
+            quantity = "180 g",
+            estimatedCostPhp = 22,
+            category = "Produce",
+            originalNames = listOf("water spinach"),
+        )
+
+        val entries = buildGroceryListEntriesFromPlanner(listOf(water, waterSpinach))
+
+        assertEquals("2.1 L", entries.first { it.key == "water" }.quantityDisplay)
+        assertEquals(0, entries.first { it.key == "water" }.estimatedCostPhp)
+        assertEquals(22, entries.first { it.key == "kangkong" }.estimatedCostPhp)
+        assertEquals(2_082, correctedAuthoritativeGroceryEstimate(listOf(water, waterSpinach), 2_267))
+    }
+
+    @Test
+    fun buildGroceryListEntriesFromPlanner_keepsCompoundWaterProductsPriced() {
+        val coconutWater = PlannerGroceryOutputItem(
+            key = "water",
+            name = "Coconut Water",
+            quantity = "1 L",
+            estimatedCostPhp = 75,
+            category = "Beverages",
+            originalNames = listOf("coconut water"),
+        )
+
+        val entry = buildGroceryListEntriesFromPlanner(listOf(coconutWater)).single()
+
+        assertEquals(75, entry.estimatedCostPhp)
+        assertEquals(900, correctedAuthoritativeGroceryEstimate(listOf(coconutWater), 900))
+    }
+
+    @Test
+    fun buildGroceryListEntriesFromPlanner_convertsGlassToVolume() {
+        val water = PlannerGroceryOutputItem(
+            key = "water",
+            name = "Water",
+            quantity = "1 glass",
+            estimatedCostPhp = 0,
+            category = "Beverages",
+            originalNames = listOf("water"),
+        )
+
+        val entry = buildGroceryListEntriesFromPlanner(listOf(water)).single()
+
+        assertEquals("240 ml", entry.quantityDisplay)
+        assertEquals(0, entry.estimatedCostPhp)
+    }
+
+    @Test
+    fun offlinePriceCatalog_usesDatedRetailPricesWithoutDoubleAdjustment() {
+        val tomato = PriceCatalog.estimatePriceExplanation("Tomato", "1 kg", monthIndex = 9)
+
+        assertEquals(109, tomato.pricePhp)
+        assertEquals(1.0, tomato.marketMultiplier, 0.0)
+        assertEquals(1.0, tomato.tingiMultiplier, 0.0)
+        assertTrue(PriceCatalog.estimatePriceDetail("Water Spinach", "1 kg").first > 0)
+        assertTrue(PriceCatalog.estimatePriceDetail("Canned tuna in water", "1 can").first > 0)
+        assertEquals(0, PriceCatalog.estimatePriceDetail("Water", "1 glass").first)
     }
 
     @Test
@@ -82,10 +270,26 @@ class GroceryAggregationTest {
     }
 
     @Test
+    fun buildGroceryListEntries_doesNotParseLargeAsLiters() {
+        val entries = buildGroceryListEntries(
+            items = listOf(
+                DummyData.GroceryItem("1 large bangus milkfish, cleaned and sliced", "", 0, "Meat/Seafood"),
+            )
+        )
+
+        assertEquals("Bangus", entries.single().name)
+        assertEquals("450 g", entries.single().quantityDisplay)
+    }
+
+    @Test
     fun canonicalGroceryKey_mapsFilipinoSynonymsToSameBaseIngredient() {
         assertEquals("garlic", canonicalGroceryKey("bawang"))
         assertEquals("garlic", canonicalGroceryKey("2 cloves garlic, minced"))
         assertEquals("Garlic", canonicalGroceryName("minced bawang"))
+        assertEquals("banana", canonicalGroceryKey("saging"))
+        assertEquals("Banana", canonicalGroceryName("ripe saging"))
+        assertEquals("kangkong", canonicalGroceryKey("water spinach"))
+        assertEquals("water", canonicalGroceryKey("tap water"))
     }
 
     @Test

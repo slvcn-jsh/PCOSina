@@ -68,14 +68,17 @@ def test_reviewed_price_audit_rows_normalize_market_units_and_notes():
     assert fish_sauce["unit"] == "l"
     assert fish_sauce["confidence"] == "medium"
     assert fish_sauce["price_php"] == "90"
+    assert fish_sauce["active"] == "false"
     assert "pricing_basis=market_unit" in fish_sauce["notes"]
     assert "category_multiplier=none" in fish_sauce["notes"]
     assert "Audit source, with semicolon" in fish_sauce["notes"]
     assert egg["unit"] == "piece"
     assert egg["price_php"] == "8"
     assert egg["confidence"] == "high"
+    assert egg["active"] == "true"
     assert water["price_php"] == "1"
     assert water["zero_price"] == "true"
+    assert water["active"] == "false"
     assert "zero_price=true" in water["notes"]
 
 
@@ -99,3 +102,36 @@ def test_reviewed_price_seed_csv_updates_database_and_price_catalog(tmp_path):
     assert estimate.source == "reviewed_market"
     assert estimate.price_php == 64
     assert estimate.category_multiplier == 1.0
+    assert estimate.market_multiplier == 1.0
+    assert estimate.tingi_multiplier == 1.0
+
+
+def test_reviewed_price_seed_keeps_unvalidated_and_zero_rows_inactive():
+    assert database.reviewed_price_rule_is_production_eligible(
+        {
+            "active": "true",
+            "confidence": "high",
+            "needs_manual_validation": "false",
+            "review_status": "Ready for base-price import",
+            "zero_price": "false",
+        }
+    )
+    assert not database.reviewed_price_rule_is_production_eligible(
+        {
+            "active": "true",
+            "confidence": "low",
+            "needs_manual_validation": "true",
+            "review_status": "Needs local price validation before import",
+            "market_source": "PCOSina catalog fallback pending local validation",
+            "zero_price": "false",
+        }
+    )
+    assert not database.reviewed_price_rule_is_production_eligible(
+        {
+            "active": "true",
+            "confidence": "high",
+            "needs_manual_validation": "false",
+            "review_status": "Ready",
+            "zero_price": "true",
+        }
+    )

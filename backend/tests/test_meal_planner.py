@@ -240,6 +240,7 @@ def test_runtime_ingredient_tokenization_does_not_inherit_false_animal_family_fr
 def test_stage1_pricing_uses_request_scoped_market_multiplier_cache(monkeypatch):
     price_catalog.invalidate_override_cache()
     monkeypatch.setattr(database, "list_active_price_rules", lambda limit=500: [])
+    monkeypatch.setattr(database, "list_effective_canonical_price_refs", lambda **kwargs: {})
     monkeypatch.setattr(
         database,
         "list_market_multipliers_for_month",
@@ -2023,6 +2024,93 @@ def test_build_swap_candidates_respects_budget_and_restrictions():
     assert [recipe["id"] for recipe in swaps] == ["l_safe"]
 
 
+def test_build_swap_candidates_uses_aggregated_weekly_grocery_budget(monkeypatch):
+    profile = UserProfile(
+        weeklyBudgetPhp=100,
+        pantryItems=["egg", "rice"],
+        maxCookingTimeMinutes=45,
+    )
+    current = _recipe(
+        "b_current",
+        "Current Breakfast",
+        "Breakfast",
+        ingredients=[{"name": "egg", "quantity": "2 pcs"}],
+    )
+    safe = _recipe(
+        "b_safe",
+        "Budget Safe Swap",
+        "Breakfast",
+        ingredients=[{"name": "rice", "quantity": "1 cup"}],
+    )
+    over_budget = _recipe(
+        "b_over",
+        "Over Budget Swap",
+        "Breakfast",
+        ingredients=[{"name": "shrimp", "quantity": "2 kg"}],
+    )
+    recipes = [current, safe, over_budget]
+
+    monkeypatch.setattr(
+        meal_planner,
+        "shortlist_candidates",
+        lambda *_args, **_kwargs: {
+            "Breakfast": recipes,
+            "Lunch": [],
+            "Dinner": [],
+            "Universal": [],
+        },
+    )
+
+    priced_selections = []
+
+    def fake_grocery_output(selected, *, budget_weekly):
+        selected_ids = [recipe["id"] for recipe in selected]
+        priced_selections.append(selected_ids)
+        assert budget_weekly == 100
+        assert len(selected_ids) == 21
+        assert selected_ids.count("b_current") == 20
+        return {
+            "estimatedTotalPhp": 90 if "b_safe" in selected_ids else 101,
+        }
+
+    monkeypatch.setattr(meal_planner, "_build_selected_grocery_output", fake_grocery_output)
+
+    swaps = meal_planner.build_swap_candidates(
+        profile,
+        recipes,
+        meal_label="Breakfast",
+        current_recipe_id="b_current",
+        active_recipe_ids=["b_current"] * 21,
+        limit=10,
+    )
+
+    assert [recipe["id"] for recipe in swaps] == ["b_safe"]
+    assert len(priced_selections) == 2
+
+
+def test_build_swap_candidates_requires_complete_plan_context_for_budget_safety():
+    profile = UserProfile(
+        weeklyBudgetPhp=100,
+        pantryItems=["egg", "rice"],
+        maxCookingTimeMinutes=45,
+    )
+    recipes = [
+        _recipe("b_current", "Current Breakfast", "Breakfast"),
+        _recipe("b_safe", "Budget Safe Swap", "Breakfast"),
+    ]
+
+    swaps = meal_planner.build_swap_candidates(
+        profile,
+        recipes,
+        meal_label="Breakfast",
+        current_recipe_id="b_current",
+        active_recipe_ids=["b_current", "missing_recipe"],
+        limit=10,
+    )
+
+    assert swaps == []
+
+
 def test_shortlist_candidates_uses_primary_user_cost_estimates():
     profile = UserProfile(
         pantryItems=["rice"],
@@ -2863,6 +2951,8 @@ def test_solve_meal_plan_accepts_final_grocery_total_over_rough_meal_proxy(monke
     assert explanation["finalGroceryEstimatePhp"] == explanation["estimatedWeeklyCost"]
     assert telemetry["budget_diagnostics"]["displayedEstimateSource"] == "backend_aggregated_grocery"
     assert telemetry["grocery_output"]["estimatedTotalPhp"] == explanation["estimatedWeeklyCost"]
+    assert telemetry["grocery_output"]["estimatedTotalPhp"] == 0
+    assert all(item["estimatedCostPhp"] == 0 for item in telemetry["grocery_output"]["items"])
 
 
 def test_normal_profile_budget_acceptance_is_monotonic_when_final_grocery_is_under_budget(monkeypatch):
@@ -2873,7 +2963,7 @@ def test_normal_profile_budget_acceptance_is_monotonic_when_final_grocery_is_und
         budget = int(budget_weekly or 0)
         return {
             "authority": "backend_aggregated_grocery",
-            "pricingAuthority": "reviewed_market_price_rules",
+            "pricingAuthority": "backend_price_catalog",
             "estimatedTotalPhp": total,
             "weeklyBudgetPhp": budget,
             "withinBudget": total <= budget,
@@ -2957,7 +3047,7 @@ def test_no_safe_plan_only_after_authoritative_final_grocery_exceeds_budget(monk
         budget = int(budget_weekly or 0)
         return {
             "authority": "backend_aggregated_grocery",
-            "pricingAuthority": "reviewed_market_price_rules",
+            "pricingAuthority": "backend_price_catalog",
             "estimatedTotalPhp": total,
             "weeklyBudgetPhp": budget,
             "withinBudget": total <= budget,
@@ -3033,7 +3123,7 @@ def test_solve_meal_plan_clears_stale_budget_rejection_after_later_success(monke
         total = next(grocery_totals)
         return {
             "authority": "backend_aggregated_grocery",
-            "pricingAuthority": "reviewed_market_price_rules",
+            "pricingAuthority": "backend_price_catalog",
             "estimatedTotalPhp": total,
             "weeklyBudgetPhp": budget_weekly,
             "withinBudget": total <= int(budget_weekly or 0),

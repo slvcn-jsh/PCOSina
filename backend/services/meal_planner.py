@@ -2274,15 +2274,6 @@ def build_swap_candidates(
     baseline_repeat_limit = min(repeat_limit_candidates) if repeat_limit_candidates else 2
     max_repeat_limit = max(repeat_limit_candidates or [baseline_repeat_limit])
 
-    budget_weekly = resolve_budget_weekly(profile)
-    current_total_cost = 0.0
-    if budget_weekly:
-        current_total_cost = sum(
-            float(estimate_cost(recipe))
-            for recipe in recipes
-            for _ in range(current_counts.get(str(recipe.get("id") or ""), 0))
-        )
-
     filtered: List[Dict[str, Any]] = []
     for recipe in pool:
         recipe_id = str(recipe.get("id") or "").strip()
@@ -2292,35 +2283,54 @@ def build_swap_candidates(
         next_repeat_count = current_counts.get(recipe_id, 0) + 1
         if next_repeat_count > max_repeat_limit:
             continue
-
-        if budget_weekly:
-            current_recipe_cost = 0.0
-            if current_recipe_id:
-                current_recipe_cost = float(
-                    next(
-                        (
-                            estimate_cost(item)
-                            for item in recipes
-                            if str(item.get("id") or "") == str(current_recipe_id)
-                        ),
-                        0.0,
-                    )
-                )
-            candidate_total_cost = current_total_cost - current_recipe_cost + float(
-                recipe.get("_cost_est") or estimate_cost(recipe)
-            )
-            if candidate_total_cost > float(budget_weekly):
-                continue
-
         filtered.append(recipe)
 
     filtered.sort(key=_base_score, reverse=True)
+    budget_weekly = resolve_budget_weekly(profile)
+    active_ids = [str(recipe_id or "").strip() for recipe_id in active_recipe_ids or []]
+    active_ids = [recipe_id for recipe_id in active_ids if recipe_id]
+    recipes_by_id = {
+        str(recipe.get("id") or "").strip(): recipe
+        for recipe in recipes
+        if str(recipe.get("id") or "").strip()
+    }
+    active_recipes = [recipes_by_id[recipe_id] for recipe_id in active_ids if recipe_id in recipes_by_id]
+    normalized_current_recipe_id = str(current_recipe_id or "").strip()
+    current_slot_index = next(
+        (
+            index
+            for index, recipe_id in enumerate(active_ids)
+            if recipe_id == normalized_current_recipe_id
+        ),
+        None,
+    )
+    has_complete_budget_context = (
+        bool(active_ids)
+        and len(active_recipes) == len(active_ids)
+        and current_slot_index is not None
+    )
+
     deduped: List[Dict[str, Any]] = []
     seen_ids: set[str] = set()
     for recipe in filtered:
         recipe_id = str(recipe.get("id") or "").strip()
         if not recipe_id or recipe_id in seen_ids:
             continue
+        if budget_weekly:
+            # The generated plan's hard budget is based on its deduplicated,
+            # quantity-aware grocery list. Swap validation must use that same
+            # authority instead of summing 21 standalone recipe estimates.
+            if not has_complete_budget_context or current_slot_index is None:
+                continue
+            swapped_recipes = list(active_recipes)
+            swapped_recipes[current_slot_index] = recipe
+            candidate_grocery = _build_selected_grocery_output(
+                swapped_recipes,
+                budget_weekly=budget_weekly,
+            )
+            candidate_total_cost = int(candidate_grocery.get("estimatedTotalPhp") or 0)
+            if candidate_total_cost > int(round(float(budget_weekly))):
+                continue
         seen_ids.add(recipe_id)
         deduped.append(recipe)
         if len(deduped) >= max(1, int(limit or 20)):

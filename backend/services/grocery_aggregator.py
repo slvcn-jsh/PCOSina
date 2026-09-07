@@ -1,5 +1,6 @@
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -75,6 +76,9 @@ LOCAL_SYNONYMS = {
     "siling haba": "siling mahaba",
     "long green peppers": "long green chili",
     "long green pepper": "long green chili",
+    "water spinach": "kangkong",
+    "ong choy": "kangkong",
+    "ongchoy": "kangkong",
 }
 
 DESCRIPTORS = {
@@ -258,6 +262,7 @@ KNOWN_INGREDIENT_PHRASES = [
     "brown rice",
     "red rice",
     "white rice",
+    "water spinach",
     "bay leaves",
     "bay leaf",
     "laurel leaves",
@@ -463,7 +468,7 @@ QTY_RE = re.compile(
     r"(?P<num>\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*"
     r"(?P<unit>kilograms|kilogram|kilo|kg|grams|gram|g|pounds|pound|lbs|lb|ounces|ounce|oz|"
     r"milliliters|milliliter|ml|liters|liter|litres|litre|l|quarts|quart|"
-    r"tablespoons|tablespoon|tbsp|teaspoons|teaspoon|tsp|cups|cup|pieces|piece|piraso|pcs|pc|"
+    r"tablespoons|tablespoon|tbsp|teaspoons|teaspoon|tsp|cups|cup|glasses|glass|pieces|piece|piraso|pcs|pc|"
     r"cloves|clove|bunches|bunch|bundles|bundle|tali|stalks|stalk|heads|head|"
     r"fillets|fillet|slices|slice|thumbs|thumb|cans|can|sachets|sachet|"
     r"packages|package|packets|packet|packs|pack|blocks|block|squares|square|trays|tray)"
@@ -496,6 +501,7 @@ UNIT_ALIASES = {
     "quart": "quart",
     "quarts": "quart",
     "cups": "cup",
+    "glasses": "glass",
     "tablespoon": "tbsp",
     "tablespoons": "tbsp",
     "teaspoon": "tsp",
@@ -751,7 +757,7 @@ def price_grocery_buckets(
         estimate = price_catalog.estimate_price_explained(
             name,
             quantity,
-            include_safety_buffer=True,
+            include_safety_buffer=False,
             pricing_context=context,
             clamp_quantity=False,
         )
@@ -777,7 +783,8 @@ def price_grocery_buckets(
     return {
         "authority": "backend_aggregated_grocery",
         "budgetAuthority": "backend_aggregated_grocery",
-        "pricingAuthority": "reviewed_market_price_rules",
+        "pricingAuthority": "backend_price_catalog",
+        "pricingSourceCounts": dict(sorted(Counter(item["source"] for item in priced_items).items())),
         "estimatedTotalPhp": int(total_php),
         "finalGroceryEstimatePhp": int(total_php),
         "weeklyBudgetPhp": int(round(budget_value)) if has_budget else None,
@@ -882,6 +889,10 @@ def _to_base_quantity(key: str, value: float, unit: str, raw_name: str = "") -> 
         grams_per_cup = _cup_grams_for_key(key, cooked=bool(cooked_factor))
         grams = value * grams_per_cup
         return grams, "g"
+    if unit == "glass":
+        if _is_liquid_volume_key(key):
+            return value * 240.0, "ml"
+        return value * 240.0, "g"
     if unit == "tbsp":
         if _is_liquid_volume_key(key):
             return value * 15.0, "ml"

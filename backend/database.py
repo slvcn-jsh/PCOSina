@@ -12,6 +12,9 @@ from urllib.parse import urlparse
 
 from canonical_ingredients import (
     CANONICAL_INGREDIENTS,
+    DA_NCR_WEEKLY_MARKET_PRICES,
+    DA_NCR_WEEKLY_PRICE_SOURCE_DATE,
+    DA_NCR_WEEKLY_PRICE_SOURCE_URL,
     INGREDIENT_ALIASES,
     INGREDIENT_ALLERGEN_LINKS,
     INGREDIENT_PRICE_REFS,
@@ -1641,6 +1644,145 @@ def _migration_canonical_reference_precedence(conn) -> None:
     )
 
 
+def _migration_canonical_water_baseline_zero_price(conn) -> None:
+    cur = conn.cursor()
+    now = int(time.time() * 1000)
+    notes = (
+        "PCOSina complete-plate companion water is treated as household tap "
+        "water and excluded from grocery budget cost."
+    )
+    if _use_postgres():
+        cur.execute(
+            """
+            UPDATE ingredient_price_refs
+            SET unit = %s,
+                price_php = %s,
+                source = %s,
+                confidence = %s,
+                market_type = %s,
+                notes = %s,
+                updated_at = %s
+            WHERE ingredient_id = %s
+              AND price_ref_id = %s
+              AND COALESCE(price_scope, 'baseline') = 'baseline'
+            """,
+            (
+                "l",
+                0,
+                "household_tap_water_baseline",
+                "high",
+                "baseline",
+                notes,
+                now,
+                "ing_water",
+                "price_ing_water_static_v1",
+            ),
+        )
+    else:
+        cur.execute(
+            """
+            UPDATE ingredient_price_refs
+            SET unit = ?,
+                price_php = ?,
+                source = ?,
+                confidence = ?,
+                market_type = ?,
+                notes = ?,
+                updated_at = ?
+            WHERE ingredient_id = ?
+              AND price_ref_id = ?
+              AND COALESCE(price_scope, 'baseline') = 'baseline'
+            """,
+            (
+                "l",
+                0,
+                "household_tap_water_baseline",
+                "high",
+                "baseline",
+                notes,
+                now,
+                "ing_water",
+                "price_ing_water_static_v1",
+            ),
+        )
+
+
+def _migration_da_ncr_weekly_market_prices(conn) -> None:
+    _seed_canonical_ingredients(conn)
+    cur = conn.cursor()
+    now = int(time.time() * 1000)
+    placeholder = "%s" if _use_postgres() else "?"
+    columns = (
+        "price_ref_id", "ingredient_id", "location", "market_type", "unit",
+        "price_php", "price_min_php", "price_max_php", "source", "source_date",
+        "confidence", "valid_until", "active", "created_at", "updated_at",
+        "price_scope", "owner_uid", "priority", "notes",
+    )
+    values_sql = ", ".join([placeholder] * len(columns))
+    column_sql = ", ".join(columns)
+    if _use_postgres():
+        conflict_sql = """
+            ON CONFLICT (price_ref_id) DO UPDATE SET
+                unit = EXCLUDED.unit,
+                price_php = EXCLUDED.price_php,
+                price_min_php = EXCLUDED.price_min_php,
+                price_max_php = EXCLUDED.price_max_php,
+                source = EXCLUDED.source,
+                source_date = EXCLUDED.source_date,
+                confidence = EXCLUDED.confidence,
+                active = EXCLUDED.active,
+                updated_at = EXCLUDED.updated_at,
+                price_scope = EXCLUDED.price_scope,
+                priority = EXCLUDED.priority,
+                notes = EXCLUDED.notes
+        """
+    else:
+        conflict_sql = """
+            ON CONFLICT(price_ref_id) DO UPDATE SET
+                unit = excluded.unit,
+                price_php = excluded.price_php,
+                price_min_php = excluded.price_min_php,
+                price_max_php = excluded.price_max_php,
+                source = excluded.source,
+                source_date = excluded.source_date,
+                confidence = excluded.confidence,
+                active = excluded.active,
+                updated_at = excluded.updated_at,
+                price_scope = excluded.price_scope,
+                priority = excluded.priority,
+                notes = excluded.notes
+        """
+    for item in DA_NCR_WEEKLY_MARKET_PRICES:
+        ref_id = f"price_{item.ingredient_id}_da_ncr_2026_09_06"
+        notes = (
+            f"DA-AMAS NCR weekly average retail price; commodity={item.commodity_label}; "
+            f"source_url={DA_NCR_WEEKLY_PRICE_SOURCE_URL}"
+        )
+        values = (
+            ref_id,
+            item.ingredient_id,
+            "NCR",
+            "wet_market",
+            item.unit,
+            item.price_php,
+            item.price_min_php,
+            item.price_max_php,
+            "da_amas_ncr_weekly_average",
+            DA_NCR_WEEKLY_PRICE_SOURCE_DATE,
+            item.confidence,
+            None,
+            1,
+            now,
+            now,
+            "wet_market",
+            None,
+            300,
+            notes,
+        )
+        cur.execute(
+            f"INSERT INTO ingredient_price_refs ({column_sql}) VALUES ({values_sql}) {conflict_sql}",
+            values,
+        )
 def _registered_schema_migrations():
     return [
         ("20260319_app_001_core_tables", "Create core application tables", _migration_create_core_tables),
@@ -1662,6 +1804,8 @@ def _registered_schema_migrations():
         ("20260614_app_017_canonical_ingredient_layer", "Create and seed canonical ingredient reference tables", _migration_canonical_ingredient_layer),
         ("20260614_app_018_canonical_ingredient_seed_v2", "Expand canonical ingredient seed coverage", _migration_canonical_ingredient_seed_v2),
         ("20260614_app_019_canonical_reference_precedence", "Add canonical price scope and override precedence", _migration_canonical_reference_precedence),
+        ("20260614_app_020_canonical_water_baseline_zero_price", "Treat complete-plate companion water as zero-cost tap water", _migration_canonical_water_baseline_zero_price),
+        ("20260907_app_021_da_ncr_weekly_market_prices", "Seed dated DA-AMAS NCR weekly retail price references", _migration_da_ncr_weekly_market_prices),
     ]
 
 
@@ -4915,7 +5059,7 @@ def _reviewed_price_rule_seed_row(row: Dict[str, Any]) -> Dict[str, Any] | None:
     price_max_php = _optional_positive_int(row.get("price_max_php"))
     if price_min_php is not None and price_max_php is not None and price_max_php < price_min_php:
         price_min_php, price_max_php = price_max_php, price_min_php
-    active = str(row.get("active") or "true").strip().lower() not in {"0", "false", "no"}
+    active = reviewed_price_rule_is_production_eligible(row)
     notes = str(row.get("notes") or "").strip() or _reviewed_price_rule_seed_notes(row)
     return {
         "id": rule_id,
@@ -4942,6 +5086,27 @@ def _reviewed_price_rule_seed_notes(row: Dict[str, Any]) -> str:
         if value:
             chunks.append(f"{key}={value}")
     return "; ".join(chunks)[:2000]
+
+
+def reviewed_price_rule_is_production_eligible(row: Dict[str, Any]) -> bool:
+    if str(row.get("active") or "true").strip().lower() in {"0", "false", "no"}:
+        return False
+    confidence = str(row.get("confidence") or row.get("pricing_confidence_final") or "").strip().lower()
+    if confidence.startswith("low") or confidence.startswith("medium-low"):
+        return False
+    needs_validation = str(row.get("needs_manual_validation") or "").strip().lower()
+    if needs_validation in {"1", "true", "yes", "y"}:
+        return False
+    review_status = str(row.get("review_status") or row.get("implementation_ready_status") or "").strip().lower()
+    if "needs local price validation" in review_status:
+        return False
+    market_source = str(row.get("market_source") or "").strip().lower()
+    if "fallback pending local validation" in market_source:
+        return False
+    zero_price = str(row.get("zero_price") or "").strip().lower()
+    if zero_price in {"1", "true", "yes", "y"}:
+        return False
+    return True
 
 
 def _nutrition_seed_row_to_correction(row: Dict[str, Any]) -> Dict[str, Any] | None:
@@ -5118,6 +5283,8 @@ def _apply_nutrition_correction(recipe: Dict[str, Any], correction: Optional[Dic
         "philfct_ingredient_sum_auto",
         "philfct_budget_support_ingredient_sum",
     }
+
+
     correction_is_authoritative = (
         correction_source.startswith("philfct")
         or correction_status in {"reviewed", "nutritionist_reviewed", "dietitian_reviewed", "verified"}

@@ -1,6 +1,6 @@
 # PCOSINA Roadmap Progress Ledger
 
-Updated: 2026-08-10
+Updated: 2026-09-07
 
 | Roadmap Item | Status | Evidence | Tests Added | Key Risk | Next Action |
 |---|---|---|---|---|---|
@@ -13,12 +13,21 @@ Updated: 2026-08-10
 | H. Open-ended feedback pipeline | In progress | `backend/services/reason_normalizer.py`, `ml/offline_training/build_reason_feedback_dataset_v1.py`, `ml/offline_training/generate_reason_telemetry_v1.py`, `ml/event_taxonomy/v1.md`, `docs/architecture/ml_telemetry_pipeline.md` | `backend/tests/test_reason_normalizer.py`, `backend/tests/test_reason_feedback_dataset_builder.py`, `backend/tests/test_reason_telemetry_generator.py`, `backend/tests/test_ml_events.py` | Live user free-text volume is still low; most signals are currently seeded/staging telemetry | Ship optional reason text UI capture in more flows and monitor tag coverage/quality |
 | I/J/K/L/M Security/QA/SRE/Release/Post-launch | In progress | `docs/threat-model/production-threat-model.md`, `docs/runbooks/planner_incident_response.md`, `.github/workflows/ci.yml`, `.github/workflows/go-live-gates.yml`, `README.md`, `ARCHITECTURE.md`, `TEST_PLAN.md`, `ML_GUARDRAILS.md`, `PRIVACY_AND_SECURITY.md`, `RISK_REGISTER.md`, `RELEASE_CHECKLIST.md`, `docs/release/production_readiness_checklist.md`, `docs/backend-config.md`, `backend/main.py`, `app/src/main/java/com/pcosina/app/util/LogPrivacy.kt`, `app/src/main/java/com/pcosina/app/ui/navigation/Routes.kt`, `app/src/main/java/com/pcosina/app/ui/navigation/AppNavHost.kt`, `app/src/main/java/com/pcosina/app/ui/screens/DashboardRefinedScreen.kt`, `app/src/main/java/com/pcosina/app/ui/screens/MoreToolsScreen.kt`, `app/src/main/java/com/pcosina/app/ui/screens/IpoVisualizationScreen.kt`, `app/src/debug/AndroidManifest.xml`, `scripts/android-env.ps1`, `scripts/check_adb_access.ps1`, `scripts/release.ps1`, `benchmarks/reports/canary_drill_receipt.production.live.json`, `benchmarks/reports/canary_drill_receipt_check.production.live.json`, `benchmarks/reports/canary_guard_report.production.json` | `backend/tests/test_runtime_readiness.py`, `backend/tests/test_rate_limit_backend.py`, `backend/tests/test_app_check_enforcement.py`, `backend/tests/test_schema_migrations.py`, `backend/tests/test_android_privacy_safe_logging.py`, `backend/tests/test_android_tooling_scripts.py`, `backend/tests/test_admin_content_console_ui.py`, `backend/tests/test_admin_ops_console_ui.py`, `backend/tests/test_admin_policy_console_ui.py`, `backend/tests/test_admin_feedback_security.py`, `backend/tests/test_android_methodology_copy_policy.py`, `backend/tests/test_android_navigation_help_access_policy.py`, `app/src/test/java/com/pcosina/app/AndroidEnvPolicyTest.kt` | Production webhook and canary evidence are now archived; remaining blockers are connected Android/device evidence, staged sync validation, and sustained production load evidence | Archive connected Android/device, staged sync, and sustained production load evidence and keep the root docs in sync with each gate |
 
+## 2026-09-07 Production Readiness Evidence Packet
+
+- Created a local production-readiness evidence packet at `docs/production_readiness/evidence_2026-09-07/PCOSINA_Production_Readiness_Evidence_Packet_2026-09-07.md`, with DOCX and ZIP outputs in `output/doc/`.
+- Local proof passed for backend release/security tests, no-safe-plan backend contract, backend sync replay/reinstall tests, full Android debug unit tests, mobile ML event coverage, local planner benchmark, local go-live metrics format check, local canary drill, local staging rollout batch, memory queue throughput, and catalog nutrition readiness.
+- The explicit local-host metrics file is `benchmarks/reports/production_readiness_2026-09-07/go_live_metrics.local_host.json`. The default production gate remains blocked because `benchmarks/reports/go_live_metrics.json` was intentionally not overwritten with local evidence.
+- Strict production rollout remains failed/blocked because live webhook secrets, `PCOSINA_ADMIN_SESSION_SECRET`, external canary receipt, `PCOSINA_REDIS_URL`, and external Redis throughput receipt were not available in this workspace.
+- Connected Android proof is now partial: an authorized OPPO CPH2269 completed the focused Grocery Compose suite at 4/4 passing and cold-launched the restored debug APK without a fatal exception or ANR. The broader connected batch still has 9 unrelated UI-test failures and 3 skips across profile, plan-state, progress, settings, and stale test contracts, so the general device gate remains open.
+- ML widening remains deferred: mobile event coverage and reason-feedback artifact generation passed, but fresh ML readiness failed because `ml/offline_training/artifacts/dataset_v1/dataset_manifest.json` is missing.
+
 ## 2026-08-10 Runtime Catalog Diversity Update
 
 - The active runtime catalog is now 385 recipes, and the 50-scenario diversity audit passes 50/50 with no failed plans.
 - The audit enforces 21 filled meal slots and a maximum exact recipe repeat count of 3; observed max exact repeat is 3.
 - Semantic family fatigue is now enforced for munggo, tofu/soy, chicken, fish, and shellfish. Across the 50-scenario audit, the observed maximum semantic-family count is 11/21 slots: munggo=6, tofu/soy=9, chicken=11, fish=11, shellfish=11.
-- Production-shaped 21-slot planning now keeps about 42 candidates under the 14-second budget so the solver has enough alternatives to avoid one-family weekly plans.
+- Production-shaped 21-slot planning now keeps about 54 candidates under the 18-second budget so the solver has enough alternatives to avoid one-family weekly plans and exact-repeat overflow in stricter vegetarian profiles.
 - Evidence: `docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_current_catalog_diversity_audit_50_scenarios.json` and `.csv`.
 
 ## 2026-05-18 Nutrition Readiness Update
@@ -36,7 +45,7 @@ Updated: 2026-08-10
 - Local replay of Budget First, Low variety, `weeklyBudgetPhp=4000`, no allergies, and no restrictions now returns `Success` with 96 candidates, no pre-solver nutrition gaps, and an estimated weekly cost of 2,639 PHP.
 - Sodium and sugar remain in backend diagnostics/scoring as advisory limits, but they no longer block plan generation because they are not part of the current user-facing recipe nutrition contract.
 - Budget First planning now starts with repeat-friendly limits in production-shaped solves, matching the budget/reliability intent instead of spending the Render deadline on strict variety attempts first.
-- Production-shaped CP-SAT pools are capped by the wall-clock solver budget; the current 14-second Render profile uses about 42 candidates so the hosted worker has enough recipe-family alternatives while staying inside the deadline.
+- Production-shaped CP-SAT pools are capped by the wall-clock solver budget; the current 18-second Render profile uses about 54 candidates so the hosted worker has enough recipe-family alternatives while staying inside the deadline.
 - The CP-SAT model now removes unused recipe-selection helper variables and redundant visible-nutrition deviation variables, and Budget First receives a longer first-attempt search window inside the same 14-second production cap.
 - The restricted-profile catalog repair added 16 soy-free, gluten-free, dairy-free, egg-free, fish-free, shellfish-free, peanut/nut-free vegan quick meals in the 400-650 kcal, 18-28g protein target band, and a production-shaped replay of the hardest profile now returns `Success`.
 - Highly restricted profiles now use the repeat-reliable solver ladder even outside Budget First, so the Render 14-second cap reaches the `maxPerWeek=6` attempt needed by the hardest safe catalog profile.
@@ -109,3 +118,35 @@ Updated: 2026-08-10
   before adding new recipe categories.
 - Next action: resolve missing quantity conversions and attach reviewed
   nutrition provenance to the first 100 high-frequency recipes.
+
+## 2026-09-06 Core Correctness and Clarity Update
+
+- Swap candidates now use the same quantity-aware, deduplicated weekly grocery estimate as generated plans. Budget checks replace the selected slot in the complete active plan and fail closed when that plan context is incomplete.
+- A production-shaped catalog probe produced eight valid alternatives for every slot in a 21-meal, PHP 2,500 weekly plan; the focused backend swap suite passed 6/6 tests.
+- Home weekly progress now counts only completion records that match the active plan's meal slots, preventing stale records from turning one completed meal into a fully completed day.
+- Pantry rows now reserve space for item name, quantity, and expiry details instead of allowing the Remove control to consume the row width.
+- Grocery totals retain the backend plan estimate as their baseline while applying pantry and bought-item deductions proportionally; a fully pantry-covered list now remains at PHP 0 instead of falling back to the original total.
+- Profile or pantry-rule updates preserve the active meal plan and show the existing safety warning instead of silently deleting progress.
+- Progress now prioritizes BMI, adherence, budget, macro, symptom, and always-visible history sections; duplicate summary and support cards were removed, and saved food rules, allergies, and pantry items can be inspected from Profile settings.
+- Focused Android regression tests passed for home progress, pantry layout, plan preservation, BMI boundaries, profile details, and Progress-screen policy. AI-agent, mascot, LiteRT, and other innovation work remains intentionally deferred.
+- Device packaging verification found and repaired a launcher class-name mismatch. The corrected staging APK was installed in place on an OPPO CPH2269, cold-started successfully, stayed foreground without a fatal exception or ANR, and rendered Home, Grocery, pantry details, Progress, and Profile settings.
+
+## 2026-09-07 Grocery Pricing Source-of-Truth Update
+
+- Backend grocery output remains the authoritative plan-price contract. Android now preserves backend grocery keys and display identities, aligns row-level prices to the authoritative backend total before pantry/bought deductions, and uses those same aligned rows for the budget card and remaining estimate.
+- Complete-plate companion water is modeled as household tap water at `0 PHP/L` in both the canonical seed and static fallback catalog. Schema migration `20260614_app_020_canonical_water_baseline_zero_price` repairs the prior `20 PHP/piece` baseline in existing databases without changing admin or user overrides.
+- `water spinach`, `ong choy`, and `ongchoy` resolve to Kangkong before pricing, preventing the generic water rule from making Kangkong free. Android and backend quantity parsing now cover the same common grocery units, and Android no longer parses words such as `large` as liters.
+- Fresh-database proof for Water + Kangkong + Egg produced `33 PHP` total and a `33 PHP` item sum, with Water at `0 PHP`; database migration, grocery aggregation, planner-output, price-catalog, and Android aggregation regressions cover the same invariants.
+- Focused backend validation passed 167 tests; the full backend suite passed 442 tests. The final full Android JVM suite passed 272 tests, and the focused physical-device Grocery suite passed 4/4 after the stable semantics tags were added.
+- The tested debug APK was restored to the authorized OPPO CPH2269 and cold-launched into `com.pcosina.app/.MainActivity`; the 720x1600 first-run screen rendered without visible overlap and the app-process log contained no fatal exception or ANR.
+- The Firebase-registered `1.10.12-staging` APK was rebuilt from the current tree and installed in place on the OPPO device, preserving its authenticated session. Google authentication completed successfully with the registered release certificate.
+- The first-sign-in Terms overlay now gives the ownership artwork an explicit responsive height, preventing the editable image wrapper from consuming the viewport and pushing the legal card below the screen. Device verification showed the Terms title, scrollable content, Decline, and Accept controls together; accepting continued to the normal Profile onboarding Step 1 of 3 flow.
+- `LoginRecoveryPolicyTest` now guards the bounded Terms artwork and stable Terms-card/Accept identifiers. The focused policy test and complete Android JVM suite passed before the staging APK was assembled and installed.
+- Root-cause replay confirmed that all 451 source recipes express companion water as `1 glass`. The old parsers treated the unknown unit as one generic 100 g piece, producing exactly `2.1 kg` across 21 meals. Backend, canonical, and Android parsers now define one glass as 240 mL, so the same plan produces `5.04 L` and `0 PHP`.
+- Android repairs already-saved legacy grocery payloads without changing compound products: an exact `water`/`tap water` row is converted from kg to L, its stale item charge is removed from the authoritative total, and Kangkong/water spinach, coconut water, and canned tuna in water remain priced.
+- Migration `20260907_app_021_da_ncr_weekly_market_prices` adds dated DA-AMAS NCR weekly average retail references from the August 31-September 6, 2026 report for 35 high-impact canonical staples. These references outrank static baselines but remain below admin and user overrides.
+- Direct observed retail references no longer receive a second seasonal or tingi multiplier, and grocery rows no longer receive a blanket 10% safety buffer. Undated fallback rules retain those conservative adjustments.
+- The 2,174-row reviewed audit remains importable for traceability, but rows marked low confidence, pending local/manual validation, or zero price are now inactive at runtime. The audited seed currently yields 403 production-eligible rules instead of activating every provisional row.
+- Pricing keyword matching now uses token-aware phrase/plural matching, and zero-price water is exact-only. Weekly grocery quantity pricing no longer caps totals at two pieces, fixing cases such as 12 eggs being costed as only two.
+- Final local verification on 2026-09-07 passed 447/447 backend tests and 278/278 Android JVM tests. A deterministic 21-meal probe returned Water `5.04 L` at `0 PHP`, with the grocery total exactly equal to the sum of item rows and per-item source counts exposing canonical market versus fallback pricing.
+- Remaining rollout action: deploy the backend migration/catalog change, then generate a fresh authenticated staging plan on the phone and archive a grocery screen showing row sums, Water at `0 PHP`, and the budget-card total from the deployed response.

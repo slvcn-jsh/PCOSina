@@ -130,6 +130,29 @@ def test_reviewed_zero_price_rule_can_represent_tap_water():
     assert estimate.price_php == 0
 
 
+def test_static_tap_water_price_is_zero_without_database_override(monkeypatch):
+    price_catalog.invalidate_override_cache()
+    monkeypatch.setattr(database, "list_active_price_rules", lambda limit=500: [])
+    monkeypatch.setattr(database, "get_market_multiplier", lambda category, month_index: 1.0)
+
+    estimate = price_catalog.estimate_price_explained("tap water", "1 L", month_index=5)
+
+    assert estimate.price_php == 0
+    assert estimate.base_price_php == 0
+    assert estimate.target_unit == "l"
+
+
+def test_zero_water_rule_never_prices_compound_ingredients_as_free(monkeypatch):
+    price_catalog.invalidate_override_cache()
+    monkeypatch.setattr(database, "list_active_price_rules", lambda limit=500: [])
+    monkeypatch.setattr(database, "get_market_multiplier", lambda category, month_index: 1.0)
+
+    assert price_catalog.estimate_price_explained("water spinach", "1 kg").price_php > 0
+    assert price_catalog.estimate_price_explained("canned tuna in water", "1 can").price_php > 0
+    assert price_catalog.estimate_price_explained("coconut water", "1 L").price_php > 0
+    assert price_catalog.estimate_price_explained("water", "1 glass").price_php == 0
+
+
 def test_price_catalog_loads_more_than_legacy_500_rule_cap(monkeypatch):
     price_catalog.invalidate_override_cache()
     requested_limits: list[int] = []
@@ -184,6 +207,7 @@ def test_price_estimate_uses_ingredient_specific_garlic_count_weights(monkeypatc
 def test_market_multiplier_cache_bounds_db_calls(monkeypatch):
     price_catalog.invalidate_override_cache()
     monkeypatch.setattr(database, "list_active_price_rules", lambda limit=500: [])
+    monkeypatch.setattr(database, "list_effective_canonical_price_refs", lambda **kwargs: {})
     monkeypatch.setattr(
         database,
         "list_market_multipliers_for_month",
@@ -221,6 +245,7 @@ def test_market_multiplier_cache_bounds_db_calls(monkeypatch):
 def test_pricing_context_preloads_market_multipliers_once(monkeypatch):
     price_catalog.invalidate_override_cache()
     monkeypatch.setattr(database, "list_active_price_rules", lambda limit=500: [])
+    monkeypatch.setattr(database, "list_effective_canonical_price_refs", lambda **kwargs: {})
     preload_calls: list[int] = []
 
     def fake_preload(month_index: int) -> dict[str, float]:

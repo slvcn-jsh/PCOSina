@@ -167,7 +167,13 @@ class GroceryAggregationTest {
         assertEquals(setOf("kangkong", "water"), entries.map { it.key }.toSet())
         assertEquals("Kangkong", entries.first { it.key == "kangkong" }.name)
         assertEquals(14, entries.first { it.key == "kangkong" }.estimatedCostPhp)
-        assertEquals(0, entries.first { it.key == "water" }.estimatedCostPhp)
+        val water = entries.first { it.key == "water" }
+        assertEquals(0, water.estimatedCostPhp)
+        assertEquals(0.0, water.unitPricePhp)
+        assertEquals("l", water.priceUnit)
+        assertEquals("Household tap water baseline", water.priceSourceLabel)
+        assertEquals("high", water.priceConfidence)
+        assertEquals("household_not_purchased", water.purchaseMode)
     }
 
     @Test

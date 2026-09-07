@@ -350,7 +350,11 @@ fun buildGroceryListEntries(
                 priceUnit = estimate.targetUnit,
                 priceSourceLabel = estimate.sourceLabel,
                 priceConfidence = estimate.confidence,
-                purchaseMode = if (key == "bangus fillet") "weighed_to_order" else "required_quantity_retail_equivalent",
+                purchaseMode = when (key) {
+                    "water" -> "household_not_purchased"
+                    "bangus fillet" -> "weighed_to_order"
+                    else -> "required_quantity_retail_equivalent"
+                },
             )
         }
         .sortedWith(compareBy<GroceryListEntry> { it.category }.thenBy { it.name.lowercase(Locale.ENGLISH) })
@@ -402,27 +406,37 @@ fun buildGroceryListEntriesFromPlanner(
                 PriceCatalog.estimatePriceExplanation(pricingIdentity, quantityDisplay, clampQuantity = false)
             }
             val estimatedCost = localEstimate?.pricePhp ?: itemizedCosts.sum()
-            val unitPricePhp = if (trustBackendPrices) {
+            val unitPricePhp = if (companionWater) {
+                0.0
+            } else if (trustBackendPrices) {
                 groupedItems.firstNotNullOfOrNull { item -> item.unitPricePhp?.takeIf { it >= 0.0 } }
             } else {
                 localEstimate?.basePricePhp
             }
-            val priceUnit = if (trustBackendPrices) {
+            val priceUnit = if (companionWater) {
+                "l"
+            } else if (trustBackendPrices) {
                 groupedItems.firstNotNullOfOrNull { item -> item.priceUnit?.trim()?.takeIf { it.isNotBlank() } }
             } else {
                 localEstimate?.targetUnit
             }
-            val priceSourceLabel = if (trustBackendPrices) {
+            val priceSourceLabel = if (companionWater) {
+                "Household tap water baseline"
+            } else if (trustBackendPrices) {
                 groupedItems.firstNotNullOfOrNull { item -> item.sourceLabel?.trim()?.takeIf { it.isNotBlank() } }
             } else {
                 localEstimate?.sourceLabel
             }
-            val priceConfidence = if (trustBackendPrices) {
+            val priceConfidence = if (companionWater) {
+                "high"
+            } else if (trustBackendPrices) {
                 groupedItems.firstNotNullOfOrNull { item -> item.confidence?.trim()?.takeIf { it.isNotBlank() } }
             } else {
                 localEstimate?.confidence
             }
-            val purchaseMode = if (trustBackendPrices) {
+            val purchaseMode = if (companionWater) {
+                "household_not_purchased"
+            } else if (trustBackendPrices) {
                 groupedItems.firstNotNullOfOrNull { item -> item.purchaseMode?.trim()?.takeIf { it.isNotBlank() } }
             } else if (key == "bangus fillet" || pricingIdentity.contains("boneless bangus", ignoreCase = true)) {
                 "weighed_to_order"

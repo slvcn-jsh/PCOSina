@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - ".github/workflows/go-live-gates.yml"
       - "scripts/check_go_live_gates.py"
       - "scripts/check_schema_migrations.py"
       - "scripts/check_operator_auth_policy.py"
@@ -36,6 +37,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
       - name: Validate mobile ML event coverage
         run: |
           python scripts/check_mobile_ml_event_coverage.py

@@ -74,6 +74,7 @@ import com.pcosina.app.domain.alignGroceryEstimateWithAuthority
 import com.pcosina.app.domain.buildGroceryListEntries
 import com.pcosina.app.domain.buildGroceryListEntriesFromPlanner
 import com.pcosina.app.domain.correctedAuthoritativeGroceryEstimate
+import com.pcosina.app.domain.shouldTrustBackendGroceryPricing
 import com.pcosina.app.domain.buildPantryCoverage
 import com.pcosina.app.domain.canonicalGroceryKey
 import com.pcosina.app.domain.estimateGroceryCostAfterPantry
@@ -155,19 +156,30 @@ fun GroceryRefinedScreen(
             ?: planHistory.firstOrNull { it.id == activePlanId }?.response
     }
     val today = remember { LocalDate.now() }
-    val rawAuthoritativePlanEstimate = activePlanResponse
-        ?.groceryOutput
+    val activeGroceryOutput = activePlanResponse?.groceryOutput
+    val trustBackendPricing = shouldTrustBackendGroceryPricing(
+        catalogVersion = activeGroceryOutput?.pricingCatalogVersion,
+        referenceDate = activeGroceryOutput?.pricingReferenceDate,
+    )
+    val rawAuthoritativePlanEstimate = activeGroceryOutput
         ?.estimatedTotalPhp
         ?.takeIf { it >= 0 }
-        ?: activePlanResponse?.groceryOutput?.finalGroceryEstimatePhp?.takeIf { it >= 0 }
-    val authoritativePlanEstimate = correctedAuthoritativeGroceryEstimate(
-        items = activePlanResponse?.groceryOutput?.items.orEmpty(),
-        authoritativeEstimatePhp = rawAuthoritativePlanEstimate,
-    )
-    val rawGroupedEntries = remember(groceryItems, activePlanResponse) {
-        val plannerItems = activePlanResponse?.groceryOutput?.items.orEmpty()
+        ?: activeGroceryOutput?.finalGroceryEstimatePhp?.takeIf { it >= 0 }
+    val authoritativePlanEstimate = if (trustBackendPricing) {
+        correctedAuthoritativeGroceryEstimate(
+            items = activeGroceryOutput?.items.orEmpty(),
+            authoritativeEstimatePhp = rawAuthoritativePlanEstimate,
+        )
+    } else {
+        null
+    }
+    val rawGroupedEntries = remember(groceryItems, activeGroceryOutput, trustBackendPricing) {
+        val plannerItems = activeGroceryOutput?.items.orEmpty()
         if (plannerItems.isNotEmpty()) {
-            buildGroceryListEntriesFromPlanner(plannerItems)
+            buildGroceryListEntriesFromPlanner(
+                items = plannerItems,
+                trustBackendPrices = trustBackendPricing,
+            )
         } else {
             buildGroceryListEntries(groceryItems)
         }

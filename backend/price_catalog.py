@@ -5,7 +5,13 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Any, List, Dict, Optional, Tuple
 import database
-from canonical_ingredients import resolve_ingredient
+from canonical_ingredients import DA_NCR_WEEKLY_PRICE_SOURCE_DATE, resolve_ingredient
+
+
+PRICE_CATALOG_VERSION = f"pcosina-ncr-retail-{DA_NCR_WEEKLY_PRICE_SOURCE_DATE}-v1"
+PRICE_REFERENCE_DATE = DA_NCR_WEEKLY_PRICE_SOURCE_DATE
+PRICE_REFERENCE_LOCATION = "NCR"
+PRICE_BASIS = "required_quantity_retail_equivalent"
 
 
 @dataclass

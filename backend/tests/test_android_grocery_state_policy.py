@@ -72,7 +72,10 @@ def test_android_budget_display_reconciles_pantry_deductions_with_backend_grocer
 
     assert "response.groceryOutput" in meal_plan_source
     assert "response.explanation.copy(estimatedWeeklyCost = authoritativeEstimate)" in meal_plan_source
-    assert "val rawAuthoritativePlanEstimate = activePlanResponse" in grocery_screen_source
+    assert "val activeGroceryOutput = activePlanResponse?.groceryOutput" in grocery_screen_source
+    assert "val trustBackendPricing = shouldTrustBackendGroceryPricing(" in grocery_screen_source
+    assert "if (trustBackendPricing)" in grocery_screen_source
+    assert "trustBackendPrices = trustBackendPricing" in grocery_screen_source
     assert "correctedAuthoritativeGroceryEstimate(" in grocery_screen_source
     assert "alignGroceryEstimateWithAuthority(" in grocery_screen_source
     assert "localAmountPhp = localShoppingEstimate" in grocery_screen_source

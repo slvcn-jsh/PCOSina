@@ -277,6 +277,11 @@ def test_price_grocery_buckets_returns_budget_authority_payload():
     output = price_grocery_buckets(buckets, weekly_budget_php=100)
 
     assert output["authority"] == "backend_aggregated_grocery"
+    assert output["pricingCatalogVersion"] == "pcosina-ncr-retail-2026-09-06-v1"
+    assert output["pricingReferenceDate"] == "2026-09-06"
+    assert output["pricingReferenceLocation"] == "NCR"
+    assert output["pricingBasis"] == "required_quantity_retail_equivalent"
+    assert sum(output["pricingSourceCounts"].values()) == output["itemCount"]
     assert output["estimatedTotalPhp"] > 0
     assert output["withinBudget"] is True
     assert output["items"][0]["estimatedCostPhp"] > 0

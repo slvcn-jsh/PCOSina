@@ -14,8 +14,10 @@ import com.pcosina.app.domain.buildPantryCoverage
 import com.pcosina.app.domain.canonicalGroceryKey
 import com.pcosina.app.domain.canonicalGroceryName
 import com.pcosina.app.domain.correctedAuthoritativeGroceryEstimate
+import com.pcosina.app.domain.shouldTrustBackendGroceryPricing
 import com.pcosina.app.domain.estimateGroceryCostAfterPantry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -166,6 +168,56 @@ class GroceryAggregationTest {
     }
 
     @Test
+    fun buildGroceryListEntriesFromPlanner_repricesLegacyRowsFromCurrentOfflineCatalog() {
+        val legacyItems = listOf(
+            PlannerGroceryOutputItem(
+                key = "pechay",
+                name = "Pechay",
+                quantity = "1.39 kg",
+                estimatedCostPhp = 139,
+                category = "Produce",
+                originalNames = listOf("pechay"),
+            ),
+            PlannerGroceryOutputItem(
+                key = "string beans",
+                name = "String Beans",
+                quantity = "1.08 kg",
+                estimatedCostPhp = 148,
+                category = "Produce",
+                originalNames = listOf("sitaw"),
+            ),
+            PlannerGroceryOutputItem(
+                key = "tomato",
+                name = "Tomato",
+                quantity = "1.06 kg",
+                estimatedCostPhp = 78,
+                category = "Produce",
+                originalNames = listOf("kamatis"),
+            ),
+        )
+
+        val entries = buildGroceryListEntriesFromPlanner(legacyItems, trustBackendPrices = false)
+
+        assertEquals(282, entries.first { it.key == "pechay" }.estimatedCostPhp)
+        assertEquals(200, entries.first { it.key == "string beans" }.estimatedCostPhp)
+        assertEquals(116, entries.first { it.key == "tomato" }.estimatedCostPhp)
+        assertEquals(598, entries.sumOf { it.estimatedCostPhp })
+    }
+
+    @Test
+    fun backendPricingTrust_requiresCurrentVersionOrNonOlderReferenceDate() {
+        assertFalse(shouldTrustBackendGroceryPricing(null, null))
+        assertFalse(shouldTrustBackendGroceryPricing("legacy-v1", "2026-08-31"))
+        assertTrue(
+            shouldTrustBackendGroceryPricing(
+                PriceCatalog.CURRENT_CATALOG_VERSION,
+                PriceCatalog.CURRENT_REFERENCE_DATE,
+            )
+        )
+        assertTrue(shouldTrustBackendGroceryPricing("future-v2", "2026-09-13"))
+    }
+
+    @Test
     fun buildGroceryListEntriesFromPlanner_repairsLegacyCompanionWaterOnly() {
         val water = PlannerGroceryOutputItem(
             key = "water",
@@ -236,6 +288,23 @@ class GroceryAggregationTest {
         assertTrue(PriceCatalog.estimatePriceDetail("Water Spinach", "1 kg").first > 0)
         assertTrue(PriceCatalog.estimatePriceDetail("Canned tuna in water", "1 can").first > 0)
         assertEquals(0, PriceCatalog.estimatePriceDetail("Water", "1 glass").first)
+    }
+
+    @Test
+    fun offlinePriceCatalog_prefersSpecificPackagedRuleOverBroadFishRule() {
+        val cannedTuna = PriceCatalog.estimatePriceExplanation("Canned tuna", "1 can", monthIndex = 9)
+
+        assertEquals("Canned/Packaged", cannedTuna.category)
+        assertEquals(28, cannedTuna.pricePhp)
+    }
+
+    @Test
+    fun offlinePriceCatalog_coversRemainingDatedDaReferencesAndPluralMetricUnits() {
+        assertEquals(468, PriceCatalog.estimatePriceDetail("Pusit", "1 kilogram").first)
+        assertEquals(133, PriceCatalog.estimatePriceDetail("White onions", "1 kilograms").first)
+        assertEquals(100, PriceCatalog.estimatePriceDetail("Canola oil", "1 litre").first)
+        assertEquals(81, PriceCatalog.estimatePriceDetail("Granulated white sugar", "1 kilogram").first)
+        assertEquals(0, PriceCatalog.estimatePriceDetail("Tap water", "2.1 liters").first)
     }
 
     @Test

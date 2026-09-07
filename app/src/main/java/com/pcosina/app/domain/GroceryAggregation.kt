@@ -343,6 +343,7 @@ fun buildGroceryListEntries(
 
 fun buildGroceryListEntriesFromPlanner(
     items: List<PlannerGroceryOutputItem>,
+    trustBackendPrices: Boolean = true,
 ): List<GroceryListEntry> {
     return items
         .filter { it.name.isNotBlank() }
@@ -375,10 +376,15 @@ fun buildGroceryListEntriesFromPlanner(
                 rawQuantityDisplay
             }
             val itemizedCosts = groupedItems.mapNotNull { item -> item.estimatedCostPhp?.coerceAtLeast(0) }
-            val estimatedCost = if (itemizedCosts.isNotEmpty()) {
+            val pricingIdentity = buildList {
+                add(displayName)
+                add(key)
+                groupedItems.forEach { item -> addAll(item.originalNames) }
+            }.joinToString(" ")
+            val estimatedCost = if (trustBackendPrices && itemizedCosts.isNotEmpty()) {
                 itemizedCosts.sum()
             } else {
-                PriceCatalog.estimatePriceDetail(displayName, quantityDisplay, clampQuantity = false).first
+                PriceCatalog.estimatePriceDetail(pricingIdentity, quantityDisplay, clampQuantity = false).first
             }
             val sourceCount = groupedItems.sumOf { item -> item.originalNames.size.coerceAtLeast(1) }
             GroceryListEntry(
@@ -391,6 +397,16 @@ fun buildGroceryListEntriesFromPlanner(
             )
         }
         .sortedWith(compareBy<GroceryListEntry> { it.category }.thenBy { it.name.lowercase(Locale.ENGLISH) })
+}
+
+fun shouldTrustBackendGroceryPricing(
+    catalogVersion: String?,
+    referenceDate: String?,
+): Boolean {
+    if (catalogVersion == PriceCatalog.CURRENT_CATALOG_VERSION) return true
+    val backendDate = runCatching { LocalDate.parse(referenceDate) }.getOrNull() ?: return false
+    val localDate = LocalDate.parse(PriceCatalog.CURRENT_REFERENCE_DATE)
+    return !backendDate.isBefore(localDate)
 }
 
 fun correctedAuthoritativeGroceryEstimate(

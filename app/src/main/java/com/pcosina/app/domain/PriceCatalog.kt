@@ -25,6 +25,8 @@ data class PriceEstimate(
 )
 
 object PriceCatalog {
+    const val CURRENT_CATALOG_VERSION = "pcosina-ncr-retail-2026-09-06-v1"
+    const val CURRENT_REFERENCE_DATE = "2026-09-06"
     private const val currentDaSource = "DA-AMAS NCR weekly average (Aug 31-Sep 6, 2026)"
 
     private val rules = listOf(
@@ -46,10 +48,13 @@ object PriceCatalog {
         PriceRule(listOf("galunggong"), 323, "Meat/Seafood", "kg", currentDaSource, "high", true),
         PriceRule(listOf("tilapia"), 157, "Meat/Seafood", "kg", currentDaSource, "high", true),
         PriceRule(listOf("tuna", "tambakol"), 321, "Meat/Seafood", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("squid", "pusit"), 468, "Meat/Seafood", "kg", currentDaSource, "high", true),
         PriceRule(listOf("fish", "salmon"), 220, "Meat/Seafood", "kg"),
         PriceRule(listOf("canned tuna", "canned sardines"), 35, "Canned/Packaged", "piece"),
         PriceRule(listOf("shrimp", "hipon"), 300, "Meat/Seafood", "kg"),
         PriceRule(listOf("tomato", "kamatis"), 109, "Produce", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("white onion", "sibuyas puti"), 133, "Produce", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("red onion", "sibuyas pula"), 116, "Produce", "kg", currentDaSource, "high", true),
         PriceRule(listOf("onion", "sibuyas"), 116, "Produce", "kg", currentDaSource, "medium", true),
         PriceRule(listOf("garlic", "bawang"), 151, "Produce", "kg", currentDaSource, "medium", true),
         PriceRule(listOf("carrot"), 117, "Produce", "kg", currentDaSource, "high", true),
@@ -68,10 +73,11 @@ object PriceCatalog {
         PriceRule(listOf("papaya"), 78, "Produce", "kg", currentDaSource, "high", true),
         PriceRule(listOf("calamansi"), 111, "Produce", "kg", currentDaSource, "high", true),
         PriceRule(listOf("ginger", "luya"), 188, "Produce", "kg", currentDaSource, "high", true),
-        PriceRule(listOf("cooking oil"), 100, "Spices & Condiments", "l", currentDaSource, "medium", true),
+        PriceRule(listOf("cooking oil", "canola oil"), 100, "Spices & Condiments", "l", currentDaSource, "medium", true),
         PriceRule(listOf("oil", "olive", "coconut"), 120, "Spices & Condiments", "l"),
         PriceRule(listOf("soy", "toyo", "sauce", "vinegar", "suka", "patis"), 40, "Spices & Condiments", "piece"),
         PriceRule(listOf("salt", "asin"), 42, "Spices & Condiments", "kg", currentDaSource, "high", true),
+        PriceRule(listOf("white sugar", "refined sugar", "granulated white sugar"), 81, "Dry Goods", "kg", currentDaSource, "high", true),
         PriceRule(listOf("pepper", "paminta", "spice"), 20, "Spices & Condiments", "piece"),
         PriceRule(listOf("coffee", "tea"), 90, "Beverages", "piece"),
         PriceRule(listOf("juice", "soda"), 40, "Beverages", "piece"),
@@ -87,13 +93,20 @@ object PriceCatalog {
     private val unitAliases = mapOf(
         "kilo" to "kg",
         "kilogram" to "kg",
+        "kilograms" to "kg",
         "grams" to "g",
         "gram" to "g",
         "lbs" to "lb",
         "pound" to "lb",
         "pounds" to "lb",
+        "ounce" to "oz",
+        "ounces" to "oz",
         "liter" to "l",
         "litre" to "l",
+        "liters" to "l",
+        "litres" to "l",
+        "milliliter" to "ml",
+        "milliliters" to "ml",
         "cups" to "cup",
         "glasses" to "glass",
         "tablespoon" to "tbsp",
@@ -169,7 +182,7 @@ object PriceCatalog {
     )
 
     private val quantityPattern = Regex(
-        """(?i)(\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(kg|kilo|kilogram|g|gram|grams|lb|lbs|pound|pounds|oz|ml|l|liter|litre|cup|cups|glass|glasses|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|piece|pieces|pc|pcs|clove|cloves|bunch|bunches|stalk|stalks|can|cans|pack|packs|head|heads)\.?(?![a-z])"""
+        """(?i)(\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(kg|kilo|kilogram|kilograms|g|gram|grams|lb|lbs|pound|pounds|oz|ounce|ounces|ml|milliliter|milliliters|l|liter|litre|liters|litres|cup|cups|glass|glasses|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|piece|pieces|pc|pcs|clove|cloves|bunch|bunches|stalk|stalks|can|cans|pack|packs|head|heads)\.?(?![a-z])"""
     )
 
     fun estimatePrice(name: String): Int = estimatePriceDetail(name).first
@@ -378,14 +391,29 @@ object PriceCatalog {
 
     private fun ruleForName(name: String): PriceRule? {
         val normalizedName = normalizePriceTokens(name)
-        return rules.firstOrNull { rule ->
+        return rules
+            .mapNotNull { rule ->
             if (rule.pricePhp == 0 && normalizedName !in setOf("water", "tap water")) {
-                return@firstOrNull false
+                    return@mapNotNull null
             }
-            rule.keywords.any { keyword ->
-                pricePhraseMatches(normalizedName, normalizePriceTokens(keyword))
+                val matchedKeywords = rule.keywords.filter { keyword ->
+                    pricePhraseMatches(normalizedName, normalizePriceTokens(keyword))
+                }
+                if (matchedKeywords.isEmpty()) {
+                    null
+                } else {
+                    rule to matchedKeywords.maxWithOrNull(
+                        compareBy<String> { normalizePriceTokens(it).split(" ").size }
+                            .thenBy { normalizePriceTokens(it).length }
+                    )!!
+                }
             }
-        }
+            .maxWithOrNull(
+                compareBy<Pair<PriceRule, String>> {
+                    normalizePriceTokens(it.second).split(" ").size
+                }.thenBy { normalizePriceTokens(it.second).length }
+            )
+            ?.first
     }
 
     private fun pricePhraseMatches(name: String, phrase: String): Boolean {

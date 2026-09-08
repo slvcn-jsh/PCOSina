@@ -34,8 +34,8 @@ class DashboardConnectivityPolicyTest {
             "Shared connectivity utility should register a network callback for live updates.",
             connectivitySource.contains("registerDefaultNetworkCallback(callback)")
         )
-        assertFalse(
-            "Shared connectivity utility should not require Android's validated-internet bit for local backend links.",
+        assertTrue(
+            "Shared connectivity utility should require Android's validated-internet bit before showing online sync readiness.",
             connectivitySource.contains("NET_CAPABILITY_VALIDATED")
         )
         assertFalse(

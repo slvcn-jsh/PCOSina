@@ -210,6 +210,67 @@ class GroceryAggregationTest {
     }
 
     @Test
+    fun buildGroceryListEntriesFromPlanner_repairsLegacyEggMassToWholePieces() {
+        val entry = buildGroceryListEntriesFromPlanner(
+            listOf(
+                PlannerGroceryOutputItem(
+                    key = "egg",
+                    name = "Eggs",
+                    quantity = "525 g",
+                    estimatedCostPhp = 76,
+                    unitPricePhp = 8.09,
+                    priceUnit = "piece",
+                    category = "Eggs & Dairy",
+                    sourceLabel = "DA-AMAS NCR weekly average retail price (2026-09-06)",
+                    confidence = "high",
+                    originalNames = listOf("egg"),
+                )
+            )
+        ).single()
+
+        assertEquals("10 pcs", entry.quantityDisplay)
+        assertEquals(81, entry.estimatedCostPhp)
+        assertEquals(8.09, entry.unitPricePhp!!, 0.0)
+        assertEquals("piece", entry.priceUnit)
+        assertEquals("count_purchase", entry.purchaseMode)
+    }
+
+    @Test
+    fun normalizeGroceryOutputPricingForDisplay_repairsLegacyEggItemAndTotal() {
+        val output = PlannerGroceryOutput(
+            estimatedTotalPhp = 2_123,
+            finalGroceryEstimatePhp = 2_123,
+            pricingCatalogVersion = PriceCatalog.CURRENT_CATALOG_VERSION,
+            pricingReferenceDate = PriceCatalog.CURRENT_REFERENCE_DATE,
+            items = listOf(
+                PlannerGroceryOutputItem(
+                    key = "egg",
+                    name = "Eggs",
+                    quantity = "0.525 kg",
+                    estimatedCostPhp = 76,
+                    unitPricePhp = 8.09,
+                    priceUnit = "piece",
+                    category = "Eggs & Dairy",
+                    sourceLabel = "DA-AMAS NCR weekly average retail price (2026-09-06)",
+                    confidence = "high",
+                    originalNames = listOf("egg"),
+                )
+            ),
+        )
+
+        val normalized = normalizeGroceryOutputPricingForDisplay(output)!!
+        val egg = normalized.items.single()
+
+        assertEquals(2_128, normalized.estimatedTotalPhp)
+        assertEquals(2_128, normalized.finalGroceryEstimatePhp)
+        assertEquals("0.525 kg", egg.requiredQuantity)
+        assertEquals("10 pcs", egg.quantity)
+        assertEquals("10 pcs", egg.purchaseQuantity)
+        assertEquals("count_purchase", egg.purchaseMode)
+        assertEquals(81, egg.estimatedCostPhp)
+    }
+
+    @Test
     fun buildGroceryListEntriesFromPlanner_repricesLegacyBangusFillet() {
         val entry = buildGroceryListEntriesFromPlanner(
             items = listOf(

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -70,7 +71,6 @@ import com.pcosina.app.ui.components.PcosinaAvatarBadge
 import com.pcosina.app.ui.components.RefinedMetricBar
 import com.pcosina.app.ui.components.RefinedOverviewCard
 import com.pcosina.app.ui.components.RefinedPrimaryButton
-import com.pcosina.app.ui.components.RefinedRingMeter
 import com.pcosina.app.ui.components.RefinedTabBrandHeader
 import com.pcosina.app.ui.components.SharedAvatarHeader
 import com.pcosina.app.ui.navigation.Routes
@@ -86,8 +86,6 @@ import com.pcosina.app.ui.util.rememberIsOnline
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.time.temporal.TemporalAdjusters
-import java.time.temporal.WeekFields
 import java.util.Locale
 
 private data class MealSwapTarget(
@@ -151,7 +149,7 @@ private fun MealSwapDialog(
                         color = MaterialTheme.colorScheme.error
                     )
                     options.isEmpty() -> Text(
-                        text = "No alternative meals are available right now.",
+                        text = "No safe alternative fits your current allergies, budget, and variety rules.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.Black
                     )
@@ -231,7 +229,6 @@ fun MealPlanRefinedScreen(
     val planHistory by mealPlanViewModel.planHistory.collectAsState()
     val activePlanId by mealPlanViewModel.activePlanId.collectAsState()
     val activeWeekStart by mealPlanViewModel.activeWeekStart.collectAsState()
-    val planMetrics by mealPlanViewModel.planMetrics.collectAsState()
     val profile by userViewModel.userProfile.collectAsState()
     val logs by progressViewModel.dailyLogs.collectAsState()
     val mealSources by groceryViewModel.mealSources.collectAsState()
@@ -239,13 +236,12 @@ fun MealPlanRefinedScreen(
     val currentPlan = remember(uiState, sortedHistory, activePlanId) {
         (uiState as? MealPlanUiState.Success)?.response
             ?: sortedHistory.firstOrNull { it.id == activePlanId }?.response
-            ?: sortedHistory.maxByOrNull { it.generatedAt }?.response
     }
     val today = LocalDate.now()
     val weekStart = remember(activeWeekStart, currentPlan?.weekLabel) {
         activeWeekStart?.let {
             runCatching { LocalDate.parse(it, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
-        } ?: today.with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
+        } ?: today
     }
     var selectedDayIndex by rememberSaveable(activePlanId) {
         mutableStateOf(
@@ -412,6 +408,7 @@ fun MealPlanRefinedScreen(
         val scrollState = rememberScrollState()
         val noSafePlanNotice = generationNotice as? MealPlanGenerationNotice.NoSafePlan
         val continuityNotice = generationNotice as? MealPlanGenerationNotice.ContinuityFallback
+        val profileChangedNotice = generationNotice as? MealPlanGenerationNotice.ProfileConstraintsChanged
         val errorState = uiState as? MealPlanUiState.Error
         val isGenerating = uiState is MealPlanUiState.Loading
         val waitingOnSameRequest = errorState?.message?.let { message ->
@@ -419,19 +416,12 @@ fun MealPlanRefinedScreen(
                 message.contains("keep waiting", ignoreCase = true)
         } == true
         val compact = maxHeight < 760.dp || maxWidth < 390.dp
-        val explanation = currentPlan?.explanation
-        val targetCalories = explanation?.targetCalories ?: userViewModel.dailyCalorieTarget
-        val targetProtein = explanation?.targetProtein?.takeIf { it > 0 } ?: planMetrics.avgProtein.coerceAtLeast(1)
-        val targetCarbs = explanation?.targetCarbs?.takeIf { it > 0 } ?: planMetrics.avgCarbs.coerceAtLeast(1)
-        val targetFiber = explanation?.fiberMinTarget?.takeIf { it > 0 } ?: planMetrics.avgFiber.coerceAtLeast(1)
-        val totalProtein = selectedMeals.sumOf { recipeDetails[it.recipeId]?.proteinGrams ?: 0 }
-        val totalCarbs = selectedMeals.sumOf { recipeDetails[it.recipeId]?.carbsGrams ?: 0 }
-        val totalFiber = selectedMeals.sumOf { recipeDetails[it.recipeId]?.fiberGrams ?: 0 }
-        val dayCalories = selectedDay?.totalCalories ?: 0
-        val loggedMeals = selectedMeals.count { meal ->
-            completedMealIds.contains(ProgressViewModel.buildMealKey(meal.mealLabel, meal.recipeId)) ||
-                completedMealIds.contains(meal.recipeId)
-        }
+        val selectedDayDetails = selectedMeals.mapNotNull { meal -> recipeDetails[meal.recipeId] }
+        val estimatedDailyCalories = selectedDay?.totalCalories?.takeIf { it > 0 }
+            ?: selectedDayDetails.sumOf { it.calories ?: 0 }
+        val estimatedDailyProtein = selectedDayDetails.sumOf { it.proteinGrams ?: 0 }
+        val estimatedDailyCarbs = selectedDayDetails.sumOf { it.carbsGrams ?: 0 }
+        val estimatedDailyFiber = selectedDayDetails.sumOf { it.fiberGrams ?: 0 }
         val planEndDate = weekStart.plusDays(6)
         val lastPlanDayIndex = (currentPlan?.days?.lastIndex ?: 6).coerceAtLeast(0)
         val lastPlanDayDate = weekStart.plusDays(lastPlanDayIndex.toLong())
@@ -702,6 +692,25 @@ fun MealPlanRefinedScreen(
                 }
             }
 
+            if (profileChangedNotice != null) {
+                RefinedOverviewCard(
+                    containerColor = Color(0xFFFFFBF0),
+                    borderColor = PcosinaPink.copy(alpha = 0.18f),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp)
+                ) {
+                    Text(
+                        text = "Review current plan",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = PcosinaDeepRose
+                    )
+                    Text(
+                        text = profileChangedNotice.message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PcosinaMuted
+                    )
+                }
+            }
+
             if (!feedbackMessage.isNullOrBlank()) {
                 RefinedOverviewCard(
                     containerColor = Color(0xFFF3FFF7),
@@ -916,17 +925,11 @@ fun MealPlanRefinedScreen(
                         }
                     }
 
-                    MealPlanDailySummaryCard(
-                        dayCalories = dayCalories,
-                        targetCalories = targetCalories,
-                        loggedMeals = loggedMeals,
-                        mealCount = selectedMeals.size,
-                        totalProtein = totalProtein,
-                        totalCarbs = totalCarbs,
-                        totalFiber = totalFiber,
-                        targetProtein = targetProtein,
-                        targetCarbs = targetCarbs,
-                        targetFiber = targetFiber,
+                    PlanEstimatedDailyIntakeCard(
+                        dayCalories = estimatedDailyCalories,
+                        totalProtein = estimatedDailyProtein,
+                        totalCarbs = estimatedDailyCarbs,
+                        totalFiber = estimatedDailyFiber,
                         compact = compact
                     )
 
@@ -957,6 +960,9 @@ fun MealPlanRefinedScreen(
                     )
                 }
             }
+            androidx.compose.foundation.layout.Spacer(
+                modifier = Modifier.height(if (compact) 18.dp else 24.dp)
+            )
         }
 
         if (showReplacePlanDialog) {
@@ -1066,8 +1072,7 @@ fun MealPlanRefinedScreen(
                         energyLevel = draft.energyLevel,
                         fullnessLevel = draft.fullnessLevel,
                         cravingsLevel = draft.cravingsLevel,
-                        satisfactionLevel = draft.satisfactionLevel,
-                        note = draft.note
+                        satisfactionLevel = draft.satisfactionLevel
                     )
                     feedbackMessage = if (saved) {
                         "${prompt.mealLabel} check-in saved."
@@ -1084,95 +1089,86 @@ fun MealPlanRefinedScreen(
 }
 
 @Composable
-private fun MealPlanDailySummaryCard(
+private fun PlanEstimatedDailyIntakeCard(
     dayCalories: Int,
-    targetCalories: Int,
-    loggedMeals: Int,
-    mealCount: Int,
     totalProtein: Int,
     totalCarbs: Int,
     totalFiber: Int,
-    targetProtein: Int,
-    targetCarbs: Int,
-    targetFiber: Int,
     compact: Boolean,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("mealplan_daily_intake_card"),
+        shape = RoundedCornerShape(8.dp),
         color = Color.White,
-        border = BorderStroke(1.5.dp, PcosinaPink.copy(alpha = 0.22f))
+        border = BorderStroke(1.5.dp, Color(0xFFD4DFEF)),
     ) {
         Column(
-            modifier = Modifier.padding(
-                horizontal = if (compact) 12.dp else 14.dp,
-                vertical = if (compact) 12.dp else 14.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            Text(
+                text = "Estimated daily intake",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "Total for this day's planned meals.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(if (compact) 5.dp else 8.dp),
             ) {
-                Text(
-                    text = "Estimated daily intake",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF682937)
-                    )
-                )
+                PlanIntakeTile("Calories", "$dayCalories kcal", Color(0xFF1496C5), Color(0xFFD7EFF8), Modifier.weight(1f))
+                PlanIntakeTile("Protein", "${totalProtein}g", Color(0xFFFF3445), Color(0xFFFFE4E8), Modifier.weight(1f))
+                PlanIntakeTile("Carbs", "${totalCarbs}g", Color(0xFFFFA000), Color(0xFFFFF0D4), Modifier.weight(1f))
+                PlanIntakeTile("Fiber", "${totalFiber}g", Color(0xFF57CF00), Color(0xFFDDF5CB), Modifier.weight(1f))
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RefinedRingMeter(
-                    valueText = "$dayCalories",
-                    subtitle = "KCAL",
-                    progress = if (targetCalories > 0) dayCalories.toFloat() / targetCalories.toFloat() else 0f,
-                    color = PcosinaPink,
-                    compact = compact
-                )
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = PcosinaSoftPink.copy(alpha = 0.72f)
-                    ) {
-                        Text(
-                            text = "Macronutrients",
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF682937)
-                            )
-                        )
-                    }
-                    RefinedMetricBar(
-                        label = "Protein",
-                        valueText = "${totalProtein}g",
-                        progress = totalProtein.toFloat() / targetProtein.coerceAtLeast(1).toFloat(),
-                        color = Color(0xFFFF9BAA)
-                    )
-                    RefinedMetricBar(
-                        label = "Carbs",
-                        valueText = "${totalCarbs}g",
-                        progress = totalCarbs.toFloat() / targetCarbs.coerceAtLeast(1).toFloat(),
-                        color = Color(0xFFD0A069)
-                    )
-                    RefinedMetricBar(
-                        label = "Fiber",
-                        valueText = "${totalFiber}g",
-                        progress = totalFiber.toFloat() / targetFiber.coerceAtLeast(1).toFloat(),
-                        color = Color(0xFFB9E7A6)
-                    )
-                }
-            }
+        }
+    }
+}
+
+@Composable
+private fun PlanIntakeTile(
+    label: String,
+    value: String,
+    accent: Color,
+    surface: Color,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.height(58.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(27.dp)
+                .background(accent),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .background(surface),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -1225,7 +1221,7 @@ private fun MealPlanShoppingCard(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(
                     modifier = Modifier.weight(1f),
@@ -1270,12 +1266,6 @@ private fun MealPlanShoppingCard(
                         }
                     }
                 }
-                Image(
-                    painter = painterResource(id = R.drawable.pcosina_ready_to_shop),
-                    contentDescription = null,
-                    modifier = Modifier.size(if (compact) 82.dp else 96.dp),
-                    contentScale = ContentScale.Fit,
-                )
             }
         }
     }

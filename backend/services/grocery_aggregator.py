@@ -1,3 +1,4 @@
+import math
 import re
 import sys
 from collections import Counter
@@ -753,7 +754,9 @@ def price_grocery_buckets(
     total_php = 0
     for key, bucket in sorted((buckets or {}).items(), key=lambda item: str(item[1].get("name") or item[0]).lower()):
         name = str(bucket.get("name") or key).strip()
-        quantity = str(bucket.get("displayQuantity") or "").strip()
+        required_quantity = str(bucket.get("displayQuantity") or "").strip()
+        count_purchase_quantity = _count_purchase_quantity(key, bucket)
+        quantity = count_purchase_quantity or required_quantity
         estimate = price_catalog.estimate_price_explained(
             name,
             quantity,
@@ -762,7 +765,10 @@ def price_grocery_buckets(
             clamp_quantity=False,
         )
         price_php = int(estimate.price_php)
-        if estimate.source == "canonical_retail_observation" or (
+        if count_purchase_quantity is not None:
+            purchase_mode = "count_purchase"
+            purchase_quantity = count_purchase_quantity
+        elif estimate.source == "canonical_retail_observation" or (
             key == "bangus fillet" and "boneless bangus" in estimate.source_label.lower()
         ):
             purchase_mode = "weighed_to_order"
@@ -779,7 +785,7 @@ def price_grocery_buckets(
                 "key": key,
                 "name": name,
                 "quantity": quantity,
-                "requiredQuantity": quantity,
+                "requiredQuantity": required_quantity,
                 "purchaseQuantity": purchase_quantity,
                 "purchaseMode": purchase_mode,
                 "estimatedCostPhp": price_php,
@@ -816,6 +822,15 @@ def price_grocery_buckets(
         "itemCount": len(priced_items),
         "items": priced_items,
     }
+
+
+def _count_purchase_quantity(key: str, bucket: Dict[str, Any]) -> Optional[str]:
+    if key != "egg" or str(bucket.get("unit") or "") != "g":
+        return None
+    grams = float(bucket.get("totalValue") or 0.0)
+    grams_per_piece = PIECE_GRAMS[("egg", "piece")]
+    pieces = max(1, math.ceil((grams / grams_per_piece) - 1e-9))
+    return f"{pieces} {'pc' if pieces == 1 else 'pcs'}"
 
 
 def _quantity_scale(ingredient: Any) -> float:

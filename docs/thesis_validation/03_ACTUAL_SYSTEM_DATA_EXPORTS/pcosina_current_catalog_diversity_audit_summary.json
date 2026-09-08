@@ -1,0 +1,2567 @@
+{
+  "catalog": {
+    "mealTypeCounts": {
+      "Breakfast": 110,
+      "Dinner": 142,
+      "Lunch": 110,
+      "Universal": 11
+    },
+    "path": "C:\\Users\\salva\\StudioProjects\\PCOSina\\backend\\recipes.json",
+    "recipeCount": 373
+  },
+  "scenarioCount": 9,
+  "scenarios": [
+    {
+      "allergies": [],
+      "allergyCount": 0,
+      "budgetWeeklyPhp": 3000,
+      "candidateCountPost": 33,
+      "candidateCountPre": 40,
+      "candidateDuplicateTitleCounts": {},
+      "candidateIngredientFamilyCounts": {
+        "chicken": 15,
+        "egg": 3,
+        "fish": 15,
+        "munggo": 6,
+        "shellfish": 6,
+        "tofu_soy": 3
+      },
+      "catalogMealTypeCounts": {
+        "Breakfast": 110,
+        "Dinner": 142,
+        "Lunch": 110,
+        "Universal": 11
+      },
+      "catalogRecipeCount": 373,
+      "confidenceScore": 42,
+      "days": 7,
+      "dietaryRestrictions": [],
+      "dominantIngredientFamily": "chicken",
+      "dominantIngredientFamilyCount": 13,
+      "dominantIngredientFamilyShareOfSlots": 0.619,
+      "estimatedWeeklyCostPhp": 1850,
+      "exclusionDetailCounts": {
+        "prep_time:over_limit": 97
+      },
+      "finalSolvePair": {
+        "attempts": [
+          {
+            "attemptTimeSeconds": 4.0,
+            "retry": 0,
+            "solveMs": 141,
+            "status": "FEASIBLE",
+            "stopAfterFirstSolution": true
+          }
+        ],
+        "attemptsUsed": 1,
+        "buildMs": 54,
+        "finalGroceryAttempts": [
+          {
+            "attempt": 1,
+            "budgetGapPhp": 1150,
+            "estimatedTotalPhp": 1850,
+            "plannerMealEstimatePhp": 4399,
+            "weeklyBudgetPhp": 3000,
+            "withinBudget": true
+          }
+        ],
+        "finalGroceryBudget": {
+          "attempt": 1,
+          "budgetGapPhp": 1150,
+          "estimatedTotalPhp": 1850,
+          "plannerMealEstimatePhp": 4399,
+          "weeklyBudgetPhp": 3000,
+          "withinBudget": true
+        },
+        "ingredientFamilyRepeatCaps": {
+          "fish": 5
+        },
+        "ingredientFamilyRepeatCapsEnforced": true,
+        "maxPerWeek": 3,
+        "sameSlotConsecutiveRepeatBlocked": true,
+        "solveMs": 141,
+        "status": "FEASIBLE",
+        "tol": 0.8
+      },
+      "maxPerWeekUsed": 3,
+      "mealsPerDay": 3,
+      "message": "Success",
+      "nutritionFeasibility": {
+        "advisoryGaps": [],
+        "advisoryMax": {
+          "sodiumMg": 2300,
+          "sugarGrams": 36
+        },
+        "gaps": [],
+        "ok": true,
+        "possibleDailyMax": {
+          "calories": 1973,
+          "carbsGrams": 324,
+          "fatsGrams": 59,
+          "fiberGrams": 66,
+          "proteinGrams": 115,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "possibleDailyMin": {
+          "calories": 1401,
+          "carbsGrams": 165,
+          "fatsGrams": 9,
+          "fiberGrams": 18,
+          "proteinGrams": 72,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "requiredMin": {
+          "calories": 1200,
+          "carbsGrams": 120,
+          "fatsGrams": 35,
+          "fiberGrams": 28,
+          "proteinGrams": 55
+        },
+        "slotBest": {
+          "Breakfast": {
+            "calories": 693,
+            "carbsGrams": 108,
+            "fatsGrams": 23,
+            "fiberGrams": 22,
+            "proteinGrams": 37,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 640,
+            "carbsGrams": 108,
+            "fatsGrams": 18,
+            "fiberGrams": 22,
+            "proteinGrams": 41,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 640,
+            "carbsGrams": 108,
+            "fatsGrams": 18,
+            "fiberGrams": 22,
+            "proteinGrams": 37,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        },
+        "slotFloor": {
+          "Breakfast": {
+            "calories": 456,
+            "carbsGrams": 56,
+            "fatsGrams": 3,
+            "fiberGrams": 6,
+            "proteinGrams": 24,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 470,
+            "carbsGrams": 57,
+            "fatsGrams": 3,
+            "fiberGrams": 6,
+            "proteinGrams": 24,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 475,
+            "carbsGrams": 52,
+            "fatsGrams": 3,
+            "fiberGrams": 6,
+            "proteinGrams": 24,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        }
+      },
+      "repeatSequence": [
+        2,
+        3,
+        4,
+        10
+      ],
+      "restrictedNutritionAnchorCountSafe": 113,
+      "restrictionCount": 0,
+      "safeIngredientFamilyCounts": {
+        "beef": 5,
+        "chicken": 65,
+        "egg": 39,
+        "fish": 66,
+        "munggo": 119,
+        "pork": 15,
+        "shellfish": 35,
+        "tofu_soy": 64
+      },
+      "safeRecipeCountPrePricing": 276,
+      "scenario": "broad_balanced",
+      "selectedIngredientFamilyCounts": {
+        "chicken": 13,
+        "egg": 5,
+        "fish": 5,
+        "shellfish": 8
+      },
+      "selectedMaxRecipeRepeatCount": 3,
+      "selectedRecipeCount": 21,
+      "selectedRecipeIds": [
+        "ph_form_088",
+        "ph_form_074",
+        "ph_qk_057",
+        "ph_form_037",
+        "ph_qk_049",
+        "ph_budget_005",
+        "ph_form_085",
+        "ph_form_074",
+        "ph_qk_057",
+        "ph_form_088",
+        "ph_form_090",
+        "ph_qk_050",
+        "ph_form_068",
+        "ph_rnd_002",
+        "ph_form_096",
+        "ph_form_041",
+        "ph_form_074",
+        "ph_budget_005",
+        "ph_form_088",
+        "ph_form_090",
+        "ph_qk_043"
+      ],
+      "selectedRepeatedRecipeCount": 5,
+      "selectedRepeatedTitles": {
+        "Chicken Pechay Tomato Rice Complete Plate": 2,
+        "Sardines Eggplant Pechay Lunch Plate": 2,
+        "Shrimp Egg Mushroom Breakfast Plate": 3,
+        "Squid Pechay Kidney Lunch Plate": 3,
+        "Tuna Pechay Complete Plate": 2
+      },
+      "selectedUniqueRecipeCount": 14,
+      "slotCount": 21,
+      "slotMaxRepeatCounts": {
+        "Breakfast": 3,
+        "Dinner": 2,
+        "Lunch": 3
+      },
+      "slotUniqueCounts": {
+        "Breakfast": 5,
+        "Dinner": 5,
+        "Lunch": 4
+      },
+      "solvePairStatuses": [
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "FEASIBLE"
+        }
+      ],
+      "status": "success"
+    },
+    {
+      "allergies": [],
+      "allergyCount": 0,
+      "budgetWeeklyPhp": 3000,
+      "candidateCountPost": 33,
+      "candidateCountPre": 40,
+      "candidateDuplicateTitleCounts": {},
+      "candidateIngredientFamilyCounts": {
+        "chicken": 15,
+        "egg": 3,
+        "fish": 15,
+        "munggo": 6,
+        "shellfish": 6,
+        "tofu_soy": 3
+      },
+      "catalogMealTypeCounts": {
+        "Breakfast": 110,
+        "Dinner": 142,
+        "Lunch": 110,
+        "Universal": 11
+      },
+      "catalogRecipeCount": 373,
+      "confidenceScore": 42,
+      "days": 7,
+      "dietaryRestrictions": [],
+      "dominantIngredientFamily": "shellfish",
+      "dominantIngredientFamilyCount": 10,
+      "dominantIngredientFamilyShareOfSlots": 0.476,
+      "estimatedWeeklyCostPhp": 1987,
+      "exclusionDetailCounts": {
+        "prep_time:over_limit": 97
+      },
+      "finalSolvePair": {
+        "attempts": [
+          {
+            "attemptTimeSeconds": 4.0,
+            "retry": 0,
+            "solveMs": 126,
+            "status": "FEASIBLE",
+            "stopAfterFirstSolution": true
+          }
+        ],
+        "attemptsUsed": 1,
+        "buildMs": 56,
+        "finalGroceryAttempts": [
+          {
+            "attempt": 1,
+            "budgetGapPhp": 1013,
+            "estimatedTotalPhp": 1987,
+            "plannerMealEstimatePhp": 4926,
+            "weeklyBudgetPhp": 3000,
+            "withinBudget": true
+          }
+        ],
+        "finalGroceryBudget": {
+          "attempt": 1,
+          "budgetGapPhp": 1013,
+          "estimatedTotalPhp": 1987,
+          "plannerMealEstimatePhp": 4926,
+          "weeklyBudgetPhp": 3000,
+          "withinBudget": true
+        },
+        "ingredientFamilyRepeatCaps": {
+          "fish": 4
+        },
+        "ingredientFamilyRepeatCapsEnforced": true,
+        "maxPerWeek": 3,
+        "sameSlotConsecutiveRepeatBlocked": true,
+        "solveMs": 126,
+        "status": "FEASIBLE",
+        "tol": 0.8
+      },
+      "maxPerWeekUsed": 3,
+      "mealsPerDay": 3,
+      "message": "Success",
+      "nutritionFeasibility": {
+        "advisoryGaps": [],
+        "advisoryMax": {
+          "sodiumMg": 2300,
+          "sugarGrams": 36
+        },
+        "gaps": [],
+        "ok": true,
+        "possibleDailyMax": {
+          "calories": 1973,
+          "carbsGrams": 324,
+          "fatsGrams": 59,
+          "fiberGrams": 66,
+          "proteinGrams": 115,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "possibleDailyMin": {
+          "calories": 1401,
+          "carbsGrams": 165,
+          "fatsGrams": 9,
+          "fiberGrams": 18,
+          "proteinGrams": 72,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "requiredMin": {
+          "calories": 1200,
+          "carbsGrams": 120,
+          "fatsGrams": 35,
+          "fiberGrams": 28,
+          "proteinGrams": 55
+        },
+        "slotBest": {
+          "Breakfast": {
+            "calories": 693,
+            "carbsGrams": 108,
+            "fatsGrams": 23,
+            "fiberGrams": 22,
+            "proteinGrams": 37,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 640,
+            "carbsGrams": 108,
+            "fatsGrams": 18,
+            "fiberGrams": 22,
+            "proteinGrams": 41,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 640,
+            "carbsGrams": 108,
+            "fatsGrams": 18,
+            "fiberGrams": 22,
+            "proteinGrams": 37,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        },
+        "slotFloor": {
+          "Breakfast": {
+            "calories": 456,
+            "carbsGrams": 56,
+            "fatsGrams": 3,
+            "fiberGrams": 6,
+            "proteinGrams": 24,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 470,
+            "carbsGrams": 57,
+            "fatsGrams": 3,
+            "fiberGrams": 6,
+            "proteinGrams": 24,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 475,
+            "carbsGrams": 52,
+            "fatsGrams": 3,
+            "fiberGrams": 6,
+            "proteinGrams": 24,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        }
+      },
+      "repeatSequence": [
+        2,
+        3,
+        4
+      ],
+      "restrictedNutritionAnchorCountSafe": 113,
+      "restrictionCount": 0,
+      "safeIngredientFamilyCounts": {
+        "beef": 5,
+        "chicken": 65,
+        "egg": 39,
+        "fish": 66,
+        "munggo": 119,
+        "pork": 15,
+        "shellfish": 35,
+        "tofu_soy": 64
+      },
+      "safeRecipeCountPrePricing": 276,
+      "scenario": "broad_high_variety",
+      "selectedIngredientFamilyCounts": {
+        "chicken": 9,
+        "egg": 2,
+        "fish": 4,
+        "munggo": 1,
+        "shellfish": 10
+      },
+      "selectedMaxRecipeRepeatCount": 3,
+      "selectedRecipeCount": 21,
+      "selectedRecipeIds": [
+        "ph_form_037",
+        "ph_budget_004",
+        "ph_form_096",
+        "ph_form_041",
+        "ph_budget_011",
+        "ph_form_093",
+        "ph_form_060",
+        "ph_form_090",
+        "ph_qk_057",
+        "ph_form_037",
+        "ph_form_074",
+        "ph_form_096",
+        "ph_form_088",
+        "ph_form_073",
+        "ph_qk_057",
+        "ph_form_041",
+        "ph_form_074",
+        "ph_form_096",
+        "ph_form_068",
+        "ph_form_073",
+        "ph_form_027"
+      ],
+      "selectedRepeatedRecipeCount": 6,
+      "selectedRepeatedTitles": {
+        "Chicken Eggplant Kidney Breakfast Plate": 2,
+        "Chicken Pechay Garbanzo Breakfast Plate": 2,
+        "Chicken Pechay Tomato Rice Complete Plate": 2,
+        "Shrimp Okra Garbanzo Lunch Plate": 2,
+        "Squid Mushroom Garbanzo Dinner Plate": 3,
+        "Squid Pechay Kidney Lunch Plate": 2
+      },
+      "selectedUniqueRecipeCount": 14,
+      "slotCount": 21,
+      "slotMaxRepeatCounts": {
+        "Breakfast": 2,
+        "Dinner": 3,
+        "Lunch": 2
+      },
+      "slotUniqueCounts": {
+        "Breakfast": 5,
+        "Dinner": 4,
+        "Lunch": 5
+      },
+      "solvePairStatuses": [
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 4
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 4
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 4
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 4
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 4
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "FEASIBLE"
+        }
+      ],
+      "status": "success"
+    },
+    {
+      "allergies": [],
+      "allergyCount": 0,
+      "budgetWeeklyPhp": 3000,
+      "candidateCountPost": 33,
+      "candidateCountPre": 65,
+      "candidateDuplicateTitleCounts": {
+        "munggo okra malunggay dinner plate": 5,
+        "squash munggo rice complete plate": 2,
+        "tofu pechay munggo dinner plate": 5
+      },
+      "candidateIngredientFamilyCounts": {
+        "munggo": 16,
+        "tofu_soy": 13
+      },
+      "catalogMealTypeCounts": {
+        "Breakfast": 110,
+        "Dinner": 142,
+        "Lunch": 110,
+        "Universal": 11
+      },
+      "catalogRecipeCount": 373,
+      "confidenceScore": 40,
+      "days": 7,
+      "dietaryRestrictions": [
+        "Vegetarian"
+      ],
+      "dominantIngredientFamily": "tofu_soy",
+      "dominantIngredientFamilyCount": 10,
+      "dominantIngredientFamilyShareOfSlots": 0.476,
+      "estimatedWeeklyCostPhp": 2431,
+      "exclusionDetailCounts": {
+        "prep_time:over_limit": 2,
+        "restriction:vegetarian": 284
+      },
+      "finalSolvePair": {
+        "attempts": [
+          {
+            "attemptTimeSeconds": 4.5,
+            "retry": 0,
+            "solveMs": 68,
+            "status": "FEASIBLE",
+            "stopAfterFirstSolution": true
+          }
+        ],
+        "attemptsUsed": 1,
+        "buildMs": 57,
+        "finalGroceryAttempts": [
+          {
+            "attempt": 1,
+            "budgetGapPhp": 569,
+            "estimatedTotalPhp": 2431,
+            "plannerMealEstimatePhp": 5998,
+            "weeklyBudgetPhp": 3000,
+            "withinBudget": true
+          }
+        ],
+        "finalGroceryBudget": {
+          "attempt": 1,
+          "budgetGapPhp": 569,
+          "estimatedTotalPhp": 2431,
+          "plannerMealEstimatePhp": 5998,
+          "weeklyBudgetPhp": 3000,
+          "withinBudget": true
+        },
+        "ingredientFamilyRepeatCaps": {
+          "munggo": 5
+        },
+        "ingredientFamilyRepeatCapsEnforced": true,
+        "maxPerWeek": 3,
+        "sameSlotConsecutiveRepeatBlocked": true,
+        "solveMs": 68,
+        "status": "FEASIBLE",
+        "tol": 0.8
+      },
+      "maxPerWeekUsed": 3,
+      "mealsPerDay": 3,
+      "message": "Success",
+      "nutritionFeasibility": {
+        "advisoryGaps": [],
+        "advisoryMax": {
+          "sodiumMg": 2300,
+          "sugarGrams": 36
+        },
+        "gaps": [],
+        "ok": true,
+        "possibleDailyMax": {
+          "calories": 1751,
+          "carbsGrams": 254,
+          "fatsGrams": 74,
+          "fiberGrams": 64,
+          "proteinGrams": 79,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "possibleDailyMin": {
+          "calories": 1508,
+          "carbsGrams": 193,
+          "fatsGrams": 35,
+          "fiberGrams": 30,
+          "proteinGrams": 54,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "requiredMin": {
+          "calories": 1200,
+          "carbsGrams": 120,
+          "fatsGrams": 35,
+          "fiberGrams": 28,
+          "proteinGrams": 55
+        },
+        "slotBest": {
+          "Breakfast": {
+            "calories": 577,
+            "carbsGrams": 83,
+            "fatsGrams": 24,
+            "fiberGrams": 21,
+            "proteinGrams": 22,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 596,
+            "carbsGrams": 85,
+            "fatsGrams": 25,
+            "fiberGrams": 22,
+            "proteinGrams": 29,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 578,
+            "carbsGrams": 86,
+            "fatsGrams": 25,
+            "fiberGrams": 21,
+            "proteinGrams": 28,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        },
+        "slotFloor": {
+          "Breakfast": {
+            "calories": 522,
+            "carbsGrams": 69,
+            "fatsGrams": 11,
+            "fiberGrams": 12,
+            "proteinGrams": 18,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 493,
+            "carbsGrams": 60,
+            "fatsGrams": 13,
+            "fiberGrams": 10,
+            "proteinGrams": 18,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 493,
+            "carbsGrams": 64,
+            "fatsGrams": 11,
+            "fiberGrams": 8,
+            "proteinGrams": 18,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        }
+      },
+      "repeatSequence": [
+        2,
+        3,
+        4,
+        6,
+        8,
+        10
+      ],
+      "restrictedNutritionAnchorCountSafe": 63,
+      "restrictionCount": 1,
+      "safeIngredientFamilyCounts": {
+        "egg": 3,
+        "munggo": 64,
+        "tofu_soy": 30
+      },
+      "safeRecipeCountPrePricing": 87,
+      "scenario": "vegetarian",
+      "selectedIngredientFamilyCounts": {
+        "munggo": 3,
+        "tofu_soy": 10
+      },
+      "selectedMaxRecipeRepeatCount": 3,
+      "selectedRecipeCount": 21,
+      "selectedRecipeIds": [
+        "ph_form_007",
+        "ph_form_076",
+        "ph_form_084",
+        "ph_form_051",
+        "ph_form_056",
+        "ph_form_058",
+        "ph_form_053",
+        "ph_form_076",
+        "ph_budget_003",
+        "ph_form_052",
+        "ph_form_055",
+        "ph_form_084",
+        "ph_form_065",
+        "ph_form_015",
+        "ph_form_077",
+        "ph_form_051",
+        "ph_form_071",
+        "ph_form_059",
+        "ph_form_053",
+        "ph_form_076",
+        "ph_form_079"
+      ],
+      "selectedRepeatedRecipeCount": 4,
+      "selectedRepeatedTitles": {
+        "Garbanzo Kidney Malunggay Breakfast Plate": 2,
+        "Garbanzo Okra Squash Breakfast Plate": 2,
+        "Tofu Eggplant Garbanzo Lunch Plate": 3,
+        "Tofu Kidney Mushroom Dinner Plate": 2
+      },
+      "selectedUniqueRecipeCount": 16,
+      "slotCount": 21,
+      "slotMaxRepeatCounts": {
+        "Breakfast": 2,
+        "Dinner": 2,
+        "Lunch": 3
+      },
+      "slotUniqueCounts": {
+        "Breakfast": 5,
+        "Dinner": 6,
+        "Lunch": 5
+      },
+      "solvePairStatuses": [
+        {
+          "ingredientFamilyRepeatCaps": {
+            "munggo": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "munggo": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "munggo": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "munggo": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "FEASIBLE"
+        }
+      ],
+      "status": "success"
+    },
+    {
+      "allergies": [],
+      "allergyCount": 0,
+      "budgetWeeklyPhp": 3000,
+      "candidateCountPost": 33,
+      "candidateCountPre": 40,
+      "candidateDuplicateTitleCounts": {},
+      "candidateIngredientFamilyCounts": {
+        "fish": 18,
+        "munggo": 12,
+        "shellfish": 7,
+        "tofu_soy": 7
+      },
+      "catalogMealTypeCounts": {
+        "Breakfast": 110,
+        "Dinner": 142,
+        "Lunch": 110,
+        "Universal": 11
+      },
+      "catalogRecipeCount": 373,
+      "confidenceScore": 48,
+      "days": 7,
+      "dietaryRestrictions": [
+        "Pescatarian"
+      ],
+      "dominantIngredientFamily": "tofu_soy",
+      "dominantIngredientFamilyCount": 8,
+      "dominantIngredientFamilyShareOfSlots": 0.381,
+      "estimatedWeeklyCostPhp": 2012,
+      "exclusionDetailCounts": {
+        "prep_time:over_limit": 12,
+        "restriction:pescatarian": 193
+      },
+      "finalSolvePair": {
+        "attempts": [
+          {
+            "attemptTimeSeconds": 4.5,
+            "retry": 0,
+            "solveMs": 172,
+            "status": "FEASIBLE",
+            "stopAfterFirstSolution": true
+          }
+        ],
+        "attemptsUsed": 1,
+        "buildMs": 55,
+        "finalGroceryAttempts": [
+          {
+            "attempt": 1,
+            "budgetGapPhp": 988,
+            "estimatedTotalPhp": 2012,
+            "plannerMealEstimatePhp": 5303,
+            "weeklyBudgetPhp": 3000,
+            "withinBudget": true
+          }
+        ],
+        "finalGroceryBudget": {
+          "attempt": 1,
+          "budgetGapPhp": 988,
+          "estimatedTotalPhp": 2012,
+          "plannerMealEstimatePhp": 5303,
+          "weeklyBudgetPhp": 3000,
+          "withinBudget": true
+        },
+        "ingredientFamilyRepeatCaps": {
+          "fish": 5,
+          "munggo": 5
+        },
+        "ingredientFamilyRepeatCapsEnforced": true,
+        "maxPerWeek": 3,
+        "sameSlotConsecutiveRepeatBlocked": true,
+        "solveMs": 172,
+        "status": "FEASIBLE",
+        "tol": 0.6
+      },
+      "maxPerWeekUsed": 3,
+      "mealsPerDay": 3,
+      "message": "Success",
+      "nutritionFeasibility": {
+        "advisoryGaps": [],
+        "advisoryMax": {
+          "sodiumMg": 2300,
+          "sugarGrams": 36
+        },
+        "gaps": [],
+        "ok": true,
+        "possibleDailyMax": {
+          "calories": 1676,
+          "carbsGrams": 300,
+          "fatsGrams": 55,
+          "fiberGrams": 66,
+          "proteinGrams": 100,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "possibleDailyMin": {
+          "calories": 1276,
+          "carbsGrams": 159,
+          "fatsGrams": 9,
+          "fiberGrams": 18,
+          "proteinGrams": 60,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "requiredMin": {
+          "calories": 1200,
+          "carbsGrams": 120,
+          "fatsGrams": 35,
+          "fiberGrams": 28,
+          "proteinGrams": 55
+        },
+        "slotBest": {
+          "Breakfast": {
+            "calories": 552,
+            "carbsGrams": 100,
+            "fatsGrams": 17,
+            "fiberGrams": 22,
+            "proteinGrams": 29,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 563,
+            "carbsGrams": 100,
+            "fatsGrams": 19,
+            "fiberGrams": 22,
+            "proteinGrams": 40,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 561,
+            "carbsGrams": 100,
+            "fatsGrams": 19,
+            "fiberGrams": 22,
+            "proteinGrams": 31,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        },
+        "slotFloor": {
+          "Breakfast": {
+            "calories": 456,
+            "carbsGrams": 56,
+            "fatsGrams": 3,
+            "fiberGrams": 6,
+            "proteinGrams": 18,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 417,
+            "carbsGrams": 51,
+            "fatsGrams": 3,
+            "fiberGrams": 6,
+            "proteinGrams": 21,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 403,
+            "carbsGrams": 52,
+            "fatsGrams": 3,
+            "fiberGrams": 6,
+            "proteinGrams": 21,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        }
+      },
+      "repeatSequence": [
+        2,
+        3,
+        4,
+        6,
+        8,
+        10
+      ],
+      "restrictedNutritionAnchorCountSafe": 81,
+      "restrictionCount": 1,
+      "safeIngredientFamilyCounts": {
+        "egg": 8,
+        "fish": 57,
+        "munggo": 108,
+        "shellfish": 27,
+        "tofu_soy": 48
+      },
+      "safeRecipeCountPrePricing": 168,
+      "scenario": "pescatarian",
+      "selectedIngredientFamilyCounts": {
+        "fish": 5,
+        "munggo": 3,
+        "shellfish": 8,
+        "tofu_soy": 8
+      },
+      "selectedMaxRecipeRepeatCount": 3,
+      "selectedRecipeCount": 21,
+      "selectedRecipeIds": [
+        "ph_form_033",
+        "ph_form_089",
+        "ph_form_095",
+        "ph_budget_009",
+        "ph_form_061",
+        "ph_budget_005",
+        "ph_form_033",
+        "ph_form_074",
+        "ph_form_095",
+        "ph_budget_009",
+        "ph_form_073",
+        "ph_form_084",
+        "ph_form_033",
+        "ph_form_074",
+        "ph_form_095",
+        "ph_budget_009",
+        "ph_form_036",
+        "ph_form_084",
+        "ph_form_060",
+        "ph_337",
+        "ph_form_093"
+      ],
+      "selectedRepeatedRecipeCount": 5,
+      "selectedRepeatedTitles": {
+        "Shrimp Eggplant Kidney Dinner Plate": 3,
+        "Squid Pechay Kidney Lunch Plate": 2,
+        "Tofu Kidney Mushroom Dinner Plate": 2,
+        "Tofu Munggo Malunggay Complete Plate": 3,
+        "Tofu Pechay Banana Breakfast Plate": 3
+      },
+      "selectedUniqueRecipeCount": 13,
+      "slotCount": 21,
+      "slotMaxRepeatCounts": {
+        "Breakfast": 3,
+        "Dinner": 3,
+        "Lunch": 2
+      },
+      "slotUniqueCounts": {
+        "Breakfast": 3,
+        "Dinner": 4,
+        "Lunch": 6
+      },
+      "solvePairStatuses": [
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 5,
+            "munggo": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 5,
+            "munggo": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "FEASIBLE"
+        }
+      ],
+      "status": "success"
+    },
+    {
+      "allergies": [
+        "soy"
+      ],
+      "allergyCount": 1,
+      "budgetWeeklyPhp": 3000,
+      "candidateCountPost": 33,
+      "candidateCountPre": 36,
+      "candidateDuplicateTitleCounts": {},
+      "candidateIngredientFamilyCounts": {
+        "chicken": 15,
+        "egg": 4,
+        "fish": 15,
+        "munggo": 6,
+        "shellfish": 6
+      },
+      "catalogMealTypeCounts": {
+        "Breakfast": 110,
+        "Dinner": 142,
+        "Lunch": 110,
+        "Universal": 11
+      },
+      "catalogRecipeCount": 373,
+      "confidenceScore": 47,
+      "days": 7,
+      "dietaryRestrictions": [],
+      "dominantIngredientFamily": "chicken",
+      "dominantIngredientFamilyCount": 10,
+      "dominantIngredientFamilyShareOfSlots": 0.476,
+      "estimatedWeeklyCostPhp": 1964,
+      "exclusionDetailCounts": {
+        "allergy:soy": 121,
+        "prep_time:over_limit": 55
+      },
+      "finalSolvePair": {
+        "attempts": [
+          {
+            "attemptTimeSeconds": 4.0,
+            "retry": 0,
+            "solveMs": 132,
+            "status": "FEASIBLE",
+            "stopAfterFirstSolution": true
+          }
+        ],
+        "attemptsUsed": 1,
+        "buildMs": 58,
+        "finalGroceryAttempts": [
+          {
+            "attempt": 1,
+            "budgetGapPhp": 1036,
+            "estimatedTotalPhp": 1964,
+            "plannerMealEstimatePhp": 4824,
+            "weeklyBudgetPhp": 3000,
+            "withinBudget": true
+          }
+        ],
+        "finalGroceryBudget": {
+          "attempt": 1,
+          "budgetGapPhp": 1036,
+          "estimatedTotalPhp": 1964,
+          "plannerMealEstimatePhp": 4824,
+          "weeklyBudgetPhp": 3000,
+          "withinBudget": true
+        },
+        "ingredientFamilyRepeatCaps": {
+          "fish": 5
+        },
+        "ingredientFamilyRepeatCapsEnforced": true,
+        "maxPerWeek": 3,
+        "sameSlotConsecutiveRepeatBlocked": true,
+        "solveMs": 132,
+        "status": "FEASIBLE",
+        "tol": 0.8
+      },
+      "maxPerWeekUsed": 3,
+      "mealsPerDay": 3,
+      "message": "Success",
+      "nutritionFeasibility": {
+        "advisoryGaps": [],
+        "advisoryMax": {
+          "sodiumMg": 2300,
+          "sugarGrams": 36
+        },
+        "gaps": [],
+        "ok": true,
+        "possibleDailyMax": {
+          "calories": 1920,
+          "carbsGrams": 324,
+          "fatsGrams": 55,
+          "fiberGrams": 78,
+          "proteinGrams": 115,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "possibleDailyMin": {
+          "calories": 1401,
+          "carbsGrams": 165,
+          "fatsGrams": 9,
+          "fiberGrams": 18,
+          "proteinGrams": 69,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "requiredMin": {
+          "calories": 1200,
+          "carbsGrams": 120,
+          "fatsGrams": 35,
+          "fiberGrams": 28,
+          "proteinGrams": 55
+        },
+        "slotBest": {
+          "Breakfast": {
+            "calories": 640,
+            "carbsGrams": 108,
+            "fatsGrams": 19,
+            "fiberGrams": 26,
+            "proteinGrams": 37,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 640,
+            "carbsGrams": 108,
+            "fatsGrams": 18,
+            "fiberGrams": 26,
+            "proteinGrams": 41,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 640,
+            "carbsGrams": 108,
+            "fatsGrams": 18,
+            "fiberGrams": 26,
+            "proteinGrams": 37,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        },
+        "slotFloor": {
+          "Breakfast": {
+            "calories": 456,
+            "carbsGrams": 56,
+            "fatsGrams": 3,
+            "fiberGrams": 6,
+            "proteinGrams": 23,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 470,
+            "carbsGrams": 57,
+            "fatsGrams": 3,
+            "fiberGrams": 6,
+            "proteinGrams": 23,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 475,
+            "carbsGrams": 52,
+            "fatsGrams": 3,
+            "fiberGrams": 6,
+            "proteinGrams": 23,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        }
+      },
+      "repeatSequence": [
+        2,
+        3,
+        4,
+        6,
+        8,
+        10
+      ],
+      "restrictedNutritionAnchorCountSafe": 91,
+      "restrictionCount": 0,
+      "safeIngredientFamilyCounts": {
+        "beef": 4,
+        "chicken": 58,
+        "egg": 37,
+        "fish": 55,
+        "munggo": 98,
+        "pork": 13,
+        "shellfish": 37
+      },
+      "safeRecipeCountPrePricing": 197,
+      "scenario": "soy_allergy",
+      "selectedIngredientFamilyCounts": {
+        "chicken": 10,
+        "egg": 6,
+        "fish": 5,
+        "shellfish": 9
+      },
+      "selectedMaxRecipeRepeatCount": 3,
+      "selectedRecipeCount": 21,
+      "selectedRecipeIds": [
+        "ph_form_088",
+        "ph_form_090",
+        "ph_qk_050",
+        "ph_form_067",
+        "ph_qk_049",
+        "ph_form_096",
+        "ph_form_088",
+        "ph_form_074",
+        "ph_qk_057",
+        "ph_form_067",
+        "ph_form_073",
+        "ph_budget_005",
+        "ph_form_028",
+        "ph_form_074",
+        "ph_form_096",
+        "ph_form_067",
+        "ph_form_090",
+        "ph_budget_005",
+        "ph_form_088",
+        "ph_form_074",
+        "ph_qk_057"
+      ],
+      "selectedRepeatedRecipeCount": 7,
+      "selectedRepeatedTitles": {
+        "Chicken Pechay Tomato Rice Complete Plate": 2,
+        "Kidney Egg Pechay Breakfast Plate": 3,
+        "Sardines Eggplant Pechay Lunch Plate": 2,
+        "Shrimp Egg Mushroom Breakfast Plate": 3,
+        "Squid Mushroom Garbanzo Dinner Plate": 2,
+        "Squid Pechay Kidney Lunch Plate": 3,
+        "Tuna Pechay Complete Plate": 2
+      },
+      "selectedUniqueRecipeCount": 11,
+      "slotCount": 21,
+      "slotMaxRepeatCounts": {
+        "Breakfast": 3,
+        "Dinner": 2,
+        "Lunch": 3
+      },
+      "slotUniqueCounts": {
+        "Breakfast": 3,
+        "Dinner": 4,
+        "Lunch": 4
+      },
+      "solvePairStatuses": [
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "FEASIBLE"
+        }
+      ],
+      "status": "success"
+    },
+    {
+      "allergies": [
+        "egg",
+        "fish"
+      ],
+      "allergyCount": 2,
+      "budgetWeeklyPhp": 3000,
+      "candidateCountPost": 31,
+      "candidateCountPre": 31,
+      "candidateDuplicateTitleCounts": {},
+      "candidateIngredientFamilyCounts": {
+        "beef": 2,
+        "chicken": 21,
+        "munggo": 7,
+        "shellfish": 5,
+        "tofu_soy": 3
+      },
+      "catalogMealTypeCounts": {
+        "Breakfast": 110,
+        "Dinner": 142,
+        "Lunch": 110,
+        "Universal": 11
+      },
+      "catalogRecipeCount": 373,
+      "confidenceScore": 38,
+      "days": 7,
+      "dietaryRestrictions": [
+        "No Pork",
+        "Lactose Intolerant"
+      ],
+      "dominantIngredientFamily": "shellfish",
+      "dominantIngredientFamilyCount": 10,
+      "dominantIngredientFamilyShareOfSlots": 0.476,
+      "estimatedWeeklyCostPhp": 2241,
+      "exclusionDetailCounts": {
+        "allergy:egg": 65,
+        "allergy:fish": 123,
+        "prep_time:over_limit": 12,
+        "restriction:lactose_intolerant": 70,
+        "restriction:no_pork": 75
+      },
+      "finalSolvePair": {
+        "attempts": [
+          {
+            "attemptTimeSeconds": 5.0,
+            "retry": 0,
+            "solveMs": 75,
+            "status": "FEASIBLE",
+            "stopAfterFirstSolution": true
+          }
+        ],
+        "attemptsUsed": 1,
+        "buildMs": 60,
+        "finalGroceryAttempts": [
+          {
+            "attempt": 1,
+            "budgetGapPhp": 759,
+            "estimatedTotalPhp": 2241,
+            "plannerMealEstimatePhp": 4877,
+            "weeklyBudgetPhp": 3000,
+            "withinBudget": true
+          }
+        ],
+        "finalGroceryBudget": {
+          "attempt": 1,
+          "budgetGapPhp": 759,
+          "estimatedTotalPhp": 2241,
+          "plannerMealEstimatePhp": 4877,
+          "weeklyBudgetPhp": 3000,
+          "withinBudget": true
+        },
+        "ingredientFamilyRepeatCaps": {},
+        "ingredientFamilyRepeatCapsEnforced": false,
+        "maxPerWeek": 3,
+        "sameSlotConsecutiveRepeatBlocked": true,
+        "solveMs": 75,
+        "status": "FEASIBLE",
+        "tol": 0.8
+      },
+      "maxPerWeekUsed": 3,
+      "mealsPerDay": 3,
+      "message": "Success",
+      "nutritionFeasibility": {
+        "advisoryGaps": [],
+        "advisoryMax": {
+          "sodiumMg": 2300,
+          "sugarGrams": 36
+        },
+        "gaps": [],
+        "ok": true,
+        "possibleDailyMax": {
+          "calories": 1973,
+          "carbsGrams": 324,
+          "fatsGrams": 66,
+          "fiberGrams": 48,
+          "proteinGrams": 115,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "possibleDailyMin": {
+          "calories": 1533,
+          "carbsGrams": 206,
+          "fatsGrams": 21,
+          "fiberGrams": 17,
+          "proteinGrams": 68,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "requiredMin": {
+          "calories": 1200,
+          "carbsGrams": 120,
+          "fatsGrams": 35,
+          "fiberGrams": 28,
+          "proteinGrams": 55
+        },
+        "slotBest": {
+          "Breakfast": {
+            "calories": 693,
+            "carbsGrams": 108,
+            "fatsGrams": 23,
+            "fiberGrams": 16,
+            "proteinGrams": 37,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 640,
+            "carbsGrams": 108,
+            "fatsGrams": 22,
+            "fiberGrams": 16,
+            "proteinGrams": 41,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 640,
+            "carbsGrams": 108,
+            "fatsGrams": 21,
+            "fiberGrams": 16,
+            "proteinGrams": 37,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        },
+        "slotFloor": {
+          "Breakfast": {
+            "calories": 502,
+            "carbsGrams": 69,
+            "fatsGrams": 7,
+            "fiberGrams": 6,
+            "proteinGrams": 18,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 500,
+            "carbsGrams": 67,
+            "fatsGrams": 7,
+            "fiberGrams": 5,
+            "proteinGrams": 23,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 531,
+            "carbsGrams": 70,
+            "fatsGrams": 7,
+            "fiberGrams": 6,
+            "proteinGrams": 27,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        }
+      },
+      "repeatSequence": [
+        2,
+        3,
+        4,
+        6,
+        8,
+        10
+      ],
+      "restrictedNutritionAnchorCountSafe": 68,
+      "restrictionCount": 2,
+      "safeIngredientFamilyCounts": {
+        "beef": 3,
+        "chicken": 27,
+        "munggo": 57,
+        "shellfish": 16,
+        "tofu_soy": 11
+      },
+      "safeRecipeCountPrePricing": 101,
+      "scenario": "strict_no_pork_lactose_egg_fish",
+      "selectedIngredientFamilyCounts": {
+        "beef": 2,
+        "chicken": 9,
+        "munggo": 4,
+        "shellfish": 10,
+        "tofu_soy": 2
+      },
+      "selectedMaxRecipeRepeatCount": 3,
+      "selectedRecipeCount": 21,
+      "selectedRecipeIds": [
+        "ph_form_037",
+        "ph_form_073",
+        "ph_form_096",
+        "ph_form_060",
+        "ph_284",
+        "ph_form_049",
+        "ph_form_025",
+        "ph_form_061",
+        "ph_form_062",
+        "ph_form_037",
+        "ph_284",
+        "ph_form_096",
+        "ph_form_025",
+        "ph_form_073",
+        "ph_form_062",
+        "ph_form_037",
+        "ph_rnd_002",
+        "ph_form_049",
+        "ph_form_060",
+        "ph_form_026",
+        "ph_form_062"
+      ],
+      "selectedRepeatedRecipeCount": 8,
+      "selectedRepeatedTitles": {
+        "Adobo Steak Complete Plate": 2,
+        "Chicken Mushroom Pechay Dinner Plate": 2,
+        "Chicken Pechay Garbanzo Breakfast Plate": 3,
+        "Chicken Pechay Munggo Breakfast Plate": 2,
+        "Shrimp Kalabasa Chickpea Dinner Plate": 3,
+        "Shrimp Okra Garbanzo Lunch Plate": 2,
+        "Shrimp Pechay Garbanzo Breakfast Plate": 2,
+        "Squid Mushroom Garbanzo Dinner Plate": 2
+      },
+      "selectedUniqueRecipeCount": 11,
+      "slotCount": 21,
+      "slotMaxRepeatCounts": {
+        "Breakfast": 3,
+        "Dinner": 3,
+        "Lunch": 2
+      },
+      "slotUniqueCounts": {
+        "Breakfast": 3,
+        "Dinner": 3,
+        "Lunch": 5
+      },
+      "solvePairStatuses": [
+        {
+          "ingredientFamilyRepeatCaps": {},
+          "ingredientFamilyRepeatCapsEnforced": false,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {},
+          "ingredientFamilyRepeatCapsEnforced": false,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {},
+          "ingredientFamilyRepeatCapsEnforced": false,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {},
+          "ingredientFamilyRepeatCapsEnforced": false,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {},
+          "ingredientFamilyRepeatCapsEnforced": false,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "FEASIBLE"
+        }
+      ],
+      "status": "success"
+    },
+    {
+      "allergies": [
+        "egg",
+        "fish"
+      ],
+      "allergyCount": 2,
+      "budgetWeeklyPhp": 3000,
+      "candidateCountPost": 31,
+      "candidateCountPre": 31,
+      "candidateDuplicateTitleCounts": {},
+      "candidateIngredientFamilyCounts": {
+        "beef": 2,
+        "chicken": 21,
+        "munggo": 7,
+        "shellfish": 5,
+        "tofu_soy": 3
+      },
+      "catalogMealTypeCounts": {
+        "Breakfast": 110,
+        "Dinner": 142,
+        "Lunch": 110,
+        "Universal": 11
+      },
+      "catalogRecipeCount": 373,
+      "confidenceScore": 38,
+      "days": 7,
+      "dietaryRestrictions": [
+        "No Pork",
+        "Lactose Intolerant"
+      ],
+      "dominantIngredientFamily": "shellfish",
+      "dominantIngredientFamilyCount": 10,
+      "dominantIngredientFamilyShareOfSlots": 0.476,
+      "estimatedWeeklyCostPhp": 2241,
+      "exclusionDetailCounts": {
+        "allergy:egg": 65,
+        "allergy:fish": 123,
+        "prep_time:over_limit": 12,
+        "restriction:lactose_intolerant": 70,
+        "restriction:no_pork": 75
+      },
+      "finalSolvePair": {
+        "attempts": [
+          {
+            "attemptTimeSeconds": 5.0,
+            "retry": 0,
+            "solveMs": 62,
+            "status": "FEASIBLE",
+            "stopAfterFirstSolution": true
+          }
+        ],
+        "attemptsUsed": 1,
+        "buildMs": 52,
+        "finalGroceryAttempts": [
+          {
+            "attempt": 1,
+            "budgetGapPhp": 759,
+            "estimatedTotalPhp": 2241,
+            "plannerMealEstimatePhp": 4877,
+            "weeklyBudgetPhp": 3000,
+            "withinBudget": true
+          }
+        ],
+        "finalGroceryBudget": {
+          "attempt": 1,
+          "budgetGapPhp": 759,
+          "estimatedTotalPhp": 2241,
+          "plannerMealEstimatePhp": 4877,
+          "weeklyBudgetPhp": 3000,
+          "withinBudget": true
+        },
+        "ingredientFamilyRepeatCaps": {},
+        "ingredientFamilyRepeatCapsEnforced": false,
+        "maxPerWeek": 3,
+        "sameSlotConsecutiveRepeatBlocked": true,
+        "solveMs": 62,
+        "status": "FEASIBLE",
+        "tol": 0.8
+      },
+      "maxPerWeekUsed": 3,
+      "mealsPerDay": 3,
+      "message": "Success",
+      "nutritionFeasibility": {
+        "advisoryGaps": [],
+        "advisoryMax": {
+          "sodiumMg": 2300,
+          "sugarGrams": 36
+        },
+        "gaps": [],
+        "ok": true,
+        "possibleDailyMax": {
+          "calories": 1973,
+          "carbsGrams": 324,
+          "fatsGrams": 66,
+          "fiberGrams": 48,
+          "proteinGrams": 115,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "possibleDailyMin": {
+          "calories": 1533,
+          "carbsGrams": 206,
+          "fatsGrams": 21,
+          "fiberGrams": 17,
+          "proteinGrams": 68,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "requiredMin": {
+          "calories": 1200,
+          "carbsGrams": 120,
+          "fatsGrams": 35,
+          "fiberGrams": 28,
+          "proteinGrams": 55
+        },
+        "slotBest": {
+          "Breakfast": {
+            "calories": 693,
+            "carbsGrams": 108,
+            "fatsGrams": 23,
+            "fiberGrams": 16,
+            "proteinGrams": 37,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 640,
+            "carbsGrams": 108,
+            "fatsGrams": 22,
+            "fiberGrams": 16,
+            "proteinGrams": 41,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 640,
+            "carbsGrams": 108,
+            "fatsGrams": 21,
+            "fiberGrams": 16,
+            "proteinGrams": 37,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        },
+        "slotFloor": {
+          "Breakfast": {
+            "calories": 502,
+            "carbsGrams": 69,
+            "fatsGrams": 7,
+            "fiberGrams": 6,
+            "proteinGrams": 18,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 500,
+            "carbsGrams": 67,
+            "fatsGrams": 7,
+            "fiberGrams": 5,
+            "proteinGrams": 23,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 531,
+            "carbsGrams": 70,
+            "fatsGrams": 7,
+            "fiberGrams": 6,
+            "proteinGrams": 27,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        }
+      },
+      "repeatSequence": [
+        2,
+        3,
+        4,
+        6,
+        8,
+        10
+      ],
+      "restrictedNutritionAnchorCountSafe": 68,
+      "restrictionCount": 2,
+      "safeIngredientFamilyCounts": {
+        "beef": 3,
+        "chicken": 27,
+        "munggo": 57,
+        "shellfish": 16,
+        "tofu_soy": 11
+      },
+      "safeRecipeCountPrePricing": 101,
+      "scenario": "strict_no_pork_lactose_egg_fish_high_variety",
+      "selectedIngredientFamilyCounts": {
+        "beef": 2,
+        "chicken": 9,
+        "munggo": 4,
+        "shellfish": 10,
+        "tofu_soy": 2
+      },
+      "selectedMaxRecipeRepeatCount": 3,
+      "selectedRecipeCount": 21,
+      "selectedRecipeIds": [
+        "ph_form_037",
+        "ph_form_073",
+        "ph_form_096",
+        "ph_form_060",
+        "ph_284",
+        "ph_form_049",
+        "ph_form_025",
+        "ph_form_061",
+        "ph_form_062",
+        "ph_form_037",
+        "ph_284",
+        "ph_form_096",
+        "ph_form_025",
+        "ph_form_073",
+        "ph_form_062",
+        "ph_form_037",
+        "ph_rnd_002",
+        "ph_form_049",
+        "ph_form_060",
+        "ph_form_026",
+        "ph_form_062"
+      ],
+      "selectedRepeatedRecipeCount": 8,
+      "selectedRepeatedTitles": {
+        "Adobo Steak Complete Plate": 2,
+        "Chicken Mushroom Pechay Dinner Plate": 2,
+        "Chicken Pechay Garbanzo Breakfast Plate": 3,
+        "Chicken Pechay Munggo Breakfast Plate": 2,
+        "Shrimp Kalabasa Chickpea Dinner Plate": 3,
+        "Shrimp Okra Garbanzo Lunch Plate": 2,
+        "Shrimp Pechay Garbanzo Breakfast Plate": 2,
+        "Squid Mushroom Garbanzo Dinner Plate": 2
+      },
+      "selectedUniqueRecipeCount": 11,
+      "slotCount": 21,
+      "slotMaxRepeatCounts": {
+        "Breakfast": 3,
+        "Dinner": 3,
+        "Lunch": 2
+      },
+      "slotUniqueCounts": {
+        "Breakfast": 3,
+        "Dinner": 3,
+        "Lunch": 5
+      },
+      "solvePairStatuses": [
+        {
+          "ingredientFamilyRepeatCaps": {},
+          "ingredientFamilyRepeatCapsEnforced": false,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {},
+          "ingredientFamilyRepeatCapsEnforced": false,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {},
+          "ingredientFamilyRepeatCapsEnforced": false,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {},
+          "ingredientFamilyRepeatCapsEnforced": false,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {},
+          "ingredientFamilyRepeatCapsEnforced": false,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "FEASIBLE"
+        }
+      ],
+      "status": "success"
+    },
+    {
+      "allergies": [
+        "fish"
+      ],
+      "allergyCount": 1,
+      "budgetWeeklyPhp": 3000,
+      "candidateCountPost": 31,
+      "candidateCountPre": 31,
+      "candidateDuplicateTitleCounts": {},
+      "candidateIngredientFamilyCounts": {
+        "chicken": 23,
+        "egg": 5,
+        "munggo": 3,
+        "shellfish": 9,
+        "tofu_soy": 4
+      },
+      "catalogMealTypeCounts": {
+        "Breakfast": 110,
+        "Dinner": 142,
+        "Lunch": 110,
+        "Universal": 11
+      },
+      "catalogRecipeCount": 373,
+      "confidenceScore": 42,
+      "days": 7,
+      "dietaryRestrictions": [
+        "No Pork",
+        "No Beef"
+      ],
+      "dominantIngredientFamily": "chicken",
+      "dominantIngredientFamilyCount": 12,
+      "dominantIngredientFamilyShareOfSlots": 0.571,
+      "estimatedWeeklyCostPhp": 1953,
+      "exclusionDetailCounts": {
+        "allergy:fish": 123,
+        "prep_time:over_limit": 14,
+        "restriction:no_beef": 33,
+        "restriction:no_pork": 75
+      },
+      "finalSolvePair": {
+        "attempts": [
+          {
+            "attemptTimeSeconds": 5.0,
+            "retry": 0,
+            "solveMs": 118,
+            "status": "FEASIBLE",
+            "stopAfterFirstSolution": true
+          }
+        ],
+        "attemptsUsed": 1,
+        "buildMs": 53,
+        "finalGroceryAttempts": [
+          {
+            "attempt": 1,
+            "budgetGapPhp": 1047,
+            "estimatedTotalPhp": 1953,
+            "plannerMealEstimatePhp": 5762,
+            "weeklyBudgetPhp": 3000,
+            "withinBudget": true
+          }
+        ],
+        "finalGroceryBudget": {
+          "attempt": 1,
+          "budgetGapPhp": 1047,
+          "estimatedTotalPhp": 1953,
+          "plannerMealEstimatePhp": 5762,
+          "weeklyBudgetPhp": 3000,
+          "withinBudget": true
+        },
+        "ingredientFamilyRepeatCaps": {
+          "shellfish": 5
+        },
+        "ingredientFamilyRepeatCapsEnforced": true,
+        "maxPerWeek": 3,
+        "sameSlotConsecutiveRepeatBlocked": true,
+        "solveMs": 118,
+        "status": "FEASIBLE",
+        "tol": 0.6
+      },
+      "maxPerWeekUsed": 3,
+      "mealsPerDay": 3,
+      "message": "Success",
+      "nutritionFeasibility": {
+        "advisoryGaps": [],
+        "advisoryMax": {
+          "sodiumMg": 2300,
+          "sugarGrams": 36
+        },
+        "gaps": [],
+        "ok": true,
+        "possibleDailyMax": {
+          "calories": 1973,
+          "carbsGrams": 324,
+          "fatsGrams": 64,
+          "fiberGrams": 48,
+          "proteinGrams": 115,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "possibleDailyMin": {
+          "calories": 1377,
+          "carbsGrams": 163,
+          "fatsGrams": 21,
+          "fiberGrams": 18,
+          "proteinGrams": 77,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "requiredMin": {
+          "calories": 1200,
+          "carbsGrams": 120,
+          "fatsGrams": 35,
+          "fiberGrams": 28,
+          "proteinGrams": 55
+        },
+        "slotBest": {
+          "Breakfast": {
+            "calories": 693,
+            "carbsGrams": 108,
+            "fatsGrams": 23,
+            "fiberGrams": 16,
+            "proteinGrams": 37,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 640,
+            "carbsGrams": 108,
+            "fatsGrams": 23,
+            "fiberGrams": 16,
+            "proteinGrams": 41,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 640,
+            "carbsGrams": 108,
+            "fatsGrams": 18,
+            "fiberGrams": 16,
+            "proteinGrams": 37,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        },
+        "slotFloor": {
+          "Breakfast": {
+            "calories": 478,
+            "carbsGrams": 58,
+            "fatsGrams": 7,
+            "fiberGrams": 6,
+            "proteinGrams": 24,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 417,
+            "carbsGrams": 51,
+            "fatsGrams": 7,
+            "fiberGrams": 6,
+            "proteinGrams": 29,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 482,
+            "carbsGrams": 54,
+            "fatsGrams": 7,
+            "fiberGrams": 6,
+            "proteinGrams": 24,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        }
+      },
+      "repeatSequence": [
+        2,
+        3,
+        4,
+        6,
+        8,
+        10
+      ],
+      "restrictedNutritionAnchorCountSafe": 103,
+      "restrictionCount": 2,
+      "safeIngredientFamilyCounts": {
+        "chicken": 60,
+        "egg": 37,
+        "munggo": 78,
+        "shellfish": 24,
+        "tofu_soy": 45
+      },
+      "safeRecipeCountPrePricing": 167,
+      "scenario": "no_pork_no_beef_fish_allergy",
+      "selectedIngredientFamilyCounts": {
+        "chicken": 12,
+        "egg": 5,
+        "munggo": 3,
+        "shellfish": 5,
+        "tofu_soy": 6
+      },
+      "selectedMaxRecipeRepeatCount": 3,
+      "selectedRecipeCount": 21,
+      "selectedRecipeIds": [
+        "ph_budget_009",
+        "ph_form_072",
+        "ph_form_084",
+        "ph_form_088",
+        "ph_form_092",
+        "ph_form_047",
+        "ph_form_041",
+        "ph_form_072",
+        "ph_form_095",
+        "ph_budget_009",
+        "ph_rnd_002",
+        "ph_form_084",
+        "ph_form_041",
+        "ph_form_026",
+        "ph_form_095",
+        "ph_budget_009",
+        "ph_form_072",
+        "ph_form_084",
+        "ph_form_041",
+        "ph_rnd_002",
+        "ph_form_095"
+      ],
+      "selectedRepeatedRecipeCount": 6,
+      "selectedRepeatedTitles": {
+        "Chicken Eggplant Kidney Breakfast Plate": 3,
+        "Egg Kidney Sitaw Lunch Plate": 3,
+        "Grilled Chicken Pinakbet Plate": 2,
+        "Shrimp Eggplant Kidney Dinner Plate": 3,
+        "Tofu Kidney Mushroom Dinner Plate": 3,
+        "Tofu Munggo Malunggay Complete Plate": 3
+      },
+      "selectedUniqueRecipeCount": 10,
+      "slotCount": 21,
+      "slotMaxRepeatCounts": {
+        "Breakfast": 3,
+        "Dinner": 3,
+        "Lunch": 3
+      },
+      "slotUniqueCounts": {
+        "Breakfast": 3,
+        "Dinner": 3,
+        "Lunch": 4
+      },
+      "solvePairStatuses": [
+        {
+          "ingredientFamilyRepeatCaps": {
+            "shellfish": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "shellfish": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "shellfish": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "shellfish": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "FEASIBLE"
+        }
+      ],
+      "status": "success"
+    },
+    {
+      "allergies": [
+        "chicken"
+      ],
+      "allergyCount": 1,
+      "budgetWeeklyPhp": 3000,
+      "candidateCountPost": 33,
+      "candidateCountPre": 40,
+      "candidateDuplicateTitleCounts": {},
+      "candidateIngredientFamilyCounts": {
+        "beef": 1,
+        "fish": 19,
+        "munggo": 12,
+        "shellfish": 6,
+        "tofu_soy": 7
+      },
+      "catalogMealTypeCounts": {
+        "Breakfast": 110,
+        "Dinner": 142,
+        "Lunch": 110,
+        "Universal": 11
+      },
+      "catalogRecipeCount": 373,
+      "confidenceScore": 49,
+      "days": 7,
+      "dietaryRestrictions": [],
+      "dominantIngredientFamily": "shellfish",
+      "dominantIngredientFamilyCount": 10,
+      "dominantIngredientFamilyShareOfSlots": 0.476,
+      "estimatedWeeklyCostPhp": 2184,
+      "exclusionDetailCounts": {
+        "allergy:chicken": 95,
+        "prep_time:over_limit": 75
+      },
+      "finalSolvePair": {
+        "attempts": [
+          {
+            "attemptTimeSeconds": 4.0,
+            "retry": 0,
+            "solveMs": 142,
+            "status": "FEASIBLE",
+            "stopAfterFirstSolution": true
+          }
+        ],
+        "attemptsUsed": 1,
+        "buildMs": 55,
+        "finalGroceryAttempts": [
+          {
+            "attempt": 1,
+            "budgetGapPhp": 816,
+            "estimatedTotalPhp": 2184,
+            "plannerMealEstimatePhp": 5618,
+            "weeklyBudgetPhp": 3000,
+            "withinBudget": true
+          }
+        ],
+        "finalGroceryBudget": {
+          "attempt": 1,
+          "budgetGapPhp": 816,
+          "estimatedTotalPhp": 2184,
+          "plannerMealEstimatePhp": 5618,
+          "weeklyBudgetPhp": 3000,
+          "withinBudget": true
+        },
+        "ingredientFamilyRepeatCaps": {
+          "fish": 5,
+          "munggo": 5
+        },
+        "ingredientFamilyRepeatCapsEnforced": true,
+        "maxPerWeek": 3,
+        "sameSlotConsecutiveRepeatBlocked": true,
+        "solveMs": 143,
+        "status": "FEASIBLE",
+        "tol": 0.6
+      },
+      "maxPerWeekUsed": 3,
+      "mealsPerDay": 3,
+      "message": "Success",
+      "nutritionFeasibility": {
+        "advisoryGaps": [],
+        "advisoryMax": {
+          "sodiumMg": 2300,
+          "sugarGrams": 36
+        },
+        "gaps": [],
+        "ok": true,
+        "possibleDailyMax": {
+          "calories": 1760,
+          "carbsGrams": 300,
+          "fatsGrams": 56,
+          "fiberGrams": 66,
+          "proteinGrams": 100,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "possibleDailyMin": {
+          "calories": 1274,
+          "carbsGrams": 158,
+          "fatsGrams": 9,
+          "fiberGrams": 18,
+          "proteinGrams": 64,
+          "sodiumMg": 0,
+          "sugarGrams": 0
+        },
+        "requiredMin": {
+          "calories": 1200,
+          "carbsGrams": 120,
+          "fatsGrams": 35,
+          "fiberGrams": 28,
+          "proteinGrams": 55
+        },
+        "slotBest": {
+          "Breakfast": {
+            "calories": 552,
+            "carbsGrams": 100,
+            "fatsGrams": 17,
+            "fiberGrams": 22,
+            "proteinGrams": 29,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 635,
+            "carbsGrams": 100,
+            "fatsGrams": 20,
+            "fiberGrams": 22,
+            "proteinGrams": 40,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 573,
+            "carbsGrams": 100,
+            "fatsGrams": 19,
+            "fiberGrams": 22,
+            "proteinGrams": 31,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        },
+        "slotFloor": {
+          "Breakfast": {
+            "calories": 401,
+            "carbsGrams": 49,
+            "fatsGrams": 3,
+            "fiberGrams": 6,
+            "proteinGrams": 18,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Dinner": {
+            "calories": 470,
+            "carbsGrams": 57,
+            "fatsGrams": 3,
+            "fiberGrams": 6,
+            "proteinGrams": 23,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          },
+          "Lunch": {
+            "calories": 403,
+            "carbsGrams": 52,
+            "fatsGrams": 3,
+            "fiberGrams": 6,
+            "proteinGrams": 23,
+            "sodiumMg": 0,
+            "sugarGrams": 0
+          }
+        }
+      },
+      "repeatSequence": [
+        2,
+        3,
+        4,
+        6,
+        8,
+        10
+      ],
+      "restrictedNutritionAnchorCountSafe": 84,
+      "restrictionCount": 0,
+      "safeIngredientFamilyCounts": {
+        "beef": 7,
+        "egg": 10,
+        "fish": 66,
+        "munggo": 141,
+        "pork": 20,
+        "shellfish": 39,
+        "tofu_soy": 64
+      },
+      "safeRecipeCountPrePricing": 203,
+      "scenario": "custom_chicken_allergy",
+      "selectedIngredientFamilyCounts": {
+        "fish": 5,
+        "munggo": 3,
+        "shellfish": 10,
+        "tofu_soy": 6
+      },
+      "selectedMaxRecipeRepeatCount": 3,
+      "selectedRecipeCount": 21,
+      "selectedRecipeIds": [
+        "ph_budget_009",
+        "ph_form_061",
+        "ph_form_084",
+        "ph_form_086",
+        "ph_form_073",
+        "ph_form_081",
+        "ph_budget_009",
+        "ph_form_074",
+        "ph_form_084",
+        "ph_form_060",
+        "ph_337",
+        "ph_form_093",
+        "ph_form_086",
+        "ph_form_074",
+        "ph_form_081",
+        "ph_budget_009",
+        "ph_form_073",
+        "ph_form_084",
+        "ph_form_086",
+        "ph_form_074",
+        "ph_form_096"
+      ],
+      "selectedRepeatedRecipeCount": 6,
+      "selectedRepeatedTitles": {
+        "Shrimp Mushroom Pechay Dinner Plate": 2,
+        "Shrimp Okra Garbanzo Lunch Plate": 2,
+        "Squid Pechay Kidney Lunch Plate": 3,
+        "Tofu Kidney Mushroom Dinner Plate": 3,
+        "Tofu Munggo Malunggay Complete Plate": 3,
+        "Tuna Eggplant Okra Breakfast Plate": 3
+      },
+      "selectedUniqueRecipeCount": 11,
+      "slotCount": 21,
+      "slotMaxRepeatCounts": {
+        "Breakfast": 3,
+        "Dinner": 3,
+        "Lunch": 3
+      },
+      "slotUniqueCounts": {
+        "Breakfast": 3,
+        "Dinner": 4,
+        "Lunch": 4
+      },
+      "solvePairStatuses": [
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 5,
+            "munggo": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 5,
+            "munggo": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 5,
+            "munggo": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "INFEASIBLE"
+        },
+        {
+          "ingredientFamilyRepeatCaps": {
+            "fish": 5,
+            "munggo": 5
+          },
+          "ingredientFamilyRepeatCapsEnforced": true,
+          "maxPerWeek": 3,
+          "sameSlotConsecutiveRepeatBlocked": true,
+          "status": "FEASIBLE"
+        }
+      ],
+      "status": "success"
+    }
+  ]
+}

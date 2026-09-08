@@ -37,13 +37,12 @@ class Phase7VisualPolishPolicyTest {
     }
 
     @Test
-    fun dashboardGoals_useCompactWrappingChips() {
+    fun dashboardDailyTips_replacesGoalsCard() {
         val source = readMainSource("ui", "screens", "DashboardRefinedScreen.kt")
 
-        assertTrue("Home goals should wrap as compact chips.", source.contains("FlowRow("))
-        assertTrue("Home goals should render through a dedicated compact chip helper.", source.contains("HomeGoalChip("))
-        assertTrue("Goal chips should cap width so one long label does not dominate the card.", source.contains(".widthIn(max = 180.dp)"))
-        assertFalse("Goal chips should not use old full-width IconButton rows.", source.contains("IconButton("))
+        assertTrue("Home should keep the expanded Daily Tips card.", source.contains("title = \"Daily Tips\""))
+        assertFalse("Home should not keep the removed Your Goals card.", source.contains("Your Goals"))
+        assertFalse("Home should not keep the removed home goal chip helper.", source.contains("HomeGoalChip("))
     }
 
     @Test
@@ -57,10 +56,8 @@ class Phase7VisualPolishPolicyTest {
         listOf(
             "HomeHeaderAvatar",
             "GroceryHeaderAvatar",
-            "GroceryProgressBackground",
             "ProgressHeaderAvatar",
-            "SupportHeaderAvatar",
-            "SupportFreshStartIcon"
+            "SupportHeaderAvatar"
         ).forEach { token ->
             assertTrue("Missing artwork alignment token: $token", tokens.contains(token))
         }
@@ -69,10 +66,9 @@ class Phase7VisualPolishPolicyTest {
         assertTrue(grocery.contains("avatarAlignment = ScreenArtworkAlignment.GroceryHeaderAvatar"))
         assertTrue(grocery.contains("alignment = ScreenArtworkAlignment.GroceryProgressBackground"))
         assertTrue(progress.contains("avatarAlignment = ScreenArtworkAlignment.ProgressHeaderAvatar"))
-        assertTrue(progress.contains("alignment = ScreenArtworkAlignment.ProgressReviewIllustration"))
+        assertFalse(progress.contains("alignment = ScreenArtworkAlignment.ProgressReviewIllustration"))
         assertTrue(support.contains("avatarAlignment = ScreenArtworkAlignment.SupportHeaderAvatar"))
-        assertTrue(support.contains(".heightIn(min = ScreenArtworkSizing.SupportFreshStartMinHeight)"))
-        assertTrue(support.contains(".align(ScreenArtworkAlignment.SupportFreshStartIcon)"))
+        assertFalse(support.contains("SupportFreshStartCard("))
     }
 
     @Test

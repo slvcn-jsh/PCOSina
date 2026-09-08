@@ -18,9 +18,10 @@ class ProgressTraversalPolicyTest {
             "screens",
             "ProgressRefinedScreen.kt"
         )
-        assertTrue(progressText.contains("Weekly adherence"))
-        assertTrue(progressText.contains("Weekly savings"))
-        assertTrue(progressText.contains("Average daily macros"))
+        assertTrue(progressText.contains("This week"))
+        assertTrue(progressText.contains("Weekly budget"))
+        assertTrue(progressText.contains("Logged nutrition"))
+        assertTrue(progressText.contains("Meal response"))
         assertTrue(!progressText.contains("progress_week_insights_card"))
     }
 

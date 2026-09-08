@@ -55,7 +55,6 @@ fun RefinedTabBrandHeader(
     SharedTopHeader(
         online = online,
         onSettings = onSettings,
-        onNotifications = onSupport,
         modifier = modifier,
         compact = compact,
     )

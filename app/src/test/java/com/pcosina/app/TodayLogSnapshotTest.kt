@@ -95,4 +95,26 @@ class TodayLogSnapshotTest {
         assertEquals("Dinner", snapshot.nextMeal?.mealLabel)
         assertEquals("r1", snapshot.nextMeal?.recipeId)
     }
+
+    @Test
+    fun snapshot_ignoresCompletedKeysFromAnOlderPlan() {
+        val meals = listOf(
+            TodayMealDescriptor("Breakfast", "Oats", "new-r1"),
+            TodayMealDescriptor("Lunch", "Tinola", "new-r2"),
+            TodayMealDescriptor("Dinner", "Fish", "new-r3")
+        )
+        val completed = listOf(
+            ProgressViewModel.buildMealKey("Breakfast", "old-r1"),
+            ProgressViewModel.buildMealKey("Lunch", "old-r2"),
+            ProgressViewModel.buildMealKey("Dinner", "old-r3"),
+            ProgressViewModel.buildMealKey("Breakfast", "new-r1")
+        )
+
+        val snapshot = buildTodayLogSnapshot(meals, completed)
+
+        assertEquals(3, snapshot.plannedCount)
+        assertEquals(1, snapshot.completedCount)
+        assertEquals(1f / 3f, snapshot.completionRatio, 0.001f)
+        assertEquals("new-r2", snapshot.nextMeal?.recipeId)
+    }
 }

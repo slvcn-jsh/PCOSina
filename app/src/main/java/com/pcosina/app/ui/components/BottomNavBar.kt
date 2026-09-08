@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -57,6 +58,7 @@ fun BottomNavBar(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     Surface(
+        modifier = Modifier.navigationBarsPadding(),
         color = PcosinaSurface,
         shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
         tonalElevation = 0.dp,

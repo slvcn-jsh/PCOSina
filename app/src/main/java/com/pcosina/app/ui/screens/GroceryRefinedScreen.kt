@@ -134,6 +134,8 @@ fun GroceryRefinedScreen(
     val groceryItems by groceryViewModel.groceryItems.collectAsState()
     val mealSources by groceryViewModel.mealSources.collectAsState()
     val activePlanId by groceryViewModel.activePlanId.collectAsState()
+    val checkedNames by groceryViewModel.checkedItemNames.collectAsState()
+    val pantryOptOut by groceryViewModel.pantryOptOutNames.collectAsState()
     val userProfile by userViewModel.userProfile.collectAsState()
     val pantryEntries by userViewModel.pantryEntries.collectAsState()
     val effectivePantryEntries = remember(pantryEntries, userProfile.pantryItems) {
@@ -189,8 +191,6 @@ fun GroceryRefinedScreen(
             .keys
             .toSet()
     }
-    var checkedNames by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
-    var pantryOptOut by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var expandedCategories by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
     var initializedCategoryExpansion by rememberSaveable(activePlanId) { mutableStateOf(false) }
@@ -558,6 +558,7 @@ fun GroceryRefinedScreen(
 
             GroceryBudgetCard(
                 weeklyBudget = weeklyBudget,
+                hasShoppingEstimate = groupedEntries.isNotEmpty() || authoritativePlanEstimate != null,
                 estimatedRemainingCost = estimatedRemainingCost,
                 markedBoughtEstimate = markedBoughtEstimate,
                 totalShoppingEstimate = totalShoppingEstimate,
@@ -649,8 +650,10 @@ fun GroceryRefinedScreen(
                         nextPantryOptOut = pantryOptOut
                         nextCheckedNames = if (item.name in checkedNames) checkedNames - item.name else checkedNames + item.name
                     }
-                    pantryOptOut = nextPantryOptOut
-                    checkedNames = nextCheckedNames
+                    groceryViewModel.updateChecklistState(
+                        checkedItemNames = nextCheckedNames,
+                        pantryOptOutNames = nextPantryOptOut,
+                    )
                     val nextEffectiveChecked = nextCheckedNames + pantryMatches.filter { it !in nextPantryOptOut }
                     val isComplete = totalCount > 0 && purchaseEntries.all { it.name in nextEffectiveChecked }
                     if (!wasComplete && isComplete) {
@@ -1375,6 +1378,7 @@ private fun GroceryHeadlineCard(
 @Composable
 private fun GroceryBudgetCard(
     weeklyBudget: Int?,
+    hasShoppingEstimate: Boolean,
     estimatedRemainingCost: Int,
     markedBoughtEstimate: Int,
     totalShoppingEstimate: Int,
@@ -1383,7 +1387,7 @@ private fun GroceryBudgetCard(
     compact: Boolean,
 ) {
     val hasBudget = weeklyBudget != null
-    val hasBudgetComparison = hasBudget && totalShoppingEstimate > 0
+    val hasBudgetComparison = hasBudget && hasShoppingEstimate
     val withinBudget = hasBudgetComparison && (remainingBudget ?: 0) >= 0
     val budgetColor = when {
         !hasBudgetComparison -> PcosinaMuted
@@ -1499,7 +1503,7 @@ private fun GroceryBudgetCard(
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            text = "Pantry-covered items are removed from the buy estimate. Prices use typical local wet-market values; supermarket or mall prices may be higher.",
+            text = "Pantry-covered items are removed from the buy estimate. Each row names its price reference; DA-AMAS observations are preferred when available, with named retail or offline references used for remaining items.",
             style = MaterialTheme.typography.labelSmall,
             color = PcosinaMuted,
         )
@@ -2314,6 +2318,7 @@ private fun groceryPriceReferenceText(item: GroceryListEntry): String? {
     }
     val purchaseLabel = when (item.purchaseMode) {
         "weighed_to_order" -> "weighed to order"
+        "count_purchase" -> "buy by piece"
         "household_not_purchased" -> "household supply"
         else -> null
     }

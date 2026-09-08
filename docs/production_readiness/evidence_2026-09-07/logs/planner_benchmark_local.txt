@@ -1,0 +1,25 @@
+DATABASE SYNCED: 977 recipes ready for MILP Brain (0 inserted, 0 updated, 451 kept, 0 deactivated).
+case|run|status|runtime_ms|slots|terminal_solver|candidates|nutrition_ok
+T01|1|pass|839|21|FEASIBLE|56->54|True
+T02|1|pass|567|21|FEASIBLE|56->54|True
+T03|1|pass|853|21|FEASIBLE|56->54|True
+T04|1|pass|652|21|FEASIBLE|56->54|True
+T05|1|pass|711|21|FEASIBLE|56->54|True
+T06|1|pass|981|21|FEASIBLE|56->54|True
+T07|1|pass|988|21|FEASIBLE|64->54|True
+T08|1|pass|451|21|FEASIBLE|117->54|True
+T09|1|pass|1113|21|FEASIBLE|168->54|True
+T10|1|pass|1033|21|FEASIBLE|56->54|True
+T11|1|pass|713|21|FEASIBLE|56->54|True
+T12|1|pass|604|21|FEASIBLE|56->54|True
+T13|1|pass|1169|21|FEASIBLE|56->54|True
+T14|1|pass|737|21|FEASIBLE|56->54|True
+T15|1|pass|2967|21|FEASIBLE|56->54|True
+T16|1|pass|963|21|FEASIBLE|56->54|True
+T17|1|pass|849|21|FEASIBLE|56->54|True
+T18|1|pass|1323|21|FEASIBLE|72->54|True
+T19|1|pass|791|21|FEASIBLE|56->54|True
+T20|1|pass|850|21|FEASIBLE|56->54|True
+Wrote JSON report: benchmarks\reports\production_readiness_2026-09-07\planner_profiles.local_host.json
+Wrote CSV report: benchmarks\reports\production_readiness_2026-09-07\planner_profiles.local_host.csv
+SUMMARY runs=20 pass=20 fail=0 avg_ms=958 p95_ms=1405 max_ms=2967 threshold=pass

@@ -46,6 +46,10 @@ class UserViewModel(
     val notificationPreferences: StateFlow<NotificationPreferences> = _notificationPreferences.asStateFlow()
     private val _notificationLogs = MutableStateFlow<List<NotificationLogEntry>>(emptyList())
     val notificationLogs: StateFlow<List<NotificationLogEntry>> = _notificationLogs.asStateFlow()
+    private val _hardConstraintRevision = MutableStateFlow(0L)
+    val hardConstraintRevision: StateFlow<Long> = _hardConstraintRevision.asStateFlow()
+    private val _inventoryRevision = MutableStateFlow(0L)
+    val inventoryRevision: StateFlow<Long> = _inventoryRevision.asStateFlow()
 
     private var profileJob: Job? = null
     private var pantryJob: Job? = null
@@ -134,6 +138,8 @@ class UserViewModel(
         _remindersEnabled.value = false
         _notificationPreferences.value = NotificationPreferences()
         _notificationLogs.value = emptyList()
+        _hardConstraintRevision.value = 0L
+        _inventoryRevision.value = 0L
         pendingProfile = null
     }
 
@@ -156,8 +162,15 @@ class UserViewModel(
     }
 
     fun updatePersonalDetails(age: Int, weight: Int, height: Int, activity: String) {
-        _userProfile.update { 
-            it.copy(age = age, weightKg = weight, heightCm = height, activityLevel = activity)
+        val before = _userProfile.value
+        val after = before.copy(age = age, weightKg = weight, heightCm = height, activityLevel = activity)
+        _userProfile.value = after
+        if (before.age != after.age ||
+            before.weightKg != after.weightKg ||
+            before.heightCm != after.heightCm ||
+            before.activityLevel != after.activityLevel
+        ) {
+            markHardConstraintsChanged()
         }
         saveProfile()
     }
@@ -167,12 +180,18 @@ class UserViewModel(
         targetDate: String?,
         weeklyWeightChangeGoalKg: Float?
     ) {
-        _userProfile.update {
-            it.copy(
-                targetWeightKg = targetWeightKg,
-                targetDate = targetDate?.trim()?.takeIf { value -> value.isNotBlank() },
-                weeklyWeightChangeGoalKg = weeklyWeightChangeGoalKg
-            )
+        val before = _userProfile.value
+        val after = before.copy(
+            targetWeightKg = targetWeightKg,
+            targetDate = targetDate?.trim()?.takeIf { value -> value.isNotBlank() },
+            weeklyWeightChangeGoalKg = weeklyWeightChangeGoalKg
+        )
+        _userProfile.value = after
+        if (before.targetWeightKg != after.targetWeightKg ||
+            before.targetDate != after.targetDate ||
+            before.weeklyWeightChangeGoalKg != after.weeklyWeightChangeGoalKg
+        ) {
+            markHardConstraintsChanged()
         }
         saveProfile()
     }
@@ -183,34 +202,56 @@ class UserViewModel(
     }
 
     fun updatePcosDetails(symptoms: List<String>, comorbidities: List<String>) {
-        _userProfile.update {
-            it.copy(symptoms = symptoms, comorbidities = comorbidities)
+        val before = _userProfile.value
+        val after = before.copy(symptoms = symptoms, comorbidities = comorbidities)
+        _userProfile.value = after
+        if (before.symptoms != after.symptoms || before.comorbidities != after.comorbidities) {
+            markHardConstraintsChanged()
         }
         saveProfile()
     }
 
     fun updateDietaryRestrictions(restrictions: List<String>) {
-        _userProfile.update { it.copy(dietaryRestrictions = restrictions) }
+        val before = _userProfile.value
+        val after = before.copy(dietaryRestrictions = restrictions)
+        _userProfile.value = after
+        if (before.dietaryRestrictions != after.dietaryRestrictions) markHardConstraintsChanged()
         saveProfile()
     }
 
     fun updateAllergies(allergies: List<String>) {
-        _userProfile.update { it.copy(allergies = allergies) }
+        val before = _userProfile.value
+        val after = before.copy(allergies = allergies)
+        _userProfile.value = after
+        if (before.allergies != after.allergies) markHardConstraintsChanged()
         saveProfile()
     }
 
     fun updateCookingPreferences(maxMinutes: Int, variety: String) {
-        _userProfile.update { it.copy(maxCookingTimeMinutes = maxMinutes, varietyPreference = variety) }
+        val before = _userProfile.value
+        val after = before.copy(maxCookingTimeMinutes = maxMinutes, varietyPreference = variety)
+        _userProfile.value = after
+        if (before.maxCookingTimeMinutes != after.maxCookingTimeMinutes ||
+            before.varietyPreference != after.varietyPreference
+        ) {
+            markHardConstraintsChanged()
+        }
         saveProfile()
     }
 
     fun updatePlanningPriority(priority: String) {
-        _userProfile.update { it.copy(planningPriority = priority) }
+        val before = _userProfile.value
+        val after = before.copy(planningPriority = priority)
+        _userProfile.value = after
+        if (before.planningPriority != after.planningPriority) markHardConstraintsChanged()
         saveProfile()
     }
 
     fun updateBudget(budget: Int) {
-        _userProfile.update { it.copy(weeklyBudgetPhp = budget) }
+        val before = _userProfile.value
+        val after = before.copy(weeklyBudgetPhp = budget)
+        _userProfile.value = after
+        if (before.weeklyBudgetPhp != after.weeklyBudgetPhp) markHardConstraintsChanged()
         saveProfile()
     }
 
@@ -221,10 +262,14 @@ class UserViewModel(
             val normalizedKey = normalizePantryNameKey(name)
             if (normalizedKey.isBlank()) null
             else (existing[normalizedKey]?.copy(name = name) ?: PantryEntry(name = name))
-        }.distinctBy { normalizePantryNameKey(it.name) }
+        }.asReversed()
+            .distinctBy { normalizePantryNameKey(it.name) }
+            .asReversed()
         val names = entries.map { it.name.trim() }
+        val beforePantryNames = _userProfile.value.pantryItems
         _pantryEntries.value = entries
         _userProfile.update { it.copy(pantryItems = names) }
+        if (beforePantryNames != names) markInventoryChanged()
         saveProfile()
         if (currentUserId.isBlank()) return
         viewModelScope.launch {
@@ -250,10 +295,15 @@ class UserViewModel(
                         ?.takeIf { it.isNotBlank() }
                 )
             }
-        }.distinctBy { normalizePantryNameKey(it.name) }
+        }.asReversed()
+            .distinctBy { normalizePantryNameKey(it.name) }
+            .asReversed()
+        val beforeEntries = _pantryEntries.value
         _pantryEntries.value = normalizedEntries
         val names = normalizedEntries.map { it.name.trim() }
+        val beforePantryNames = _userProfile.value.pantryItems
         _userProfile.update { it.copy(pantryItems = names) }
+        if (beforeEntries != normalizedEntries || beforePantryNames != names) markInventoryChanged()
         saveProfile()
         if (currentUserId.isBlank()) return
         viewModelScope.launch {
@@ -267,6 +317,14 @@ class UserViewModel(
             .replace(Regex("[^a-z0-9]+"), " ")
             .replace(Regex("\\s+"), " ")
             .trim()
+
+    private fun markHardConstraintsChanged() {
+        _hardConstraintRevision.value = _hardConstraintRevision.value + 1
+    }
+
+    private fun markInventoryChanged() {
+        _inventoryRevision.value = _inventoryRevision.value + 1
+    }
 
     fun setRemindersEnabled(enabled: Boolean) {
         updateNotificationPreferences { prefs ->
@@ -289,7 +347,10 @@ class UserViewModel(
     }
 
     fun updateGoal(goal: String) {
-        _userProfile.update { it.copy(goal = goal) }
+        val before = _userProfile.value
+        val after = before.copy(goal = goal)
+        _userProfile.value = after
+        if (before.goal != after.goal) markHardConstraintsChanged()
         saveProfile()
     }
 

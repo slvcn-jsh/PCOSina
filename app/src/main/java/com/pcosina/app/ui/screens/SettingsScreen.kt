@@ -28,7 +28,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Brush
@@ -51,6 +50,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
 import com.pcosina.app.R
+import com.pcosina.app.data.model.PantryEntry
 import com.pcosina.app.data.model.UserProfile
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.GroceryViewModel
@@ -99,8 +99,7 @@ private enum class ReminderSettingsFocus {
     Routine,
 }
 
-private const val SettingsProfileMinAge = 18
-private const val SettingsProfileMaxAge = 60
+private const val ReminderControlLockedMessage = "Enable Reminders in the Control tab to access Meals, Week, and Routine."
 
 private data class SettingsTabIcon(
     val icon: ImageVector? = null,
@@ -108,11 +107,10 @@ private data class SettingsTabIcon(
     val label: String,
 )
 
-private data class SettingsProfileStepState(
-    val stepNumber: Int,
+private data class SavedProfileDetails(
     val title: String,
-    val detail: String,
-    val complete: Boolean,
+    val emptyMessage: String,
+    val items: List<String>,
 )
 
 @Composable
@@ -125,11 +123,12 @@ fun SettingsScreen(
     userId: String,
     onBack: () -> Unit,
     onNavigateToProfileEdit: () -> Unit,
-    onOpenNotifications: () -> Unit = {},
+    onOpenSupport: () -> Unit = {},
     initialSection: String? = null,
     modifier: Modifier = Modifier
 ) {
     val profile by userViewModel.userProfile.collectAsState()
+    val pantryEntries by userViewModel.pantryEntries.collectAsState()
     val session by authViewModel.session.collectAsState()
     val notificationPrefs by userViewModel.notificationPreferences.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
@@ -162,6 +161,7 @@ fun SettingsScreen(
     var showNotificationPermissionDialog by rememberSaveable { mutableStateOf(false) }
     var showWeeklyResetDayDialog by rememberSaveable { mutableStateOf(false) }
     var showAvatarPickerDialog by rememberSaveable { mutableStateOf(false) }
+    var savedProfileDetails by remember { mutableStateOf<SavedProfileDetails?>(null) }
     var avatarDraftName by rememberSaveable { mutableStateOf("") }
     var avatarDraftId by rememberSaveable { mutableStateOf("") }
     var notificationPermissionHint by rememberSaveable { mutableStateOf<String?>(null) }
@@ -201,7 +201,9 @@ fun SettingsScreen(
         "Reminders paused"
     }
     val mainGoalLabel = primaryGoalLabel(profile.goal)
-    val budgetLabel = profile.weeklyBudgetPhp.takeIf { it > 0 }?.let { "₱$it / week" } ?: "Not set"
+    val budgetLabel = profile.weeklyBudgetPhp.takeIf { it > 0 }?.let {
+        String.format(Locale.ENGLISH, "₱%,d", it)
+    } ?: "Not set"
     val dietRulesLabel = if (profile.dietaryRestrictions.isEmpty()) {
         "None saved"
     } else {
@@ -217,60 +219,23 @@ fun SettingsScreen(
     } else {
         "${profile.pantryItems.size} saved"
     }
-    val profileStepStates = remember(profile) { buildSettingsProfileSteps(profile) }
     val planningPriorityLabel = profile.planningPriority.ifBlank { "Balanced" }
     val maxCookTimeLabel = "${profile.maxCookingTimeMinutes} min max"
+    val pantryDetailItems = remember(pantryEntries, profile.pantryItems) {
+        if (pantryEntries.isNotEmpty()) {
+            pantryEntries.map(::formatSavedPantryEntry)
+        } else {
+            profile.pantryItems.map { it.trim() }.filter { it.isNotBlank() }
+        }
+    }
     val settingsStatusLabel = when (settingsFocus) {
         SettingsScreenFocus.Profile -> if (profile.isProfileCompleted) {
-            "Your profile is ready to guide meals, groceries, and reminders."
+            "Tap a saved list to view its details."
         } else {
-            "Finish your profile so planning feels more personal."
+            "Complete the required profile details."
         }
         SettingsScreenFocus.Reminders -> notificationStatusSummary
         SettingsScreenFocus.Account -> "Choose only the account action you need."
-    }
-    val settingsSyncLabel = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> "Saved food rules: ${profile.dietaryRestrictions.size + profile.allergies.size}"
-        SettingsScreenFocus.Reminders -> if (notificationPrefs.masterEnabled) {
-            nextReminderSummary
-        } else {
-            scheduledWorkersSummary
-        }
-        SettingsScreenFocus.Account -> if (logoutActionPending) {
-            "Sign-out is already in progress."
-        } else {
-            "You stay in control of what stays on this phone."
-        }
-    }
-    val settingsPlanRangeLabel = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> if (mainGoalLabel == "Not set") "Goals: Not set" else "Goals saved"
-        SettingsScreenFocus.Reminders -> "Phone notifications: $permissionStateLabel"
-        SettingsScreenFocus.Account -> "Clear saved week data removes meal plans, groceries, and progress logs for this account."
-    }
-    val settingsNextLabel = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> "Next focus: review the details that affect budget, time, and food rules."
-        SettingsScreenFocus.Reminders -> nextReminderSummary
-        SettingsScreenFocus.Account -> "Next focus: confirm before clearing data or signing out."
-    }
-    val settingsSummaryBadge = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> "Profile setup"
-        SettingsScreenFocus.Reminders -> "Reminder controls"
-        SettingsScreenFocus.Account -> "Account actions"
-    }
-    val settingsSummaryTitle = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> "Profile details shape your week."
-        SettingsScreenFocus.Reminders -> "Keep reminders helpful, not noisy."
-        SettingsScreenFocus.Account -> "Account controls should stay clear and deliberate."
-    }
-    val settingsSummaryAccent = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> colorScheme.primary
-        SettingsScreenFocus.Reminders -> colorScheme.secondary
-        SettingsScreenFocus.Account -> colorScheme.error
-    }
-    val settingsSummaryHighlights = buildList {
-        add(settingsPlanRangeLabel)
-        add(settingsSyncLabel)
-        add(settingsNextLabel)
     }
     LaunchedEffect(userId, notificationPrefs) {
         nextReminderSummaries = NotificationScheduler.nextScheduledTimes(notificationPrefs)
@@ -375,8 +340,8 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         FigmaSettingsHero(
-            title = "ACCOUNT AND SETTINGS",
-            subtitle = "Personalize your PCOS journey. Manage your profile, set meal reminders, and customize your app experience.",
+            title = "Settings",
+            subtitle = "Profile, reminders, and account controls.",
             onBack = onBack
         )
         FigmaSettingsProfileBand(
@@ -410,11 +375,6 @@ fun SettingsScreen(
                 title = "Profile",
                 summary = settingsStatusLabel
             ) {
-                SettingsProfileProgressLine(
-                    steps = profileStepStates,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                SettingsDivider()
                 SettingsMainGoalItem(
                     icon = Icons.Default.Info,
                     goal = profile.goal,
@@ -424,11 +384,44 @@ fun SettingsScreen(
                 SettingsDivider()
                 SettingsItem(icon = Icons.Default.History, label = "Max cooking time", value = maxCookTimeLabel)
                 SettingsDivider()
-                SettingsItem(icon = Icons.Default.Info, label = "Food rules", value = dietRulesLabel)
+                SettingsItem(
+                    icon = Icons.Default.Info,
+                    label = "Food rules",
+                    value = dietRulesLabel,
+                    onClick = {
+                        savedProfileDetails = SavedProfileDetails(
+                            title = "Saved food rules",
+                            emptyMessage = "No food rules are saved.",
+                            items = profile.dietaryRestrictions
+                        )
+                    }
+                )
                 SettingsDivider()
-                SettingsItem(icon = Icons.Default.Warning, label = "Allergies", value = allergyLabel)
+                SettingsItem(
+                    icon = Icons.Default.Warning,
+                    label = "Allergies",
+                    value = allergyLabel,
+                    onClick = {
+                        savedProfileDetails = SavedProfileDetails(
+                            title = "Saved allergies",
+                            emptyMessage = "No allergies are saved.",
+                            items = profile.allergies
+                        )
+                    }
+                )
                 SettingsDivider()
-                SettingsItem(icon = Icons.Default.Info, label = "Pantry saved", value = pantryLabel)
+                SettingsItem(
+                    icon = Icons.Default.Info,
+                    label = "Pantry items",
+                    value = pantryLabel,
+                    onClick = {
+                        savedProfileDetails = SavedProfileDetails(
+                            title = "Saved pantry items",
+                            emptyMessage = "No pantry items are saved.",
+                            items = pantryDetailItems
+                        )
+                    }
+                )
                 SettingsDivider()
                 SettingsItem(icon = Icons.Default.Info, label = "Planning priority", value = planningPriorityLabel)
                 SettingsDivider()
@@ -445,11 +438,6 @@ fun SettingsScreen(
                     Spacer(Modifier.width(8.dp))
                     Text("Edit my profile", fontWeight = FontWeight.Bold)
                 }
-                Text(
-                    text = "This is where you update food rules, cooking limits, pantry details, and budget choices.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onSurfaceVariant
-                )
             }
         }
 
@@ -500,14 +488,31 @@ fun SettingsScreen(
         if (settingsFocus == SettingsScreenFocus.Reminders) {
             FigmaSettingsReminderTabs(
                 selectedKey = reminderFocusKey,
-                onSelect = { reminderFocusKey = it }
+                remindersEnabled = notificationPrefs.masterEnabled,
+                onSelect = { key ->
+                    if (!notificationPrefs.masterEnabled && key != ReminderSettingsFocus.Control.name) {
+                        reminderFocusKey = ReminderSettingsFocus.Control.name
+                        notificationPermissionHint = ReminderControlLockedMessage
+                    } else {
+                        reminderFocusKey = key
+                        if (notificationPermissionHint == ReminderControlLockedMessage) {
+                            notificationPermissionHint = null
+                        }
+                    }
+                }
             )
 
             if (reminderFocus == ReminderSettingsFocus.Control) {
             SettingsSection(
                 title = "Reminder control",
-                summary = "Choose whether PCOSINA can nudge you on this phone and keep notifications respectful."
+                summary = "Choose whether PCOSina can nudge you on this phone and keep notifications respectful."
             ) {
+                notificationPermissionHint?.takeIf { it == ReminderControlLockedMessage }?.let { hint ->
+                    SettingsInlineNotice(
+                        message = hint,
+                        isError = false
+                    )
+                }
                 SettingsToggleItem(
                     label = "Turn reminders on",
                     description = "These reminders stay on this phone. Lock-screen text stays generic for privacy.",
@@ -542,7 +547,7 @@ fun SettingsScreen(
                     SettingsActionItem(
                         icon = Icons.Default.Info,
                         label = "Open phone notification settings",
-                        description = "Allow reminders for PCOSINA in Android settings",
+                        description = "Allow reminders for PCOSina in Android settings",
                         color = colorScheme.primary
                     ) {
                         val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
@@ -551,7 +556,7 @@ fun SettingsScreen(
                         context.startActivity(intent)
                     }
                 }
-                notificationPermissionHint?.let { hint ->
+                notificationPermissionHint?.takeIf { it != ReminderControlLockedMessage }?.let { hint ->
                     SettingsInlineNotice(
                         message = hint,
                         isError = hint.contains("denied", ignoreCase = true)
@@ -602,7 +607,11 @@ fun SettingsScreen(
                 }
                 if (!notificationPrefs.masterEnabled || !notificationPrefs.mealRemindersEnabled) {
                     SettingsInlineNotice(
-                        message = "Meal reminder times are saved, but they will not fire until reminders and meal nudges are on.",
+                        message = if (!notificationPrefs.masterEnabled) {
+                            ReminderControlLockedMessage
+                        } else {
+                            "Meal reminder times are saved, but they will not fire until meal nudges are on."
+                        },
                         isError = false
                     )
                 }
@@ -666,7 +675,11 @@ fun SettingsScreen(
                 }
                 if (!notificationPrefs.masterEnabled || !notificationPrefs.weeklyResetEnabled) {
                     SettingsInlineNotice(
-                        message = "Weekly reminder timing is saved, but it will not fire until reminders and the weekly nudge are on.",
+                        message = if (!notificationPrefs.masterEnabled) {
+                            ReminderControlLockedMessage
+                        } else {
+                            "Weekly reminder timing is saved, but it will not fire until the weekly nudge is on."
+                        },
                         isError = false
                     )
                 }
@@ -728,14 +741,13 @@ fun SettingsScreen(
         }
 
         Spacer(Modifier.height(12.dp))
-        Text(
-            text = "PCOSINA • Calm planning, private reminders, and easy routines",
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            style = MaterialTheme.typography.labelSmall,
-            color = colorScheme.onSurfaceVariant
+    }
+
+    savedProfileDetails?.let { details ->
+        SavedProfileDetailsDialog(
+            details = details,
+            onDismiss = { savedProfileDetails = null }
         )
-        Spacer(Modifier.height(6.dp))
     }
 
     if (showClearDialog) {
@@ -845,7 +857,7 @@ fun SettingsScreen(
             title = { Text("Allow local reminders?") },
             text = {
                 Text(
-                    "PCOSINA uses local reminders for meal check-ins and weekly planning. " +
+                    "PCOSina uses local reminders for meal check-ins and weekly planning. " +
                         "Notification text stays generic on lock screen."
                 )
             }
@@ -878,154 +890,6 @@ fun SettingsScreen(
     }
 }
 
-}
-
-private fun buildSettingsProfileSteps(profile: UserProfile): List<SettingsProfileStepState> {
-    val hasPersonalDetails = profile.isProfileCompleted || (
-        profile.age in SettingsProfileMinAge..SettingsProfileMaxAge &&
-            profile.weightKg in 35..180 &&
-            profile.heightCm in 120..200 &&
-            profile.activityLevel.isNotBlank()
-        )
-    val hasMedicalDetails = profile.isProfileCompleted ||
-        profile.symptoms.isNotEmpty() ||
-        profile.comorbidities.isNotEmpty()
-    val hasPlanningRules = profile.isProfileCompleted ||
-        profile.maxCookingTimeMinutes in 10..240
-
-    return listOf(
-        SettingsProfileStepState(
-            stepNumber = 1,
-            title = "Personal",
-            detail = "Body metrics & activity",
-            complete = hasPersonalDetails,
-        ),
-        SettingsProfileStepState(
-            stepNumber = 2,
-            title = "Medical",
-            detail = "Symptoms",
-            complete = hasMedicalDetails,
-        ),
-        SettingsProfileStepState(
-            stepNumber = 3,
-            title = "Preferences",
-            detail = "Food rules & budget",
-            complete = hasPlanningRules,
-        ),
-    )
-}
-
-@Composable
-private fun SettingsProfileProgressLine(
-    steps: List<SettingsProfileStepState>,
-    modifier: Modifier = Modifier,
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    val completedCount = steps.count { it.complete }
-    val activeStep = steps.firstOrNull { !it.complete }?.stepNumber ?: steps.lastOrNull()?.stepNumber ?: 1
-
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Profile setup progress",
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
-                color = colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = colorScheme.primary.copy(alpha = 0.10f),
-                contentColor = colorScheme.primary
-            ) {
-                Text(
-                    text = "$completedCount of ${steps.size} ready",
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                    maxLines = 1
-                )
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            steps.forEach { step ->
-                val highlighted = step.complete || step.stepNumber == activeStep
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(7.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(
-                            if (highlighted) {
-                                colorScheme.primary
-                            } else {
-                                colorScheme.surfaceVariant
-                            }
-                        )
-                )
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            steps.forEach { step ->
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.Start,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = if (step.complete) colorScheme.primary else colorScheme.surfaceVariant,
-                        contentColor = if (step.complete) Color.White else colorScheme.onSurfaceVariant
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            if (step.complete) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                            }
-                            Text(
-                                text = "Step ${step.stepNumber}",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
-                                maxLines = 1
-                            )
-                        }
-                    }
-                    Text(
-                        text = step.title,
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold),
-                        color = colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = step.detail,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-    }
 }
 
 @Composable
@@ -1231,7 +1095,7 @@ private fun FigmaSettingsTabs(
 ) {
     val tabs = buildList {
         add(SettingsScreenFocus.Profile.name to SettingsTabIcon(icon = Icons.Default.Person, label = "Profile"))
-        add(SettingsScreenFocus.Reminders.name to SettingsTabIcon(icon = Icons.Default.Notifications, label = "Reminders"))
+        add(SettingsScreenFocus.Reminders.name to SettingsTabIcon(icon = Icons.Default.Notifications, label = "Alerts"))
         add(SettingsScreenFocus.Account.name to SettingsTabIcon(icon = Icons.Default.ManageAccounts, label = "Account"))
     }
     Row(
@@ -1288,6 +1152,7 @@ private fun FigmaSettingsTabs(
 @Composable
 private fun FigmaSettingsReminderTabs(
     selectedKey: String,
+    remindersEnabled: Boolean,
     onSelect: (String) -> Unit,
 ) {
     val tabs = listOf(
@@ -1303,15 +1168,27 @@ private fun FigmaSettingsReminderTabs(
     ) {
         tabs.forEach { (key, label) ->
             val selected = key == selectedKey
+            val locked = !remindersEnabled && key != ReminderSettingsFocus.Control.name
             Surface(
                 modifier = Modifier
                     .weight(1f)
                     .heightIn(min = 38.dp)
                     .clickable { onSelect(key) },
                 shape = RoundedCornerShape(999.dp),
-                color = if (selected) Color(0xFFFF7A92) else Color.White,
-                border = BorderStroke(1.dp, Color(0xFFFF7A92).copy(alpha = if (selected) 0.0f else 0.22f)),
-                contentColor = if (selected) Color.White else Color(0xFFFF7A92),
+                color = when {
+                    selected -> Color(0xFFFF7A92)
+                    locked -> Color(0xFFF5EEF1)
+                    else -> Color.White
+                },
+                border = BorderStroke(
+                    1.dp,
+                    Color(0xFFFF7A92).copy(alpha = if (selected) 0.0f else if (locked) 0.12f else 0.22f)
+                ),
+                contentColor = when {
+                    selected -> Color.White
+                    locked -> Color(0xFF8A7178)
+                    else -> Color(0xFFFF7A92)
+                },
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
@@ -1729,11 +1606,87 @@ fun SettingsSection(
     }
 }
 
+private fun formatSavedPantryEntry(entry: PantryEntry): String {
+    val structuredAmount = entry.amount?.let { amount ->
+        val amountText = if (amount % 1.0 == 0.0) {
+            amount.toInt().toString()
+        } else {
+            String.format(Locale.ENGLISH, "%.2f", amount).trimEnd('0').trimEnd('.')
+        }
+        "$amountText ${entry.unit.orEmpty()}".trim()
+    }
+    return listOfNotNull(
+        entry.name.trim().takeIf { it.isNotBlank() },
+        structuredAmount ?: entry.quantity?.trim()?.takeIf { it.isNotBlank() },
+        entry.expiryDate?.trim()?.takeIf { it.isNotBlank() }?.let { "Use by $it" }
+    ).joinToString(" | ")
+}
+
 @Composable
-fun SettingsItem(icon: ImageVector, label: String, value: String) {
+private fun SavedProfileDetailsDialog(
+    details: SavedProfileDetails,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = details.title,
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 360.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (details.items.isEmpty()) {
+                    Text(
+                        text = details.emptyMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    details.items.forEach { item ->
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFFFFF2F5),
+                            border = BorderStroke(1.dp, Color(0xFFFFD0D9))
+                        ) {
+                            Text(
+                                text = item,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
+}
+
+@Composable
+fun SettingsItem(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    onClick: (() -> Unit)? = null,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(enabled = onClick != null) { onClick?.invoke() }
             .padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top
@@ -1774,14 +1727,27 @@ fun SettingsItem(icon: ImageVector, label: String, value: String) {
             color = Color(0xFFFFDFE6),
             border = BorderStroke(1.dp, Color(0xFFFFC2CE))
         ) {
-            Text(
-                text = value,
+            Row(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = Color(0xFFFF7A92),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = Color(0xFFFF7A92),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (onClick != null) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "View $label",
+                        modifier = Modifier.size(16.dp),
+                        tint = Color(0xFFFF7A92)
+                    )
+                }
+            }
         }
     }
 }

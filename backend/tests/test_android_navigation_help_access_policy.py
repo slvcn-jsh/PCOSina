@@ -25,14 +25,14 @@ def test_bottom_nav_keeps_methodology_tab_available_before_first_plan() -> None:
     assert "base.remove(Routes.Ipo)" not in nav_source
 
 
-def test_dashboard_uses_shared_header_for_settings_and_notifications() -> None:
+def test_dashboard_uses_shared_header_without_duplicate_notification_shortcut() -> None:
     dashboard_source = _read(DASHBOARD_SCREEN)
     nav_source = _read(APP_NAV_HOST)
 
     assert "SharedTopHeader(" in dashboard_source
-    assert "onNotifications = onOpenNotifications" in dashboard_source
+    assert "onNotifications" not in dashboard_source
     assert "RefinedIconAction(" not in dashboard_source
-    assert "onOpenNotifications = { navigateInternal(Routes.Notifications) }" in nav_source
+    assert "onOpenNotifications =" not in nav_source
 
 
 def test_bottom_navigation_uses_product_facing_support_label() -> None:

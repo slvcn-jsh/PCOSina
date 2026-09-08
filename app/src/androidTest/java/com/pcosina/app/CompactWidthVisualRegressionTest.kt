@@ -90,8 +90,6 @@ class CompactWidthVisualRegressionTest {
                             onVarietyPreference = {},
                             planningPriority = "Nutrition Tight",
                             onPlanningPriority = {},
-                            pantryText = "eggs, oats, tuna, spinach",
-                            onPantryText = {},
                             allergiesText = "dairy, shellfish, gluten",
                             onAllergiesText = {},
                             color = MaterialTheme.colorScheme.primary

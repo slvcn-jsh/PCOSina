@@ -52,7 +52,6 @@ import java.util.Locale
 fun SharedTopHeader(
     online: Boolean,
     onSettings: () -> Unit,
-    onNotifications: () -> Unit,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
 ) {
@@ -109,12 +108,6 @@ fun SharedTopHeader(
                 onClick = onSettings,
                 compact = compact,
             )
-            SharedHeaderIconButton(
-                iconRes = R.drawable.pcosina_header_notification,
-                contentDescription = "Open notifications",
-                onClick = onNotifications,
-                compact = compact,
-            )
         }
         Surface(
             color = if (online) PcosinaSoftPink else PcosinaSurfaceAlt,
@@ -122,7 +115,7 @@ fun SharedTopHeader(
             shape = RoundedCornerShape(999.dp)
         ) {
             Text(
-                text = if (online) "Online and ready to sync." else "Offline-safe mode: using saved local data.",
+                text = if (online) "Connected. Sync is available." else "Offline-safe mode: using saved local data.",
                 modifier = Modifier.padding(
                     horizontal = if (compact) 10.dp else 12.dp,
                     vertical = if (compact) 5.dp else 6.dp
@@ -144,7 +137,7 @@ private fun SharedHeaderIconButton(
 ) {
     Surface(
         modifier = Modifier
-            .size(if (compact) 38.dp else 42.dp)
+            .size(if (compact) 42.dp else 48.dp)
             .clickable(onClick = onClick),
         shape = CircleShape,
         color = PcosinaSurface,
@@ -154,7 +147,7 @@ private fun SharedHeaderIconButton(
         Image(
             painter = painterResource(id = iconRes),
             contentDescription = contentDescription,
-            modifier = Modifier.padding(if (compact) 8.dp else 9.dp),
+            modifier = Modifier.padding(if (compact) 8.dp else 10.dp),
             contentScale = ContentScale.Fit,
         )
     }

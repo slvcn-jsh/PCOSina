@@ -1,0 +1,6 @@
+ML READINESS CHECK FAILED
+- missing dataset manifest: ml\offline_training\artifacts\dataset_v1\dataset_manifest.json
+info: reason_feedback_generated_at_ms=1788723938729
+info: reason_feedback_source_max_event_time_ms=1788723319650
+info: reason_feedback_artifact_age_hours=0.06
+info: reason_feedback_source_age_hours=0.23

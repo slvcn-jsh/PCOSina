@@ -27,6 +27,10 @@ class DashboardHomeCardPolicyTest {
             "Dashboard should keep the Home tip card aligned to the Daily Tips wording from the mobile design.",
             text.contains("title = \"Daily Tips\"")
         )
+        assertFalse(
+            "Dashboard should not render the removed Your Goals home card.",
+            text.contains("Your Goals") || text.contains("RefinedGoalsCard(")
+        )
         assertTrue(
             "Home meal cards should emphasize kcal values when recipe details are available.",
             text.contains("text = meal.calories.toString()")
@@ -38,7 +42,7 @@ class DashboardHomeCardPolicyTest {
     }
 
     @Test
-    fun dashboard_usesSharedHeaderChromeForSettingsAndNotifications() {
+    fun dashboard_usesSharedHeaderChromeForSettingsAndInternalNotifications() {
         val sourceRoot = resolveMainSourceRoot()
         val dashboard = String(
             Files.readAllBytes(
@@ -50,6 +54,20 @@ class DashboardHomeCardPolicyTest {
                         "ui",
                         "screens",
                         "DashboardRefinedScreen.kt"
+                    )
+                )
+            )
+        )
+        val bottomNav = String(
+            Files.readAllBytes(
+                sourceRoot.resolve(
+                    Paths.get(
+                        "com",
+                        "pcosina",
+                        "app",
+                        "ui",
+                        "components",
+                        "BottomNavBar.kt"
                     )
                 )
             )
@@ -70,12 +88,12 @@ class DashboardHomeCardPolicyTest {
         )
 
         assertTrue(
-            "Dashboard should use the same top header chrome as Meal Plan, Grocery, Progress, and Notifications.",
+            "Dashboard should use the same top header chrome as Meal Plan, Grocery, Progress, and Support.",
             dashboard.contains("SharedTopHeader(")
         )
-        assertTrue(
-            "Dashboard header notification action should be explicit instead of reusing the support/More Tools route.",
-            dashboard.contains("onNotifications = onOpenNotifications")
+        assertFalse(
+            "Dashboard should not keep a top header notification shortcut; reminders are handled internally through Settings.",
+            dashboard.contains("onNotifications") || dashboard.contains("pcosina_header_notification")
         )
         assertFalse(
             "Dashboard should not keep the legacy private brand header that drifted from shared icon assets.",
@@ -86,12 +104,16 @@ class DashboardHomeCardPolicyTest {
             dashboard.contains("pcosina_svg_44_settings")
         )
         assertFalse(
-            "Dashboard should not render the support tab icon as the top notification action.",
+            "Dashboard should not render the support tab icon as a top notification action.",
             dashboard.contains("pcosina_nav_support_clean")
         )
         assertTrue(
-            "Home header notification button should open the Notifications route.",
-            navHost.contains("onOpenNotifications = { navigateInternal(Routes.Notifications) }")
+            "Bottom navigation should restore the Support tab icon.",
+            bottomNav.contains("BottomNavItem(route = Routes.Ipo, label = \"Support\", iconRes = R.drawable.pcosina_nav_support_clean)")
+        )
+        assertFalse(
+            "Home navigation wiring should not keep the removed header notification callback.",
+            navHost.contains("onOpenNotifications =")
         )
         assertFalse(
             "Home header notification button should not route through the Support/IPO tab.",

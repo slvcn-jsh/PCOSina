@@ -9,6 +9,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -26,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Brush
@@ -33,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.util.Log
@@ -97,104 +100,87 @@ fun RecipeDetailsScreen(
 
     when (state) {
         is RecipeDetailsUiState.Loading -> {
-            LazyColumn(
+            val loadingProgress by rememberInfiniteTransition(label = "recipeLoadingProgress")
+                .animateFloat(
+                    initialValue = 0.28f,
+                    targetValue = 0.86f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1200),
+                        repeatMode = RepeatMode.Reverse,
+                    ),
+                    label = "recipeLoadingProgressValue",
+                )
+            Box(
                 modifier = modifier
                     .fillMaxSize()
-                    .background(colorScheme.background)
-                    .statusBarsPadding(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap)
+                    .background(Color(0xFFF87588))
+                    .statusBarsPadding()
+                    .navigationBarsPadding(),
             ) {
-                item {
-                    GradientHeader(
-                        title = "Opening recipe details",
-                        subtitle = "Ingredients, nutrition, and meal logging context are loading.",
-                        containerHeight = 180,
-                        trailing = {
-                            IconButton(onClick = onBack) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Back",
-                                    tint = Color.White
-                                )
-                            }
-                        }
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White.copy(alpha = 0.92f),
                     )
                 }
-                item {
-                    StatusCenterCard(
-                        queuedActionsLabel = "Recipe details are still loading.",
-                        syncLabel = if (isOnline) {
-                            "Online: recipe and plan data can refresh when needed."
-                        } else {
-                            "Offline-safe: waiting on saved recipe data."
-                        },
-                        planRangeLabel = "Today's meal context will appear here",
-                        nextReminderLabel = "Next focus: wait for ingredients and steps",
-                        modifier = Modifier.testTag("recipe_loading_status_center_card")
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 30.dp, vertical = 26.dp)
+                        .testTag("recipe_branded_loading_state"),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                ) {
+                    Spacer(modifier = Modifier.height(50.dp))
+                    Text(
+                        text = "OFFLINE-FIRST FILIPINO PCOS MEAL\nPLANNING",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 20.sp,
+                            lineHeight = 28.sp,
+                            letterSpacing = 0.sp,
+                        ),
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
                     )
-                }
-                item {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.CardContentGap)
-                    ) {
-                        CircularProgressIndicator(color = colorScheme.primary)
-                        Text(
-                            text = "Loading recipe",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-                        )
-                        Text(
-                            text = "Getting ingredients, nutrition, and cooking steps ready.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(74.dp),
-                            shape = MaterialTheme.shapes.large,
-                            colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceEvenly
-                                ) {
-                                    repeat(4) { NutrientSkeletonTile() }
-                                }
-                            }
-                        }
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp),
-                            shape = MaterialTheme.shapes.large,
-                            colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.CardContentGap)
-                            ) {
-                                LoadingSkeletonBar(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.72f)
-                                        .height(8.dp)
-                                )
-                            }
-                        }
-                    }
+                    Image(
+                        painter = painterResource(id = R.drawable.login_heart_hands),
+                        contentDescription = "PCOSina",
+                        modifier = Modifier
+                            .fillMaxWidth(0.94f)
+                            .aspectRatio(1.15f),
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = "Getting the ingredients, nutrition, and\ncooking steps ready.",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Normal,
+                            lineHeight = 24.sp,
+                        ),
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                    )
+                    LinearProgressIndicator(
+                        progress = { loadingProgress },
+                        modifier = Modifier
+                            .fillMaxWidth(0.72f)
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp)),
+                        color = Color.White,
+                        trackColor = Color.White.copy(alpha = 0.52f),
+                    )
+                    Text(
+                        text = "Preparing your recipe...",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Normal),
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                    )
                 }
             }
         }
@@ -399,7 +385,7 @@ fun RecipeDetailsScreen(
                     mealLabel = plannedTodayMeal?.mealLabel ?: mealLabelHint
                 )
             }
-            val heroSubtitle = "$mealSlotLabel • $recipeMinutesLabel"
+            val heroSubtitle = recipeMinutesLabel
             var showLoadedContent by remember(r.id) { mutableStateOf(false) }
             var impactSummary by remember(r.id, todayKey) { mutableStateOf<RecipeImpactSummary?>(null) }
             var impactDetailsExpanded by remember(r.id, todayKey) { mutableStateOf(false) }
@@ -592,7 +578,8 @@ fun RecipeDetailsScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                                .navigationBarsPadding()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             recipeFeedbackBanner?.let { banner ->
@@ -774,7 +761,7 @@ fun RecipeDetailsScreen(
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                     RecipeSectionHeader(
                                         title = "Ingredients",
-                                        subtitle = "${r.ingredients.size} item(s) for the primary-user plan."
+                                        subtitle = "${r.ingredients.size} ingredients for this meal."
                                     )
                                     Card(
                                         shape = RoundedCornerShape(22.dp),
@@ -837,8 +824,7 @@ fun RecipeDetailsScreen(
                             energyLevel = draft.energyLevel,
                             fullnessLevel = draft.fullnessLevel,
                             cravingsLevel = draft.cravingsLevel,
-                            satisfactionLevel = draft.satisfactionLevel,
-                            note = draft.note
+                            satisfactionLevel = draft.satisfactionLevel
                         )
                         postRecipeFeedback(
                             tone = if (saved) FeedbackBannerTone.Success else FeedbackBannerTone.Error,
@@ -1056,32 +1042,12 @@ private fun IngredientRow(name: String, amount: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        Text(
+            text = name,
             modifier = Modifier.weight(1f),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                contentColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(28.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    PcosinaDesignIcon(
-                        resId = R.drawable.pcosina_svg_29_cart,
-                        contentDescription = null,
-                        modifier = Modifier.size(15.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-            Spacer(Modifier.width(10.dp))
-            Text(
-                text = name,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
         Spacer(Modifier.width(12.dp))
         Surface(
             shape = RoundedCornerShape(12.dp),
@@ -1185,13 +1151,13 @@ private fun RecipeLockedStateCard() {
                     tint = colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "Not in today’s plan",
+                    text = "Recipe not scheduled today",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = colorScheme.onSurfaceVariant
                 )
             }
             Text(
-                text = "You can only log meals that appear in today’s plan. Your grocery list already syncs from the active weekly plan.",
+                text = "You can only log meals that appear in today's active plan. Open Meal Plan to choose a scheduled meal.",
                 style = MaterialTheme.typography.bodySmall,
                 color = colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -1228,7 +1194,7 @@ private fun nutritionTrustMessage(confidence: String?, reviewStatus: String?): S
     val reviewed = confidenceToken in setOf("high", "reviewed") ||
         reviewToken in setOf("reviewed", "verified", "nutritionist_reviewed", "dietitian_reviewed")
     return if (reviewed) {
-        "Nutrition facts use reviewed correction data."
+        "Nutrition estimate uses reviewed recipe data."
     } else {
         "Nutrition facts are estimates from available recipe data; review them for medical decisions."
     }

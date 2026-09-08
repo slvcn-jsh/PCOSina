@@ -1,0 +1,101 @@
+APPENDIX X. Sample Generated Meal Plan for Nutritionist-Dietitian Review
+Purpose
+Dear Registered Nutritionist-Dietitian, this shortened sample shows one representative generated day in a format similar to the reviewed sample. It includes the user profile, meal nutrition, daily summary, cost basis, ingredients, and evaluation form.
+PCOSina is a wellness decision-support application. The values below are submitted for professional validation and should not replace individualized medical nutrition therapy.
+Nutrition and Cost Notes
+Whole-day reference from consultation: approximately 1,800 kcal, 225 g carbohydrates, 90 g protein, 60 g fat, and 25-30 g fiber, subject to professional judgment and user profile.
+PhilFCT/DOST-FNRI is acknowledged as the preferred local reference for future ingredient-level verification and correction. Full PhilFCT-based nutrient mapping is listed as a future research and system enhancement recommendation.
+Current nutrition values come from the PCOSina runtime nutrition dataset: source-verified recipe-card values where available, source-yield-normalized recipe-card values, local/reference ingredient-sum draft estimates, and seed-file estimates.
+Values marked as api_estimate are draft ingredient-sum estimates, not final clinical values. They require professional validation or correction against stronger references such as PhilFCT.
+Ingredient lists may show the original batch recipe. The planned meal slot represents one serving/person. The cost table shows batch/catalog cost separately from cost per planned serving.
+Meal Plan Scenario 1 - Representative Daily Output
+Meal Plan
+Daily Summary
+Cost Basis and Ingredients
+Breakfast: Red Rice Lentil Veggie Plate
+Ingredients
+cooked lentils (1 cup)
+red rice cooked (1/2 cup)
+sitaw cut short (1 cup)
+carrot sliced (1/2 cup)
+garlic minced (2 cloves)
+olive oil (2 tsp)
+Lunch: Lentil Okra Tomato Stew Rice
+Ingredients
+cooked lentils (1 cup)
+okra sliced (1 cup)
+tomato diced (1/2 cup)
+brown rice cooked (1/2 cup)
+garlic minced (2 cloves)
+olive oil (2 tsp)
+Dinner: Bulalo
+Ingredients
+3 pounds bone-in beef shanks
+cold water
+1 large onion, peeled and quartered
+2 tablespoons fish sauce
+1 tablespoon peppercorns
+2 corn, husked and cut into halves
+1 bunch pechay, leaves separated
+2 green onions, stemmed and cut into halves
+salt to taste
+fish sauce to taste
+calamansi juice to taste
+Thai chili peppers, chopped
+Evaluation
+Additional Comments / Recommendations
+____________________________________________________________________________________________
+____________________________________________________________________________________________
+____________________________________________________________________________________________
+____________________________________________________________________________________________
+Nutritionist-Dietitian Recommendation Reference
+For the whole day: 1,800 kcal
+Carbohydrates: 225 grams
+Protein: 90 grams
+Fats: 60 grams
+Fiber: 25-30 grams
+Recommended reference: Philippine Food Composition Tables (PhilFCT/DOST-FNRI), accessible through appropriate DOST/FNRI access channels.
+Parameter | Value
+Age | 24 years old
+Sex assumption | Female
+Weight | 64 kg
+Height | 160 cm
+BMI | 25.0
+Dietary Restrictions | None
+Planning Goals | General Health
+Allergies | None
+Daily Budget | PHP 714/day equivalent to PHP 5,000/week
+Activity Level | Lightly Active
+Max Cooking Time | 45 minutes
+Type | Name | Kilocalories | Protein | Carbs | Fats | Fiber
+Breakfast | Red Rice Lentil Veggie Plate | 515 kcal | 23 g | 83 g | 11 g | 13 g
+Lunch | Lentil Okra Tomato Stew Rice | 495 kcal | 21 g | 74 g | 11 g | 14 g
+Dinner | Bulalo | 941 kcal | 92 g | 19 g | 52 g | 3 g
+Parameter | Value
+Total Calories | 1,951 kcal/day
+Total Protein | 136 g/day
+Total Carbohydrates | 176 g/day
+Total Fats | 74 g/day
+Total Fiber | 30 g/day
+Estimated Daily Cost | PHP 236
+Weekly Plan Estimate from Backend | PHP 1,993
+Parameter | Value
+Serving/Yield Basis | Curated as 1 planned serving for this meal slot
+Batch/Catalog Cost | PHP 64
+Cost per Planned Serving | PHP 64
+Cost Note | Batch divided by source servings when available; otherwise curated as one planned serving.
+Parameter | Value
+Serving/Yield Basis | Curated as 1 planned serving for this meal slot
+Batch/Catalog Cost | PHP 60
+Cost per Planned Serving | PHP 60
+Cost Note | Batch divided by source servings when available; otherwise curated as one planned serving.
+Parameter | Value
+Serving/Yield Basis | Original recipe yield: 4 servings; planned as 1 serving for this meal slot
+Batch/Catalog Cost | PHP 450
+Cost per Planned Serving | PHP 112
+Cost Note | Batch divided by source servings when available; otherwise curated as one planned serving.
+Criteria | Yes | No | Remarks
+The generated meal plan is nutritionally appropriate for the stated profile. |  |  | 
+The generated meal plan is acceptable after considering serving size and meal completeness. |  |  | 
+The estimated cost is reasonable for the stated budget, subject to market-price variation. |  |  | 
+Overall, the generated meal plan is acceptable for evaluation purposes. |  |  | 

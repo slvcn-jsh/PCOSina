@@ -1,0 +1,31 @@
+﻿scenario_id,scenario_name,status,candidate_count,selected_count,hard_violation_count,hard_violations,elapsed_seconds,detail,restrictions,allergies,weeklyBudgetPhp
+T01,Default new user,success,126,21,0,,5.557,,,,5000
+T02,Budget-conscious student,success,94,21,0,,10.247,,,,3000
+T03,Symptom management,success,119,21,0,,1.84,,Lactose Intolerant,,5000
+T04,Busy worker,success,27,21,0,,1.335,,,,4500
+T05,Active user,success,159,21,0,,2.244,,,,6500
+T06,No pork higher-budget user,success,105,21,0,,2.12,,No Pork,,7000
+T07,No pork/no beef,success,99,21,0,,4.883,,No Pork|No Beef,,6000
+T08,Vegetarian realistic,success,73,21,0,,1.629,,Vegetarian,,5000
+T09,Pescatarian,success,84,21,0,,1.871,,Pescatarian,,5500
+T10,Lactose intolerant,success,104,21,0,,16.711,,Lactose Intolerant,dairy,4500
+T11,Gluten or wheat allergy,success,119,21,0,,1.81,,,gluten,5500
+T12,Shellfish allergy,success,85,21,0,,1.707,,No Pork,shellfish,6000
+T13,Egg allergy,success,109,21,0,,17.09,,,egg,4500
+T14,Peanut and tree nut allergy,success,125,21,0,,1.576,,,peanut|nuts,5500
+T15,Nutrition-tight weight-loss profile,success,126,21,0,,17.308,,,,6000
+T16,Higher-budget prep-limited user,success,159,21,0,,1.884,,,,10000
+T17,Low budget but valid,success,106,21,0,,1.657,,,,2500
+T18,No budget user,success,158,21,0,,1.623,,,,0
+T19,Pantry-heavy user,success,119,21,0,,1.598,,No Beef,,5000
+T20,Older valid user,success,119,21,0,,2.101,,Lactose Intolerant,,5500
+C5-01,Base,success,158,21,0,,1.857,,,,
+C5-02,Vegetarian,success,73,21,0,,1.245,,Vegetarian,,
+C5-03,Pescatarian,success,103,21,0,,1.677,,Pescatarian,,
+C5-04,NoPork,success,131,21,0,,1.829,,No Pork,,
+C5-05,NoBeef,success,149,21,0,,1.894,,No Beef,,
+C5-06,VegLactose,success,71,21,0,,1.201,,Vegetarian|Lactose Intolerant,,
+C5-07,BudgetNoPork,success,105,21,0,,1.584,,No Pork,,2000
+C5-08,PantryConstrained,success,149,21,0,,4.213,,No Beef,,
+C5-09,AllergyPeanut,success,156,21,0,,4.02,,,peanut,
+C5-10,AllergyDairy,success,148,21,0,,3.004,,,dairy,

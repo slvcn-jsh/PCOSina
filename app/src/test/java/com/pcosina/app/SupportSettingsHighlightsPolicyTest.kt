@@ -42,7 +42,8 @@ class SupportSettingsHighlightsPolicyTest {
         assertTrue("Support should use the shared Support header without a duplicate page label.", support.contains("title = \"Support\""))
         assertTrue("Support should not show a redundant Support Page label below the header.", !support.contains("Support Page"))
         assertTrue("Support should keep the feedback CTA.", support.contains("Send feedback now"))
-        assertTrue("Support should include the app directory section.", support.contains("App Directory"))
+        assertTrue("Support should not include the removed app directory section.", !support.contains("App Directory"))
+        assertTrue("Support should not include the removed open-plan shortcut.", !support.contains("Open this week's plan"))
         assertTrue("Support should not keep inactive video placeholder cards.", !support.contains("SupportVideoCard"))
         assertTrue("Support should use the shared avatar header chrome.", support.contains("SharedAvatarHeader("))
         assertTrue("Support should use the support avatar artwork alignment token.", support.contains("ScreenArtworkAlignment.SupportHeaderAvatar"))
@@ -55,11 +56,11 @@ class SupportSettingsHighlightsPolicyTest {
         val progress = readMain("ui", "screens", "ProgressRefinedScreen.kt")
 
         assertTrue("Progress should include weekly highlights.", progress.contains("Weekly Highlights"))
-        assertTrue("Weekly highlights should use check-in energy data.", progress.contains("averageEnergy"))
-        assertTrue("Weekly highlights should reference savings.", progress.contains("Your Weekly Savings"))
-        assertTrue("Weekly highlights should reference how the user is feeling.", progress.contains("How You're Feeling"))
-        assertTrue("Weekly highlights should receive the selected avatar.", progress.contains("avatarId = profile.avatarId"))
-        assertTrue("Weekly highlights should render the selected avatar.", progress.contains("avatarId = avatarId"))
+        assertTrue("Weekly highlights should still use logged check-in data.", progress.contains("mostFollowedMealType(logs, weekStart)"))
+        assertTrue("Weekly highlights should reference budget status.", progress.contains("Weekly Savings") && progress.contains("Estimated Remaining Budget"))
+        assertTrue("Weekly highlights should show the replacement meal-following insight.", progress.contains("Most Followed Meal Type"))
+        assertTrue("Weekly highlights should remove the stale feeling highlight.", !progress.contains("How You're Feeling"))
+        assertTrue("Weekly highlights should no longer render the old avatar badge.", !progress.contains("PcosinaAvatarBadge"))
     }
 
     private fun readMain(vararg parts: String): String {

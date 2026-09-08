@@ -1,0 +1,1354 @@
+{
+  "generatedDate": "2026-08-11",
+  "gitCommitShort": "cf5dbcb",
+  "recordsPerPart": 22,
+  "mealType": "Dinner",
+  "recordCount": 168,
+  "partCount": 8,
+  "records": [
+    {
+      "recordNumber": 1,
+      "recipeId": "ph_364",
+      "recipeName": "Adobo Fried Chicken Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 2,
+      "recipeId": "ph_218",
+      "recipeName": "Adobo Meatballs Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 3,
+      "recipeId": "ph_760",
+      "recipeName": "Adobo Squid with Oyster Sauce Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 4,
+      "recipeId": "ph_614",
+      "recipeName": "Adobo With Pork and Beans Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 5,
+      "recipeId": "ph_850",
+      "recipeName": "Adobo sa Kamatis Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 6,
+      "recipeId": "ph_907",
+      "recipeName": "Adobong Okra Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 7,
+      "recipeId": "ph_195",
+      "recipeName": "Adobong Pata (Ham Hock Adobo) Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 8,
+      "recipeId": "ph_52",
+      "recipeName": "Adobong Sitaw at Kangkong with Chicharon Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 9,
+      "recipeId": "ph_247",
+      "recipeName": "Adobong Sitaw with Tofu Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 10,
+      "recipeId": "ph_101",
+      "recipeName": "Anghang Sarap Laing with Shrimp Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 11,
+      "recipeId": "ph_668",
+      "recipeName": "Apan-Apan Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 12,
+      "recipeId": "ph_286",
+      "recipeName": "Bagoong Guisado Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 13,
+      "recipeId": "ph_qk_055",
+      "recipeName": "Bangus Ampalaya Kamatis Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 14,
+      "recipeId": "ph_form_135",
+      "recipeName": "Bangus Okra Malunggay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 15,
+      "recipeId": "ph_rnd_003",
+      "recipeName": "Bangus with Monggo-Malunggay Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 16,
+      "recipeId": "ph_779",
+      "recipeName": "Beef Short Ribs Adobo with Coconut Cream Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 17,
+      "recipeId": "ph_777",
+      "recipeName": "Beef Tenderloin Bistek Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 18,
+      "recipeId": "ph_56",
+      "recipeName": "Cheesy Chicken Afritada Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 19,
+      "recipeId": "ph_571",
+      "recipeName": "Chicken Adobo Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 20,
+      "recipeId": "ph_506",
+      "recipeName": "Chicken Afritada Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 21,
+      "recipeId": "ph_707",
+      "recipeName": "Chicken Afritada Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 22,
+      "recipeId": "ph_budget_083",
+      "recipeName": "Chicken Chickpea Kalabasa Budget Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 23,
+      "recipeId": "ph_form_047",
+      "recipeName": "Chicken Chickpea Malunggay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 24,
+      "recipeId": "ph_form_050",
+      "recipeName": "Chicken Garbanzo Sitaw Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 25,
+      "recipeId": "ph_qk_050",
+      "recipeName": "Chicken Kalabasa Sitaw Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 26,
+      "recipeId": "ph_form_048",
+      "recipeName": "Chicken Kidney Kalabasa Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 27,
+      "recipeId": "ph_form_049",
+      "recipeName": "Chicken Mushroom Pechay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 28,
+      "recipeId": "ph_qk_057",
+      "recipeName": "Chicken Pechay Tomato Rice Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 29,
+      "recipeId": "ph_585",
+      "recipeName": "Chicken Sisig Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 30,
+      "recipeId": "ph_form_027",
+      "recipeName": "Chicken Sitaw Malunggay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 31,
+      "recipeId": "ph_qk_043",
+      "recipeName": "Chicken Tinola Lite Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 32,
+      "recipeId": "ph_budget_088",
+      "recipeName": "Chickpea Kidney Malunggay Budget Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 33,
+      "recipeId": "ph_form_154",
+      "recipeName": "Chickpea Pechay Eggplant Vegan Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 34,
+      "recipeId": "ph_644",
+      "recipeName": "Classic Bistek Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 35,
+      "recipeId": "ph_498",
+      "recipeName": "Creamy Chicken Adobo (Adobo Sa Gata) Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 36,
+      "recipeId": "ph_774",
+      "recipeName": "Crispy Dinuguan Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 37,
+      "recipeId": "ph_form_090",
+      "recipeName": "Egg Kidney Kalabasa Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 38,
+      "recipeId": "ph_form_092",
+      "recipeName": "Egg Pechay Kidney Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 39,
+      "recipeId": "ph_form_124",
+      "recipeName": "Egg Pechay Okra Rice Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 40,
+      "recipeId": "ph_budget_008",
+      "recipeName": "Egg Pechay Rice Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 41,
+      "recipeId": "ph_budget_022",
+      "recipeName": "Egg Pechay Rice Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 42,
+      "recipeId": "ph_budget_036",
+      "recipeName": "Egg Pechay Rice Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 43,
+      "recipeId": "ph_budget_050",
+      "recipeName": "Egg Pechay Rice Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 44,
+      "recipeId": "ph_budget_064",
+      "recipeName": "Egg Pechay Rice Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 45,
+      "recipeId": "ph_form_118",
+      "recipeName": "Egg Tofu Mushroom Rice Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 46,
+      "recipeId": "ph_budget_085",
+      "recipeName": "Egg Tofu Okra Budget Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 47,
+      "recipeId": "ph_form_095",
+      "recipeName": "Egg Tofu Pechay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 48,
+      "recipeId": "ph_form_123",
+      "recipeName": "Eggplant Kidney Garbanzo Rice Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 49,
+      "recipeId": "ph_form_020",
+      "recipeName": "Eggplant Malunggay Munggo Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 50,
+      "recipeId": "ph_471",
+      "recipeName": "Filipino Beef Caldereta (Kalderetang Baka) Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 51,
+      "recipeId": "ph_953",
+      "recipeName": "Fish Paksiw Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 52,
+      "recipeId": "ph_997",
+      "recipeName": "Fried Lumpia Adobo Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 53,
+      "recipeId": "ph_form_071",
+      "recipeName": "Garbanzo Eggplant Pechay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 54,
+      "recipeId": "ph_form_069",
+      "recipeName": "Garbanzo Kalabasa Malunggay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 55,
+      "recipeId": "ph_form_119",
+      "recipeName": "Garbanzo Kalabasa Okra Rice Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 56,
+      "recipeId": "ph_form_122",
+      "recipeName": "Garbanzo Mushroom Malunggay Rice Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 57,
+      "recipeId": "ph_form_152",
+      "recipeName": "Garbanzo Okra Mushroom Vegan Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 58,
+      "recipeId": "ph_form_066",
+      "recipeName": "Garbanzo Pechay Mushroom Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 59,
+      "recipeId": "ph_form_126",
+      "recipeName": "Garbanzo Sitaw Mushroom Rice Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 60,
+      "recipeId": "ph_form_156",
+      "recipeName": "Garbanzo Sitaw Pechay Vegan Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 61,
+      "recipeId": "ph_897",
+      "recipeName": "Garlic Pasta with Adobo Flakes and Poached Eggs Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 62,
+      "recipeId": "ph_166",
+      "recipeName": "Ginataang Gulay with Pork and Shrimp Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 63,
+      "recipeId": "ph_522",
+      "recipeName": "Ginataang Manok Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 64,
+      "recipeId": "ph_128",
+      "recipeName": "Ginataang Manok with Sitaw at Kalabasa Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 65,
+      "recipeId": "ph_448",
+      "recipeName": "Ginisang Ampalaya at Hipon (Bitter Gourd with Shrimp) Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 66,
+      "recipeId": "ph_527",
+      "recipeName": "Ginisang Ampalaya at Hipon Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 67,
+      "recipeId": "ph_81",
+      "recipeName": "Ginisang Ampalaya na May Itlog at Hipon (Sauteed Bitter Gourd) Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 68,
+      "recipeId": "ph_45",
+      "recipeName": "Gising Gising Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 69,
+      "recipeId": "ph_898",
+      "recipeName": "Grandma's Corn Chowder Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 70,
+      "recipeId": "ph_959",
+      "recipeName": "Grilled Vietnamese Pork Steaks Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 71,
+      "recipeId": "ph_662",
+      "recipeName": "Hearty Ginisang Monggo Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 72,
+      "recipeId": "ph_902",
+      "recipeName": "Inihaw Na Liempo With Peanut-Bagoong Dipping Sauce Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 73,
+      "recipeId": "ph_form_024",
+      "recipeName": "Kalabasa Eggplant Munggo Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 74,
+      "recipeId": "ph_936",
+      "recipeName": "Kare-Kare Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 75,
+      "recipeId": "ph_form_120",
+      "recipeName": "Kidney Egg Pechay Support Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 76,
+      "recipeId": "ph_form_065",
+      "recipeName": "Kidney Garbanzo Kalabasa Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 77,
+      "recipeId": "ph_form_151",
+      "recipeName": "Kidney Garbanzo Malunggay Vegan Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 78,
+      "recipeId": "ph_form_117",
+      "recipeName": "Kidney Garbanzo Pechay Rice Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 79,
+      "recipeId": "ph_form_155",
+      "recipeName": "Kidney Mushroom Okra Vegan Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 80,
+      "recipeId": "ph_form_070",
+      "recipeName": "Kidney Mushroom Sitaw Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 81,
+      "recipeId": "ph_form_068",
+      "recipeName": "Kidney Pechay Okra Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 82,
+      "recipeId": "ph_form_153",
+      "recipeName": "Kidney Sitaw Kalabasa Vegan Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 83,
+      "recipeId": "ph_form_067",
+      "recipeName": "Kidney Sitaw Malunggay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 84,
+      "recipeId": "ph_256",
+      "recipeName": "Kilawing Puso ng Saging Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 85,
+      "recipeId": "ph_866",
+      "recipeName": "Laswa (Vegetable Soup) Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 86,
+      "recipeId": "ph_16",
+      "recipeName": "Laswa Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 87,
+      "recipeId": "ph_702",
+      "recipeName": "Lechon Kawali Binagoongan sa Gata Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 88,
+      "recipeId": "ph_258",
+      "recipeName": "Lechon Lomi Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 89,
+      "recipeId": "ph_830",
+      "recipeName": "Lechon Manok with Sisig Rice Stuffing Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 90,
+      "recipeId": "ph_798",
+      "recipeName": "Lechon Pancit Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 91,
+      "recipeId": "ph_306",
+      "recipeName": "Lechon Sauce Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 92,
+      "recipeId": "ph_78",
+      "recipeName": "Lumpiang Sariwa with Fresh Lumpia Wrapper Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 93,
+      "recipeId": "ph_1005",
+      "recipeName": "Manok sa Gata at Kalabasa Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 94,
+      "recipeId": "ph_935",
+      "recipeName": "Mechado Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 95,
+      "recipeId": "ph_769",
+      "recipeName": "Misua Soup with Patola Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 96,
+      "recipeId": "ph_form_017",
+      "recipeName": "Munggo Malunggay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 97,
+      "recipeId": "ph_budget_013",
+      "recipeName": "Munggo Okra Malunggay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 98,
+      "recipeId": "ph_budget_027",
+      "recipeName": "Munggo Okra Malunggay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 99,
+      "recipeId": "ph_budget_041",
+      "recipeName": "Munggo Okra Malunggay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 100,
+      "recipeId": "ph_budget_055",
+      "recipeName": "Munggo Okra Malunggay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 101,
+      "recipeId": "ph_budget_069",
+      "recipeName": "Munggo Okra Malunggay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 102,
+      "recipeId": "ph_form_018",
+      "recipeName": "Okra Kalabasa Munggo Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 103,
+      "recipeId": "ph_form_023",
+      "recipeName": "Okra Sitaw Malunggay Munggo Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 104,
+      "recipeId": "ph_770",
+      "recipeName": "Pan-Fried Tilapia with Kare-Kare Sauce Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 105,
+      "recipeId": "ph_556",
+      "recipeName": "Pancit Langlang Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 106,
+      "recipeId": "ph_157",
+      "recipeName": "Pancit Luglug Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 107,
+      "recipeId": "ph_666",
+      "recipeName": "Pancit Lusay Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 108,
+      "recipeId": "ph_form_022",
+      "recipeName": "Pechay Malunggay Munggo Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 109,
+      "recipeId": "ph_812",
+      "recipeName": "Pesang Isda Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 110,
+      "recipeId": "ph_22",
+      "recipeName": "Pinakbet Tagalog Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 111,
+      "recipeId": "ph_167",
+      "recipeName": "Pinakbet with Lechon Kawali Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 112,
+      "recipeId": "ph_form_021",
+      "recipeName": "Pinakbet-Style Munggo Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 113,
+      "recipeId": "ph_705",
+      "recipeName": "Pinoy-Style Pork Barbecue Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 114,
+      "recipeId": "ph_937",
+      "recipeName": "Pork Afritada Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 115,
+      "recipeId": "ph_672",
+      "recipeName": "Pork Chop Bistek Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 116,
+      "recipeId": "ph_883",
+      "recipeName": "Salmon Belly Sinigang Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 117,
+      "recipeId": "ph_918",
+      "recipeName": "Salmon Head Kare-Kare Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 118,
+      "recipeId": "ph_budget_084",
+      "recipeName": "Sardines Kidney Pechay Budget Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 119,
+      "recipeId": "ph_budget_010",
+      "recipeName": "Sardines Pechay Egg Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 120,
+      "recipeId": "ph_budget_024",
+      "recipeName": "Sardines Pechay Egg Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 121,
+      "recipeId": "ph_budget_038",
+      "recipeName": "Sardines Pechay Egg Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 122,
+      "recipeId": "ph_budget_052",
+      "recipeName": "Sardines Pechay Egg Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 123,
+      "recipeId": "ph_budget_066",
+      "recipeName": "Sardines Pechay Egg Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 124,
+      "recipeId": "ph_254",
+      "recipeName": "Saucy Adobong Kangkong Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 125,
+      "recipeId": "ph_816",
+      "recipeName": "Seafood Sinigang Paella Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 126,
+      "recipeId": "ph_form_137",
+      "recipeName": "Shrimp Eggplant Kidney Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 127,
+      "recipeId": "ph_form_074",
+      "recipeName": "Shrimp Kalabasa Chickpea Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 128,
+      "recipeId": "ph_budget_086",
+      "recipeName": "Shrimp Kidney Sitaw Budget Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 129,
+      "recipeId": "ph_form_093",
+      "recipeName": "Shrimp Mushroom Pechay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 130,
+      "recipeId": "ph_554",
+      "recipeName": "Sinaing na Tulingan Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 131,
+      "recipeId": "ph_395",
+      "recipeName": "Sinigang na Salmon Belly sa Kamias (Filipino Salmon Sour Soup) Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 132,
+      "recipeId": "ph_790",
+      "recipeName": "Sisig Tacos Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 133,
+      "recipeId": "ph_form_019",
+      "recipeName": "Sitaw Pechay Munggo Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 134,
+      "recipeId": "ph_664",
+      "recipeName": "Spicy Beef Tapa Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 135,
+      "recipeId": "ph_109",
+      "recipeName": "Spicy Monggo with Tinapa Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 136,
+      "recipeId": "ph_670",
+      "recipeName": "Spicy Nilagang Baka Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 137,
+      "recipeId": "ph_budget_087",
+      "recipeName": "Squid Garbanzo Mushroom Budget Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 138,
+      "recipeId": "ph_form_094",
+      "recipeName": "Squid Garbanzo Sitaw Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 139,
+      "recipeId": "ph_form_138",
+      "recipeName": "Squid Mushroom Garbanzo Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 140,
+      "recipeId": "ph_888",
+      "recipeName": "Stuffed Squid Adobo Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 141,
+      "recipeId": "ph_895",
+      "recipeName": "Tinola with Malunggay Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 142,
+      "recipeId": "ph_147",
+      "recipeName": "Tinolang Manok Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 143,
+      "recipeId": "ph_form_089",
+      "recipeName": "Tofu Chickpea Malunggay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 144,
+      "recipeId": "ph_form_121",
+      "recipeName": "Tofu Chickpea Sitaw Rice Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 145,
+      "recipeId": "ph_form_091",
+      "recipeName": "Tofu Eggplant Chickpea Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 146,
+      "recipeId": "ph_form_125",
+      "recipeName": "Tofu Kalabasa Kidney Rice Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 147,
+      "recipeId": "ph_form_096",
+      "recipeName": "Tofu Kidney Mushroom Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 148,
+      "recipeId": "ph_form_035",
+      "recipeName": "Tofu Malunggay Munggo Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 149,
+      "recipeId": "ph_budget_003",
+      "recipeName": "Tofu Pechay Munggo Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 150,
+      "recipeId": "ph_budget_017",
+      "recipeName": "Tofu Pechay Munggo Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 151,
+      "recipeId": "ph_budget_031",
+      "recipeName": "Tofu Pechay Munggo Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 152,
+      "recipeId": "ph_budget_045",
+      "recipeName": "Tofu Pechay Munggo Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 153,
+      "recipeId": "ph_budget_059",
+      "recipeName": "Tofu Pechay Munggo Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 154,
+      "recipeId": "ph_budget_014",
+      "recipeName": "Tofu Sitaw Squash Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_07_Records_133-154.docx"
+    },
+    {
+      "recordNumber": 155,
+      "recipeId": "ph_budget_028",
+      "recipeName": "Tofu Sitaw Squash Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 8,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_08_Records_155-168.docx"
+    },
+    {
+      "recordNumber": 156,
+      "recipeId": "ph_budget_042",
+      "recipeName": "Tofu Sitaw Squash Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 8,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_08_Records_155-168.docx"
+    },
+    {
+      "recordNumber": 157,
+      "recipeId": "ph_budget_056",
+      "recipeName": "Tofu Sitaw Squash Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 8,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_08_Records_155-168.docx"
+    },
+    {
+      "recordNumber": 158,
+      "recipeId": "ph_budget_070",
+      "recipeName": "Tofu Sitaw Squash Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 8,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_08_Records_155-168.docx"
+    },
+    {
+      "recordNumber": 159,
+      "recipeId": "ph_719",
+      "recipeName": "Tokwang Adobo Sa Gata Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 8,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_08_Records_155-168.docx"
+    },
+    {
+      "recordNumber": 160,
+      "recipeId": "ph_348",
+      "recipeName": "Tortang Talong (Filipino Eggplant Omelette) Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 8,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_08_Records_155-168.docx"
+    },
+    {
+      "recordNumber": 161,
+      "recipeId": "ph_641",
+      "recipeName": "Tortang Talong with Chicken Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 8,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_08_Records_155-168.docx"
+    },
+    {
+      "recordNumber": 162,
+      "recipeId": "ph_form_030",
+      "recipeName": "Tuna Malunggay Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 8,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_08_Records_155-168.docx"
+    },
+    {
+      "recordNumber": 163,
+      "recipeId": "ph_form_136",
+      "recipeName": "Tuna Pechay Chickpea Dinner Plate",
+      "mealType": "Dinner",
+      "partNumber": 8,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_08_Records_155-168.docx"
+    },
+    {
+      "recordNumber": 164,
+      "recipeId": "ph_budget_005",
+      "recipeName": "Tuna Pechay Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 8,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_08_Records_155-168.docx"
+    },
+    {
+      "recordNumber": 165,
+      "recipeId": "ph_budget_019",
+      "recipeName": "Tuna Pechay Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 8,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_08_Records_155-168.docx"
+    },
+    {
+      "recordNumber": 166,
+      "recipeId": "ph_budget_033",
+      "recipeName": "Tuna Pechay Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 8,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_08_Records_155-168.docx"
+    },
+    {
+      "recordNumber": 167,
+      "recipeId": "ph_budget_047",
+      "recipeName": "Tuna Pechay Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 8,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_08_Records_155-168.docx"
+    },
+    {
+      "recordNumber": 168,
+      "recipeId": "ph_budget_061",
+      "recipeName": "Tuna Pechay Complete Plate",
+      "mealType": "Dinner",
+      "partNumber": 8,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Dinner_Part_08_Records_155-168.docx"
+    }
+  ]
+}

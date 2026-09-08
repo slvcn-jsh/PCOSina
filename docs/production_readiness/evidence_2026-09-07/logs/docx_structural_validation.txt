@@ -1,0 +1,4 @@
+DOCX STRUCTURE OK
+paragraphs 10
+tables 2
+title PCOSINA Production Readiness Evidence Packet

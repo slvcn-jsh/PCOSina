@@ -96,6 +96,15 @@ class SettingsNotificationPolicyTest {
             "Settings should not surface raw permission copy as a prominent reminder status.",
             source.contains("Reminder status:")
         )
+        assertTrue(
+            "Reminder sub-tabs should explain the Control-tab gate in user-facing language.",
+            source.contains("Enable Reminders in the Control tab to access Meals, Week, and Routine.")
+        )
+        assertTrue(
+            "Settings budget display should show only the peso value, not a redundant weekly suffix.",
+            source.contains("String.format(Locale.ENGLISH, \"₱%,d\", it)") &&
+                !source.contains("₱%,d weekly")
+        )
     }
 
     @Test

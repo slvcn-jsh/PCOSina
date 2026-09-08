@@ -300,6 +300,28 @@ def test_price_grocery_buckets_does_not_cap_weekly_piece_quantities(tmp_path, mo
     eggs = next(item for item in output["items"] if item["key"] == "egg")
 
     assert eggs["estimatedCostPhp"] == 97
+    assert eggs["quantity"] == "12 pcs"
+    assert eggs["requiredQuantity"] == "660 g"
+    assert eggs["purchaseQuantity"] == "12 pcs"
+    assert eggs["purchaseMode"] == "count_purchase"
+
+
+def test_price_grocery_buckets_rounds_partial_egg_requirement_to_whole_piece(tmp_path, monkeypatch):
+    monkeypatch.setattr(database, "DATABASE_URL", "")
+    monkeypatch.setattr(database, "DB_NAME", str(tmp_path / "partial_egg_prices.db"))
+    database.init_db()
+    price_catalog.invalidate_override_cache()
+    buckets = aggregate_grocery_list(
+        [{"meals": [{"ingredients": [{"name": "egg", "quantity": "100 g"}]}]}]
+    )
+
+    output = price_grocery_buckets(buckets)
+    eggs = next(item for item in output["items"] if item["key"] == "egg")
+
+    assert eggs["requiredQuantity"] == "100 g"
+    assert eggs["quantity"] == "2 pcs"
+    assert eggs["purchaseQuantity"] == "2 pcs"
+    assert eggs["estimatedCostPhp"] == 16
 
 
 def test_price_grocery_buckets_keeps_water_free_and_total_equal_to_items(tmp_path, monkeypatch):

@@ -7,6 +7,7 @@ import com.pcosina.app.data.model.PlannerGroceryOutputItem
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 data class GroceryListEntry(
@@ -368,6 +369,7 @@ fun buildGroceryListEntriesFromPlanner(
     trustBackendPrices: Boolean = true,
 ): List<GroceryListEntry> {
     return items
+        .map(::normalizeGroceryOutputItemForDisplay)
         .filter { it.name.isNotBlank() }
         .groupBy { item ->
             plannerGroceryKey(item).ifBlank { canonicalGroceryKey(item.name) }
@@ -494,6 +496,7 @@ fun resolveDisplayGroceryEstimate(output: PlannerGroceryOutput?): Int? {
 fun normalizeGroceryOutputPricingForDisplay(output: PlannerGroceryOutput?): PlannerGroceryOutput? {
     output ?: return null
     val estimate = resolveDisplayGroceryEstimate(output) ?: return output
+    val normalizedItems = output.items.map(::normalizeGroceryOutputItemForDisplay)
     val budget = output.weeklyBudgetPhp?.takeIf { it > 0 }
         ?: output.userBudgetPhp?.takeIf { it > 0 }
     val budgetDelta = budget?.minus(estimate)
@@ -503,6 +506,7 @@ fun normalizeGroceryOutputPricingForDisplay(output: PlannerGroceryOutput?): Plan
         withinBudget = budget?.let { estimate <= it } ?: output.withinBudget,
         budgetDeltaPhp = budgetDelta ?: output.budgetDeltaPhp,
         budgetGapPhp = budgetDelta ?: output.budgetGapPhp,
+        items = normalizedItems,
     )
 }
 
@@ -514,7 +518,83 @@ fun correctedAuthoritativeGroceryEstimate(
     val staleWaterCharge = items
         .filter(::isCompanionWaterItem)
         .sumOf { item -> item.estimatedCostPhp?.coerceAtLeast(0) ?: 0 }
-    return (authoritative - staleWaterCharge).coerceAtLeast(0)
+    val legacyPurchaseRoundingDelta = items
+        .filterNot(::isCompanionWaterItem)
+        .sumOf { item ->
+            val normalized = normalizeGroceryOutputItemForDisplay(item)
+            (normalized.estimatedCostPhp ?: 0) - (item.estimatedCostPhp ?: 0)
+        }
+    return (authoritative - staleWaterCharge + legacyPurchaseRoundingDelta).coerceAtLeast(0)
+}
+
+private fun normalizeGroceryOutputItemForDisplay(
+    item: PlannerGroceryOutputItem,
+): PlannerGroceryOutputItem {
+    if (isCompanionWaterItem(item)) {
+        val normalizedQuantity = normalizeLegacyWaterQuantity(
+            item.purchaseQuantity?.takeIf { it.isNotBlank() }
+                ?: item.quantity.orEmpty(),
+        )
+        return item.copy(
+            quantity = normalizedQuantity,
+            requiredQuantity = item.requiredQuantity ?: item.quantity,
+            purchaseQuantity = normalizedQuantity,
+            purchaseMode = "household_not_purchased",
+            estimatedCostPhp = 0,
+            unitPricePhp = 0.0,
+            priceUnit = "l",
+            sourceLabel = "Household tap water baseline",
+            confidence = "high",
+        )
+    }
+
+    val normalizedKey = canonicalGroceryKey(item.key ?: item.name)
+    if (normalizedKey != "egg") return item
+    val purchaseQuantity = item.purchaseQuantity?.takeIf { it.isNotBlank() }
+        ?: item.quantity?.takeIf { it.isNotBlank() }
+        ?: return item
+    val parsed = parseQuantitySegment(purchaseQuantity) ?: return item
+    if (item.purchaseMode == "count_purchase" && parsed.dimension == QuantityDimension.Count) {
+        return item
+    }
+
+    val pieceCount = when (parsed.dimension) {
+        QuantityDimension.Weight -> {
+            val grams = parsed
+                .toBaseQuantity(item.name, item.category ?: "Eggs & Dairy")
+                ?.takeIf { it.unit == GroceryBaseUnit.Gram }
+                ?.value
+                ?: return item
+            ceil(grams / 55.0).toInt().coerceAtLeast(1)
+        }
+        QuantityDimension.Count -> ceil(parsed.value).toInt().coerceAtLeast(1)
+        QuantityDimension.Volume -> return item
+    }
+    val displayQuantity = if (pieceCount == 1) "1 pc" else "$pieceCount pcs"
+    val localEstimate = PriceCatalog.estimatePriceExplanation(
+        name = "egg",
+        quantityText = displayQuantity,
+        clampQuantity = false,
+    )
+    val unitPrice = item.unitPricePhp
+        ?.takeIf { it >= 0.0 && item.priceUnit.equals("piece", ignoreCase = true) }
+        ?: localEstimate.basePricePhp
+    val correctedCost = if (parsed.dimension == QuantityDimension.Weight) {
+        (unitPrice * pieceCount).roundToInt().coerceAtLeast(0)
+    } else {
+        item.estimatedCostPhp ?: localEstimate.pricePhp
+    }
+    return item.copy(
+        quantity = displayQuantity,
+        requiredQuantity = item.requiredQuantity ?: item.quantity,
+        purchaseQuantity = displayQuantity,
+        purchaseMode = "count_purchase",
+        estimatedCostPhp = correctedCost,
+        unitPricePhp = unitPrice,
+        priceUnit = "piece",
+        sourceLabel = item.sourceLabel ?: localEstimate.sourceLabel,
+        confidence = item.confidence ?: localEstimate.confidence,
+    )
 }
 
 private fun isCompanionWaterItem(item: PlannerGroceryOutputItem): Boolean {

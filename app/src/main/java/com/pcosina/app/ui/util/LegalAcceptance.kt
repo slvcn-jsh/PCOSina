@@ -3,7 +3,7 @@ package com.pcosina.app.ui.util
 import android.content.Context
 
 object LegalAcceptance {
-    const val VERSION = "2026_05_05"
+    const val VERSION = "2026_09_06"
 
     private const val PREFS_NAME = "pcosina_legal"
 
@@ -18,9 +18,10 @@ object LegalAcceptance {
     fun hasAccepted(context: Context, uid: String?): Boolean {
         val userId = uid?.trim().orEmpty()
         if (userId.isBlank()) return false
-        return context
-            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean(termsKey(userId), false)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(termsKey(userId), false) &&
+            prefs.getBoolean(privacyKey(userId), false) &&
+            prefs.getBoolean(medicalDisclaimerKey(userId), false)
     }
 
     fun accept(context: Context, uid: String, acceptedAt: Long = System.currentTimeMillis()) {

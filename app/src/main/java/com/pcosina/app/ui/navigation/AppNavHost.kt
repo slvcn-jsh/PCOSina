@@ -42,6 +42,7 @@ import com.pcosina.app.data.repository.UserPreferencesUserProfileLocalRepository
 import com.pcosina.app.data.repository.ReflectionStore
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.GroceryViewModel
+import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
@@ -132,6 +133,8 @@ fun AppNavHost(
     val activePlanId by mealPlanViewModel.activePlanId.collectAsState()
     val activeWeekStart by mealPlanViewModel.activeWeekStart.collectAsState()
     val planHistory by mealPlanViewModel.planHistory.collectAsState()
+    val mealPlanUiState by mealPlanViewModel.uiState.collectAsState()
+    val hardConstraintRevision by userViewModel.hardConstraintRevision.collectAsState()
     val notificationPrefs by userViewModel.notificationPreferences.collectAsState()
     val legalAcceptedForSession = session.currentUserUid?.let { uid ->
         LegalAcceptance.hasAccepted(context, uid)
@@ -257,6 +260,23 @@ fun AppNavHost(
         groceryViewModel.setActivePlan(activePlanId)
     }
 
+    val observedHardConstraintRevision = remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(session.currentUserUid, hardConstraintRevision) {
+        val userId = session.currentUserUid
+        if (userId.isNullOrBlank()) {
+            observedHardConstraintRevision.value = null
+            return@LaunchedEffect
+        }
+        val previous = observedHardConstraintRevision.value
+        observedHardConstraintRevision.value = hardConstraintRevision
+        if (previous != null &&
+            hardConstraintRevision != previous &&
+            (activePlanId != null || mealPlanUiState is MealPlanUiState.Success)
+        ) {
+            mealPlanViewModel.invalidateActivePlanForHardConstraintChange()
+        }
+    }
+
     LaunchedEffect(session.currentUserUid, activeWeekStart) {
         val userId = session.currentUserUid
         if (userId.isNullOrBlank()) return@LaunchedEffect
@@ -305,7 +325,7 @@ fun AppNavHost(
     } ?: true
     val profileReadyForRouting = !session.isLoggedIn ||
         (profileBoundToSession && !isProfileLoading && !profileCloudSyncInProgress.value)
-    val hasPlan = planHistory.isNotEmpty() || mealPlanViewModel.uiState.value is com.pcosina.app.ui.MealPlanUiState.Success
+    val hasPlan = activePlanId != null || mealPlanUiState is MealPlanUiState.Success
     val enabledRoutes = remember(hasPlan) {
         val base = mutableSetOf(
             Routes.Dashboard,
@@ -550,7 +570,6 @@ fun AppNavHost(
                     onRecipeClick = { id, mealLabel -> navigateInternal(Routes.recipeDetailsRoute(id, mealLabel)) },
                     onViewPlan = { navigateInternal(Routes.MealPlan) { tabNavigationOptions(Routes.MealPlan) } },
                     onNavigateToSettings = ::navigateToSettingsProfile,
-                    onOpenNotifications = { navigateInternal(Routes.Notifications) },
                     onNavigateToRoute = ::navigateFromRefinedShell,
                     modifier = Modifier.padding(contentPadding),
                 )
@@ -607,8 +626,6 @@ fun AppNavHost(
                     onFeedback = onSupportFeedback,
                     avatarId = profile.avatarId,
                     onOpenSettings = ::navigateToSettingsProfile,
-                    onOpenNotifications = { navigateInternal(Routes.Notifications) },
-                    onOpenMealPlan = { navigateInternal(Routes.MealPlan) { tabNavigationOptions(Routes.MealPlan) } },
                     modifier = Modifier.padding(contentPadding),
                 )
             }
@@ -654,7 +671,11 @@ fun AppNavHost(
                     }
                 },
                 onNavigateToProfileEdit = { navigateInternal(Routes.UserProfileEdit) },
-                onOpenNotifications = { navigateInternal(Routes.Notifications) },
+                onOpenSupport = {
+                    navigateInternal(Routes.Ipo) {
+                        launchSingleTop = true
+                    }
+                },
                 initialSection = backStackEntry.arguments?.getString(Routes.SettingsSectionArg),
                 modifier = Modifier.fillMaxSize(),
             )

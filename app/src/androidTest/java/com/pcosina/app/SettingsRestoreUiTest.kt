@@ -60,8 +60,7 @@ class SettingsRestoreUiTest {
                     progressViewModel = progressViewModel,
                     userId = userId,
                     onBack = {},
-                    onNavigateToProfileEdit = {},
-                    onOpenNotifications = {}
+                    onNavigateToProfileEdit = {}
                 )
             }
         }

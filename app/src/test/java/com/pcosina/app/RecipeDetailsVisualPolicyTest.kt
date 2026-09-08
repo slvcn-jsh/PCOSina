@@ -23,7 +23,7 @@ class RecipeDetailsVisualPolicyTest {
         )
         assertTrue(
             "Recipe details should keep the simplified not-in-plan lock state copy.",
-            source.contains("text = \"Not in today’s plan\"")
+            source.contains("text = \"Recipe not scheduled today\"")
         )
         assertFalse(
             "The legacy fit-summary card should no longer be rendered on the active recipe screen.",

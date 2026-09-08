@@ -1,0 +1,553 @@
+scenario,accepted,expectedConflict,auditPass,auditViolations,status,message,dietaryRestrictions,allergies,safeRecipeCountPrePricing,candidateCountPost,selectedUniqueRecipeCount,selectedMaxRecipeRepeatCount,dominantIngredientFamily,dominantIngredientFamilyCount,estimatedWeeklyCostPhp,maxPerWeekUsed
+none__allergy_none,True,False,True,[],success,Success,[],[],354,52,17,2,fish,8,2006,3
+none__allergy_dairy,True,False,True,[],success,Success,[],"[""dairy""]",344,52,17,2,fish,8,2006,3
+none__allergy_egg,True,False,True,[],success,Success,[],"[""egg""]",285,52,10,3,fish,8,1934,3
+none__allergy_peanuts,True,False,True,[],success,Success,[],"[""peanuts""]",352,52,17,2,fish,8,2006,3
+none__allergy_tree_nuts,True,False,True,[],success,Success,[],"[""tree nuts""]",354,52,17,2,fish,8,2006,3
+none__allergy_soy,True,False,True,[],success,Success,[],"[""soy""]",277,52,11,3,shellfish,8,1787,3
+none__allergy_gluten_wheat,True,False,True,[],success,Success,[],"[""gluten/wheat""]",345,52,17,2,fish,8,2006,3
+none__allergy_fish,True,False,True,[],success,Success,[],"[""fish""]",282,52,18,3,egg,8,2411,3
+none__allergy_shellfish,True,False,True,[],success,Success,[],"[""shellfish""]",297,52,10,3,fish,8,1975,3
+none__allergy_chicken,True,False,True,[],success,Success,[],"[""chicken""]",318,52,18,2,fish,8,2131,3
+none__allergy_dairy_egg,True,False,True,[],success,Success,[],"[""dairy"", ""egg""]",278,52,10,3,fish,8,1934,3
+none__allergy_dairy_peanuts,True,False,True,[],success,Success,[],"[""dairy"", ""peanuts""]",343,52,17,2,fish,8,2006,3
+none__allergy_dairy_tree_nuts,True,False,True,[],success,Success,[],"[""dairy"", ""tree nuts""]",344,52,17,2,fish,8,2006,3
+none__allergy_dairy_soy,True,False,True,[],success,Success,[],"[""dairy"", ""soy""]",269,52,11,3,shellfish,8,1787,3
+none__allergy_dairy_gluten_wheat,True,False,True,[],success,Success,[],"[""dairy"", ""gluten/wheat""]",337,52,17,2,fish,8,2006,3
+none__allergy_dairy_fish,True,False,True,[],success,Success,[],"[""dairy"", ""fish""]",276,52,18,3,egg,8,2411,3
+none__allergy_dairy_shellfish,True,False,True,[],success,Success,[],"[""dairy"", ""shellfish""]",291,52,10,3,fish,8,1975,3
+none__allergy_dairy_chicken,True,False,True,[],success,Success,[],"[""dairy"", ""chicken""]",309,52,18,2,fish,8,2131,3
+none__allergy_egg_peanuts,True,False,True,[],success,Success,[],"[""egg"", ""peanuts""]",284,52,10,3,fish,8,1934,3
+none__allergy_egg_tree_nuts,True,False,True,[],success,Success,[],"[""egg"", ""tree nuts""]",285,52,10,3,fish,8,1934,3
+none__allergy_egg_soy,True,False,True,[],success,Success,[],"[""egg"", ""soy""]",225,52,19,3,fish,8,2252,3
+none__allergy_egg_gluten_wheat,True,False,True,[],success,Success,[],"[""egg"", ""gluten/wheat""]",278,52,10,3,fish,8,1934,3
+none__allergy_egg_fish,True,False,True,[],success,Success,[],"[""egg"", ""fish""]",222,52,15,3,tofu_soy,8,2521,3
+none__allergy_egg_shellfish,True,False,True,[],success,Success,[],"[""egg"", ""shellfish""]",238,52,11,3,fish,8,1888,3
+none__allergy_egg_chicken,True,False,True,[],success,Success,[],"[""egg"", ""chicken""]",250,52,13,3,fish,8,1951,3
+none__allergy_peanuts_tree_nuts,True,False,True,[],success,Success,[],"[""peanuts"", ""tree nuts""]",352,52,17,2,fish,8,2006,3
+none__allergy_peanuts_soy,True,False,True,[],success,Success,[],"[""peanuts"", ""soy""]",275,52,11,3,shellfish,8,1787,3
+none__allergy_peanuts_gluten_wheat,True,False,True,[],success,Success,[],"[""peanuts"", ""gluten/wheat""]",344,52,17,2,fish,8,2006,3
+none__allergy_peanuts_fish,True,False,True,[],success,Success,[],"[""peanuts"", ""fish""]",281,52,18,3,egg,8,2411,3
+none__allergy_peanuts_shellfish,True,False,True,[],success,Success,[],"[""peanuts"", ""shellfish""]",296,52,10,3,fish,8,1975,3
+none__allergy_peanuts_chicken,True,False,True,[],success,Success,[],"[""peanuts"", ""chicken""]",316,52,18,2,fish,8,2131,3
+none__allergy_tree_nuts_soy,True,False,True,[],success,Success,[],"[""tree nuts"", ""soy""]",277,52,11,3,shellfish,8,1787,3
+none__allergy_tree_nuts_gluten_wheat,True,False,True,[],success,Success,[],"[""tree nuts"", ""gluten/wheat""]",345,52,17,2,fish,8,2006,3
+none__allergy_tree_nuts_fish,True,False,True,[],success,Success,[],"[""tree nuts"", ""fish""]",282,52,18,3,egg,8,2411,3
+none__allergy_tree_nuts_shellfish,True,False,True,[],success,Success,[],"[""tree nuts"", ""shellfish""]",297,52,10,3,fish,8,1975,3
+none__allergy_tree_nuts_chicken,True,False,True,[],success,Success,[],"[""tree nuts"", ""chicken""]",318,52,18,2,fish,8,2131,3
+none__allergy_soy_gluten_wheat,True,False,True,[],success,Success,[],"[""soy"", ""gluten/wheat""]",272,52,11,3,shellfish,8,1787,3
+none__allergy_soy_fish,True,False,True,[],success,Success,[],"[""soy"", ""fish""]",211,52,10,3,egg,7,1911,3
+none__allergy_soy_shellfish,True,False,True,[],success,Success,[],"[""soy"", ""shellfish""]",230,52,12,3,fish,8,1785,3
+none__allergy_soy_chicken,True,False,True,[],success,Success,[],"[""soy"", ""chicken""]",248,52,14,3,shellfish,8,1822,3
+none__allergy_gluten_wheat_fish,True,False,True,[],success,Success,[],"[""gluten/wheat"", ""fish""]",275,52,18,3,egg,8,2411,3
+none__allergy_gluten_wheat_shellfish,True,False,True,[],success,Success,[],"[""gluten/wheat"", ""shellfish""]",293,52,10,3,fish,8,1975,3
+none__allergy_gluten_wheat_chicken,True,False,True,[],success,Success,[],"[""gluten/wheat"", ""chicken""]",312,52,18,2,fish,8,2131,3
+none__allergy_fish_shellfish,True,False,True,[],success,Success,[],"[""fish"", ""shellfish""]",242,52,9,3,tofu_soy,8,1919,3
+none__allergy_fish_chicken,True,False,True,[],success,Success,[],"[""fish"", ""chicken""]",247,52,12,3,shellfish,8,2108,3
+none__allergy_shellfish_chicken,True,False,True,[],success,Success,[],"[""shellfish"", ""chicken""]",266,52,18,3,tofu_soy,8,2119,3
+no_pork__allergy_none,True,False,True,[],success,Success,"[""No Pork""]",[],327,52,17,2,fish,8,2006,3
+no_pork__allergy_dairy,True,False,True,[],success,Success,"[""No Pork""]","[""dairy""]",317,52,17,2,fish,8,2006,3
+no_pork__allergy_egg,True,False,True,[],success,Success,"[""No Pork""]","[""egg""]",260,52,11,3,fish,8,1906,3
+no_pork__allergy_peanuts,True,False,True,[],success,Success,"[""No Pork""]","[""peanuts""]",325,52,17,2,fish,8,2006,3
+no_pork__allergy_tree_nuts,True,False,True,[],success,Success,"[""No Pork""]","[""tree nuts""]",327,52,17,2,fish,8,2006,3
+no_pork__allergy_soy,True,False,True,[],success,Success,"[""No Pork""]","[""soy""]",260,52,13,3,fish,8,1916,3
+no_pork__allergy_gluten_wheat,True,False,True,[],success,Success,"[""No Pork""]","[""gluten/wheat""]",323,52,17,2,fish,8,2006,3
+no_pork__allergy_fish,True,False,True,[],success,Success,"[""No Pork""]","[""fish""]",261,52,18,3,shellfish,8,2409,3
+no_pork__allergy_shellfish,True,False,True,[],success,Success,"[""No Pork""]","[""shellfish""]",284,52,11,3,fish,8,1908,3
+no_pork__allergy_chicken,True,False,True,[],success,Success,"[""No Pork""]","[""chicken""]",295,52,19,2,fish,8,2222,3
+no_pork__allergy_dairy_egg,True,False,True,[],success,Success,"[""No Pork""]","[""dairy"", ""egg""]",253,52,11,3,fish,8,1906,3
+no_pork__allergy_dairy_peanuts,True,False,True,[],success,Success,"[""No Pork""]","[""dairy"", ""peanuts""]",316,52,17,2,fish,8,2006,3
+no_pork__allergy_dairy_tree_nuts,True,False,True,[],success,Success,"[""No Pork""]","[""dairy"", ""tree nuts""]",317,52,17,2,fish,8,2006,3
+no_pork__allergy_dairy_soy,True,False,True,[],success,Success,"[""No Pork""]","[""dairy"", ""soy""]",252,52,13,3,fish,8,1916,3
+no_pork__allergy_dairy_gluten_wheat,True,False,True,[],success,Success,"[""No Pork""]","[""dairy"", ""gluten/wheat""]",315,52,17,2,fish,8,2006,3
+no_pork__allergy_dairy_fish,True,False,True,[],success,Success,"[""No Pork""]","[""dairy"", ""fish""]",255,52,18,3,shellfish,8,2409,3
+no_pork__allergy_dairy_shellfish,True,False,True,[],success,Success,"[""No Pork""]","[""dairy"", ""shellfish""]",278,52,11,3,fish,8,1908,3
+no_pork__allergy_dairy_chicken,True,False,True,[],success,Success,"[""No Pork""]","[""dairy"", ""chicken""]",286,52,19,2,fish,8,2222,3
+no_pork__allergy_egg_peanuts,True,False,True,[],success,Success,"[""No Pork""]","[""egg"", ""peanuts""]",259,52,11,3,fish,8,1906,3
+no_pork__allergy_egg_tree_nuts,True,False,True,[],success,Success,"[""No Pork""]","[""egg"", ""tree nuts""]",260,52,11,3,fish,8,1906,3
+no_pork__allergy_egg_soy,True,False,True,[],success,Success,"[""No Pork""]","[""egg"", ""soy""]",209,52,19,3,fish,8,2266,3
+no_pork__allergy_egg_gluten_wheat,True,False,True,[],success,Success,"[""No Pork""]","[""egg"", ""gluten/wheat""]",257,52,11,3,fish,8,1906,3
+no_pork__allergy_egg_fish,True,False,True,[],success,Success,"[""No Pork""]","[""egg"", ""fish""]",202,52,16,3,tofu_soy,8,2477,3
+no_pork__allergy_egg_shellfish,True,False,True,[],success,Success,"[""No Pork""]","[""egg"", ""shellfish""]",227,52,10,3,fish,8,1869,3
+no_pork__allergy_egg_chicken,True,False,True,[],success,Success,"[""No Pork""]","[""egg"", ""chicken""]",229,52,14,3,fish,8,1978,3
+no_pork__allergy_peanuts_tree_nuts,True,False,True,[],success,Success,"[""No Pork""]","[""peanuts"", ""tree nuts""]",325,52,17,2,fish,8,2006,3
+no_pork__allergy_peanuts_soy,True,False,True,[],success,Success,"[""No Pork""]","[""peanuts"", ""soy""]",258,52,13,3,fish,8,1916,3
+no_pork__allergy_peanuts_gluten_wheat,True,False,True,[],success,Success,"[""No Pork""]","[""peanuts"", ""gluten/wheat""]",322,52,17,2,fish,8,2006,3
+no_pork__allergy_peanuts_fish,True,False,True,[],success,Success,"[""No Pork""]","[""peanuts"", ""fish""]",260,52,18,3,shellfish,8,2409,3
+no_pork__allergy_peanuts_shellfish,True,False,True,[],success,Success,"[""No Pork""]","[""peanuts"", ""shellfish""]",283,52,11,3,fish,8,1908,3
+no_pork__allergy_peanuts_chicken,True,False,True,[],success,Success,"[""No Pork""]","[""peanuts"", ""chicken""]",293,52,19,2,fish,8,2222,3
+no_pork__allergy_tree_nuts_soy,True,False,True,[],success,Success,"[""No Pork""]","[""tree nuts"", ""soy""]",260,52,13,3,fish,8,1916,3
+no_pork__allergy_tree_nuts_gluten_wheat,True,False,True,[],success,Success,"[""No Pork""]","[""tree nuts"", ""gluten/wheat""]",323,52,17,2,fish,8,2006,3
+no_pork__allergy_tree_nuts_fish,True,False,True,[],success,Success,"[""No Pork""]","[""tree nuts"", ""fish""]",261,52,18,3,shellfish,8,2409,3
+no_pork__allergy_tree_nuts_shellfish,True,False,True,[],success,Success,"[""No Pork""]","[""tree nuts"", ""shellfish""]",284,52,11,3,fish,8,1908,3
+no_pork__allergy_tree_nuts_chicken,True,False,True,[],success,Success,"[""No Pork""]","[""tree nuts"", ""chicken""]",295,52,19,2,fish,8,2222,3
+no_pork__allergy_soy_gluten_wheat,True,False,True,[],success,Success,"[""No Pork""]","[""soy"", ""gluten/wheat""]",257,52,13,3,fish,8,1916,3
+no_pork__allergy_soy_fish,True,False,True,[],success,Success,"[""No Pork""]","[""soy"", ""fish""]",197,52,10,3,shellfish,8,2175,3
+no_pork__allergy_soy_shellfish,True,False,True,[],success,Success,"[""No Pork""]","[""soy"", ""shellfish""]",223,52,10,3,fish,8,1528,3
+no_pork__allergy_soy_chicken,True,False,True,[],success,Success,"[""No Pork""]","[""soy"", ""chicken""]",232,52,13,3,shellfish,8,1869,3
+no_pork__allergy_gluten_wheat_fish,True,False,True,[],success,Success,"[""No Pork""]","[""gluten/wheat"", ""fish""]",258,52,18,3,shellfish,8,2409,3
+no_pork__allergy_gluten_wheat_shellfish,True,False,True,[],success,Success,"[""No Pork""]","[""gluten/wheat"", ""shellfish""]",283,52,11,3,fish,8,1908,3
+no_pork__allergy_gluten_wheat_chicken,True,False,True,[],success,Success,"[""No Pork""]","[""gluten/wheat"", ""chicken""]",291,52,19,2,fish,8,2222,3
+no_pork__allergy_fish_shellfish,True,False,True,[],success,Success,"[""No Pork""]","[""fish"", ""shellfish""]",231,52,15,3,tofu_soy,8,2123,3
+no_pork__allergy_fish_chicken,True,False,True,[],success,Success,"[""No Pork""]","[""fish"", ""chicken""]",230,52,14,3,shellfish,8,2181,3
+no_pork__allergy_shellfish_chicken,True,False,True,[],success,Success,"[""No Pork""]","[""shellfish"", ""chicken""]",254,52,18,3,tofu_soy,8,2119,3
+no_beef__allergy_none,True,False,True,[],success,Success,"[""No Beef""]",[],347,52,17,2,fish,8,1968,3
+no_beef__allergy_dairy,True,False,True,[],success,Success,"[""No Beef""]","[""dairy""]",339,52,17,2,fish,8,1968,3
+no_beef__allergy_egg,True,False,True,[],success,Success,"[""No Beef""]","[""egg""]",279,52,10,3,fish,8,1846,3
+no_beef__allergy_peanuts,True,False,True,[],success,Success,"[""No Beef""]","[""peanuts""]",345,52,17,2,fish,8,1968,3
+no_beef__allergy_tree_nuts,True,False,True,[],success,Success,"[""No Beef""]","[""tree nuts""]",347,52,17,2,fish,8,1968,3
+no_beef__allergy_soy,True,False,True,[],success,Success,"[""No Beef""]","[""soy""]",275,52,11,3,shellfish,8,1899,3
+no_beef__allergy_gluten_wheat,True,False,True,[],success,Success,"[""No Beef""]","[""gluten/wheat""]",339,52,17,2,fish,8,1968,3
+no_beef__allergy_fish,True,False,True,[],success,Success,"[""No Beef""]","[""fish""]",278,52,11,3,shellfish,8,2105,3
+no_beef__allergy_shellfish,True,False,True,[],success,Success,"[""No Beef""]","[""shellfish""]",291,52,11,3,fish,8,1983,3
+no_beef__allergy_chicken,True,False,True,[],success,Success,"[""No Beef""]","[""chicken""]",311,52,19,2,fish,8,2203,3
+no_beef__allergy_dairy_egg,True,False,True,[],success,Success,"[""No Beef""]","[""dairy"", ""egg""]",274,52,10,3,fish,8,1846,3
+no_beef__allergy_dairy_peanuts,True,False,True,[],success,Success,"[""No Beef""]","[""dairy"", ""peanuts""]",338,52,17,2,fish,8,1968,3
+no_beef__allergy_dairy_tree_nuts,True,False,True,[],success,Success,"[""No Beef""]","[""dairy"", ""tree nuts""]",339,52,17,2,fish,8,1968,3
+no_beef__allergy_dairy_soy,True,False,True,[],success,Success,"[""No Beef""]","[""dairy"", ""soy""]",268,52,11,3,shellfish,8,1899,3
+no_beef__allergy_dairy_gluten_wheat,True,False,True,[],success,Success,"[""No Beef""]","[""dairy"", ""gluten/wheat""]",333,52,17,2,fish,8,1968,3
+no_beef__allergy_dairy_fish,True,False,True,[],success,Success,"[""No Beef""]","[""dairy"", ""fish""]",273,52,11,3,shellfish,8,2105,3
+no_beef__allergy_dairy_shellfish,True,False,True,[],success,Success,"[""No Beef""]","[""dairy"", ""shellfish""]",287,52,11,3,fish,8,1983,3
+no_beef__allergy_dairy_chicken,True,False,True,[],success,Success,"[""No Beef""]","[""dairy"", ""chicken""]",304,52,19,2,fish,8,2203,3
+no_beef__allergy_egg_peanuts,True,False,True,[],success,Success,"[""No Beef""]","[""egg"", ""peanuts""]",278,52,10,3,fish,8,1846,3
+no_beef__allergy_egg_tree_nuts,True,False,True,[],success,Success,"[""No Beef""]","[""egg"", ""tree nuts""]",279,52,10,3,fish,8,1846,3
+no_beef__allergy_egg_soy,True,False,True,[],success,Success,"[""No Beef""]","[""egg"", ""soy""]",223,52,16,3,fish,8,2263,3
+no_beef__allergy_egg_gluten_wheat,True,False,True,[],success,Success,"[""No Beef""]","[""egg"", ""gluten/wheat""]",272,52,10,3,fish,8,1846,3
+no_beef__allergy_egg_fish,True,False,True,[],success,Success,"[""No Beef""]","[""egg"", ""fish""]",218,52,15,3,tofu_soy,7,2481,3
+no_beef__allergy_egg_shellfish,True,False,True,[],success,Success,"[""No Beef""]","[""egg"", ""shellfish""]",233,52,12,3,fish,8,1826,3
+no_beef__allergy_egg_chicken,True,False,True,[],success,Success,"[""No Beef""]","[""egg"", ""chicken""]",244,52,17,2,fish,8,2225,3
+no_beef__allergy_peanuts_tree_nuts,True,False,True,[],success,Success,"[""No Beef""]","[""peanuts"", ""tree nuts""]",345,52,17,2,fish,8,1968,3
+no_beef__allergy_peanuts_soy,True,False,True,[],success,Success,"[""No Beef""]","[""peanuts"", ""soy""]",273,52,11,3,shellfish,8,1899,3
+no_beef__allergy_peanuts_gluten_wheat,True,False,True,[],success,Success,"[""No Beef""]","[""peanuts"", ""gluten/wheat""]",338,52,17,2,fish,8,1968,3
+no_beef__allergy_peanuts_fish,True,False,True,[],success,Success,"[""No Beef""]","[""peanuts"", ""fish""]",277,52,11,3,shellfish,8,2105,3
+no_beef__allergy_peanuts_shellfish,True,False,True,[],success,Success,"[""No Beef""]","[""peanuts"", ""shellfish""]",290,52,11,3,fish,8,1983,3
+no_beef__allergy_peanuts_chicken,True,False,True,[],success,Success,"[""No Beef""]","[""peanuts"", ""chicken""]",309,52,19,2,fish,8,2203,3
+no_beef__allergy_tree_nuts_soy,True,False,True,[],success,Success,"[""No Beef""]","[""tree nuts"", ""soy""]",275,52,11,3,shellfish,8,1899,3
+no_beef__allergy_tree_nuts_gluten_wheat,True,False,True,[],success,Success,"[""No Beef""]","[""tree nuts"", ""gluten/wheat""]",339,52,17,2,fish,8,1968,3
+no_beef__allergy_tree_nuts_fish,True,False,True,[],success,Success,"[""No Beef""]","[""tree nuts"", ""fish""]",278,52,11,3,shellfish,8,2105,3
+no_beef__allergy_tree_nuts_shellfish,True,False,True,[],success,Success,"[""No Beef""]","[""tree nuts"", ""shellfish""]",291,52,11,3,fish,8,1983,3
+no_beef__allergy_tree_nuts_chicken,True,False,True,[],success,Success,"[""No Beef""]","[""tree nuts"", ""chicken""]",311,52,19,2,fish,8,2203,3
+no_beef__allergy_soy_gluten_wheat,True,False,True,[],success,Success,"[""No Beef""]","[""soy"", ""gluten/wheat""]",270,52,11,3,shellfish,8,1899,3
+no_beef__allergy_soy_fish,True,False,True,[],success,Success,"[""No Beef""]","[""soy"", ""fish""]",211,52,12,3,egg,8,1997,3
+no_beef__allergy_soy_shellfish,True,False,True,[],success,Success,"[""No Beef""]","[""soy"", ""shellfish""]",229,52,10,3,fish,8,1633,3
+no_beef__allergy_soy_chicken,True,False,True,[],success,Success,"[""No Beef""]","[""soy"", ""chicken""]",246,52,15,3,shellfish,8,1758,3
+no_beef__allergy_gluten_wheat_fish,True,False,True,[],success,Success,"[""No Beef""]","[""gluten/wheat"", ""fish""]",271,52,11,3,shellfish,8,2105,3
+no_beef__allergy_gluten_wheat_shellfish,True,False,True,[],success,Success,"[""No Beef""]","[""gluten/wheat"", ""shellfish""]",288,52,11,3,fish,8,1983,3
+no_beef__allergy_gluten_wheat_chicken,True,False,True,[],success,Success,"[""No Beef""]","[""gluten/wheat"", ""chicken""]",306,52,19,2,fish,8,2203,3
+no_beef__allergy_fish_shellfish,True,False,True,[],success,Success,"[""No Beef""]","[""fish"", ""shellfish""]",238,52,15,2,tofu_soy,8,2171,3
+no_beef__allergy_fish_chicken,True,False,True,[],success,Success,"[""No Beef""]","[""fish"", ""chicken""]",243,52,12,3,shellfish,8,2056,3
+no_beef__allergy_shellfish_chicken,True,False,True,[],success,Success,"[""No Beef""]","[""shellfish"", ""chicken""]",260,52,21,1,tofu_soy,8,2178,3
+lactose_intolerant__allergy_none,True,False,True,[],success,Success,"[""Lactose Intolerant""]",[],344,52,17,2,fish,8,2006,3
+lactose_intolerant__allergy_dairy,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""dairy""]",344,52,17,2,fish,8,2006,3
+lactose_intolerant__allergy_egg,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""egg""]",278,52,11,3,fish,8,1979,3
+lactose_intolerant__allergy_peanuts,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""peanuts""]",343,52,17,2,fish,8,2006,3
+lactose_intolerant__allergy_tree_nuts,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""tree nuts""]",344,52,17,2,fish,8,2006,3
+lactose_intolerant__allergy_soy,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""soy""]",269,52,11,3,fish,8,1824,3
+lactose_intolerant__allergy_gluten_wheat,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""gluten/wheat""]",337,52,17,2,fish,8,2006,3
+lactose_intolerant__allergy_fish,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""fish""]",276,52,12,3,shellfish,8,2016,3
+lactose_intolerant__allergy_shellfish,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""shellfish""]",291,52,12,3,fish,8,1913,3
+lactose_intolerant__allergy_chicken,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""chicken""]",309,52,18,2,fish,8,2131,3
+lactose_intolerant__allergy_dairy_egg,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""dairy"", ""egg""]",278,52,11,3,fish,8,1979,3
+lactose_intolerant__allergy_dairy_peanuts,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""dairy"", ""peanuts""]",343,52,17,2,fish,8,2006,3
+lactose_intolerant__allergy_dairy_tree_nuts,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""dairy"", ""tree nuts""]",344,52,17,2,fish,8,2006,3
+lactose_intolerant__allergy_dairy_soy,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""dairy"", ""soy""]",269,52,11,3,fish,8,1824,3
+lactose_intolerant__allergy_dairy_gluten_wheat,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""dairy"", ""gluten/wheat""]",337,52,17,2,fish,8,2006,3
+lactose_intolerant__allergy_dairy_fish,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""dairy"", ""fish""]",276,52,12,3,shellfish,8,2016,3
+lactose_intolerant__allergy_dairy_shellfish,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""dairy"", ""shellfish""]",291,52,12,3,fish,8,1913,3
+lactose_intolerant__allergy_dairy_chicken,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""dairy"", ""chicken""]",309,52,18,2,fish,8,2131,3
+lactose_intolerant__allergy_egg_peanuts,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""egg"", ""peanuts""]",278,52,11,3,fish,8,1979,3
+lactose_intolerant__allergy_egg_tree_nuts,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""egg"", ""tree nuts""]",278,52,11,3,fish,8,1979,3
+lactose_intolerant__allergy_egg_soy,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""egg"", ""soy""]",219,52,19,3,fish,8,2252,3
+lactose_intolerant__allergy_egg_gluten_wheat,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""egg"", ""gluten/wheat""]",273,52,11,3,fish,8,1979,3
+lactose_intolerant__allergy_egg_fish,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""egg"", ""fish""]",219,52,15,3,tofu_soy,8,2521,3
+lactose_intolerant__allergy_egg_shellfish,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""egg"", ""shellfish""]",233,52,11,3,fish,8,1932,3
+lactose_intolerant__allergy_egg_chicken,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""egg"", ""chicken""]",243,52,11,3,fish,8,1911,3
+lactose_intolerant__allergy_peanuts_tree_nuts,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""peanuts"", ""tree nuts""]",343,52,17,2,fish,8,2006,3
+lactose_intolerant__allergy_peanuts_soy,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""peanuts"", ""soy""]",268,52,11,3,fish,8,1824,3
+lactose_intolerant__allergy_peanuts_gluten_wheat,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""peanuts"", ""gluten/wheat""]",336,52,17,2,fish,8,2006,3
+lactose_intolerant__allergy_peanuts_fish,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""peanuts"", ""fish""]",275,52,12,3,shellfish,8,2016,3
+lactose_intolerant__allergy_peanuts_shellfish,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""peanuts"", ""shellfish""]",290,52,12,3,fish,8,1913,3
+lactose_intolerant__allergy_peanuts_chicken,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""peanuts"", ""chicken""]",308,52,18,2,fish,8,2131,3
+lactose_intolerant__allergy_tree_nuts_soy,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""tree nuts"", ""soy""]",269,52,11,3,fish,8,1824,3
+lactose_intolerant__allergy_tree_nuts_gluten_wheat,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""tree nuts"", ""gluten/wheat""]",337,52,17,2,fish,8,2006,3
+lactose_intolerant__allergy_tree_nuts_fish,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""tree nuts"", ""fish""]",276,52,12,3,shellfish,8,2016,3
+lactose_intolerant__allergy_tree_nuts_shellfish,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""tree nuts"", ""shellfish""]",291,52,12,3,fish,8,1913,3
+lactose_intolerant__allergy_tree_nuts_chicken,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""tree nuts"", ""chicken""]",309,52,18,2,fish,8,2131,3
+lactose_intolerant__allergy_soy_gluten_wheat,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""soy"", ""gluten/wheat""]",266,52,11,3,fish,8,1824,3
+lactose_intolerant__allergy_soy_fish,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""soy"", ""fish""]",207,52,10,3,shellfish,7,2083,3
+lactose_intolerant__allergy_soy_shellfish,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""soy"", ""shellfish""]",226,52,11,3,fish,8,1627,3
+lactose_intolerant__allergy_soy_chicken,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""soy"", ""chicken""]",240,52,15,3,fish,8,1861,3
+lactose_intolerant__allergy_gluten_wheat_fish,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""gluten/wheat"", ""fish""]",270,52,12,3,shellfish,8,2016,3
+lactose_intolerant__allergy_gluten_wheat_shellfish,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""gluten/wheat"", ""shellfish""]",288,52,12,3,fish,8,1913,3
+lactose_intolerant__allergy_gluten_wheat_chicken,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""gluten/wheat"", ""chicken""]",305,52,18,2,fish,8,2131,3
+lactose_intolerant__allergy_fish_shellfish,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""fish"", ""shellfish""]",238,52,14,3,tofu_soy,8,2123,3
+lactose_intolerant__allergy_fish_chicken,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""fish"", ""chicken""]",242,52,12,3,egg,8,2088,3
+lactose_intolerant__allergy_shellfish_chicken,True,False,True,[],success,Success,"[""Lactose Intolerant""]","[""shellfish"", ""chicken""]",261,52,18,3,tofu_soy,8,2119,3
+no_pork_no_beef__allergy_none,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]",[],322,54,16,3,fish,8,2112,3
+no_pork_no_beef__allergy_dairy,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""dairy""]",314,54,16,3,fish,8,2112,3
+no_pork_no_beef__allergy_egg,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""egg""]",255,54,12,3,fish,8,1983,3
+no_pork_no_beef__allergy_peanuts,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""peanuts""]",320,54,16,3,fish,8,2112,3
+no_pork_no_beef__allergy_tree_nuts,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""tree nuts""]",322,54,16,3,fish,8,2112,3
+no_pork_no_beef__allergy_soy,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""soy""]",259,54,9,3,shellfish,8,1722,3
+no_pork_no_beef__allergy_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""gluten/wheat""]",318,54,16,3,fish,8,2112,3
+no_pork_no_beef__allergy_fish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""fish""]",257,54,12,3,shellfish,8,2119,3
+no_pork_no_beef__allergy_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""shellfish""]",279,54,17,2,egg,8,2076,3
+no_pork_no_beef__allergy_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""chicken""]",290,54,15,3,shellfish,8,1810,3
+no_pork_no_beef__allergy_dairy_egg,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""dairy"", ""egg""]",250,54,12,3,fish,8,1983,3
+no_pork_no_beef__allergy_dairy_peanuts,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""dairy"", ""peanuts""]",313,54,16,3,fish,8,2112,3
+no_pork_no_beef__allergy_dairy_tree_nuts,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""dairy"", ""tree nuts""]",314,54,16,3,fish,8,2112,3
+no_pork_no_beef__allergy_dairy_soy,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""dairy"", ""soy""]",252,54,9,3,shellfish,8,1722,3
+no_pork_no_beef__allergy_dairy_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""dairy"", ""gluten/wheat""]",312,54,16,3,fish,8,2112,3
+no_pork_no_beef__allergy_dairy_fish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""dairy"", ""fish""]",252,54,12,3,shellfish,8,2119,3
+no_pork_no_beef__allergy_dairy_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""dairy"", ""shellfish""]",275,54,17,2,egg,8,2076,3
+no_pork_no_beef__allergy_dairy_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""dairy"", ""chicken""]",283,54,15,3,shellfish,8,1810,3
+no_pork_no_beef__allergy_egg_peanuts,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""egg"", ""peanuts""]",254,54,12,3,fish,8,1983,3
+no_pork_no_beef__allergy_egg_tree_nuts,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""egg"", ""tree nuts""]",255,54,12,3,fish,8,1983,3
+no_pork_no_beef__allergy_egg_soy,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""egg"", ""soy""]",208,54,10,3,shellfish,8,1479,3
+no_pork_no_beef__allergy_egg_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""egg"", ""gluten/wheat""]",252,54,12,3,fish,8,1983,3
+no_pork_no_beef__allergy_egg_fish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""egg"", ""fish""]",198,54,16,3,shellfish,8,2440,3
+no_pork_no_beef__allergy_egg_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""egg"", ""shellfish""]",222,54,9,3,fish,8,1994,3
+no_pork_no_beef__allergy_egg_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""egg"", ""chicken""]",224,54,17,3,fish,8,2174,3
+no_pork_no_beef__allergy_peanuts_tree_nuts,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""peanuts"", ""tree nuts""]",320,54,16,3,fish,8,2112,3
+no_pork_no_beef__allergy_peanuts_soy,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""peanuts"", ""soy""]",257,54,9,3,shellfish,8,1722,3
+no_pork_no_beef__allergy_peanuts_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""peanuts"", ""gluten/wheat""]",317,54,16,3,fish,8,2112,3
+no_pork_no_beef__allergy_peanuts_fish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""peanuts"", ""fish""]",256,54,12,3,shellfish,8,2119,3
+no_pork_no_beef__allergy_peanuts_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""peanuts"", ""shellfish""]",278,54,17,2,egg,8,2076,3
+no_pork_no_beef__allergy_peanuts_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""peanuts"", ""chicken""]",288,54,15,3,shellfish,8,1810,3
+no_pork_no_beef__allergy_tree_nuts_soy,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""tree nuts"", ""soy""]",259,54,9,3,shellfish,8,1722,3
+no_pork_no_beef__allergy_tree_nuts_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""tree nuts"", ""gluten/wheat""]",318,54,16,3,fish,8,2112,3
+no_pork_no_beef__allergy_tree_nuts_fish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""tree nuts"", ""fish""]",257,54,12,3,shellfish,8,2119,3
+no_pork_no_beef__allergy_tree_nuts_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""tree nuts"", ""shellfish""]",279,54,17,2,egg,8,2076,3
+no_pork_no_beef__allergy_tree_nuts_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""tree nuts"", ""chicken""]",290,54,15,3,shellfish,8,1810,3
+no_pork_no_beef__allergy_soy_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""soy"", ""gluten/wheat""]",256,54,9,3,shellfish,8,1722,3
+no_pork_no_beef__allergy_soy_fish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""soy"", ""fish""]",197,54,19,2,shellfish,7,2289,3
+no_pork_no_beef__allergy_soy_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""soy"", ""shellfish""]",222,54,11,3,fish,8,1664,3
+no_pork_no_beef__allergy_soy_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""soy"", ""chicken""]",231,54,16,3,egg,8,1864,3
+no_pork_no_beef__allergy_gluten_wheat_fish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""gluten/wheat"", ""fish""]",254,54,12,3,shellfish,8,2119,3
+no_pork_no_beef__allergy_gluten_wheat_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""gluten/wheat"", ""shellfish""]",278,54,17,2,egg,8,2076,3
+no_pork_no_beef__allergy_gluten_wheat_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""gluten/wheat"", ""chicken""]",286,54,15,3,shellfish,8,1810,3
+no_pork_no_beef__allergy_fish_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""fish"", ""shellfish""]",227,54,10,3,tofu_soy,8,1952,3
+no_pork_no_beef__allergy_fish_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""fish"", ""chicken""]",226,54,10,3,shellfish,8,2031,3
+no_pork_no_beef__allergy_shellfish_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef""]","[""shellfish"", ""chicken""]",249,54,18,3,tofu_soy,8,2147,3
+no_pork_lactose__allergy_none,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]",[],317,54,16,3,fish,8,2112,3
+no_pork_lactose__allergy_dairy,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""dairy""]",317,54,16,3,fish,8,2112,3
+no_pork_lactose__allergy_egg,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""egg""]",253,54,11,3,fish,8,2020,3
+no_pork_lactose__allergy_peanuts,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""peanuts""]",316,54,16,3,fish,8,2112,3
+no_pork_lactose__allergy_tree_nuts,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""tree nuts""]",317,54,16,3,fish,8,2112,3
+no_pork_lactose__allergy_soy,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""soy""]",252,54,13,3,fish,8,1859,3
+no_pork_lactose__allergy_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""gluten/wheat""]",315,54,16,3,fish,8,2112,3
+no_pork_lactose__allergy_fish,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""fish""]",255,54,12,3,tofu_soy,8,2216,3
+no_pork_lactose__allergy_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""shellfish""]",278,54,10,3,fish,7,1803,3
+no_pork_lactose__allergy_chicken,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""chicken""]",286,54,16,3,shellfish,8,2072,3
+no_pork_lactose__allergy_dairy_egg,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""dairy"", ""egg""]",253,54,11,3,fish,8,2020,3
+no_pork_lactose__allergy_dairy_peanuts,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""dairy"", ""peanuts""]",316,54,16,3,fish,8,2112,3
+no_pork_lactose__allergy_dairy_tree_nuts,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""dairy"", ""tree nuts""]",317,54,16,3,fish,8,2112,3
+no_pork_lactose__allergy_dairy_soy,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""dairy"", ""soy""]",252,54,13,3,fish,8,1859,3
+no_pork_lactose__allergy_dairy_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""dairy"", ""gluten/wheat""]",315,54,16,3,fish,8,2112,3
+no_pork_lactose__allergy_dairy_fish,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""dairy"", ""fish""]",255,54,12,3,tofu_soy,8,2216,3
+no_pork_lactose__allergy_dairy_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""dairy"", ""shellfish""]",278,54,10,3,fish,7,1803,3
+no_pork_lactose__allergy_dairy_chicken,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""dairy"", ""chicken""]",286,54,16,3,shellfish,8,2072,3
+no_pork_lactose__allergy_egg_peanuts,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""egg"", ""peanuts""]",253,54,11,3,fish,8,2020,3
+no_pork_lactose__allergy_egg_tree_nuts,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""egg"", ""tree nuts""]",253,54,11,3,fish,8,2020,3
+no_pork_lactose__allergy_egg_soy,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""egg"", ""soy""]",203,54,11,3,shellfish,8,1604,3
+no_pork_lactose__allergy_egg_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""egg"", ""gluten/wheat""]",252,54,11,3,fish,8,2020,3
+no_pork_lactose__allergy_egg_fish,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""egg"", ""fish""]",199,54,14,3,tofu_soy,8,2429,3
+no_pork_lactose__allergy_egg_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""egg"", ""shellfish""]",222,54,13,3,fish,8,1969,3
+no_pork_lactose__allergy_egg_chicken,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""egg"", ""chicken""]",222,54,11,3,fish,8,1961,3
+no_pork_lactose__allergy_peanuts_tree_nuts,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""peanuts"", ""tree nuts""]",316,54,16,3,fish,8,2112,3
+no_pork_lactose__allergy_peanuts_soy,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""peanuts"", ""soy""]",251,54,13,3,fish,8,1859,3
+no_pork_lactose__allergy_peanuts_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""peanuts"", ""gluten/wheat""]",314,54,16,3,fish,8,2112,3
+no_pork_lactose__allergy_peanuts_fish,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""peanuts"", ""fish""]",254,54,12,3,tofu_soy,8,2216,3
+no_pork_lactose__allergy_peanuts_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""peanuts"", ""shellfish""]",277,54,10,3,fish,7,1803,3
+no_pork_lactose__allergy_peanuts_chicken,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""peanuts"", ""chicken""]",285,54,16,3,shellfish,8,2072,3
+no_pork_lactose__allergy_tree_nuts_soy,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""tree nuts"", ""soy""]",252,54,13,3,fish,8,1859,3
+no_pork_lactose__allergy_tree_nuts_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""tree nuts"", ""gluten/wheat""]",315,54,16,3,fish,8,2112,3
+no_pork_lactose__allergy_tree_nuts_fish,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""tree nuts"", ""fish""]",255,54,12,3,tofu_soy,8,2216,3
+no_pork_lactose__allergy_tree_nuts_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""tree nuts"", ""shellfish""]",278,54,10,3,fish,7,1803,3
+no_pork_lactose__allergy_tree_nuts_chicken,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""tree nuts"", ""chicken""]",286,54,16,3,shellfish,8,2072,3
+no_pork_lactose__allergy_soy_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""soy"", ""gluten/wheat""]",251,54,13,3,fish,8,1859,3
+no_pork_lactose__allergy_soy_fish,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""soy"", ""fish""]",193,54,19,2,shellfish,7,2263,3
+no_pork_lactose__allergy_soy_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""soy"", ""shellfish""]",219,54,14,3,fish,8,1648,3
+no_pork_lactose__allergy_soy_chicken,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""soy"", ""chicken""]",224,54,15,3,fish,8,1741,3
+no_pork_lactose__allergy_gluten_wheat_fish,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""gluten/wheat"", ""fish""]",253,54,12,3,tofu_soy,8,2216,3
+no_pork_lactose__allergy_gluten_wheat_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""gluten/wheat"", ""shellfish""]",278,54,10,3,fish,7,1803,3
+no_pork_lactose__allergy_gluten_wheat_chicken,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""gluten/wheat"", ""chicken""]",284,54,16,3,shellfish,8,2072,3
+no_pork_lactose__allergy_fish_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""fish"", ""shellfish""]",227,54,9,3,tofu_soy,7,1904,3
+no_pork_lactose__allergy_fish_chicken,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""fish"", ""chicken""]",225,54,13,3,egg,8,2051,3
+no_pork_lactose__allergy_shellfish_chicken,True,False,True,[],success,Success,"[""No Pork"", ""Lactose Intolerant""]","[""shellfish"", ""chicken""]",249,54,19,2,tofu_soy,8,2182,3
+no_beef_lactose__allergy_none,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]",[],339,54,16,3,fish,8,2112,3
+no_beef_lactose__allergy_dairy,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""dairy""]",339,54,16,3,fish,8,2112,3
+no_beef_lactose__allergy_egg,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""egg""]",274,54,10,3,fish,8,1937,3
+no_beef_lactose__allergy_peanuts,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""peanuts""]",338,54,16,3,fish,8,2112,3
+no_beef_lactose__allergy_tree_nuts,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""tree nuts""]",339,54,16,3,fish,8,2112,3
+no_beef_lactose__allergy_soy,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""soy""]",268,54,11,3,fish,8,1861,3
+no_beef_lactose__allergy_gluten_wheat,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""gluten/wheat""]",333,54,16,3,fish,8,2112,3
+no_beef_lactose__allergy_fish,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""fish""]",273,54,13,3,tofu_soy,8,2365,3
+no_beef_lactose__allergy_shellfish,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""shellfish""]",287,54,19,2,tofu_soy,8,2162,3
+no_beef_lactose__allergy_chicken,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""chicken""]",304,54,19,2,tofu_soy,7,2375,3
+no_beef_lactose__allergy_dairy_egg,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""dairy"", ""egg""]",274,54,10,3,fish,8,1937,3
+no_beef_lactose__allergy_dairy_peanuts,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""dairy"", ""peanuts""]",338,54,16,3,fish,8,2112,3
+no_beef_lactose__allergy_dairy_tree_nuts,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""dairy"", ""tree nuts""]",339,54,16,3,fish,8,2112,3
+no_beef_lactose__allergy_dairy_soy,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""dairy"", ""soy""]",268,54,11,3,fish,8,1861,3
+no_beef_lactose__allergy_dairy_gluten_wheat,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""dairy"", ""gluten/wheat""]",333,54,16,3,fish,8,2112,3
+no_beef_lactose__allergy_dairy_fish,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""dairy"", ""fish""]",273,54,13,3,tofu_soy,8,2365,3
+no_beef_lactose__allergy_dairy_shellfish,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""dairy"", ""shellfish""]",287,54,19,2,tofu_soy,8,2162,3
+no_beef_lactose__allergy_dairy_chicken,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""dairy"", ""chicken""]",304,54,19,2,tofu_soy,7,2375,3
+no_beef_lactose__allergy_egg_peanuts,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""egg"", ""peanuts""]",274,54,10,3,fish,8,1937,3
+no_beef_lactose__allergy_egg_tree_nuts,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""egg"", ""tree nuts""]",274,54,10,3,fish,8,1937,3
+no_beef_lactose__allergy_egg_soy,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""egg"", ""soy""]",218,54,11,3,shellfish,8,1608,3
+no_beef_lactose__allergy_egg_gluten_wheat,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""egg"", ""gluten/wheat""]",269,54,10,3,fish,8,1937,3
+no_beef_lactose__allergy_egg_fish,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""egg"", ""fish""]",216,54,16,3,tofu_soy,8,2554,3
+no_beef_lactose__allergy_egg_shellfish,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""egg"", ""shellfish""]",230,54,13,3,tofu_soy,8,2109,3
+no_beef_lactose__allergy_egg_chicken,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""egg"", ""chicken""]",239,54,18,3,tofu_soy,8,2253,3
+no_beef_lactose__allergy_peanuts_tree_nuts,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""peanuts"", ""tree nuts""]",338,54,16,3,fish,8,2112,3
+no_beef_lactose__allergy_peanuts_soy,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""peanuts"", ""soy""]",267,54,11,3,fish,8,1861,3
+no_beef_lactose__allergy_peanuts_gluten_wheat,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""peanuts"", ""gluten/wheat""]",332,54,16,3,fish,8,2112,3
+no_beef_lactose__allergy_peanuts_fish,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""peanuts"", ""fish""]",272,54,13,3,tofu_soy,8,2365,3
+no_beef_lactose__allergy_peanuts_shellfish,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""peanuts"", ""shellfish""]",286,54,19,2,tofu_soy,8,2162,3
+no_beef_lactose__allergy_peanuts_chicken,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""peanuts"", ""chicken""]",303,54,19,2,tofu_soy,7,2375,3
+no_beef_lactose__allergy_tree_nuts_soy,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""tree nuts"", ""soy""]",268,54,11,3,fish,8,1861,3
+no_beef_lactose__allergy_tree_nuts_gluten_wheat,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""tree nuts"", ""gluten/wheat""]",333,54,16,3,fish,8,2112,3
+no_beef_lactose__allergy_tree_nuts_fish,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""tree nuts"", ""fish""]",273,54,13,3,tofu_soy,8,2365,3
+no_beef_lactose__allergy_tree_nuts_shellfish,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""tree nuts"", ""shellfish""]",287,54,19,2,tofu_soy,8,2162,3
+no_beef_lactose__allergy_tree_nuts_chicken,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""tree nuts"", ""chicken""]",304,54,19,2,tofu_soy,7,2375,3
+no_beef_lactose__allergy_soy_gluten_wheat,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""soy"", ""gluten/wheat""]",265,54,11,3,fish,8,1861,3
+no_beef_lactose__allergy_soy_fish,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""soy"", ""fish""]",207,54,19,2,shellfish,8,2394,3
+no_beef_lactose__allergy_soy_shellfish,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""soy"", ""shellfish""]",226,54,11,3,fish,8,1598,3
+no_beef_lactose__allergy_soy_chicken,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""soy"", ""chicken""]",239,54,13,3,fish,8,1848,3
+no_beef_lactose__allergy_gluten_wheat_fish,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""gluten/wheat"", ""fish""]",267,54,13,3,tofu_soy,8,2365,3
+no_beef_lactose__allergy_gluten_wheat_shellfish,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""gluten/wheat"", ""shellfish""]",285,54,19,2,tofu_soy,8,2162,3
+no_beef_lactose__allergy_gluten_wheat_chicken,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""gluten/wheat"", ""chicken""]",301,54,19,2,tofu_soy,7,2375,3
+no_beef_lactose__allergy_fish_shellfish,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""fish"", ""shellfish""]",235,54,9,3,egg,8,1916,3
+no_beef_lactose__allergy_fish_chicken,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""fish"", ""chicken""]",239,54,12,3,tofu_soy,8,2192,3
+no_beef_lactose__allergy_shellfish_chicken,True,False,True,[],success,Success,"[""No Beef"", ""Lactose Intolerant""]","[""shellfish"", ""chicken""]",257,54,18,3,tofu_soy,8,2147,3
+no_pork_no_beef_lactose__allergy_none,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]",[],314,54,16,3,fish,8,2112,3
+no_pork_no_beef_lactose__allergy_dairy,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""dairy""]",314,54,16,3,fish,8,2112,3
+no_pork_no_beef_lactose__allergy_egg,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""egg""]",250,54,10,3,fish,8,2027,3
+no_pork_no_beef_lactose__allergy_peanuts,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""peanuts""]",313,54,16,3,fish,8,2112,3
+no_pork_no_beef_lactose__allergy_tree_nuts,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""tree nuts""]",314,54,16,3,fish,8,2112,3
+no_pork_no_beef_lactose__allergy_soy,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""soy""]",252,54,10,3,fish,8,1795,3
+no_pork_no_beef_lactose__allergy_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""gluten/wheat""]",312,54,16,3,fish,8,2112,3
+no_pork_no_beef_lactose__allergy_fish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""fish""]",252,54,18,3,tofu_soy,8,2290,3
+no_pork_no_beef_lactose__allergy_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""shellfish""]",275,54,16,2,egg,8,2152,3
+no_pork_no_beef_lactose__allergy_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""chicken""]",283,54,14,3,fish,8,1820,3
+no_pork_no_beef_lactose__allergy_dairy_egg,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""dairy"", ""egg""]",250,54,10,3,fish,8,2027,3
+no_pork_no_beef_lactose__allergy_dairy_peanuts,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""dairy"", ""peanuts""]",313,54,16,3,fish,8,2112,3
+no_pork_no_beef_lactose__allergy_dairy_tree_nuts,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""dairy"", ""tree nuts""]",314,54,16,3,fish,8,2112,3
+no_pork_no_beef_lactose__allergy_dairy_soy,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""dairy"", ""soy""]",252,54,10,3,fish,8,1795,3
+no_pork_no_beef_lactose__allergy_dairy_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""dairy"", ""gluten/wheat""]",312,54,16,3,fish,8,2112,3
+no_pork_no_beef_lactose__allergy_dairy_fish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""dairy"", ""fish""]",252,54,18,3,tofu_soy,8,2290,3
+no_pork_no_beef_lactose__allergy_dairy_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""dairy"", ""shellfish""]",275,54,16,2,egg,8,2152,3
+no_pork_no_beef_lactose__allergy_dairy_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""dairy"", ""chicken""]",283,54,14,3,fish,8,1820,3
+no_pork_no_beef_lactose__allergy_egg_peanuts,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""egg"", ""peanuts""]",250,54,10,3,fish,8,2027,3
+no_pork_no_beef_lactose__allergy_egg_tree_nuts,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""egg"", ""tree nuts""]",250,54,10,3,fish,8,2027,3
+no_pork_no_beef_lactose__allergy_egg_soy,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""egg"", ""soy""]",203,54,10,3,shellfish,8,1517,3
+no_pork_no_beef_lactose__allergy_egg_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""egg"", ""gluten/wheat""]",249,54,10,3,fish,8,2027,3
+no_pork_no_beef_lactose__allergy_egg_fish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""egg"", ""fish""]",196,54,16,3,tofu_soy,8,2529,3
+no_pork_no_beef_lactose__allergy_egg_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""egg"", ""shellfish""]",219,54,12,3,tofu_soy,8,2104,3
+no_pork_no_beef_lactose__allergy_egg_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""egg"", ""chicken""]",219,54,17,3,tofu_soy,8,2241,3
+no_pork_no_beef_lactose__allergy_peanuts_tree_nuts,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""peanuts"", ""tree nuts""]",313,54,16,3,fish,8,2112,3
+no_pork_no_beef_lactose__allergy_peanuts_soy,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""peanuts"", ""soy""]",251,54,10,3,fish,8,1795,3
+no_pork_no_beef_lactose__allergy_peanuts_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""peanuts"", ""gluten/wheat""]",311,54,16,3,fish,8,2112,3
+no_pork_no_beef_lactose__allergy_peanuts_fish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""peanuts"", ""fish""]",251,54,18,3,tofu_soy,8,2290,3
+no_pork_no_beef_lactose__allergy_peanuts_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""peanuts"", ""shellfish""]",274,54,16,2,egg,8,2152,3
+no_pork_no_beef_lactose__allergy_peanuts_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""peanuts"", ""chicken""]",282,54,14,3,fish,8,1820,3
+no_pork_no_beef_lactose__allergy_tree_nuts_soy,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""tree nuts"", ""soy""]",252,54,10,3,fish,8,1795,3
+no_pork_no_beef_lactose__allergy_tree_nuts_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""tree nuts"", ""gluten/wheat""]",312,54,16,3,fish,8,2112,3
+no_pork_no_beef_lactose__allergy_tree_nuts_fish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""tree nuts"", ""fish""]",252,54,18,3,tofu_soy,8,2290,3
+no_pork_no_beef_lactose__allergy_tree_nuts_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""tree nuts"", ""shellfish""]",275,54,16,2,egg,8,2152,3
+no_pork_no_beef_lactose__allergy_tree_nuts_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""tree nuts"", ""chicken""]",283,54,14,3,fish,8,1820,3
+no_pork_no_beef_lactose__allergy_soy_gluten_wheat,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""soy"", ""gluten/wheat""]",251,54,10,3,fish,8,1795,3
+no_pork_no_beef_lactose__allergy_soy_fish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""soy"", ""fish""]",193,54,18,3,shellfish,7,2257,3
+no_pork_no_beef_lactose__allergy_soy_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""soy"", ""shellfish""]",219,54,12,3,fish,8,1601,3
+no_pork_no_beef_lactose__allergy_soy_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""soy"", ""chicken""]",224,54,14,3,fish,8,1653,3
+no_pork_no_beef_lactose__allergy_gluten_wheat_fish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""gluten/wheat"", ""fish""]",250,54,18,3,tofu_soy,8,2290,3
+no_pork_no_beef_lactose__allergy_gluten_wheat_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""gluten/wheat"", ""shellfish""]",275,54,16,2,egg,8,2152,3
+no_pork_no_beef_lactose__allergy_gluten_wheat_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""gluten/wheat"", ""chicken""]",281,54,14,3,fish,8,1820,3
+no_pork_no_beef_lactose__allergy_fish_shellfish,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""fish"", ""shellfish""]",224,54,11,3,egg,8,1915,3
+no_pork_no_beef_lactose__allergy_fish_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""fish"", ""chicken""]",222,54,12,3,shellfish,8,2000,3
+no_pork_no_beef_lactose__allergy_shellfish_chicken,True,False,True,[],success,Success,"[""No Pork"", ""No Beef"", ""Lactose Intolerant""]","[""shellfish"", ""chicken""]",246,54,18,3,tofu_soy,8,2147,3
+vegetarian__allergy_none,True,False,True,[],success,Success,"[""Vegetarian""]",[],195,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_dairy,True,False,True,[],success,Success,"[""Vegetarian""]","[""dairy""]",193,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_egg,True,False,True,[],success,Success,"[""Vegetarian""]","[""egg""]",146,54,18,3,tofu_soy,8,2587,3
+vegetarian__allergy_peanuts,True,False,True,[],success,Success,"[""Vegetarian""]","[""peanuts""]",194,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_tree_nuts,True,False,True,[],success,Success,"[""Vegetarian""]","[""tree nuts""]",195,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_soy,True,False,True,[],success,Success,"[""Vegetarian""]","[""soy""]",144,54,15,3,egg,8,1940,3
+vegetarian__allergy_gluten_wheat,True,False,True,[],success,Success,"[""Vegetarian""]","[""gluten/wheat""]",194,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_fish,True,False,True,[],success,Success,"[""Vegetarian""]","[""fish""]",195,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_shellfish,True,False,True,[],success,Success,"[""Vegetarian""]","[""shellfish""]",195,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_chicken,True,False,True,[],success,Success,"[""Vegetarian""]","[""chicken""]",195,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_dairy_egg,True,False,True,[],success,Success,"[""Vegetarian""]","[""dairy"", ""egg""]",144,54,18,3,tofu_soy,8,2587,3
+vegetarian__allergy_dairy_peanuts,True,False,True,[],success,Success,"[""Vegetarian""]","[""dairy"", ""peanuts""]",192,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_dairy_tree_nuts,True,False,True,[],success,Success,"[""Vegetarian""]","[""dairy"", ""tree nuts""]",193,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_dairy_soy,True,False,True,[],success,Success,"[""Vegetarian""]","[""dairy"", ""soy""]",142,54,15,3,egg,8,1940,3
+vegetarian__allergy_dairy_gluten_wheat,True,False,True,[],success,Success,"[""Vegetarian""]","[""dairy"", ""gluten/wheat""]",193,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_dairy_fish,True,False,True,[],success,Success,"[""Vegetarian""]","[""dairy"", ""fish""]",193,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_dairy_shellfish,True,False,True,[],success,Success,"[""Vegetarian""]","[""dairy"", ""shellfish""]",193,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_dairy_chicken,True,False,True,[],success,Success,"[""Vegetarian""]","[""dairy"", ""chicken""]",193,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_egg_peanuts,True,False,True,[],success,Success,"[""Vegetarian""]","[""egg"", ""peanuts""]",146,54,18,3,tofu_soy,8,2587,3
+vegetarian__allergy_egg_tree_nuts,True,False,True,[],success,Success,"[""Vegetarian""]","[""egg"", ""tree nuts""]",146,54,18,3,tofu_soy,8,2587,3
+vegetarian__allergy_egg_soy,True,False,True,[],success,Success,"[""Vegetarian""]","[""egg"", ""soy""]",109,54,11,3,munggo,6,1694,3
+vegetarian__allergy_egg_gluten_wheat,True,False,True,[],success,Success,"[""Vegetarian""]","[""egg"", ""gluten/wheat""]",145,54,18,3,tofu_soy,8,2587,3
+vegetarian__allergy_egg_fish,True,False,True,[],success,Success,"[""Vegetarian""]","[""egg"", ""fish""]",146,54,18,3,tofu_soy,8,2587,3
+vegetarian__allergy_egg_shellfish,True,False,True,[],success,Success,"[""Vegetarian""]","[""egg"", ""shellfish""]",146,54,18,3,tofu_soy,8,2587,3
+vegetarian__allergy_egg_chicken,True,False,True,[],success,Success,"[""Vegetarian""]","[""egg"", ""chicken""]",146,54,18,3,tofu_soy,8,2587,3
+vegetarian__allergy_peanuts_tree_nuts,True,False,True,[],success,Success,"[""Vegetarian""]","[""peanuts"", ""tree nuts""]",194,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_peanuts_soy,True,False,True,[],success,Success,"[""Vegetarian""]","[""peanuts"", ""soy""]",143,54,15,3,egg,8,1940,3
+vegetarian__allergy_peanuts_gluten_wheat,True,False,True,[],success,Success,"[""Vegetarian""]","[""peanuts"", ""gluten/wheat""]",193,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_peanuts_fish,True,False,True,[],success,Success,"[""Vegetarian""]","[""peanuts"", ""fish""]",194,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_peanuts_shellfish,True,False,True,[],success,Success,"[""Vegetarian""]","[""peanuts"", ""shellfish""]",194,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_peanuts_chicken,True,False,True,[],success,Success,"[""Vegetarian""]","[""peanuts"", ""chicken""]",194,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_tree_nuts_soy,True,False,True,[],success,Success,"[""Vegetarian""]","[""tree nuts"", ""soy""]",144,54,15,3,egg,8,1940,3
+vegetarian__allergy_tree_nuts_gluten_wheat,True,False,True,[],success,Success,"[""Vegetarian""]","[""tree nuts"", ""gluten/wheat""]",194,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_tree_nuts_fish,True,False,True,[],success,Success,"[""Vegetarian""]","[""tree nuts"", ""fish""]",195,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_tree_nuts_shellfish,True,False,True,[],success,Success,"[""Vegetarian""]","[""tree nuts"", ""shellfish""]",195,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_tree_nuts_chicken,True,False,True,[],success,Success,"[""Vegetarian""]","[""tree nuts"", ""chicken""]",195,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_soy_gluten_wheat,True,False,True,[],success,Success,"[""Vegetarian""]","[""soy"", ""gluten/wheat""]",143,54,15,3,egg,8,1940,3
+vegetarian__allergy_soy_fish,True,False,True,[],success,Success,"[""Vegetarian""]","[""soy"", ""fish""]",144,54,15,3,egg,8,1940,3
+vegetarian__allergy_soy_shellfish,True,False,True,[],success,Success,"[""Vegetarian""]","[""soy"", ""shellfish""]",144,54,15,3,egg,8,1940,3
+vegetarian__allergy_soy_chicken,True,False,True,[],success,Success,"[""Vegetarian""]","[""soy"", ""chicken""]",144,54,15,3,egg,8,1940,3
+vegetarian__allergy_gluten_wheat_fish,True,False,True,[],success,Success,"[""Vegetarian""]","[""gluten/wheat"", ""fish""]",194,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_gluten_wheat_shellfish,True,False,True,[],success,Success,"[""Vegetarian""]","[""gluten/wheat"", ""shellfish""]",194,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_gluten_wheat_chicken,True,False,True,[],success,Success,"[""Vegetarian""]","[""gluten/wheat"", ""chicken""]",194,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_fish_shellfish,True,False,True,[],success,Success,"[""Vegetarian""]","[""fish"", ""shellfish""]",195,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_fish_chicken,True,False,True,[],success,Success,"[""Vegetarian""]","[""fish"", ""chicken""]",195,54,13,3,tofu_soy,8,2190,3
+vegetarian__allergy_shellfish_chicken,True,False,True,[],success,Success,"[""Vegetarian""]","[""shellfish"", ""chicken""]",195,54,13,3,tofu_soy,8,2190,3
+vegetarian_lactose__allergy_none,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]",[],193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_dairy,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""dairy""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_egg,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""egg""]",144,54,18,3,tofu_soy,8,2680,3
+vegetarian_lactose__allergy_peanuts,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""peanuts""]",192,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_tree_nuts,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""tree nuts""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_soy,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""soy""]",142,54,14,3,egg,8,2017,3
+vegetarian_lactose__allergy_gluten_wheat,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""gluten/wheat""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_fish,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""fish""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_shellfish,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""shellfish""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_chicken,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""chicken""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_dairy_egg,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""dairy"", ""egg""]",144,54,18,3,tofu_soy,8,2680,3
+vegetarian_lactose__allergy_dairy_peanuts,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""dairy"", ""peanuts""]",192,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_dairy_tree_nuts,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""dairy"", ""tree nuts""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_dairy_soy,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""dairy"", ""soy""]",142,54,14,3,egg,8,2017,3
+vegetarian_lactose__allergy_dairy_gluten_wheat,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""dairy"", ""gluten/wheat""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_dairy_fish,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""dairy"", ""fish""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_dairy_shellfish,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""dairy"", ""shellfish""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_dairy_chicken,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""dairy"", ""chicken""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_egg_peanuts,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""egg"", ""peanuts""]",144,54,18,3,tofu_soy,8,2680,3
+vegetarian_lactose__allergy_egg_tree_nuts,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""egg"", ""tree nuts""]",144,54,18,3,tofu_soy,8,2680,3
+vegetarian_lactose__allergy_egg_soy,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""egg"", ""soy""]",107,54,11,3,munggo,6,1694,3
+vegetarian_lactose__allergy_egg_gluten_wheat,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""egg"", ""gluten/wheat""]",144,54,18,3,tofu_soy,8,2680,3
+vegetarian_lactose__allergy_egg_fish,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""egg"", ""fish""]",144,54,18,3,tofu_soy,8,2680,3
+vegetarian_lactose__allergy_egg_shellfish,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""egg"", ""shellfish""]",144,54,18,3,tofu_soy,8,2680,3
+vegetarian_lactose__allergy_egg_chicken,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""egg"", ""chicken""]",144,54,18,3,tofu_soy,8,2680,3
+vegetarian_lactose__allergy_peanuts_tree_nuts,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""peanuts"", ""tree nuts""]",192,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_peanuts_soy,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""peanuts"", ""soy""]",141,54,14,3,egg,8,2017,3
+vegetarian_lactose__allergy_peanuts_gluten_wheat,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""peanuts"", ""gluten/wheat""]",192,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_peanuts_fish,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""peanuts"", ""fish""]",192,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_peanuts_shellfish,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""peanuts"", ""shellfish""]",192,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_peanuts_chicken,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""peanuts"", ""chicken""]",192,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_tree_nuts_soy,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""tree nuts"", ""soy""]",142,54,14,3,egg,8,2017,3
+vegetarian_lactose__allergy_tree_nuts_gluten_wheat,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""tree nuts"", ""gluten/wheat""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_tree_nuts_fish,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""tree nuts"", ""fish""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_tree_nuts_shellfish,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""tree nuts"", ""shellfish""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_tree_nuts_chicken,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""tree nuts"", ""chicken""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_soy_gluten_wheat,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""soy"", ""gluten/wheat""]",142,54,14,3,egg,8,2017,3
+vegetarian_lactose__allergy_soy_fish,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""soy"", ""fish""]",142,54,14,3,egg,8,2017,3
+vegetarian_lactose__allergy_soy_shellfish,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""soy"", ""shellfish""]",142,54,14,3,egg,8,2017,3
+vegetarian_lactose__allergy_soy_chicken,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""soy"", ""chicken""]",142,54,14,3,egg,8,2017,3
+vegetarian_lactose__allergy_gluten_wheat_fish,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""gluten/wheat"", ""fish""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_gluten_wheat_shellfish,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""gluten/wheat"", ""shellfish""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_gluten_wheat_chicken,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""gluten/wheat"", ""chicken""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_fish_shellfish,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""fish"", ""shellfish""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_fish_chicken,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""fish"", ""chicken""]",193,54,13,3,tofu_soy,8,2076,3
+vegetarian_lactose__allergy_shellfish_chicken,True,False,True,[],success,Success,"[""Vegetarian"", ""Lactose Intolerant""]","[""shellfish"", ""chicken""]",193,54,13,3,tofu_soy,8,2076,3
+pescatarian__allergy_none,True,False,True,[],success,Success,"[""Pescatarian""]",[],284,54,15,3,fish,8,2285,3
+pescatarian__allergy_dairy,True,False,True,[],success,Success,"[""Pescatarian""]","[""dairy""]",278,54,15,3,fish,8,2285,3
+pescatarian__allergy_egg,True,False,True,[],success,Success,"[""Pescatarian""]","[""egg""]",219,54,12,3,shellfish,8,1989,3
+pescatarian__allergy_peanuts,True,False,True,[],success,Success,"[""Pescatarian""]","[""peanuts""]",282,54,15,3,fish,8,2285,3
+pescatarian__allergy_tree_nuts,True,False,True,[],success,Success,"[""Pescatarian""]","[""tree nuts""]",284,54,15,3,fish,8,2285,3
+pescatarian__allergy_soy,True,False,True,[],success,Success,"[""Pescatarian""]","[""soy""]",227,54,12,3,shellfish,8,1900,3
+pescatarian__allergy_gluten_wheat,True,False,True,[],success,Success,"[""Pescatarian""]","[""gluten/wheat""]",280,54,15,3,fish,8,2285,3
+pescatarian__allergy_fish,True,False,True,[],success,Success,"[""Pescatarian""]","[""fish""]",224,54,12,3,shellfish,8,2588,3
+pescatarian__allergy_shellfish,True,False,True,[],success,Success,"[""Pescatarian""]","[""shellfish""]",243,54,12,3,fish,8,2402,3
+pescatarian__allergy_chicken,True,False,True,[],success,Success,"[""Pescatarian""]","[""chicken""]",284,54,15,3,fish,8,2285,3
+pescatarian__allergy_dairy_egg,True,False,True,[],success,Success,"[""Pescatarian""]","[""dairy"", ""egg""]",215,54,12,3,shellfish,8,1989,3
+pescatarian__allergy_dairy_peanuts,True,False,True,[],success,Success,"[""Pescatarian""]","[""dairy"", ""peanuts""]",277,54,15,3,fish,8,2285,3
+pescatarian__allergy_dairy_tree_nuts,True,False,True,[],success,Success,"[""Pescatarian""]","[""dairy"", ""tree nuts""]",278,54,15,3,fish,8,2285,3
+pescatarian__allergy_dairy_soy,True,False,True,[],success,Success,"[""Pescatarian""]","[""dairy"", ""soy""]",221,54,12,3,shellfish,8,1900,3
+pescatarian__allergy_dairy_gluten_wheat,True,False,True,[],success,Success,"[""Pescatarian""]","[""dairy"", ""gluten/wheat""]",276,54,15,3,fish,8,2285,3
+pescatarian__allergy_dairy_fish,True,False,True,[],success,Success,"[""Pescatarian""]","[""dairy"", ""fish""]",220,54,12,3,shellfish,8,2588,3
+pescatarian__allergy_dairy_shellfish,True,False,True,[],success,Success,"[""Pescatarian""]","[""dairy"", ""shellfish""]",241,54,12,3,fish,8,2402,3
+pescatarian__allergy_dairy_chicken,True,False,True,[],success,Success,"[""Pescatarian""]","[""dairy"", ""chicken""]",278,54,15,3,fish,8,2285,3
+pescatarian__allergy_egg_peanuts,True,False,True,[],success,Success,"[""Pescatarian""]","[""egg"", ""peanuts""]",218,54,12,3,shellfish,8,1989,3
+pescatarian__allergy_egg_tree_nuts,True,False,True,[],success,Success,"[""Pescatarian""]","[""egg"", ""tree nuts""]",219,54,12,3,shellfish,8,1989,3
+pescatarian__allergy_egg_soy,True,False,True,[],success,Success,"[""Pescatarian""]","[""egg"", ""soy""]",176,54,14,3,shellfish,8,1626,3
+pescatarian__allergy_egg_gluten_wheat,True,False,True,[],success,Success,"[""Pescatarian""]","[""egg"", ""gluten/wheat""]",216,54,12,3,shellfish,8,1989,3
+pescatarian__allergy_egg_fish,True,False,True,[],success,Success,"[""Pescatarian""]","[""egg"", ""fish""]",167,54,11,3,tofu_soy,8,2230,3
+pescatarian__allergy_egg_shellfish,True,False,True,[],success,Success,"[""Pescatarian""]","[""egg"", ""shellfish""]",188,54,13,3,tofu_soy,8,2527,3
+pescatarian__allergy_egg_chicken,True,False,True,[],success,Success,"[""Pescatarian""]","[""egg"", ""chicken""]",219,54,12,3,shellfish,8,1989,3
+pescatarian__allergy_peanuts_tree_nuts,True,False,True,[],success,Success,"[""Pescatarian""]","[""peanuts"", ""tree nuts""]",282,54,15,3,fish,8,2285,3
+pescatarian__allergy_peanuts_soy,True,False,True,[],success,Success,"[""Pescatarian""]","[""peanuts"", ""soy""]",225,54,12,3,shellfish,8,1900,3
+pescatarian__allergy_peanuts_gluten_wheat,True,False,True,[],success,Success,"[""Pescatarian""]","[""peanuts"", ""gluten/wheat""]",279,54,15,3,fish,8,2285,3
+pescatarian__allergy_peanuts_fish,True,False,True,[],success,Success,"[""Pescatarian""]","[""peanuts"", ""fish""]",223,54,12,3,shellfish,8,2588,3
+pescatarian__allergy_peanuts_shellfish,True,False,True,[],success,Success,"[""Pescatarian""]","[""peanuts"", ""shellfish""]",242,54,12,3,fish,8,2402,3
+pescatarian__allergy_peanuts_chicken,True,False,True,[],success,Success,"[""Pescatarian""]","[""peanuts"", ""chicken""]",282,54,15,3,fish,8,2285,3
+pescatarian__allergy_tree_nuts_soy,True,False,True,[],success,Success,"[""Pescatarian""]","[""tree nuts"", ""soy""]",227,54,12,3,shellfish,8,1900,3
+pescatarian__allergy_tree_nuts_gluten_wheat,True,False,True,[],success,Success,"[""Pescatarian""]","[""tree nuts"", ""gluten/wheat""]",280,54,15,3,fish,8,2285,3
+pescatarian__allergy_tree_nuts_fish,True,False,True,[],success,Success,"[""Pescatarian""]","[""tree nuts"", ""fish""]",224,54,12,3,shellfish,8,2588,3
+pescatarian__allergy_tree_nuts_shellfish,True,False,True,[],success,Success,"[""Pescatarian""]","[""tree nuts"", ""shellfish""]",243,54,12,3,fish,8,2402,3
+pescatarian__allergy_tree_nuts_chicken,True,False,True,[],success,Success,"[""Pescatarian""]","[""tree nuts"", ""chicken""]",284,54,15,3,fish,8,2285,3
+pescatarian__allergy_soy_gluten_wheat,True,False,True,[],success,Success,"[""Pescatarian""]","[""soy"", ""gluten/wheat""]",224,54,12,3,shellfish,8,1900,3
+pescatarian__allergy_soy_fish,True,False,True,[],success,Success,"[""Pescatarian""]","[""soy"", ""fish""]",170,54,13,3,shellfish,8,1800,3
+pescatarian__allergy_soy_shellfish,True,False,True,[],success,Success,"[""Pescatarian""]","[""soy"", ""shellfish""]",191,54,15,3,fish,8,1691,3
+pescatarian__allergy_soy_chicken,True,False,True,[],success,Success,"[""Pescatarian""]","[""soy"", ""chicken""]",227,54,12,3,shellfish,8,1900,3
+pescatarian__allergy_gluten_wheat_fish,True,False,True,[],success,Success,"[""Pescatarian""]","[""gluten/wheat"", ""fish""]",221,54,12,3,shellfish,8,2588,3
+pescatarian__allergy_gluten_wheat_shellfish,True,False,True,[],success,Success,"[""Pescatarian""]","[""gluten/wheat"", ""shellfish""]",242,54,12,3,fish,8,2402,3
+pescatarian__allergy_gluten_wheat_chicken,True,False,True,[],success,Success,"[""Pescatarian""]","[""gluten/wheat"", ""chicken""]",280,54,15,3,fish,8,2285,3
+pescatarian__allergy_fish_shellfish,True,True,False,"[""plan_generation_failed"", ""slot_count_not_filled""]",failed,Conflicting profile: Pescatarian cannot be combined with both fish and shellfish allergies.,"[""Pescatarian""]","[""fish"", ""shellfish""]",,,0,0,,0,,
+pescatarian__allergy_fish_chicken,True,False,True,[],success,Success,"[""Pescatarian""]","[""fish"", ""chicken""]",224,54,12,3,shellfish,8,2588,3
+pescatarian__allergy_shellfish_chicken,True,False,True,[],success,Success,"[""Pescatarian""]","[""shellfish"", ""chicken""]",243,54,12,3,fish,8,2402,3
+pescatarian_lactose__allergy_none,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]",[],278,54,15,3,shellfish,8,2362,3
+pescatarian_lactose__allergy_dairy,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""dairy""]",278,54,15,3,shellfish,8,2362,3
+pescatarian_lactose__allergy_egg,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""egg""]",215,54,9,3,fish,8,2072,3
+pescatarian_lactose__allergy_peanuts,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""peanuts""]",277,54,15,3,shellfish,8,2362,3
+pescatarian_lactose__allergy_tree_nuts,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""tree nuts""]",278,54,15,3,shellfish,8,2362,3
+pescatarian_lactose__allergy_soy,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""soy""]",221,54,11,3,shellfish,8,1828,3
+pescatarian_lactose__allergy_gluten_wheat,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""gluten/wheat""]",276,54,15,3,shellfish,8,2362,3
+pescatarian_lactose__allergy_fish,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""fish""]",220,54,12,3,tofu_soy,8,2580,3
+pescatarian_lactose__allergy_shellfish,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""shellfish""]",241,54,12,3,tofu_soy,8,2408,3
+pescatarian_lactose__allergy_chicken,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""chicken""]",278,54,15,3,shellfish,8,2362,3
+pescatarian_lactose__allergy_dairy_egg,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""dairy"", ""egg""]",215,54,9,3,fish,8,2072,3
+pescatarian_lactose__allergy_dairy_peanuts,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""dairy"", ""peanuts""]",277,54,15,3,shellfish,8,2362,3
+pescatarian_lactose__allergy_dairy_tree_nuts,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""dairy"", ""tree nuts""]",278,54,15,3,shellfish,8,2362,3
+pescatarian_lactose__allergy_dairy_soy,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""dairy"", ""soy""]",221,54,11,3,shellfish,8,1828,3
+pescatarian_lactose__allergy_dairy_gluten_wheat,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""dairy"", ""gluten/wheat""]",276,54,15,3,shellfish,8,2362,3
+pescatarian_lactose__allergy_dairy_fish,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""dairy"", ""fish""]",220,54,12,3,tofu_soy,8,2580,3
+pescatarian_lactose__allergy_dairy_shellfish,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""dairy"", ""shellfish""]",241,54,12,3,tofu_soy,8,2408,3
+pescatarian_lactose__allergy_dairy_chicken,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""dairy"", ""chicken""]",278,54,15,3,shellfish,8,2362,3
+pescatarian_lactose__allergy_egg_peanuts,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""egg"", ""peanuts""]",215,54,9,3,fish,8,2072,3
+pescatarian_lactose__allergy_egg_tree_nuts,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""egg"", ""tree nuts""]",215,54,9,3,fish,8,2072,3
+pescatarian_lactose__allergy_egg_soy,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""egg"", ""soy""]",172,54,15,3,shellfish,8,1817,3
+pescatarian_lactose__allergy_egg_gluten_wheat,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""egg"", ""gluten/wheat""]",214,54,9,3,fish,8,2072,3
+pescatarian_lactose__allergy_egg_fish,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""egg"", ""fish""]",165,54,10,3,tofu_soy,8,2252,3
+pescatarian_lactose__allergy_egg_shellfish,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""egg"", ""shellfish""]",186,54,13,3,tofu_soy,8,2154,3
+pescatarian_lactose__allergy_egg_chicken,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""egg"", ""chicken""]",215,54,9,3,fish,8,2072,3
+pescatarian_lactose__allergy_peanuts_tree_nuts,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""peanuts"", ""tree nuts""]",277,54,15,3,shellfish,8,2362,3
+pescatarian_lactose__allergy_peanuts_soy,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""peanuts"", ""soy""]",220,54,11,3,shellfish,8,1828,3
+pescatarian_lactose__allergy_peanuts_gluten_wheat,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""peanuts"", ""gluten/wheat""]",275,54,15,3,shellfish,8,2362,3
+pescatarian_lactose__allergy_peanuts_fish,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""peanuts"", ""fish""]",219,54,12,3,tofu_soy,8,2580,3
+pescatarian_lactose__allergy_peanuts_shellfish,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""peanuts"", ""shellfish""]",240,54,12,3,tofu_soy,8,2408,3
+pescatarian_lactose__allergy_peanuts_chicken,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""peanuts"", ""chicken""]",277,54,15,3,shellfish,8,2362,3
+pescatarian_lactose__allergy_tree_nuts_soy,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""tree nuts"", ""soy""]",221,54,11,3,shellfish,8,1828,3
+pescatarian_lactose__allergy_tree_nuts_gluten_wheat,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""tree nuts"", ""gluten/wheat""]",276,54,15,3,shellfish,8,2362,3
+pescatarian_lactose__allergy_tree_nuts_fish,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""tree nuts"", ""fish""]",220,54,12,3,tofu_soy,8,2580,3
+pescatarian_lactose__allergy_tree_nuts_shellfish,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""tree nuts"", ""shellfish""]",241,54,12,3,tofu_soy,8,2408,3
+pescatarian_lactose__allergy_tree_nuts_chicken,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""tree nuts"", ""chicken""]",278,54,15,3,shellfish,8,2362,3
+pescatarian_lactose__allergy_soy_gluten_wheat,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""soy"", ""gluten/wheat""]",220,54,11,3,shellfish,8,1828,3
+pescatarian_lactose__allergy_soy_fish,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""soy"", ""fish""]",166,54,13,3,shellfish,8,1730,3
+pescatarian_lactose__allergy_soy_shellfish,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""soy"", ""shellfish""]",189,54,11,3,fish,8,1749,3
+pescatarian_lactose__allergy_soy_chicken,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""soy"", ""chicken""]",221,54,11,3,shellfish,8,1828,3
+pescatarian_lactose__allergy_gluten_wheat_fish,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""gluten/wheat"", ""fish""]",218,54,12,3,tofu_soy,8,2580,3
+pescatarian_lactose__allergy_gluten_wheat_shellfish,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""gluten/wheat"", ""shellfish""]",241,54,12,3,tofu_soy,8,2408,3
+pescatarian_lactose__allergy_gluten_wheat_chicken,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""gluten/wheat"", ""chicken""]",276,54,15,3,shellfish,8,2362,3
+pescatarian_lactose__allergy_fish_shellfish,True,True,False,"[""plan_generation_failed"", ""slot_count_not_filled""]",failed,Conflicting profile: Pescatarian cannot be combined with both fish and shellfish allergies.,"[""Pescatarian"", ""Lactose Intolerant""]","[""fish"", ""shellfish""]",,,0,0,,0,,
+pescatarian_lactose__allergy_fish_chicken,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""fish"", ""chicken""]",220,54,12,3,tofu_soy,8,2580,3
+pescatarian_lactose__allergy_shellfish_chicken,True,False,True,[],success,Success,"[""Pescatarian"", ""Lactose Intolerant""]","[""shellfish"", ""chicken""]",241,54,12,3,tofu_soy,8,2408,3

@@ -1,0 +1,1098 @@
+{
+  "generatedDate": "2026-08-11",
+  "gitCommitShort": "cf5dbcb",
+  "recordsPerPart": 22,
+  "mealType": "Breakfast",
+  "recordCount": 136,
+  "partCount": 7,
+  "records": [
+    {
+      "recordNumber": 1,
+      "recipeId": "ph_21",
+      "recipeName": "Adobo Fried Rice Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 2,
+      "recipeId": "ph_375",
+      "recipeName": "Adobong Itlog (Filipino Egg Adobo) Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 3,
+      "recipeId": "ph_302",
+      "recipeName": "Adobong Kambing (Goat Meat Adobo) Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 4,
+      "recipeId": "ph_523",
+      "recipeName": "Adobong Kangkong Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 5,
+      "recipeId": "ph_846",
+      "recipeName": "Adobong Kangkong Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 6,
+      "recipeId": "ph_150",
+      "recipeName": "Adobong Okra with Pork Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 7,
+      "recipeId": "ph_370",
+      "recipeName": "Adobong Puso ng Saging (Filipino Banana Blossom Adobo) Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 8,
+      "recipeId": "ph_177",
+      "recipeName": "Apan Apan (Adobong Kangkong with Fried Pork) Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 9,
+      "recipeId": "ph_80",
+      "recipeName": "Bacon and Egg Filipino Chicken Adobo Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 10,
+      "recipeId": "ph_481",
+      "recipeName": "Bagoong Alamang Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 11,
+      "recipeId": "ph_1037",
+      "recipeName": "Bagoong-Sauteed Beans with Mangoes Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 12,
+      "recipeId": "ph_653",
+      "recipeName": "Baked Adobo Chicken Wings Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 13,
+      "recipeId": "ph_form_129",
+      "recipeName": "Bangus Garbanzo Pechay Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 14,
+      "recipeId": "ph_form_028",
+      "recipeName": "Bangus Pechay Papaya Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 15,
+      "recipeId": "ph_713",
+      "recipeName": "Beef Caldereta Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 16,
+      "recipeId": "ph_955",
+      "recipeName": "Beef Mechado Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 17,
+      "recipeId": "ph_911",
+      "recipeName": "Beef Ribs Adobo sa Gata Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 18,
+      "recipeId": "ph_425",
+      "recipeName": "Binagoongang Talong (Filipino Eggplant with Shrimp Paste) Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 19,
+      "recipeId": "ph_646",
+      "recipeName": "Bistek Pancit Canton Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 20,
+      "recipeId": "ph_490",
+      "recipeName": "Bistek Tagalog Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 21,
+      "recipeId": "ph_674",
+      "recipeName": "Chicken Bistek Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 22,
+      "recipeId": "ph_form_041",
+      "recipeName": "Chicken Eggplant Kidney Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 23,
+      "recipeId": "ph_budget_071",
+      "recipeName": "Chicken Garbanzo Pechay Budget Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 24,
+      "recipeId": "ph_form_039",
+      "recipeName": "Chicken Kalabasa Chickpea Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 25,
+      "recipeId": "ph_636",
+      "recipeName": "Chicken Kare-Kare Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 26,
+      "recipeId": "ph_form_042",
+      "recipeName": "Chicken Mushroom Chickpea Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 27,
+      "recipeId": "ph_form_038",
+      "recipeName": "Chicken Okra Kidney Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 28,
+      "recipeId": "ph_form_037",
+      "recipeName": "Chicken Pechay Garbanzo Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 29,
+      "recipeId": "ph_form_025",
+      "recipeName": "Chicken Pechay Munggo Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 30,
+      "recipeId": "ph_form_040",
+      "recipeName": "Chicken Sitaw Chickpea Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 31,
+      "recipeId": "ph_form_141",
+      "recipeName": "Chickpea Okra Sitaw Vegan Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 32,
+      "recipeId": "ph_173",
+      "recipeName": "Chopsuey with Quail Eggs Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 33,
+      "recipeId": "ph_451",
+      "recipeName": "Classic Filipino Chicken Afritada (Afritadang Manok) Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 34,
+      "recipeId": "ph_203",
+      "recipeName": "Crispy Pata Sisig Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 35,
+      "recipeId": "ph_587",
+      "recipeName": "Easy Pancit Luglug Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 36,
+      "recipeId": "ph_form_075",
+      "recipeName": "Egg Garbanzo Pechay Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 37,
+      "recipeId": "ph_form_097",
+      "recipeName": "Egg Garbanzo Pechay Rice Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 38,
+      "recipeId": "ph_budget_072",
+      "recipeName": "Egg Kidney Malunggay Budget Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 39,
+      "recipeId": "ph_form_076",
+      "recipeName": "Egg Kidney Mushroom Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 40,
+      "recipeId": "ph_form_098",
+      "recipeName": "Egg Kidney Okra Rice Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 41,
+      "recipeId": "ph_form_103",
+      "recipeName": "Egg Mushroom Squash Rice Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 42,
+      "recipeId": "ph_form_031",
+      "recipeName": "Egg Pechay Banana Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 43,
+      "recipeId": "ph_form_101",
+      "recipeName": "Egg Tofu Pechay Rice Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 44,
+      "recipeId": "ph_budget_012",
+      "recipeName": "Egg Tofu Talong Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 45,
+      "recipeId": "ph_budget_026",
+      "recipeName": "Egg Tofu Talong Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 46,
+      "recipeId": "ph_budget_040",
+      "recipeName": "Egg Tofu Talong Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 47,
+      "recipeId": "ph_budget_054",
+      "recipeName": "Egg Tofu Talong Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 48,
+      "recipeId": "ph_budget_068",
+      "recipeName": "Egg Tofu Talong Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 49,
+      "recipeId": "ph_form_106",
+      "recipeName": "Eggplant Egg Kidney Rice Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 50,
+      "recipeId": "ph_budget_002",
+      "recipeName": "Eggplant Egg Rice Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 51,
+      "recipeId": "ph_budget_016",
+      "recipeName": "Eggplant Egg Rice Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 52,
+      "recipeId": "ph_budget_030",
+      "recipeName": "Eggplant Egg Rice Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 53,
+      "recipeId": "ph_budget_044",
+      "recipeName": "Eggplant Egg Rice Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 54,
+      "recipeId": "ph_budget_058",
+      "recipeName": "Eggplant Egg Rice Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 55,
+      "recipeId": "ph_form_005",
+      "recipeName": "Eggplant Munggo Banana Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 56,
+      "recipeId": "ph_437",
+      "recipeName": "Filipino Chicken Tapa (Tapang Manok) Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 57,
+      "recipeId": "ph_429",
+      "recipeName": "Filipino Fish Escabeche (Pesang Escabetse) Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 58,
+      "recipeId": "ph_663",
+      "recipeName": "Filling Shrimp Pancit Canton Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 59,
+      "recipeId": "ph_631",
+      "recipeName": "Fish Pochero Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 60,
+      "recipeId": "ph_680",
+      "recipeName": "Flavorful Chicken Afritada Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 61,
+      "recipeId": "ph_718",
+      "recipeName": "Fresh Lumpia Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 62,
+      "recipeId": "ph_1001",
+      "recipeName": "Fried Lumpiang Adobo Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 63,
+      "recipeId": "ph_form_143",
+      "recipeName": "Garbanzo Kalabasa Pechay Vegan Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 64,
+      "recipeId": "ph_form_051",
+      "recipeName": "Garbanzo Kidney Malunggay Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 65,
+      "recipeId": "ph_form_099",
+      "recipeName": "Garbanzo Kidney Malunggay Rice Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 66,
+      "recipeId": "ph_form_139",
+      "recipeName": "Garbanzo Kidney Pechay Vegan Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 67,
+      "recipeId": "ph_form_057",
+      "recipeName": "Garbanzo Malunggay Mushroom Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 68,
+      "recipeId": "ph_form_055",
+      "recipeName": "Garbanzo Mushroom Kalabasa Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 69,
+      "recipeId": "ph_form_053",
+      "recipeName": "Garbanzo Okra Squash Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 70,
+      "recipeId": "ph_form_104",
+      "recipeName": "Garbanzo Pechay Okra Rice Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 71,
+      "recipeId": "ph_972",
+      "recipeName": "Ginataang Alimasag (Crabs Cooked in Coconut Milk) Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 72,
+      "recipeId": "ph_50",
+      "recipeName": "Ginataang Gulay Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 73,
+      "recipeId": "ph_840",
+      "recipeName": "Ginataang Gulay Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 74,
+      "recipeId": "ph_984",
+      "recipeName": "Ginataang Saging at Sago Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 75,
+      "recipeId": "ph_418",
+      "recipeName": "Ginisang Togue (Filipino Bean Sprouts Stir-Fry) Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 76,
+      "recipeId": "ph_416",
+      "recipeName": "Ginisang Upo at Hipon (Filipino Bottle Gourd and Shrimp Stir-fry) Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 77,
+      "recipeId": "ph_175",
+      "recipeName": "Inihaw na Panga ng Tuna (Grilled Tuna Jaw) Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 78,
+      "recipeId": "ph_569",
+      "recipeName": "Inihaw na Pusit (Grilled Squid) Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 79,
+      "recipeId": "ph_form_003",
+      "recipeName": "Kalabasa Munggo Papaya Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 80,
+      "recipeId": "ph_form_079",
+      "recipeName": "Kidney Egg Pechay Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 81,
+      "recipeId": "ph_form_054",
+      "recipeName": "Kidney Garbanzo Sitaw Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 82,
+      "recipeId": "ph_form_140",
+      "recipeName": "Kidney Malunggay Mushroom Vegan Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 83,
+      "recipeId": "ph_form_142",
+      "recipeName": "Kidney Mushroom Eggplant Vegan Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 84,
+      "recipeId": "ph_form_052",
+      "recipeName": "Kidney Mushroom Pechay Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 85,
+      "recipeId": "ph_form_056",
+      "recipeName": "Kidney Okra Pechay Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 86,
+      "recipeId": "ph_form_102",
+      "recipeName": "Kidney Sitaw Malunggay Rice Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 87,
+      "recipeId": "ph_form_144",
+      "recipeName": "Kidney Sitaw Okra Vegan Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 88,
+      "recipeId": "ph_form_007",
+      "recipeName": "Malunggay Okra Munggo Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 89,
+      "recipeId": "ph_form_001",
+      "recipeName": "Munggo Malunggay Banana Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 90,
+      "recipeId": "ph_form_002",
+      "recipeName": "Okra Sitaw Munggo Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 91,
+      "recipeId": "ph_budget_006",
+      "recipeName": "Okra Sitaw Munggo Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 92,
+      "recipeId": "ph_budget_020",
+      "recipeName": "Okra Sitaw Munggo Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 93,
+      "recipeId": "ph_budget_034",
+      "recipeName": "Okra Sitaw Munggo Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 94,
+      "recipeId": "ph_budget_048",
+      "recipeName": "Okra Sitaw Munggo Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 95,
+      "recipeId": "ph_budget_062",
+      "recipeName": "Okra Sitaw Munggo Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 96,
+      "recipeId": "ph_99",
+      "recipeName": "Palabok Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 97,
+      "recipeId": "ph_475",
+      "recipeName": "Pancit Bihon Guisado Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 98,
+      "recipeId": "ph_588",
+      "recipeName": "Pancit Bihon Guisado Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 99,
+      "recipeId": "ph_260",
+      "recipeName": "Pata Pochero Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 100,
+      "recipeId": "ph_form_004",
+      "recipeName": "Pechay Munggo Pineapple Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 101,
+      "recipeId": "ph_291",
+      "recipeName": "Pesang Isda Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 102,
+      "recipeId": "ph_621",
+      "recipeName": "Pesang Pompano Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 103,
+      "recipeId": "ph_969",
+      "recipeName": "Pochero Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 104,
+      "recipeId": "ph_964",
+      "recipeName": "Pork Adobo Paksiw Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 105,
+      "recipeId": "ph_form_127",
+      "recipeName": "Sardines Egg Pechay Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 106,
+      "recipeId": "ph_budget_074",
+      "recipeName": "Sardines Kidney Tomato Budget Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 107,
+      "recipeId": "ph_budget_075",
+      "recipeName": "Shrimp Chickpea Pechay Budget Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 108,
+      "recipeId": "ph_form_130",
+      "recipeName": "Shrimp Egg Mushroom Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 109,
+      "recipeId": "ph_form_080",
+      "recipeName": "Shrimp Egg Pechay Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 110,
+      "recipeId": "ph_form_072",
+      "recipeName": "Shrimp Pechay Garbanzo Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 111,
+      "recipeId": "ph_402",
+      "recipeName": "Shrimp Sarciado (Sarsiyadong Hipon) Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 112,
+      "recipeId": "ph_224",
+      "recipeName": "Sinigang na Isda sa Kamias with Miso Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 113,
+      "recipeId": "ph_312",
+      "recipeName": "Sisig Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 114,
+      "recipeId": "ph_form_006",
+      "recipeName": "Sitaw Kalabasa Munggo Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 115,
+      "recipeId": "ph_983",
+      "recipeName": "Spanish Adobo Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 116,
+      "recipeId": "ph_791",
+      "recipeName": "Spicy Menudo Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 117,
+      "recipeId": "ph_budget_076",
+      "recipeName": "Squid Eggplant Kidney Budget Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 118,
+      "recipeId": "ph_67",
+      "recipeName": "Tanigue Fish Steak ala Bistek Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 119,
+      "recipeId": "ph_233",
+      "recipeName": "Tinolang Bangus Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 120,
+      "recipeId": "ph_704",
+      "recipeName": "Tinolang Manok Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 121,
+      "recipeId": "ph_budget_073",
+      "recipeName": "Tofu Chickpea Okra Budget Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 122,
+      "recipeId": "ph_form_078",
+      "recipeName": "Tofu Egg Garbanzo Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 123,
+      "recipeId": "ph_form_100",
+      "recipeName": "Tofu Garbanzo Mushroom Rice Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 124,
+      "recipeId": "ph_form_077",
+      "recipeName": "Tofu Garbanzo Tomato Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 125,
+      "recipeId": "ph_form_105",
+      "recipeName": "Tofu Kidney Sitaw Rice Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 126,
+      "recipeId": "ph_budget_009",
+      "recipeName": "Tofu Munggo Malunggay Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 127,
+      "recipeId": "ph_budget_023",
+      "recipeName": "Tofu Munggo Malunggay Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 128,
+      "recipeId": "ph_budget_037",
+      "recipeName": "Tofu Munggo Malunggay Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 129,
+      "recipeId": "ph_budget_051",
+      "recipeName": "Tofu Munggo Malunggay Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 130,
+      "recipeId": "ph_budget_065",
+      "recipeName": "Tofu Munggo Malunggay Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 131,
+      "recipeId": "ph_form_033",
+      "recipeName": "Tofu Pechay Banana Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 132,
+      "recipeId": "ph_rnd_001",
+      "recipeName": "Tortang Talong Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 133,
+      "recipeId": "ph_17",
+      "recipeName": "Tortang Talong Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_07_Records_133-136.docx"
+    },
+    {
+      "recordNumber": 134,
+      "recipeId": "ph_980",
+      "recipeName": "Tortang Talong Complete Plate",
+      "mealType": "Breakfast",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_07_Records_133-136.docx"
+    },
+    {
+      "recordNumber": 135,
+      "recipeId": "ph_form_128",
+      "recipeName": "Tuna Eggplant Okra Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_07_Records_133-136.docx"
+    },
+    {
+      "recordNumber": 136,
+      "recipeId": "ph_form_008",
+      "recipeName": "Vegetable Munggo Banana Breakfast Plate",
+      "mealType": "Breakfast",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Breakfast_Part_07_Records_133-136.docx"
+    }
+  ]
+}

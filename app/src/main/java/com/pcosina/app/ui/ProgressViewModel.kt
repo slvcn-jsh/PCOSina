@@ -90,7 +90,6 @@ private fun sanitizeMealCheckIn(entry: MealCheckIn?): MealCheckIn? {
         fullnessLevel = clampFeedbackLevel(entry.fullnessLevel),
         cravingsLevel = clampFeedbackLevel(entry.cravingsLevel),
         satisfactionLevel = clampFeedbackLevel(entry.satisfactionLevel),
-        note = safeTrimmedText(entry.note),
         timestamp = entry.timestamp.takeIf { it > 0 } ?: System.currentTimeMillis(),
     )
 }
@@ -663,8 +662,7 @@ class ProgressViewModel(
         energyLevel: Int?,
         fullnessLevel: Int?,
         cravingsLevel: Int?,
-        satisfactionLevel: Int?,
-        note: String?
+        satisfactionLevel: Int?
     ): Boolean {
         if (!isDateLoggable(date)) return false
         val key = date.format(dateFmt)
@@ -680,7 +678,6 @@ class ProgressViewModel(
             fullnessLevel = fullnessLevel,
             cravingsLevel = cravingsLevel,
             satisfactionLevel = satisfactionLevel,
-            note = note?.takeIf { it.isNotBlank() },
             timestamp = System.currentTimeMillis()
         )
         val updated = (current ?: DailyLog(date = key)).copy(
@@ -869,7 +866,7 @@ class ProgressViewModel(
 
     fun seedDemoWeeks(plan: PlannerPlanResponse) {
         val today = LocalDate.now()
-        val start = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.temporal.WeekFields.of(Locale.getDefault()).firstDayOfWeek))
+        val start = today
         val seededLogs = plan.days.mapIndexed { index, day ->
             val date = start.plusDays(index.toLong()).format(dateFmt)
             val completedMeals = day.meals.take(if (index < 3) day.meals.size else 1).map { meal ->

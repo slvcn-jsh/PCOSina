@@ -11,9 +11,23 @@ data class PlannedDayCount(
     val mealCount: Int,
 )
 
+data class PlannedMealSlot(
+    val dayLabel: String,
+    val mealLabel: String,
+    val recipeId: String,
+)
+
 enum class ProgressDayStatus {
     COMPLETE,
     PARTIAL,
+    PENDING,
+    FUTURE,
+}
+
+enum class ProgressMealSlotStatus {
+    COMPLETED,
+    SKIPPED,
+    MISSED,
     PENDING,
     FUTURE,
 }
@@ -36,6 +50,19 @@ data class WeeklyMealSummaryResult(
     val completedMeals: Int,
     val adherencePercent: Int,
     val chartPoints: List<ProgressAdherencePoint>,
+    val duePlannedMeals: Int = plannedMeals,
+    val skippedMeals: Int = 0,
+    val missedMeals: Int = 0,
+    val pendingMeals: Int = 0,
+    val weeklyCompletionPercent: Int = adherencePercent,
+    val mealSlots: List<ProgressMealSlotSummary> = emptyList(),
+)
+
+data class ProgressMealSlotSummary(
+    val dayLabel: String,
+    val mealLabel: String,
+    val recipeId: String,
+    val status: ProgressMealSlotStatus,
 )
 
 data class ProgressTrendSummary(
@@ -62,6 +89,86 @@ data class ProgressCheckInHistoryDay(
 )
 
 class ProgressSummaryUseCase {
+
+    fun buildWeeklyMealSlotSummary(
+        plannedSlots: List<PlannedMealSlot>,
+        logs: Map<String, DailyLog>,
+        weekStart: LocalDate,
+        today: LocalDate,
+    ): WeeklyMealSummaryResult {
+        val formatter = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
+        val slotsByDayToken = plannedSlots.groupBy { normalizeDayToken(it.dayLabel) }
+        val slotSummaries = mutableListOf<ProgressMealSlotSummary>()
+        val chartPoints = (0..6).map { offset ->
+            val date = weekStart.plusDays(offset.toLong())
+            val dayToken = normalizeDayToken(date.format(formatter))
+            val daySlots = slotsByDayToken[dayToken].orEmpty()
+            val log = logs[date.format(DateTimeFormatter.ISO_LOCAL_DATE)]
+            val daySummaries = daySlots.map { slot ->
+                ProgressMealSlotSummary(
+                    dayLabel = date.format(formatter).uppercase(Locale.ENGLISH).take(3),
+                    mealLabel = slot.mealLabel,
+                    recipeId = slot.recipeId,
+                    status = mealSlotStatus(slot, daySlots, log, date, today),
+                )
+            }
+            slotSummaries += daySummaries
+            val completed = daySummaries.count { it.status == ProgressMealSlotStatus.COMPLETED }
+            val handled = daySummaries.count {
+                it.status == ProgressMealSlotStatus.COMPLETED || it.status == ProgressMealSlotStatus.SKIPPED
+            }
+            val ratio = when {
+                date.isAfter(today) || daySlots.isEmpty() -> 0f
+                else -> (completed.toFloat() / daySlots.size.toFloat()).coerceIn(0f, 1f)
+            }
+            ProgressAdherencePoint(
+                label = date.format(formatter).uppercase(Locale.ENGLISH).take(3),
+                ratio = ratio,
+                valueText = when {
+                    date.isAfter(today) || daySlots.isEmpty() -> "--"
+                    completed == daySlots.size -> "100%"
+                    handled > 0 -> "${(ratio * 100f).toInt()}%"
+                    else -> "0%"
+                },
+                status = when {
+                    date.isAfter(today) -> ProgressDayStatus.FUTURE
+                    daySlots.isEmpty() -> ProgressDayStatus.PENDING
+                    completed == daySlots.size -> ProgressDayStatus.COMPLETE
+                    handled > 0 -> ProgressDayStatus.PARTIAL
+                    else -> ProgressDayStatus.PENDING
+                }
+            )
+        }
+        val plannedMeals = slotSummaries.size
+        val dueSlots = slotSummaries.filter { it.status != ProgressMealSlotStatus.FUTURE }
+        val completedMeals = slotSummaries.count { it.status == ProgressMealSlotStatus.COMPLETED }
+        val duePlannedMeals = dueSlots.size
+        val skippedMeals = dueSlots.count { it.status == ProgressMealSlotStatus.SKIPPED }
+        val missedMeals = dueSlots.count { it.status == ProgressMealSlotStatus.MISSED }
+        val pendingMeals = dueSlots.count { it.status == ProgressMealSlotStatus.PENDING }
+        val adherencePercent = if (duePlannedMeals > 0) {
+            ((completedMeals.toFloat() / duePlannedMeals.toFloat()) * 100f).toInt()
+        } else {
+            0
+        }
+        val weeklyCompletionPercent = if (plannedMeals > 0) {
+            ((completedMeals.toFloat() / plannedMeals.toFloat()) * 100f).toInt()
+        } else {
+            0
+        }
+        return WeeklyMealSummaryResult(
+            plannedMeals = plannedMeals,
+            completedMeals = completedMeals,
+            adherencePercent = adherencePercent,
+            chartPoints = chartPoints,
+            duePlannedMeals = duePlannedMeals,
+            skippedMeals = skippedMeals,
+            missedMeals = missedMeals,
+            pendingMeals = pendingMeals,
+            weeklyCompletionPercent = weeklyCompletionPercent,
+            mealSlots = slotSummaries,
+        )
+    }
 
     fun buildWeekNodes(
         plannedDays: List<PlannedDayCount>,
@@ -90,6 +197,51 @@ class ProgressSummaryUseCase {
             }
         }
     }
+
+    private fun mealSlotStatus(
+        slot: PlannedMealSlot,
+        daySlots: List<PlannedMealSlot>,
+        log: DailyLog?,
+        date: LocalDate,
+        today: LocalDate,
+    ): ProgressMealSlotStatus {
+        if (date.isAfter(today)) return ProgressMealSlotStatus.FUTURE
+        val completed = log?.completedMealIds.orEmpty()
+            .any { storedKey -> storedKeyMatchesSlot(storedKey, slot, daySlots) }
+        if (completed) return ProgressMealSlotStatus.COMPLETED
+        val skipped = log?.skippedMealIds.orEmpty()
+            .any { storedKey -> storedKeyMatchesSlot(storedKey, slot, daySlots) }
+        if (skipped) return ProgressMealSlotStatus.SKIPPED
+        return if (date.isBefore(today)) ProgressMealSlotStatus.MISSED else ProgressMealSlotStatus.PENDING
+    }
+
+    private fun storedKeyMatchesSlot(
+        storedKey: String,
+        slot: PlannedMealSlot,
+        daySlots: List<PlannedMealSlot>,
+    ): Boolean {
+        val normalizedStored = storedKey.trim()
+        if (normalizedStored.isBlank()) return false
+        val storedRecipeId = extractRecipeId(normalizedStored)
+        if (storedRecipeId != slot.recipeId) return false
+        val storedMealLabel = extractMealLabel(normalizedStored)
+        if (storedMealLabel == null) {
+            return daySlots.count { it.recipeId == slot.recipeId } == 1
+        }
+        return normalizeMealLabel(storedMealLabel) == normalizeMealLabel(slot.mealLabel)
+    }
+
+    private fun normalizeDayToken(label: String): String =
+        label.trim().take(3).lowercase(Locale.ENGLISH)
+
+    private fun normalizeMealLabel(label: String): String =
+        label.trim().lowercase(Locale.ENGLISH)
+
+    private fun extractMealLabel(mealKey: String): String? =
+        if (mealKey.contains("::")) mealKey.substringBefore("::").takeIf { it.isNotBlank() } else null
+
+    private fun extractRecipeId(mealKey: String): String =
+        if (mealKey.contains("::")) mealKey.substringAfter("::") else mealKey
 
     fun buildWeeklyMealSummary(
         plannedDays: List<PlannedDayCount>,

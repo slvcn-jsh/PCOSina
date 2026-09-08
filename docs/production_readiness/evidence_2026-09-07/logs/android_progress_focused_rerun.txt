@@ -1,0 +1,53 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.11.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugBuildConfig UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
+> Task :app:processDebugGoogleServices UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:compileDebugKotlin
+w: file:///C:/Users/salva/StudioProjects/PCOSina/app/src/main/java/com/pcosina/app/data/repository/AuthRepository.kt:12:8 'class GoogleSignIn : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/salva/StudioProjects/PCOSina/app/src/main/java/com/pcosina/app/data/repository/AuthRepository.kt:13:8 'class GoogleSignInOptions : AbstractSafeParcelable, Api.ApiOptions.Optional, ReflectedParcelable' is deprecated. Deprecated in Java.
+w: file:///C:/Users/salva/StudioProjects/PCOSina/app/src/main/java/com/pcosina/app/data/repository/AuthRepository.kt:271:35 'class GoogleSignInOptions : AbstractSafeParcelable, Api.ApiOptions.Optional, ReflectedParcelable' is deprecated. Deprecated in Java.
+w: file:///C:/Users/salva/StudioProjects/PCOSina/app/src/main/java/com/pcosina/app/data/repository/AuthRepository.kt:271:63 'class GoogleSignInOptions : AbstractSafeParcelable, Api.ApiOptions.Optional, ReflectedParcelable' is deprecated. Deprecated in Java.
+w: file:///C:/Users/salva/StudioProjects/PCOSina/app/src/main/java/com/pcosina/app/data/repository/AuthRepository.kt:275:9 'class GoogleSignIn : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/salva/StudioProjects/PCOSina/app/src/main/java/com/pcosina/app/ui/screens/LoginScreen.kt:76:8 'class GoogleSignIn : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/salva/StudioProjects/PCOSina/app/src/main/java/com/pcosina/app/ui/screens/LoginScreen.kt:77:8 'class GoogleSignInOptions : AbstractSafeParcelable, Api.ApiOptions.Optional, ReflectedParcelable' is deprecated. Deprecated in Java.
+w: file:///C:/Users/salva/StudioProjects/PCOSina/app/src/main/java/com/pcosina/app/ui/screens/LoginScreen.kt:78:8 'class GoogleSignInStatusCodes : CommonStatusCodes' is deprecated. Deprecated in Java.
+w: file:///C:/Users/salva/StudioProjects/PCOSina/app/src/main/java/com/pcosina/app/ui/screens/LoginScreen.kt:143:19 'class GoogleSignInOptions : AbstractSafeParcelable, Api.ApiOptions.Optional, ReflectedParcelable' is deprecated. Deprecated in Java.
+w: file:///C:/Users/salva/StudioProjects/PCOSina/app/src/main/java/com/pcosina/app/ui/screens/LoginScreen.kt:143:47 'class GoogleSignInOptions : AbstractSafeParcelable, Api.ApiOptions.Optional, ReflectedParcelable' is deprecated. Deprecated in Java.
+w: file:///C:/Users/salva/StudioProjects/PCOSina/app/src/main/java/com/pcosina/app/ui/screens/LoginScreen.kt:147:9 'class GoogleSignIn : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/salva/StudioProjects/PCOSina/app/src/main/java/com/pcosina/app/ui/screens/LoginScreen.kt:154:24 'class GoogleSignIn : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/salva/StudioProjects/PCOSina/app/src/main/java/com/pcosina/app/ui/screens/LoginScreen.kt:166:17 'class GoogleSignInStatusCodes : CommonStatusCodes' is deprecated. Deprecated in Java.
+w: file:///C:/Users/salva/StudioProjects/PCOSina/app/src/main/java/com/pcosina/app/ui/screens/LoginScreen.kt:167:17 'class GoogleSignInStatusCodes : CommonStatusCodes' is deprecated. Deprecated in Java.
+w: file:///C:/Users/salva/StudioProjects/PCOSina/app/src/main/java/com/pcosina/app/ui/screens/LoginScreen.kt:168:17 'class GoogleSignInStatusCodes : CommonStatusCodes' is deprecated. Deprecated in Java.
+w: file:///C:/Users/salva/StudioProjects/PCOSina/app/src/main/java/com/pcosina/app/ui/screens/LoginScreen.kt:170:17 'class GoogleSignInStatusCodes : CommonStatusCodes' is deprecated. Deprecated in Java.
+
+> Task :app:compileDebugJavaWithJavac UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:compileDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :app:testDebugUnitTest
+
+BUILD SUCCESSFUL in 1m 53s
+26 actionable tasks: 5 executed, 21 up-to-date

@@ -29,8 +29,7 @@ class MealCheckInSupportTest {
                         energyLevel = 4,
                         fullnessLevel = 5,
                         cravingsLevel = 2,
-                        satisfactionLevel = 4,
-                        note = "Felt steady after this one."
+                        satisfactionLevel = 4
                     )
                 )
             )

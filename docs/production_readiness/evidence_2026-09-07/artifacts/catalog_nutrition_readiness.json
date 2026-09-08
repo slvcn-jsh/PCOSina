@@ -1,0 +1,83 @@
+{
+  "activeNutritionProfileUniqueCount": 907,
+  "activeRecipeCount": 977,
+  "completeNutritionProfileCount": 977,
+  "confidenceCounts": {
+    "high": 752,
+    "medium": 225
+  },
+  "dominantActiveNutritionProfile": {
+    "calories": 524,
+    "carbsGrams": 81,
+    "count": 5,
+    "fatsGrams": 13,
+    "fiberGrams": 10,
+    "fraction": 0.0051,
+    "proteinGrams": 20
+  },
+  "dominantTrustedNutritionProfile": {
+    "calories": 524,
+    "carbsGrams": 81,
+    "count": 5,
+    "fatsGrams": 13,
+    "fiberGrams": 10,
+    "fraction": 0.0066,
+    "proteinGrams": 20
+  },
+  "errors": [],
+  "imputedNutritionCount": 0,
+  "imputedNutritionFraction": 0.0,
+  "ok": true,
+  "placeholderNutritionProfileCounts": {
+    "350/20/40/12/5": 0,
+    "357/10/49/8/7": 0
+  },
+  "rawSeedCompleteNutritionCount": 451,
+  "rawSeedMissingNutritionCount": 0,
+  "reviewStatusCounts": {
+    "rnd_representative_meal_reviewed": 3,
+    "source_mapped_needs_final_review": 974
+  },
+  "seedSourceCount": 451,
+  "sourceCounts": {
+    "philfct_budget_support_ingredient_sum": 88,
+    "philfct_formulated_complete_plate_ingredient_sum": 156,
+    "philfct_ingredient_sum_auto": 730,
+    "philfct_rnd_evaluated_ingredient_sum": 3
+  },
+  "sourcePath": "C:\\Users\\salva\\StudioProjects\\PCOSina\\backend\\recipes.json",
+  "strongMealAvailableBySlot": {
+    "Breakfast": 138,
+    "Dinner": 138,
+    "Lunch": 133
+  },
+  "strongMealCountsByMealType": {
+    "Breakfast": 138,
+    "Dinner": 138,
+    "Lunch": 133,
+    "Universal": 0
+  },
+  "strongMealThresholds": {
+    "caloriesMin": 400,
+    "fatsGramsMin": 10,
+    "fiberGramsMin": 6,
+    "maxIdenticalActiveNutritionProfileFraction": 0.2,
+    "maxIdenticalTrustedNutritionProfileFraction": 0.2,
+    "minIdenticalActiveNutritionProfileCount": 20,
+    "minIdenticalTrustedNutritionProfileCount": 20,
+    "minStrongPerSlot": 7,
+    "minTrustedStrongPerSlot": 7,
+    "proteinGramsMin": 18
+  },
+  "trustedNutritionCount": 752,
+  "trustedNutritionProfileUniqueCount": 689,
+  "trustedStrongMealAvailableBySlot": {
+    "Breakfast": 114,
+    "Dinner": 117,
+    "Lunch": 121
+  },
+  "warnings": [
+    "Recipe catalog has 907/977 unique active nutrition profiles",
+    "225/977 active recipes still need reviewed nutrition provenance"
+  ]
+}

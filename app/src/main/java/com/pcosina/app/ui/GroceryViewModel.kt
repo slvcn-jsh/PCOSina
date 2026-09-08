@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepository) : ViewModel() {
     constructor(userPreferencesRepository: UserPreferencesRepository) : this(
@@ -37,9 +39,16 @@ class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepositor
     private val _activePlanId = MutableStateFlow<String?>(null)
     val activePlanId: StateFlow<String?> = _activePlanId.asStateFlow()
 
+    private val _checkedItemNames = MutableStateFlow<Set<String>>(emptySet())
+    val checkedItemNames: StateFlow<Set<String>> = _checkedItemNames.asStateFlow()
+
+    private val _pantryOptOutNames = MutableStateFlow<Set<String>>(emptySet())
+    val pantryOptOutNames: StateFlow<Set<String>> = _pantryOptOutNames.asStateFlow()
+
     private var currentUserId: String = ""
     private val gson = Gson()
     private val groceryRebuildUseCase = GroceryRebuildUseCase()
+    private val persistenceMutex = Mutex()
     private var snapshots: MutableList<GrocerySnapshot> = mutableListOf()
 
     private fun normalizedItemKey(name: String): String = canonicalGroceryKey(name)
@@ -54,6 +63,7 @@ class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepositor
                 val sourcesJson = groceryLocalRepository.getGrocerySourcesJson(userId).first()
                 val ts = groceryLocalRepository.getSavedPlanTimestamp(userId).first()
                 val savedActive = groceryLocalRepository.getActivePlanId(userId).first()
+                if (currentUserId != userId) return@launch
                 _lastPlanTimestamp.value = if (ts > 0) ts else null
                 snapshots = if (!snapshotsJson.isNullOrBlank()) {
                     val type = object : TypeToken<List<GrocerySnapshot>>() {}.type
@@ -79,40 +89,62 @@ class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepositor
                 _activePlanId.value = resolvedActiveId
                 _groceryItems.value = activeSnapshot?.items ?: emptyList()
                 _mealSources.value = activeSnapshot?.sources ?: emptyMap()
+                _checkedItemNames.value = activeSnapshot?.checkedItemNames.orEmpty()
+                _pantryOptOutNames.value = activeSnapshot?.pantryOptOutNames.orEmpty()
+                pruneChecklistToCurrentItems()
                 if (savedActive != resolvedActiveId) {
                     groceryLocalRepository.saveActivePlanId(userId, resolvedActiveId)
                 }
             } catch (e: Exception) {
+                if (currentUserId != userId) return@launch
                 _groceryItems.value = emptyList()
                 _mealSources.value = emptyMap()
                 _activePlanId.value = null
+                _checkedItemNames.value = emptySet()
+                _pantryOptOutNames.value = emptySet()
                 snapshots = mutableListOf()
             }
         }
     }
 
     private fun persist() {
-        if (currentUserId.isBlank()) return
-        viewModelScope.launch {
-            val active = _activePlanId.value
-            if (active != null) {
-                upsertSnapshot(active)
-                groceryLocalRepository.saveGrocerySnapshotsJson(currentUserId, gson.toJson(snapshots))
-            } else {
-                groceryLocalRepository.saveGroceryJson(currentUserId, gson.toJson(_groceryItems.value))
+        val userId = currentUserId.takeIf { it.isNotBlank() } ?: return
+        val active = _activePlanId.value
+        if (active != null) {
+            upsertSnapshot(active)
+            val payload = gson.toJson(snapshots)
+            viewModelScope.launch {
+                persistenceMutex.withLock {
+                    groceryLocalRepository.saveGrocerySnapshotsJson(userId, payload)
+                }
+            }
+        } else {
+            val payload = gson.toJson(_groceryItems.value)
+            viewModelScope.launch {
+                persistenceMutex.withLock {
+                    groceryLocalRepository.saveGroceryJson(userId, payload)
+                }
             }
         }
     }
 
     private fun persistSources() {
-        if (currentUserId.isBlank()) return
-        viewModelScope.launch {
-            val active = _activePlanId.value
-            if (active != null) {
-                upsertSnapshot(active)
-                groceryLocalRepository.saveGrocerySnapshotsJson(currentUserId, gson.toJson(snapshots))
-            } else {
-                groceryLocalRepository.saveGrocerySourcesJson(currentUserId, gson.toJson(_mealSources.value))
+        val userId = currentUserId.takeIf { it.isNotBlank() } ?: return
+        val active = _activePlanId.value
+        if (active != null) {
+            upsertSnapshot(active)
+            val payload = gson.toJson(snapshots)
+            viewModelScope.launch {
+                persistenceMutex.withLock {
+                    groceryLocalRepository.saveGrocerySnapshotsJson(userId, payload)
+                }
+            }
+        } else {
+            val payload = gson.toJson(_mealSources.value)
+            viewModelScope.launch {
+                persistenceMutex.withLock {
+                    groceryLocalRepository.saveGrocerySourcesJson(userId, payload)
+                }
             }
         }
     }
@@ -153,24 +185,48 @@ class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepositor
     }
 
     fun setActivePlan(planId: String?) {
+        val previousPlanId = _activePlanId.value
+        val previousSnapshotPayload = if (previousPlanId != null && previousPlanId != planId) {
+            upsertSnapshot(previousPlanId)
+            gson.toJson(snapshots)
+        } else {
+            null
+        }
         _activePlanId.value = planId
-        if (currentUserId.isNotBlank()) {
+        val userId = currentUserId
+        if (userId.isNotBlank()) {
             viewModelScope.launch {
-                groceryLocalRepository.saveActivePlanId(currentUserId, planId)
+                persistenceMutex.withLock {
+                    if (previousSnapshotPayload != null) {
+                        groceryLocalRepository.saveGrocerySnapshotsJson(userId, previousSnapshotPayload)
+                    }
+                    groceryLocalRepository.saveActivePlanId(userId, planId)
+                }
             }
         }
         if (planId == null) {
             _groceryItems.value = emptyList()
             _mealSources.value = emptyMap()
+            _checkedItemNames.value = emptySet()
+            _pantryOptOutNames.value = emptySet()
             return
         }
         val snapshot = snapshots.firstOrNull { it.planId == planId }
         _groceryItems.value = snapshot?.items ?: emptyList()
         _mealSources.value = snapshot?.sources ?: emptyMap()
+        _checkedItemNames.value = snapshot?.checkedItemNames.orEmpty()
+        _pantryOptOutNames.value = snapshot?.pantryOptOutNames.orEmpty()
+        pruneChecklistToCurrentItems()
     }
 
     private fun upsertSnapshot(planId: String) {
-        val snapshot = GrocerySnapshot(planId, _groceryItems.value, _mealSources.value)
+        val snapshot = GrocerySnapshot(
+            planId = planId,
+            items = _groceryItems.value,
+            sources = _mealSources.value,
+            checkedItemNames = _checkedItemNames.value,
+            pantryOptOutNames = _pantryOptOutNames.value,
+        )
         val idx = snapshots.indexOfFirst { it.planId == planId }
         if (idx >= 0) snapshots[idx] = snapshot else snapshots.add(snapshot)
     }
@@ -181,6 +237,7 @@ class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepositor
 
     private fun rebuildFromSources() {
         _groceryItems.value = groceryRebuildUseCase(_mealSources.value)
+        pruneChecklistToCurrentItems()
     }
 
     fun removeItem(itemName: String) {
@@ -188,6 +245,35 @@ class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepositor
         _groceryItems.update { current ->
             current.filter { normalizedItemKey(it.name) != normalizedKey }
         }
+        pruneChecklistToCurrentItems()
+        persist()
+    }
+
+    private fun pruneChecklistToCurrentItems() {
+        val validKeys = _groceryItems.value
+            .map { item -> normalizedItemKey(item.name) }
+            .filter { it.isNotBlank() }
+            .toSet()
+        _checkedItemNames.value = _checkedItemNames.value
+            .filter { normalizedItemKey(it) in validKeys }
+            .toSet()
+        _pantryOptOutNames.value = _pantryOptOutNames.value
+            .filter { normalizedItemKey(it) in validKeys }
+            .toSet()
+    }
+
+    fun updateChecklistState(
+        checkedItemNames: Set<String>,
+        pantryOptOutNames: Set<String>,
+    ) {
+        _checkedItemNames.value = checkedItemNames
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .toSet()
+        _pantryOptOutNames.value = pantryOptOutNames
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .toSet()
         persist()
     }
 
@@ -200,6 +286,8 @@ class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepositor
         _lastPlanTimestamp.value = null
         _mealSources.value = emptyMap()
         _activePlanId.value = null
+        _checkedItemNames.value = emptySet()
+        _pantryOptOutNames.value = emptySet()
         snapshots = mutableListOf()
     }
 
@@ -210,6 +298,8 @@ class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepositor
             _groceryItems.value = emptyList()
             _mealSources.value = emptyMap()
             _activePlanId.value = null
+            _checkedItemNames.value = emptySet()
+            _pantryOptOutNames.value = emptySet()
             snapshots = mutableListOf()
         }
     }

@@ -29,16 +29,16 @@ class ProgressFeedbackPolicyTest {
             source.contains("var feedbackMessage by remember { mutableStateOf<String?>(null) }")
         )
         assertTrue(
-            "Progress screen should confirm saved daily check-ins.",
-            source.contains("Reflection saved for today.")
+            "Progress screen should frame review as next-plan tuning.",
+            source.contains("Tune next plan")
         )
         assertTrue(
-            "Progress screen should validate weekly spend with inline feedback.",
-            source.contains("Weekly spend must be a whole number in pesos.")
+            "Progress screen should remove free-text and spend collection from the weekly review.",
+            !source.contains("Total spent (₱)") && !source.contains("label = { Text(\"Notes\") }")
         )
         assertTrue(
-            "Progress screen should confirm weekly review updates.",
-            source.contains("Weekly review updated.")
+            "Progress screen should confirm plan tuning updates inline.",
+            source.contains("Next-plan preferences updated.")
         )
     }
 

@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -56,7 +55,6 @@ data class MealCheckInDraft(
     val fullnessLevel: Int?,
     val cravingsLevel: Int?,
     val satisfactionLevel: Int?,
-    val note: String?
 )
 
 @Composable
@@ -72,28 +70,25 @@ fun MealCheckInDialog(
     var fullnessLevel by rememberSaveable(mealTitle, mealLabel) { mutableStateOf<Int?>(null) }
     var cravingsLevel by rememberSaveable(mealTitle, mealLabel) { mutableStateOf<Int?>(null) }
     var satisfactionLevel by rememberSaveable(mealTitle, mealLabel) { mutableStateOf<Int?>(null) }
-    var note by rememberSaveable(mealTitle, mealLabel) { mutableStateOf("") }
 
     LaunchedEffect(initial?.timestamp, mealTitle, mealLabel) {
         energyLevel = initial?.energyLevel
         fullnessLevel = initial?.fullnessLevel
         cravingsLevel = initial?.cravingsLevel
         satisfactionLevel = initial?.satisfactionLevel
-        note = initial?.note.orEmpty()
     }
 
     val hasAnyResponse = energyLevel != null ||
         fullnessLevel != null ||
         cravingsLevel != null ||
-        satisfactionLevel != null ||
-        note.isNotBlank()
+        satisfactionLevel != null
     val answeredCount = listOf(
         energyLevel,
         fullnessLevel,
         cravingsLevel,
         satisfactionLevel
     ).count { it != null }
-    val progressSummary = if (answeredCount == 0 && note.isBlank()) {
+    val progressSummary = if (answeredCount == 0) {
         "No answers yet"
     } else {
         "$answeredCount of 4 check-in prompts answered"
@@ -188,11 +183,6 @@ fun MealCheckInDialog(
                             )
                         }
                     }
-                    Text(
-                        text = "Pick the numbers that best match how this meal felt. You can save a partial check-in.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = PcosinaMuted
-                    )
                     MealCheckInScaleRow(
                         title = "Energy after eating",
                         selected = energyLevel,
@@ -221,17 +211,6 @@ fun MealCheckInDialog(
                         highAnchor = "Satisfied",
                         onSelected = { satisfactionLevel = it }
                     )
-                    OutlinedTextField(
-                        value = note,
-                        onValueChange = { note = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Optional note") },
-                        placeholder = { Text("Anything you want to remember about this meal?") },
-                        minLines = 2,
-                        supportingText = {
-                            Text("Use this for symptoms, cravings, or anything unusual about the meal.")
-                        }
-                    )
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -255,8 +234,7 @@ fun MealCheckInDialog(
                                     energyLevel = energyLevel,
                                     fullnessLevel = fullnessLevel,
                                     cravingsLevel = cravingsLevel,
-                                    satisfactionLevel = satisfactionLevel,
-                                    note = note.takeIf { it.isNotBlank() }
+                                    satisfactionLevel = satisfactionLevel
                                 )
                             )
                         },

@@ -40,7 +40,6 @@ fun DashboardScreen(
     onViewPlan: () -> Unit = {},
     onOpenMoreTools: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
-    onOpenNotifications: () -> Unit = onOpenMoreTools,
     onNavigateToRoute: (String) -> Unit = {},
     onlineStateOverride: Boolean? = null,
     modifier: Modifier = Modifier
@@ -54,7 +53,6 @@ fun DashboardScreen(
     onViewPlan = onViewPlan,
     onOpenMoreTools = onOpenMoreTools,
     onNavigateToSettings = onNavigateToSettings,
-    onOpenNotifications = onOpenNotifications,
     onNavigateToRoute = onNavigateToRoute,
     onlineStateOverride = onlineStateOverride,
     modifier = modifier

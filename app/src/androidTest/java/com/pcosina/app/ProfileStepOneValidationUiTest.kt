@@ -32,8 +32,6 @@ class ProfileStepOneValidationUiTest {
             MaterialTheme {
                 var age by remember { mutableStateOf("") }
                 var weight by remember { mutableStateOf("") }
-                var targetWeight by remember { mutableStateOf("") }
-                var targetDate by remember { mutableStateOf("") }
                 var heightCm by remember { mutableStateOf("") }
 
                 StepOneIdentity(
@@ -45,10 +43,6 @@ class ProfileStepOneValidationUiTest {
                     onWeight = { weight = it },
                     weightUnit = UnitConverter.WEIGHT_KG,
                     onWeightUnit = {},
-                    targetWeight = targetWeight,
-                    onTargetWeight = { targetWeight = it },
-                    targetDate = targetDate,
-                    onTargetDate = { targetDate = it },
                     heightUnit = UnitConverter.HEIGHT_CM,
                     onHeightUnit = {},
                     heightCm = heightCm,
@@ -68,8 +62,9 @@ class ProfileStepOneValidationUiTest {
         composeRule.onNodeWithTag("profile_step1_age_input").performTextInput("abc")
         composeRule.onNodeWithTag("profile_step1_weight_input").performTextInput("abc")
         composeRule.onNodeWithTag("profile_step1_height_cm_input").performTextInput("abc")
-        composeRule.onAllNodesWithText("Enter a whole number.").assertCountEquals(2)
-        composeRule.onNodeWithText("Enter height in centimeters.").assertIsDisplayed()
+        composeRule.onNodeWithText("Age must be 18-60.").assertIsDisplayed()
+        composeRule.onNodeWithText("Weight must be 35-180 kg equivalent.").assertIsDisplayed()
+        composeRule.onNodeWithText("Height must be 120-200 cm equivalent.").assertIsDisplayed()
 
         composeRule.onNodeWithTag("profile_step1_age_input").performTextClearance()
         composeRule.onNodeWithTag("profile_step1_age_input").performTextInput("12")
@@ -78,8 +73,8 @@ class ProfileStepOneValidationUiTest {
         composeRule.onNodeWithTag("profile_step1_height_cm_input").performTextClearance()
         composeRule.onNodeWithTag("profile_step1_height_cm_input").performTextInput("100")
 
-        composeRule.onNodeWithText("Age must be 18–60.").assertIsDisplayed()
-        composeRule.onNodeWithText("35–180 kg equivalent only.").assertIsDisplayed()
-        composeRule.onNodeWithText("Height must be 120–200 cm.").assertIsDisplayed()
+        composeRule.onNodeWithText("Age must be 18-60.").assertIsDisplayed()
+        composeRule.onNodeWithText("Weight must be 35-180 kg equivalent.").assertIsDisplayed()
+        composeRule.onNodeWithText("Height must be 120-200 cm equivalent.").assertIsDisplayed()
     }
 }

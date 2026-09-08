@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -95,8 +96,8 @@ class GroceryFeedbackSemanticsUiTest {
             composeRule.onAllNodesWithTag("grocery_content_list").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithTag("grocery_content_list")
-            .performScrollToNode(hasText("Total Estimated Spending"))
-        composeRule.onNodeWithText("Total Estimated Spending").assertIsDisplayed()
+            .performScrollToNode(hasTestTag("grocery_budget_card"))
+        composeRule.onNodeWithTag("grocery_budget_card").assertIsDisplayed()
         composeRule.onAllNodesWithTag("grocery_next_steps_card").assertCountEquals(0)
     }
 
@@ -171,7 +172,7 @@ class GroceryFeedbackSemanticsUiTest {
         composeRule.onNodeWithText("Spinach").assertIsDisplayed()
 
         openFilters()
-        clickFilterDialogAction("Bought/Pantry")
+        clickFilterDialogAction("Bought or in pantry")
         dismissFilters()
         composeRule.onNodeWithTag("grocery_content_list")
             .performScrollToNode(hasText("No ingredients match your current filters."))
@@ -206,7 +207,7 @@ class GroceryFeedbackSemanticsUiTest {
     }
 
     private fun dismissFilters() {
-        clickFilterDialogAction("Done")
+        composeRule.onNodeWithTag("grocery_filter_done").performClick()
         composeRule.waitUntil(timeoutMillis = 10_000) {
             runCatching {
                 composeRule.onAllNodesWithText("Select Filters").fetchSemanticsNodes().isEmpty()

@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,13 +17,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -43,16 +43,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.pcosina.app.R
 import com.pcosina.app.ui.UserViewModel
-import com.pcosina.app.ui.theme.PcosinaDeepRose
-import com.pcosina.app.ui.theme.PcosinaRoseShadow
 import com.pcosina.app.ui.util.GoalOption
 import com.pcosina.app.ui.util.goalTextFromOptions
 import com.pcosina.app.ui.util.parseGoalOptions
@@ -72,36 +72,27 @@ fun GoalSelectionScreen(
     modifier: Modifier = Modifier,
 ) {
     val profile by userViewModel.userProfile.collectAsState()
-    var weightLoss by rememberSaveable(profile.goal) {
-        mutableStateOf(parseGoalOptions(profile.goal).contains(GoalOption.WeightLoss))
+    var selectedGoalName by rememberSaveable(profile.goal) {
+        mutableStateOf(parseGoalOptions(profile.goal).firstOrNull()?.name)
     }
-    var symptomMgmt by rememberSaveable(profile.goal) {
-        mutableStateOf(parseGoalOptions(profile.goal).contains(GoalOption.SymptomManagement))
-    }
-    var generalHealth by rememberSaveable(profile.goal) {
-        mutableStateOf(parseGoalOptions(profile.goal).contains(GoalOption.GeneralHealth))
-    }
+    val selectedGoal = GoalOption.entries.firstOrNull { it.name == selectedGoalName }
 
-    val hasSelection = weightLoss || symptomMgmt || generalHealth
-    val primaryActionLabel = "Save goals and build your week"
-
-    Box(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .background(GoalCoral),
     ) {
         GoalHeader(
             title = "CHOOSE YOUR GOALS",
-            subtitle = "Pick the focus areas that should shape your first journey",
+            subtitle = "Select your main goal to personalize your meal plan.",
             onBack = onBack,
         )
 
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .fillMaxHeight(0.76f),
-            shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
+                .weight(1f),
+            shape = RoundedCornerShape(0.dp),
             color = Color.White,
             tonalElevation = 0.dp,
             shadowElevation = 0.dp,
@@ -109,28 +100,28 @@ fun GoalSelectionScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 18.dp, vertical = 22.dp)
+                    .padding(horizontal = 28.dp, vertical = 14.dp)
                     .navigationBarsPadding(),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Column(
                     modifier = Modifier
                         .weight(1f, fill = true)
                         .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Text(
-                        text = "Your first week will balance the goals you selected while still respecting your saved hard food rules and preferences.",
-                        style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-                        color = PcosinaDeepRose,
+                        text = "Choose one. You can change this later.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
                     )
 
                     GoalCard(
                         title = "Weight Loss",
                         description = "Prioritizes calorie balance, satisfying meals, and realistic weekly adherence.",
                         supportLabel = "Supports filling meals and realistic progress without overriding your hard rules.",
-                        selected = weightLoss,
-                        onToggle = { weightLoss = !weightLoss },
+                        selected = selectedGoal == GoalOption.WeightLoss,
+                        onToggle = { selectedGoalName = GoalOption.WeightLoss.name },
                         testTag = "goal_option_weight_loss",
                     )
 
@@ -138,8 +129,8 @@ fun GoalSelectionScreen(
                         title = "PCOS Symptom Management",
                         description = "Prioritizes symptom-aware nudges, steadier meals, and metabolic support.",
                         supportLabel = "Adds low-GI, steady-energy emphasis while keeping planning deterministic.",
-                        selected = symptomMgmt,
-                        onToggle = { symptomMgmt = !symptomMgmt },
+                        selected = selectedGoal == GoalOption.SymptomManagement,
+                        onToggle = { selectedGoalName = GoalOption.SymptomManagement.name },
                         testTag = "goal_option_symptom_management",
                     )
 
@@ -147,49 +138,32 @@ fun GoalSelectionScreen(
                         title = "General Health Improvement",
                         description = "Balances overall nutrition quality, consistency, and everyday wellness.",
                         supportLabel = "Keeps the week broad, balanced, and easier to sustain.",
-                        selected = generalHealth,
-                        onToggle = { generalHealth = !generalHealth },
+                        selected = selectedGoal == GoalOption.GeneralHealth,
+                        onToggle = { selectedGoalName = GoalOption.GeneralHealth.name },
                         testTag = "goal_option_general_health",
                     )
 
-                    if (!hasSelection) {
+                    if (selectedGoal == null) {
                         Text(
-                            text = "Please select at least one goal before building your first week.",
+                            text = "Please select one goal before continuing.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                         )
                     }
-
-                    Text(
-                        text = "You can change these focus areas later in Settings if your priorities shift.",
-                        modifier = Modifier.fillMaxWidth(),
-                        style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-                        color = PcosinaDeepRose.copy(alpha = 0.78f),
-                    )
                 }
 
                 Button(
                     onClick = {
-                        if (hasSelection) {
-                            val goals = linkedSetOf<GoalOption>()
-                            if (weightLoss) goals.add(GoalOption.WeightLoss)
-                            if (symptomMgmt) goals.add(GoalOption.SymptomManagement)
-                            if (generalHealth) goals.add(GoalOption.GeneralHealth)
-                            userViewModel.updateGoal(goalTextFromOptions(goals))
+                        selectedGoal?.let { goal ->
+                            userViewModel.updateGoal(goalTextFromOptions(setOf(goal)))
                             onFinish()
                         }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(58.dp)
-                        .shadow(
-                            elevation = 10.dp,
-                            shape = RoundedCornerShape(22.dp),
-                            spotColor = PcosinaRoseShadow.copy(alpha = 0.20f),
-                            ambientColor = PcosinaRoseShadow.copy(alpha = 0.16f),
-                        )
+                        .height(48.dp)
                         .testTag("goal_save_continue_cta"),
-                    enabled = hasSelection,
+                    enabled = selectedGoal != null,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = GoalCoral,
                         disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -197,18 +171,29 @@ fun GoalSelectionScreen(
                         disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     ),
                     contentPadding = PaddingValues(horizontal = 18.dp),
-                    shape = RoundedCornerShape(22.dp),
+                    shape = RoundedCornerShape(4.dp),
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(primaryActionLabel, fontWeight = FontWeight.Bold)
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                        )
-                    }
+                    Text("Save Goals", fontWeight = FontWeight.SemiBold)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Lock,
+                        contentDescription = null,
+                        modifier = Modifier.size(13.dp),
+                        tint = MaterialTheme.colorScheme.outline,
+                    )
+                    Spacer(modifier = Modifier.size(7.dp))
+                    Text(
+                        text = "Your progress is saved automatically on this device.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
@@ -225,22 +210,22 @@ private fun GoalHeader(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(234.dp)
+            .height(194.dp)
             .background(GoalCoral)
             .statusBarsPadding()
-            .padding(start = 20.dp, top = 14.dp, end = 20.dp, bottom = 44.dp),
+            .padding(start = 28.dp, top = 14.dp, end = 24.dp, bottom = 17.dp),
     ) {
         GoalTargetGraphic(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .offset(x = 42.dp, y = 8.dp)
-                .size(172.dp)
+                .offset(x = 20.dp, y = 6.dp)
+                .size(104.dp)
         )
         IconButton(
             onClick = { onBack?.invoke() },
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .size(42.dp)
+                .size(38.dp)
                 .clip(CircleShape)
                 .background(Color.White),
             enabled = onBack != null,
@@ -255,8 +240,8 @@ private fun GoalHeader(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .padding(end = 52.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(end = 70.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             Text(
                 text = title,
@@ -278,24 +263,12 @@ private fun GoalHeader(
 
 @Composable
 private fun GoalTargetGraphic(modifier: Modifier = Modifier) {
-    Box(
+    Icon(
+        painter = painterResource(id = R.drawable.pcosina_svg_20_goal),
+        contentDescription = null,
         modifier = modifier,
-        contentAlignment = Alignment.Center,
-    ) {
-        listOf(
-            164.dp to 0.16f,
-            118.dp to 0.22f,
-            72.dp to 0.30f,
-            28.dp to 0.42f,
-        ).forEach { (size, alpha) ->
-            Box(
-                modifier = Modifier
-                    .size(size)
-                    .clip(CircleShape)
-                    .background(GoalTargetPink.copy(alpha = alpha))
-            )
-        }
-    }
+        tint = GoalTargetPink.copy(alpha = 0.58f),
+    )
 }
 
 @Composable
@@ -310,14 +283,13 @@ private fun GoalCard(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val borderColor = if (selected) {
-        GoalCoral.copy(alpha = 0.45f)
+        GoalCoral
     } else {
         GoalBorder
     }
 
     Card(
-        onClick = onToggle,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(4.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) {
                 GoalSelectedSurface
@@ -326,20 +298,25 @@ private fun GoalCard(
             },
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, borderColor),
+        border = BorderStroke(if (selected) 1.5.dp else 1.dp, borderColor),
         modifier = modifier
             .fillMaxWidth()
+            .selectable(
+                selected = selected,
+                onClick = onToggle,
+                role = Role.RadioButton,
+            )
             .testTag(testTag),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 14.dp),
+                .padding(horizontal = 18.dp, vertical = 13.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(
-                modifier = Modifier.size(30.dp),
+                modifier = Modifier.size(32.dp),
                 shape = CircleShape,
                 color = if (selected) {
                     GoalCoral
@@ -353,10 +330,10 @@ private fun GoalCard(
             ) {
                 if (selected) {
                     Icon(
-                        imageVector = Icons.Filled.CheckCircle,
+                        imageVector = Icons.Filled.Check,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.padding(6.dp),
+                        modifier = Modifier.padding(7.dp),
                     )
                 } else {
                     Spacer(modifier = Modifier.fillMaxSize())
@@ -364,26 +341,26 @@ private fun GoalCard(
             }
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = description,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = colorScheme.onSurfaceVariant,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = supportLabel,
-                    style = MaterialTheme.typography.labelMedium.copy(fontStyle = FontStyle.Italic),
-                    color = if (selected) PcosinaDeepRose else PcosinaDeepRose.copy(alpha = 0.72f),
+                    style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
+                    color = GoalCoral.copy(alpha = if (selected) 0.92f else 0.76f),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )

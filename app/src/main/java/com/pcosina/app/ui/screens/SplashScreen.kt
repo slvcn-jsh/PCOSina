@@ -119,7 +119,7 @@ fun SplashScreen(
 
             Image(
                 painter = painterResource(id = R.drawable.login_heart_hands),
-                contentDescription = "PCOSINA heart logo",
+                contentDescription = "PCOSina heart logo",
                 modifier = Modifier
                     .fillMaxWidth()
                     .widthIn(max = 330.dp),

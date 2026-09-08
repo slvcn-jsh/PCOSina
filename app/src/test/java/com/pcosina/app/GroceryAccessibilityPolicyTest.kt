@@ -39,7 +39,7 @@ class GroceryAccessibilityPolicyTest {
             "Grocery should expose the new filter dialog on the refined screen.",
             groceryText.contains("Select Filters") &&
                 groceryText.contains("Need to buy") &&
-                groceryText.contains("Bought/Pantry")
+                groceryText.contains("Bought or in pantry")
         )
         assertFalse(
             "Grocery should no longer keep the misleading budget CTA that sent users to Progress.",

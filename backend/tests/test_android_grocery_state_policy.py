@@ -24,7 +24,9 @@ def test_grocery_view_model_falls_back_when_saved_active_plan_is_stale():
 
 def test_grocery_view_model_persists_active_plan_clears():
     source = _read(GROCERY_VIEW_MODEL)
-    assert "groceryLocalRepository.saveActivePlanId(currentUserId, planId)" in source
+    assert "val userId = currentUserId" in source
+    assert "persistenceMutex.withLock" in source
+    assert "groceryLocalRepository.saveActivePlanId(userId, planId)" in source
     assert "if (planId == null)" in source
 
 
@@ -85,3 +87,4 @@ def test_android_budget_display_reconciles_pantry_deductions_with_backend_grocer
     assert "localAmountPhp = localShoppingEstimate" in grocery_screen_source
     assert "if (groupedEntries.isEmpty())" in grocery_screen_source
     assert "currentPlan\n            ?.groceryOutput\n            ?.estimatedTotalPhp" in progress_screen_source
+    assert "?.takeIf { it >= 0 }" in progress_screen_source

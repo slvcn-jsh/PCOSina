@@ -33,7 +33,7 @@ class PlanAnchoringPolicyTest {
     }
 
     @Test
-    fun mealPlanViewModel_anchorsFreshPlansFromRequestedTimestamp_andPrefersNewestOverlap() {
+    fun mealPlanViewModel_anchorsFreshPlansFromSentStartDate_andPrefersNewestOverlap() {
         val viewModel = read(
             resolve(
                 "app", "src", "main", "java", "com", "pcosina", "app",
@@ -42,12 +42,43 @@ class PlanAnchoringPolicyTest {
         )
 
         assertTrue(
-            "Fresh plans should anchor from backend-requested time to avoid midnight rollover drift.",
-            viewModel.contains("response.timestamps?.requestedAtMs")
+            "Fresh plans should anchor from the exact startDate sent to the planner.",
+            viewModel.contains("parsePlanDate(activeAttempt.startDate)")
         )
         assertTrue(
             "Overlapping plans should prefer the newest generated plan instead of the first overlap.",
             viewModel.contains("overlappingPlans.maxByOrNull { it.generatedAt }")
+        )
+        assertTrue(
+            "Loading saved plans should not fall back to a stale latest-history plan as the active current week.",
+            viewModel.contains("val active = currentPlan") &&
+                viewModel.contains("plannerLocalRepository.saveActivePlanId(currentUserId, null)")
+        )
+    }
+
+    @Test
+    fun mealPlanViewModel_preservesActivePlanWhenProfileOrPantryRulesChange() {
+        val viewModel = read(
+            resolve(
+                "app", "src", "main", "java", "com", "pcosina", "app",
+                "ui", "MealPlanViewModel.kt"
+            )
+        )
+        val invalidationSection = viewModel
+            .substringAfter("fun invalidateActivePlanForHardConstraintChange()")
+            .substringBefore("fun clearPlanHistory()")
+
+        assertTrue(
+            "Hard-constraint updates should warn users to review the current plan.",
+            invalidationSection.contains("Your current plan is still saved")
+        )
+        assertFalse(
+            "Hard-constraint updates should not clear the visible active plan.",
+            invalidationSection.contains("_uiState.value = MealPlanUiState.Idle")
+        )
+        assertFalse(
+            "Hard-constraint updates should not clear the persisted active plan id.",
+            invalidationSection.contains("saveActivePlanId(currentUserId, null)")
         )
     }
 
@@ -66,8 +97,9 @@ class PlanAnchoringPolicyTest {
         )
         assertTrue(
             "Progress screen should keep the current weekly dashboard sections in code.",
-            progress.contains("Weekly savings") &&
-                progress.contains("Average daily macros")
+            progress.contains("Weekly budget") &&
+                progress.contains("Logged nutrition") &&
+                progress.contains("Meal response")
         )
     }
 

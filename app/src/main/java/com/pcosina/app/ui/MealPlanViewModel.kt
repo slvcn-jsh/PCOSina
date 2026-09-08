@@ -59,6 +59,10 @@ sealed class MealPlanGenerationNotice {
         val message: String,
         val continuityPlanAvailable: Boolean
     ) : MealPlanGenerationNotice()
+
+    data class ProfileConstraintsChanged(
+        val message: String
+    ) : MealPlanGenerationNotice()
 }
 
 data class PlanMetrics(
@@ -67,6 +71,17 @@ data class PlanMetrics(
     val avgFiber: Int = 0,
     val avgFats: Int = 0
 )
+
+private fun PlannerPlanExplanation?.toPlanMetrics(): PlanMetrics =
+    PlanMetrics(
+        avgProtein = this?.avgProtein ?: 0,
+        avgCarbs = this?.avgCarbs ?: 0,
+        avgFiber = this?.fiberMinTarget ?: 0,
+        avgFats = this?.avgFats ?: 0
+    )
+
+private fun PlanMetrics.hasAnyMetric(): Boolean =
+    avgProtein > 0 || avgCarbs > 0 || avgFiber > 0 || avgFats > 0
 
 private data class PendingGenerateRequest(
     val attempt: MealPlanRepository.GeneratePlanAttempt
@@ -178,13 +193,11 @@ class MealPlanViewModel(
                     ?: overlappingPlans.maxByOrNull { it.generatedAt }
                 else -> overlappingPlans.maxByOrNull { it.generatedAt }
             }
-            val active = when {
-                currentPlan != null -> currentPlan
-                !activeId.isNullOrBlank() -> normalizedHistory.firstOrNull { it.id == activeId }
-                else -> normalizedHistory.maxByOrNull { it.generatedAt }
-            }
-            val expired = active?.let { isExpired(it) } ?: false
-            _planExpired.value = expired && normalizedHistory.none { containsDate(it, today) }
+            val active = currentPlan
+            val staleActiveExists = !activeId.isNullOrBlank() &&
+                normalizedHistory.any { it.id == activeId }
+            val expired = active?.let { isExpired(it) } ?: staleActiveExists
+            _planExpired.value = expired
             _activePlanId.value = active?.id
             _activeWeekStart.value = active?.weekStart
             _activeWeekEnd.value = active?.weekEnd
@@ -201,6 +214,10 @@ class MealPlanViewModel(
                 )
             } else {
                 _uiState.value = MealPlanUiState.Idle
+                _planMetrics.value = PlanMetrics()
+                if (currentUserId.isNotBlank()) {
+                    plannerLocalRepository.saveActivePlanId(currentUserId, null)
+                }
             }
         }
     }
@@ -211,6 +228,7 @@ class MealPlanViewModel(
             val countsById = mealIds.groupingBy { it }.eachCount()
             val deferredDetails = countsById.keys.map { id -> async { repository.getRecipeDetails(id).getOrNull() } }
             val allDetails = deferredDetails.awaitAll().filterNotNull()
+            val fallbackMetrics = response.explanation.toPlanMetrics()
             
             if (allDetails.isNotEmpty()) {
                 val totalP = allDetails.sumOf { (it.proteinGrams ?: 0) * (countsById[it.id] ?: 1) }
@@ -218,12 +236,19 @@ class MealPlanViewModel(
                 val totalF = allDetails.sumOf { (it.fiberGrams ?: 0) * (countsById[it.id] ?: 1) }
                 val totalFat = allDetails.sumOf { (it.fatsGrams ?: 0) * (countsById[it.id] ?: 1) }
                 val dayDivisor = if (response.days.isNotEmpty()) response.days.size else 7
-                _planMetrics.value = PlanMetrics(
+                val calculatedMetrics = PlanMetrics(
                     avgProtein = (totalP / dayDivisor),
                     avgCarbs = (totalC / dayDivisor),
                     avgFiber = (totalF / dayDivisor),
                     avgFats = (totalFat / dayDivisor)
                 )
+                _planMetrics.value = if (allDetails.size < countsById.size && fallbackMetrics.hasAnyMetric()) {
+                    fallbackMetrics
+                } else {
+                    calculatedMetrics
+                }
+            } else {
+                _planMetrics.value = fallbackMetrics
             }
         }
     }
@@ -317,7 +342,7 @@ class MealPlanViewModel(
                 val startAnchorMs = response.timestamps?.requestedAtMs
                     ?.takeIf { it > 0 }
                     ?: completedAtMs
-                val start = weekStartDate(startAnchorMs)
+                val start = parsePlanDate(activeAttempt.startDate) ?: weekStartDate(startAnchorMs)
                 val end = start.plusDays(6)
                 val id = start.format(DateTimeFormatter.ISO_LOCAL_DATE)
                 val withLabel = normalizeResponse(response.copy(weekLabel = weekLabelFor(start)), start)
@@ -574,6 +599,13 @@ class MealPlanViewModel(
                 plannerLocalRepository.saveActivePlanId(currentUserId, plan.id)
             }
         }
+    }
+
+    fun invalidateActivePlanForHardConstraintChange() {
+        if (_activePlanId.value == null && _uiState.value !is MealPlanUiState.Success) return
+        _generationNotice.value = MealPlanGenerationNotice.ProfileConstraintsChanged(
+            message = "Profile, allergy, budget, or food rules changed. Your current plan is still saved; review meals before generating a replacement."
+        )
     }
 
     fun clearPlanHistory() {
@@ -873,9 +905,8 @@ class MealPlanViewModel(
                 expired = _planExpired.value
             )
         }
-        val fallback = _planHistory.value.firstOrNull { it.id == _activePlanId.value }
-            ?: _planHistory.value.maxByOrNull { it.generatedAt }
-            ?: return null
+        val activePlanId = _activePlanId.value ?: return null
+        val fallback = _planHistory.value.firstOrNull { it.id == activePlanId } ?: return null
         return ContinuityPlanSnapshot(
             response = fallback.response,
             timestamp = fallback.generatedAt,
@@ -938,7 +969,7 @@ class MealPlanViewModel(
 
     fun seedDemoWeeks(profile: UserProfile): PlannerPlanResponse {
         val today = LocalDate.now()
-        val weekStart = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.temporal.WeekFields.of(Locale.getDefault()).firstDayOfWeek))
+        val weekStart = today
         val weekEnd = weekStart.plusDays(6)
         val meals = listOf(
             "Breakfast" to ("pcosina_demo_breakfast" to "Protein Oats with Saba"),

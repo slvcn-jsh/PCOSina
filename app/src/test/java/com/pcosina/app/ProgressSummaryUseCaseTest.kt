@@ -3,8 +3,11 @@ package com.pcosina.app
 import com.pcosina.app.data.model.DailyLog
 import com.pcosina.app.data.model.MealCheckIn
 import com.pcosina.app.domain.PlannedDayCount
+import com.pcosina.app.domain.PlannedMealSlot
 import com.pcosina.app.domain.ProgressDayStatus
+import com.pcosina.app.domain.ProgressMealSlotStatus
 import com.pcosina.app.domain.ProgressSummaryUseCase
+import com.pcosina.app.ui.screens.isDateWithinPlanWeek
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -13,6 +16,84 @@ import java.time.LocalDate
 class ProgressSummaryUseCaseTest {
 
     private val useCase = ProgressSummaryUseCase()
+
+    @Test
+    fun planWeekDateCheck_isInclusiveAndRejectsAdjacentWeeks() {
+        val weekStart = LocalDate.of(2026, 9, 7)
+
+        assertTrue(isDateWithinPlanWeek(LocalDate.of(2026, 9, 7), weekStart))
+        assertTrue(isDateWithinPlanWeek(LocalDate.of(2026, 9, 13), weekStart))
+        assertEquals(false, isDateWithinPlanWeek(LocalDate.of(2026, 9, 6), weekStart))
+        assertEquals(false, isDateWithinPlanWeek(LocalDate.of(2026, 9, 14), weekStart))
+    }
+
+    @Test
+    fun buildWeeklyMealSlotSummary_ignoresStaleMealIdsAndUsesDueMealsForAdherence() {
+        val weekStart = LocalDate.of(2026, 5, 4)
+        val today = LocalDate.of(2026, 5, 5)
+        val plannedSlots = listOf(
+            PlannedMealSlot("Mon", "Breakfast", "new-breakfast"),
+            PlannedMealSlot("Mon", "Lunch", "new-lunch"),
+            PlannedMealSlot("Mon", "Dinner", "new-dinner"),
+            PlannedMealSlot("Tue", "Breakfast", "new-tue-breakfast"),
+            PlannedMealSlot("Tue", "Lunch", "new-tue-lunch"),
+            PlannedMealSlot("Tue", "Dinner", "new-tue-dinner"),
+            PlannedMealSlot("Wed", "Breakfast", "future-breakfast"),
+        )
+        val logs = mapOf(
+            "2026-05-04" to DailyLog(
+                date = "2026-05-04",
+                completedMealIds = listOf(
+                    "Breakfast::old-breakfast",
+                    "Lunch::old-lunch",
+                    "Breakfast::new-breakfast",
+                )
+            ),
+            "2026-05-05" to DailyLog(
+                date = "2026-05-05",
+                completedMealIds = listOf("Breakfast::new-tue-breakfast"),
+            )
+        )
+
+        val summary = useCase.buildWeeklyMealSlotSummary(plannedSlots, logs, weekStart, today)
+
+        assertEquals(7, summary.plannedMeals)
+        assertEquals(6, summary.duePlannedMeals)
+        assertEquals(2, summary.completedMeals)
+        assertEquals(33, summary.adherencePercent)
+        assertEquals(28, summary.weeklyCompletionPercent)
+        assertEquals(ProgressMealSlotStatus.MISSED, summary.mealSlots[1].status)
+        assertEquals(ProgressMealSlotStatus.FUTURE, summary.mealSlots.last().status)
+    }
+
+    @Test
+    fun buildWeeklyMealSlotSummary_tracksSkippedAndPendingSeparately() {
+        val weekStart = LocalDate.of(2026, 5, 4)
+        val today = LocalDate.of(2026, 5, 5)
+        val plannedSlots = listOf(
+            PlannedMealSlot("Mon", "Breakfast", "r1"),
+            PlannedMealSlot("Mon", "Lunch", "r2"),
+            PlannedMealSlot("Tue", "Breakfast", "r3"),
+            PlannedMealSlot("Tue", "Lunch", "r4"),
+        )
+        val logs = mapOf(
+            "2026-05-04" to DailyLog(
+                date = "2026-05-04",
+                completedMealIds = listOf("Breakfast::r1"),
+                skippedMealIds = listOf("Lunch::r2"),
+            )
+        )
+
+        val summary = useCase.buildWeeklyMealSlotSummary(plannedSlots, logs, weekStart, today)
+
+        assertEquals(1, summary.completedMeals)
+        assertEquals(1, summary.skippedMeals)
+        assertEquals(2, summary.pendingMeals)
+        assertEquals(0, summary.missedMeals)
+        assertEquals(25, summary.adherencePercent)
+        assertEquals(ProgressMealSlotStatus.SKIPPED, summary.mealSlots[1].status)
+        assertEquals(ProgressMealSlotStatus.PENDING, summary.mealSlots[2].status)
+    }
 
     @Test
     fun buildWeekNodes_marksCompletedAndFutureDaysCorrectly() {

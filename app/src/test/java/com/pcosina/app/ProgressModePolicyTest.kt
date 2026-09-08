@@ -22,15 +22,23 @@ class ProgressModePolicyTest {
             )
         )
         val text = String(Files.readAllBytes(file))
-        assertTrue("Progress screen should surface weekly savings.", text.contains("Weekly savings"))
-        assertTrue("Progress screen should surface average daily macros.", text.contains("Average daily macros"))
-        assertTrue("Progress tracking cards should be labeled as review-only.", text.contains("For review"))
+        assertTrue("Progress screen should surface the production weekly dashboard.", text.contains("This week"))
+        assertTrue("Progress screen should surface the simplified weekly budget section.", text.contains("Weekly budget"))
+        assertTrue("Progress screen should surface logged nutrition instead of planned macro progress.", text.contains("Logged nutrition"))
+        assertTrue("Progress screen should replace symptom trend claims with meal response.", text.contains("Meal response"))
+        assertFalse("Progress should not repeat the vague For review label on every card.", text.contains("For review"))
+        assertFalse(
+            "Progress should not show developer-oriented review-only explanation before the history calendar.",
+            text.contains("They do not change the next plan by themselves.")
+        )
+        assertTrue("Progress should keep the history calendar always visible.", text.contains("text = \"History Calendar\""))
+        assertTrue("Progress should avoid trend bars until enough check-ins exist.", text.contains("Complete at least 3 meal check-ins"))
         assertTrue("Progress screen should clearly label actual spend when present.", text.contains("Actual spend"))
-        assertTrue("Progress savings graph should label the plan estimate.", text.contains("Plan estimate"))
-        assertTrue("Progress screen should clearly label estimated cost fallback.", text.contains("Estimated cost"))
+        assertTrue("Progress budget summary should label estimated cost.", text.contains("Plan estimate"))
+        assertTrue("Progress budget summary should label estimated remaining budget.", text.contains("Estimated remaining"))
         assertTrue(
-            "Progress macros should explain guide ranges instead of exact pass/fail targets.",
-            text.contains("guide ranges, not exact pass/fail")
+            "Progress nutrition should be explicit that logged nutrition is estimated from logged planned meals.",
+            text.contains("Estimated from \${summary.loggedMeals} logged planned meal")
         )
         assertFalse("Progress screen should not show the confusing standalone next-plan adjustment card.", text.contains("progress_next_plan_adjustment_card"))
         assertFalse("Progress screen should not show the confusing standalone next-plan adjustment title.", text.contains("Next-plan adjustments"))
@@ -47,8 +55,8 @@ class ProgressModePolicyTest {
             "Advanced week analytics should not auto-expand only because Week mode is selected.",
             !text.contains("savedAdvancedWeekAnalyticsExpanded || showWeekMode")
         )
-        assertTrue("Progress screen should expose a primary check-in CTA.", text.contains("text = \"Check in\""))
-        assertTrue("Progress screen should expose the weekly review CTA.", text.contains("text = \"Review week\""))
+        assertFalse("Progress screen should not expose the removed Today check-in CTA.", text.contains("text = \"Check in\""))
+        assertTrue("Progress screen should expose the weekly review CTA.", text.contains("else \"Review week\""))
     }
 
     private fun resolveMainSourceRoot(): Path {

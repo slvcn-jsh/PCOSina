@@ -1,0 +1,140 @@
+## dev...origin/dev
+A  "app/UI UX UPDATE NEED.pdf"
+A  "app/[081726] [03] Jan Thesis Update.pdf"
+ M app/src/androidTest/java/com/pcosina/app/SettingsRestoreUiTest.kt
+ M app/src/debug/java/com/pcosina/app/ui/preview/HostSideVisualShowcasePreviews.kt
+ M app/src/main/java/com/pcosina/app/MainActivity.kt
+ M app/src/main/java/com/pcosina/app/data/model/MealCheckIn.kt
+ M app/src/main/java/com/pcosina/app/domain/GroceryAggregation.kt
+ M app/src/main/java/com/pcosina/app/domain/PriceCatalog.kt
+ M app/src/main/java/com/pcosina/app/domain/ProgressSummaryUseCase.kt
+ M app/src/main/java/com/pcosina/app/notifications/NotificationHelper.kt
+ M app/src/main/java/com/pcosina/app/ui/MealPlanViewModel.kt
+ M app/src/main/java/com/pcosina/app/ui/ProgressViewModel.kt
+ M app/src/main/java/com/pcosina/app/ui/UserViewModel.kt
+ M app/src/main/java/com/pcosina/app/ui/components/BottomNavBar.kt
+ M app/src/main/java/com/pcosina/app/ui/components/MealCheckInDialog.kt
+ M app/src/main/java/com/pcosina/app/ui/components/PcosinaSharedChrome.kt
+ M app/src/main/java/com/pcosina/app/ui/components/RefinedOverviewComponents.kt
+ M app/src/main/java/com/pcosina/app/ui/navigation/AppNavHost.kt
+ M app/src/main/java/com/pcosina/app/ui/screens/CommunityScreen.kt
+ M app/src/main/java/com/pcosina/app/ui/screens/DashboardRefinedScreen.kt
+ M app/src/main/java/com/pcosina/app/ui/screens/GroceryRefinedScreen.kt
+ M app/src/main/java/com/pcosina/app/ui/screens/LegacyScreenCompatibility.kt
+ M app/src/main/java/com/pcosina/app/ui/screens/LoginScreen.kt
+ M app/src/main/java/com/pcosina/app/ui/screens/MealPlanRefinedScreen.kt
+ M app/src/main/java/com/pcosina/app/ui/screens/NotificationScreen.kt
+ M app/src/main/java/com/pcosina/app/ui/screens/ProgressRefinedScreen.kt
+ M app/src/main/java/com/pcosina/app/ui/screens/RecipeDetailsScreen.kt
+ M app/src/main/java/com/pcosina/app/ui/screens/SettingsScreen.kt
+ M app/src/main/java/com/pcosina/app/ui/screens/SplashScreen.kt
+ M app/src/main/java/com/pcosina/app/ui/screens/UserProfileScreen.kt
+ M app/src/main/java/com/pcosina/app/ui/util/ConnectivityState.kt
+ M app/src/main/java/com/pcosina/app/ui/util/LegalAcceptance.kt
+ M app/src/main/res/drawable/pcosina_nav_support_clean.xml
+ M app/src/main/res/values/strings.xml
+ M app/src/test/java/com/pcosina/app/DashboardConnectivityPolicyTest.kt
+ M app/src/test/java/com/pcosina/app/DashboardHomeCardPolicyTest.kt
+ M app/src/test/java/com/pcosina/app/FeedbackConsistencyPolicyTest.kt
+ M app/src/test/java/com/pcosina/app/GroceryAccessibilityPolicyTest.kt
+ M app/src/test/java/com/pcosina/app/GroceryAggregationTest.kt
+ M app/src/test/java/com/pcosina/app/HealthMetricsTest.kt
+ M app/src/test/java/com/pcosina/app/MealCheckInSupportTest.kt
+ M app/src/test/java/com/pcosina/app/Phase7VisualPolishPolicyTest.kt
+ M app/src/test/java/com/pcosina/app/PlanAnchoringPolicyTest.kt
+ M app/src/test/java/com/pcosina/app/ProgressFeedbackPolicyTest.kt
+ M app/src/test/java/com/pcosina/app/ProgressModePolicyTest.kt
+ M app/src/test/java/com/pcosina/app/ProgressRecoveryPolicyTest.kt
+ M app/src/test/java/com/pcosina/app/ProgressSummaryUseCaseTest.kt
+ M app/src/test/java/com/pcosina/app/ProgressToastReplacementPolicyTest.kt
+ M app/src/test/java/com/pcosina/app/ProgressTraversalPolicyTest.kt
+ M app/src/test/java/com/pcosina/app/RecipeDetailsVisualPolicyTest.kt
+ M app/src/test/java/com/pcosina/app/SettingsNotificationPolicyTest.kt
+ M app/src/test/java/com/pcosina/app/SupportSettingsHighlightsPolicyTest.kt
+ M app/src/test/java/com/pcosina/app/TodayLogSnapshotTest.kt
+ M app/src/test/java/com/pcosina/app/UiGuardrailPolicyTest.kt
+ M backend/seed_data/pcosina_philfct_runtime_candidate_catalog_v2_budget_supported.json
+ M backend/seed_data/pcosina_philfct_runtime_candidate_catalog_v2_coverage70.json
+ M backend/seed_data/pcosina_philfct_runtime_candidate_catalog_v2_coverage80.json
+ M backend/services/meal_planner.py
+ M backend/tests/test_android_grocery_state_policy.py
+ M backend/tests/test_meal_planner.py
+ M docs/roadmap/ml_progress_ledger.md
+ M docs/roadmap/progress_ledger.md
+ M docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_current_catalog_diversity_audit_50_scenarios.csv
+ M docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_current_catalog_diversity_audit_50_scenarios.json
+ M scripts/export_budget_support_runtime_catalog.py
+?? .gradle-release-user/
+?? .gradle-user-uiux/
+?? .gradle-validation-user/
+?? .tmp/
+?? "app/Computation for Meal Plan Evaluation.xlsx"
+?? "app/Computation for Meal Plan Evaluation_FIXED_FOR_CHARTING.xlsx"
+?? app/Extracted_Meal_Plan_Table.docx
+?? "app/MEAL EVALUATION UPDATEDDD.docx"
+?? "app/MEAL PLAN EVALUATION.docx"
+?? "app/MEAL PLAN SAMPLE.docx"
+?? app/PCOSINA_PhilFCT_TEMPLATE.docx
+?? app/PRICING.docx
+?? "app/UPDATED MEAL PLAN INPUTS.docx"
+?? "app/UPDATED MEAL PLAN INPUTS_PRICING_UPDATED.docx"
+?? app/pcosina_pricing_audit_final_updated.xlsx
+?? app/src/test/java/com/pcosina/app/UiUxReportCleanupPolicyTest.kt
+?? backend/backend/
+?? backend/seed_data/pcosina_philfct_complete_plate_catalog_v2_draft.json
+?? backend/seed_data/pcosina_philfct_portioned_catalog_v2_draft.json
+?? backend/seed_data/pcosina_philfct_portioned_priced_catalog_v2_draft.json
+?? backend/seed_data/pcosina_rnd_complete_meal_seed_v1.json
+?? backend/seed_data/philfct_reference_cache.json
+?? backups/
+?? docs/data-models/PCOSina_Current_313_Runtime_Catalog_Evidence_Register.docx
+?? docs/data-models/pcosina_philfct_catalog_rebuild_plan.md
+?? docs/data-models/pcosina_philfct_complete_plate_catalog_v2_status.md
+?? docs/expert-consultation/Computation_for_Meal_Plan_Evaluation_Check.md
+?? docs/expert-consultation/MEAL_EVALUATION_UPDATEDDD_Computation_Check.md
+?? docs/expert-consultation/PCOSINA_Final_Three_Meal_RND_Evaluation_Packet.docx
+?? docs/expert-consultation/PCOSINA_Final_Three_Meal_RND_Evaluation_Packet.md
+?? docs/expert-consultation/PCOSINA_Nutritionist_Meal_Plan_Evaluation_Prep_Guide.docx
+?? docs/expert-consultation/PCOSINA_PhilFCT_Manual_Computation_Guide.docx
+?? docs/expert-consultation/PCOSINA_PhilFCT_Manual_Computation_Guide.md
+?? docs/expert-consultation/PCOSINA_PhilFCT_Three_Meal_Evaluation_Packet.docx
+?? docs/expert-consultation/PCOSINA_PhilFCT_Three_Meal_Evaluation_Packet.md
+?? docs/expert-consultation/PCOSINA_Pricing_Computation_Explanation_340_vs_849.docx
+?? docs/expert-consultation/PCOSINA_Pricing_Computation_Explanation_340_vs_849.md
+?? docs/expert-consultation/PCOSINA_Pricing_Computation_Guide_MEAL_EVALUATION_UPDATEDDD.docx
+?? docs/expert-consultation/PCOSINA_Pricing_Computation_Guide_MEAL_EVALUATION_UPDATEDDD.md
+?? docs/expert-consultation/extracted_MEAL_PLAN_EVALUATION.txt
+?? docs/expert-consultation/extracted_MEAL_PLAN_SAMPLE.txt
+?? docs/expert-consultation/nutritionist_meal_plan_evaluation_prep_guide.md
+?? docs/production_readiness/evidence_2026-09-07/
+?? docs/team_onboarding/
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/PCOSINA_50_Test_Cases_Full_21_Meal_Output_and_Failure_Evidence.docx
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_505_catalog_30_scenario_audit.csv
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_505_catalog_30_scenario_audit_summary.json
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_50_test_case_full_meal_outputs.csv
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_50_test_case_full_meal_outputs.json
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_combination_stress_audit_supported_restrictions_allergy_pairs.csv
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_combination_stress_audit_supported_restrictions_allergy_pairs.json
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_current_catalog_diversity_audit_summary.csv
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_current_catalog_diversity_audit_summary.json
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_philfct_complete_plate_catalog_v2_detailed_review.xlsx
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_philfct_complete_plate_catalog_v2_review_queue.csv
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_philfct_complete_plate_catalog_v2_review_queue.xlsx
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_philfct_portioned_ingredient_review_queue.csv
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_philfct_portioned_ingredient_review_queue.xlsx
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_philfct_portioned_pricing_review_queue.csv
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/pcosina_philfct_portioned_pricing_review_queue.xlsx
+?? docs/thesis_validation/03_ACTUAL_SYSTEM_DATA_EXPORTS/recipe_records/
+?? scripts/audit_supported_combination_stress.py
+?? scripts/build_philfct_complete_plate_catalog.py
+?? scripts/build_philfct_portioned_catalog.py
+?? scripts/compute_rnd_meal_seed.py
+?? scripts/export_complete_plate_review_workbook.py
+?? scripts/generate_50_test_case_meal_output_doc.py
+?? scripts/generate_current_catalog_evidence_doc.py
+?? scripts/generate_production_readiness_evidence_package.py
+?? scripts/generate_recipe_philfct_pricing_records.py
+?? scripts/import_validation_workbooks.py
+?? scripts/price_philfct_portioned_catalog.py
+?? scripts/split_breakfast_recipe_records.py
+?? scripts/split_recipe_records_by_meal.py

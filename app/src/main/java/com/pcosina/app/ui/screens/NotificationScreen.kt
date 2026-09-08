@@ -87,7 +87,6 @@ fun NotificationScreen(
             SharedTopHeader(
                 online = observedOnline,
                 onSettings = onOpenSettings,
-                onNotifications = {},
                 compact = false,
             )
         }

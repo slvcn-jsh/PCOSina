@@ -1,0 +1,323 @@
+{
+  "version": "pcosina-rnd-complete-meal-seed-v1",
+  "purpose": "Seed catalog for PhilFCT-computable, one-person, complete Filipino meal plates based on the RND evaluation format.",
+  "nutrition_reference": {
+    "name": "Philippine Food Composition Tables Online Database",
+    "publisher": "DOST-FNRI",
+    "url": "https://i.fnri.dost.gov.ph/fct/library",
+    "method": "Each ingredient uses a selected PhilFCT per-100g value. Ingredient contribution = portion_g / 100 * value_per_100g."
+  },
+  "daily_target": {
+    "calories": 1800,
+    "protein_g": 90,
+    "carbs_g": 225,
+    "fat_g": 60,
+    "fiber_g_min": 25,
+    "fiber_g_max": 30
+  },
+  "meals": [
+    {
+      "id": "rnd_breakfast_tortang_talong_plate_v1",
+      "name": "Tortang Talong Breakfast Plate",
+      "mealType": "Breakfast",
+      "tags": ["rnd_seed", "philfct_computable", "complete_plate", "filipino", "pinggang_pinoy_aligned"],
+      "mainComponents": [
+        "Tortang talong",
+        "Cooked white rice",
+        "Banana",
+        "Water"
+      ],
+      "pinggangPinoyGroups": {
+        "go": ["Cooked white rice"],
+        "grow": ["Egg, whole", "Roasted peanuts, unsalted"],
+        "glowVegetables": ["Grilled eggplant", "Tomato", "Onion"],
+        "fruit": ["Banana"],
+        "water": "1 glass, excluded from nutrient totals"
+      },
+      "ingredients": [
+        {
+          "name": "Cooked white rice",
+          "portion_g": 100,
+          "philfct_name": "Rice, well-milled, boiled",
+          "philfct_code": null,
+          "per_100g": {"calories": 129, "protein_g": 2.1, "carbs_g": 29.7, "fat_g": 0.2, "fiber_g": 0.4},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Egg, whole",
+          "portion_g": 50,
+          "philfct_name": "Itlog, manok, buo",
+          "philfct_code": null,
+          "per_100g": {"calories": 139, "protein_g": 12.3, "carbs_g": 1.4, "fat_g": 9.4, "fiber_g": 0},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Grilled eggplant",
+          "portion_g": 150,
+          "philfct_name": "Talong/Aubergine",
+          "philfct_code": null,
+          "per_100g": {"calories": 29, "protein_g": 1.2, "carbs_g": 5.5, "fat_g": 0.2, "fiber_g": 1.6},
+          "match_status": "review_preparation_form"
+        },
+        {
+          "name": "Tomato",
+          "portion_g": 85,
+          "philfct_name": "Kamatis",
+          "philfct_code": null,
+          "per_100g": {"calories": 25, "protein_g": 0.8, "carbs_g": 5.2, "fat_g": 0.1, "fiber_g": 0.3},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Onion",
+          "portion_g": 30,
+          "philfct_name": "Onion, Bombay bulb",
+          "philfct_code": null,
+          "per_100g": {"calories": 52, "protein_g": 1.7, "carbs_g": 10.5, "fat_g": 0.3, "fiber_g": 2.0},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Cooking oil",
+          "portion_g": 5,
+          "philfct_name": "Oil, corn",
+          "philfct_code": null,
+          "per_100g": {"calories": 896, "protein_g": 0, "carbs_g": 0, "fat_g": 99.6, "fiber_g": 0},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Banana",
+          "portion_g": 120,
+          "philfct_name": "Saging, cavendish, hinog",
+          "philfct_code": null,
+          "per_100g": {"calories": 104, "protein_g": 0.9, "carbs_g": 23.1, "fat_g": 0.9, "fiber_g": 2.7},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Roasted peanuts, unsalted",
+          "portion_g": 25,
+          "philfct_name": "Mani, walang balok",
+          "philfct_code": null,
+          "per_100g": {"calories": 617, "protein_g": 25.8, "carbs_g": 17.1, "fat_g": 49.5, "fiber_g": 8.6},
+          "match_status": "review_description"
+        }
+      ],
+      "non_nutritive_items": ["1 glass water", "salt and pepper to taste"]
+      ,
+      "instructions": [
+        "Grill or roast the eggplant until tender, then peel and flatten it.",
+        "Dip the flattened eggplant in beaten egg with tomato and onion.",
+        "Cook with measured oil until the egg is set.",
+        "Serve with cooked rice, banana, peanuts, and water."
+      ]
+    },
+    {
+      "id": "rnd_lunch_grilled_chicken_pinakbet_plate_v1",
+      "name": "Grilled Chicken Pinakbet Plate",
+      "mealType": "Lunch",
+      "tags": ["rnd_seed", "philfct_computable", "complete_plate", "filipino", "pinggang_pinoy_aligned"],
+      "mainComponents": [
+        "Grilled chicken",
+        "Pinakbet-style vegetables",
+        "Cooked white rice",
+        "Papaya",
+        "Water"
+      ],
+      "pinggangPinoyGroups": {
+        "go": ["Cooked white rice"],
+        "grow": ["Grilled chicken breast"],
+        "glowVegetables": ["Kalabasa", "Okra", "Sitaw", "Eggplant", "Tomato", "Onion"],
+        "fruit": ["Papaya"],
+        "water": "1 glass, excluded from nutrient totals"
+      },
+      "ingredients": [
+        {
+          "name": "Cooked white rice",
+          "portion_g": 100,
+          "philfct_name": "Rice, well-milled, boiled",
+          "philfct_code": null,
+          "per_100g": {"calories": 129, "protein_g": 2.1, "carbs_g": 29.7, "fat_g": 0.2, "fiber_g": 0.4},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Grilled chicken breast, cooked edible portion",
+          "portion_g": 110,
+          "philfct_name": "Chicken breast",
+          "philfct_code": null,
+          "per_100g": {"calories": 131, "protein_g": 21.6, "carbs_g": 0, "fat_g": 5.0, "fiber_g": 0},
+          "match_status": "review_preparation_form"
+        },
+        {
+          "name": "Kalabasa/squash",
+          "portion_g": 120,
+          "philfct_name": "Squash fruit, boiled",
+          "philfct_code": null,
+          "per_100g": {"calories": 47, "protein_g": 0.4, "carbs_g": 10.8, "fat_g": 0.2, "fiber_g": 1.1},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Okra",
+          "portion_g": 70,
+          "philfct_name": "Okra, boiled",
+          "philfct_code": null,
+          "per_100g": {"calories": 30, "protein_g": 1.0, "carbs_g": 6.1, "fat_g": 0.2, "fiber_g": 2.6},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Sitaw/string beans",
+          "portion_g": 70,
+          "philfct_name": "String/Yard long bean pod, green, boiled",
+          "philfct_code": null,
+          "per_100g": {"calories": 52, "protein_g": 4.0, "carbs_g": 7.9, "fat_g": 0.5, "fiber_g": 2.7},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Eggplant",
+          "portion_g": 55,
+          "philfct_name": "Eggplant, boiled",
+          "philfct_code": null,
+          "per_100g": {"calories": 25, "protein_g": 1.0, "carbs_g": 4.9, "fat_g": 0.1, "fiber_g": 1.5},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Tomato",
+          "portion_g": 70,
+          "philfct_name": "Tomato, boiled",
+          "philfct_code": null,
+          "per_100g": {"calories": 25, "protein_g": 0.4, "carbs_g": 5.6, "fat_g": 0.1, "fiber_g": 0.3},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Onion",
+          "portion_g": 30,
+          "philfct_name": "Onion, garden shallot bulb, boiled",
+          "philfct_code": null,
+          "per_100g": {"calories": 62, "protein_g": 1.1, "carbs_g": 13.3, "fat_g": 0.5, "fiber_g": 2.4},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Cooking oil",
+          "portion_g": 9,
+          "philfct_name": "Oil, corn",
+          "philfct_code": null,
+          "per_100g": {"calories": 896, "protein_g": 0, "carbs_g": 0, "fat_g": 99.6, "fiber_g": 0},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Papaya",
+          "portion_g": 180,
+          "philfct_name": "Papaya fruit",
+          "philfct_code": null,
+          "per_100g": {"calories": 24, "protein_g": 0.7, "carbs_g": 4.9, "fat_g": 0.2, "fiber_g": 0.7},
+          "match_status": "needs_exact_philfct_code"
+        }
+      ],
+      "non_nutritive_items": ["1 glass water", "salt and pepper to taste"]
+      ,
+      "instructions": [
+        "Grill or pan-cook the chicken breast until fully cooked.",
+        "Cook the pinakbet-style vegetables with measured oil until tender but not overcooked.",
+        "Serve the chicken and vegetables with cooked rice, papaya, and water."
+      ]
+    },
+    {
+      "id": "rnd_dinner_bangus_monggo_malunggay_plate_v1",
+      "name": "Bangus with Monggo-Malunggay Plate",
+      "mealType": "Dinner",
+      "tags": ["rnd_seed", "philfct_computable", "complete_plate", "filipino", "pinggang_pinoy_aligned"],
+      "mainComponents": [
+        "Grilled bangus",
+        "Monggo-malunggay vegetable dish",
+        "Cooked white rice",
+        "Pineapple",
+        "Water"
+      ],
+      "pinggangPinoyGroups": {
+        "go": ["Cooked white rice"],
+        "grow": ["Bangus", "Munggo"],
+        "glowVegetables": ["Malunggay", "Tomato", "Onion", "Garlic"],
+        "fruit": ["Pineapple"],
+        "water": "1 glass, excluded from nutrient totals"
+      },
+      "ingredients": [
+        {
+          "name": "Cooked white rice",
+          "portion_g": 100,
+          "philfct_name": "Rice, well-milled, boiled",
+          "philfct_code": "A020",
+          "per_100g": {"calories": 129, "protein_g": 2.1, "carbs_g": 29.7, "fat_g": 0.2, "fiber_g": 0.4},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Grilled bangus/milkfish, cooked edible portion",
+          "portion_g": 95,
+          "philfct_name": "Milkfish, broiled",
+          "philfct_code": "G075",
+          "per_100g": {"calories": 137, "protein_g": 23.4, "carbs_g": 0, "fat_g": 4.8, "fiber_g": 0},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Cooked munggo/mung beans",
+          "portion_g": 150,
+          "philfct_name": "Mung bean sprout, boiled",
+          "philfct_code": "D132",
+          "per_100g": {"calories": 54, "protein_g": 4.8, "carbs_g": 7.0, "fat_g": 0.5, "fiber_g": 1.6},
+          "match_status": "review_munggo_bean_vs_sprout"
+        },
+        {
+          "name": "Malunggay leaves",
+          "portion_g": 50,
+          "philfct_name": "Horseradish tree leaves",
+          "philfct_code": "D094",
+          "per_100g": {"calories": 108, "protein_g": 9.7, "carbs_g": 12.7, "fat_g": 2.0, "fiber_g": 6.7},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Tomato",
+          "portion_g": 70,
+          "philfct_name": "Tomato",
+          "philfct_code": "D257",
+          "per_100g": {"calories": 25, "protein_g": 0.8, "carbs_g": 5.2, "fat_g": 0.1, "fiber_g": 0.3},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Onion",
+          "portion_g": 30,
+          "philfct_name": "Onion, Bombay bulb",
+          "philfct_code": "D141",
+          "per_100g": {"calories": 52, "protein_g": 1.7, "carbs_g": 10.5, "fat_g": 0.3, "fiber_g": 2.0},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Garlic",
+          "portion_g": 7,
+          "philfct_name": "Garlic bulb",
+          "philfct_code": "D084",
+          "per_100g": {"calories": 129, "protein_g": 7.0, "carbs_g": 24.6, "fat_g": 0.3, "fiber_g": 1.7},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Cooking oil",
+          "portion_g": 13,
+          "philfct_name": "Oil, corn",
+          "philfct_code": "K009",
+          "per_100g": {"calories": 896, "protein_g": 0, "carbs_g": 0, "fat_g": 99.6, "fiber_g": 0},
+          "match_status": "confirmed"
+        },
+        {
+          "name": "Pineapple",
+          "portion_g": 150,
+          "philfct_name": "Pineapple",
+          "philfct_code": "E073",
+          "per_100g": {"calories": 55, "protein_g": 0.4, "carbs_g": 13.0, "fat_g": 0.2, "fiber_g": 1.4},
+          "match_status": "confirmed"
+        }
+      ],
+      "non_nutritive_items": ["1 glass water", "salt and pepper to taste"]
+      ,
+      "instructions": [
+        "Grill or broil the bangus until fully cooked.",
+        "Cook munggo with malunggay, tomato, onion, garlic, and measured oil.",
+        "Serve the bangus and monggo-malunggay dish with cooked rice, pineapple, and water."
+      ]
+    }
+  ]
+}

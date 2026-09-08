@@ -70,6 +70,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -187,7 +188,9 @@ fun LoginScreen(
         }
         if (loginState is LoginState.Success || session.isLoggedIn) {
             if (!LegalAcceptance.hasAccepted(context, currentUserUid)) {
-                LegalAcceptance.accept(context, currentUserUid)
+                showTerms = true
+                legalNotice = null
+                return@LaunchedEffect
             }
             showTerms = false
             legalNotice = null
@@ -474,15 +477,12 @@ fun LoginScreen(
                         }
                     }
 
-                    Text(
-                        text = "By tapping Continue with Google, you agree to PCOSina's Terms of Use and Privacy Policy.",
-                        modifier = Modifier.widthIn(max = 300.dp),
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 12.sp,
-                        ),
-                        color = PcosinaDeepRose.copy(alpha = 0.75f),
-                        textAlign = TextAlign.Center,
+                    LegalAgreementCopy(
+                        onOpenLegal = {
+                            legalNotice = null
+                            showTerms = true
+                        },
+                        modifier = Modifier.widthIn(max = 312.dp)
                     )
                 }
             }
@@ -657,7 +657,9 @@ private fun TermsOfServiceOverlay(
                 contentDescription = "Developed by Quadrant",
                 modifier = Modifier
                     .widthIn(max = if (tightHeight) 204.dp else 238.dp)
-                    .fillMaxWidth(if (tightHeight) 0.62f else 0.68f),
+                    .fillMaxWidth(if (tightHeight) 0.62f else 0.68f)
+                    .height(if (tightHeight) 40.dp else if (compact) 48.dp else 54.dp)
+                    .testTag("login_terms_ownership"),
                 contentScale = ContentScale.Fit,
                 externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.LoginTermsOwnershipWatermark,
                 onExternalEditingChange = { editing ->
@@ -671,7 +673,8 @@ private fun TermsOfServiceOverlay(
                 modifier = Modifier
                     .fillMaxWidth()
                     .widthIn(max = 358.dp)
-                    .heightIn(max = screenHeight * if (tightHeight) 0.66f else if (compact) 0.74f else 0.72f),
+                    .heightIn(max = screenHeight * if (tightHeight) 0.66f else if (compact) 0.74f else 0.72f)
+                    .testTag("login_terms_card"),
                 shape = RoundedCornerShape(18.dp),
                 color = Color.White,
                 shadowElevation = 18.dp
@@ -797,7 +800,9 @@ private fun TermsOfServiceOverlay(
                             text = "Accept",
                             filled = true,
                             onClick = onAccept,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("login_terms_accept")
                         )
                     }
                 }
@@ -805,15 +810,9 @@ private fun TermsOfServiceOverlay(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text(
-                text = "By tapping Continue with Google, you agree to PCOSina's Terms of Use and Privacy Policy.",
-                modifier = Modifier.widthIn(max = 300.dp),
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 12.sp,
-                ),
-                color = PcosinaDeepRose.copy(alpha = 0.75f),
-                textAlign = TextAlign.Center,
+            LegalAgreementCopy(
+                onOpenLegal = {},
+                modifier = Modifier.widthIn(max = 312.dp)
             )
         }
         DevArtworkAlignmentHotspot(
@@ -859,6 +858,57 @@ private fun LegalSection(
             color = PcosinaMuted.copy(alpha = 0.82f)
         )
     }
+}
+
+@Composable
+private fun LegalAgreementCopy(
+    onOpenLegal: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = "By continuing, you agree to PCOSina's Terms of Use and Privacy Policy.",
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontWeight = FontWeight.Medium,
+                fontSize = 12.sp,
+            ),
+            color = PcosinaDeepRose.copy(alpha = 0.75f),
+            textAlign = TextAlign.Center,
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LegalInlineLink("Terms of Use", onOpenLegal)
+            Text(
+                text = "|",
+                style = MaterialTheme.typography.labelSmall,
+                color = PcosinaMuted.copy(alpha = 0.62f),
+            )
+            LegalInlineLink("Privacy Policy", onOpenLegal)
+        }
+    }
+}
+
+@Composable
+private fun LegalInlineLink(
+    text: String,
+    onClick: () -> Unit,
+) {
+    Text(
+        text = text,
+        modifier = Modifier.clickable(onClick = onClick),
+        style = MaterialTheme.typography.labelSmall.copy(
+            fontWeight = FontWeight.ExtraBold,
+            textDecoration = TextDecoration.Underline,
+        ),
+        color = PcosinaDeepRose,
+        textAlign = TextAlign.Center,
+    )
 }
 
 @Composable

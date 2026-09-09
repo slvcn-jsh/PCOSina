@@ -19,6 +19,7 @@ data class GroceryListEntry(
     val sourceCount: Int,
     val unitPricePhp: Double? = null,
     val priceUnit: String? = null,
+    val priceSourceKey: String? = null,
     val priceSourceLabel: String? = null,
     val priceConfidence: String? = null,
     val purchaseMode: String? = null,
@@ -352,6 +353,7 @@ fun buildGroceryListEntries(
                 sourceCount = primaryUserSegments.size.coerceAtLeast(1),
                 unitPricePhp = estimate.basePricePhp,
                 priceUnit = estimate.targetUnit,
+                priceSourceKey = estimate.sourceLabel,
                 priceSourceLabel = estimate.sourceLabel,
                 priceConfidence = estimate.confidence,
                 purchaseMode = when (key) {
@@ -432,6 +434,13 @@ fun buildGroceryListEntriesFromPlanner(
             } else {
                 localEstimate?.sourceLabel
             }
+            val priceSourceKey = if (companionWater) {
+                "household_tap_water_baseline"
+            } else if (trustBackendPrices) {
+                groupedItems.firstNotNullOfOrNull { item -> item.source?.trim()?.takeIf { it.isNotBlank() } }
+            } else {
+                localEstimate?.sourceLabel
+            }
             val priceConfidence = if (companionWater) {
                 "high"
             } else if (trustBackendPrices) {
@@ -458,6 +467,7 @@ fun buildGroceryListEntriesFromPlanner(
                 sourceCount = sourceCount.coerceAtLeast(1),
                 unitPricePhp = unitPricePhp,
                 priceUnit = priceUnit,
+                priceSourceKey = priceSourceKey,
                 priceSourceLabel = priceSourceLabel,
                 priceConfidence = priceConfidence,
                 purchaseMode = purchaseMode,

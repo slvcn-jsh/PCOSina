@@ -16,6 +16,8 @@ import com.pcosina.app.data.model.PlannerRecipeDetail
 import com.pcosina.app.data.model.PlannerRecipeSummary
 import com.pcosina.app.data.model.UserProfile
 import com.pcosina.app.data.model.DailyLog
+import com.pcosina.app.data.api.PersonalPriceOverrideDto
+import com.pcosina.app.data.api.PersonalPriceOverrideRequestDto
 import com.pcosina.app.data.repository.MealPlanRepository
 import com.pcosina.app.data.repository.PlannerLocalRepository
 import com.pcosina.app.data.repository.UserPreferencesPlannerLocalRepository
@@ -131,6 +133,16 @@ class MealPlanViewModel(
     private val dayOrder = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
     private var pendingGenerateRequest: PendingGenerateRequest? = null
     private val plannerProfilePreparationUseCase = PlannerProfilePreparationUseCase()
+
+    suspend fun getPersonalPrices(): Result<List<PersonalPriceOverrideDto>> =
+        repository.getPersonalPrices()
+
+    suspend fun savePersonalPrice(
+        request: PersonalPriceOverrideRequestDto,
+    ): Result<PersonalPriceOverrideDto> = repository.savePersonalPrice(request)
+
+    suspend fun deletePersonalPrice(ingredientId: String): Result<Unit> =
+        repository.deletePersonalPrice(ingredientId)
 
     private data class ContinuityPlanSnapshot(
         val response: PlannerPlanResponse,

@@ -140,6 +140,11 @@ class SettingsNotificationPolicyTest {
             "Empty notification history should explain that logs are delivered-only.",
             source.contains("The log starts only after Android posts a reminder or status notification.")
         )
+        assertTrue(
+            "Notification troubleshooting should include an actual local delivery test.",
+            source.contains("Send test notification") &&
+                source.contains("NotificationScheduler.notifyDebugTest(context, userId)")
+        )
         assertFalse(
             "Notification screen should not imply an empty log means reminders are broken.",
             source.contains("No notification has been delivered yet on this device.")

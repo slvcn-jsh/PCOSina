@@ -48,8 +48,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.traversalIndex
@@ -147,7 +148,8 @@ fun DashboardRefinedScreen(
     val context = LocalContext.current
     val observedOnline by rememberIsOnline(context)
     val isOnline = onlineStateOverride ?: observedOnline
-    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    val windowWidthPx = LocalWindowInfo.current.containerSize.width
+    val screenWidthDp = with(LocalDensity.current) { windowWidthPx.toDp().value.toInt() }
     val feedbackBanner = remember { mutableStateOf<FeedbackBannerData?>(null) }
     val primaryActionState = remember { mutableStateOf(FeedbackActionState.Idle) }
     val coroutineScope = rememberCoroutineScope()

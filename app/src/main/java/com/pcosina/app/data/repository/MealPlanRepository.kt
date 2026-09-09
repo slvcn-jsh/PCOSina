@@ -3,6 +3,8 @@ package com.pcosina.app.data.repository
 import com.pcosina.app.BuildConfig
 import com.pcosina.app.data.api.GeneratePlanRequest
 import com.pcosina.app.data.api.MlClientEventRequestDto
+import com.pcosina.app.data.api.PersonalPriceOverrideDto
+import com.pcosina.app.data.api.PersonalPriceOverrideRequestDto
 import com.pcosina.app.data.api.PcosinaApiService
 import com.pcosina.app.data.api.RecipeDetailDto
 import com.pcosina.app.data.api.SwapOptionsRequestDto
@@ -308,6 +310,27 @@ class MealPlanRepository(
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    suspend fun getPersonalPrices(): Result<List<PersonalPriceOverrideDto>> = runCatching {
+        executeWithBackendFallback("personal price download") { service ->
+            service.getPersonalPrices()
+        }
+    }
+
+    suspend fun savePersonalPrice(
+        request: PersonalPriceOverrideRequestDto,
+    ): Result<PersonalPriceOverrideDto> = runCatching {
+        executeWithBackendFallback("personal price save") { service ->
+            service.savePersonalPrice(request)
+        }
+    }
+
+    suspend fun deletePersonalPrice(ingredientId: String): Result<Unit> = runCatching {
+        executeWithBackendFallback("personal price reset") { service ->
+            service.deletePersonalPrice(ingredientId)
+        }
+        Unit
     }
 
     suspend fun getRecipeDetails(recipeId: String): Result<PlannerRecipeDetail> {

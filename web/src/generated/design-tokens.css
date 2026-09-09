@@ -67,10 +67,10 @@
   --scale-focus-chip-selected: 1.03;
   --type-headline-large-size: 28px;
   --type-headline-large-line-height: 34px;
-  --type-headline-large-letter-spacing: -0.5px;
+  --type-headline-large-letter-spacing: 0px;
   --type-headline-medium-size: 24px;
   --type-headline-medium-line-height: 30px;
-  --type-headline-medium-letter-spacing: -0.3px;
+  --type-headline-medium-letter-spacing: 0px;
   --type-headline-small-size: 20px;
   --type-headline-small-line-height: 26px;
   --type-headline-small-letter-spacing: 0px;

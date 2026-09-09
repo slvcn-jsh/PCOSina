@@ -21,10 +21,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,11 +46,15 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import com.pcosina.app.ui.components.ArtworkAlignmentKeys
+import com.pcosina.app.data.model.FeedbackEntry
+import kotlinx.coroutines.launch
 
 @Composable
 fun CommunityScreen(
     onBack: (() -> Unit)? = null,
-    onFeedback: (String, Boolean) -> Unit,
+    onFeedback: suspend (String, Boolean) -> Boolean,
+    feedbackEntries: List<FeedbackEntry> = emptyList(),
+    onRetryFeedback: (String, Boolean) -> Unit = { _, _ -> },
     avatarId: String,
     modifier: Modifier = Modifier,
     onOpenSettings: (() -> Unit)? = null,
@@ -92,15 +98,24 @@ fun CommunityScreen(
                 )
             }
             item {
-                SupportSettingsCard(
-                    onClick = onOpenSettings,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            item {
                 SupportFeedbackCard(
                     isOnline = observedOnline,
                     onFeedback = onFeedback,
+                )
+            }
+            if (feedbackEntries.isNotEmpty()) {
+                item {
+                    SupportFeedbackHistoryCard(
+                        entries = feedbackEntries,
+                        isOnline = observedOnline,
+                        onRetryFeedback = onRetryFeedback,
+                    )
+                }
+            }
+            item {
+                SupportSettingsCard(
+                    onClick = onOpenSettings,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
@@ -148,10 +163,12 @@ private fun SupportSettingsCard(
 @Composable
 private fun SupportFeedbackCard(
     isOnline: Boolean,
-    onFeedback: (String, Boolean) -> Unit,
+    onFeedback: suspend (String, Boolean) -> Boolean,
 ) {
+    val scope = rememberCoroutineScope()
     var feedbackText by remember { mutableStateOf("") }
     var feedbackStatus by remember { mutableStateOf<String?>(null) }
+    var submitting by remember { mutableStateOf(false) }
     val trimmedFeedback = feedbackText.trim()
     val isTooLong = feedbackText.length > 2000
     Surface(
@@ -211,20 +228,29 @@ private fun SupportFeedbackCard(
             )
             Button(
                 onClick = {
-                    onFeedback(trimmedFeedback, isOnline)
-                    feedbackText = ""
-                    feedbackStatus = if (isOnline) {
-                        "Feedback queued for sending."
-                    } else {
-                        "Feedback saved and will send when online."
+                    submitting = true
+                    feedbackStatus = "Saving feedback on this device..."
+                    scope.launch {
+                        val saved = onFeedback(trimmedFeedback, isOnline)
+                        submitting = false
+                        if (saved) {
+                            feedbackText = ""
+                            feedbackStatus = if (isOnline) {
+                                "Feedback saved. Sending will continue in the background."
+                            } else {
+                                "Feedback saved on this device and will send when online."
+                            }
+                        } else {
+                            feedbackStatus = "Feedback was not saved. Your text is still here so you can retry."
+                        }
                     }
                 },
-                enabled = trimmedFeedback.isNotBlank() && !isTooLong,
+                enabled = trimmedFeedback.isNotBlank() && !isTooLong && !submitting,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(999.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PcosinaPink),
             ) {
-                Text("Send feedback now", fontWeight = FontWeight.Bold)
+                Text(if (submitting) "Saving..." else "Send feedback now", fontWeight = FontWeight.Bold)
             }
             feedbackStatus?.let { status ->
                 Text(
@@ -232,6 +258,76 @@ private fun SupportFeedbackCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = PcosinaDeepRose,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SupportFeedbackHistoryCard(
+    entries: List<FeedbackEntry>,
+    isOnline: Boolean,
+    onRetryFeedback: (String, Boolean) -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, PcosinaDeepRose.copy(alpha = 0.20f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = "Feedback status",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = PcosinaDeepRose,
+            )
+            Text(
+                text = "Saved feedback remains visible here so offline, sending, sent, and failed states are clear.",
+                style = MaterialTheme.typography.bodySmall,
+                color = PcosinaDeepRose.copy(alpha = 0.72f),
+            )
+            entries.sortedByDescending { it.createdAt }.take(5).forEach { entry ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = entry.message,
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = PcosinaDeepRose,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = when (entry.status) {
+                                "Queued" -> if (isOnline) "Saved, waiting to send" else "Saved offline"
+                                "Sending" -> "Sending"
+                                "Sent" -> "Sent"
+                                "Failed" -> entry.lastError?.let { "Failed: $it" } ?: "Failed to send"
+                                else -> entry.status
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (entry.status == "Failed") MaterialTheme.colorScheme.error else PcosinaPink,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    if (entry.status == "Failed") {
+                        TextButton(
+                            onClick = { onRetryFeedback(entry.id, isOnline) },
+                            enabled = isOnline,
+                        ) {
+                            Text("Retry")
+                        }
+                    }
+                }
             }
         }
     }

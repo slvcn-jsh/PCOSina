@@ -22,7 +22,7 @@ class RoutesClassificationTest {
             Routes.MealPlan,
             Routes.GroceryList,
             Routes.Progress,
-            Routes.Ipo,
+            Routes.Support,
             Routes.MoreTools,
             Routes.RecipeDetails
         )
@@ -44,7 +44,7 @@ class RoutesClassificationTest {
             Routes.MealPlan,
             Routes.GroceryList,
             Routes.Progress,
-            Routes.Ipo,
+            Routes.Support,
             Routes.MoreTools,
             Routes.RecipeDetailsRoutePattern,
             Routes.recipeDetailsRoute("abc123"),
@@ -67,7 +67,7 @@ class RoutesClassificationTest {
         assertFalse(Routes.requiresPlan(Routes.Notifications))
         assertFalse(Routes.requiresPlan(Routes.UserProfile))
         assertFalse(Routes.requiresPlan(Routes.GoalSelection))
-        assertFalse(Routes.requiresPlan(Routes.Ipo))
+        assertFalse(Routes.requiresPlan(Routes.Support))
         assertFalse(Routes.requiresPlan(Routes.MoreTools))
     }
 

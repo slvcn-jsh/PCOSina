@@ -9,6 +9,7 @@ import datetime
 import hashlib
 import hmac
 import html
+import inspect
 import json
 import os
 import time
@@ -78,8 +79,11 @@ from domain.models import (
     GeneratePlanResponse,
     SwapOptionsRequest,
     FeedbackRequest,
+    PersonalPriceOverride,
+    PersonalPriceOverrideRequest,
     MlClientEventRequest,
 )
+from canonical_ingredients import resolve_ingredient
 from price_catalog import invalidate_override_cache as invalidate_price_rule_cache
 
 PLAN_CACHE_TTL_SECONDS = 600
@@ -5292,6 +5296,7 @@ def _solve_with_telemetry(
     policy_payload: Dict[str, Any],
     *,
     reason_feedback_features: Dict[str, float] | None = None,
+    owner_uid: str | None = None,
 ) -> tuple[Any, str, Any, Dict[str, Any]]:
     telemetry: Dict[str, Any] = {}
     ml_feature_context = {
@@ -5304,10 +5309,19 @@ def _solve_with_telemetry(
             policy=policy_payload,
             telemetry_out=telemetry,
             ml_feature_context=ml_feature_context,
+            owner_uid=owner_uid,
         )
     except TypeError as exc:
         # Backward-compatible path for monkeypatched/legacy call signatures in tests.
-        if "ml_feature_context" in str(exc):
+        if "owner_uid" in str(exc):
+            result, msg, explanation = solve_meal_plan(
+                request,
+                recipes,
+                policy=policy_payload,
+                telemetry_out=telemetry,
+                ml_feature_context=ml_feature_context,
+            )
+        elif "ml_feature_context" in str(exc):
             result, msg, explanation = solve_meal_plan(
                 request,
                 recipes,
@@ -5329,17 +5343,26 @@ def _solve_with_user_ml_context(
     uid: str | None,
 ) -> tuple[Any, str, Any, Dict[str, Any]]:
     reason_feedback_features = _reason_feedback_features_for_uid(uid)
-    try:
-        return _solve_with_telemetry(
-            request,
-            recipes,
-            policy_payload,
-            reason_feedback_features=reason_feedback_features,
-        )
-    except TypeError as exc:
-        if "reason_feedback_features" not in str(exc):
-            raise
-        return _solve_with_telemetry(request, recipes, policy_payload)
+    optional_arguments = {
+        "reason_feedback_features": reason_feedback_features,
+        "owner_uid": uid,
+    }
+    signature = inspect.signature(_solve_with_telemetry)
+    accepts_arbitrary_keywords = any(
+        parameter.kind == inspect.Parameter.VAR_KEYWORD
+        for parameter in signature.parameters.values()
+    )
+    supported_arguments = {
+        name: value
+        for name, value in optional_arguments.items()
+        if accepts_arbitrary_keywords or name in signature.parameters
+    }
+    return _solve_with_telemetry(
+        request,
+        recipes,
+        policy_payload,
+        **supported_arguments,
+    )
 
 
 def _emit_async_failure_event(
@@ -5638,7 +5661,7 @@ async def generate_plan(
             raise HTTPException(status_code=400, detail=f"Only mealsPerDay={configured_meals} is supported by active policy.")
         if int(request.days or configured_days) != configured_days:
             raise HTTPException(status_code=400, detail=f"Only days={configured_days} is supported by active policy.")
-        key = f"{policy_version}|{_cache_key(request)}"
+        key = f"{policy_version}|{uid_hash(uid)}|{_cache_key(request)}"
         cached = _cache_get(key, ttl_seconds=local_cache_ttl)
         if cached is not None:
             _inc_plan_job_diag("sync_cache_hits_total")
@@ -6048,6 +6071,103 @@ def feedback(
         return {"status": "ok"}
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to save feedback")
+
+
+def _personal_price_payload(row: Dict[str, Any], *, warning: str | None = None) -> PersonalPriceOverride:
+    return PersonalPriceOverride(
+        ingredientId=str(row.get("ingredientId") or ""),
+        ingredientName=str(row.get("ingredientName") or row.get("ingredientId") or "Ingredient"),
+        pricePhp=float(row.get("pricePhp") or 0),
+        unit=str(row.get("unit") or ""),
+        marketType=str(row.get("marketType") or "user_observed"),
+        location=str(row.get("location") or "NCR"),
+        observedOn=str(row.get("observedOn") or row.get("sourceDate") or time.strftime("%Y-%m-%d")),
+        validUntil=str(row.get("validUntil") or "").strip() or None,
+        warning=warning,
+    )
+
+
+@app.get("/prices/personal", response_model=list[PersonalPriceOverride])
+def list_personal_prices(
+    user: Any = Depends(require_firebase_auth),
+    __: Any = Depends(require_app_check),
+    _: Any = Depends(require_schema_version),
+):
+    uid = str(user.get("uid") or user.get("user_id") or "").strip()
+    return [_personal_price_payload(row) for row in database.list_canonical_price_overrides_for_user(uid)]
+
+
+@app.post("/prices/personal", response_model=PersonalPriceOverride)
+def save_personal_price(
+    payload: PersonalPriceOverrideRequest,
+    user: Any = Depends(require_firebase_auth),
+    __: Any = Depends(require_app_check),
+    _: Any = Depends(require_schema_version),
+):
+    uid = str(user.get("uid") or user.get("user_id") or "").strip()
+    resolved = resolve_ingredient(payload.ingredient)
+    if resolved.status != "mapped" or not resolved.ingredient_id:
+        raise HTTPException(status_code=400, detail="Choose an ingredient that PCOSina can match to its canonical catalog.")
+    if resolved.ingredient_id == "ing_water":
+        raise HTTPException(status_code=400, detail="Household companion water remains zero-cost and cannot be overridden.")
+    try:
+        observed_on = datetime.date.fromisoformat(payload.observedOn or time.strftime("%Y-%m-%d"))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="observedOn must use YYYY-MM-DD.")
+    if observed_on > datetime.date.today():
+        raise HTTPException(status_code=400, detail="observedOn cannot be in the future.")
+    market_type = payload.marketType.strip().lower().replace(" ", "_")
+    allowed_market_types = {"user_observed", "wet_market", "supermarket", "neighborhood_store"}
+    if market_type not in allowed_market_types:
+        raise HTTPException(status_code=400, detail="Unsupported marketType.")
+    reference = database.resolve_canonical_price_ref(
+        resolved.ingredient_id,
+        market_type=market_type,
+        location=payload.location,
+    )
+    warning = None
+    if reference and str(reference.get("unit") or "") == payload.unit:
+        reference_price = float(reference.get("pricePhp") or 0)
+        if reference_price > 0:
+            ratio = float(payload.pricePhp) / reference_price
+            if ratio < 0.35 or ratio > 3.0:
+                warning = (
+                    f"This is far from the current {reference_price:.2f} PHP/{payload.unit} reference. "
+                    "It was saved because legitimate local, sale, or wholesale prices can differ; review it before the next plan."
+                )
+    valid_until = observed_on + datetime.timedelta(days=180)
+    saved = database.upsert_canonical_price_override(
+        ingredient_id=resolved.ingredient_id,
+        price_php=payload.pricePhp,
+        unit=payload.unit,
+        scope="user_override",
+        owner_uid=uid,
+        location=payload.location,
+        market_type=market_type,
+        source="user_reported_price",
+        source_date=observed_on.isoformat(),
+        valid_until=valid_until.isoformat(),
+        notes="User-entered observed price; review warning is advisory, not a hard rejection.",
+    )
+    _invalidate_plan_cache()
+    saved["ingredientName"] = resolved.canonical_name or payload.ingredient
+    saved["observedOn"] = observed_on.isoformat()
+    return _personal_price_payload(saved, warning=warning)
+
+
+@app.delete("/prices/personal/{ingredient_id}")
+def delete_personal_price(
+    ingredient_id: str,
+    user: Any = Depends(require_firebase_auth),
+    __: Any = Depends(require_app_check),
+    _: Any = Depends(require_schema_version),
+):
+    uid = str(user.get("uid") or user.get("user_id") or "").strip()
+    deleted = database.deactivate_canonical_price_override(ingredient_id=ingredient_id, owner_uid=uid)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Personal price not found.")
+    _invalidate_plan_cache()
+    return {"status": "deleted", "ingredientId": ingredient_id}
 
 @app.get("/admin/feedback", response_class=HTMLResponse)
 def admin_feedback(

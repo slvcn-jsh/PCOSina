@@ -80,8 +80,10 @@ $env:ANDROID_USER_HOME="$PWD\\.android-user"
 ### Android connected/instrumentation checks
 
 ```powershell
-./gradlew :app:connectedDebugAndroidTest
+.\scripts\run_connected_android_tests.ps1
 ```
+
+The helper verifies the installed package certificate before Gradle installs the debug test target. It stops when a release-signed Firebase tester build is installed, protecting its local data and signed-in state. Use an emulator for debug instrumentation, or pass `-AllowInstalledAppRemoval` only when clearing the installed app is intentional.
 
 ## Known Validation Limits
 

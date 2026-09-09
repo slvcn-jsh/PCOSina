@@ -49,6 +49,10 @@ class SupportSettingsHighlightsPolicyTest {
         assertTrue("Support should use the support avatar artwork alignment token.", support.contains("ScreenArtworkAlignment.SupportHeaderAvatar"))
         assertTrue("Support should receive the selected avatar instead of hardcoding a character.", support.contains("avatarId: String"))
         assertTrue("Support should render the selected avatar.", support.contains("avatarId = avatarId"))
+        assertTrue(
+            "Manage your experience should remain below the primary feedback task.",
+            support.indexOf("SupportSettingsCard(") > support.indexOf("SupportFeedbackCard(")
+        )
     }
 
     @Test

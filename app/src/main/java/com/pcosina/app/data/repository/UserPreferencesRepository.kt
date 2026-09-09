@@ -219,6 +219,7 @@ class UserPreferencesRepository(private val context: Context) {
         const val groceryJson = "grocery_json"
         const val grocerySourcesJson = "grocery_sources_json"
         const val grocerySnapshotsJson = "grocery_snapshots_json"
+        const val personalPriceOverridesJson = "personal_price_overrides_json"
         const val feedbackQueueJson = "feedback_queue_json"
     }
 
@@ -1145,6 +1146,19 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun saveGrocerySnapshotsJson(userId: String, json: String) {
         writeSecureArtifact(userId, SecureArtifacts.grocerySnapshotsJson, json)
         editArtifactDomainsAndSync(userId, ArtifactDomain.Grocery) { it.remove(Keys.grocerySnapshotsJson(userId)) }
+    }
+
+    fun getPersonalPriceOverridesJson(userId: String): Flow<String?> =
+        context.dataStore.data.map {
+            reflectionStore.getArtifactJson(userId, SecureArtifacts.personalPriceOverridesJson)
+        }
+
+    suspend fun savePersonalPriceOverridesJson(userId: String, json: String) {
+        writeSecureArtifact(userId, SecureArtifacts.personalPriceOverridesJson, json)
+    }
+
+    suspend fun clearPersonalPriceOverrides(userId: String) {
+        writeSecureArtifact(userId, SecureArtifacts.personalPriceOverridesJson, null)
     }
 
     fun getDailyLogsJson(userId: String): Flow<String?> =

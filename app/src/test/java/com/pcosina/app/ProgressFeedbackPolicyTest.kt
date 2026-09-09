@@ -42,6 +42,29 @@ class ProgressFeedbackPolicyTest {
         )
     }
 
+    @Test
+    fun supportFeedback_isPersistedBeforeTheComposerIsClearedAndExposesDeliveryState() {
+        val support = read(
+            resolve(
+                "app", "src", "main", "java", "com", "pcosina", "app",
+                "ui", "screens", "CommunityScreen.kt"
+            )
+        )
+        val viewModel = read(
+            resolve(
+                "app", "src", "main", "java", "com", "pcosina", "app",
+                "ui", "ProgressViewModel.kt"
+            )
+        )
+
+        assertTrue(support.contains("onFeedback: suspend (String, Boolean) -> Boolean"))
+        assertTrue(support.contains("if (saved) {") && support.contains("feedbackText = \"\""))
+        assertTrue(support.contains("Feedback status") && support.contains("Text(\"Retry\")"))
+        assertTrue(viewModel.contains("suspend fun queueFeedback(message: String): Boolean"))
+        assertTrue(viewModel.contains("progressLocalRepository.saveFeedbackQueueJson"))
+        assertTrue(viewModel.contains("feedbackHistoryLimit = 20"))
+    }
+
     private fun resolve(vararg parts: String): Path {
         val first = Paths.get(parts.first(), *parts.drop(1).toTypedArray())
         if (Files.exists(first)) return first

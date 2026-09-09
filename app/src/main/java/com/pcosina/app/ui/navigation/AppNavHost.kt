@@ -40,6 +40,9 @@ import com.pcosina.app.data.repository.UserPreferencesPlannerLocalRepository
 import com.pcosina.app.data.repository.UserPreferencesRepository
 import com.pcosina.app.data.repository.UserPreferencesUserProfileLocalRepository
 import com.pcosina.app.data.repository.ReflectionStore
+import com.pcosina.app.data.api.PersonalPriceOverrideRequestDto
+import com.pcosina.app.data.model.PersonalPriceOverride
+import com.pcosina.app.domain.canonicalGroceryKey
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanUiState
@@ -67,6 +70,7 @@ import com.pcosina.app.ui.screens.UserProfileScreen
 import com.pcosina.app.ui.util.hasGoalSelection
 import com.pcosina.app.ui.util.LegalAcceptance
 import com.pcosina.app.ui.util.unknownGoalTokens
+import com.pcosina.app.ui.util.rememberIsOnline
 import com.pcosina.app.data.repository.FeedbackRepository
 import com.pcosina.app.BuildConfig
 import com.google.firebase.analytics.FirebaseAnalytics
@@ -116,10 +120,11 @@ fun AppNavHost(
     val progressViewModel: ProgressViewModel = viewModel(
         factory = ProgressViewModel.Factory(progressLocalRepository, reflectionStore, feedbackRepository)
     )
-    val onSupportFeedback: (String, Boolean) -> Unit = { message, isOnline ->
+    val onSupportFeedback: suspend (String, Boolean) -> Boolean = { message, isOnline ->
         analytics.logEvent("feedback_submit", null)
-        progressViewModel.queueFeedback(message)
-        progressViewModel.trySendQueuedFeedback(isOnline)
+        val saved = progressViewModel.queueFeedback(message)
+        if (saved) progressViewModel.trySendQueuedFeedback(isOnline)
+        saved
     }
     // FIXED: Use Factory to prevent RuntimeException (NoSuchMethodException)
     val groceryViewModel: GroceryViewModel = viewModel(
@@ -136,6 +141,10 @@ fun AppNavHost(
     val mealPlanUiState by mealPlanViewModel.uiState.collectAsState()
     val hardConstraintRevision by userViewModel.hardConstraintRevision.collectAsState()
     val notificationPrefs by userViewModel.notificationPreferences.collectAsState()
+    val feedbackQueue by progressViewModel.feedbackQueue.collectAsState()
+    val personalPriceOverrides by groceryViewModel.personalPriceOverrides.collectAsState()
+    val groceryLoadedUserId by groceryViewModel.loadedUserId.collectAsState()
+    val observedOnline by rememberIsOnline(context)
     val legalAcceptedForSession = session.currentUserUid?.let { uid ->
         LegalAcceptance.hasAccepted(context, uid)
     } ?: false
@@ -167,7 +176,7 @@ fun AppNavHost(
             Routes.MealPlan,
             Routes.GroceryList,
             Routes.Progress,
-            Routes.Ipo -> navigateInternal(route) { tabNavigationOptions(route) }
+            Routes.Support -> navigateInternal(route) { tabNavigationOptions(route) }
             Routes.Settings -> navigateInternal(route) { launchSingleTop = true }
             else -> navigateInternal(route)
         }
@@ -260,6 +269,104 @@ fun AppNavHost(
         groceryViewModel.setActivePlan(activePlanId)
     }
 
+    LaunchedEffect(session.currentUserUid, groceryLoadedUserId, observedOnline) {
+        val uid = session.currentUserUid
+        if (!observedOnline || uid.isNullOrBlank() || groceryLoadedUserId != uid) {
+            return@LaunchedEffect
+        }
+        personalPriceOverrides
+            .filter { it.syncStatus == "Failed" }
+            .forEach { failed ->
+                groceryViewModel.upsertPersonalPriceOverride(failed.copy(syncStatus = "Pending"))
+            }
+        mealPlanViewModel.getPersonalPrices().onSuccess { remotePrices ->
+            groceryViewModel.replaceSyncedPersonalPrices(
+                remotePrices.map { remote ->
+                    PersonalPriceOverride(
+                        canonicalKey = canonicalGroceryKey(remote.ingredientName),
+                        ingredientId = remote.ingredientId,
+                        ingredientName = remote.ingredientName,
+                        pricePhp = remote.pricePhp,
+                        unit = remote.unit,
+                        marketType = remote.marketType,
+                        location = remote.location,
+                        observedOn = remote.observedOn,
+                        validUntil = remote.validUntil,
+                        warning = remote.warning,
+                        syncStatus = "Synced",
+                    )
+                }
+            )
+        }
+    }
+
+    val pendingPersonalPriceSignature = remember(personalPriceOverrides) {
+        personalPriceOverrides
+            .filter { it.syncStatus == "Pending" || it.syncStatus == "DeletePending" }
+            .joinToString("|") { "${it.canonicalKey}:${it.syncStatus}:${it.pricePhp}:${it.observedOn}" }
+    }
+    LaunchedEffect(
+        session.currentUserUid,
+        groceryLoadedUserId,
+        observedOnline,
+        pendingPersonalPriceSignature,
+    ) {
+        val uid = session.currentUserUid
+        if (
+            !observedOnline ||
+            uid.isNullOrBlank() ||
+            groceryLoadedUserId != uid ||
+            pendingPersonalPriceSignature.isBlank()
+        ) return@LaunchedEffect
+        personalPriceOverrides
+            .filter { it.syncStatus == "Pending" || it.syncStatus == "DeletePending" }
+            .forEach { personalPrice ->
+                if (personalPrice.syncStatus == "DeletePending") {
+                    val ingredientId = personalPrice.ingredientId
+                    val deleted = ingredientId.isNullOrBlank() ||
+                        mealPlanViewModel.deletePersonalPrice(ingredientId).isSuccess
+                    if (deleted) {
+                        groceryViewModel.removePersonalPriceOverride(personalPrice.canonicalKey)
+                    } else {
+                        groceryViewModel.upsertPersonalPriceOverride(personalPrice.copy(syncStatus = "Failed"))
+                    }
+                } else {
+                    mealPlanViewModel.savePersonalPrice(
+                        PersonalPriceOverrideRequestDto(
+                            ingredient = personalPrice.ingredientName,
+                            pricePhp = personalPrice.pricePhp,
+                            unit = personalPrice.unit,
+                            marketType = personalPrice.marketType,
+                            location = personalPrice.location,
+                            observedOn = personalPrice.observedOn,
+                        )
+                    ).onSuccess { saved ->
+                        groceryViewModel.upsertPersonalPriceOverride(
+                            personalPrice.copy(
+                                ingredientId = saved.ingredientId,
+                                ingredientName = saved.ingredientName,
+                                pricePhp = saved.pricePhp,
+                                unit = saved.unit,
+                                marketType = saved.marketType,
+                                location = saved.location,
+                                observedOn = saved.observedOn,
+                                validUntil = saved.validUntil,
+                                warning = saved.warning,
+                                syncStatus = "Synced",
+                            )
+                        )
+                    }.onFailure { error ->
+                        groceryViewModel.upsertPersonalPriceOverride(
+                            personalPrice.copy(
+                                warning = error.message?.take(240),
+                                syncStatus = "Failed",
+                            )
+                        )
+                    }
+                }
+            }
+    }
+
     val observedHardConstraintRevision = remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(session.currentUserUid, hardConstraintRevision) {
         val userId = session.currentUserUid
@@ -332,7 +439,7 @@ fun AppNavHost(
             Routes.MealPlan,
             Routes.GroceryList,
             Routes.Progress,
-            Routes.Ipo
+            Routes.Support
         )
         if (!hasPlan) {
             base.remove(Routes.GroceryList)
@@ -619,11 +726,15 @@ fun AppNavHost(
                 )
             }
         }
-        composable(Routes.Ipo) {
+        composable(Routes.Support) {
             TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
                 val profile by userViewModel.userProfile.collectAsState()
                 CommunityScreen(
                     onFeedback = onSupportFeedback,
+                    feedbackEntries = feedbackQueue,
+                    onRetryFeedback = { entryId, online ->
+                        progressViewModel.retryFeedback(entryId, online)
+                    },
                     avatarId = profile.avatarId,
                     onOpenSettings = ::navigateToSettingsProfile,
                     modifier = Modifier.padding(contentPadding),
@@ -634,6 +745,7 @@ fun AppNavHost(
         composable(Routes.Notifications) {
             NotificationScreen(
                 userViewModel = userViewModel,
+                userId = session.currentUserUid.orEmpty(),
                 onBack = {
                     if (!navController.popBackStack()) {
                         navigateInternal(Routes.Dashboard) {
@@ -672,7 +784,7 @@ fun AppNavHost(
                 },
                 onNavigateToProfileEdit = { navigateInternal(Routes.UserProfileEdit) },
                 onOpenSupport = {
-                    navigateInternal(Routes.Ipo) {
+                    navigateInternal(Routes.Support) {
                         launchSingleTop = true
                     }
                 },
@@ -685,12 +797,12 @@ fun AppNavHost(
             MoreToolsScreen(
                 onBack = { navController.popBackStack() },
                 onOpenSupport = {
-                    navigateInternal(Routes.Ipo) {
+                    navigateInternal(Routes.Support) {
                         tabNavigationOptions(Routes.Dashboard)
                     }
                 },
                 onFeedback = {
-                    navigateInternal(Routes.Ipo) {
+                    navigateInternal(Routes.Support) {
                         tabNavigationOptions(Routes.Dashboard)
                     }
                 },
@@ -724,7 +836,7 @@ fun AppNavHost(
                         Routes.MealPlan,
                         Routes.GroceryList,
                         Routes.Progress,
-                        Routes.Ipo -> navigateInternal(route) { tabNavigationOptions(route) }
+                        Routes.Support -> navigateInternal(route) { tabNavigationOptions(route) }
                         else -> navigateInternal(route)
                     }
                 },

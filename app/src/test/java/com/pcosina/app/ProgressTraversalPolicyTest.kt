@@ -22,6 +22,13 @@ class ProgressTraversalPolicyTest {
         assertTrue(progressText.contains("Weekly budget"))
         assertTrue(progressText.contains("Logged nutrition"))
         assertTrue(progressText.contains("Meal response"))
+        assertTrue(progressText.contains("adherence due so far"))
+        assertTrue(progressText.contains("full-week completion"))
+        assertTrue(progressText.contains("Historical weeks are read-only"))
+        assertTrue(progressText.contains("editable = viewingCurrentWeek"))
+        assertTrue(progressText.contains("reviewEnabled = viewingCurrentWeek"))
+        assertTrue(progressText.contains("contentDescription = accessibilityLabel"))
+        assertTrue(progressText.contains("ProgressMealSlotStatus.MISSED -> \"missed\""))
         assertTrue(!progressText.contains("progress_week_insights_card"))
     }
 

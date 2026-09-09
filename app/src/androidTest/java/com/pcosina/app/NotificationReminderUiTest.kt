@@ -37,6 +37,7 @@ class NotificationReminderUiTest {
             MaterialTheme {
                 NotificationScreen(
                     userViewModel = userViewModel,
+                    userId = userId,
                     onBack = {},
                     onOpenSettings = {}
                 )

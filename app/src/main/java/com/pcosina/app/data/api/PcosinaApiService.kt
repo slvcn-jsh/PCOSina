@@ -184,6 +184,27 @@ data class MlClientEventResponseDto(
     val requestId: String? = null
 )
 
+data class PersonalPriceOverrideRequestDto(
+    val ingredient: String,
+    val pricePhp: Double,
+    val unit: String,
+    val marketType: String,
+    val location: String,
+    val observedOn: String,
+)
+
+data class PersonalPriceOverrideDto(
+    val ingredientId: String,
+    val ingredientName: String,
+    val pricePhp: Double,
+    val unit: String,
+    val marketType: String,
+    val location: String,
+    val observedOn: String,
+    val validUntil: String? = null,
+    val warning: String? = null,
+)
+
 interface PcosinaApiService {
     @GET("health")
     suspend fun health(): HealthResponse
@@ -219,4 +240,13 @@ interface PcosinaApiService {
 
     @POST("ml/events")
     suspend fun postMlEvent(@Body request: MlClientEventRequestDto): MlClientEventResponseDto
+
+    @GET("prices/personal")
+    suspend fun getPersonalPrices(): List<PersonalPriceOverrideDto>
+
+    @POST("prices/personal")
+    suspend fun savePersonalPrice(@Body request: PersonalPriceOverrideRequestDto): PersonalPriceOverrideDto
+
+    @retrofit2.http.DELETE("prices/personal/{ingredientId}")
+    suspend fun deletePersonalPrice(@Path("ingredientId") ingredientId: String): Map<String, String>
 }

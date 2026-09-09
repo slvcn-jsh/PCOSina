@@ -12,7 +12,7 @@
         "primary-next-action"
       ],
       "sourceFingerprints": {
-        "android": "17d98516706d43240f290f92357c2f2b81390f864bdb4376ca2a5a50c83a4c39",
+        "android": "21f2905daab81cb8c7b7be84071058ea7acb35a8cfb0f7dbe7bc884e5b422376",
         "web": "e68544a3b0d7af3af0ab7073b15e9071da5fca8fec093462acf4e40b0c74d1ed"
       }
     },
@@ -28,7 +28,7 @@
         "swap"
       ],
       "sourceFingerprints": {
-        "android": "3371e1abf385031f9ba276265b0ad199726889d6e201f22d8f11b1bd9b6817d4",
+        "android": "8318b2bdce41e52d748b30c4cee645b5f2afb08a742c622737a56fe4caaef5f4",
         "web": "8bdd259a038e5ad9fbd0a40bc80219c7c8fe8e9fe7ee3e23a6bfe04ace96e4c3"
       }
     },
@@ -43,7 +43,7 @@
         "pantry-add"
       ],
       "sourceFingerprints": {
-        "android": "9e223a66207b513fd12ef86051b13ef8e4255c760f7f07f61ee9e6820a7e82f7",
+        "android": "93e90a1786fe4b948bb91cc826d849c6cb697f9851ce537f96ac7e2a0a2c689f",
         "web": "6bc20c27cee7c1f1aea71f5be347c0e5e7d57cfc8604b1523c9d616dd225b90b"
       }
     },
@@ -59,7 +59,7 @@
         "weekly-review"
       ],
       "sourceFingerprints": {
-        "android": "313ba260506ab177e8d80b55d30e5f6be027376c188e671e93c0fc7f8a8ca761",
+        "android": "8421d49f4aaf9b457e044f80e004969551eca74d161626caa51962e28172794b",
         "web": "225af92ea6c299650e348802644cd866a2996374e637b15b16536240d63f428b"
       }
     },
@@ -73,7 +73,7 @@
         "open-plan"
       ],
       "sourceFingerprints": {
-        "android": "c2d03c4d3fa3b4d81ee147ac2fc36e5bcf31304905eabaf05e6c49e7293e8744",
+        "android": "46c8e4afcb15d4c878cdb5879fa6f29adaf8282d6b577c3297361af9cfa8bfa3",
         "web": "460af7e45eeb1b7cf37656005da8ba0c02938519657a7cb5350ad86d5de5fb90"
       }
     },
@@ -89,7 +89,7 @@
         "sign-out"
       ],
       "sourceFingerprints": {
-        "android": "8eac7f602f66ba4cd0e17c87fbd5da55caa916c128f1679afaac938bc5d0cf63",
+        "android": "230347489fa77521b9c7b61f50b1aef7a3a1482454359bd84b216b718ddf244d",
         "web": "065d2e57ba07cc0ae66588a65d638aded558cf8ffe60def5b9f2f28962ad0d7a"
       }
     },
@@ -104,7 +104,7 @@
         "meal-check-in"
       ],
       "sourceFingerprints": {
-        "android": "632b4ec8d28d4c381951997537eb87dee0c86adfe957561f16c0f02ab4a8e2f3",
+        "android": "15da3f5ca8218fffffe52e11c2fcd9e46ec9d2664e9f86ddab4882c80e7a9f61",
         "web": "bdd7cf4ba2608672397b5a28269e5e3b6fb767efa6b9a73d09ad6744ed0c0d61"
       }
     },
@@ -118,7 +118,7 @@
         "open-settings"
       ],
       "sourceFingerprints": {
-        "android": "ab0e47a41bfef31410dfc1c9b8ae16163a5957b8107eb71e9605b8da9f0d7fd2",
+        "android": "1a7b4bf917f89fd4c11cbfabdb72226ef3b1a21a989ea044d9905005d52d0c4a",
         "web": "756d18859f28e0afe887c19d84a728fc410130006057353fec62fe55d14d0605"
       }
     }

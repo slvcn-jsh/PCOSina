@@ -31,11 +31,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -1340,7 +1340,8 @@ fun StepThreeDiet(
     onTextInputFocusChange: (Boolean) -> Unit = {},
     color: Color,
 ) {
-    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    val windowWidthPx = LocalWindowInfo.current.containerSize.width
+    val screenWidthDp = with(LocalDensity.current) { windowWidthPx.toDp().value.roundToInt() }
     val restrictionLabelWidth = UiChipTokens.widthByClass(
         screenWidthDp = screenWidthDp,
         compact = 132.dp,

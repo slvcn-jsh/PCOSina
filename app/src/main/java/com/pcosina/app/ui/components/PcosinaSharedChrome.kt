@@ -65,7 +65,7 @@ fun SharedTopHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                modifier = Modifier.size(if (compact) 38.dp else 42.dp),
+                modifier = Modifier.size(if (compact) 36.dp else 40.dp),
                 shape = CircleShape,
                 color = PcosinaSoftPink.copy(alpha = 0.84f),
                 border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.42f)),
@@ -109,21 +109,23 @@ fun SharedTopHeader(
                 compact = compact,
             )
         }
-        Surface(
-            color = if (online) PcosinaSoftPink else PcosinaSurfaceAlt,
-            contentColor = if (online) PcosinaDeepRose else PcosinaMuted,
-            shape = RoundedCornerShape(999.dp)
-        ) {
-            Text(
-                text = if (online) "Connected. Sync is available." else "Offline-safe mode: using saved local data.",
-                modifier = Modifier.padding(
-                    horizontal = if (compact) 10.dp else 12.dp,
-                    vertical = if (compact) 5.dp else 6.dp
-                ),
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+        if (!online) {
+            Surface(
+                color = PcosinaSurfaceAlt,
+                contentColor = PcosinaMuted,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = "Offline: showing saved data. New plans need internet.",
+                    modifier = Modifier.padding(
+                        horizontal = if (compact) 10.dp else 12.dp,
+                        vertical = if (compact) 5.dp else 6.dp
+                    ),
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
@@ -137,7 +139,7 @@ private fun SharedHeaderIconButton(
 ) {
     Surface(
         modifier = Modifier
-            .size(if (compact) 42.dp else 48.dp)
+            .size(if (compact) 42.dp else 44.dp)
             .clickable(onClick = onClick),
         shape = CircleShape,
         color = PcosinaSurface,

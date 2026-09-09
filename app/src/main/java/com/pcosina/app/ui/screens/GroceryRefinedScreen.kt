@@ -25,10 +25,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.DropdownMenu
@@ -45,6 +47,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -62,10 +65,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.pcosina.app.R
 import com.pcosina.app.data.model.PantryEntry
+import com.pcosina.app.data.model.PersonalPriceOverride
 import com.pcosina.app.domain.GroceryListEntry
 import com.pcosina.app.domain.PantryCoverage
 import com.pcosina.app.domain.PantryCoverageStatus
@@ -111,6 +116,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 private enum class GroceryFilterScope {
     AllItems,
@@ -129,6 +135,7 @@ fun GroceryRefinedScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val observedOnline by rememberIsOnline(context)
     val isOnline = onlineStateOverride ?: observedOnline
     val groceryItems by groceryViewModel.groceryItems.collectAsState()
@@ -136,6 +143,7 @@ fun GroceryRefinedScreen(
     val activePlanId by groceryViewModel.activePlanId.collectAsState()
     val checkedNames by groceryViewModel.checkedItemNames.collectAsState()
     val pantryOptOut by groceryViewModel.pantryOptOutNames.collectAsState()
+    val personalPriceOverrides by groceryViewModel.personalPriceOverrides.collectAsState()
     val userProfile by userViewModel.userProfile.collectAsState()
     val pantryEntries by userViewModel.pantryEntries.collectAsState()
     val effectivePantryEntries = remember(pantryEntries, userProfile.pantryItems) {
@@ -207,6 +215,7 @@ fun GroceryRefinedScreen(
     var selectedFilterCategories by rememberSaveable { mutableStateOf(setOf<String>()) }
     var selectedCategoryKey by rememberSaveable(activePlanId) { mutableStateOf("") }
     var expiredPantryEventKeys by rememberSaveable { mutableStateOf(setOf<String>()) }
+    var selectedPriceEntry by remember { mutableStateOf<GroceryListEntry?>(null) }
 
     val effectiveChecked = remember(checkedNames, pantryMatches, pantryOptOut) {
         checkedNames + pantryMatches.filter { it !in pantryOptOut }
@@ -318,6 +327,7 @@ fun GroceryRefinedScreen(
             0
         }
     }
+
     val localShoppingEstimate = groupedEntries.sumOf { item ->
         estimateGroceryCostAfterPantry(
             entry = item,
@@ -508,6 +518,83 @@ fun GroceryRefinedScreen(
         )
     }
 
+    selectedPriceEntry?.let { entry ->
+        val personalPrice = personalPriceOverrides.firstOrNull { override ->
+            override.canonicalKey == entry.key
+        }
+        GroceryPriceDetailsDialog(
+            item = entry,
+            referenceDate = activeGroceryOutput?.pricingReferenceDate,
+            referenceLocation = activeGroceryOutput?.pricingReferenceLocation,
+            pricingBasis = activeGroceryOutput?.pricingBasis,
+            personalPriceOverride = personalPrice,
+            onSavePersonalPrice = { pricePhp, unit, marketType, location ->
+                scope.launch {
+                    val savedLocally = groceryViewModel.upsertPersonalPriceOverride(
+                        PersonalPriceOverride(
+                            canonicalKey = entry.key,
+                            ingredientId = personalPrice?.ingredientId,
+                            ingredientName = entry.name,
+                            pricePhp = pricePhp,
+                            unit = unit,
+                            marketType = marketType,
+                            location = location,
+                            observedOn = today.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                            syncStatus = "Pending",
+                        )
+                    )
+                    feedbackMessage = when {
+                        !savedLocally -> "The personal price could not be saved on this device."
+                        isOnline -> "Personal price saved. It will apply to newly generated plans after sync."
+                        else -> "Personal price saved offline. It will sync when you reconnect."
+                    }
+                }
+            },
+            onResetPersonalPrice = personalPrice?.let { existing ->
+                {
+                    scope.launch {
+                        val ingredientId = existing.ingredientId
+                        var resetQueued = false
+                        val removed = when {
+                            ingredientId.isNullOrBlank() ->
+                                groceryViewModel.removePersonalPriceOverride(existing.canonicalKey)
+                            isOnline -> {
+                                val remoteDelete = mealPlanViewModel.deletePersonalPrice(ingredientId)
+                                if (remoteDelete.isSuccess) {
+                                    groceryViewModel.removePersonalPriceOverride(existing.canonicalKey)
+                                } else {
+                                    resetQueued = true
+                                    groceryViewModel.upsertPersonalPriceOverride(
+                                        existing.copy(
+                                            warning = remoteDelete.exceptionOrNull()?.message?.take(240),
+                                            syncStatus = "DeletePending",
+                                        )
+                                    )
+                                }
+                            }
+                            else -> {
+                                resetQueued = true
+                                groceryViewModel.upsertPersonalPriceOverride(
+                                    existing.copy(syncStatus = "DeletePending")
+                                )
+                            }
+                        }
+                        feedbackMessage = if (removed) {
+                            if (resetQueued) {
+                                "Price reset saved offline. It will sync when you reconnect."
+                            } else {
+                                "Personal price reset. New plans will use the best shared reference."
+                            }
+                        } else {
+                            "The personal price reset could not be saved on this device."
+                        }
+                    }
+                }
+            },
+            onDismiss = { selectedPriceEntry = null },
+        )
+    }
+
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
@@ -528,7 +615,6 @@ fun GroceryRefinedScreen(
             RefinedTabBrandHeader(
                 online = isOnline,
                 onSettings = { onNavigateToRoute(Routes.Settings) },
-                onSupport = { onNavigateToRoute(Routes.Notifications) },
                 compact = compact,
                 avatarId = userProfile.avatarId
             )
@@ -666,6 +752,7 @@ fun GroceryRefinedScreen(
                         )
                     }
                 },
+                onOpenPriceDetails = { item -> selectedPriceEntry = item },
                 onSyncIngredients = {
                     mealPlanViewModel.extractGrocerySourcesForPlan { sources ->
                         groceryViewModel.setPlanSources(sources)
@@ -1196,15 +1283,21 @@ private fun GroceryDialogActionButton(
     filled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     Surface(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier
-            .heightIn(min = 46.dp),
+            .heightIn(min = 48.dp),
         shape = RoundedCornerShape(10.dp),
-        color = if (filled) PcosinaPink else Color.White,
+        color = when {
+            !enabled -> PcosinaMuted.copy(alpha = 0.18f)
+            filled -> PcosinaPink
+            else -> Color.White
+        },
         border = BorderStroke(1.dp, PcosinaPink),
-        shadowElevation = if (filled) 6.dp else 0.dp
+        shadowElevation = if (filled && enabled) 6.dp else 0.dp
     ) {
         Box(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
@@ -1213,7 +1306,11 @@ private fun GroceryDialogActionButton(
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
-                color = if (filled) Color.White else PcosinaPink,
+                color = when {
+                    !enabled -> PcosinaMuted
+                    filled -> Color.White
+                    else -> PcosinaPink
+                },
                 textAlign = TextAlign.Center
             )
         }
@@ -1227,6 +1324,7 @@ private fun GroceryPreviewRow(
     pantryCovered: Boolean,
     checked: Boolean,
     onToggle: () -> Unit,
+    onOpenPriceDetails: () -> Unit,
 ) {
     val householdSupply = !item.requiresGroceryPurchase()
     val hasPantrySignal = pantryCoverage != null
@@ -1351,6 +1449,23 @@ private fun GroceryPreviewRow(
                     containerColor = if (pantryCovered || householdSupply) PcosinaSuccess.copy(alpha = 0.14f) else PcosinaSurfaceAlt,
                     contentColor = if (pantryCovered || householdSupply) statusColor else PcosinaMuted
                 )
+                Surface(
+                    onClick = onOpenPriceDetails,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .semantics { contentDescription = "Price details for ${item.name}" },
+                    shape = CircleShape,
+                    color = Color.Transparent,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Filled.Info,
+                            contentDescription = null,
+                            tint = PcosinaPink,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
             }
         }
     }
@@ -1835,6 +1950,7 @@ private fun GroceryCategoryPanel(
     onNextCategory: () -> Unit,
     onToggleCategoryExpanded: (String) -> Unit,
     onToggleItem: (GroceryListEntry) -> Unit,
+    onOpenPriceDetails: (GroceryListEntry) -> Unit,
     onSyncIngredients: () -> Unit,
     compact: Boolean,
 ) {
@@ -2012,7 +2128,8 @@ private fun GroceryCategoryPanel(
                                     pantryCoverage = pantryCoverageByName[item.name],
                                     pantryCovered = item.name in pantryMatches && item.name !in pantryOptOut,
                                     checked = item.name in checkedNames,
-                                    onToggle = { onToggleItem(item) }
+                                    onToggle = { onToggleItem(item) },
+                                    onOpenPriceDetails = { onOpenPriceDetails(item) },
                                 )
                             }
 
@@ -2325,8 +2442,327 @@ private fun groceryPriceReferenceText(item: GroceryListEntry): String? {
     return buildList {
         add("$amount/$unit reference")
         purchaseLabel?.let(::add)
-        item.priceSourceLabel?.takeIf { it.isNotBlank() }?.let(::add)
     }.joinToString(" • ")
+}
+
+@Composable
+private fun GroceryPriceDetailsDialog(
+    item: GroceryListEntry,
+    referenceDate: String?,
+    referenceLocation: String?,
+    pricingBasis: String?,
+    personalPriceOverride: PersonalPriceOverride?,
+    onSavePersonalPrice: (Double, String, String, String) -> Unit,
+    onResetPersonalPrice: (() -> Unit)?,
+    onDismiss: () -> Unit,
+) {
+    val unitPrice = groceryPriceReferenceText(item) ?: "No unit reference available"
+    val tier = groceryPriceEvidenceTier(item)
+    val normalizedPriceUnit = item.priceUnit
+        ?.trim()
+        ?.lowercase(Locale.ENGLISH)
+        ?.takeIf { it in setOf("kg", "l", "piece") }
+    val canPersonalize = item.requiresGroceryPurchase() &&
+        normalizedPriceUnit != null &&
+        item.key != "water"
+    var personalPriceInput by remember(item.key, personalPriceOverride?.pricePhp) {
+        mutableStateOf(personalPriceOverride?.pricePhp?.let(::formatPersonalPriceInput).orEmpty())
+    }
+    var personalMarketType by remember(item.key, personalPriceOverride?.marketType) {
+        mutableStateOf(personalPriceOverride?.marketType ?: "wet_market")
+    }
+    var personalLocation by remember(item.key, personalPriceOverride?.location) {
+        mutableStateOf(personalPriceOverride?.location?.ifBlank { "NCR" } ?: "NCR")
+    }
+    val parsedPersonalPrice = personalPriceInput
+        .trim()
+        .replace(",", "")
+        .toDoubleOrNull()
+        ?.takeIf { it > 0.0 && it.isFinite() }
+    Dialog(onDismissRequest = onDismiss) {
+        GroceryDialogSurface(maxWidth = 382.dp, containerColor = Color.White) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 590.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                GroceryDialogHeader(
+                    icon = "₱",
+                    title = item.name,
+                    subtitle = "Estimated price evidence and calculation",
+                )
+                GroceryPriceDetailLine("Amount to buy", item.quantityDisplay)
+                GroceryPriceDetailLine("Estimated cost", formatPhp(item.estimatedCostPhp))
+                GroceryPriceDetailLine("Unit reference", unitPrice)
+                GroceryPriceDetailLine("Evidence tier", tier.label)
+                GroceryPriceDetailLine(
+                    "Source",
+                    item.priceSourceLabel?.takeIf { it.isNotBlank() } ?: "Offline PCOSina fallback",
+                )
+                GroceryPriceDetailLine(
+                    "Confidence",
+                    item.priceConfidence?.replaceFirstChar { it.uppercase() } ?: "Unspecified",
+                )
+                referenceDate?.takeIf { it.isNotBlank() }?.let {
+                    GroceryPriceDetailLine("Reference date", it)
+                }
+                referenceLocation?.takeIf { it.isNotBlank() }?.let {
+                    GroceryPriceDetailLine("Reference location", it)
+                }
+                pricingBasis?.takeIf { it.isNotBlank() }?.let {
+                    GroceryPriceDetailLine("Pricing basis", it.replace('_', ' '))
+                }
+                Text(
+                    text = tier.explanation,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PcosinaMuted,
+                )
+                Text(
+                    text = "This is a planning estimate, not a live store quote or guaranteed SRP. Actual prices can vary by market, location, package, and date.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = PcosinaDeepRose,
+                )
+
+                normalizedPriceUnit?.takeIf { canPersonalize }?.let { personalPriceUnit ->
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = PcosinaSurfaceAlt,
+                        border = BorderStroke(1.dp, PcosinaSoftPink.copy(alpha = 0.72f)),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Text(
+                                text = "Your actual unit price",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = PcosinaDeepRose,
+                            )
+                            Text(
+                                text = "Save what you observed locally. After sync, it applies to newly generated plans, not this plan's fixed estimate.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = PcosinaMuted,
+                            )
+                            OutlinedTextField(
+                                value = personalPriceInput,
+                                onValueChange = { value ->
+                                    if (value.length <= 10 && value.matches(Regex("[0-9,.]*"))) {
+                                        personalPriceInput = value
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Price per $personalPriceUnit") },
+                                prefix = { Text("₱") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                isError = personalPriceInput.isNotBlank() && parsedPersonalPrice == null,
+                                supportingText = {
+                                    Text("Unusual values are accepted with a warning so real local prices are not blocked.")
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                            )
+                            PersonalPriceMarketDropdown(
+                                selectedMarketType = personalMarketType,
+                                onMarketTypeChange = { personalMarketType = it },
+                            )
+                            OutlinedTextField(
+                                value = personalLocation,
+                                onValueChange = { personalLocation = it.take(80) },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Location") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(8.dp),
+                            )
+                            personalPriceOverride?.let { saved ->
+                                GroceryPriceDetailLine(
+                                    "Saved status",
+                                    personalPriceSyncStatusLabel(saved.syncStatus),
+                                )
+                                saved.validUntil?.takeIf { it.isNotBlank() }?.let {
+                                    GroceryPriceDetailLine("Valid until", it)
+                                }
+                                saved.warning?.takeIf { it.isNotBlank() }?.let { warning ->
+                                    Text(
+                                        text = warning,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = PcosinaDeepRose,
+                                    )
+                                }
+                            }
+                            GroceryDialogActionButton(
+                                text = "Save personal price",
+                                filled = true,
+                                enabled = parsedPersonalPrice != null,
+                                onClick = {
+                                    parsedPersonalPrice?.let { price ->
+                                        onSavePersonalPrice(
+                                            price,
+                                            personalPriceUnit,
+                                            personalMarketType,
+                                            personalLocation.trim().ifBlank { "NCR" },
+                                        )
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .semantics {
+                                        if (parsedPersonalPrice == null) {
+                                            contentDescription = "Enter a valid positive price to save"
+                                        }
+                                    },
+                            )
+                            onResetPersonalPrice?.let { resetPrice ->
+                                GroceryDialogActionButton(
+                                    text = "Reset to shared reference",
+                                    filled = false,
+                                    onClick = resetPrice,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
+                    }
+                }
+                GroceryDialogActionButton(
+                    text = "Close",
+                    filled = !canPersonalize,
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PersonalPriceMarketDropdown(
+    selectedMarketType: String,
+    onMarketTypeChange: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val choices = listOf(
+        "wet_market" to "Wet market",
+        "supermarket" to "Supermarket",
+        "neighborhood_store" to "Neighborhood store",
+    )
+    val selectedLabel = choices.firstOrNull { it.first == selectedMarketType }?.second ?: "Wet market"
+    Box {
+        Surface(
+            onClick = { expanded = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp),
+            shape = RoundedCornerShape(8.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, PcosinaMuted.copy(alpha = 0.48f)),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text("Market type", style = MaterialTheme.typography.labelSmall, color = PcosinaMuted)
+                    Text(
+                        selectedLabel,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = PcosinaDeepRose,
+                    )
+                }
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = PcosinaMuted)
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            choices.forEach { (value, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = {
+                        onMarketTypeChange(value)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+private fun formatPersonalPriceInput(value: Double): String =
+    if (value % 1.0 == 0.0) value.toInt().toString() else "%.2f".format(Locale.ENGLISH, value)
+
+private fun personalPriceSyncStatusLabel(status: String): String = when (status) {
+    "Synced" -> "Synced"
+    "DeletePending" -> "Reset pending sync"
+    "Failed" -> "Sync failed; save again to retry"
+    else -> "Saved locally; pending sync"
+}
+
+@Composable
+private fun GroceryPriceDetailLine(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.weight(0.42f),
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            color = PcosinaMuted,
+        )
+        Text(
+            text = value,
+            modifier = Modifier.weight(0.58f),
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+            color = PcosinaDeepRose,
+            textAlign = TextAlign.End,
+        )
+    }
+}
+
+private data class GroceryPriceEvidenceTier(
+    val label: String,
+    val explanation: String,
+)
+
+private fun groceryPriceEvidenceTier(item: GroceryListEntry): GroceryPriceEvidenceTier {
+    val source = "${item.priceSourceKey.orEmpty()} ${item.priceSourceLabel.orEmpty()}".lowercase(Locale.ENGLISH)
+    return when {
+        item.purchaseMode == "household_not_purchased" -> GroceryPriceEvidenceTier(
+            "Household supply",
+            "Companion tap water is measured in liters and excluded from the grocery purchase total.",
+        )
+        "user_override" in source || "personal" in source -> GroceryPriceEvidenceTier(
+            "Personal recent price",
+            "A user-specific observation has priority while it remains current and unit-compatible.",
+        )
+        "da" in source || "amas" in source || "wet_market" in source -> GroceryPriceEvidenceTier(
+            "Government or wet-market observation",
+            "A dated market observation is used as the item reference for the configured location.",
+        )
+        "retail" in source || "supermarket" in source || "metro" in source -> GroceryPriceEvidenceTier(
+            "Named retail observation",
+            "A dated supermarket or metro-retail listing is used when it better matches the purchasable item.",
+        )
+        "reviewed" in source -> GroceryPriceEvidenceTier(
+            "Reviewed market rule",
+            "A reviewed PCOSina price rule is used when a direct item observation is unavailable.",
+        )
+        "category_average" in source || "category average" in source -> GroceryPriceEvidenceTier(
+            "Offline category-average fallback",
+            "This is the least specific fallback. It is a bounded category reference, not an audited item SRP.",
+        )
+        "static" in source || "baseline" in source || "canonical" in source -> GroceryPriceEvidenceTier(
+            "Canonical baseline",
+            "A maintained offline item baseline is used when no newer compatible observation is available.",
+        )
+        else -> GroceryPriceEvidenceTier(
+            "Offline reference",
+            "The best compatible offline reference available to this build was used.",
+        )
+    }
 }
 
 private fun formatPhp(value: Int): String = "₱%,d".format(Locale.ENGLISH, value)

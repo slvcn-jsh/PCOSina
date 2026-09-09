@@ -47,6 +47,27 @@ def test_resolver_keeps_bangus_fillet_distinct_from_whole_bangus():
     assert whole.ingredient_id == "ing_bangus"
 
 
+def test_resolver_maps_frequent_catalog_variants_without_losing_identity():
+    expected = {
+        "cooked munggo": "ing_monggo",
+        "cooked chickpeas": "ing_chickpea",
+        "red kidney beans boiled": "ing_kidney_bean",
+        "button mushrooms sliced": "ing_mushroom",
+        "native tomatoes seeded": "ing_tomato",
+        "bagoong alamang guinamos": "ing_shrimp_paste",
+        "green onions cut crosswise": "ing_scallion",
+        "atsuete oil": "ing_annatto_oil",
+        "chicken stock": "ing_broth_generic",
+        "pork beef broth": "ing_broth_generic",
+        "about 8 shrimps deveined": "ing_shrimp",
+    }
+
+    for raw_text, ingredient_id in expected.items():
+        resolution = resolve_ingredient(raw_text)
+        assert resolution.status == "mapped", raw_text
+        assert resolution.ingredient_id == ingredient_id, raw_text
+
+
 def test_resolver_reports_ambiguous_aliases_instead_of_selecting_one():
     aliases = (
         IngredientAliasSeed("ing_onion_red", "special onion"),

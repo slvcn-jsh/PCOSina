@@ -21,12 +21,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -55,15 +61,19 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @Composable
 fun NotificationScreen(
     userViewModel: UserViewModel,
+    userId: String,
     onBack: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var testNotificationStatus by remember { mutableStateOf<String?>(null) }
     val observedOnline by rememberIsOnline(context)
     val profile by userViewModel.userProfile.collectAsState()
     val prefs by userViewModel.notificationPreferences.collectAsState()
@@ -93,7 +103,7 @@ fun NotificationScreen(
         item {
             Surface(
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(48.dp)
                     .clickable(onClick = onBack),
                 shape = CircleShape,
                 color = Color.White,
@@ -142,6 +152,34 @@ fun NotificationScreen(
                 },
                 badge = if (phoneNotificationsReady) "Ready" else "Needs action",
             )
+        }
+        item {
+            Button(
+                onClick = {
+                    scope.launch {
+                        val delivered = NotificationScheduler.notifyDebugTest(context, userId)
+                        testNotificationStatus = if (delivered) {
+                            "Test notification delivered and recorded on this device."
+                        } else {
+                            "Test notification was blocked. Check the master reminder switch and phone permission."
+                        }
+                    }
+                },
+                enabled = userId.isNotBlank() && prefs.masterEnabled && phoneNotificationsReady,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PcosinaPink),
+            ) {
+                Text("Send test notification", fontWeight = FontWeight.Bold)
+            }
+            testNotificationStatus?.let { status ->
+                Text(
+                    text = status,
+                    modifier = Modifier.padding(top = 6.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PcosinaMuted,
+                )
+            }
         }
         item {
             NotificationSummaryCard(

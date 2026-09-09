@@ -8,6 +8,7 @@ import com.google.gson.reflect.TypeToken
 import com.pcosina.app.data.model.DummyData
 import com.pcosina.app.data.model.GroceryItemSource
 import com.pcosina.app.data.model.GrocerySnapshot
+import com.pcosina.app.data.model.PersonalPriceOverride
 import com.pcosina.app.data.repository.GroceryLocalRepository
 import com.pcosina.app.data.repository.UserPreferencesGroceryLocalRepository
 import com.pcosina.app.data.repository.UserPreferencesRepository
@@ -45,6 +46,12 @@ class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepositor
     private val _pantryOptOutNames = MutableStateFlow<Set<String>>(emptySet())
     val pantryOptOutNames: StateFlow<Set<String>> = _pantryOptOutNames.asStateFlow()
 
+    private val _personalPriceOverrides = MutableStateFlow<List<PersonalPriceOverride>>(emptyList())
+    val personalPriceOverrides: StateFlow<List<PersonalPriceOverride>> = _personalPriceOverrides.asStateFlow()
+
+    private val _loadedUserId = MutableStateFlow<String?>(null)
+    val loadedUserId: StateFlow<String?> = _loadedUserId.asStateFlow()
+
     private var currentUserId: String = ""
     private val gson = Gson()
     private val groceryRebuildUseCase = GroceryRebuildUseCase()
@@ -56,6 +63,7 @@ class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepositor
     fun loadGroceryForUser(userId: String) {
         if (currentUserId == userId) return
         currentUserId = userId
+        _loadedUserId.value = null
         viewModelScope.launch {
             try {
                 val snapshotsJson = groceryLocalRepository.getGrocerySnapshotsJson(userId).first()
@@ -63,6 +71,7 @@ class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepositor
                 val sourcesJson = groceryLocalRepository.getGrocerySourcesJson(userId).first()
                 val ts = groceryLocalRepository.getSavedPlanTimestamp(userId).first()
                 val savedActive = groceryLocalRepository.getActivePlanId(userId).first()
+                val personalPricesJson = groceryLocalRepository.getPersonalPriceOverridesJson(userId).first()
                 if (currentUserId != userId) return@launch
                 _lastPlanTimestamp.value = if (ts > 0) ts else null
                 snapshots = if (!snapshotsJson.isNullOrBlank()) {
@@ -91,6 +100,7 @@ class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepositor
                 _mealSources.value = activeSnapshot?.sources ?: emptyMap()
                 _checkedItemNames.value = activeSnapshot?.checkedItemNames.orEmpty()
                 _pantryOptOutNames.value = activeSnapshot?.pantryOptOutNames.orEmpty()
+                _personalPriceOverrides.value = parsePersonalPriceOverrides(personalPricesJson)
                 pruneChecklistToCurrentItems()
                 if (savedActive != resolvedActiveId) {
                     groceryLocalRepository.saveActivePlanId(userId, resolvedActiveId)
@@ -102,7 +112,12 @@ class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepositor
                 _activePlanId.value = null
                 _checkedItemNames.value = emptySet()
                 _pantryOptOutNames.value = emptySet()
+                _personalPriceOverrides.value = emptyList()
                 snapshots = mutableListOf()
+            } finally {
+                if (currentUserId == userId) {
+                    _loadedUserId.value = userId
+                }
             }
         }
     }
@@ -277,17 +292,85 @@ class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepositor
         persist()
     }
 
+    suspend fun upsertPersonalPriceOverride(value: PersonalPriceOverride): Boolean {
+        val userId = currentUserId.takeIf { it.isNotBlank() } ?: return false
+        val normalized = value.copy(
+            canonicalKey = canonicalGroceryKey(value.canonicalKey.ifBlank { value.ingredientName }),
+            ingredientName = value.ingredientName.trim(),
+            unit = value.unit.trim().lowercase(),
+            marketType = value.marketType.trim().lowercase(),
+            location = value.location.trim().ifBlank { "NCR" },
+        )
+        if (
+            normalized.canonicalKey.isBlank() ||
+            normalized.ingredientName.isBlank() ||
+            normalized.pricePhp <= 0.0 ||
+            normalized.unit !in setOf("kg", "l", "piece")
+        ) return false
+        val previous = _personalPriceOverrides.value
+        val updated = (previous.filterNot { it.canonicalKey == normalized.canonicalKey } + normalized)
+            .sortedBy { it.ingredientName.lowercase() }
+        _personalPriceOverrides.value = updated
+        return runCatching {
+            persistenceMutex.withLock {
+                groceryLocalRepository.savePersonalPriceOverridesJson(userId, gson.toJson(updated))
+            }
+        }.onFailure {
+            _personalPriceOverrides.value = previous
+        }.isSuccess
+    }
+
+    suspend fun replaceSyncedPersonalPrices(values: List<PersonalPriceOverride>): Boolean {
+        val pending = _personalPriceOverrides.value.filter {
+            it.syncStatus == "Pending" || it.syncStatus == "Failed" || it.syncStatus == "DeletePending"
+        }
+        val pendingKeys = pending.map { it.canonicalKey }.toSet()
+        val merged = values.filterNot { it.canonicalKey in pendingKeys } + pending
+        return persistPersonalPriceOverrides(merged)
+    }
+
+    suspend fun removePersonalPriceOverride(canonicalKey: String): Boolean =
+        persistPersonalPriceOverrides(
+            _personalPriceOverrides.value.filterNot { it.canonicalKey == canonicalGroceryKey(canonicalKey) }
+        )
+
+    private suspend fun persistPersonalPriceOverrides(values: List<PersonalPriceOverride>): Boolean {
+        val userId = currentUserId.takeIf { it.isNotBlank() } ?: return false
+        val previous = _personalPriceOverrides.value
+        val normalized = values.distinctBy { it.canonicalKey }
+        _personalPriceOverrides.value = normalized
+        return runCatching {
+            persistenceMutex.withLock {
+                groceryLocalRepository.savePersonalPriceOverridesJson(userId, gson.toJson(normalized))
+            }
+        }.onFailure {
+            _personalPriceOverrides.value = previous
+        }.isSuccess
+    }
+
+    private fun parsePersonalPriceOverrides(raw: String?): List<PersonalPriceOverride> {
+        if (raw.isNullOrBlank()) return emptyList()
+        return runCatching {
+            val type = object : TypeToken<List<PersonalPriceOverride>>() {}.type
+            gson.fromJson<List<PersonalPriceOverride>>(raw, type)
+        }.getOrDefault(emptyList())
+            .filter { it.canonicalKey.isNotBlank() && it.ingredientName.isNotBlank() && it.pricePhp > 0.0 }
+            .distinctBy { it.canonicalKey }
+    }
+
     /**
      * Bullet-Proof Reset: Wipes memory and stops tracking.
      */
     fun reset() {
         currentUserId = ""
+        _loadedUserId.value = null
         _groceryItems.value = emptyList()
         _lastPlanTimestamp.value = null
         _mealSources.value = emptyMap()
         _activePlanId.value = null
         _checkedItemNames.value = emptySet()
         _pantryOptOutNames.value = emptySet()
+        _personalPriceOverrides.value = emptyList()
         snapshots = mutableListOf()
     }
 
@@ -295,11 +378,13 @@ class GroceryViewModel(private val groceryLocalRepository: GroceryLocalRepositor
         if (currentUserId.isBlank()) return
         viewModelScope.launch {
             groceryLocalRepository.clearGrocerySnapshots(currentUserId)
+            groceryLocalRepository.clearPersonalPriceOverrides(currentUserId)
             _groceryItems.value = emptyList()
             _mealSources.value = emptyMap()
             _activePlanId.value = null
             _checkedItemNames.value = emptySet()
             _pantryOptOutNames.value = emptySet()
+            _personalPriceOverrides.value = emptyList()
             snapshots = mutableListOf()
         }
     }

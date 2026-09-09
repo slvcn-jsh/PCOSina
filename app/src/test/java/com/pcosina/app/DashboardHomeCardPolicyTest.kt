@@ -109,7 +109,7 @@ class DashboardHomeCardPolicyTest {
         )
         assertTrue(
             "Bottom navigation should restore the Support tab icon.",
-            bottomNav.contains("BottomNavItem(route = Routes.Ipo, label = \"Support\", iconRes = R.drawable.pcosina_nav_support_clean)")
+            bottomNav.contains("BottomNavItem(route = Routes.Support, label = \"Support\", iconRes = R.drawable.pcosina_nav_support_clean)")
         )
         assertFalse(
             "Home navigation wiring should not keep the removed header notification callback.",
@@ -117,7 +117,7 @@ class DashboardHomeCardPolicyTest {
         )
         assertFalse(
             "Home header notification button should not route through the Support/IPO tab.",
-            navHost.contains("onOpenMoreTools = { navigateInternal(Routes.Ipo)")
+            navHost.contains("onOpenMoreTools = { navigateInternal(Routes.Support)")
         )
     }
 

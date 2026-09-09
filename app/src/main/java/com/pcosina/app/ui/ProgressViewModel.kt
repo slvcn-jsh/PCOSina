@@ -187,6 +187,7 @@ class ProgressViewModel(
     private val retryBaseDelayMs = 2000L
     private val retryMaxDelayMs = 60000L
     private val retryMaxAttempts = 5
+    private val feedbackHistoryLimit = 20
 
     companion object {
         private const val MEAL_KEY_SEPARATOR = "::"
@@ -292,7 +293,7 @@ class ProgressViewModel(
                     } else {
                         entry
                     }
-                }.filter { it.status != "Sent" }
+                }.takeLast(feedbackHistoryLimit)
                 _feedbackQueue.value = normalized
 
                 loadWeeklyJournal(weekStart, fallbackWeekStart)
@@ -761,12 +762,19 @@ class ProgressViewModel(
         _weeklySpend.value = null
     }
 
-    fun queueFeedback(message: String) {
-        if (currentUserId.isBlank()) return
-        val entry = FeedbackEntry(id = UUID.randomUUID().toString(), message = message)
-        val updated = _feedbackQueue.value + entry
+    suspend fun queueFeedback(message: String): Boolean {
+        val normalizedMessage = message.trim()
+        if (currentUserId.isBlank() || normalizedMessage.isBlank()) return false
+        val previous = _feedbackQueue.value
+        val entry = FeedbackEntry(id = UUID.randomUUID().toString(), message = normalizedMessage)
+        val updated = (previous + entry).takeLast(feedbackHistoryLimit)
         _feedbackQueue.value = updated
-        persistFeedback(updated)
+        return runCatching {
+            progressLocalRepository.saveFeedbackQueueJson(currentUserId, gson.toJson(updated))
+        }.onFailure { error ->
+            _feedbackQueue.value = previous
+            Log.e("ProgressViewModel", "Failed to persist feedback queue safely.", error)
+        }.isSuccess
     }
 
     fun trySendQueuedFeedback(isOnline: Boolean) {
@@ -791,9 +799,11 @@ class ProgressViewModel(
                         persistFeedback(entries)
                         val result = feedbackRepository.sendFeedback(entry.message)
                         if (result.ok) {
-                            // Remove successful entries so they don't pile up in the UI
-                            entries.removeAt(i)
-                            i -= 1
+                            entries[i] = sendingEntry.copy(
+                                status = "Sent",
+                                attempts = sendingEntry.attempts + 1,
+                                lastError = null,
+                            )
                         } else {
                             val nextAttempts = sendingEntry.attempts + 1
                             val errorText = result.error ?: "Unknown error"

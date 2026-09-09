@@ -487,7 +487,6 @@ fun MealPlanRefinedScreen(
             RefinedTabBrandHeader(
                 online = isOnline,
                 onSettings = { onNavigateToRoute(Routes.Settings) },
-                onSupport = { onNavigateToRoute(Routes.Notifications) },
                 compact = compact,
                 avatarId = profile.avatarId
             )
@@ -592,7 +591,7 @@ fun MealPlanRefinedScreen(
                                             if (waitingOnSameRequest && planRenewalEligible) {
                                                 requestFreshWeek()
                                             } else {
-                                                onNavigateToRoute(Routes.Ipo)
+                                                onNavigateToRoute(Routes.Support)
                                             }
                                         }
                                 ) {

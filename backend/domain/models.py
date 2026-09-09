@@ -338,6 +338,29 @@ class FeedbackRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
 
 
+class PersonalPriceOverrideRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    ingredient: Annotated[str, Field(min_length=1, max_length=120)]
+    pricePhp: float = Field(gt=0, le=1_000_000)
+    unit: Annotated[str, Field(pattern=r"^(kg|l|piece)$")]
+    marketType: Annotated[str, Field(max_length=40)] = "user_observed"
+    location: Annotated[str, Field(max_length=80)] = "NCR"
+    observedOn: Optional[IsoDateText] = None
+
+
+class PersonalPriceOverride(BaseModel):
+    ingredientId: str
+    ingredientName: str
+    pricePhp: float
+    unit: str
+    marketType: str
+    location: str
+    observedOn: str
+    validUntil: Optional[str] = None
+    warning: Optional[str] = None
+
+
 class MlClientEventRequest(BaseModel):
     eventName: str
     requestId: Optional[str] = None

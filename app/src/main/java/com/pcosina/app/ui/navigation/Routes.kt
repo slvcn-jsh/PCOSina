@@ -55,7 +55,7 @@ object Routes {
     val MealPlan = defineRoute("meal_plan", RouteAccess.GuidedCore)
     val GroceryList = defineRoute("grocery_list", RouteAccess.PlanRequired)
     val Progress = defineRoute("progress", RouteAccess.PlanRequired)
-    val Ipo = defineRoute("ipo", RouteAccess.GuidedCore)
+    val Support = defineRoute("support", RouteAccess.GuidedCore)
 
     // Details
     val RecipeDetails = defineRoute("recipe_details", RouteAccess.PlanRequired)

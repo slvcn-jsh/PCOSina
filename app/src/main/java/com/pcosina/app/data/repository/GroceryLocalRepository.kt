@@ -13,6 +13,9 @@ interface GroceryLocalRepository {
     fun getActivePlanId(userId: String): Flow<String?>
     suspend fun saveActivePlanId(userId: String, id: String?)
     suspend fun clearGrocerySnapshots(userId: String)
+    fun getPersonalPriceOverridesJson(userId: String): Flow<String?>
+    suspend fun savePersonalPriceOverridesJson(userId: String, json: String)
+    suspend fun clearPersonalPriceOverrides(userId: String)
 }
 
 class UserPreferencesGroceryLocalRepository(
@@ -47,4 +50,13 @@ class UserPreferencesGroceryLocalRepository(
 
     override suspend fun clearGrocerySnapshots(userId: String) =
         userPreferencesRepository.clearGrocerySnapshots(userId)
+
+    override fun getPersonalPriceOverridesJson(userId: String): Flow<String?> =
+        userPreferencesRepository.getPersonalPriceOverridesJson(userId)
+
+    override suspend fun savePersonalPriceOverridesJson(userId: String, json: String) =
+        userPreferencesRepository.savePersonalPriceOverridesJson(userId, json)
+
+    override suspend fun clearPersonalPriceOverrides(userId: String) =
+        userPreferencesRepository.clearPersonalPriceOverrides(userId)
 }

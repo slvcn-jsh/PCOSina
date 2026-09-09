@@ -123,13 +123,13 @@ object NotificationScheduler {
         )
     }
 
-    suspend fun notifyDebugTest(context: Context, userId: String) {
-        if (userId.isBlank()) return
+    suspend fun notifyDebugTest(context: Context, userId: String): Boolean {
+        if (userId.isBlank()) return false
         val repository = notificationLocalRepository(context)
         val prefs = repository.getNotificationPreferences(userId).first()
         val title = "Notification test"
         val body = "This is a local notification test from PCOSina."
-        dispatchAndTrackNotification(
+        return dispatchAndTrackNotification(
             context = context,
             repository = repository,
             userId = userId,

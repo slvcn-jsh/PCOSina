@@ -45,7 +45,7 @@ val DefaultBottomNavItems: List<BottomNavItem> = listOf(
     BottomNavItem(route = Routes.GroceryList, label = "Grocery", iconRes = R.drawable.pcosina_nav_grocery),
     BottomNavItem(route = Routes.Dashboard, label = "Home", iconRes = R.drawable.pcosina_nav_home, isCenterItem = true),
     BottomNavItem(route = Routes.Progress, label = "Progress", iconRes = R.drawable.pcosina_nav_progress),
-    BottomNavItem(route = Routes.Ipo, label = "Support", iconRes = R.drawable.pcosina_nav_support_clean),
+    BottomNavItem(route = Routes.Support, label = "Support", iconRes = R.drawable.pcosina_nav_support_clean),
 )
 
 @Composable
@@ -60,7 +60,7 @@ fun BottomNavBar(
     Surface(
         modifier = Modifier.navigationBarsPadding(),
         color = PcosinaSurface,
-        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
         tonalElevation = 0.dp,
         shadowElevation = 10.dp,
         border = BorderStroke(
@@ -72,8 +72,8 @@ fun BottomNavBar(
             containerColor = Color.Transparent,
             tonalElevation = 0.dp,
             modifier = Modifier
-                .heightIn(min = 88.dp)
-                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .heightIn(min = 72.dp)
+                .padding(horizontal = 6.dp, vertical = 2.dp)
         ) {
             items.forEach { item ->
                 val selected = currentDestination
@@ -145,10 +145,10 @@ private fun BottomNavItemIcon(
         else -> PcosinaDeepRose.copy(alpha = 0.78f)
     }
     val iconSize = when {
-        isCenterItem -> 34.dp
-        label == "Progress" -> 31.dp
-        label == "Support" -> 31.dp
-        else -> 29.dp
+        isCenterItem -> 30.dp
+        label == "Progress" -> 27.dp
+        label == "Support" -> 27.dp
+        else -> 26.dp
     }
     val containerColor = when {
         selected && isCenterItem -> PcosinaPink
@@ -157,15 +157,15 @@ private fun BottomNavItemIcon(
         else -> PcosinaSurfaceAlt.copy(alpha = 0.7f)
     }
     val containerModifier = if (isCenterItem) {
-        modifier.size(64.dp)
+        modifier.size(56.dp)
     } else {
         modifier
-            .width(56.dp)
-            .heightIn(min = 50.dp)
+            .width(48.dp)
+            .heightIn(min = 48.dp)
     }
     Surface(
         modifier = containerModifier,
-        shape = if (isCenterItem) CircleShape else RoundedCornerShape(14.dp),
+        shape = if (isCenterItem) CircleShape else RoundedCornerShape(10.dp),
         color = containerColor,
         border = when {
             isCenterItem && !selected && enabled -> BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.55f))

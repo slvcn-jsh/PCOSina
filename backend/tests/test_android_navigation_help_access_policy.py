@@ -15,14 +15,14 @@ def _read(path: Path) -> str:
 def test_help_and_methodology_routes_are_not_plan_gated() -> None:
     routes_source = _read(ROUTES)
     assert "val MoreTools = defineRoute(\"more_tools\", RouteAccess.GuidedCore)" in routes_source
-    assert "val Ipo = defineRoute(\"ipo\", RouteAccess.GuidedCore)" in routes_source
+    assert "val Support = defineRoute(\"support\", RouteAccess.GuidedCore)" in routes_source
 
 
 def test_bottom_nav_keeps_methodology_tab_available_before_first_plan() -> None:
     nav_source = _read(APP_NAV_HOST)
     assert "base.remove(Routes.GroceryList)" in nav_source
     assert "base.remove(Routes.Progress)" in nav_source
-    assert "base.remove(Routes.Ipo)" not in nav_source
+    assert "base.remove(Routes.Support)" not in nav_source
 
 
 def test_dashboard_uses_shared_header_without_duplicate_notification_shortcut() -> None:
@@ -37,6 +37,6 @@ def test_dashboard_uses_shared_header_without_duplicate_notification_shortcut() 
 
 def test_bottom_navigation_uses_product_facing_support_label() -> None:
     nav_source = _read(BOTTOM_NAV_BAR)
-    assert "BottomNavItem(route = Routes.Ipo, label = \"Support\"" in nav_source
+    assert "BottomNavItem(route = Routes.Support, label = \"Support\"" in nav_source
     assert "label = \"Community\"" not in nav_source
     assert "label = \"IPO\"" not in nav_source

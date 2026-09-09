@@ -529,7 +529,6 @@ fun ProgressRefinedScreen(
             RefinedTabBrandHeader(
                 online = isOnline,
                 onSettings = { onNavigateToRoute(Routes.Settings) },
-                onSupport = { onNavigateToRoute(Routes.Notifications) },
                 compact = compact,
                 avatarId = profile.avatarId
             )
@@ -637,6 +636,7 @@ fun ProgressRefinedScreen(
                         }
                     }
                 },
+                editable = viewingCurrentWeek,
                 compact = compact,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -685,6 +685,7 @@ fun ProgressRefinedScreen(
                 completedMealsToday = completedMealsToday,
                 plannedMealsToday = plannedMealsToday,
                 weekReviewed = weekReviewed,
+                reviewEnabled = viewingCurrentWeek,
                 onReviewWeek = { showWeeklyReviewDialog = true },
                 compact = compact
             )
@@ -706,8 +707,8 @@ private fun ProgressThisWeekDashboard(
     modifier: Modifier = Modifier,
 ) {
     val dueMeals = weeklyMealSummary.duePlannedMeals
-    val completionLabel = if (weeklyMealSummary.plannedMeals > 0) {
-        "${weeklyMealSummary.weeklyCompletionPercent}%"
+    val adherenceLabel = if (dueMeals > 0) {
+        "${weeklyMealSummary.adherencePercent}%"
     } else {
         "--"
     }
@@ -745,13 +746,13 @@ private fun ProgressThisWeekDashboard(
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = completionLabel,
+                        text = adherenceLabel,
                         style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
                         color = PcosinaDeepRose,
                         textAlign = TextAlign.End,
                     )
                     Text(
-                        text = "weekly complete",
+                        text = "adherence due so far",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                         color = PcosinaMuted,
                         textAlign = TextAlign.End,
@@ -769,7 +770,10 @@ private fun ProgressThisWeekDashboard(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 ProgressSummaryPill(dueMealLabel)
-                ProgressSummaryPill("${weeklyMealSummary.completedMeals}/${weeklyMealSummary.plannedMeals} weekly meals")
+                ProgressSummaryPill(
+                    "${weeklyMealSummary.weeklyCompletionPercent}% full-week completion " +
+                        "(${weeklyMealSummary.completedMeals}/${weeklyMealSummary.plannedMeals})"
+                )
                 if (weeklyMealSummary.skippedMeals > 0) ProgressSummaryPill("${weeklyMealSummary.skippedMeals} skipped")
                 if (weeklyMealSummary.missedMeals > 0) ProgressSummaryPill("${weeklyMealSummary.missedMeals} missed")
                 if (weeklyMealSummary.pendingMeals > 0) ProgressSummaryPill("${weeklyMealSummary.pendingMeals} pending today")
@@ -875,6 +879,7 @@ private fun ProgressMealMatrix(
                             label = mealLabel.firstOrNull()?.toString().orEmpty(),
                             status = slot?.status,
                             compact = compact,
+                            accessibilityLabel = "$day $mealLabel: ${slot?.status.accessibilityLabel()}",
                         )
                     }
                 }
@@ -898,6 +903,7 @@ private fun ProgressMealMatrixCell(
     label: String,
     status: ProgressMealSlotStatus?,
     compact: Boolean,
+    accessibilityLabel: String,
 ) {
     val size = if (compact) 22.dp else 24.dp
     val color = status?.matrixColor() ?: Color(0xFFE8E1E4)
@@ -910,7 +916,8 @@ private fun ProgressMealMatrixCell(
     Box(
         modifier = Modifier
             .size(size)
-            .background(color, RoundedCornerShape(6.dp)),
+            .background(color, RoundedCornerShape(6.dp))
+            .semantics { contentDescription = accessibilityLabel },
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -961,9 +968,18 @@ private fun ProgressSummaryPill(text: String) {
             .padding(horizontal = 10.dp, vertical = 6.dp),
         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
         color = PcosinaDeepRose,
-        maxLines = 1,
+        maxLines = 2,
         overflow = TextOverflow.Ellipsis,
     )
+}
+
+private fun ProgressMealSlotStatus?.accessibilityLabel(): String = when (this) {
+    ProgressMealSlotStatus.COMPLETED -> "completed"
+    ProgressMealSlotStatus.SKIPPED -> "skipped"
+    ProgressMealSlotStatus.MISSED -> "missed"
+    ProgressMealSlotStatus.PENDING -> "open"
+    ProgressMealSlotStatus.FUTURE -> "future"
+    null -> "not planned"
 }
 
 @Composable
@@ -977,6 +993,7 @@ private fun ProgressBudgetSummaryCard(
     weeklySpendError: String?,
     onWeeklySpendInputChange: (String) -> Unit,
     onSaveWeeklySpend: () -> Unit,
+    editable: Boolean,
     compact: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -1017,12 +1034,17 @@ private fun ProgressBudgetSummaryCard(
                 label = { Text("Actual weekly spend") },
                 placeholder = { Text("Optional pesos") },
                 singleLine = true,
+                enabled = editable,
                 isError = !weeklySpendError.isNullOrBlank(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 supportingText = {
                     Text(
                         text = weeklySpendError
-                            ?: "Save what you actually spent this week for budget review.",
+                            ?: if (editable) {
+                                "Save what you actually spent this week for budget review."
+                            } else {
+                                "Historical weeks are read-only. Open the current week to update actual spend."
+                            },
                     )
                 },
             )
@@ -1030,7 +1052,7 @@ private fun ProgressBudgetSummaryCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
             ) {
-                TextButton(onClick = onSaveWeeklySpend) {
+                TextButton(onClick = onSaveWeeklySpend, enabled = editable) {
                     Text("Save spend")
                 }
             }
@@ -2735,6 +2757,7 @@ private fun ProgressBottomCtaCard(
     completedMealsToday: Int,
     plannedMealsToday: Int,
     weekReviewed: Boolean,
+    reviewEnabled: Boolean,
     onReviewWeek: () -> Unit,
     compact: Boolean,
 ) {
@@ -2748,7 +2771,9 @@ private fun ProgressBottomCtaCard(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = if (weekReviewed) {
+                text = if (!reviewEnabled) {
+                    "Historical week"
+                } else if (weekReviewed) {
                     "Week reviewed"
                 } else if (completedMealsToday >= plannedMealsToday && plannedMealsToday > 0) {
                     "Today's planned meals are recorded"
@@ -2761,7 +2786,9 @@ private fun ProgressBottomCtaCard(
                 )
             )
             Text(
-                text = if (weekReviewed) {
+                text = if (!reviewEnabled) {
+                    "This saved week is available for review. Plan tuning stays attached to the current week."
+                } else if (weekReviewed) {
                     "Plan feedback is saved for the next weekly plan."
                 } else {
                     "Choose what should change before starting the next week."
@@ -2774,6 +2801,7 @@ private fun ProgressBottomCtaCard(
             RefinedPrimaryButton(
                 text = if (weekReviewed) "Edit plan tuning" else "Review week",
                 onClick = onReviewWeek,
+                enabled = reviewEnabled,
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("progress_open_weekly_review_cta")

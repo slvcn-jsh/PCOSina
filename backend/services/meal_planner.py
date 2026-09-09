@@ -1346,6 +1346,7 @@ def _build_selected_grocery_output(
     selected: List[Dict[str, Any]],
     *,
     budget_weekly: Optional[float],
+    pricing_context: Optional[PricingContext] = None,
 ) -> Dict[str, Any]:
     plan_payload: List[Dict[str, Any]] = []
     for recipe in selected:
@@ -1360,7 +1361,11 @@ def _build_selected_grocery_output(
             ingredients.append(scaled)
         plan_payload.append({"meals": [{"ingredients": ingredients}]})
     buckets = aggregate_grocery_list(plan_payload)
-    output = price_grocery_buckets(buckets, weekly_budget_php=budget_weekly)
+    output = price_grocery_buckets(
+        buckets,
+        weekly_budget_php=budget_weekly,
+        pricing_context=pricing_context,
+    )
     output["selectedMealCount"] = len(selected)
     return output
 
@@ -3032,6 +3037,7 @@ def solve_meal_plan(
     policy: Optional[Dict[str, Any]] = None,
     telemetry_out: Optional[Dict[str, Any]] = None,
     ml_feature_context: Optional[Dict[str, Any]] = None,
+    owner_uid: Optional[str] = None,
 ):
     profile = request.profile
     if _stage1_ml_scoring_enabled(policy):
@@ -3161,7 +3167,7 @@ def solve_meal_plan(
     # Stage 1 pruning + shortlist
     shortlist_started_at = time.time()
     stage1_diag: Dict[str, Any] = {}
-    pricing_context = create_pricing_context()
+    pricing_context = create_pricing_context(owner_uid=owner_uid)
     caller_ml_feature_context = ml_feature_context if isinstance(ml_feature_context, dict) else {}
     stage1_ml_feature_context = {
         "target_calories": float(target),
@@ -3918,7 +3924,20 @@ def solve_meal_plan(
                                 break
                     res_plan.append(DayPlan(dayLabel=day_names[d], meals=meals, totalCalories=total))
                 rough_est_cost = sum(int(r.get("_cost_est", 0)) for r in selected)
-                grocery_output = _build_selected_grocery_output(selected, budget_weekly=budget_weekly)
+                try:
+                    grocery_output = _build_selected_grocery_output(
+                        selected,
+                        budget_weekly=budget_weekly,
+                        pricing_context=pricing_context,
+                    )
+                except TypeError as exc:
+                    if "pricing_context" not in str(exc):
+                        raise
+                    # Compatibility for test doubles and older embedded callers.
+                    grocery_output = _build_selected_grocery_output(
+                        selected,
+                        budget_weekly=budget_weekly,
+                    )
                 grocery_total = int(grocery_output.get("estimatedTotalPhp") or 0)
                 budget_diag = _budget_authority_diagnostics(
                     budget_weekly=budget_weekly,

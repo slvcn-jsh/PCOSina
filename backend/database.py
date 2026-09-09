@@ -3471,7 +3471,10 @@ def upsert_canonical_price_override(
     scope: str,
     owner_uid: str | None = None,
     location: str = "NCR",
+    market_type: str = "user_observed",
     source: str = "manual_override",
+    source_date: str | None = None,
+    valid_until: str | None = None,
     notes: str = "",
 ) -> Dict[str, Any]:
     normalized_scope = str(scope or "").strip().lower()
@@ -3482,6 +3485,9 @@ def upsert_canonical_price_override(
         raise ValueError("owner_uid is required for user_override")
     normalized_ingredient = str(ingredient_id or "").strip()
     normalized_unit = str(unit or "").strip().lower()
+    normalized_market_type = str(market_type or "user_observed").strip().lower()
+    normalized_source_date = str(source_date or time.strftime("%Y-%m-%d")).strip()
+    normalized_valid_until = str(valid_until or "").strip()
     price = float(price_php)
     if not normalized_ingredient or not normalized_unit or price < 0:
         raise ValueError("ingredient_id, unit, and non-negative price_php are required")
@@ -3494,8 +3500,8 @@ def upsert_canonical_price_override(
         owner_key = normalized_owner or "global"
         ref_id = f"price_{normalized_ingredient}_{normalized_scope}_{uuid.uuid5(uuid.NAMESPACE_URL, owner_key).hex[:12]}"
         values = (
-            ref_id, normalized_ingredient, location, normalized_scope, normalized_unit,
-            price, None, None, source, time.strftime("%Y-%m-%d"), "high", "",
+            ref_id, normalized_ingredient, location, normalized_market_type, normalized_unit,
+            price, None, None, source, normalized_source_date, "high", normalized_valid_until,
             1, now, now, normalized_scope, normalized_owner or None, priority, notes,
         )
         if _use_postgres():
@@ -3512,8 +3518,11 @@ def upsert_canonical_price_override(
                     price_php = EXCLUDED.price_php,
                     unit = EXCLUDED.unit,
                     location = EXCLUDED.location,
+                    market_type = EXCLUDED.market_type,
                     source = EXCLUDED.source,
                     source_date = EXCLUDED.source_date,
+                    confidence = EXCLUDED.confidence,
+                    valid_until = EXCLUDED.valid_until,
                     active = EXCLUDED.active,
                     updated_at = EXCLUDED.updated_at,
                     notes = EXCLUDED.notes
@@ -3534,8 +3543,11 @@ def upsert_canonical_price_override(
                     price_php = excluded.price_php,
                     unit = excluded.unit,
                     location = excluded.location,
+                    market_type = excluded.market_type,
                     source = excluded.source,
                     source_date = excluded.source_date,
+                    confidence = excluded.confidence,
+                    valid_until = excluded.valid_until,
                     active = excluded.active,
                     updated_at = excluded.updated_at,
                     notes = excluded.notes
@@ -3550,8 +3562,92 @@ def upsert_canonical_price_override(
             "unit": normalized_unit,
             "scope": normalized_scope,
             "ownerUid": normalized_owner or None,
+            "marketType": normalized_market_type,
+            "sourceDate": normalized_source_date,
+            "validUntil": normalized_valid_until or None,
             "priority": priority,
         }
+    finally:
+        conn.close()
+
+
+def deactivate_canonical_price_override(*, ingredient_id: str, owner_uid: str) -> bool:
+    ingredient = str(ingredient_id or "").strip()
+    owner = str(owner_uid or "").strip()
+    if not ingredient or not owner:
+        return False
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        placeholder = "%s" if _use_postgres() else "?"
+        cur.execute(
+            f"""
+            UPDATE ingredient_price_refs
+            SET active = 0, updated_at = {placeholder}
+            WHERE ingredient_id = {placeholder}
+              AND price_scope = 'user_override'
+              AND owner_uid = {placeholder}
+            """,
+            (int(time.time() * 1000), ingredient, owner),
+        )
+        changed = int(cur.rowcount or 0) > 0
+        conn.commit()
+        return changed
+    finally:
+        conn.close()
+
+
+def list_canonical_price_overrides_for_user(owner_uid: str) -> List[Dict[str, Any]]:
+    owner = str(owner_uid or "").strip()
+    if not owner:
+        return []
+    today = time.strftime("%Y-%m-%d")
+    conn = _connect()
+    try:
+        if _use_postgres() and dict_row is not None:
+            cur = conn.cursor(row_factory=dict_row)
+            cur.execute(
+                """
+                SELECT ipr.*, ci.canonical_name
+                FROM ingredient_price_refs ipr
+                JOIN canonical_ingredients ci ON ci.ingredient_id = ipr.ingredient_id
+                WHERE ipr.price_scope = 'user_override'
+                  AND ipr.owner_uid = %s
+                  AND ipr.active = 1
+                  AND (ipr.valid_until IS NULL OR ipr.valid_until = '' OR ipr.valid_until >= %s)
+                ORDER BY ipr.updated_at DESC
+                """,
+                (owner, today),
+            )
+        else:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT ipr.*, ci.canonical_name
+                FROM ingredient_price_refs ipr
+                JOIN canonical_ingredients ci ON ci.ingredient_id = ipr.ingredient_id
+                WHERE ipr.price_scope = 'user_override'
+                  AND ipr.owner_uid = ?
+                  AND ipr.active = 1
+                  AND (ipr.valid_until IS NULL OR ipr.valid_until = '' OR ipr.valid_until >= ?)
+                ORDER BY ipr.updated_at DESC
+                """,
+                (owner, today),
+            )
+        return [
+            {
+                "ingredientId": raw.get("ingredient_id"),
+                "ingredientName": raw.get("canonical_name"),
+                "pricePhp": float(raw.get("price_php") or 0),
+                "unit": raw.get("unit"),
+                "marketType": raw.get("market_type"),
+                "location": raw.get("location"),
+                "observedOn": raw.get("source_date"),
+                "validUntil": raw.get("valid_until") or None,
+            }
+            for raw in (dict(row) for row in cur.fetchall())
+        ]
     finally:
         conn.close()
 
@@ -3566,6 +3662,7 @@ def resolve_canonical_price_ref(
     token = str(ingredient_id or "").strip()
     owner = str(owner_uid or "").strip()
     market = str(market_type or "wet_market").strip().lower()
+    today = time.strftime("%Y-%m-%d")
     conn = _connect()
     try:
         if _use_postgres() and dict_row is not None:
@@ -3576,12 +3673,16 @@ def resolve_canonical_price_ref(
                 FROM ingredient_price_refs
                 WHERE ingredient_id = %s
                   AND active = 1
-                  AND (location = %s OR location = 'Philippines')
+                  AND (valid_until IS NULL OR valid_until = '' OR valid_until >= %s)
                   AND (
                     (price_scope = 'user_override' AND owner_uid = %s) OR
-                    (price_scope = 'admin_override') OR
-                    (price_scope = %s) OR
-                    (price_scope = 'baseline')
+                    (
+                      (location = %s OR location = 'Philippines') AND (
+                        (price_scope = 'admin_override') OR
+                        (price_scope = %s) OR
+                        (price_scope = 'baseline')
+                      )
+                    )
                   )
                 ORDER BY
                     CASE
@@ -3594,7 +3695,7 @@ def resolve_canonical_price_ref(
                     updated_at DESC
                 LIMIT 1
                 """,
-                (token, location, owner, market, owner, market),
+                (token, today, owner, location, market, owner, market),
             )
         else:
             conn.row_factory = sqlite3.Row
@@ -3605,12 +3706,16 @@ def resolve_canonical_price_ref(
                 FROM ingredient_price_refs
                 WHERE ingredient_id = ?
                   AND active = 1
-                  AND (location = ? OR location = 'Philippines')
+                  AND (valid_until IS NULL OR valid_until = '' OR valid_until >= ?)
                   AND (
                     (price_scope = 'user_override' AND owner_uid = ?) OR
-                    (price_scope = 'admin_override') OR
-                    (price_scope = ?) OR
-                    (price_scope = 'baseline')
+                    (
+                      (location = ? OR location = 'Philippines') AND (
+                        (price_scope = 'admin_override') OR
+                        (price_scope = ?) OR
+                        (price_scope = 'baseline')
+                      )
+                    )
                   )
                 ORDER BY
                     CASE
@@ -3623,7 +3728,7 @@ def resolve_canonical_price_ref(
                     updated_at DESC
                 LIMIT 1
                 """,
-                (token, location, owner, market, owner, market),
+                (token, today, owner, location, market, owner, market),
             )
         row = cur.fetchone()
         if not row:
@@ -3666,9 +3771,13 @@ def list_effective_canonical_price_refs(
                 SELECT ipr.*, ci.category AS canonical_category
                 FROM ingredient_price_refs ipr
                 JOIN canonical_ingredients ci ON ci.ingredient_id = ipr.ingredient_id
-                WHERE ipr.active = 1 AND (ipr.location = %s OR ipr.location = 'Philippines')
+                WHERE ipr.active = 1
+                  AND (
+                    (ipr.price_scope = 'user_override' AND ipr.owner_uid = %s) OR
+                    (ipr.location = %s OR ipr.location = 'Philippines')
+                  )
                 """,
-                (location,),
+                (owner, location),
             )
         else:
             conn.row_factory = sqlite3.Row
@@ -3678,9 +3787,13 @@ def list_effective_canonical_price_refs(
                 SELECT ipr.*, ci.category AS canonical_category
                 FROM ingredient_price_refs ipr
                 JOIN canonical_ingredients ci ON ci.ingredient_id = ipr.ingredient_id
-                WHERE ipr.active = 1 AND (ipr.location = ? OR ipr.location = 'Philippines')
+                WHERE ipr.active = 1
+                  AND (
+                    (ipr.price_scope = 'user_override' AND ipr.owner_uid = ?) OR
+                    (ipr.location = ? OR ipr.location = 'Philippines')
+                  )
                 """,
-                (location,),
+                (owner, location),
             )
         rows = [dict(row) for row in cur.fetchall()]
     finally:
@@ -3689,6 +3802,9 @@ def list_effective_canonical_price_refs(
     result: Dict[str, Dict[str, Any]] = {}
     ranked: Dict[str, tuple[tuple[int, str, int], dict[str, Any]]] = {}
     for raw in rows:
+        valid_until = str(raw.get("valid_until") or "").strip()
+        if valid_until and valid_until < time.strftime("%Y-%m-%d"):
+            continue
         scope = str(raw.get("price_scope") or "baseline").strip().lower()
         row_owner = str(raw.get("owner_uid") or "").strip()
         if scope == "user_override":

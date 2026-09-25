@@ -1,45 +1,61 @@
-# PCOSINA
+# PCOSina
 
-PCOSINA is an offline-first meal planning system for Filipino individuals with PCOS.
-It is a wellness decision-support tool, not a diagnosis engine or medical device.
+PCOSina is an offline-first meal planning system for Filipino individuals with PCOS.
+It is a wellness decision-support application, not a diagnosis engine, medical device, or treatment provider.
 
-The repository contains:
-- an Android client built with Kotlin and Jetpack Compose
-- a Python FastAPI backend used as the authoritative planner/control plane
-- deterministic planning logic with a rule-filter stage followed by OR-Tools constraint optimization
-- optional ML used only for assistive ranking and personalization, never for hard-constraint authority
+## Overview
 
-## Current Architecture
+PCOSina focuses on practical daily planning: profile-aware meal suggestions, pantry-aware filtering, and explainable planning outputs.
 
-- Android app: `app/`
-  - UI and navigation under `app/src/main/java/com/pcosina/app/ui`
-  - local persistence and repositories under `app/src/main/java/com/pcosina/app/data`
-  - lightweight domain use cases under `app/src/main/java/com/pcosina/app/domain`
-- Backend: `backend/`
-  - FastAPI entrypoint in `backend/main.py`
-  - planner, ML, and sync services in `backend/services`
-  - database and schema handling in `backend/database.py`
-- ML and offline training: `ml/`
-- rollout, SRE, and release evidence: `docs/`, `benchmarks/`, `.github/workflows/`
+The repository combines:
+- **Android client** (primary product surface): Kotlin + Jetpack Compose in `app/`
+- **Backend services** (planning authority and APIs): FastAPI in `backend/`
+- **Deterministic planning core**: rule-based filtering plus OR-Tools optimization
+- **Optional ML support**: assistive ranking/personalization only, never hard-constraint authority
 
-More detail: [ARCHITECTURE.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\ARCHITECTURE.md)
+## Key capabilities
 
-## Local-First Contract
+- Offline-first Android experience for core planning and tracking flows
+- Deterministic planner pipeline with explainable constraints
+- Preference-aware meal planning with budget/pantry/nutrition guardrails
+- Optional sync and backend-assisted workflows
+- ML-assisted ranking with deterministic fallback
 
-- The Android app must remain usable offline for core local flows.
-- Optional sync is supplementary and must not be required for core profile, pantry, plan viewing, grocery guidance, or reflection storage.
-- The backend planner remains deterministic and explainable.
-- ML can only assist ranking or personalization and must always degrade safely.
+## Android and mobile stack
 
-## Prerequisites
+- Kotlin Android app with Jetpack Compose UI
+- Android architecture layers under:
+  - UI/navigation: `app/src/main/java/com/pcosina/app/ui`
+  - Data and repositories: `app/src/main/java/com/pcosina/app/data`
+  - Domain use cases: `app/src/main/java/com/pcosina/app/domain`
+- Android testing includes unit and connected instrumentation flows
 
-- Android Studio with JDK 17-compatible runtime
-- Android SDK / emulator tooling for mobile builds and instrumentation tests
-- Python 3.12+ for backend, scripts, and ML tooling
-- Optional Firebase config for release packaging and distribution
-- Postgres and Redis for production-like backend runs; optional only for local development
+Broader mobile-related support systems (backend APIs, optimization, and ML artifacts) are included in this repository but are distinct from the Android client implementation.
 
-## Local Development
+## High-level architecture
+
+- **Android app (`app/`)**: local-first UX and client-side data flows
+- **Backend (`backend/`)**: FastAPI entrypoint and planner/control-plane services
+- **ML/training (`ml/`)**: offline artifacts and model-readiness support
+- **Operational docs and evidence (`docs/`, `benchmarks/`, `.github/workflows/`)**
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for deeper details.
+
+## Safety and privacy boundaries
+
+- Wellness decision-support framing is explicit and preserved
+- Deterministic hard constraints remain authoritative
+- Optional ML cannot override hard safety constraints
+- Privacy/security guidance is documented in [PRIVACY_AND_SECURITY.md](./PRIVACY_AND_SECURITY.md)
+
+## Setup
+
+### Android
+
+```powershell
+. .\scripts\android-env.ps1
+.\gradlew :app:assembleDebug
+```
 
 ### Backend
 
@@ -50,79 +66,45 @@ pip install -r requirements.txt
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Notes:
-- Dev and test can use local SQLite through `PCOSINA_DB_NAME`.
-- Production uses PostgreSQL through `DATABASE_URL` and fails closed without Postgres and required security controls.
+For respondent deployment/testing and environment notes, see:
+- [docs/respondent-deployment.md](./docs/respondent-deployment.md)
+- [docs/render-testing-env.md](./docs/render-testing-env.md)
 
-### Android
+## Validation and testing
 
-Debug builds expect a backend base URL ending with `/`.
-By default, debug now targets the hosted HTTPS backend so emulator installs work without a local server.
-If you want the emulator to hit a backend running on your laptop instead, explicitly override the debug base URL.
-
-```powershell
-. .\scripts\android-env.ps1
-.\gradlew :app:assembleDebug
-```
-
-Local-backend override example:
-
-```powershell
-. .\scripts\android-env.ps1
-$env:DEBUG_BASE_URL="http://10.0.2.2:8000/"
-.\gradlew :app:assembleDebug
-```
-
-Release packaging needs:
-- readable `google-services.json`
-- managed release signing credentials, or an explicit local-only insecure fallback override
-
-Helpful repo-local wrappers:
-
-```powershell
-.\scripts\run_connected_android_tests.ps1 -AttemptAdbFix
-.\scripts\release.ps1 -AllowInsecureLocalSigning -SkipFirebaseDistribution
-```
-
-Respondent testing should use Firebase App Distribution instead of ADB:
-
-```powershell
-.\gradlew.bat :app:assembleStaging
-.\gradlew.bat :app:appDistributionUploadStaging
-```
-
-See [docs/respondent-deployment.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\docs\respondent-deployment.md) and [docs/render-testing-env.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\docs\render-testing-env.md).
-
-## Validation
-
-Representative backend and ML validation commands:
-
-```powershell
-python -m pytest backend/tests/test_runtime_readiness.py backend/tests/test_admin_feedback_security.py backend/tests/test_admin_operator_auth_policy.py backend/tests/test_async_job_ownership.py backend/tests/test_ops_operator_access_api.py -q
-python -m pytest backend/tests/test_ml_ranker.py backend/tests/test_meal_planner.py backend/tests/test_lightgbm_training.py backend/tests/test_ml_dataset_builder.py backend/tests/test_reason_feedback_dataset_builder.py backend/tests/test_ml_readiness_script.py -q
-python scripts/check_ml_readiness.py --mode shadow --reason-feedback-summary ml/offline_training/artifacts/reason_feedback_v1/reason_feedback_summary.json --max-dataset-artifact-age-hours 720 --max-dataset-source-age-hours 720 --max-reason-feedback-artifact-age-hours 720 --max-reason-feedback-source-age-hours 720
-python scripts/check_ml_readiness.py --mode canary --reason-feedback-summary ml/offline_training/artifacts/reason_feedback_v1/reason_feedback_summary.json --max-dataset-artifact-age-hours 720 --max-dataset-source-age-hours 720 --max-reason-feedback-artifact-age-hours 720 --max-reason-feedback-source-age-hours 720
-```
-
-Representative Android validation commands:
+Representative commands:
 
 ```powershell
 . .\scripts\android-env.ps1
 .\gradlew :app:testDebugUnitTest
 .\scripts\run_connected_android_tests.ps1
+python -m pytest backend/tests/test_runtime_readiness.py backend/tests/test_admin_feedback_security.py -q
+python -m pytest backend/tests/test_ml_ranker.py backend/tests/test_meal_planner.py -q
 ```
 
-In this sandboxed session, Android dependency resolution is currently blocked by restricted outbound network access.
+Reference test scope and release checks:
+- [TEST_PLAN.md](./TEST_PLAN.md)
+- [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)
+- [docs/pre-release-checklist.md](./docs/pre-release-checklist.md)
 
-## Key Documents
+## Current status
 
-- [ARCHITECTURE.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\ARCHITECTURE.md)
-- [TEST_PLAN.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\TEST_PLAN.md)
-- [ML_GUARDRAILS.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\ML_GUARDRAILS.md)
-- [PRIVACY_AND_SECURITY.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\PRIVACY_AND_SECURITY.md)
-- [RISK_REGISTER.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\RISK_REGISTER.md)
-- [RELEASE_CHECKLIST.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\RELEASE_CHECKLIST.md)
-- [docs/respondent-deployment.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\docs\respondent-deployment.md)
-- [docs/pre-release-checklist.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\docs\pre-release-checklist.md)
-- [docs/roadmap/progress_ledger.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\docs\roadmap\progress_ledger.md)
-- [docs/roadmap/ml_progress_ledger.md](C:\Users\salva\AndroidStudioProjects\PCOSINA2\docs\roadmap\ml_progress_ledger.md)
+- This is an active thesis repository under continuous iteration.
+- Progress tracking:
+  - [docs/roadmap/progress_ledger.md](./docs/roadmap/progress_ledger.md)
+  - [docs/roadmap/ml_progress_ledger.md](./docs/roadmap/ml_progress_ledger.md)
+
+## Known limitations
+
+- Current repository state includes active in-progress work; not all gates are always green at every commit.
+- Some validation flows (especially connected Android instrumentation) depend on emulator/runtime conditions.
+- ML is assistive and rollout-gated; deterministic planning remains the required fallback path.
+
+## Key documentation
+
+- [ARCHITECTURE.md](./ARCHITECTURE.md)
+- [ML_GUARDRAILS.md](./ML_GUARDRAILS.md)
+- [PRIVACY_AND_SECURITY.md](./PRIVACY_AND_SECURITY.md)
+- [RISK_REGISTER.md](./RISK_REGISTER.md)
+- [TEST_PLAN.md](./TEST_PLAN.md)
+- [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)

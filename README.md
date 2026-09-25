@@ -94,6 +94,16 @@ Reference test scope and release checks:
   - [docs/roadmap/progress_ledger.md](./docs/roadmap/progress_ledger.md)
   - [docs/roadmap/ml_progress_ledger.md](./docs/roadmap/ml_progress_ledger.md)
 
+## Portfolio metadata guidance (GitHub About)
+
+To keep this repository as the primary Android showcase:
+
+- **Suggested description**: `Offline-first Android meal planning system for Filipino PCOS wellness decision support (thesis project).`
+- **Suggested topics**: `android`, `kotlin`, `jetpack-compose`, `offline-first`, `meal-planner`, `pcos`, `fastapi`, `operations-research`
+- **Suggested role in pinned repos**: Primary/flagship Android thesis project
+
+See [docs/roadmap/portfolio_profile_preparation.md](./docs/roadmap/portfolio_profile_preparation.md) for profile presentation and cross-repository positioning notes.
+
 ## Known limitations
 
 - Current repository state includes active in-progress work; not all gates are always green at every commit.

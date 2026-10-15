@@ -112,6 +112,7 @@ class PlanningPolicy(BaseModel):
     semantic_ingredient_family_min_candidate_share: float = Field(default=0.0, ge=0.0, le=1.0)
     semantic_fatigue_family_min_candidate_share: float = Field(default=0.0, ge=0.0, le=1.0)
     semantic_ingredient_family_max_capped_families: Optional[int] = Field(default=16, ge=1, le=16)
+    combined_seafood_max_per_week: Optional[int] = Field(default=8, ge=1, le=50)
     semantic_family_soft_limit_per_week: Optional[int] = Field(default=6, ge=1, le=50)
     semantic_family_diversity_weight: int = Field(default=36, ge=0, le=500)
     same_title_max_per_week: int = Field(default=3, ge=1, le=50)
@@ -144,6 +145,7 @@ class PlanningPolicy(BaseModel):
 
 class Stage1Policy(BaseModel):
     canonical_features_enabled: bool = True
+    protein_group_candidate_preservation_enabled: bool = True
     max_candidates_per_slot: int = Field(default=120, ge=10, le=5000)
     ranking_cutoff: float = Field(default=0.80, ge=0.01, le=1.0)
     similarity_threshold: float = Field(default=0.85, ge=0.0, le=1.0)

@@ -1,5 +1,6 @@
 import importlib.util
 import sys
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -1002,21 +1003,63 @@ def test_budget_aware_pool_limit_shrinks_for_tight_solver_budgets():
         slot_count=21,
         total_time_limit=14.0,
         minimum_candidates_required=10,
-    ) == 42
+    ) == 45
 
     assert meal_planner._budget_aware_pool_limit(
         max_pool_size=192,
         slot_count=21,
         total_time_limit=25.0,
         minimum_candidates_required=10,
-    ) == 76
+    ) == 80
 
     assert meal_planner._budget_aware_pool_limit(
         max_pool_size=192,
         slot_count=21,
         total_time_limit=45.0,
         minimum_candidates_required=10,
-    ) == 137
+    ) == 145
+
+
+def test_pool_cap_preserves_one_candidate_from_each_eligible_broad_protein_group():
+    pool = []
+    for idx in range(12):
+        recipe = _recipe(
+            f"chicken-{idx}",
+            f"Chicken {idx}",
+            "Lunch",
+            protein=40,
+            calories=500,
+            ingredients=[{"name": "chicken", "quantity": "100 g"}],
+        )
+        recipe["_protein_group"] = "chicken"
+        recipe["_cost_est"] = 1
+        pool.append(recipe)
+    for group, ingredient in [
+        ("pork", "pork"),
+        ("beef", "beef"),
+        ("fish", "tilapia"),
+        ("egg", "egg"),
+        ("tofu", "tofu"),
+    ]:
+        recipe = _recipe(
+            group,
+            group.title(),
+            "Lunch",
+            protein=10,
+            calories=800,
+            ingredients=[{"name": ingredient, "quantity": "100 g"}],
+        )
+        recipe["_protein_group"] = group
+        recipe["_cost_est"] = 500
+        pool.append(recipe)
+
+    capped = meal_planner._cap_pool(pool, 6, preserve_protein_groups=True)
+
+    assert len(capped) == 6
+    assert {
+        meal_planner._candidate_preservation_group(recipe)
+        for recipe in capped
+    } == {"pork", "beef", "chicken", "fish", "egg", "plant"}
 
 
 def test_low_variety_repeat_sequence_starts_with_relaxed_repeat_limit():
@@ -1204,6 +1247,118 @@ def test_solver_blocks_same_meal_label_repeats_on_consecutive_days(monkeypatch):
         assert current["Dinner"] != next_day["Dinner"]
     assert explanation["uniqueRecipeCount"] >= 9
     assert telemetry["solve_pair_diagnostics"][0]["sameSlotConsecutiveRepeatBlocked"] is True
+
+
+def test_solver_enforces_combined_seafood_cap_while_reporting_fish_and_shellfish_separately(monkeypatch):
+    monkeypatch.setattr(meal_planner, "estimate_recipe_cost", lambda ingredients, pricing_context=None: 100)
+    profile = UserProfile(
+        displayName="Combined Seafood Cap",
+        age=28,
+        heightCm=160,
+        weightKg=65,
+        activityLevel="Lightly Active",
+        goal="General Health",
+        maxCookingTimeMinutes=45,
+        varietyPreference="Balanced",
+    )
+    recipes = []
+    for meal_type, calories in [("Breakfast", 500), ("Lunch", 600), ("Dinner", 520)]:
+        for idx in range(4):
+            seafood = "tilapia" if idx % 2 == 0 else "shrimp"
+            recipes.append(
+                _recipe(
+                    f"{meal_type.lower()}_seafood_{idx}",
+                    f"{meal_type} Seafood {idx}",
+                    meal_type,
+                    calories=calories,
+                    protein=30,
+                    carbs=60,
+                    fats=16,
+                    fiber=8,
+                    minutes=5,
+                    ingredients=[
+                        {"name": seafood, "quantity": "100 g"},
+                        {"name": f"vegetable {idx}", "quantity": "1 cup"},
+                    ],
+                )
+            )
+        for idx in range(4):
+            recipes.append(
+                _recipe(
+                    f"{meal_type.lower()}_chicken_{idx}",
+                    f"{meal_type} Chicken {idx}",
+                    meal_type,
+                    calories=calories,
+                    protein=30,
+                    carbs=60,
+                    fats=16,
+                    fiber=8,
+                    minutes=45,
+                    ingredients=[
+                        {"name": "chicken", "quantity": "100 g"},
+                        {"name": f"chicken vegetable {idx}", "quantity": "1 cup"},
+                    ],
+                )
+            )
+    policy = {
+        "planning": {
+            "planning_horizon_days": 3,
+            "meals_per_day": 3,
+            "recipe_repeat_limits": [3],
+            "semantic_ingredient_family_caps_enabled": False,
+            "combined_seafood_max_per_week": 3,
+        },
+        "stage1": {
+            "ML_shadow_enabled": False,
+            "ML_canary_enabled": False,
+            "max_candidates_per_slot": 20,
+            "ranking_cutoff": 1.0,
+            "similarity_threshold": 1.0,
+            "budget_keep_min_count": 1,
+            "budget_keep_min_ratio": 1.0,
+            "minimum_candidates_required": 1,
+            "pool_cap_top_share": 1.0,
+        },
+        "solver": {
+            "solver_time_limit_seconds": 1.0,
+            "solver_max_seconds": 2.0,
+            "total_solver_seconds": 4.0,
+            "timeout_ms": 4000,
+            "retry_attempts": 0,
+            "optimality_gap_target": 0.1,
+            "solver_workers": 1,
+        },
+    }
+    telemetry: dict = {}
+
+    plan, msg, explanation = meal_planner.solve_meal_plan(
+        meal_planner.GeneratePlanRequest(profile=profile, days=3, mealsPerDay=3),
+        recipes,
+        policy=policy,
+        telemetry_out=telemetry,
+    )
+
+    assert msg == "Success"
+    assert plan is not None
+    assert explanation is not None
+    family_counts = explanation["ingredientFamilyCounts"]
+    assert explanation["combinedSeafoodCount"] == family_counts.get("fish", 0) + family_counts.get("shellfish", 0)
+    assert explanation["combinedSeafoodCount"] == 3
+    assert explanation["combinedSeafoodMaxPerWeek"] == 3
+    assert "fish" in family_counts
+    assert "shellfish" in family_counts
+    first_attempt = telemetry["solve_pair_diagnostics"][0]
+    assert first_attempt["combinedSeafoodMaxPerWeek"] == 3
+    assert first_attempt["combinedSeafoodCapEnforced"] is True
+    assert telemetry["stage1_diag"]["candidate_preserved_protein_groups"] == ["chicken", "fish"]
+
+
+def test_combined_seafood_indices_count_a_recipe_matching_both_families_once():
+    indices = meal_planner._combined_seafood_family_indices(
+        {"fish": [0, 1], "shellfish": [1, 2], "chicken": [3]}
+    )
+
+    assert indices == [0, 1, 2]
 
 
 def test_solver_caps_munggo_family_repetition_when_alternatives_exist(monkeypatch):
@@ -1403,6 +1558,248 @@ def test_semantic_family_caps_prioritize_high_capacity_fatigue_family():
 
     assert caps == {"chicken": 8, "fish": 8}
     assert single_cap == {"chicken": 8}
+
+
+def test_semantic_family_caps_respect_existing_joint_capacity_caps():
+    profile = UserProfile(varietyPreference="Balanced")
+    recipes = []
+
+    def add_recipes(prefix, count, ingredients):
+        for idx in range(count):
+            recipes.append(
+                _recipe(
+                    f"{prefix}_{idx}",
+                    f"{prefix.title()} Meal {idx}",
+                    "Universal",
+                    ingredients=[
+                        {"name": ingredient, "quantity": "100 g"}
+                        for ingredient in ingredients
+                    ],
+                )
+            )
+
+    add_recipes("seafood_only", 1, ["tilapia"])
+    add_recipes("munggo_only", 1, ["munggo"])
+    add_recipes("chicken_only", 3, ["chicken breast"])
+    add_recipes("seafood_munggo", 2, ["tilapia", "munggo"])
+    meal_to_allowed = {
+        label: set(range(len(recipes)))
+        for label in ("Breakfast", "Lunch", "Dinner")
+    }
+    families = meal_planner._ingredient_variety_family_indices(recipes)
+    seafood = set(families["fish"]) | set(families.get("shellfish", []))
+
+    caps = meal_planner._semantic_ingredient_family_caps_for_attempt(
+        recipes,
+        families,
+        meal_to_allowed,
+        ["Breakfast", "Lunch", "Dinner"],
+        profile=profile,
+        num_days=7,
+        slot_count=21,
+        max_per_week=4,
+        policy={
+            "planning": {
+                "semantic_ingredient_family_max_per_week": 8,
+                "semantic_ingredient_family_max_capped_families": 16,
+            }
+        },
+        existing_capacity_caps=[("combined_seafood", seafood, 8)],
+    )
+
+    assert caps.get("munggo") == 8
+    assert "fish" not in caps
+    assert "chicken" not in caps
+
+
+def test_restricted_profiles_limit_joint_semantic_family_caps():
+    profile = UserProfile(varietyPreference="Balanced", allergies=["egg"])
+    recipes = []
+    for family, ingredient in (
+        ("munggo", "munggo"),
+        ("chicken", "chicken breast"),
+        ("fish", "tilapia"),
+        ("shellfish", "shrimp"),
+    ):
+        for idx in range(3):
+            recipes.append(
+                _recipe(
+                    f"{family}_{idx}",
+                    f"{family.title()} Meal {idx}",
+                    "Universal",
+                    ingredients=[{"name": ingredient, "quantity": "100 g"}],
+                )
+            )
+    for idx in range(6):
+        recipes.append(
+            _recipe(
+                f"vegetable_{idx}",
+                f"Vegetable Meal {idx}",
+                "Universal",
+                ingredients=[{"name": f"vegetable {idx}", "quantity": "100 g"}],
+            )
+        )
+    allowed = {
+        label: set(range(len(recipes)))
+        for label in ("Breakfast", "Lunch", "Dinner")
+    }
+
+    caps = meal_planner._semantic_ingredient_family_caps_for_attempt(
+        recipes,
+        meal_planner._ingredient_variety_family_indices(recipes),
+        allowed,
+        ["Breakfast", "Lunch", "Dinner"],
+        profile=profile,
+        num_days=7,
+        slot_count=21,
+        max_per_week=4,
+        policy={
+            "planning": {
+                "semantic_ingredient_family_max_per_week": 8,
+                "semantic_ingredient_family_max_capped_families": 16,
+            }
+        },
+    )
+
+    assert len(caps) == 4
+
+
+def test_capped_pool_can_reserve_multiple_candidates_per_protein_group():
+    recipes = []
+    for group, ingredient in (
+        ("beef", "beef sirloin"),
+        ("chicken", "chicken breast"),
+        ("fish", "tilapia"),
+        ("plant", "tofu"),
+        ("pork", "pork loin"),
+    ):
+        for idx in range(6):
+            recipe = _recipe(
+                f"{group}_{idx}",
+                f"{group.title()} Meal {idx}",
+                "Universal",
+                ingredients=[{"name": ingredient, "quantity": "100 g"}],
+            )
+            recipe["_protein_group"] = "tofu" if group == "plant" else group
+            recipes.append(recipe)
+
+    capped = meal_planner._cap_pool(
+        recipes,
+        20,
+        minimum_per_protein_group=4,
+    )
+    counts = Counter(
+        meal_planner._candidate_preservation_group(recipe)
+        for recipe in capped
+    )
+
+    assert len(capped) == 20
+    assert counts == {
+        "beef": 4,
+        "chicken": 4,
+        "fish": 4,
+        "plant": 4,
+        "pork": 4,
+    }
+
+
+def test_shortlist_reinsertion_can_restore_multiple_candidates_per_protein_group():
+    candidates = []
+    for group, ingredient in (("beef", "beef sirloin"), ("pork", "pork loin")):
+        for idx in range(4):
+            recipe = _recipe(
+                f"{group}_{idx}",
+                f"{group.title()} Meal {idx}",
+                "Dinner",
+                ingredients=[{"name": ingredient, "quantity": "100 g"}],
+            )
+            recipe["_protein_group"] = group
+            recipe["_allowed_meals"] = ["Dinner"]
+            candidates.append(recipe)
+    buckets = {
+        "Breakfast": [],
+        "Lunch": [],
+        "Dinner": [candidates[0], candidates[4]],
+        "Universal": [],
+    }
+
+    restored = meal_planner._reinsert_missing_protein_group_candidates(
+        buckets,
+        candidates,
+        minimum_per_group=3,
+    )
+    counts = Counter(
+        meal_planner._candidate_preservation_group(recipe)
+        for recipe in buckets["Dinner"]
+    )
+
+    assert restored == ["beef", "pork"]
+    assert counts == {"beef": 3, "pork": 3}
+
+
+def test_capped_pool_limits_dominant_protein_group_when_alternatives_exist():
+    recipes = []
+    for idx in range(24):
+        recipe = _recipe(
+            f"fish_{idx}",
+            f"Fish Meal {idx}",
+            "Universal",
+            ingredients=[{"name": "tilapia", "quantity": "100 g"}],
+        )
+        recipe["_protein_group"] = "fish"
+        recipes.append(recipe)
+    for group, ingredient in (("beef", "beef sirloin"), ("plant", "tofu")):
+        for idx in range(6):
+            recipe = _recipe(
+                f"{group}_{idx}",
+                f"{group.title()} Meal {idx}",
+                "Universal",
+                ingredients=[{"name": ingredient, "quantity": "100 g"}],
+            )
+            recipe["_protein_group"] = "tofu" if group == "plant" else group
+            recipes.append(recipe)
+
+    capped = meal_planner._cap_pool(
+        recipes,
+        20,
+        minimum_per_protein_group=4,
+        maximum_per_protein_group=8,
+    )
+    counts = Counter(
+        meal_planner._candidate_preservation_group(recipe)
+        for recipe in capped
+    )
+
+    assert len(capped) == 20
+    assert counts["fish"] == 8
+    assert counts["beef"] == 6
+    assert counts["plant"] == 6
+
+
+def test_hard_filtered_shortlist_does_not_apply_early_budget_trim(monkeypatch):
+    profile = UserProfile(
+        allergies=["egg"],
+        weeklyBudgetPhp=3000,
+        maxCookingTimeMinutes=45,
+    )
+    recipes = [
+        _recipe(
+            f"r{idx}",
+            f"Chicken Meal {idx}",
+            "Dinner",
+            ingredients=[{"name": "chicken breast", "quantity": "100 g"}],
+        )
+        for idx in range(120)
+    ]
+
+    def unexpected_trim(_bucket, _keep):
+        raise AssertionError("early budget trim must not run after hard filtering")
+
+    monkeypatch.setattr(meal_planner, "_apply_budget_nutrition_trim", unexpected_trim)
+
+    buckets = meal_planner.shortlist_candidates(profile, recipes)
+
+    assert buckets["Dinner"]
 
 
 def test_solver_honors_single_solution_policy_for_latency():

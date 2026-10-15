@@ -47,6 +47,7 @@ SEMANTIC_VARIETY_BOOTSTRAP_FIELDS = (
     "semantic_ingredient_family_min_candidate_share",
     "semantic_fatigue_family_min_candidate_share",
     "semantic_ingredient_family_max_capped_families",
+    "combined_seafood_max_per_week",
     "semantic_family_soft_limit_per_week",
     "semantic_family_diversity_weight",
 )

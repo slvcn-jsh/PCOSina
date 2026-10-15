@@ -37,6 +37,46 @@ def test_app_schema_migrations_are_tracked_and_idempotent():
     assert second["pending"] == []
 
 
+def test_catalog_reconciliation_migration_soft_deactivates_only_archived_corrections():
+    db_path = _temp_db_path("catalog_correction_deactivation")
+    database.DATABASE_URL = ""
+    database.DB_NAME = str(db_path)
+    database.init_db()
+
+    superseded_id = sorted(database._superseded_nutrition_correction_recipe_ids())[0]
+    retained_id = "test_keep_nutrition_correction"
+    for recipe_id in (superseded_id, retained_id):
+        database.upsert_nutrition_correction(
+            recipe_id,
+            {
+                "calories": 400,
+                "protein": 20,
+                "carbs": 50,
+                "fats": 12,
+                "fiber": 6,
+                "active": True,
+                "source": "migration_test",
+                "review_status": "reviewed",
+            },
+        )
+
+    conn = database._connect()
+    try:
+        database._migration_deactivate_superseded_catalog_nutrition_corrections(conn)
+        database._migration_deactivate_superseded_catalog_nutrition_corrections(conn)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT recipe_id, active FROM recipe_nutrition_corrections "
+            "WHERE recipe_id IN (?, ?) ORDER BY recipe_id",
+            (retained_id, superseded_id),
+        )
+        active_by_id = {str(row[0]): bool(row[1]) for row in cursor.fetchall()}
+    finally:
+        conn.close()
+
+    assert active_by_id == {retained_id: True, superseded_id: False}
+
+
 def test_policy_schema_migrations_are_tracked_and_idempotent(monkeypatch):
     db_path = _temp_db_path("policy_schema")
     monkeypatch.setattr(policy_store, "DATABASE_URL", "")

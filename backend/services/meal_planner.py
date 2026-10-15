@@ -11,6 +11,15 @@ import time
 from ortools.sat.python import cp_model
 
 from canonical_ingredients import resolve_ingredient
+from domain.ingredient_safety import (
+    ALLERGEN_FAMILY_TOKENS,
+    DAIRY_TOKENS,
+    EGG_FAMILY_TOKENS,
+    EGG_TOKENS,
+    FISH_FAMILY_TOKENS,
+    SEAFOOD_TOKENS,
+    SHELLFISH_FAMILY_TOKENS,
+)
 from domain.models import GeneratePlanRequest, PlannedMeal, DayPlan, UserProfile
 from price_catalog import PricingContext, create_pricing_context, estimate_recipe_cost
 from services.grocery_aggregator import aggregate_grocery_list, price_grocery_buckets
@@ -278,40 +287,6 @@ CUSTOM_ALLERGY_DESCRIPTOR_TOKENS = {
 }
 
 MEAT_TOKENS = {"pork", "beef", "chicken", "meat", "lamb", "goat", "duck"}
-FISH_FAMILY_TOKENS = {
-    "fish", "isda", "bangus", "milkfish", "tilapia", "galunggong",
-    "salmon", "tuna", "tambakol", "tulingan", "tanigue", "bisugo", "bream", "seafood",
-    "sardine", "sardines", "sardinas", "dilis", "dulong", "tinapa",
-    "tuyo", "daing", "lapu", "maya",
-}
-SHELLFISH_FAMILY_TOKENS = {"shellfish", "shrimp", "hipon", "crab", "alimango", "alimasag"}
-DAIRY_FAMILY_TOKENS = {"dairy", "milk", "gatas", "cheese", "keso", "yogurt", "butter", "cream"}
-EGG_FAMILY_TOKENS = {"egg", "itlog"}
-NUTS_FAMILY_TOKENS = {
-    "nuts", "nut", "almond", "almonds", "cashew", "cashews",
-    "walnut", "walnuts", "hazelnut", "hazelnuts",
-    "pistachio", "pistachios", "pecan", "pecans",
-}
-PEANUT_FAMILY_TOKENS = {"peanut", "peanuts", "mani"}
-SOY_FAMILY_TOKENS = {"soy", "soya", "soybean", "soybeans", "toyo", "tofu"}
-GLUTEN_FAMILY_TOKENS = {"gluten", "wheat", "flour", "bread", "pasta", "noodle", "bihon", "miki", "pancit"}
-SHELLFISH_FAMILY_TOKENS = SHELLFISH_FAMILY_TOKENS | {
-    "squid", "pusit", "mussel", "mussels", "tahong",
-    "clam", "clams", "oyster", "oysters", "lobster", "seafood",
-}
-SEAFOOD_TOKENS = FISH_FAMILY_TOKENS | SHELLFISH_FAMILY_TOKENS
-DAIRY_TOKENS = {"dairy", "milk", "cheese", "yogurt", "cream", "butter"}
-EGG_TOKENS = {"egg"}
-ALLERGEN_FAMILY_TOKENS = {
-    "fish": FISH_FAMILY_TOKENS,
-    "shellfish": SHELLFISH_FAMILY_TOKENS,
-    "dairy": DAIRY_FAMILY_TOKENS,
-    "egg": EGG_FAMILY_TOKENS,
-    "nuts": NUTS_FAMILY_TOKENS,
-    "peanut": PEANUT_FAMILY_TOKENS,
-    "soy": SOY_FAMILY_TOKENS,
-    "gluten": GLUTEN_FAMILY_TOKENS,
-}
 ALLERGEN_TOKEN_TO_FAMILY = {
     token: family
     for family, tokens in ALLERGEN_FAMILY_TOKENS.items()
@@ -327,6 +302,12 @@ PROTEIN_GROUP_TOKENS = {
     "tofu": {"tofu"},
     "legume": {"chickpea", "chickpeas", "garbanzo", "garbanzos", "kidney", "bean", "beans"},
 }
+CANDIDATE_PRESERVATION_GROUP_ALIASES = {
+    "tofu": "plant",
+    "munggo": "plant",
+    "legume": "plant",
+}
+CANDIDATE_PRESERVATION_GROUPS = {"pork", "beef", "chicken", "fish", "egg", "plant"}
 SEMANTIC_VARIETY_FAMILY_TOKENS = {
     "munggo": {"munggo", "monggo"},
     "chicken": {"chicken"},
@@ -827,6 +808,12 @@ def infer_protein_group(ing_tokens: List[str]) -> str:
         if toks & tokens:
             return group
     return "other"
+
+
+def _candidate_preservation_group(recipe: Dict[str, Any]) -> Optional[str]:
+    group = str(recipe.get("_protein_group") or "other").strip().lower()
+    normalized = CANDIDATE_PRESERVATION_GROUP_ALIASES.get(group, group)
+    return normalized if normalized in CANDIDATE_PRESERVATION_GROUPS else None
 
 
 def _ingredient_cache_name(ingredient: Any) -> str:
@@ -1716,6 +1703,76 @@ def _add_unique_recipe(selected: List[Dict[str, Any]], selected_ids: set[str], r
     return True
 
 
+def _ranked_protein_group_leaders(
+    candidates: List[Dict[str, Any]],
+    *,
+    pre_pricing: bool = False,
+    limit_per_group: int = 1,
+) -> List[Dict[str, Any]]:
+    def score(recipe: Dict[str, Any]) -> float:
+        if pre_pricing:
+            return float(recipe.get("_pre_price_score") or _cheap_pre_price_score(recipe))
+        return float(_base_score(recipe))
+
+    ranked = sorted(
+        candidates,
+        key=lambda recipe: (-score(recipe), str(recipe.get("id") or "")),
+    )
+    normalized_limit = max(1, int(limit_per_group or 1))
+    leaders: Dict[str, List[Dict[str, Any]]] = {}
+    for recipe in ranked:
+        group = _candidate_preservation_group(recipe)
+        if group and len(leaders.setdefault(group, [])) < normalized_limit:
+            leaders[group].append(recipe)
+    return sorted(
+        [recipe for group_recipes in leaders.values() for recipe in group_recipes],
+        key=lambda recipe: (-score(recipe), str(recipe.get("id") or "")),
+    )
+
+
+def _reinsert_missing_protein_group_candidates(
+    buckets: Dict[str, List[Dict[str, Any]]],
+    candidates: List[Dict[str, Any]],
+    *,
+    minimum_per_group: int = 1,
+) -> List[str]:
+    normalized_minimum = max(1, int(minimum_per_group or 1))
+    present_counts = Counter(
+        group
+        for bucket in buckets.values()
+        for recipe in bucket
+        if (group := _candidate_preservation_group(recipe))
+    )
+    present_ids = {
+        str(recipe.get("id") or "")
+        for bucket in buckets.values()
+        for recipe in bucket
+        if str(recipe.get("id") or "")
+    }
+    added_groups: set[str] = set()
+    for recipe in _ranked_protein_group_leaders(
+        candidates,
+        limit_per_group=normalized_minimum,
+    ):
+        group = _candidate_preservation_group(recipe)
+        recipe_id = str(recipe.get("id") or "")
+        if (
+            not group
+            or present_counts.get(group, 0) >= normalized_minimum
+            or (recipe_id and recipe_id in present_ids)
+        ):
+            continue
+        bucket_key = _pre_pricing_bucket_key(recipe)
+        if bucket_key not in buckets:
+            bucket_key = "Universal"
+        buckets[bucket_key].append(recipe)
+        present_counts[group] += 1
+        if recipe_id:
+            present_ids.add(recipe_id)
+        added_groups.add(group)
+    return sorted(added_groups)
+
+
 def _apply_restricted_nutrition_trim(bucket: List[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
     normalized_limit = max(1, int(limit or 1))
     if len(bucket) <= normalized_limit:
@@ -1816,6 +1873,7 @@ def _apply_pre_pricing_prune(
     *,
     cap: int,
     bucket_reserve: int,
+    preserve_protein_groups: bool = True,
 ) -> Tuple[List[Dict[str, Any]], bool]:
     normalized_cap = max(1, int(cap or 1))
     if len(candidates) <= normalized_cap:
@@ -1835,6 +1893,10 @@ def _apply_pre_pricing_prune(
 
     def add_recipe(recipe: Dict[str, Any]) -> None:
         _add_unique_recipe(selected, selected_ids, recipe, normalized_cap)
+
+    if preserve_protein_groups:
+        for recipe in _ranked_protein_group_leaders(candidates, pre_pricing=True):
+            add_recipe(recipe)
 
     top_count = max(1, int(normalized_cap * 0.55))
     for recipe in ranked[:top_count]:
@@ -1981,6 +2043,9 @@ def shortlist_candidates(
         pre_pricing_cap = max(1, int(pre_pricing_cap_config))
     pre_pricing_bucket_reserve = int(_policy_get(policy, "stage1.pre_pricing_bucket_reserve", 32))
     pre_pricing_restricted_enabled = bool(_policy_get(policy, "stage1.pre_pricing_restricted_enabled", False))
+    preserve_protein_groups = bool(
+        _policy_get(policy, "stage1.protein_group_candidate_preservation_enabled", True)
+    )
     symptom_state = symptom_adjustments(profile, profile.goal)
     ml_scoring_enabled = _stage1_ml_scoring_enabled(policy)
     ml_weight = float(_policy_get(policy, "stage1.ML_score_weight", 0.15))
@@ -2097,6 +2162,7 @@ def shortlist_candidates(
             safe_candidates,
             cap=pre_pricing_cap,
             bucket_reserve=pre_pricing_bucket_reserve,
+            preserve_protein_groups=preserve_protein_groups,
         )
     else:
         pre_pruned = False
@@ -2198,7 +2264,7 @@ def shortlist_candidates(
             buckets[k] = _apply_restricted_nutrition_trim(buckets[k], limit)
         else:
             buckets[k] = buckets[k][:limit]
-        if budget_weekly and not restricted_catalog:
+        if budget_weekly and not restricted_catalog and hard_filter_count == 0:
             keep_min = max(max(1, budget_keep_min_count), int(len(buckets[k]) * max(0.0, budget_keep_min_ratio)))
             keep = int(max(keep_min, len(buckets[k]) * ranking_cutoff))
             buckets[k] = _apply_budget_nutrition_trim(buckets[k], keep)
@@ -2217,6 +2283,17 @@ def shortlist_candidates(
             for k in buckets:
                 for recipe in buckets[k]:
                     recipe["_stage1_bucket"] = k
+    preserved_protein_groups: List[str] = []
+    if preserve_protein_groups:
+        preserved_protein_groups = _reinsert_missing_protein_group_candidates(
+            buckets,
+            safe_candidates,
+            minimum_per_group=6 if hard_filter_count >= 1 else 1,
+        )
+        if preserved_protein_groups:
+            for k in buckets:
+                for recipe in buckets[k]:
+                    recipe["_stage1_bucket"] = k
     restricted_anchor_count_post_trim = sum(
         1 for recipe in (buckets["Breakfast"] + buckets["Lunch"] + buckets["Dinner"] + buckets["Universal"])
         if _is_restricted_nutrition_anchor(recipe)
@@ -2231,6 +2308,8 @@ def shortlist_candidates(
         stage1_diag["exclusion_detail_counts"] = dict(exclusion_detail_counts)
         stage1_diag["restricted_nutrition_anchor_reserve"] = bool(restricted_catalog)
         stage1_diag["restricted_nutrition_anchor_count_post_trim"] = int(restricted_anchor_count_post_trim)
+        stage1_diag["protein_group_candidate_preservation_enabled"] = bool(preserve_protein_groups)
+        stage1_diag["protein_groups_reinserted"] = list(preserved_protein_groups)
         stage1_diag["goal_symptom_strategy"] = list(symptom_state.get("notes") or [])
         stage1_diag["canonical_features_enabled"] = canonical_features_enabled
         stage1_diag["canonical_feature_recipe_count"] = sum(
@@ -2400,7 +2479,15 @@ def _calorie_bin(calories: int) -> str:
     return "ge650"
 
 
-def _cap_pool(pool: List[Dict[str, Any]], max_pool: int, top_share: float = 0.6) -> List[Dict[str, Any]]:
+def _cap_pool(
+    pool: List[Dict[str, Any]],
+    max_pool: int,
+    top_share: float = 0.6,
+    *,
+    preserve_protein_groups: bool = True,
+    minimum_per_protein_group: int = 1,
+    maximum_per_protein_group: Optional[int] = None,
+) -> List[Dict[str, Any]]:
     if len(pool) <= max_pool:
         return pool
     scored = []
@@ -2411,6 +2498,33 @@ def _cap_pool(pool: List[Dict[str, Any]], max_pool: int, top_share: float = 0.6)
     bounded_top_share = min(0.95, max(0.05, float(top_share)))
     selected: List[Dict[str, Any]] = []
     selected_ids: set[str] = set()
+    protein_group_counts: Counter[str] = Counter()
+    normalized_group_max = (
+        None
+        if maximum_per_protein_group is None
+        else max(1, int(maximum_per_protein_group))
+    )
+
+    def add_recipe(recipe: Dict[str, Any], *, enforce_group_max: bool = True) -> bool:
+        group = _candidate_preservation_group(recipe)
+        if (
+            enforce_group_max
+            and normalized_group_max is not None
+            and group is not None
+            and protein_group_counts[group] >= normalized_group_max
+        ):
+            return False
+        added = _add_unique_recipe(selected, selected_ids, recipe, max_pool)
+        if added and group is not None:
+            protein_group_counts[group] += 1
+        return added
+
+    if preserve_protein_groups:
+        for recipe in _ranked_protein_group_leaders(
+            pool,
+            limit_per_group=minimum_per_protein_group,
+        ):
+            add_recipe(recipe)
     anchor_limit = min(max_pool, max(8, int(max_pool * 0.40)))
     anchors = sorted(
         [r for _, _, r in scored if _is_restricted_nutrition_anchor(r)],
@@ -2424,11 +2538,10 @@ def _cap_pool(pool: List[Dict[str, Any]], max_pool: int, top_share: float = 0.6)
         reverse=True,
     )
     for recipe in anchors[:anchor_limit]:
-        _add_unique_recipe(selected, selected_ids, recipe, max_pool)
+        add_recipe(recipe)
     top_k = max(1, int(max_pool * bounded_top_share))
     for _, _, recipe in scored[:top_k]:
-        _add_unique_recipe(selected, selected_ids, recipe, max_pool)
-    selected_ids = {str(r.get("id", "")) for r in selected}
+        add_recipe(recipe)
     groups: Dict[str, List[tuple]] = {}
     for score, rid, r in scored[top_k:]:
         if rid in selected_ids:
@@ -2450,9 +2563,7 @@ def _cap_pool(pool: List[Dict[str, Any]], max_pool: int, top_share: float = 0.6)
             _, rid, r = bucket.pop(0)
             if rid in selected_ids:
                 continue
-            selected.append(r)
-            selected_ids.add(rid)
-            progressed = True
+            progressed = add_recipe(r) or progressed
         if not progressed:
             break
     if len(selected) < max_pool:
@@ -2461,16 +2572,26 @@ def _cap_pool(pool: List[Dict[str, Any]], max_pool: int, top_share: float = 0.6)
                 break
             if rid in selected_ids:
                 continue
-            selected.append(r)
-            selected_ids.add(rid)
+            add_recipe(r)
+    if len(selected) < max_pool:
+        for _, rid, r in scored:
+            if len(selected) >= max_pool:
+                break
+            if rid in selected_ids:
+                continue
+            add_recipe(r, enforce_group_max=False)
     return selected
 
 
-def _restricted_solver_anchor_core(pool: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _restricted_solver_anchor_core(
+    pool: List[Dict[str, Any]],
+    *,
+    preserve_protein_groups: bool = True,
+) -> List[Dict[str, Any]]:
     anchors = [recipe for recipe in pool if _is_restricted_nutrition_anchor(recipe)]
     if len(anchors) < 3:
         return pool
-    return sorted(
+    selected = sorted(
         anchors,
         key=lambda recipe: (
             _nutrition_anchor_score(recipe),
@@ -2481,6 +2602,12 @@ def _restricted_solver_anchor_core(pool: List[Dict[str, Any]]) -> List[Dict[str,
         ),
         reverse=True,
     )
+    if not preserve_protein_groups:
+        return selected
+    selected_ids = {str(recipe.get("id") or id(recipe)) for recipe in selected}
+    for recipe in _ranked_protein_group_leaders(pool):
+        _add_unique_recipe(selected, selected_ids, recipe, len(pool))
+    return selected
 
 
 def _nutrition_coverage_gap(
@@ -2635,6 +2762,13 @@ def _ingredient_variety_family_indices(pool: List[Dict[str, Any]]) -> Dict[str, 
     return indices
 
 
+def _combined_seafood_family_indices(family_indices: Dict[str, List[int]]) -> List[int]:
+    return sorted(
+        set(family_indices.get("fish", []))
+        | set(family_indices.get("shellfish", []))
+    )
+
+
 def _recipe_title_signature(recipe: Dict[str, Any]) -> str:
     raw = str(recipe.get("title") or recipe.get("name") or recipe.get("id") or "").strip().lower()
     cleaned = re.sub(r"[^a-z0-9]+", " ", raw)
@@ -2711,6 +2845,57 @@ def _semantic_ingredient_family_cap_for_attempt(
     return cap
 
 
+def _capacity_caps_are_jointly_feasible(
+    pool: List[Dict[str, Any]],
+    meal_to_allowed: Dict[str, set],
+    slot_labels: List[str],
+    *,
+    num_days: int,
+    max_per_week: int,
+    capacity_caps: List[Tuple[str, set[int], int]],
+) -> bool:
+    """Check optional variety caps jointly before adding them to the main model."""
+
+    model = cp_model.CpModel()
+    assignments: Dict[Tuple[str, int], Any] = {}
+    for label in slot_labels:
+        allowed = sorted(meal_to_allowed.get(label, set()))
+        if not allowed:
+            return False
+        for index in allowed:
+            assignments[label, index] = model.NewIntVar(
+                0,
+                min(int(num_days), int(max_per_week)),
+                f"capacity_{label}_{index}",
+            )
+        model.Add(sum(assignments[label, index] for index in allowed) == int(num_days))
+
+    for index in range(len(pool or [])):
+        recipe_assignments = [
+            assignments[label, index]
+            for label in slot_labels
+            if (label, index) in assignments
+        ]
+        if recipe_assignments:
+            model.Add(sum(recipe_assignments) <= int(max_per_week))
+
+    for _name, indices, cap in capacity_caps:
+        capped_assignments = [
+            variable
+            for (label, index), variable in assignments.items()
+            if index in indices
+        ]
+        if capped_assignments:
+            model.Add(sum(capped_assignments) <= int(cap))
+
+    solver = cp_model.CpSolver()
+    solver.parameters.max_time_in_seconds = 0.1
+    solver.parameters.num_search_workers = 1
+    solver.parameters.randomize_search = False
+    status = solver.Solve(model)
+    return status in (cp_model.OPTIMAL, cp_model.FEASIBLE)
+
+
 def _semantic_ingredient_family_caps_for_attempt(
     pool: List[Dict[str, Any]],
     family_indices: Dict[str, List[int]],
@@ -2722,6 +2907,7 @@ def _semantic_ingredient_family_caps_for_attempt(
     slot_count: int,
     max_per_week: int,
     policy: Optional[Dict[str, Any]] = None,
+    existing_capacity_caps: Optional[List[Tuple[str, set[int], int]]] = None,
 ) -> Dict[str, int]:
     cap = _semantic_ingredient_family_cap_for_attempt(
         profile,
@@ -2781,7 +2967,7 @@ def _semantic_ingredient_family_caps_for_attempt(
     variety_preference = str(profile.varietyPreference or "").strip().lower()
     planning_priority = str(profile.planningPriority or "").strip().lower()
     major_diet = bool(normalized_restrictions & {"Vegetarian", "Pescatarian"})
-    default_max_capped_families = 3 if (
+    default_max_capped_families = 4 if (
         hard_filter_count >= 1 or major_diet or "high" in variety_preference or "variety" in planning_priority
     ) else 2
     configured_max_capped_families = _policy_get(
@@ -2794,10 +2980,14 @@ def _semantic_ingredient_family_caps_for_attempt(
         if configured_max_capped_families is None
         else int(configured_max_capped_families)
     )
+    if hard_filter_count >= 1 or major_diet:
+        max_capped_families = min(
+            int(max_capped_families),
+            int(default_max_capped_families),
+        )
     max_capped_families = max(1, min(max_capped_families, len(candidate_caps) or 1))
     caps: Dict[str, int] = {}
-    capped_union: set[int] = set()
-    capped_cap_total = 0
+    selected_capacity_caps = list(existing_capacity_caps or [])
     for family, family_cap, family_set, family_capacity in sorted(
         candidate_caps,
         key=lambda item: (
@@ -2806,18 +2996,28 @@ def _semantic_ingredient_family_caps_for_attempt(
             str(item[0]),
         ),
     ):
+        if any(
+            family_set <= existing_indices and int(existing_cap) <= int(family_cap)
+            for _name, existing_indices, existing_cap in (existing_capacity_caps or [])
+        ):
+            continue
         if len(caps) >= max_capped_families:
             break
-        next_union = capped_union | family_set
-        uncapped_capacity = sum(
-            recipe_slot_capacity.get(index, 0)
-            for index in all_indices - next_union
-        )
-        if capped_cap_total + family_cap + uncapped_capacity < int(slot_count):
+        proposed_capacity_caps = [
+            *selected_capacity_caps,
+            (str(family), family_set, int(family_cap)),
+        ]
+        if not _capacity_caps_are_jointly_feasible(
+            pool,
+            meal_to_allowed,
+            slot_labels,
+            num_days=num_days,
+            max_per_week=max_per_week,
+            capacity_caps=proposed_capacity_caps,
+        ):
             continue
         caps[family] = int(family_cap)
-        capped_union = next_union
-        capped_cap_total += int(family_cap)
+        selected_capacity_caps = proposed_capacity_caps
     return caps
 
 
@@ -2842,6 +3042,7 @@ def _build_explanation(
     budget_hard_cap_applied: bool = False,
     fiber_min_target: Optional[int] = None,
     sugar_max_target: Optional[int] = None,
+    combined_seafood_cap: Optional[int] = None,
 ) -> Dict[str, Any]:
     if not selected or num_days <= 0:
         return {}
@@ -2867,6 +3068,11 @@ def _build_explanation(
     max_recipe_repeat_count = max(recipe_repeat_counts.values(), default=0)
     repeated_recipe_count = sum(1 for count in recipe_repeat_counts.values() if count > 1)
     ingredient_family_counts = _ingredient_variety_family_counts(selected)
+    combined_seafood_count = sum(
+        1
+        for recipe in selected
+        if set(_recipe_ingredient_variety_families(recipe)) & {"fish", "shellfish"}
+    )
     dominant_ingredient_family = None
     dominant_ingredient_family_count = 0
     if ingredient_family_counts:
@@ -2906,6 +3112,8 @@ def _build_explanation(
         "maxRecipeRepeatCount": max_recipe_repeat_count,
         "repeatedRecipeCount": repeated_recipe_count,
         "ingredientFamilyCounts": dict(sorted(ingredient_family_counts.items())),
+        "combinedSeafoodCount": int(combined_seafood_count),
+        "combinedSeafoodMaxPerWeek": combined_seafood_cap,
         "dominantIngredientFamily": dominant_ingredient_family,
         "dominantIngredientFamilyCount": dominant_ingredient_family_count,
         "budgetWeekly": budget_weekly,
@@ -3023,9 +3231,9 @@ def _budget_aware_pool_limit(
     minimum_candidates = max(1, int(minimum_candidates_required or 1))
     minimum_assignments = normalized_slots * minimum_candidates
     # Tight hosted-worker budgets cannot afford unbounded slot x recipe assignment
-    # growth. The current runtime catalog needs about 54 candidates for 21-slot
+    # growth. The current runtime catalog needs about 58 candidates for 21-slot
     # plans so exact-repeat and semantic-family limits have enough alternatives.
-    assignment_budget = max(minimum_assignments, int(max(1.0, float(total_time_limit or 0.0)) * 64.0))
+    assignment_budget = max(minimum_assignments, int(max(1.0, float(total_time_limit or 0.0)) * 68.0))
     budget_limited_pool = max(minimum_candidates, assignment_budget // normalized_slots)
     return min(normalized_max_pool, budget_limited_pool)
 
@@ -3260,6 +3468,9 @@ def solve_meal_plan(
         return None, "No safe recipes found.", None
 
     pool = candidates
+    preserve_protein_groups = bool(
+        _policy_get(policy, "stage1.protein_group_candidate_preservation_enabled", True)
+    )
     resolved_budget_weekly = resolve_budget_weekly(profile)
     tight_budget_support_pool = [
         recipe
@@ -3278,7 +3489,10 @@ def solve_meal_plan(
         int(stage1_diag.get("safe_recipe_count_pre_pricing") or 0) <= 96
     )
     if restricted_solver_catalog:
-        anchor_core_pool = _restricted_solver_anchor_core(pool)
+        anchor_core_pool = _restricted_solver_anchor_core(
+            pool,
+            preserve_protein_groups=preserve_protein_groups,
+        )
         if len(anchor_core_pool) < len(pool):
             pool = anchor_core_pool
             stage1_diag["restricted_solver_anchor_core"] = True
@@ -3309,7 +3523,32 @@ def solve_meal_plan(
     if len(pool) > max_pool_size:
         if debug_solver:
             debug_summary["pool_pre_cap"] = len(pool)
-        pool = _cap_pool(pool, max_pool_size, top_share=cap_top_share)
+        pool = _cap_pool(
+            pool,
+            max_pool_size,
+            top_share=cap_top_share,
+            preserve_protein_groups=preserve_protein_groups,
+            minimum_per_protein_group=(
+                6
+                if len(profile.dietaryRestrictions or []) + len(profile.allergies or []) >= 1
+                else 1
+            ),
+            maximum_per_protein_group=(
+                max(8, int(max_pool_size * 0.28))
+                if len(profile.dietaryRestrictions or []) + len(profile.allergies or []) >= 1
+                else None
+            ),
+        )
+    if stage1_diag is not None:
+        candidate_protein_group_counts = Counter(
+            group
+            for recipe in pool
+            if (group := _candidate_preservation_group(recipe))
+        )
+        stage1_diag["candidate_protein_group_counts"] = dict(
+            sorted(candidate_protein_group_counts.items())
+        )
+        stage1_diag["candidate_preserved_protein_groups"] = sorted(candidate_protein_group_counts)
     if telemetry_out is not None:
         telemetry_out["candidate_count_post"] = len(pool)
         if pool:
@@ -3332,12 +3571,25 @@ def solve_meal_plan(
     if debug_solver:
         debug_summary["allowed_sizes"] = {k: len(v) for k, v in meal_to_allowed.items()}
     semantic_family_indices = _ingredient_variety_family_indices(pool)
+    combined_seafood_indices = _combined_seafood_family_indices(semantic_family_indices)
+    configured_combined_seafood_cap = _policy_get(
+        policy,
+        "planning.combined_seafood_max_per_week",
+        8,
+    )
+    combined_seafood_cap = (
+        None
+        if configured_combined_seafood_cap is None
+        else max(1, min(int(slot_count), int(configured_combined_seafood_cap)))
+    )
     title_family_indices = _recipe_title_family_indices(pool)
     if stage1_diag is not None:
         stage1_diag["candidate_ingredient_family_counts"] = {
             family: len(indices)
             for family, indices in sorted(semantic_family_indices.items())
         }
+        stage1_diag["combined_seafood_candidate_count"] = len(combined_seafood_indices)
+        stage1_diag["combined_seafood_max_per_week"] = combined_seafood_cap
         stage1_diag["candidate_duplicate_title_counts"] = {
             title: len(indices)
             for title, indices in sorted(title_family_indices.items())
@@ -3498,9 +3750,25 @@ def solve_meal_plan(
                 slot_count=slot_count,
                 max_per_week=int(max_per_week),
                 policy=policy,
+                existing_capacity_caps=(
+                    [
+                        (
+                            "combined_seafood",
+                            set(combined_seafood_indices),
+                            int(combined_seafood_cap),
+                        )
+                    ]
+                    if combined_seafood_cap is not None and combined_seafood_indices
+                    else None
+                ),
             )
             pair_diag["ingredientFamilyRepeatCaps"] = dict(semantic_family_caps)
             pair_diag["ingredientFamilyRepeatCapsEnforced"] = bool(semantic_family_caps)
+            pair_diag["combinedSeafoodMaxPerWeek"] = combined_seafood_cap
+            pair_diag["combinedSeafoodCandidateCount"] = len(combined_seafood_indices)
+            pair_diag["combinedSeafoodCapEnforced"] = bool(
+                combined_seafood_cap is not None and combined_seafood_indices
+            )
             for s in range(slot_count):
                 _check_planner_budget(deadline_at, "solver_model_x_vars", telemetry_out=telemetry_out)
                 for i in range(len(pool)):
@@ -3581,6 +3849,15 @@ def solve_meal_plan(
                         model.Add(
                             sum(x[s, i] for s in range(slot_count) for i in family_idxs) <= int(cap)
                         )
+            if combined_seafood_cap is not None and combined_seafood_indices:
+                model.Add(
+                    sum(
+                        x[s, i]
+                        for s in range(slot_count)
+                        for i in combined_seafood_indices
+                    )
+                    <= int(combined_seafood_cap)
+                )
             escape_repeat_limit = int(_policy_get(policy, "planning.semantic_ingredient_family_escape_repeat_limit", 0))
             title_caps_enabled = not (
                 escape_repeat_limit > 0 and int(max_per_week) >= escape_repeat_limit
@@ -4021,6 +4298,7 @@ def solve_meal_plan(
                     budget_hard_cap_applied=bool(budget_weekly),
                     fiber_min_target=fiber_min_target,
                     sugar_max_target=sugar_max_target,
+                    combined_seafood_cap=combined_seafood_cap,
                 )
                 explanation["roughMealEstimatedWeeklyCost"] = int(rough_est_cost)
                 explanation["estimatedWeeklyCost"] = int(grocery_total)

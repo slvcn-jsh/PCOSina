@@ -35,12 +35,14 @@ def test_default_policy_is_strict_and_valid():
     assert policy.planning.semantic_ingredient_family_min_candidate_share == 0.0
     assert policy.planning.semantic_fatigue_family_min_candidate_share == 0.0
     assert policy.planning.semantic_ingredient_family_max_capped_families == 16
+    assert policy.planning.combined_seafood_max_per_week == 8
     assert policy.planning.semantic_ingredient_family_relaxed_slot_share == 0.50
     assert policy.planning.semantic_family_soft_limit_per_week == 6
     assert policy.planning.semantic_family_diversity_weight == 36
     assert policy.planning.same_title_max_per_week == 3
     assert policy.stage1.max_candidates_per_slot >= 10
     assert policy.stage1.canonical_features_enabled is True
+    assert policy.stage1.protein_group_candidate_preservation_enabled is True
     production = policy.to_runtime_dict(environment="production")
     assert production["stage1"]["max_candidates_per_slot"] <= policy.stage1.max_candidates_per_slot
     assert production["solver"]["total_solver_seconds"] <= policy.solver.total_solver_seconds

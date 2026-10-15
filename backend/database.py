@@ -52,6 +52,15 @@ NUTRITION_CORRECTION_SEED_FILES = [
     os.path.join(os.path.dirname(__file__), "seed_data", "panlasang_pinoy_nutrition_corrections.csv"),
     os.path.join(os.path.dirname(__file__), "seed_data", "local_reference_nutrition_estimates.csv"),
 ]
+SUPERSEDED_NUTRITION_CORRECTION_ARCHIVES = [
+    os.path.join(
+        os.path.dirname(__file__),
+        "seed_data",
+        f"pcosina_{scope}_superseded_nutrition_corrections_v1.json",
+    )
+    for scope in ("breakfast", "lunch", "dinner", "universal")
+]
+EXPECTED_SUPERSEDED_NUTRITION_CORRECTION_COUNT = 187
 REVIEWED_PRICE_RULE_SEED_FILE = os.path.join(
     os.path.dirname(__file__),
     "seed_data",
@@ -1869,6 +1878,56 @@ def _migration_bangus_fillet_retail_price(conn) -> None:
     )
 
 
+def _superseded_nutrition_correction_recipe_ids() -> set[str]:
+    """Load the exact correction IDs archived by catalog reconciliation."""
+
+    recipe_ids: set[str] = set()
+    archived_row_count = 0
+    for archive_path in SUPERSEDED_NUTRITION_CORRECTION_ARCHIVES:
+        with open(archive_path, "r", encoding="utf-8") as handle:
+            archive = json.load(handle)
+        for file_entry in archive.get("files") or []:
+            for item in file_entry.get("removedRows") or []:
+                recipe_id = str((item.get("row") or {}).get("recipe_id") or "").strip()
+                if not recipe_id:
+                    raise ValueError(
+                        f"Superseded nutrition-correction archive has a blank recipe ID: {archive_path}"
+                    )
+                archived_row_count += 1
+                recipe_ids.add(recipe_id)
+    if archived_row_count != EXPECTED_SUPERSEDED_NUTRITION_CORRECTION_COUNT:
+        raise ValueError(
+            "Expected "
+            f"{EXPECTED_SUPERSEDED_NUTRITION_CORRECTION_COUNT} archived nutrition corrections, "
+            f"found {archived_row_count}."
+        )
+    if len(recipe_ids) != archived_row_count:
+        raise ValueError("Superseded nutrition-correction archives contain duplicate recipe IDs.")
+    return recipe_ids
+
+
+def _migration_deactivate_superseded_catalog_nutrition_corrections(conn) -> None:
+    """Soft-deactivate legacy overrides superseded by reconciled recipe evidence."""
+
+    recipe_ids = sorted(_superseded_nutrition_correction_recipe_ids())
+    cursor = conn.cursor()
+    now_ms = int(time.time() * 1000)
+    if _use_postgres():
+        statement = (
+            "UPDATE recipe_nutrition_corrections "
+            "SET active = FALSE, updated_at = %s "
+            "WHERE recipe_id = %s AND active = TRUE"
+        )
+    else:
+        statement = (
+            "UPDATE recipe_nutrition_corrections "
+            "SET active = 0, updated_at = ? "
+            "WHERE recipe_id = ? AND active = 1"
+        )
+    for recipe_id in recipe_ids:
+        cursor.execute(statement, (now_ms, recipe_id))
+
+
 def _registered_schema_migrations():
     return [
         ("20260319_app_001_core_tables", "Create core application tables", _migration_create_core_tables),
@@ -1893,6 +1952,11 @@ def _registered_schema_migrations():
         ("20260614_app_020_canonical_water_baseline_zero_price", "Treat complete-plate companion water as zero-cost tap water", _migration_canonical_water_baseline_zero_price),
         ("20260907_app_021_da_ncr_weekly_market_prices", "Seed dated DA-AMAS NCR weekly retail price references", _migration_da_ncr_weekly_market_prices),
         ("20260908_app_022_bangus_fillet_retail_price", "Separate fresh boneless bangus pricing from whole bangus", _migration_bangus_fillet_retail_price),
+        (
+            "20261015_app_023_deactivate_superseded_catalog_nutrition_corrections",
+            "Deactivate nutrition overrides superseded by reconciled catalog evidence",
+            _migration_deactivate_superseded_catalog_nutrition_corrections,
+        ),
     ]
 
 

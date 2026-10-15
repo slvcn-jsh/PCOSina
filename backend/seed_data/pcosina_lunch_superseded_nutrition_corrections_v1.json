@@ -1,0 +1,1150 @@
+{
+  "schemaVersion": 1,
+  "reason": "Superseded by Lunch Facto reconciled ingredient-level nutrition.",
+  "files": [
+    {
+      "sourceFile": "backend\\seed_data\\panlasang_pinoy_nutrition_corrections.csv",
+      "fieldnames": [
+        "recipe_id",
+        "calories",
+        "protein_grams",
+        "carbs_grams",
+        "fats_grams",
+        "fiber_grams",
+        "sodium_mg",
+        "sugar_grams",
+        "source",
+        "confidence",
+        "review_status",
+        "notes"
+      ],
+      "removedRows": [
+        {
+          "rowIndex": 26,
+          "row": {
+            "recipe_id": "ph_42",
+            "calories": "540",
+            "protein_grams": "37.0",
+            "carbs_grams": "15.0",
+            "fats_grams": "36.0",
+            "fiber_grams": "1.0",
+            "sodium_mg": "134",
+            "sugar_grams": "2.0",
+            "source": "panlasang_pinoy_recipe_card_per_serving",
+            "confidence": "high",
+            "review_status": "source_verified",
+            "notes": "title=Ginataang Manok with Kalabasa Recipe; source_url=https://panlasangpinoy.com/ginataang-manok-with-kalabasa-recipe/; source_servings=5; source_recipe_yield=5.0; source_basis=source_published_per_serving"
+          }
+        },
+        {
+          "rowIndex": 28,
+          "row": {
+            "recipe_id": "ph_44",
+            "calories": "281",
+            "protein_grams": "8.0",
+            "carbs_grams": "36.0",
+            "fats_grams": "13.0",
+            "fiber_grams": "2.0",
+            "sodium_mg": "30",
+            "sugar_grams": "28.0",
+            "source": "panlasang_pinoy_recipe_card_per_serving",
+            "confidence": "high",
+            "review_status": "source_verified",
+            "notes": "title=How to Cook Ginataang Langka with Pork; source_url=https://panlasangpinoy.com/how-to-cook-ginataang-langka-with-pork/; source_servings=4; source_recipe_yield=4.0; source_basis=source_published_per_serving"
+          }
+        },
+        {
+          "rowIndex": 44,
+          "row": {
+            "recipe_id": "ph_127",
+            "calories": "597",
+            "protein_grams": "11.0",
+            "carbs_grams": "112.0",
+            "fats_grams": "12.0",
+            "fiber_grams": "7.0",
+            "sodium_mg": "2144",
+            "sugar_grams": "8.0",
+            "source": "panlasang_pinoy_recipe_card_per_serving",
+            "confidence": "high",
+            "review_status": "source_verified",
+            "notes": "title=Filipino Shrimp Pancit Bihon Recipe; source_url=https://panlasangpinoy.com/filipino-shrimp-pancit-bihon-recipe/; source_servings=4; source_recipe_yield=4.0; source_basis=source_published_per_serving"
+          }
+        },
+        {
+          "rowIndex": 70,
+          "row": {
+            "recipe_id": "ph_316",
+            "calories": "523",
+            "protein_grams": "40.0",
+            "carbs_grams": "35.0",
+            "fats_grams": "27.0",
+            "fiber_grams": "11.0",
+            "sodium_mg": "656",
+            "sugar_grams": "11.0",
+            "source": "panlasang_pinoy_recipe_card_per_serving",
+            "confidence": "high",
+            "review_status": "source_verified",
+            "notes": "title=Beef Pochero Recipe; source_url=https://panlasangpinoy.com/beef-pochero/; source_servings=6; source_recipe_yield=6.0; source_basis=source_published_per_serving"
+          }
+        },
+        {
+          "rowIndex": 83,
+          "row": {
+            "recipe_id": "ph_392",
+            "calories": "185",
+            "protein_grams": "16.0",
+            "carbs_grams": "9.0",
+            "fats_grams": "10.0",
+            "fiber_grams": "1.0",
+            "sodium_mg": "1080",
+            "sugar_grams": "0.3",
+            "source": "panlasang_pinoy_recipe_card_per_serving",
+            "confidence": "high",
+            "review_status": "source_verified",
+            "notes": "title=Adobong Tahong (Filipino Mussels Adobo); source_url=https://panlasangpinoy.com/adobong-tahong/; source_servings=4; source_recipe_yield=4.0; source_basis=source_published_per_serving"
+          }
+        },
+        {
+          "rowIndex": 99,
+          "row": {
+            "recipe_id": "ph_486",
+            "calories": "558",
+            "protein_grams": "33.0",
+            "carbs_grams": "9.0",
+            "fats_grams": "43.0",
+            "fiber_grams": "3.0",
+            "sodium_mg": "1415",
+            "sugar_grams": "4.0",
+            "source": "panlasang_pinoy_recipe_card_per_serving",
+            "confidence": "high",
+            "review_status": "source_verified",
+            "notes": "title=Beef Kaldereta Recipe (Caldereta); source_url=https://panlasangpinoy.com/beef-kaldereta/; source_servings=5; source_recipe_yield=6.0; source_basis=source_published_per_serving"
+          }
+        },
+        {
+          "rowIndex": 114,
+          "row": {
+            "recipe_id": "ph_565",
+            "calories": "138",
+            "protein_grams": "3.0",
+            "carbs_grams": "8.0",
+            "fats_grams": "11.0",
+            "fiber_grams": "2.0",
+            "sodium_mg": "762",
+            "sugar_grams": "3.0",
+            "source": "panlasang_pinoy_recipe_card_per_serving",
+            "confidence": "high",
+            "review_status": "source_verified",
+            "notes": "title=Adobong Itlog; source_url=https://panlasangpinoy.com/adobong-itlog/; source_servings=6; source_recipe_yield=4.0; source_basis=source_published_per_serving"
+          }
+        },
+        {
+          "rowIndex": 150,
+          "row": {
+            "recipe_id": "ph_974",
+            "calories": "583",
+            "protein_grams": "37.0",
+            "carbs_grams": "25.0",
+            "fats_grams": "37.0",
+            "fiber_grams": "5.0",
+            "sodium_mg": "1089",
+            "sugar_grams": "5.0",
+            "source": "panlasang_pinoy_recipe_card_per_serving",
+            "confidence": "high",
+            "review_status": "source_verified",
+            "notes": "title=Chicken Afritada Recipe; source_url=https://panlasangpinoy.com/chicken-afritada-recipe/; source_servings=4; source_recipe_yield=4.0; source_basis=source_published_per_serving"
+          }
+        }
+      ]
+    },
+    {
+      "sourceFile": "backend\\seed_data\\local_reference_nutrition_estimates.csv",
+      "fieldnames": [
+        "recipe_id",
+        "calories",
+        "protein_grams",
+        "carbs_grams",
+        "fats_grams",
+        "fiber_grams",
+        "sodium_mg",
+        "sugar_grams",
+        "source",
+        "confidence",
+        "review_status",
+        "notes",
+        "draft_status",
+        "matched_ingredient_count",
+        "unmatched_ingredients",
+        "fdc_matches"
+      ],
+      "removedRows": [
+        {
+          "rowIndex": 12,
+          "row": {
+            "recipe_id": "ph_41",
+            "calories": "128",
+            "protein_grams": "10.9",
+            "carbs_grams": "8.3",
+            "fats_grams": "5.4",
+            "fiber_grams": "1.2",
+            "sodium_mg": "27",
+            "sugar_grams": "1.0",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=6. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "5",
+            "unmatched_ingredients": "2 packs Knorr Ginataang Gulay Recipe Mix 40 grams each (no FDC match for packs knorr ginataang gulay recipe mix each) | 5 pieces Thai chili pepper (no FDC match for thai chili pepper) | 5 cups water (ignored seasoning/water)",
+            "fdc_matches": "4 ounces dried taro leaves => dried taro leaves [113.4g, FDC local:taro] | 1/2 lb pork sliced into 1/4 inch thick pieces => pork into inch thick [226.8g, FDC local:pork] | 5 cloves garlic crushed => garlic [15.0g, FDC local:garlic] | 2 thumbs ginger crushed => ginger [30.0g, FDC local:ginger] | 1 piece onion sliced into thin strips => onion into thin strips [110.0g, FDC local:onion]"
+          }
+        },
+        {
+          "rowIndex": 38,
+          "row": {
+            "recipe_id": "ph_83",
+            "calories": "370",
+            "protein_grams": "32.4",
+            "carbs_grams": "16.7",
+            "fats_grams": "19.6",
+            "fiber_grams": "3.1",
+            "sodium_mg": "944",
+            "sugar_grams": "4.3",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "12",
+            "unmatched_ingredients": "1 1/2 cup sliced green beans Baguio beans (no FDC match for beans baguio beans) | 1/2 cup chopped parsley (no FDC match for parsley) | 1/4 teaspoon ground black pepper (no FDC match for pepper)",
+            "fdc_matches": "2 ounces pancit canton => pancit canton [56.7g, FDC local:noodles] | 2 ounces pancit bihon => pancit bihon [56.7g, FDC local:noodles] | 1 Knorr Shrimp Cube => knorr shrimp cube [20.0g, FDC local:shrimp] | 8 to 10 pieces medium shrimp peeled and deveined => shrimp and deveined [180.0g, FDC local:shrimp] | 4 ounces pork shoulder sliced into small pieces => pork shoulder into [113.4g, FDC local:pork] | 4 ounces boiled and shredded chicken breast => and shredded chicken breast [113.4g, FDC local:chicken] | 2 cups chopped cabbage => cabbage [280.0g, FDC local:cabbage] | 1 medium carrot julienne => carrot julienne [60.0g, FDC local:carrot] | 4 tablespoons soy sauce => soy sauce [60.0g, FDC local:soy sauce] | 1 medium yellow or white onion sliced => or onion [110.0g, FDC local:onion] | 3 cloves garlic crushed => garlic [9.0g, FDC local:garlic] | 4 tablespoons cooking oil => cooking oil [54.4g, FDC local:cooking oil]"
+          }
+        },
+        {
+          "rowIndex": 42,
+          "row": {
+            "recipe_id": "ph_87",
+            "calories": "1075",
+            "protein_grams": "75.4",
+            "carbs_grams": "142.9",
+            "fats_grams": "18.9",
+            "fiber_grams": "3.2",
+            "sodium_mg": "1036",
+            "sugar_grams": "2.7",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "10",
+            "unmatched_ingredients": "3/4 cups hot pepper leaves (no FDC match for hot pepper leaves) | 2 long green chili pepper siling pansigang (no FDC match for chili pepper siling pansigang) | 1/4 teaspoon ground black pepper (no FDC match for pepper)",
+            "fdc_matches": "1 1/2 lbs. chicken cut into serving pieces => chicken [680.4g, FDC local:chicken] | 1 Knorr Chicken cube => knorr chicken cube [100.0g, FDC local:chicken] | 1 small opo squash upo, peeled and sliced into huge chunks => opo squash upo and into huge chunks [100.0g, FDC local:squash] | 3/4 cups malunggay leaves => moringa leaves leaves [22.5g, FDC local:moringa leaves] | 2 thumbs ginger sliced into thin strips => ginger into thin strips [30.0g, FDC local:ginger] | 1 medium yellow onion minced => onion [110.0g, FDC local:onion] | 3 cloves garlic minced => garlic [9.0g, FDC local:garlic] | 3 tablespoons fish sauce => fish sauce [45.0g, FDC local:fish sauce] | 8 cups rice washing water used to rinse rice => rice washing water used to rinse rice [1920.0g, FDC local:rice] | 3 tablespoons cooking oil => cooking oil [40.8g, FDC local:cooking oil]"
+          }
+        },
+        {
+          "rowIndex": 68,
+          "row": {
+            "recipe_id": "ph_119",
+            "calories": "281",
+            "protein_grams": "13.3",
+            "carbs_grams": "14.5",
+            "fats_grams": "19.5",
+            "fiber_grams": "2.5",
+            "sodium_mg": "862",
+            "sugar_grams": "5.4",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=3. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "6",
+            "unmatched_ingredients": "2 tablespoons mirin (no FDC match for mirin) | 1 bunch scallions (no FDC match for scallions) | 1 lime or 2 pieces calamansi (no FDC match for lime or calamansi) | 1 teaspoon salt (ignored seasoning/water) | 1/4 teaspoon ground black pepper (no FDC match for pepper)",
+            "fdc_matches": "2 large squid cleaned => squid [200.0g, FDC local:squid] | 2 medium ripe tomato sliced into small cubes => tomato into cubes [240.0g, FDC local:tomato] | 2 medium yellow onion sliced into small cubes => onion into cubes [220.0g, FDC local:onion] | 2 thumbs ginger minced => ginger [30.0g, FDC local:ginger] | 3 tablespoons soy sauce => soy sauce [45.0g, FDC local:soy sauce] | 4 tablespoons annatto oil => annatto oil [54.4g, FDC local:annatto oil]"
+          }
+        },
+        {
+          "rowIndex": 75,
+          "row": {
+            "recipe_id": "ph_126",
+            "calories": "485",
+            "protein_grams": "50.1",
+            "carbs_grams": "17.6",
+            "fats_grams": "23.0",
+            "fiber_grams": "1.7",
+            "sodium_mg": "3755",
+            "sugar_grams": "13.0",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "10",
+            "unmatched_ingredients": "1/4 cup salted black beans (no FDC match for salted beans) | 3 pieces dried bay leaves (ignored seasoning/water) | 4 cups pineapple juice (no FDC match for pineapple juice) | 6 cups water (ignored seasoning/water)",
+            "fdc_matches": "2 lbs ham hock pata, sliced => ham hock pata [907.2g, FDC local:ham] | 1/2 cup dried banana blossoms => dried banana blossoms [70.0g, FDC local:banana blossom] | 1 Knorr pork cube => pork bouillon [100.0g, FDC local:broth] | 1/4 cup dark brown sugar => dark brown sugar [31.2g, FDC local:sugar] | 1 medium yellow onion => onion [110.0g, FDC local:onion] | 4 cloves garlic crushed => garlic [12.0g, FDC local:garlic] | 1/2 teaspoon crushed peppercorn => peppercorn [1.3g, FDC local:corn] | 1/2 cup soy sauce => soy sauce [70.0g, FDC local:soy sauce] | 1 teaspoon vinegar => vinegar [5.0g, FDC local:vinegar] | 3 tablespoons cooking oil => cooking oil [40.8g, FDC local:cooking oil]"
+          }
+        },
+        {
+          "rowIndex": 87,
+          "row": {
+            "recipe_id": "ph_141",
+            "calories": "342",
+            "protein_grams": "60.7",
+            "carbs_grams": "8.5",
+            "fats_grams": "6.3",
+            "fiber_grams": "1.1",
+            "sodium_mg": "770",
+            "sugar_grams": "2.7",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "7",
+            "unmatched_ingredients": "Juice extracted from the shrimp head (missing quantity) | 20 to 30 pieces wonton wrapper (no FDC match for wonton wrapper) | 1 1/2 teaspoons sesame oil (no FDC match for sesame oil) | 3/4 cup chopped scallions (no FDC match for scallions) | 6 cups water (ignored seasoning/water) | 1 1/2 teaspoons ground black pepper (no FDC match for pepper) | 1 teaspoon salt (ignored seasoning/water)",
+            "fdc_matches": "1 lb. ground chicken => chicken [453.6g, FDC local:chicken] | 12 to 15 pieces fresh shrimp minced => shrimp [270.0g, FDC local:shrimp] | 1 Knorr Chicken cube => knorr chicken cube [100.0g, FDC local:chicken] | 2 medium yellow onion minced => onion [220.0g, FDC local:onion] | 1 1/2 teaspoons annatto powder or 1/2 cup annatto seeds soaked in 1/2 cup warm water => annatto powder or annatto seeds soaked in warm water [4.0g, FDC local:annatto oil] | 12 cloves garlic toasted (see recipe here) => garlic [36.0g, FDC local:garlic] | 2 tablespoons fish sauce => fish sauce [30.0g, FDC local:fish sauce]"
+          }
+        },
+        {
+          "rowIndex": 104,
+          "row": {
+            "recipe_id": "ph_160",
+            "calories": "490",
+            "protein_grams": "62.8",
+            "carbs_grams": "17.0",
+            "fats_grams": "17.6",
+            "fiber_grams": "3.5",
+            "sodium_mg": "163",
+            "sugar_grams": "5.5",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "10",
+            "unmatched_ingredients": "4 to 5 pieces dried bay leaves (no FDC match for dried bay leaves) | 1 1/2 cups water (no FDC match for water) | Salt and ground black pepper to taste (ignored seasoning/water)",
+            "fdc_matches": "1 1/2 lb. chicken cut into serving pieces => chicken [680.4g, FDC local:chicken] | 1 small red bell pepper sliced => bell pepper [120.0g, FDC local:bell pepper] | 1 small green bell pepper sliced => bell pepper [120.0g, FDC local:bell pepper] | 1 medium baking potato cut into cubes => baking potato [170.0g, FDC local:potato] | 1 medium carrot cut into cubes => carrot [60.0g, FDC local:carrot] | 1 8 oz. can tomato sauce => . can tomato sauce [120.0g, FDC local:tomato] | 1 Knorr Chicken Cube => knorr chicken cube [100.0g, FDC local:chicken] | 1 small onion minced => onion [110.0g, FDC local:onion] | 4 cloves garlic crushed and minced => garlic and [12.0g, FDC local:garlic] | 3 tablespoons cooking oil => cooking oil [40.8g, FDC local:cooking oil]"
+          }
+        },
+        {
+          "rowIndex": 115,
+          "row": {
+            "recipe_id": "ph_172",
+            "calories": "67",
+            "protein_grams": "3.9",
+            "carbs_grams": "4.8",
+            "fats_grams": "3.5",
+            "fiber_grams": "0.4",
+            "sodium_mg": "174",
+            "sugar_grams": "0.4",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=30. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "11",
+            "unmatched_ingredients": "1/4 lb. cooked Lechon Carajay chopped (no FDC match for lechon carajay) | 1/4 cup chopped parsley (no FDC match for parsley) | 1/4 lb. Igado optional (no FDC match for igado) | 3 tablespoons chopped scallions (no FDC match for scallions) | ground black pepper to taste (ignored seasoning/water)",
+            "fdc_matches": "8 pieces boiled quail eggs => quail eggs [400.0g, FDC local:egg] | 1 lb. fresh Miki noodles => miki noodles [453.6g, FDC local:noodles] | 1 medium carrot julienned => carrot [60.0g, FDC local:carrot] | 1 small bell pepper cut into thin strips => bell pepper [120.0g, FDC local:bell pepper] | 1/4 lb. pork shoulder sliced in small pieces => pork shoulder in [113.4g, FDC local:pork] | 1/4 head cabbage chopped => cabbage [25.0g, FDC local:cabbage] | 5 cloves garlic crushed => garlic [15.0g, FDC local:garlic] | 3 cups beef broth => beef broth [720.0g, FDC local:broth] | 1/4 cup soy sauce => soy sauce [35.0g, FDC local:soy sauce] | 2 teaspoons fish sauce patis => fish sauce patis [10.0g, FDC local:fish sauce] | 3 tablespoons Cooking oil => cooking oil [40.8g, FDC local:cooking oil]"
+          }
+        },
+        {
+          "rowIndex": 140,
+          "row": {
+            "recipe_id": "ph_202",
+            "calories": "255",
+            "protein_grams": "19.8",
+            "carbs_grams": "6.8",
+            "fats_grams": "17.1",
+            "fiber_grams": "1.2",
+            "sodium_mg": "118",
+            "sugar_grams": "2.8",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=3. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "6",
+            "unmatched_ingredients": "1 piece ampalaya bitter gourd, cut in half lengthwise, cored, and sliced into thin pieces (no FDC match for ampalaya bitter gourd cut in half lengthwise cored and into thin) | Salt and pepper to taste (ignored seasoning/water)",
+            "fdc_matches": "8 to 10 pieces shrimp => shrimp [180.0g, FDC local:shrimp] | 2 pieces eggs beaten => eggs beaten [100.0g, FDC local:egg] | 1 piece tomato cut into cubes => tomato [120.0g, FDC local:tomato] | 1 piece onion sliced => onion [110.0g, FDC local:onion] | 4 cloves garlic crushed and chopped => garlic and [12.0g, FDC local:garlic] | 3 tablespoons cooking oil => cooking oil [40.8g, FDC local:cooking oil]"
+          }
+        },
+        {
+          "rowIndex": 190,
+          "row": {
+            "recipe_id": "ph_266",
+            "calories": "271",
+            "protein_grams": "20.7",
+            "carbs_grams": "1.8",
+            "fats_grams": "19.7",
+            "fiber_grams": "0.3",
+            "sodium_mg": "116",
+            "sugar_grams": "0.8",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=6. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "4",
+            "unmatched_ingredients": "1 teaspoon salt (ignored seasoning/water) | 2 pieces lime or calamansi (no FDC match for lime or calamansi) | 1/2 teaspoon ground black pepper (no FDC match for pepper) | 1 teaspoon hot sauce (no FDC match for hot sauce) | 1 teaspoon margarine (no FDC match for margarine)",
+            "fdc_matches": "1 lb. Lechon roasted pork, minced => lechon roasted pork [453.6g, FDC local:pork] | 1 large yellow onion => onion [110.0g, FDC local:onion] | 1/2 tablespoon soy sauce => soy sauce [7.5g, FDC local:soy sauce] | 4 tablespoons light mayonnaise => light cooking oil [54.4g, FDC local:cooking oil]"
+          }
+        },
+        {
+          "rowIndex": 200,
+          "row": {
+            "recipe_id": "ph_278",
+            "calories": "170",
+            "protein_grams": "10.0",
+            "carbs_grams": "7.7",
+            "fats_grams": "11.4",
+            "fiber_grams": "2.3",
+            "sodium_mg": "688",
+            "sugar_grams": "4.3",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "8",
+            "unmatched_ingredients": "1 1/2 cups tamarind leaves (no FDC match for tamarind leaves) | 1/2 lb long green beans or string beans (no FDC match for beans or string beans) | 1 tablespoon sinigang mix optional (no FDC match for sinigang mix) | 3 to 4 cups water (no FDC match for water)",
+            "fdc_matches": "1 to 1 1/2 lb chicken sliced into serving pieces => chicken into serving [100.0g, FDC local:chicken] | 2 cups fresh spinach => spinach [60.0g, FDC local:spinach] | 3 medium tomatoes quartered => tomatoes quartered [360.0g, FDC local:tomato] | 2 tablespoons fish sauce => fish sauce [30.0g, FDC local:fish sauce] | 1 medium Chinese eggplant sliced => chinese eggplant [50.0g, FDC local:eggplant] | 1 medium onion sliced => onion [110.0g, FDC local:onion] | 1 chicken bouillon => chicken bouillon [100.0g, FDC local:broth] | 3 tablespoons cooking oil => cooking oil [40.8g, FDC local:cooking oil]"
+          }
+        },
+        {
+          "rowIndex": 205,
+          "row": {
+            "recipe_id": "ph_284",
+            "calories": "303",
+            "protein_grams": "30.5",
+            "carbs_grams": "3.4",
+            "fats_grams": "17.1",
+            "fiber_grams": "0.8",
+            "sodium_mg": "511",
+            "sugar_grams": "1.7",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=6. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "5",
+            "unmatched_ingredients": "1/2 cup water (ignored seasoning/water) | 2 tablespoons honey (no FDC match for honey) | 4 tablespoons extra virgin olive oil (no FDC match for extra virgin olive oil) | salt and pepper to taste (ignored seasoning/water)",
+            "fdc_matches": "1 1/2 lbs beef tenderloin => beef tenderloin [680.4g, FDC local:beef] | 1/3 cup soy sauce => soy sauce [46.7g, FDC local:soy sauce] | 4 tablespoons red wine vinegar => wine vinegar [60.0g, FDC local:vinegar] | 1 green bell pepper sliced lengthwise => bell pepper lengthwise [120.0g, FDC local:bell pepper] | 1 medium onion sliced => onion [110.0g, FDC local:onion]"
+          }
+        },
+        {
+          "rowIndex": 208,
+          "row": {
+            "recipe_id": "ph_287",
+            "calories": "174",
+            "protein_grams": "12.1",
+            "carbs_grams": "3.7",
+            "fats_grams": "12.4",
+            "fiber_grams": "0.5",
+            "sodium_mg": "194",
+            "sugar_grams": "1.2",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "7",
+            "unmatched_ingredients": "2 to 2 1/2 cups bamboo shoot; cut in 1 to 2 inch length (no FDC match for bamboo shoot cut in to inch length) | 2 teaspoons salt (ignored seasoning/water) | Salt and ground black pepper to taste (ignored seasoning/water)",
+            "fdc_matches": "1/8 lb pork thinly sliced => pork thinly [56.7g, FDC local:pork] | 6 pieces shrimps shelled and deveined => shrimps shelled and deveined [120.0g, FDC local:shrimp] | 1 cup pork or beef broth => pork or beef broth [240.0g, FDC local:broth] | 1/4 cup vinegar => vinegar [35.0g, FDC local:vinegar] | 3 tablespoons cooking oil => cooking oil [40.8g, FDC local:cooking oil] | 1 tablespoon minced garlic => garlic [8.0g, FDC local:garlic] | 1 medium onion minced => onion [110.0g, FDC local:onion]"
+          }
+        },
+        {
+          "rowIndex": 243,
+          "row": {
+            "recipe_id": "ph_337",
+            "calories": "224",
+            "protein_grams": "34.5",
+            "carbs_grams": "14.2",
+            "fats_grams": "3.7",
+            "fiber_grams": "3.2",
+            "sodium_mg": "79",
+            "sugar_grams": "3.7",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "6",
+            "unmatched_ingredients": "4.5 cups water (ignored seasoning/water) | 1 pc green finger chili siling haba (no FDC match for finger chili siling haba) | 0.5 cup radish sliced diagonally (no FDC match for radish diagonally) | 1 cup water spinach kangkong, separated into leaves and stems (ignored seasoning/water)",
+            "fdc_matches": "1 pc onion quartered => onion quartered [110.0g, FDC local:onion] | 2 pcs tomatoes quartered => tomatoes quartered [240.0g, FDC local:tomato] | 0.5 kg tilapia cleaned and cut into portions => tilapia and [500.0g, FDC local:tilapia] | 0.5 cup okra ends trimmed => okra ends trimmed [70.0g, FDC local:okra] | 0.5 cup string beans sitaw, cut into 2-inch lengths => string beans yardlong beans [70.0g, FDC local:yardlong beans] | 1 package MAGGI Magic Sinigang Sampalok With Gabi Mix => package maggi magic sinigang sampalok with gabi mix [100.0g, FDC local:taro]"
+          }
+        },
+        {
+          "rowIndex": 279,
+          "row": {
+            "recipe_id": "ph_381",
+            "calories": "177",
+            "protein_grams": "7.5",
+            "carbs_grams": "14.5",
+            "fats_grams": "9.8",
+            "fiber_grams": "1.8",
+            "sodium_mg": "339",
+            "sugar_grams": "1.4",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=6. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "8",
+            "unmatched_ingredients": "2 bay leaves laurel leaves (no FDC match for bay leaves laurel leaves) | 1 cup water (ignored seasoning/water) | Salt to taste (ignored seasoning/water) | Optional: 1 teaspoon brown sugar for balance (blank)",
+            "fdc_matches": "1 3-4 pounds whole chicken, cut into serving pieces => - chicken [100.0g, FDC local:chicken] | 1 head garlic about 12 cloves, peeled and minced => garlic about and [50.0g, FDC local:garlic] | 1 large onion thinly sliced => onion thinly [110.0g, FDC local:onion] | 1/4 cup Filipino soy sauce Marca Pia or Silver Swan recommended => filipino soy sauce marca pia or silver swan recommended [35.0g, FDC local:soy sauce] | 1/2 cup palm vinegar or white vinegar => palm vinegar or vinegar [70.0g, FDC local:vinegar] | 1/2 teaspoon whole black peppercorns => peppercorns [1.3g, FDC local:corn] | 2 large potatoes peeled and cut into 1-inch rounds => potatoes and [340.0g, FDC local:potato] | 1/4 cup cooking oil => cooking oil [54.5g, FDC local:cooking oil]"
+          }
+        },
+        {
+          "rowIndex": 288,
+          "row": {
+            "recipe_id": "ph_393",
+            "calories": "196",
+            "protein_grams": "2.9",
+            "carbs_grams": "5.9",
+            "fats_grams": "18.3",
+            "fiber_grams": "0.7",
+            "sodium_mg": "501",
+            "sugar_grams": "2.5",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "10",
+            "unmatched_ingredients": "1 lb crocodile meat minced (no FDC match for crocodile meat) | 2 Thai chili peppers finely chopped (no FDC match for thai chili peppers finely) | 3 tablespoon calamansi juice or lime juice (no FDC match for calamansi juice or lime juice) | 1/2 teaspoon black pepper (no FDC match for pepper) | 1 teaspoon salt (ignored seasoning/water) | 1 tablespoon chopped cilantro (no FDC match for cilantro)",
+            "fdc_matches": "3 tablespoon vegetable oil => cooking oil [40.8g, FDC local:cooking oil] | 1 medium onion finely chopped => onion finely [110.0g, FDC local:onion] | 4 cloves garlic minced => garlic [12.0g, FDC local:garlic] | 1 tablespoon ginger minced => ginger [8.0g, FDC local:ginger] | 1/4 cup soy sauce => soy sauce [35.0g, FDC local:soy sauce] | 1 tablespoon vinegar => vinegar [15.0g, FDC local:vinegar] | 1 teaspoon sugar => sugar [4.2g, FDC local:sugar] | 1 raw egg yolk for serving => egg yolk for serving [50.0g, FDC local:egg] | 2 tablespoon mayonnaise => cooking oil [27.2g, FDC local:cooking oil] | 2 tablespoon chopped green onions => onions [16.0g, FDC local:onion]"
+          }
+        },
+        {
+          "rowIndex": 294,
+          "row": {
+            "recipe_id": "ph_399",
+            "calories": "31",
+            "protein_grams": "0.8",
+            "carbs_grams": "5.5",
+            "fats_grams": "0.1",
+            "fiber_grams": "0.8",
+            "sodium_mg": "396",
+            "sugar_grams": "2.3",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=6. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "5",
+            "unmatched_ingredients": "3 pounds goat meat kambing (no FDC match for goat meat kambing) | Traditional: head and feet up and down (missing quantity) | Modern: shoulder or leg meat cut into 2-inch pieces (missing quantity) | 1 tablespoon salt asin (no FDC match for salt asin) | 2 pandan leaves optional, for reducing gamey smell (no FDC match for pandan leaves) | 1 pound unripe tamarind sampalok (no FDC match for unripe tamarind sampalok) | 5 finger chilies siling haba (no FDC match for finger chilies siling haba) | Salt to taste (ignored seasoning/water) | 8-10 cups water (no FDC match for water)",
+            "fdc_matches": "2 cups white vinegar suka => vinegar suka [280.0g, FDC local:vinegar] | 1 large onion sibuyas, quartered => onion onion quartered [110.0g, FDC local:onion] | 2 thumbs ginger luya, crushed => ginger luya [30.0g, FDC local:ginger] | 2 tablespoons fish sauce patis => fish sauce patis [30.0g, FDC local:fish sauce] | 1 bunch green onions sibuyas dahon => onions onion dahon [150.0g, FDC local:onion]"
+          }
+        },
+        {
+          "rowIndex": 307,
+          "row": {
+            "recipe_id": "ph_420",
+            "calories": "99",
+            "protein_grams": "10.8",
+            "carbs_grams": "9.7",
+            "fats_grams": "2.6",
+            "fiber_grams": "3.1",
+            "sodium_mg": "48",
+            "sugar_grams": "4.1",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=6. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "6",
+            "unmatched_ingredients": "2 tablespoons oyster sauce (no FDC match for oyster sauce) | 1 cup hot water (no FDC match for hot water) | Salt asin at paminta) to taste (ignored seasoning/water)",
+            "fdc_matches": "4 sayote/chayote sayote - peeled, cored, and sliced => sayote/chayote sayote - cored and [800.0g, FDC local:sayote] | 1/2 pound large shrimp hipon - peeled, deveined, cut into bite-sized pieces => shrimp hipon - deveined [226.8g, FDC local:shrimp] | 1 medium onion sibuyas - chopped => onion onion - [110.0g, FDC local:onion] | 2 cloves garlic bawang - minced => garlic bawang - [6.0g, FDC local:garlic] | 2 ripe Roma tomatoes kamatis - chopped => roma tomatoes tomato - [240.0g, FDC local:tomato] | 1 tablespoon cooking oil => cooking oil [13.6g, FDC local:cooking oil]"
+          }
+        },
+        {
+          "rowIndex": 407,
+          "row": {
+            "recipe_id": "ph_551",
+            "calories": "439",
+            "protein_grams": "25.4",
+            "carbs_grams": "7.7",
+            "fats_grams": "35.1",
+            "fiber_grams": "1.9",
+            "sodium_mg": "382",
+            "sugar_grams": "3.3",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "7",
+            "unmatched_ingredients": "4 Thai chili peppers, stemmed and chopped (no FDC match for thai chili peppers stemmed and) | 1 pound green beans, ends trimmed and sliced thinly (no FDC match for beans ends trimmed and thinly) | salt and pepper to taste (ignored seasoning/water)",
+            "fdc_matches": "1 pound boneless bangus belly => boneless milkfish belly [453.6g, FDC local:milkfish] | 2 tablespoons canola oil => cooking oil [27.2g, FDC local:cooking oil] | 1 onion, peeled and sliced thinly => onion and thinly [110.0g, FDC local:onion] | 3 cloves garlic, peeled and minced => garlic and [9.0g, FDC local:garlic] | 1 thumb-size ginger, peeled and julienned => -size ginger and [15.0g, FDC local:ginger] | 1 tablespoon sauteed shrimp paste => sauteed shrimp paste [17.0g, FDC local:shrimp paste] | 1 cup coconut milk => coconut milk [240.0g, FDC local:coconut milk]"
+          }
+        },
+        {
+          "rowIndex": 413,
+          "row": {
+            "recipe_id": "ph_559",
+            "calories": "339",
+            "protein_grams": "7.9",
+            "carbs_grams": "7.7",
+            "fats_grams": "30.7",
+            "fiber_grams": "1.6",
+            "sodium_mg": "617",
+            "sugar_grams": "4.0",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "8",
+            "unmatched_ingredients": "canola oil (missing quantity) | 1 cup water (ignored seasoning/water) | 1 Thai chili pepper, minced (no FDC match for thai chili pepper) | salt and pepper to taste (ignored seasoning/water)",
+            "fdc_matches": "2 large eggplant, stems trimmed and cut into 2-inch lengths => eggplant stems trimmed and [100.0g, FDC local:eggplant] | 1 small onion, peeled and sliced thinly => onion and thinly [110.0g, FDC local:onion] | 2 cloves garlic, peeled and minced => garlic and [6.0g, FDC local:garlic] | 1/2 pound pork belly, cut into 1-inch cubes => pork belly [226.8g, FDC local:pork belly] | 2 tablespoons shrimp paste => shrimp paste [34.0g, FDC local:shrimp paste] | 1 large tomato, chopped => tomato [120.0g, FDC local:tomato] | 1/4 cup vinegar => vinegar [35.0g, FDC local:vinegar] | 1 teaspoon sugar => sugar [4.2g, FDC local:sugar]"
+          }
+        },
+        {
+          "rowIndex": 440,
+          "row": {
+            "recipe_id": "ph_597",
+            "calories": "116",
+            "protein_grams": "3.9",
+            "carbs_grams": "25.7",
+            "fats_grams": "0.3",
+            "fiber_grams": "4.4",
+            "sodium_mg": "332",
+            "sugar_grams": "5.6",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "8",
+            "unmatched_ingredients": "1 whole large dalag (mudfish), gutted, scaled, cleaned and cut into serving parts (no FDC match for dalag gutted scaled and) | salt and pepper to taste (ignored seasoning/water) | canola oil (missing quantity) | 5 cups water (ignored seasoning/water)",
+            "fdc_matches": "2 medium potatoes, peeled and quartered => potatoes and quartered [340.0g, FDC local:potato] | 1 onion, peeled and sliced thinly => onion and thinly [110.0g, FDC local:onion] | 2 cloves garlic, peeled and minced => garlic and [6.0g, FDC local:garlic] | 2 tablespoons ginger, peeled and julienned => ginger and [16.0g, FDC local:ginger] | 1 tablespoon fish sauce => fish sauce [15.0g, FDC local:fish sauce] | 1 bunch pechay, ends trimmed and leaves separated => bok choy ends trimmed and leaves separated [150.0g, FDC local:bok choy] | 1 small napa cabbage, ends trimmed and leaves separated => napa cabbage ends trimmed and leaves separated [100.0g, FDC local:cabbage] | 2 stalks green onions, ends trimmed and cut into 4-inch lengths => stalks onions ends trimmed and [220.0g, FDC local:onion]"
+          }
+        },
+        {
+          "rowIndex": 460,
+          "row": {
+            "recipe_id": "ph_620",
+            "calories": "259",
+            "protein_grams": "9.2",
+            "carbs_grams": "13.0",
+            "fats_grams": "19.8",
+            "fiber_grams": "3.1",
+            "sodium_mg": "159",
+            "sugar_grams": "5.6",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=6. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "10",
+            "unmatched_ingredients": "2 tablespoons Oil (no FDC match for oil) | 1 Cup water (ignored seasoning/water) | Salt (to taste) (ignored seasoning/water) | ground black pepper (to taste) (ignored seasoning/water) | 2 pieces siling labuyo (birds eye chili) (sliced, optional) (no FDC match for siling labuyo) | 1/2 Cup green olives (pitted) (no FDC match for olives)",
+            "fdc_matches": "1 kilo beef cubes => kilo beef cubes [100.0g, FDC local:beef] | 1 medium red onion (chopped) => onion [110.0g, FDC local:onion] | 4 cloves Garlic (chopped) => garlic [12.0g, FDC local:garlic] | 1/2 kilo Potatoes (cut into bite-sized pieces) => kilo potatoes [85.0g, FDC local:potato] | 1 medium carrot (cut into chunks) => carrot [60.0g, FDC local:carrot] | 2 pieces red or green bell peppers (cut into bite-sized pieces) => or bell peppers [240.0g, FDC local:bell pepper] | 1 150-gram pack tomato paste => - pack tomato paste [120.0g, FDC local:tomato] | 1 250-gram pack Tomato sauce => - pack tomato sauce [120.0g, FDC local:tomato] | 1 85-gram can liver spread => - can liver spread [100.0g, FDC local:liver spread] | 1 Cup coconut cream => coconut cream [240.0g, FDC local:coconut cream]"
+          }
+        },
+        {
+          "rowIndex": 467,
+          "row": {
+            "recipe_id": "ph_630",
+            "calories": "207",
+            "protein_grams": "4.5",
+            "carbs_grams": "6.8",
+            "fats_grams": "19.2",
+            "fiber_grams": "1.9",
+            "sodium_mg": "18",
+            "sugar_grams": "3.3",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=6. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "6",
+            "unmatched_ingredients": "3 teaspoons patis (fish sauce) (no FDC match for patis) | 1 teaspoon ground black pepper (no FDC match for pepper) | 2 pieces green finger chilies (siling pangsigang) (sliced) (no FDC match for finger chilies) | 2 tablespoons fresh basil leaves (chopped) (no FDC match for basil leaves) | red chili pepper (siling labuyo) (for garnish) (missing quantity)",
+            "fdc_matches": "2 tablespoons cooking oil => cooking oil [27.2g, FDC local:cooking oil] | 3 cloves Garlic (minced) => garlic [9.0g, FDC local:garlic] | 1 medium red onion (chopped) => onion [110.0g, FDC local:onion] | 1 medium tomato (chopped) => tomato [120.0g, FDC local:tomato] | 1 kilo medium-sized squid (cleaned, cut into rings) => kilo -sized squid [100.0g, FDC local:squid] | 1 1/2 cups coconut milk => coconut milk [360.0g, FDC local:coconut milk]"
+          }
+        },
+        {
+          "rowIndex": 474,
+          "row": {
+            "recipe_id": "ph_639",
+            "calories": "55",
+            "protein_grams": "4.7",
+            "carbs_grams": "4.9",
+            "fats_grams": "2.3",
+            "fiber_grams": "1.1",
+            "sodium_mg": "281",
+            "sugar_grams": "2.2",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=6. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "7",
+            "unmatched_ingredients": "4 tablespoons Oil (divided) (no FDC match for oil) | Salt (to taste) (ignored seasoning/water) | ground black pepper (to taste) (ignored seasoning/water) | banana ketchup (to serve) (missing quantity)",
+            "fdc_matches": "3 pieces eggplant => eggplant [150.0g, FDC local:eggplant] | 6 cloves Garlic (minced) => garlic [18.0g, FDC local:garlic] | 1/2 medium red onion (minced) => onion [55.0g, FDC local:onion] | 1/4 kilo ground pork => kilo pork [25.0g, FDC local:pork] | 2 small squares firm tofu (tokwa) (cubed small) => squares tofu [200.0g, FDC local:tofu] | 2 tablespoons Soy Sauce => soy sauce [30.0g, FDC local:soy sauce] | 1 teaspoon sugar => sugar [4.2g, FDC local:sugar]"
+          }
+        },
+        {
+          "rowIndex": 497,
+          "row": {
+            "recipe_id": "ph_667",
+            "calories": "780",
+            "protein_grams": "38.2",
+            "carbs_grams": "76.7",
+            "fats_grams": "34.1",
+            "fiber_grams": "2.4",
+            "sodium_mg": "1004",
+            "sugar_grams": "3.1",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "9",
+            "unmatched_ingredients": "1 medium green papaya (peeled and sliced) (no FDC match for papaya) | 1/2 teaspoon ground black pepper (no FDC match for pepper) | 1 Cup chili leaves (dahon ng sili) (no FDC match for chili leaves)",
+            "fdc_matches": "2 tablespoons vegetable oil => cooking oil [27.2g, FDC local:cooking oil] | 1 1 1/2-inch piece ginger (peeled and sliced into strips) => -inch ginger [100.0g, FDC local:ginger] | 1 medium red onion (chopped) => onion [110.0g, FDC local:onion] | 3 cloves Garlic (chopped) => garlic [9.0g, FDC local:garlic] | 1 pieces tomato (chopped) => tomato [120.0g, FDC local:tomato] | 500 Grams pork ribs => pork ribs [500.0g, FDC local:pork ribs] | 3 tablespoons fish sauce (patis) => fish sauce [45.0g, FDC local:fish sauce] | 4 cups rice washing (hugas bigas) or water => rice washing or water [960.0g, FDC local:rice] | 1 teaspoon black peppercorns => peppercorns [2.7g, FDC local:corn]"
+          }
+        },
+        {
+          "rowIndex": 498,
+          "row": {
+            "recipe_id": "ph_669",
+            "calories": "275",
+            "protein_grams": "33.9",
+            "carbs_grams": "13.9",
+            "fats_grams": "8.6",
+            "fiber_grams": "1.1",
+            "sodium_mg": "377",
+            "sugar_grams": "1.5",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=6. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "9",
+            "unmatched_ingredients": "4 cups water (more as needed) (ignored seasoning/water) | firm tofu (tokwa) (sliced and fried, to serve) (missing quantity) | green onions (to serve) (missing quantity) | ground black pepper (to serve) (ignored seasoning/water) | Toasted garlic (to serve) (missing quantity)",
+            "fdc_matches": "1/8 kilogram chicken intestine (isaw) (cut into 3-inch lengths) => chicken intestine [125.0g, FDC local:chicken] | 100 Grams chicken gizzard (balunbalunan) => chicken gizzard [100.0g, FDC local:chicken] | 2 tablespoons vegetable oil => cooking oil [27.2g, FDC local:cooking oil] | 1 Small red onion (peeled, chopped) => onion [110.0g, FDC local:onion] | 3 cloves Garlic (peeled, chopped) => garlic [9.0g, FDC local:garlic] | 2 inches fresh ginger (peeled, sliced into strips) => inches ginger [200.0g, FDC local:ginger] | 1/2 Cup Glutinous rice (malagkit) => glutinous rice [120.0g, FDC local:rice] | 1 1/2 tablespoons fish sauce (patis) (or to taste) => fish sauce [22.5g, FDC local:fish sauce] | 4 pieces chicken wings => chicken wings [400.0g, FDC local:chicken]"
+          }
+        },
+        {
+          "rowIndex": 500,
+          "row": {
+            "recipe_id": "ph_671",
+            "calories": "274",
+            "protein_grams": "11.9",
+            "carbs_grams": "9.5",
+            "fats_grams": "22.1",
+            "fiber_grams": "2.5",
+            "sodium_mg": "548",
+            "sugar_grams": "3.8",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "8",
+            "unmatched_ingredients": "1 tablespoons patis (fish sauce) (no FDC match for patis) | 2 pieces green finger chilies (siling pangsigang) (no FDC match for finger chilies) | Salt (to taste) (ignored seasoning/water) | ground black pepper (to taste) (ignored seasoning/water) | steamed rice (to serve) (missing quantity)",
+            "fdc_matches": "2 tablespoons cooking oil => cooking oil [27.2g, FDC local:cooking oil] | 5 cloves Garlic (chopped) => garlic [15.0g, FDC local:garlic] | 1 Small red onion (chopped) => onion [110.0g, FDC local:onion] | 1 Cup coconut milk => coconut milk [240.0g, FDC local:coconut milk] | 2 medium-sized blue crabs (alimasag) (washed, cut in half) => -sized blue crabs [200.0g, FDC local:crab] | 1/4 Cup kalabasa (squash) (peeled, cubed) => squash [35.0g, FDC local:squash] | 1/4 Cup okra (halved) => okra [35.0g, FDC local:okra] | 1/4 Cup sitaw (string beans) (cut into 3-inch lengths) => yardlong beans [35.0g, FDC local:yardlong beans]"
+          }
+        },
+        {
+          "rowIndex": 535,
+          "row": {
+            "recipe_id": "ph_709",
+            "calories": "257",
+            "protein_grams": "14.6",
+            "carbs_grams": "25.3",
+            "fats_grams": "11.3",
+            "fiber_grams": "5.2",
+            "sodium_mg": "67",
+            "sugar_grams": "6.3",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "12",
+            "unmatched_ingredients": "2 tablespoons patis (fish sauce) (no FDC match for patis) | 2 cups water (ignored seasoning/water) | 3-4 pieces saba (no FDC match for saba) | Salt (ayon sa panlasa) (ignored seasoning/water)",
+            "fdc_matches": "2 tablespoons cooking oil => cooking oil [27.2g, FDC local:cooking oil] | 1 medium white onion (nakahiwa ng maliliit na kwadrado) => onion [110.0g, FDC local:onion] | 4 cloves Garlic (tinadtad) => garlic [12.0g, FDC local:garlic] | 1/2 kilo pork (gumamit ng country-style boneless ribs or pork belly, nakahiwa sa 1/2-inch na piraso) => kilo pork [50.0g, FDC local:pork] | 1/2 kilo Beef (gumamit ng chuck or brisket, nakahiwa ng 1/2-inch na piraso) => kilo beef [50.0g, FDC local:beef] | 1/2 kilo Chicken (nakahiwa sa maliliit na piraso) => kilo chicken [50.0g, FDC local:chicken] | 2 pieces tomatoes (tinadtad) => tomatoes [240.0g, FDC local:tomato] | 2 pieces Potatoes (nakahati sa 4 na piraso ang bawat isa) => potatoes [340.0g, FDC local:potato] | 1 pack (200-gram) Tomato sauce => pack tomato sauce [120.0g, FDC local:tomato] | 1 bunch bok choy => bok choy [150.0g, FDC local:bok choy] | 1 head cabbage => cabbage [100.0g, FDC local:cabbage] | 2 pieces eggplant (inihaw, opsyonal) => eggplant [100.0g, FDC local:eggplant]"
+          }
+        },
+        {
+          "rowIndex": 555,
+          "row": {
+            "recipe_id": "ph_733",
+            "calories": "135",
+            "protein_grams": "8.8",
+            "carbs_grams": "13.7",
+            "fats_grams": "4.9",
+            "fiber_grams": "1.6",
+            "sodium_mg": "588",
+            "sugar_grams": "0.9",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=5. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "6",
+            "unmatched_ingredients": "1/4 Cup Oil (no FDC match for oil) | 2 pieces bay leaves (ignored seasoning/water) | 1 1/2 cups water (or as needed) (no FDC match for water) | Salt (to taste) (ignored seasoning/water)",
+            "fdc_matches": "2 medium Potatoes (peeled, cubed large) => potatoes [340.0g, FDC local:potato] | 5 cloves Garlic (lightly crushed) => garlic [15.0g, FDC local:garlic] | 1/3 Cup Soy Sauce => soy sauce [46.7g, FDC local:soy sauce] | 1/3 Cup Vinegar => vinegar [46.7g, FDC local:vinegar] | 1/4 teaspoon black peppercorns (crushed, more to taste) => peppercorns [0.7g, FDC local:corn] | 5 large eggs => eggs [250.0g, FDC local:egg]"
+          }
+        },
+        {
+          "rowIndex": 560,
+          "row": {
+            "recipe_id": "ph_738",
+            "calories": "199",
+            "protein_grams": "36.4",
+            "carbs_grams": "7.8",
+            "fats_grams": "1.5",
+            "fiber_grams": "2.5",
+            "sodium_mg": "65",
+            "sugar_grams": "3.9",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "5",
+            "unmatched_ingredients": "1 40-gram pack sinigang sa sampaloc mix (no FDC match for - pack sinigang sa sampaloc mix) | 4 cups water (ignored seasoning/water) | 1 Small labanos (peeled, cut into rounds) (no FDC match for labanos) | 1 bunch string beans (cut into 3-inch lengths) (no FDC match for string beans) | Oil (as needed) (missing quantity)",
+            "fdc_matches": "1 Small red onion (peeled, quartered) => onion [110.0g, FDC local:onion] | 2 medium tomatoes (cored, quartered) => tomatoes [240.0g, FDC local:tomato] | 1/2 bunch okra (halved) => okra [75.0g, FDC local:okra] | 2 Small eggplants (cubed) => eggplants [100.0g, FDC local:eggplant] | 500 Grams fresh tuna (cubed large) => tuna [500.0g, FDC local:tuna]"
+          }
+        },
+        {
+          "rowIndex": 582,
+          "row": {
+            "recipe_id": "ph_762",
+            "calories": "31",
+            "protein_grams": "3.1",
+            "carbs_grams": "4.5",
+            "fats_grams": "0.4",
+            "fiber_grams": "1.8",
+            "sodium_mg": "541",
+            "sugar_grams": "0.4",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "4",
+            "unmatched_ingredients": "2 tablespoons Oil (no FDC match for oil) | 1/4 Cup water (ignored seasoning/water) | Salt (to taste) (ignored seasoning/water) | black pepper (to taste) (missing quantity) | 1/2 Cup chicharon (crushed) (no FDC match for chicharon)",
+            "fdc_matches": "5 cloves Garlic (chopped) => garlic [15.0g, FDC local:garlic] | 2 bunches kangkong => kangkong [300.0g, FDC local:spinach] | 1/2 Cup Vinegar => vinegar [70.0g, FDC local:vinegar] | 1/4 Cup Soy Sauce => soy sauce [35.0g, FDC local:soy sauce]"
+          }
+        },
+        {
+          "rowIndex": 592,
+          "row": {
+            "recipe_id": "ph_772",
+            "calories": "249",
+            "protein_grams": "10.9",
+            "carbs_grams": "12.5",
+            "fats_grams": "17.0",
+            "fiber_grams": "0.5",
+            "sodium_mg": "26",
+            "sugar_grams": "9.3",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=3. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "8",
+            "unmatched_ingredients": "1/2 Cup clear soda (7-Up or Sprite) (no FDC match for clear soda) | 2 tablespoons Calamansi Juice (no FDC match for calamansi juice) | 1/2 tablespoon rock salt (ignored seasoning/water) | 1 teaspoon Pepper (no FDC match for pepper) | 1 teaspoon Salt (ignored seasoning/water) | 1 tablespoon Butter (no FDC match for butter)",
+            "fdc_matches": "2/3 Cup local white vinegar => local vinegar [93.3g, FDC local:vinegar] | 1 1/2 tablespoons ginger (chopped) => ginger [12.0g, FDC local:ginger] | 2 tablespoons brown sugar => brown sugar [25.0g, FDC local:sugar] | 1 tablespoon Onion powder => onion powder [8.0g, FDC local:onion] | 1 whole Chicken (cut in half) => chicken [100.0g, FDC local:chicken] | 3 tablespoon corn oil => corn oil [40.8g, FDC local:corn] | 1/3 Cup annatto seeds => annatto seeds [46.7g, FDC local:annatto oil] | 2 tablespoons local white vinegar => local vinegar [30.0g, FDC local:vinegar]"
+          }
+        },
+        {
+          "rowIndex": 602,
+          "row": {
+            "recipe_id": "ph_784",
+            "calories": "528",
+            "protein_grams": "67.8",
+            "carbs_grams": "22.4",
+            "fats_grams": "17.1",
+            "fiber_grams": "2.6",
+            "sodium_mg": "161",
+            "sugar_grams": "5.2",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=2. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "9",
+            "unmatched_ingredients": "1 teaspoon atsuete oil (no FDC match for atsuete oil)",
+            "fdc_matches": "1 tablespoon vegetable oil => cooking oil [13.6g, FDC local:cooking oil] | 1 tablespoon Garlic (minced) => garlic [8.0g, FDC local:garlic] | 2 tablespoons onion (minced) => onion [16.0g, FDC local:onion] | 1/4 Cup pork shoulder (kasim) (diced) => pork shoulder [35.0g, FDC local:pork] | 1/4 Cup Chicken Breast (boiled, diced) => chicken breast [35.0g, FDC local:chicken] | 2 to 3 cups chicken stock => chicken stock [350.0g, FDC local:chicken] | 1/2 Cup fresh miki noodles => miki noodles [70.0g, FDC local:noodles] | 2 stalks green onion (cut into 1-inch pieces) => stalks onion [220.0g, FDC local:onion] | 1 tablespoon garlic chips (fried) => garlic chips [8.0g, FDC local:garlic]"
+          }
+        },
+        {
+          "rowIndex": 618,
+          "row": {
+            "recipe_id": "ph_801",
+            "calories": "128",
+            "protein_grams": "2.8",
+            "carbs_grams": "9.4",
+            "fats_grams": "9.0",
+            "fiber_grams": "1.7",
+            "sodium_mg": "17",
+            "sugar_grams": "2.5",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=6. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "6",
+            "unmatched_ingredients": "1/4 Cup Oil (no FDC match for oil) | Salt (to taste) (ignored seasoning/water) | ground black pepper (to taste) (ignored seasoning/water)",
+            "fdc_matches": "1 slab Pork belly (lechon kawali cut (around 1/2 kg), tenderized, cubed) => slab pork belly tenderized [100.0g, FDC local:pork belly] | 1 medium potato (peeled, cubed) => potato [170.0g, FDC local:potato] | 1 Small red onion (peeled, diced) => onion [110.0g, FDC local:onion] | 2 cloves Garlic (peeled, minced) => garlic [6.0g, FDC local:garlic] | 2 tomatoes (cored, diced) => tomatoes [240.0g, FDC local:tomato] | 1 Small carrot (peeled, cubed) => carrot [60.0g, FDC local:carrot]"
+          }
+        },
+        {
+          "rowIndex": 622,
+          "row": {
+            "recipe_id": "ph_805",
+            "calories": "286",
+            "protein_grams": "5.1",
+            "carbs_grams": "43.4",
+            "fats_grams": "10.8",
+            "fiber_grams": "2.5",
+            "sodium_mg": "9",
+            "sugar_grams": "12.5",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=8. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "6",
+            "unmatched_ingredients": "1/4 Cup small sago (no FDC match for sago) | 2 1/2 cups water (divided) (no FDC match for water) | 1/2 teaspoon ube flavoring (no FDC match for ube flavoring) | 1 1/2 Cup water (no FDC match for water) | 2 saba bananas (peeled, sliced) (no FDC match for saba bananas)",
+            "fdc_matches": "1 tablespoon sugar => sugar [12.5g, FDC local:sugar] | 1 Cup glutinous rice flour => glutinous rice flour [240.0g, FDC local:flour] | 1/2 Cup sugar => sugar [62.5g, FDC local:sugar] | 2 Small sweet potatoes (kamote) (peeled, sliced into half moons) => sweet potatoes [340.0g, FDC local:potato] | 1 Cup coconut cream => coconut cream [240.0g, FDC local:coconut cream] | 1/2 Cup sweetened jackfruit (langka) (preserved) => sweetened jackfruit [70.0g, FDC local:jackfruit]"
+          }
+        },
+        {
+          "rowIndex": 658,
+          "row": {
+            "recipe_id": "ph_845",
+            "calories": "253",
+            "protein_grams": "4.1",
+            "carbs_grams": "34.7",
+            "fats_grams": "11.1",
+            "fiber_grams": "4.5",
+            "sodium_mg": "12",
+            "sugar_grams": "1.6",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=2.5. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "2",
+            "unmatched_ingredients": "1 tablespoon Salt (ignored seasoning/water)",
+            "fdc_matches": "3 medim Potatoes (cut into 1-inch wedges) => medim potatoes [510.0g, FDC local:potato] | 2 tablespoons vegetable oil => cooking oil [27.2g, FDC local:cooking oil]"
+          }
+        },
+        {
+          "rowIndex": 680,
+          "row": {
+            "recipe_id": "ph_871",
+            "calories": "306",
+            "protein_grams": "27.3",
+            "carbs_grams": "14.1",
+            "fats_grams": "15.7",
+            "fiber_grams": "4.0",
+            "sodium_mg": "1890",
+            "sugar_grams": "4.1",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "8",
+            "unmatched_ingredients": "1 Cup ampalaya (bitter melon) (sliced into thin crescents) (no FDC match for ampalaya) | 2 tablespoons Salt (divided) (ignored seasoning/water) | 1/2 Cup native tomaties (chopped) (no FDC match for native tomaties) | Pepper (to taste) (ignored seasoning/water) | 1 Cup winged beans (sigarilyas) (thinly sliced) (no FDC match for winged beans)",
+            "fdc_matches": "2 cups eggplant (sliced into long, thin slices) => eggplant [280.0g, FDC local:eggplant] | 1 tablespoon vegetable oil => cooking oil [13.6g, FDC local:cooking oil] | 1 tablespoon white onion (chopped) => onion [8.0g, FDC local:onion] | 1/2 tablespoon Garlic (chopped) => garlic [4.0g, FDC local:garlic] | 300 Grams pork (use ground pork) => pork [300.0g, FDC local:pork] | 3/4 Cup shrimp paste (bagoong alamang) => shrimp paste [105.0g, FDC local:shrimp paste] | 1 Cup squash (kalabasa) (thinly sliced) => squash [140.0g, FDC local:squash] | 1 Cup okra (sliced) => okra [140.0g, FDC local:okra]"
+          }
+        },
+        {
+          "rowIndex": 689,
+          "row": {
+            "recipe_id": "ph_880",
+            "calories": "128",
+            "protein_grams": "13.4",
+            "carbs_grams": "9.8",
+            "fats_grams": "3.5",
+            "fiber_grams": "0.3",
+            "sodium_mg": "154",
+            "sugar_grams": "0.7",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=21. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "7",
+            "unmatched_ingredients": "1 Cup water (boiling) (ignored seasoning/water) | lemon juice (missing quantity) | 1/4 teaspoon Salt (no FDC match for salt) | 1/2 teaspoon black pepper (no FDC match for pepper) | lemon juice (missing quantity) | 1 tablespoon honey (no FDC match for honey) | Crispy Fried Garlic (for garnish) (missing quantity)",
+            "fdc_matches": "2 cups tapioca flour => tapioca flour [250.0g, FDC local:flour] | 500 Grams Shrimp (peeled and deveined) => shrimp [500.0g, FDC local:shrimp] | 500 Grams pork ((use pork loin), sliced into thick matchsticks) => pork into thick matchsticks [500.0g, FDC local:pork] | 1 tablespoon fish sauce (patis) => fish sauce [15.0g, FDC local:fish sauce] | 1 tablespoon sugar => sugar [12.5g, FDC local:sugar] | 1 tablespoon fish sauce (patis) => fish sauce [15.0g, FDC local:fish sauce] | 1 clove Garlic (minced or grated) => garlic [3.0g, FDC local:garlic]"
+          }
+        },
+        {
+          "rowIndex": 694,
+          "row": {
+            "recipe_id": "ph_887",
+            "calories": "399",
+            "protein_grams": "27.5",
+            "carbs_grams": "21.3",
+            "fats_grams": "21.8",
+            "fiber_grams": "0.5",
+            "sodium_mg": "1644",
+            "sugar_grams": "19.1",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "9",
+            "unmatched_ingredients": "cilantro sprigs (for garnish) (missing quantity) | 1/4 Cup lemon juice (no FDC match for lemon juice) | 200 ml coconut milk (gata) (unsupported unit ml) | 3 tablespoons lemon juice (no FDC match for lemon juice) | 1 bulb lemongrass (tanglad) (pounded (optional)) (no FDC match for bulb lemongrass)",
+            "fdc_matches": "400 Grams Beef ((use beef striploin), sliced into 1-inch strips) => beef into -inch strips [400.0g, FDC local:beef] | 1 medium red onion (sliced into 16 wedges) => onion [110.0g, FDC local:onion] | 2 tablespoons vegetable oil => cooking oil [27.2g, FDC local:cooking oil] | 1/4 Cup fish sauce (patis) => fish sauce [35.0g, FDC local:fish sauce] | 2 1/2 tablespoons brown sugar => brown sugar [31.2g, FDC local:sugar] | 2 teaspoons Garlic (chopped) => garlic [5.3g, FDC local:garlic] | 3 tablespoons fish sauce (patis) => fish sauce [45.0g, FDC local:fish sauce] | 3 tablespoons brown sugar => brown sugar [37.5g, FDC local:sugar] | 2 teaspoons Garlic (chopped) => garlic [5.3g, FDC local:garlic]"
+          }
+        },
+        {
+          "rowIndex": 707,
+          "row": {
+            "recipe_id": "ph_901",
+            "calories": "697",
+            "protein_grams": "18.5",
+            "carbs_grams": "6.6",
+            "fats_grams": "65.7",
+            "fiber_grams": "0.6",
+            "sodium_mg": "2420",
+            "sugar_grams": "1.6",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=2.5. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "5",
+            "unmatched_ingredients": "3 tablespoons Oil (no FDC match for oil) | 1/2 Cup water (ignored seasoning/water) | Salt (ignored seasoning/water) | 1 red chili pepper (siling labuyo) (seeded and chopped) (no FDC match for chili pepper) | Oil (for deep-frying) (ignored frying oil reserve) | eggplant ((chooped and grilled), to serve (optional)) (missing quantity)",
+            "fdc_matches": "1/3 Cup onion => onion [46.7g, FDC local:onion] | 1/3 Cup tomatoes (chopped and seeded) => tomatoes [46.7g, FDC local:tomato] | 2 teaspoons Garlic => garlic [5.3g, FDC local:garlic] | 5 tablespoons bagoong alamang => shrimp paste [85.0g, FDC local:shrimp paste] | 300 Grams Lechon Liempo (sliced into 8 pieces) => lechon liempo [300.0g, FDC local:pork belly]"
+          }
+        },
+        {
+          "rowIndex": 715,
+          "row": {
+            "recipe_id": "ph_909",
+            "calories": "172",
+            "protein_grams": "17.8",
+            "carbs_grams": "4.0",
+            "fats_grams": "9.2",
+            "fiber_grams": "1.0",
+            "sodium_mg": "50",
+            "sugar_grams": "1.7",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=8. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "9",
+            "unmatched_ingredients": "green onion ((chopped, for garnish), Chopped, for garnish) (missing quantity) | 1 tablespoon Butter (no FDC match for butter) | 1 tablespoon dried thyme leaves (no FDC match for dried thyme leaves) | 2 teaspoons black pepper (no FDC match for pepper) | Salt (ignored seasoning/water) | 1 Cup whipping cream (no FDC match for whipping cream)",
+            "fdc_matches": "2 kilos Beef (use bone-in beef shank (bulalo)) => kilos beef [200.0g, FDC local:beef] | 1/4 Cup carrot ((sliced), boiled) => carrot [35.0g, FDC local:carrot] | 1/4 Cup sayote (chayote) (boiled) => sayote [35.0g, FDC local:sayote] | 1/4 Cup Potatoes ((sliced), boiled) => potatoes [35.0g, FDC local:potato] | 3 cloves Garlic (chopped) => garlic [9.0g, FDC local:garlic] | 2 tablespoons white onion (chopped) => onion [16.0g, FDC local:onion] | 250 Grams fresh button mushrooms (chopped) => button mushrooms [250.0g, FDC local:mushroom] | 250 Grams fresh button mushrooms (chopped) => button mushrooms [250.0g, FDC local:mushroom] | 2 cups beef stock => beef stock [280.0g, FDC local:beef]"
+          }
+        },
+        {
+          "rowIndex": 718,
+          "row": {
+            "recipe_id": "ph_914",
+            "calories": "115",
+            "protein_grams": "11.4",
+            "carbs_grams": "1.6",
+            "fats_grams": "6.7",
+            "fiber_grams": "0.2",
+            "sodium_mg": "329",
+            "sugar_grams": "1.0",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=7. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "9",
+            "unmatched_ingredients": "1 piece bay leaf (no FDC match for bay leaf) | water (as needed) (ignored seasoning/water) | fish sauce (patis) (to taste) (missing quantity) | black pepper (to taste) (missing quantity) | 1/8 Cup Whole milk (no FDC match for milk) | 2 packs (180gram) tortilla chips (no FDC match for packs tortilla chips) | green onion (chopped (for garnish)) (missing quantity)",
+            "fdc_matches": "1/4 Cup Soy Sauce => soy sauce [35.0g, FDC local:soy sauce] | 1/8 Cup white vinegar => vinegar [17.5g, FDC local:vinegar] | 1 teaspoon sugar => sugar [4.2g, FDC local:sugar] | 1 teaspoon Garlic (chopped) => garlic [2.7g, FDC local:garlic] | 1/2 teaspoon peppercorns => peppercorns [1.3g, FDC local:corn] | 250 Grams pork (use ground pork) => pork [250.0g, FDC local:pork] | 1/2 Cup tomatoes (chopped) => tomatoes [70.0g, FDC local:tomato] | 1-2 tablespoons red onion (chopped) => onion [12.0g, FDC local:onion] | 1/4 Cup cheese sauce => cheese sauce [35.0g, FDC local:cheese]"
+          }
+        },
+        {
+          "rowIndex": 726,
+          "row": {
+            "recipe_id": "ph_922",
+            "calories": "192",
+            "protein_grams": "31.9",
+            "carbs_grams": "5.9",
+            "fats_grams": "3.6",
+            "fiber_grams": "0.1",
+            "sodium_mg": "989",
+            "sugar_grams": "4.9",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=5. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "9",
+            "unmatched_ingredients": "1/4 Cup lemongrass (tanglad) (finely chopped) (no FDC match for lemongrass) | 1 pinch Salt (no FDC match for pinch salt) | 1/3 Cup honey (to taste) (no FDC match for honey) | 2 teaspoons sesame oil (no FDC match for sesame oil) | 1 1/2 teaspoons five-spice powder (no FDC match for five-spice powder) | 1/4 Cup water (ignored seasoning/water) | 1/4 Cup honey (no FDC match for honey) | 2 pieces calamansi (juiced) (no FDC match for calamansi) | 1 red chili pepper (siling labuyo) (chopped) (no FDC match for chili pepper)",
+            "fdc_matches": "1 tablespoon Garlic (chopped) => garlic [8.0g, FDC local:garlic] | 1 1/2 tablespoons Soy Sauce => soy sauce [22.5g, FDC local:soy sauce] | 1 teaspoon sugar => sugar [4.2g, FDC local:sugar] | 1 teaspoon fish sauce (patis) => fish sauce [5.0g, FDC local:fish sauce] | 500 Grams Chicken (use boneless chicken thighs) => chicken [500.0g, FDC local:chicken] | 1 tablespoon Vinegar => vinegar [15.0g, FDC local:vinegar] | 2 1/2 tablespoons fish sauce (patis) => fish sauce [37.5g, FDC local:fish sauce] | 1 1/2 tablespoons sugar => sugar [18.8g, FDC local:sugar] | 1 1/2 teaspoons Garlic (chopped) => garlic [4.0g, FDC local:garlic]"
+          }
+        },
+        {
+          "rowIndex": 730,
+          "row": {
+            "recipe_id": "ph_926",
+            "calories": "301",
+            "protein_grams": "16.2",
+            "carbs_grams": "14.8",
+            "fats_grams": "20.0",
+            "fiber_grams": "2.9",
+            "sodium_mg": "150",
+            "sugar_grams": "4.2",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "11",
+            "unmatched_ingredients": "Salt (ignored seasoning/water) | Salt (ignored seasoning/water)",
+            "fdc_matches": "4 large eggs => eggs [200.0g, FDC local:egg] | 2 large eggplant => eggplant [100.0g, FDC local:eggplant] | 3 tablespoons vegetable oil (divided) => cooking oil [40.8g, FDC local:cooking oil] | 1 medium Potatoes (peeled and cubed) => potatoes [170.0g, FDC local:potato] | 2 cloves Garlic (minced) => garlic [6.0g, FDC local:garlic] | 1/2 Cup smoked bangus (tinapang bangus) (flaked) => smoked milkfish [120.0g, FDC local:milkfish] | 1/2 teaspoon Soy Sauce => soy sauce [2.5g, FDC local:soy sauce] | 1 tablespoon Vinegar => vinegar [15.0g, FDC local:vinegar] | 2 ripe native tomatoes (chopped) => native tomatoes [240.0g, FDC local:tomato] | 1 Salted Egg (itlog na maalat) (chopped) => salted egg [50.0g, FDC local:egg] | 1 stalk green onion (cut into 1-inch pieces) => stalk onion [110.0g, FDC local:onion]"
+          }
+        },
+        {
+          "rowIndex": 736,
+          "row": {
+            "recipe_id": "ph_933",
+            "calories": "289",
+            "protein_grams": "18.3",
+            "carbs_grams": "15.8",
+            "fats_grams": "17.9",
+            "fiber_grams": "3.9",
+            "sodium_mg": "1267",
+            "sugar_grams": "7.5",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "10",
+            "unmatched_ingredients": "1 tablespoon salt (ignored seasoning/water) | corn oil (for deep-frying) (ignored frying oil reserve) | 1 green finger chili (siling pangsigang) (no FDC match for finger chili) | black pepper (to taste) (missing quantity)",
+            "fdc_matches": "1 kilo pork (sliced into 2inch pieces) => kilo pork [100.0g, FDC local:pork] | 2 tablespoons corn oil => corn oil [27.2g, FDC local:corn] | 1 medium red onion (chopped) => onion [110.0g, FDC local:onion] | 1 tablespoon garlic (minced) => garlic [8.0g, FDC local:garlic] | 5 native tomatoes (chopped) => native tomatoes [600.0g, FDC local:tomato] | 1/2 cup shrimp paste (bagoong alamang) => shrimp paste [70.0g, FDC local:shrimp paste] | 1/2 cup pork stock => pork stock [70.0g, FDC local:pork] | 3 tablespoons cane vinegar => cane vinegar [45.0g, FDC local:vinegar] | 2 medium eggplant (sliced into 2inch lengths) => eggplant [100.0g, FDC local:eggplant] | 1/2 cup coconut cream (kakang gata) => coconut cream [120.0g, FDC local:coconut cream]"
+          }
+        },
+        {
+          "rowIndex": 757,
+          "row": {
+            "recipe_id": "ph_962",
+            "calories": "149",
+            "protein_grams": "14.7",
+            "carbs_grams": "18.5",
+            "fats_grams": "1.9",
+            "fiber_grams": "2.0",
+            "sodium_mg": "834",
+            "sugar_grams": "2.6",
+            "source": "local_reference_ingredient_sum_draft",
+            "confidence": "api_estimate",
+            "review_status": "pending_review",
+            "notes": "Draft only: summed local reference ingredient profiles and divided by source_servings=4. Reviewer must verify ingredient matches, edible yield, oil absorption, and serving size before marking reviewed.",
+            "draft_status": "draft_partial_match",
+            "matched_ingredient_count": "9",
+            "unmatched_ingredients": "Salt (to taste) (ignored seasoning/water) | 2 tablespoons refined coconut oil (divided) (no FDC match for refined coconut oil) | 1 Cup long beans (sitaw) (halved diagonally and blanched) (no FDC match for beans) | 1/4 teaspoon black pepper (no FDC match for pepper)",
+            "fdc_matches": "200 Grams cellophane noodles (sotanghon) => cellophane noodles [200.0g, FDC local:noodles] | 100 Grams Shrimp (peeled and deveined) => shrimp [100.0g, FDC local:shrimp] | 100 Grams Squid (Pusit) (cleaned and sliced into rings) => squid [100.0g, FDC local:squid] | 1/4 Cup onion (chopped) => onion [35.0g, FDC local:onion] | 1 tablespoon Garlic (chopped) => garlic [8.0g, FDC local:garlic] | 1 Cup red bell pepper (sliced into strips) => bell pepper [140.0g, FDC local:bell pepper] | 1 Cup Bok Choy (Chinese leafy cabbage) (sliced thinly) => bok choy [140.0g, FDC local:bok choy] | 1 Cup chicken broth => chicken broth [240.0g, FDC local:broth] | 3 tablespoons Soy Sauce => soy sauce [45.0g, FDC local:soy sauce]"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "scope": "Universal",
+  "reason": "Superseded by Universal reference-reconciled ingredient nutrition.",
+  "files": [
+    {
+      "sourceFile": "backend\\seed_data\\panlasang_pinoy_nutrition_corrections.csv",
+      "fieldnames": [
+        "recipe_id",
+        "calories",
+        "protein_grams",
+        "carbs_grams",
+        "fats_grams",
+        "fiber_grams",
+        "sodium_mg",
+        "sugar_grams",
+        "source",
+        "confidence",
+        "review_status",
+        "notes"
+      ],
+      "removedRows": []
+    },
+    {
+      "sourceFile": "backend\\seed_data\\local_reference_nutrition_estimates.csv",
+      "fieldnames": [
+        "recipe_id",
+        "calories",
+        "protein_grams",
+        "carbs_grams",
+        "fats_grams",
+        "fiber_grams",
+        "sodium_mg",
+        "sugar_grams",
+        "source",
+        "confidence",
+        "review_status",
+        "notes",
+        "draft_status",
+        "matched_ingredient_count",
+        "unmatched_ingredients",
+        "fdc_matches"
+      ],
+      "removedRows": []
+    }
+  ]
+}

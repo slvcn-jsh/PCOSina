@@ -252,9 +252,35 @@ def _runtime_schema_bootstrap_needed() -> bool:
                 flush=True,
             )
             return True
+        connectivity_markers = (
+            "couldn't get a connection",
+            "could not connect",
+            "connection refused",
+            "connection timed out",
+            "failed to resolve host",
+            "network is unreachable",
+            "server closed the connection",
+            "timeout expired",
+        )
+        psycopg_module = getattr(database, "psycopg", None)
+        psycopg_connectivity_types = tuple(
+            error_type
+            for error_type in (
+                getattr(psycopg_module, "OperationalError", None),
+                getattr(psycopg_module, "InterfaceError", None),
+            )
+            if isinstance(error_type, type)
+        )
+        if (
+            (psycopg_connectivity_types and isinstance(exc, psycopg_connectivity_types))
+            or any(marker in normalized for marker in connectivity_markers)
+        ):
+            raise RuntimeError(
+                "Database schema readiness could not reach PostgreSQL. Verify the Render "
+                f"DATABASE_URL and database availability; schema migration cannot repair connectivity: {message}"
+            ) from exc
         raise RuntimeError(
-            "Database schema readiness could not reach PostgreSQL. Verify the Render "
-            f"DATABASE_URL and database availability; schema migration cannot repair connectivity: {message}"
+            f"Database schema readiness check failed before bootstrap: {message}"
         ) from exc
     pending = list(schema_status.get("pending") or [])
     if pending:

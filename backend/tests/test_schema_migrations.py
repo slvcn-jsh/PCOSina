@@ -136,6 +136,51 @@ class _FakeConn:
         self.closed = True
 
 
+class _MissingMigrationTableCursor(_FakeCursor):
+    def fetchone(self):
+        return (None,)
+
+    def fetchall(self):
+        raise AssertionError("A missing migration table must not be queried")
+
+
+class _MissingMigrationTableConn(_FakeConn):
+    def cursor(self, *args, **kwargs):
+        return _MissingMigrationTableCursor(self)
+
+
+def test_postgres_app_schema_status_is_read_only_when_tracking_table_is_missing(monkeypatch):
+    fake = _MissingMigrationTableConn()
+    monkeypatch.setattr(database, "DATABASE_URL", "postgres://example")
+    monkeypatch.setattr(database, "_connect", lambda: fake)
+
+    status = database.get_schema_migration_status()
+
+    assert status["applied"] == 0
+    assert status["pending"] == [item["migrationId"] for item in status["items"]]
+    assert fake.executed == [("SELECT to_regclass(%s)", ("schema_migrations",))]
+    assert fake.commits == 0
+    assert fake.closed is True
+
+
+def test_postgres_policy_schema_status_is_read_only_when_tracking_table_is_missing(monkeypatch):
+    fake = _MissingMigrationTableConn()
+    monkeypatch.setattr(policy_store, "DATABASE_URL", "postgres://example")
+    monkeypatch.setattr(policy_store, "_connect", lambda: fake)
+
+    status = policy_store.get_schema_migration_status()
+
+    assert status["applied"] == 0
+    assert status["pending"] == [item["migrationId"] for item in status["items"]]
+    assert fake.executed == [("SELECT to_regclass(%s)", ("schema_migrations",))]
+    assert fake.commits == 0
+    assert fake.closed is True
+
+
+def test_app_and_policy_migrations_share_one_postgres_bootstrap_lock():
+    assert database.SCHEMA_BOOTSTRAP_LOCK_KEY == policy_store.SCHEMA_BOOTSTRAP_LOCK_KEY
+
+
 def test_init_db_uses_postgres_bootstrap_lock(monkeypatch):
     fake = _FakeConn()
     monkeypatch.setattr(database, "DATABASE_URL", "postgres://example")

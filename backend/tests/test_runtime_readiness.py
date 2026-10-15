@@ -265,6 +265,19 @@ def test_runtime_schema_bootstrap_fails_fast_when_database_is_unreachable(monkey
         main._runtime_schema_bootstrap_needed()
 
 
+def test_runtime_schema_bootstrap_does_not_misclassify_schema_probe_error_as_connectivity(monkeypatch):
+    monkeypatch.setattr(
+        main,
+        "_schema_readiness_report",
+        lambda: (_ for _ in ()).throw(
+            RuntimeError('duplicate key value violates unique constraint "pg_type_typname_nsp_index"')
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="schema readiness check failed before bootstrap"):
+        main._runtime_schema_bootstrap_needed()
+
+
 def test_runtime_schema_bootstrap_needed_when_migrations_pending(monkeypatch):
     monkeypatch.setattr(main, "_schema_readiness_report", lambda: {
         "ok": False,

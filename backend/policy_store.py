@@ -11,6 +11,10 @@ from contextlib import contextmanager
 from typing import Any, Dict, List, Optional
 
 from db_url import is_postgres_database_url
+from schema_migration_coordination import (
+    POSTGRES_SCHEMA_BOOTSTRAP_LOCK_KEY,
+    postgres_schema_migration_table_exists,
+)
 from policy_config import (
     POLICY_SCHEMA_VERSION,
     PRODUCTION_CANARY_BOOTSTRAP_PERCENT,
@@ -37,7 +41,7 @@ except Exception:
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 DB_NAME = os.getenv("PCOSINA_DB_NAME", "pcosina.db").strip() or "pcosina.db"
 SCHEMA_MIGRATION_SCOPE = "policy"
-SCHEMA_BOOTSTRAP_LOCK_KEY = 2026032902
+SCHEMA_BOOTSTRAP_LOCK_KEY = POSTGRES_SCHEMA_BOOTSTRAP_LOCK_KEY
 POLICY_WRITE_LOCK_KEY = 2026041301
 SEMANTIC_VARIETY_BOOTSTRAP_FIELDS = (
     "semantic_ingredient_family_caps_enabled",
@@ -486,9 +490,16 @@ def _run_schema_migrations(conn) -> list[str]:
 def get_schema_migration_status() -> Dict[str, Any]:
     conn = _connect()
     try:
-        _ensure_schema_migration_table(conn)
-        applied = _get_applied_migration_ids(conn)
         registered = _registered_schema_migrations()
+        if _use_postgres():
+            applied = (
+                _get_applied_migration_ids(conn)
+                if postgres_schema_migration_table_exists(conn)
+                else set()
+            )
+        else:
+            _ensure_schema_migration_table(conn)
+            applied = _get_applied_migration_ids(conn)
         items = []
         for migration_id, description, _callback in registered:
             items.append(

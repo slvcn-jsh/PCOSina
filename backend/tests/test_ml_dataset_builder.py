@@ -1,3 +1,4 @@
+import csv
 import json
 import sqlite3
 import subprocess
@@ -89,7 +90,7 @@ def test_build_training_dataset_script():
                     1.5,
                     "stage1_heuristic_shadow_only",
                     "shadow_v0",
-                    json.dumps({"recipe_calories": 500, "recipe_protein": 30}),
+                    json.dumps({"recipe_calories": 500, "recipe_protein": 30, "reason_events_total": 0, "replace_reason_events_total": 0, "skip_reason_events_total": 0}),
                     now,
                 )
             )
@@ -106,7 +107,7 @@ def test_build_training_dataset_script():
                     0.9,
                     "stage1_heuristic_shadow_only",
                     "shadow_v0",
-                    json.dumps({"recipe_calories": 300, "recipe_protein": 10}),
+                    json.dumps({"recipe_calories": 300, "recipe_protein": 10, "reason_events_total": 0, "replace_reason_events_total": 0, "skip_reason_events_total": 0}),
                     now + 1,
                 )
             )
@@ -215,3 +216,16 @@ def test_build_training_dataset_script():
     assert (out_dir / "train.csv").exists()
     assert (out_dir / "val.csv").exists()
     assert (out_dir / "test.csv").exists()
+
+    # Regression: aggregated user feedback must override zero placeholders.
+    with (out_dir / "dataset_full.csv").open("r", newline="", encoding="utf-8") as fp:
+        dataset_rows = list(csv.DictReader(fp))
+
+    assert len(dataset_rows) == 6
+    for row in dataset_rows:
+        assert float(row["reason_events_total"]) == 2.0
+        assert float(row["replace_reason_events_total"]) == 1.0
+        assert float(row["skip_reason_events_total"]) == 1.0
+
+    # Candidate-specific features must remain unchanged.
+    assert {float(row["recipe_protein"]) for row in dataset_rows} == {10.0, 30.0}

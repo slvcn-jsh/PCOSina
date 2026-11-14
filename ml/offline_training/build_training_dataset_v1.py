@@ -217,7 +217,7 @@ def _flatten_rows(rows: List[Dict], reason_features: Dict[str, Dict[str, float]]
         features = row.get("features") or {}
         uid_extra = reason_features.get(str(row.get("uid_hash") or ""), {})
         for col in feature_columns:
-            raw = features.get(col, uid_extra.get(col, 0.0))
+            raw = uid_extra.get(col, features.get(col, 0.0))
             try:
                 out[col] = float(raw)
             except Exception:

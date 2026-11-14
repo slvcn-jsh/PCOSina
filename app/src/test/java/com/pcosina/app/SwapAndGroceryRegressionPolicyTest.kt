@@ -10,25 +10,18 @@ import org.junit.Test
 class SwapAndGroceryRegressionPolicyTest {
 
     @Test
-    fun recipeDetails_addToGroceryStoresBaseQuantitiesOnly() {
+    fun recipeDetails_doesNotExposeManualAddToGroceryWhenPlanSyncOwnsGrocery() {
         val recipePath = resolve(
             "app", "src", "main", "java", "com", "pcosina", "app",
             "ui", "screens", "RecipeDetailsScreen.kt"
         )
         val source = read(recipePath)
-        val actionStart = source.indexOf("val addToGroceryAction: () -> Unit = {")
-        assertTrue("RecipeDetails should keep addToGroceryAction.", actionStart >= 0)
-        val actionEnd = source.indexOf("groceryViewModel.addItems(items)", startIndex = actionStart)
-        assertTrue("RecipeDetails should add mapped items into GroceryViewModel.", actionEnd > actionStart)
-        val actionBlock = source.substring(actionStart, actionEnd)
 
-        assertTrue(
-            "RecipeDetails should store base ingredient quantities and let Grocery aggregation scale later.",
-            actionBlock.contains("it.quantity")
-        )
         assertFalse(
-            "RecipeDetails should not pre-scale grocery quantities before storing them.",
-            actionBlock.contains("scaleQuantityText(")
+            "RecipeDetails should not show a manual add-to-grocery button because generated plans already sync grocery sources.",
+            source.contains("Add ingredients to Grocery") ||
+                source.contains("addToGroceryAction") ||
+                source.contains("groceryViewModel.addItems(items)")
         )
     }
 
@@ -49,7 +42,7 @@ class SwapAndGroceryRegressionPolicyTest {
     }
 
     @Test
-    fun householdAwareWeeklyCost_isNotScaledAgainOnClient() {
+    fun weeklyCost_isNotMultipliedAgainOnClient() {
         val dashboardPath = resolve(
             "app", "src", "main", "java", "com", "pcosina", "app",
             "ui", "screens", "DashboardRefinedScreen.kt"
@@ -68,19 +61,19 @@ class SwapAndGroceryRegressionPolicyTest {
         val progress = read(progressPath)
 
         assertFalse(
-            "Dashboard should not multiply estimatedWeeklyCost by household size after backend scaling.",
-            dashboard.contains("estimatedWeeklyCost?.times(profile.householdSize.coerceIn(1, 6))")
+            "Dashboard should not multiply estimatedWeeklyCost after backend calculation.",
+            dashboard.contains("estimatedWeeklyCost?.times(")
         )
         assertFalse(
-            "MealPlan should not multiply estimatedWeeklyCost by household size after backend scaling.",
-            mealPlan.contains("estimatedWeeklyCost\n                                ?.times(profile.householdSize.coerceIn(1, 6))") ||
-                mealPlan.contains("estimatedWeeklyCost?.times(profile.householdSize.coerceIn(1, 6))")
+            "MealPlan should not multiply estimatedWeeklyCost after backend calculation.",
+            mealPlan.contains("estimatedWeeklyCost\n                                ?.times(") ||
+                mealPlan.contains("estimatedWeeklyCost?.times(")
         )
         assertFalse(
-            "Progress should not multiply estimatedWeeklyCost by household size after backend scaling.",
-            progress.contains("estimatedWeeklyCost\n                ?.times(profile.householdSize.coerceIn(1, 6))") ||
-                progress.contains("estimatedWeeklyCost\n        ?.times(profile.householdSize.coerceIn(1, 6))") ||
-                progress.contains("estimatedWeeklyCost?.times(profile.householdSize.coerceIn(1, 6))")
+            "Progress should not multiply estimatedWeeklyCost after backend calculation.",
+            progress.contains("estimatedWeeklyCost\n                ?.times(") ||
+                progress.contains("estimatedWeeklyCost\n        ?.times(") ||
+                progress.contains("estimatedWeeklyCost?.times(")
         )
     }
 

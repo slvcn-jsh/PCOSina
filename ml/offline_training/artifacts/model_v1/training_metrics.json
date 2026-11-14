@@ -1,8 +1,8 @@
 {
   "model_name": "lightgbm_stage1_ranker_v1",
   "seed": 2026,
-  "trained_at_ms": 1778897759384,
-  "git_commit": "473c3b39befc7e2cb461bbacd08cb268f47cb821",
+  "trained_at_ms": 1779154922084,
+  "git_commit": "17c28aa93110978f6b23dc0cd5167b07c145b3c3",
   "feature_columns": [
     "model_score",
     "heuristic_score",

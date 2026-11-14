@@ -1,6 +1,13 @@
 package com.pcosina.app.ui.navigation
 
 import android.os.Bundle
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -24,6 +31,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pcosina.app.data.repository.AuthRepository
 import com.pcosina.app.data.repository.UserPreferencesGroceryLocalRepository
+import com.pcosina.app.data.repository.FileRecipeSnapshotStore
 import com.pcosina.app.data.repository.MealPlanRepository
 import com.pcosina.app.data.repository.CloudProfileSyncResult
 import com.pcosina.app.data.repository.UserPreferencesNotificationLocalRepository
@@ -32,8 +40,12 @@ import com.pcosina.app.data.repository.UserPreferencesPlannerLocalRepository
 import com.pcosina.app.data.repository.UserPreferencesRepository
 import com.pcosina.app.data.repository.UserPreferencesUserProfileLocalRepository
 import com.pcosina.app.data.repository.ReflectionStore
+import com.pcosina.app.data.api.PersonalPriceOverrideRequestDto
+import com.pcosina.app.data.model.PersonalPriceOverride
+import com.pcosina.app.domain.canonicalGroceryKey
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.GroceryViewModel
+import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
@@ -49,14 +61,6 @@ import com.pcosina.app.ui.screens.LoginScreen
 import com.pcosina.app.ui.screens.MealPlanRefinedScreen
 import com.pcosina.app.ui.screens.MoreToolsScreen
 import com.pcosina.app.ui.screens.NotificationScreen
-import com.pcosina.app.ui.screens.OperatorAdminSettingsScreen
-import com.pcosina.app.ui.screens.OperatorDashboardScreen
-import com.pcosina.app.ui.screens.OperatorGroceryPantryReviewScreen
-import com.pcosina.app.ui.screens.OperatorMethodologyPipelineScreen
-import com.pcosina.app.ui.screens.OperatorPriceManagementScreen
-import com.pcosina.app.ui.screens.OperatorRecipeDatasetScreen
-import com.pcosina.app.ui.screens.OperatorRulesScreen
-import com.pcosina.app.ui.screens.OperatorSystemInfoScreen
 import com.pcosina.app.ui.screens.ProgressRefinedScreen
 import com.pcosina.app.ui.screens.RecipeDetailsScreen
 import com.pcosina.app.ui.screens.SettingsScreen
@@ -66,13 +70,13 @@ import com.pcosina.app.ui.screens.UserProfileScreen
 import com.pcosina.app.ui.util.hasGoalSelection
 import com.pcosina.app.ui.util.LegalAcceptance
 import com.pcosina.app.ui.util.unknownGoalTokens
+import com.pcosina.app.ui.util.rememberIsOnline
 import com.pcosina.app.data.repository.FeedbackRepository
 import com.pcosina.app.BuildConfig
 import com.google.firebase.analytics.FirebaseAnalytics
 import android.widget.Toast
 import android.util.Log
 import com.pcosina.app.notifications.NotificationScheduler
-import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -96,7 +100,7 @@ fun AppNavHost(
     val progressLocalRepository = remember { UserPreferencesProgressLocalRepository(userPrefsRepository) }
     val notificationLocalRepository = remember { UserPreferencesNotificationLocalRepository(userPrefsRepository) }
     val authRepository = remember { AuthRepository(context) }
-    val mealPlanRepository = remember { MealPlanRepository() }
+    val mealPlanRepository = remember { MealPlanRepository(FileRecipeSnapshotStore(context)) }
     val feedbackRepository = remember { FeedbackRepository(BuildConfig.BASE_URL) }
     val reflectionStore = remember { ReflectionStore(context) }
     
@@ -116,10 +120,11 @@ fun AppNavHost(
     val progressViewModel: ProgressViewModel = viewModel(
         factory = ProgressViewModel.Factory(progressLocalRepository, reflectionStore, feedbackRepository)
     )
-    val onSupportFeedback: (String, Boolean) -> Unit = { message, isOnline ->
+    val onSupportFeedback: suspend (String, Boolean) -> Boolean = { message, isOnline ->
         analytics.logEvent("feedback_submit", null)
-        progressViewModel.queueFeedback(message)
-        progressViewModel.trySendQueuedFeedback(isOnline)
+        val saved = progressViewModel.queueFeedback(message)
+        if (saved) progressViewModel.trySendQueuedFeedback(isOnline)
+        saved
     }
     // FIXED: Use Factory to prevent RuntimeException (NoSuchMethodException)
     val groceryViewModel: GroceryViewModel = viewModel(
@@ -128,13 +133,18 @@ fun AppNavHost(
 
     val session by authViewModel.session.collectAsState()
     val userProfile by userViewModel.userProfile.collectAsState()
-    val adminMode by userViewModel.adminMode.collectAsState()
     val isProfileLoading by userViewModel.isProfileLoading.collectAsState()
     val currentRoute by navController.currentBackStackEntryAsState()
     val activePlanId by mealPlanViewModel.activePlanId.collectAsState()
     val activeWeekStart by mealPlanViewModel.activeWeekStart.collectAsState()
     val planHistory by mealPlanViewModel.planHistory.collectAsState()
+    val mealPlanUiState by mealPlanViewModel.uiState.collectAsState()
+    val hardConstraintRevision by userViewModel.hardConstraintRevision.collectAsState()
     val notificationPrefs by userViewModel.notificationPreferences.collectAsState()
+    val feedbackQueue by progressViewModel.feedbackQueue.collectAsState()
+    val personalPriceOverrides by groceryViewModel.personalPriceOverrides.collectAsState()
+    val groceryLoadedUserId by groceryViewModel.loadedUserId.collectAsState()
+    val observedOnline by rememberIsOnline(context)
     val legalAcceptedForSession = session.currentUserUid?.let { uid ->
         LegalAcceptance.hasAccepted(context, uid)
     } ?: false
@@ -145,10 +155,6 @@ fun AppNavHost(
     val profileCloudRestoreBlocked = remember { mutableStateOf(false) }
     val unknownRouteWarnings = remember { mutableSetOf<String>() }
     val unknownGoalWarnings = remember { mutableSetOf<String>() }
-    val pendingOperatorAccess = remember { mutableStateOf(false) }
-    val operatorAuthorized = remember { mutableStateOf(false) }
-    val operatorAccessResolved = remember { mutableStateOf(false) }
-    val operatorAccessWarning = remember { mutableStateOf<String?>(null) }
     val goalEditMode = remember { mutableStateOf(false) }
 
     fun navigateInternal(route: String, options: (NavOptionsBuilder.() -> Unit)? = null) {
@@ -170,13 +176,16 @@ fun AppNavHost(
             Routes.MealPlan,
             Routes.GroceryList,
             Routes.Progress,
-            Routes.Ipo -> navigateInternal(route) { tabNavigationOptions() }
+            Routes.Support -> navigateInternal(route) { tabNavigationOptions(route) }
+            Routes.Settings -> navigateInternal(route) { launchSingleTop = true }
             else -> navigateInternal(route)
         }
     }
 
-    fun isOperatorRoute(route: String?): Boolean {
-        return Routes.isOperatorRoute(route)
+    fun navigateToSettingsProfile() {
+        navigateInternal(Routes.settingsRoute(Routes.SettingsSectionProfile)) {
+            launchSingleTop = true
+        }
     }
 
     // Sync session to user data loading
@@ -198,8 +207,6 @@ fun AppNavHost(
         val userId = session.currentUserUid
         if (userId.isNullOrBlank()) {
             userViewModel.reset()
-            userViewModel.setAdminMode(false)
-            operatorAuthorized.value = false
             mealPlanViewModel.reset()
             groceryViewModel.reset()
             progressViewModel.reset()
@@ -208,9 +215,6 @@ fun AppNavHost(
             profileCloudRestoreBlocked.value = false
             splashReady.value = false
             hasNavigated.value = false
-            pendingOperatorAccess.value = false
-            operatorAccessResolved.value = false
-            operatorAccessWarning.value = null
         } else {
             session.currentUserEmail?.let { email ->
                 userPrefsRepository.migrateFromEmailIfNeeded(userId, email)
@@ -230,62 +234,6 @@ fun AppNavHost(
             mealPlanViewModel.loadSavedPlan(userId)
             groceryViewModel.loadGroceryForUser(userId)
         }
-    }
-
-    LaunchedEffect(
-        session.currentUserUid,
-        session.currentUserEmail,
-        pendingOperatorAccess.value,
-        legalAcceptedForSession
-    ) {
-        val userId = session.currentUserUid
-        if (userId.isNullOrBlank()) {
-            operatorAuthorized.value = false
-            operatorAccessResolved.value = false
-            operatorAccessWarning.value = null
-            return@LaunchedEffect
-        }
-        if (!legalAcceptedForSession) {
-            operatorAuthorized.value = false
-            operatorAccessResolved.value = true
-            operatorAccessWarning.value = null
-            return@LaunchedEffect
-        }
-
-        operatorAccessResolved.value = false
-        if (BuildConfig.DEBUG) {
-            Log.i(
-                "PCOSINA-OperatorRoute",
-                "Starting operator access check email=${maskRouteEmail(session.currentUserEmail)} " +
-                    "uid=${maskRouteToken(userId)}"
-            )
-        }
-        val operatorAccessResult = runCatching {
-            authRepository.getCurrentUserOperatorAccess(forceRefresh = true)
-        }
-        val operatorAccess = operatorAccessResult.getOrNull()
-        val operatorAccessGranted = operatorAccess?.allowed == true
-        operatorAuthorized.value = operatorAccessGranted
-        if (BuildConfig.DEBUG) {
-            if (operatorAccessResult.isFailure) {
-                Log.w(
-                    "PCOSINA-OperatorRoute",
-                    "Operator access check failed; routing as normal user.",
-                    operatorAccessResult.exceptionOrNull()
-                )
-            } else {
-                Log.i(
-                    "PCOSINA-OperatorRoute",
-                    "Operator access resolved allowed=$operatorAccessGranted roles=${operatorAccess?.roles.orEmpty().sorted()}"
-                )
-            }
-        }
-        operatorAccessWarning.value = when {
-            operatorAccessResult.isFailure -> null
-            operatorAccessGranted -> null
-            else -> null
-        }
-        operatorAccessResolved.value = true
     }
 
     LaunchedEffect(session.currentUserUid, notificationPrefs) {
@@ -319,6 +267,121 @@ fun AppNavHost(
 
     LaunchedEffect(activePlanId) {
         groceryViewModel.setActivePlan(activePlanId)
+    }
+
+    LaunchedEffect(session.currentUserUid, groceryLoadedUserId, observedOnline) {
+        val uid = session.currentUserUid
+        if (!observedOnline || uid.isNullOrBlank() || groceryLoadedUserId != uid) {
+            return@LaunchedEffect
+        }
+        personalPriceOverrides
+            .filter { it.syncStatus == "Failed" }
+            .forEach { failed ->
+                groceryViewModel.upsertPersonalPriceOverride(failed.copy(syncStatus = "Pending"))
+            }
+        mealPlanViewModel.getPersonalPrices().onSuccess { remotePrices ->
+            groceryViewModel.replaceSyncedPersonalPrices(
+                remotePrices.map { remote ->
+                    PersonalPriceOverride(
+                        canonicalKey = canonicalGroceryKey(remote.ingredientName),
+                        ingredientId = remote.ingredientId,
+                        ingredientName = remote.ingredientName,
+                        pricePhp = remote.pricePhp,
+                        unit = remote.unit,
+                        marketType = remote.marketType,
+                        location = remote.location,
+                        observedOn = remote.observedOn,
+                        validUntil = remote.validUntil,
+                        warning = remote.warning,
+                        syncStatus = "Synced",
+                    )
+                }
+            )
+        }
+    }
+
+    val pendingPersonalPriceSignature = remember(personalPriceOverrides) {
+        personalPriceOverrides
+            .filter { it.syncStatus == "Pending" || it.syncStatus == "DeletePending" }
+            .joinToString("|") { "${it.canonicalKey}:${it.syncStatus}:${it.pricePhp}:${it.observedOn}" }
+    }
+    LaunchedEffect(
+        session.currentUserUid,
+        groceryLoadedUserId,
+        observedOnline,
+        pendingPersonalPriceSignature,
+    ) {
+        val uid = session.currentUserUid
+        if (
+            !observedOnline ||
+            uid.isNullOrBlank() ||
+            groceryLoadedUserId != uid ||
+            pendingPersonalPriceSignature.isBlank()
+        ) return@LaunchedEffect
+        personalPriceOverrides
+            .filter { it.syncStatus == "Pending" || it.syncStatus == "DeletePending" }
+            .forEach { personalPrice ->
+                if (personalPrice.syncStatus == "DeletePending") {
+                    val ingredientId = personalPrice.ingredientId
+                    val deleted = ingredientId.isNullOrBlank() ||
+                        mealPlanViewModel.deletePersonalPrice(ingredientId).isSuccess
+                    if (deleted) {
+                        groceryViewModel.removePersonalPriceOverride(personalPrice.canonicalKey)
+                    } else {
+                        groceryViewModel.upsertPersonalPriceOverride(personalPrice.copy(syncStatus = "Failed"))
+                    }
+                } else {
+                    mealPlanViewModel.savePersonalPrice(
+                        PersonalPriceOverrideRequestDto(
+                            ingredient = personalPrice.ingredientName,
+                            pricePhp = personalPrice.pricePhp,
+                            unit = personalPrice.unit,
+                            marketType = personalPrice.marketType,
+                            location = personalPrice.location,
+                            observedOn = personalPrice.observedOn,
+                        )
+                    ).onSuccess { saved ->
+                        groceryViewModel.upsertPersonalPriceOverride(
+                            personalPrice.copy(
+                                ingredientId = saved.ingredientId,
+                                ingredientName = saved.ingredientName,
+                                pricePhp = saved.pricePhp,
+                                unit = saved.unit,
+                                marketType = saved.marketType,
+                                location = saved.location,
+                                observedOn = saved.observedOn,
+                                validUntil = saved.validUntil,
+                                warning = saved.warning,
+                                syncStatus = "Synced",
+                            )
+                        )
+                    }.onFailure { error ->
+                        groceryViewModel.upsertPersonalPriceOverride(
+                            personalPrice.copy(
+                                warning = error.message?.take(240),
+                                syncStatus = "Failed",
+                            )
+                        )
+                    }
+                }
+            }
+    }
+
+    val observedHardConstraintRevision = remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(session.currentUserUid, hardConstraintRevision) {
+        val userId = session.currentUserUid
+        if (userId.isNullOrBlank()) {
+            observedHardConstraintRevision.value = null
+            return@LaunchedEffect
+        }
+        val previous = observedHardConstraintRevision.value
+        observedHardConstraintRevision.value = hardConstraintRevision
+        if (previous != null &&
+            hardConstraintRevision != previous &&
+            (activePlanId != null || mealPlanUiState is MealPlanUiState.Success)
+        ) {
+            mealPlanViewModel.invalidateActivePlanForHardConstraintChange()
+        }
     }
 
     LaunchedEffect(session.currentUserUid, activeWeekStart) {
@@ -369,14 +432,14 @@ fun AppNavHost(
     } ?: true
     val profileReadyForRouting = !session.isLoggedIn ||
         (profileBoundToSession && !isProfileLoading && !profileCloudSyncInProgress.value)
-    val hasPlan = planHistory.isNotEmpty() || mealPlanViewModel.uiState.value is com.pcosina.app.ui.MealPlanUiState.Success
+    val hasPlan = activePlanId != null || mealPlanUiState is MealPlanUiState.Success
     val enabledRoutes = remember(hasPlan) {
         val base = mutableSetOf(
             Routes.Dashboard,
             Routes.MealPlan,
             Routes.GroceryList,
             Routes.Progress,
-            Routes.Ipo
+            Routes.Support
         )
         if (!hasPlan) {
             base.remove(Routes.GroceryList)
@@ -399,39 +462,24 @@ fun AppNavHost(
         profileReadyForRouting,
         session.isLoggedIn,
         inferredProfileCompleted,
-        pendingOperatorAccess.value,
-        operatorAccessResolved.value,
-        adminMode,
-        operatorAuthorized.value,
         legalAcceptedForSession
     ) {
         if (!splashReady.value || !profileReadyForRouting || hasNavigated.value) return@LaunchedEffect
-        if (session.isLoggedIn && legalAcceptedForSession && !operatorAccessResolved.value) return@LaunchedEffect
-        val activateOperatorMode = legalAcceptedForSession && operatorAuthorized.value
-        userViewModel.setAdminMode(activateOperatorMode)
         val target = when {
             !session.isLoggedIn -> Routes.Login
             !legalAcceptedForSession -> Routes.Login
-            activateOperatorMode -> Routes.OperatorDashboard
             !inferredProfileCompleted -> Routes.UserProfile
             else -> Routes.Dashboard
         }
         if (BuildConfig.DEBUG) {
             Log.i(
-                "PCOSINA-OperatorRoute",
-                "Route chosen target=$target operator=$activateOperatorMode profileComplete=$inferredProfileCompleted"
+                "PCOSINA",
+                "Route chosen target=$target profileComplete=$inferredProfileCompleted"
             )
         }
-        val warnMessage = operatorAccessWarning.value
-        val shouldWarn = !activateOperatorMode && !warnMessage.isNullOrBlank()
         hasNavigated.value = true
-        pendingOperatorAccess.value = false
-        operatorAccessWarning.value = null
         navigateInternal(target) {
             popUpTo(Routes.Splash) { inclusive = true }
-        }
-        if (shouldWarn) {
-            Toast.makeText(context, warnMessage, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -444,14 +492,11 @@ fun AppNavHost(
         hasPlan,
         goalEditMode.value,
         currentRoute?.destination?.route,
-        legalAcceptedForSession,
-        operatorAuthorized.value,
-        adminMode
+        legalAcceptedForSession
     ) {
         if (!session.isLoggedIn || !profileReadyForRouting) return@LaunchedEffect
         val route = currentRoute?.destination?.route ?: return@LaunchedEffect
         val baseRoute = Routes.baseRoute(route)
-        val isSharedMethodologyRoute = baseRoute == Routes.AdminMethodology
         if (Routes.isAuthRoute(route)) return@LaunchedEffect
         if (!Routes.isKnownRoute(route)) {
             val base = Routes.baseRoute(route).orEmpty()
@@ -461,33 +506,8 @@ fun AppNavHost(
             return@LaunchedEffect
         }
         if (!legalAcceptedForSession) {
-            userViewModel.setAdminMode(false)
             navigateInternal(Routes.Login) {
                 popUpTo(navController.graph.id) { inclusive = true }
-            }
-            return@LaunchedEffect
-        }
-        if (isOperatorRoute(route) && !operatorAuthorized.value) {
-            Toast.makeText(context, "Admin access is only available for authorized accounts.", Toast.LENGTH_SHORT).show()
-            userViewModel.setAdminMode(false)
-            navigateInternal(Routes.Dashboard) {
-                tabNavigationOptions()
-            }
-            return@LaunchedEffect
-        }
-        if (operatorAuthorized.value && isOperatorRoute(route)) {
-            if (!adminMode) {
-                userViewModel.setAdminMode(true)
-            }
-            return@LaunchedEffect
-        }
-        if (operatorAuthorized.value && operatorAccessResolved.value && !isOperatorRoute(route) && !isSharedMethodologyRoute) {
-            if (!adminMode) {
-                userViewModel.setAdminMode(true)
-            }
-            navigateInternal(Routes.OperatorDashboard) {
-                launchSingleTop = true
-                popUpTo(Routes.OperatorDashboard) { inclusive = false }
             }
             return@LaunchedEffect
         }
@@ -504,7 +524,7 @@ fun AppNavHost(
                 (baseRoute == Routes.UserProfile || baseRoute == Routes.GoalSelection) -> {
                 navController.clearSetupFlowBackStack()
                 navigateInternal(Routes.MealPlan) {
-                    tabNavigationOptions()
+                    tabNavigationOptions(Routes.MealPlan)
                 }
             }
             !hasGoalSelection(userProfile.goal) && !Routes.isProfileRoute(route) && !Routes.isGoalRoute(route) -> {
@@ -515,7 +535,7 @@ fun AppNavHost(
             !hasPlan && Routes.requiresPlan(route) -> {
                 Toast.makeText(context, "Generate your plan first to unlock this step.", Toast.LENGTH_SHORT).show()
                 navigateInternal(Routes.MealPlan) {
-                    tabNavigationOptions()
+                    tabNavigationOptions(Routes.MealPlan)
                 }
             }
         }
@@ -525,6 +545,31 @@ fun AppNavHost(
         navController = navController,
         startDestination = startDestination,
         modifier = modifier,
+        enterTransition = {
+            if (Routes.baseRoute(targetState.destination.route) == Routes.Settings) {
+                fadeIn(animationSpec = tween(170)) +
+                    slideInVertically(animationSpec = tween(220)) { it / 10 }
+            } else {
+                EnterTransition.None
+            }
+        },
+        exitTransition = {
+            if (Routes.baseRoute(targetState.destination.route) == Routes.Settings) {
+                fadeOut(animationSpec = tween(120)) +
+                    slideOutVertically(animationSpec = tween(160)) { -it / 18 }
+            } else {
+                ExitTransition.None
+            }
+        },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = {
+            if (Routes.baseRoute(initialState.destination.route) == Routes.Settings) {
+                fadeOut(animationSpec = tween(120)) +
+                    slideOutVertically(animationSpec = tween(160)) { it / 12 }
+            } else {
+                ExitTransition.None
+            }
+        },
     ) {
         composable(Routes.Splash) {
             SplashScreen(
@@ -543,10 +588,7 @@ fun AppNavHost(
         composable(Routes.Login) {
             LoginScreen(
                 authViewModel = authViewModel,
-                onLoginSuccess = { operatorRequested ->
-                    pendingOperatorAccess.value = operatorRequested
-                    operatorAccessResolved.value = false
-                    operatorAccessWarning.value = null
+                onLoginSuccess = {
                     navigateInternal(Routes.Splash) {
                         popUpTo(Routes.Login) { inclusive = true }
                     }
@@ -574,6 +616,7 @@ fun AppNavHost(
                 userViewModel = userViewModel,
                 onNext = { navigateInternal(Routes.GoalSelection) },
                 isEditMode = false,
+                onBack = { navController.popBackStack() },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -581,12 +624,20 @@ fun AppNavHost(
         composable(Routes.UserProfileEdit) {
             UserProfileScreen(
                 userViewModel = userViewModel,
-                onNext = { navController.popBackStack(Routes.Settings, false) },
+                onNext = {
+                    if (!navController.popBackStack(Routes.Settings, false)) {
+                        navigateInternal(Routes.Settings) {
+                            popUpTo(Routes.UserProfileEdit) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                },
                 isEditMode = true,
                 onEditGoals = {
                     goalEditMode.value = true
                     navigateInternal(Routes.GoalSelection)
                 },
+                onBack = { navController.popBackStack() },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -609,6 +660,7 @@ fun AppNavHost(
                         }
                     }
                 },
+                onBack = { navController.popBackStack() },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -623,9 +675,8 @@ fun AppNavHost(
                     groceryViewModel = groceryViewModel,
                     progressViewModel = progressViewModel,
                     onRecipeClick = { id, mealLabel -> navigateInternal(Routes.recipeDetailsRoute(id, mealLabel)) },
-                    onViewPlan = { navigateInternal(Routes.MealPlan) { tabNavigationOptions() } },
-                    onOpenMoreTools = { navigateInternal(Routes.Ipo) { tabNavigationOptions() } },
-                    onNavigateToSettings = { navigateInternal(Routes.Settings) },
+                    onViewPlan = { navigateInternal(Routes.MealPlan) { tabNavigationOptions(Routes.MealPlan) } },
+                    onNavigateToSettings = ::navigateToSettingsProfile,
                     onNavigateToRoute = ::navigateFromRefinedShell,
                     modifier = Modifier.padding(contentPadding),
                 )
@@ -639,7 +690,7 @@ fun AppNavHost(
                     groceryViewModel = groceryViewModel,
                     progressViewModel = progressViewModel,
                     onRecipeClick = { id, mealLabel -> navigateInternal(Routes.recipeDetailsRoute(id, mealLabel)) },
-                    onViewProgress = { navigateInternal(Routes.Progress) { tabNavigationOptions() } },
+                    onViewProgress = { navigateInternal(Routes.Progress) { tabNavigationOptions(Routes.Progress) } },
                     onNavigateToRoute = ::navigateFromRefinedShell,
                     modifier = Modifier.padding(contentPadding),
                 )
@@ -667,7 +718,7 @@ fun AppNavHost(
                     userId = session.currentUserUid ?: "",
                     onBackToDashboard = {
                         navigateInternal(Routes.Dashboard) {
-                            tabNavigationOptions()
+                            tabNavigationOptions(Routes.Dashboard)
                         }
                     },
                     onNavigateToRoute = ::navigateFromRefinedShell,
@@ -675,15 +726,17 @@ fun AppNavHost(
                 )
             }
         }
-        composable(Routes.Ipo) {
+        composable(Routes.Support) {
             TabScaffold(navController = navController, enabledRoutes = enabledRoutes) { contentPadding ->
                 val profile by userViewModel.userProfile.collectAsState()
                 CommunityScreen(
                     onFeedback = onSupportFeedback,
+                    feedbackEntries = feedbackQueue,
+                    onRetryFeedback = { entryId, online ->
+                        progressViewModel.retryFeedback(entryId, online)
+                    },
                     avatarId = profile.avatarId,
-                    onOpenSettings = { navigateInternal(Routes.Settings) },
-                    onOpenNotifications = { navigateInternal(Routes.Notifications) },
-                    onOpenMealPlan = { navigateInternal(Routes.MealPlan) { tabNavigationOptions() } },
+                    onOpenSettings = ::navigateToSettingsProfile,
                     modifier = Modifier.padding(contentPadding),
                 )
             }
@@ -692,19 +745,29 @@ fun AppNavHost(
         composable(Routes.Notifications) {
             NotificationScreen(
                 userViewModel = userViewModel,
+                userId = session.currentUserUid.orEmpty(),
                 onBack = {
                     if (!navController.popBackStack()) {
                         navigateInternal(Routes.Dashboard) {
-                            tabNavigationOptions()
+                            tabNavigationOptions(Routes.MealPlan)
                         }
                     }
                 },
-                onOpenSettings = { navigateInternal(Routes.Settings) },
+                onOpenSettings = ::navigateToSettingsProfile,
                 modifier = Modifier.fillMaxSize(),
             )
         }
 
-        composable(Routes.Settings) {
+        composable(
+            route = Routes.SettingsRoutePattern,
+            arguments = listOf(
+                navArgument(Routes.SettingsSectionArg) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
+        ) { backStackEntry ->
             SettingsScreen(
                 userViewModel = userViewModel,
                 authViewModel = authViewModel,
@@ -715,126 +778,17 @@ fun AppNavHost(
                 onBack = {
                     if (!navController.popBackStack()) {
                         navigateInternal(Routes.Dashboard) {
-                            tabNavigationOptions()
+                            tabNavigationOptions(Routes.Dashboard)
                         }
                     }
                 },
                 onNavigateToProfileEdit = { navigateInternal(Routes.UserProfileEdit) },
-                onOpenAdminMethodology = { navigateInternal(Routes.AdminMethodology) },
-                onOpenNotifications = { navigateInternal(Routes.Notifications) },
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-
-        composable(Routes.OperatorDashboard) {
-            OperatorDashboardScreen(
-                signedInEmail = session.currentUserEmail,
-                backendBaseUrl = BuildConfig.BASE_URL,
-                schemaVersion = BuildConfig.SCHEMA_VERSION,
-                buildType = BuildConfig.BUILD_TYPE,
-                onOpenRecipes = { navigateInternal(Routes.OperatorRecipes) },
-                onOpenPrices = { navigateInternal(Routes.OperatorPrices) },
-                onOpenGroceryPantry = { navigateInternal(Routes.OperatorGroceryPantry) },
-                onOpenRules = { navigateInternal(Routes.OperatorRules) },
-                onOpenMethodology = { navigateInternal(Routes.AdminMethodology) },
-                onOpenMoreTools = { navigateInternal(Routes.AdminMethodology) },
-                onOpenSystemInfo = { navigateInternal(Routes.OperatorSystemInfo) },
-                onOpenAdminSettings = { navigateInternal(Routes.OperatorAdminSettings) },
-                onSignOut = {
-                    authViewModel.onLogout()
-                    navigateInternal(Routes.Login) {
-                        popUpTo(navController.graph.id) { inclusive = true }
+                onOpenSupport = {
+                    navigateInternal(Routes.Support) {
+                        launchSingleTop = true
                     }
                 },
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-
-        composable(Routes.OperatorRecipes) {
-            OperatorRecipeDatasetScreen(
-                mealPlanViewModel = mealPlanViewModel,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navigateInternal(if (adminMode) Routes.OperatorDashboard else Routes.Dashboard)
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-
-        composable(Routes.OperatorPrices) {
-            OperatorPriceManagementScreen(
-                mealPlanViewModel = mealPlanViewModel,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navigateInternal(Routes.OperatorDashboard)
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-
-        composable(Routes.OperatorGroceryPantry) {
-            OperatorGroceryPantryReviewScreen(
-                mealPlanViewModel = mealPlanViewModel,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navigateInternal(Routes.OperatorDashboard)
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-
-        composable(Routes.OperatorRules) {
-            OperatorRulesScreen(
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navigateInternal(Routes.OperatorDashboard)
-                    }
-                },
-                onOpenMethodology = { navigateInternal(Routes.AdminMethodology) },
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-
-        composable(Routes.OperatorSystemInfo) {
-            OperatorSystemInfoScreen(
-                mealPlanViewModel = mealPlanViewModel,
-                signedInEmail = session.currentUserEmail,
-                backendBaseUrl = BuildConfig.BASE_URL,
-                schemaVersion = BuildConfig.SCHEMA_VERSION,
-                buildType = BuildConfig.BUILD_TYPE,
-                operatorVerified = operatorAuthorized.value,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navigateInternal(Routes.OperatorDashboard)
-                    }
-                },
-                onSignOut = {
-                    authViewModel.onLogout()
-                    navigateInternal(Routes.Login) {
-                        popUpTo(navController.graph.id) { inclusive = true }
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-
-        composable(Routes.OperatorAdminSettings) {
-            OperatorAdminSettingsScreen(
-                signedInEmail = session.currentUserEmail,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navigateInternal(Routes.OperatorDashboard)
-                    }
-                },
-                onSignOut = {
-                    authViewModel.onLogout()
-                    navigateInternal(Routes.Login) {
-                        popUpTo(navController.graph.id) { inclusive = true }
-                    }
-                },
+                initialSection = backStackEntry.arguments?.getString(Routes.SettingsSectionArg),
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -843,28 +797,13 @@ fun AppNavHost(
             MoreToolsScreen(
                 onBack = { navController.popBackStack() },
                 onOpenSupport = {
-                    navigateInternal(Routes.Ipo) {
-                        tabNavigationOptions()
+                    navigateInternal(Routes.Support) {
+                        tabNavigationOptions(Routes.Dashboard)
                     }
-                },
-                onOpenMethodology = {
-                    navigateInternal(Routes.AdminMethodology)
                 },
                 onFeedback = {
-                    navigateInternal(Routes.Ipo) {
-                        tabNavigationOptions()
-                    }
-                },
-                showAdminTools = adminMode,
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-
-        composable(Routes.AdminMethodology) {
-            OperatorMethodologyPipelineScreen(
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navigateInternal(Routes.OperatorDashboard)
+                    navigateInternal(Routes.Support) {
+                        tabNavigationOptions(Routes.Dashboard)
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -888,24 +827,16 @@ fun AppNavHost(
                 recipeId = recipeId,
                 plannedMealLabelHint = mealLabelHint,
                 mealPlanViewModel = mealPlanViewModel,
-                groceryViewModel = groceryViewModel,
                 progressViewModel = progressViewModel,
                 goal = userProfile.goal,
-                adminMode = adminMode,
-                householdSize = userProfile.householdSize,
                 onBack = { navController.popBackStack() },
-                onAddToGrocery = {
-                    navigateInternal(Routes.GroceryList) {
-                        tabNavigationOptions()
-                    }
-                },
                 onNavigateToRoute = { route ->
                     when (route) {
                         Routes.Dashboard,
                         Routes.MealPlan,
                         Routes.GroceryList,
                         Routes.Progress,
-                        Routes.Ipo -> navigateInternal(route) { tabNavigationOptions() }
+                        Routes.Support -> navigateInternal(route) { tabNavigationOptions(route) }
                         else -> navigateInternal(route)
                     }
                 },
@@ -937,13 +868,13 @@ private fun TabScaffold(
                         return@BottomNavBar
                     }
                     navController.navigateKnown(route) {
-                        tabNavigationOptions()
+                        tabNavigationOptions(route)
                     }
                 },
                 enabledRoutes = enabledRoutes,
                 onDisabledRouteClick = {
                     Toast.makeText(context, "Generate a plan to unlock this tab.", Toast.LENGTH_SHORT).show()
-                    navController.navigateKnown(Routes.MealPlan) { tabNavigationOptions() }
+                    navController.navigateKnown(Routes.MealPlan) { tabNavigationOptions(Routes.MealPlan) }
                 }
             )
         },
@@ -952,33 +883,16 @@ private fun TabScaffold(
     }
 }
 
-private fun NavOptionsBuilder.tabNavigationOptions() {
-    popUpTo(Routes.Dashboard) { saveState = true }
+private fun NavOptionsBuilder.tabNavigationOptions(targetRoute: String? = null) {
+    popUpTo(Routes.Dashboard) {
+        inclusive = Routes.baseRoute(targetRoute) == Routes.Dashboard
+    }
     launchSingleTop = true
-    restoreState = true
 }
 
 private fun NavHostController.clearSetupFlowBackStack() {
     popBackStack(Routes.GoalSelection, inclusive = true)
     popBackStack(Routes.UserProfile, inclusive = true)
-}
-
-private fun maskRouteEmail(email: String?): String {
-    val clean = email?.trim().orEmpty()
-    if (clean.isBlank() || "@" !in clean) return "(none)"
-    val local = clean.substringBefore("@")
-    val domain = clean.substringAfter("@")
-    val localMask = when {
-        local.length <= 2 -> "${local.firstOrNull() ?: '*'}*"
-        else -> "${local.take(2)}***${local.takeLast(1)}"
-    }
-    return "$localMask@$domain"
-}
-
-private fun maskRouteToken(value: String?): String {
-    val clean = value?.trim().orEmpty()
-    if (clean.isBlank()) return "(none)"
-    return if (clean.length <= 8) "***" else "${clean.take(4)}...${clean.takeLast(4)}"
 }
 
 private fun NavHostController.navigateKnown(

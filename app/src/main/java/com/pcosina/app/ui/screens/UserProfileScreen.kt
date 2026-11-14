@@ -3,54 +3,83 @@ package com.pcosina.app.ui.screens
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pcosina.app.ui.UserViewModel
-import com.pcosina.app.ui.components.GradientHeader
-import com.pcosina.app.ui.components.TokenizedFilterChip
 import com.pcosina.app.domain.UnitConverter
 import com.pcosina.app.ui.theme.PcosinaBlushBorder
 import com.pcosina.app.ui.theme.PcosinaBlushStrong
-import com.pcosina.app.ui.theme.PcosinaBlushSurface
 import com.pcosina.app.ui.theme.PcosinaDeepRose
 import com.pcosina.app.ui.theme.PcosinaSurface
 import com.pcosina.app.ui.theme.UiChipTokens
 import com.pcosina.app.ui.theme.UiMotionTokens
 import com.pcosina.app.ui.theme.UiSpacingTokens
-import com.pcosina.app.ui.util.householdPlanningSummary
 import com.pcosina.app.ui.util.profileConstraintConflictMessage
 import com.pcosina.app.ui.util.primaryGoalLabel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private const val ProfileMinAge = 18
 private const val ProfileMaxAge = 60
+private val ProfileOnboardingCoral = Color(0xFFEF6F7D)
+private val ProfileOnboardingSilhouette = Color(0xFFFFC8CF)
+private val ProfileFieldShape = RoundedCornerShape(4.dp)
+private val CommonAllergyTokens = setOf(
+    "dairy",
+    "egg",
+    "peanut",
+    "nuts",
+    "soy",
+    "gluten",
+    "fish",
+    "shellfish"
+)
 
 private fun hasSavedProfileToken(values: List<String>, vararg aliases: String): Boolean {
     val normalizedAliases = aliases.map { it.lowercase(Locale.ENGLISH) }.toSet()
@@ -63,18 +92,22 @@ private fun parseDelimitedProfileItems(text: String): List<String> =
         .filter { it.isNotBlank() }
         .distinctBy { it.lowercase(Locale.ENGLISH) }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalComposeUiApi::class)
 @Composable
 fun UserProfileScreen(
     userViewModel: UserViewModel,
     onNext: () -> Unit,
     isEditMode: Boolean = false,
     onEditGoals: (() -> Unit)? = null,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val profile by userViewModel.userProfile.collectAsState()
     val isProfileLoading by userViewModel.isProfileLoading.collectAsState()
     var currentStep by rememberSaveable { mutableStateOf(1) }
+    val profileSaveScope = rememberCoroutineScope()
+    var profileSaveInProgress by rememberSaveable { mutableStateOf(false) }
+    var profileActionMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
     // State Persistence with safe defaults
     var displayName by rememberSaveable { mutableStateOf(profile.displayName) }
@@ -94,7 +127,6 @@ fun UserProfileScreen(
     var heightFtInput by rememberSaveable { mutableStateOf("") }
     var heightInInput by rememberSaveable { mutableStateOf("") }
     var activityLevel by rememberSaveable { mutableStateOf(profile.activityLevel) }
-    var insulinLevel by rememberSaveable { mutableStateOf("None") } // Default to a safe value
 
     val savedSymptomKey = profile.symptoms.joinToString("|")
     var symptomIrregularPeriods by rememberSaveable(savedSymptomKey) {
@@ -129,14 +161,30 @@ fun UserProfileScreen(
     var budget by rememberSaveable {
         mutableStateOf(if (profile.weeklyBudgetPhp > 0) profile.weeklyBudgetPhp.toString() else "")
     }
-    var householdSize by rememberSaveable { mutableStateOf(profile.householdSize.coerceIn(1, 6)) }
-    var pantryText by rememberSaveable { mutableStateOf(profile.pantryItems.joinToString(", ")) }
     var allergiesText by rememberSaveable { mutableStateOf(profile.allergies.joinToString(", ")) }
     var maxCookingTime by rememberSaveable { mutableStateOf(profile.maxCookingTimeMinutes.toString()) }
     var varietyPref by rememberSaveable { mutableStateOf(profile.varietyPreference) }
     var planningPriority by rememberSaveable { mutableStateOf(profile.planningPriority) }
 
     val colorScheme = MaterialTheme.colorScheme
+    val density = LocalDensity.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val imeVisible = WindowInsets.ime.getBottom(density) > 0
+    val inputMode = imeVisible
+    val profileContentBottomPadding = if (imeVisible) 220.dp else 8.dp
+    val profileScrollState = rememberScrollState()
+    val clearProfileTextFocus = remember(focusManager, keyboardController) {
+        {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+            Unit
+        }
+    }
+    LaunchedEffect(currentStep) {
+        clearProfileTextFocus()
+        profileScrollState.scrollTo(0)
+    }
 
     LaunchedEffect(profile) {
         if (displayName.isBlank() && profile.displayName.isNotBlank()) {
@@ -163,20 +211,11 @@ fun UserProfileScreen(
         if (activityLevel.isBlank()) {
             activityLevel = profile.activityLevel
         }
-        if (insulinLevel == "None" && profile.insulinResistanceLevel.isNotBlank()) {
-            insulinLevel = profile.insulinResistanceLevel
-        }
-        if (pantryText.isBlank() && profile.pantryItems.isNotEmpty()) {
-            pantryText = profile.pantryItems.joinToString(", ")
-        }
         if (allergiesText.isBlank() && profile.allergies.isNotEmpty()) {
             allergiesText = profile.allergies.joinToString(", ")
         }
         if (budget.isBlank() && profile.weeklyBudgetPhp > 0) {
             budget = profile.weeklyBudgetPhp.toString()
-        }
-        if (householdSize == 1 && profile.householdSize > 1) {
-            householdSize = profile.householdSize.coerceIn(1, 6)
         }
         if (varietyPref.isBlank()) {
             varietyPref = profile.varietyPreference
@@ -240,13 +279,12 @@ fun UserProfileScreen(
         allergiesText = allergiesText,
         budgetPhp = budgetValue,
     )
-
     val stepOneValid = (isEditMode || displayName.isNotBlank()) &&
         ageValue != null && ageValue in ProfileMinAge..ProfileMaxAge &&
         weightValueKg != null && weightValueKg in 35..180 &&
         heightValueCm != null && heightValueCm in 120..200
 
-    val stepTwoValid = insulinLevel.isNotBlank()
+    val stepTwoValid = true
 
     val stepThreeValid = (budgetValue == null || budgetValue in 1..20000) &&
         maxCookingValue != null && maxCookingValue in 10..240 &&
@@ -257,12 +295,6 @@ fun UserProfileScreen(
         2 -> stepTwoValid
         3 -> stepThreeValid
         else -> false
-    }
-    val currentStepLabel = when (currentStep) {
-        1 -> "Personal details"
-        2 -> "Medical profile"
-        3 -> "Preferences & budget"
-        else -> "Profile"
     }
     val stepOneBlockerMessage = when {
         isProfileLoading -> "Loading profile. Please wait..."
@@ -276,51 +308,27 @@ fun UserProfileScreen(
         activityLevel.isBlank() -> "Choose your typical activity level."
         else -> "Fix highlighted fields to continue."
     }
-    val stepTwoBlockerMessage = "Please select your insulin resistance level."
+    val stepTwoBlockerMessage = "Symptoms are optional. Continue if none apply."
     val stepThreeBlockerMessage = when {
         stepThreeConflict != null -> stepThreeConflict
         maxCookingTime.isBlank() || maxCookingValue == null -> "Enter max cooking time in minutes."
         maxCookingValue?.let { it !in 10..240 } == true -> "Max cooking time must stay between 10 and 240 minutes."
         else -> "Set max cooking time (10–240). Budget is optional unless Budget First is selected."
     }
-    val profileStatusSummary = when (currentStep) {
-        1 -> if (stepOneValid) {
-            "Personal details are ready. Nutrition targets can now be estimated accurately."
-        } else {
-            stepOneBlockerMessage
-        }
-        2 -> if (stepTwoValid) {
-            "Medical profile is ready. Symptoms can guide deterministic planning nudges."
-        } else {
-            stepTwoBlockerMessage
-        }
-        3 -> if (stepThreeValid) {
-            "Planning rules are ready. Hard constraints and soft preferences are set."
-        } else {
-            stepThreeBlockerMessage
-        }
-        else -> ""
-    }
-    val profileStorageSummary = if (isEditMode) {
-        "Saved locally and reused for future plans, grocery guidance, and progress screens."
-    } else {
-        "Saved locally. Goals, weekly planning, and grocery setup unlock after this profile."
+    val currentStepBlockerMessage = when (currentStep) {
+        1 -> stepOneBlockerMessage
+        2 -> stepTwoBlockerMessage
+        3 -> stepThreeBlockerMessage
+        else -> "Fix highlighted fields to continue."
     }
     val primaryActionLabel = when (currentStep) {
-        1 -> "Save identity"
-        2 -> "Save medical"
+        1 -> "Continue"
+        2 -> "Continue"
         3 -> if (isEditMode) "Save profile" else "Complete profile"
         else -> "Next"
     }
-    val profileNextFocusLabel = when (currentStep) {
-        1 -> if (stepOneValid) "Next focus: $primaryActionLabel" else "Next focus: confirm body metrics and activity"
-        2 -> if (stepTwoValid) "Next focus: $primaryActionLabel" else "Next focus: choose insulin level"
-        3 -> if (stepThreeValid) "Next focus: $primaryActionLabel" else "Next focus: lock in cooking limits and food rules"
-        else -> ""
-    }
-
     fun persistStepData(step: Int, markComplete: Boolean) {
-        if (!isEditMode && displayName.isNotBlank()) {
+        if (displayName.isNotBlank()) {
             userViewModel.updateProfileName(displayName)
         }
         val safeAge = age.toIntOrNull()?.coerceIn(ProfileMinAge, ProfileMaxAge)
@@ -335,13 +343,13 @@ fun UserProfileScreen(
                 activity = activityLevel
             )
         }
-        if (step >= 2 && insulinLevel.isNotBlank()) {
+        if (step >= 2) {
             val symptoms = mutableListOf<String>()
             if (symptomIrregularPeriods) symptoms.add("Irregular periods")
             if (symptomWeightGain) symptoms.add("Weight gain")
             if (symptomAcne) symptoms.add("Acne")
             if (symptomHairLoss) symptoms.add("Hair loss")
-            userViewModel.updatePcosDetails(insulinLevel, symptoms, emptyList())
+            userViewModel.updatePcosDetails(symptoms, emptyList())
         }
         if (step >= 3) {
             val restrictions = mutableListOf<String>()
@@ -353,96 +361,130 @@ fun UserProfileScreen(
             userViewModel.updateDietaryRestrictions(restrictions)
             val budgetSafe = budgetValue?.coerceIn(1, 20000)
             if (budgetSafe != null) userViewModel.updateBudget(budgetSafe) else userViewModel.updateBudget(0)
-            userViewModel.updateHouseholdSize(householdSize)
             val maxCookSafe = maxCookingValue?.coerceIn(10, 240) ?: 45
             userViewModel.updateCookingPreferences(maxCookSafe, varietyPref.ifBlank { "Balanced" })
             userViewModel.updatePlanningPriority(planningPriority.ifBlank { "Balanced" })
-            val pantryItems = parseDelimitedProfileItems(pantryText)
-            userViewModel.updatePantryItems(pantryItems)
             val allergyItems = parseDelimitedProfileItems(allergiesText)
+                .filter { it.lowercase(Locale.ENGLISH) in CommonAllergyTokens }
             userViewModel.updateAllergies(allergyItems)
         }
         userViewModel.setProfileCompleted(markComplete || isEditMode)
     }
+    fun handleStepAction() {
+        if (!canProceed) {
+            profileActionMessage = currentStepBlockerMessage
+            return
+        }
+        profileActionMessage = null
+        if (currentStep < 3) {
+            persistStepData(currentStep, markComplete = false)
+            profileActionMessage = "Saved this step on this device."
+            currentStep++
+        } else {
+            profileSaveInProgress = true
+            profileActionMessage = "Saving profile on this device..."
+            persistStepData(currentStep, markComplete = true)
+            profileSaveScope.launch {
+                delay(450)
+                profileSaveInProgress = false
+                profileActionMessage = "Profile saved on this device. Sync will retry when online."
+                onNext()
+            }
+        }
+    }
+
+    val showProfileShell = !inputMode
 
     Scaffold(
+        modifier = modifier,
         topBar = {
-            GradientHeader(
-                title = if (isEditMode) "PROFILE SETTINGS" else "PROFILE ONBOARDING",
-                subtitle = "Share a bit about your journey and what you like to eat so every recipe can fit your week.",
-                containerHeight = 148,
-                modifier = Modifier
-                    .background(PcosinaSurface)
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
-            )
+            if (!inputMode) {
+                ProfileHeader(
+                    title = if (isEditMode) "PROFILE SETTINGS" else "PROFILE ONBOARDING",
+                    subtitle = if (isEditMode) {
+                        "Update the details PCOSina uses for meals, groceries, and reminders."
+                    } else {
+                        "Let's start with a few details about you to personalize your experience."
+                    },
+                    onBack = {
+                        if (currentStep > 1) {
+                            persistStepData(currentStep, markComplete = false)
+                            currentStep--
+                        } else {
+                            onBack?.invoke()
+                        }
+                    }
+                )
+            }
         },
         bottomBar = {
-            BottomActionRow(
-                currentStep = currentStep,
-                primaryLabel = primaryActionLabel,
-                primaryColor = colorScheme.primary,
-                isNextEnabled = canProceed,
-                onBack = {
-                    if (currentStep > 1) {
-                        persistStepData(currentStep, markComplete = false)
-                        currentStep--
-                    }
-                },
-                onNext = {
-                    if (!canProceed) return@BottomActionRow
-                    if (currentStep < 3) {
-                        persistStepData(currentStep, markComplete = false)
-                        currentStep++
-                    } else {
-                        persistStepData(currentStep, markComplete = true)
-                        onNext()
-                    }
-                }
-            )
+            if (!inputMode) {
+                BottomActionRow(
+                    currentStep = currentStep,
+                    primaryLabel = if (profileSaveInProgress) "Saving..." else primaryActionLabel,
+                    primaryColor = colorScheme.primary,
+                    isNextEnabled = canProceed && !profileSaveInProgress,
+                    compact = false,
+                    disabledReason = if (!canProceed) currentStepBlockerMessage else null,
+                    statusMessage = profileActionMessage,
+                    isSaving = profileSaveInProgress,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding(),
+                    onNext = ::handleStepAction
+                )
+            }
         },
-        containerColor = PcosinaSurface
+        containerColor = if (showProfileShell) ProfileOnboardingCoral else PcosinaSurface
     ) { padding ->
         Box(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .background(PcosinaSurface),
+                .imePadding()
+                .background(if (showProfileShell) ProfileOnboardingCoral else PcosinaSurface),
         ) {
-            AnimatedContent(
-                targetState = currentStep,
-                transitionSpec = {
-                    if (targetState > initialState) {
-                        slideInHorizontally(animationSpec = tween(UiMotionTokens.ProfileStepSlideMs)) { it } +
-                            fadeIn(animationSpec = tween(UiMotionTokens.ProfileStepFadeMs)) togetherWith
-                            slideOutHorizontally(animationSpec = tween(UiMotionTokens.ProfileStepSlideMs)) { -it } +
-                            fadeOut(animationSpec = tween(UiMotionTokens.ProfileStepFadeMs))
-                    } else {
-                        slideInHorizontally(animationSpec = tween(UiMotionTokens.ProfileStepSlideMs)) { -it } +
-                            fadeIn(animationSpec = tween(UiMotionTokens.ProfileStepFadeMs)) togetherWith
-                            slideOutHorizontally(animationSpec = tween(UiMotionTokens.ProfileStepSlideMs)) { it } +
-                            fadeOut(animationSpec = tween(UiMotionTokens.ProfileStepFadeMs))
-                    }
-                },
-                label = "stepAnimation"
-                ) { step ->
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(0.dp),
+                color = if (showProfileShell) Color.White else PcosinaSurface,
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp,
+            ) {
+                AnimatedContent(
+                    targetState = currentStep,
+                    transitionSpec = {
+                        if (targetState > initialState) {
+                            slideInHorizontally(animationSpec = tween(UiMotionTokens.ProfileStepSlideMs)) { it } +
+                                fadeIn(animationSpec = tween(UiMotionTokens.ProfileStepFadeMs)) togetherWith
+                                slideOutHorizontally(animationSpec = tween(UiMotionTokens.ProfileStepSlideMs)) { -it } +
+                                fadeOut(animationSpec = tween(UiMotionTokens.ProfileStepFadeMs))
+                        } else {
+                            slideInHorizontally(animationSpec = tween(UiMotionTokens.ProfileStepSlideMs)) { -it } +
+                                fadeIn(animationSpec = tween(UiMotionTokens.ProfileStepFadeMs)) togetherWith
+                                slideOutHorizontally(animationSpec = tween(UiMotionTokens.ProfileStepSlideMs)) { it } +
+                                fadeOut(animationSpec = tween(UiMotionTokens.ProfileStepFadeMs))
+                        }
+                    },
+                    label = "stepAnimation"
+                    ) { step ->
                     Column(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                            .fillMaxWidth()
+                            .verticalScroll(profileScrollState)
+                            .padding(horizontal = if (showProfileShell) 28.dp else 16.dp, vertical = if (showProfileShell) 14.dp else 10.dp)
+                            .padding(bottom = profileContentBottomPadding),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        ProfileStepOverviewCard(
-                            currentStep = currentStep,
-                            currentStepLabel = currentStepLabel,
-                            statusSummary = profileStatusSummary,
-                            storageSummary = profileStorageSummary,
-                            nextFocusLabel = profileNextFocusLabel,
-                            isReady = canProceed,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("profile_status_center_card")
-                        )
-                        if (isEditMode && onEditGoals != null) {
+                        if (!inputMode) {
+                            ProfileStepProgressPanel(
+                                currentStep = currentStep,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("profile_status_center_card")
+                            )
+                        }
+                        if (!inputMode && isEditMode && onEditGoals != null) {
                             EditProfileGoalEntryCard(
                                 currentGoal = primaryGoalLabel(profile.goal),
                                 onClick = {
@@ -452,99 +494,191 @@ fun UserProfileScreen(
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         }
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f, fill = false)
-                                .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ProfileSectionCard(
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
-                            ProfileSectionCard(
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                when (step) {
-                                    1 -> StepOneIdentity(
-                                        name = displayName,
-                                        onName = { displayName = it },
-                                        age = age,
-                                        onAge = { age = it },
-                                        weight = weight,
-                                        onWeight = { weight = it },
-                                        weightUnit = weightUnit,
-                                        onWeightUnit = { weightUnit = it },
-                                        heightUnit = heightUnit,
-                                        onHeightUnit = { heightUnit = it },
-                                        heightCm = heightCmInput,
-                                        onHeightCm = { heightCmInput = it },
-                                        heightFt = heightFtInput,
-                                        onHeightFt = { heightFtInput = it },
-                                        heightIn = heightInInput,
-                                        onHeightIn = { heightInInput = it },
-                                        activity = activityLevel,
-                                        onActivity = { activityLevel = it },
-                                        color = colorScheme.primary,
-                                        showName = !isEditMode
-                                    )
-                                    2 -> StepTwoMedical(
-                                        insulin = insulinLevel,
-                                        onInsulin = { insulinLevel = it },
-                                        s1 = symptomIrregularPeriods,
-                                        onS1 = { symptomIrregularPeriods = it },
-                                        s2 = symptomWeightGain,
-                                        onS2 = { symptomWeightGain = it },
-                                        s3 = symptomAcne,
-                                        onS3 = { symptomAcne = it },
-                                        s4 = symptomHairLoss,
-                                        onS4 = { symptomHairLoss = it },
-                                        color = colorScheme.primary
-                                    )
-                                    3 -> StepThreeDiet(
-                                        r1 = lacto,
-                                        onR1 = { lacto = it },
-                                        r2 = vegetarian,
-                                        onR2 = { vegetarian = it },
-                                        r3 = pescatarian,
-                                        onR3 = { pescatarian = it },
-                                        r4 = noPork,
-                                        onR4 = { noPork = it },
-                                        r5 = noBeef,
-                                        onR5 = { noBeef = it },
-                                        budget = budget,
-                                        onBudget = { budget = sanitizeBudgetInput(it) },
-                                        householdSize = householdSize,
-                                        onHouseholdSize = { householdSize = it.coerceIn(1, 6) },
-                                        maxCookingTime = maxCookingTime,
-                                        onMaxCookingTime = { maxCookingTime = it },
-                                        varietyPreference = varietyPref,
-                                        onVarietyPreference = { varietyPref = it },
-                                        planningPriority = planningPriority,
-                                        onPlanningPriority = { planningPriority = it },
-                                        pantryText = pantryText,
-                                        onPantryText = { pantryText = it },
-                                        allergiesText = allergiesText,
-                                        onAllergiesText = { allergiesText = it },
-                                        color = colorScheme.primary
-                                    )
-                                }
-
-                                if (!canProceed) {
-                                    Text(
-                                        text = when (currentStep) {
-                                            1 -> stepOneBlockerMessage
-                                            2 -> stepTwoBlockerMessage
-                                            3 -> stepThreeBlockerMessage
-                                            else -> ""
-                                        },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
+                            when (step) {
+                                1 -> StepOneIdentity(
+                                    name = displayName,
+                                    onName = { displayName = it },
+                                    age = age,
+                                    onAge = { age = it },
+                                    weight = weight,
+                                    onWeight = { weight = it },
+                                    weightUnit = weightUnit,
+                                    onWeightUnit = { weightUnit = it },
+                                    heightUnit = heightUnit,
+                                    onHeightUnit = { heightUnit = it },
+                                    heightCm = heightCmInput,
+                                    onHeightCm = { heightCmInput = it },
+                                    heightFt = heightFtInput,
+                                    onHeightFt = { heightFtInput = it },
+                                    heightIn = heightInInput,
+                                    onHeightIn = { heightInInput = it },
+                                    activity = activityLevel,
+                                    onActivity = { activityLevel = it },
+                                    color = colorScheme.primary,
+                                    showName = true,
+                                )
+                                2 -> StepTwoMedical(
+                                    s1 = symptomIrregularPeriods,
+                                    onS1 = { symptomIrregularPeriods = it },
+                                    s2 = symptomWeightGain,
+                                    onS2 = { symptomWeightGain = it },
+                                    s3 = symptomAcne,
+                                    onS3 = { symptomAcne = it },
+                                    s4 = symptomHairLoss,
+                                    onS4 = { symptomHairLoss = it },
+                                    color = colorScheme.primary
+                                )
+                                3 -> StepThreeDiet(
+                                    r1 = lacto,
+                                    onR1 = { lacto = it },
+                                    r2 = vegetarian,
+                                    onR2 = { vegetarian = it },
+                                    r3 = pescatarian,
+                                    onR3 = { pescatarian = it },
+                                    r4 = noPork,
+                                    onR4 = { noPork = it },
+                                    r5 = noBeef,
+                                    onR5 = { noBeef = it },
+                                    budget = budget,
+                                    onBudget = { budget = sanitizeBudgetInput(it) },
+                                    maxCookingTime = maxCookingTime,
+                                    onMaxCookingTime = { maxCookingTime = it },
+                                    varietyPreference = varietyPref,
+                                    onVarietyPreference = { varietyPref = it },
+                                    planningPriority = planningPriority,
+                                    onPlanningPriority = { planningPriority = it },
+                                    allergiesText = allergiesText,
+                                    onAllergiesText = { allergiesText = it },
+                                    color = colorScheme.primary
+                                )
                             }
+                        }
+
+                        if (!canProceed && !inputMode) {
+                            Text(
+                                text = when (currentStep) {
+                                    1 -> stepOneBlockerMessage
+                                    2 -> stepTwoBlockerMessage
+                                    3 -> stepThreeBlockerMessage
+                                    else -> ""
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        if (inputMode) {
+                            BottomActionRow(
+                                currentStep = currentStep,
+                                primaryLabel = if (profileSaveInProgress) "Saving..." else primaryActionLabel,
+                                primaryColor = colorScheme.primary,
+                                isNextEnabled = canProceed && !profileSaveInProgress,
+                                compact = true,
+                                disabledReason = if (!canProceed) currentStepBlockerMessage else null,
+                                statusMessage = profileActionMessage,
+                                isSaving = profileSaveInProgress,
+                                modifier = Modifier.fillMaxWidth(),
+                                onNext = ::handleStepAction
+                            )
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ProfileHeader(
+    title: String,
+    subtitle: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(194.dp)
+            .background(ProfileOnboardingCoral)
+            .statusBarsPadding()
+            .padding(start = 28.dp, top = 14.dp, end = 24.dp, bottom = 17.dp)
+    ) {
+        ProfileHeaderSilhouette(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 26.dp, y = 0.dp)
+                .width(126.dp)
+                .height(132.dp)
+        )
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = ProfileOnboardingCoral
+            )
+        }
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(end = 70.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 20.sp,
+                    lineHeight = 24.sp,
+                    letterSpacing = 0.sp
+                ),
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 13.sp,
+                    lineHeight = 17.sp,
+                    letterSpacing = 0.sp
+                ),
+                color = Color.White.copy(alpha = 0.94f),
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileHeaderSilhouette(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(104.dp)
+                .clip(CircleShape)
+                .background(ProfileOnboardingSilhouette.copy(alpha = 0.16f))
+        )
+        Icon(
+            imageVector = Icons.Filled.Person,
+            contentDescription = null,
+            tint = ProfileOnboardingSilhouette.copy(alpha = 0.48f),
+            modifier = Modifier.size(82.dp)
+        )
+    }
 }
 
 @Composable
@@ -570,7 +704,7 @@ private fun EditProfileGoalEntryCard(
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 Text(
-                    text = "Planning goal",
+                    text = "Meal planning goal",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
                     color = PcosinaDeepRose,
                 )
@@ -594,57 +728,15 @@ private fun EditProfileGoalEntryCard(
 }
 
 @Composable
-private fun ProfileStepOverviewCard(
+private fun ProfileStepProgressPanel(
     currentStep: Int,
-    currentStepLabel: String,
-    statusSummary: String,
-    storageSummary: String,
-    nextFocusLabel: String,
-    isReady: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-    Card(
+    OnboardingProgress(
+        currentStep = currentStep,
+        color = ProfileOnboardingCoral,
         modifier = modifier,
-        shape = RoundedCornerShape(26.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, PcosinaBlushBorder)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = colorScheme.primary.copy(alpha = if (isReady) 0.88f else 0.72f),
-                contentColor = Color.White
-            ) {
-                Text(
-                    text = "Step $currentStep of 3:  $currentStepLabel",
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Text(
-                text = statusSummary,
-                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-                color = PcosinaDeepRose.copy(alpha = 0.82f),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            OnboardingProgress(currentStep = currentStep, color = colorScheme.primary)
-            Text(
-                text = "$nextFocusLabel • $storageSummary",
-                style = MaterialTheme.typography.labelSmall,
-                color = colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
+    )
 }
 
 @Composable
@@ -652,68 +744,80 @@ private fun ProfileSectionCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Card(
+    Column(
         modifier = modifier,
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, PcosinaBlushBorder),
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            content = content,
-        )
-    }
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        content = content,
+    )
 }
 
 @Composable
-fun OnboardingProgress(currentStep: Int, color: Color) {
+fun OnboardingProgress(
+    currentStep: Int,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
     val colorScheme = MaterialTheme.colorScheme
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(top = 2.dp, bottom = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 32.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = color.copy(alpha = 0.10f),
-                contentColor = color
-            ) {
-                Text(
-                    text = "Profile step $currentStep of 3",
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
-                )
-            }
-            Text(
-                text = when (currentStep) {
-                    1 -> "Identity"
-                    2 -> "Medical"
-                    else -> "Preferences"
-                },
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = colorScheme.onSurfaceVariant
-            )
-        }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                repeat(3) { i ->
+            repeat(3) { i ->
                 val step = i + 1
-                Box(
+                Box(contentAlignment = Alignment.Center) {
+                    if (step == currentStep) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(color.copy(alpha = 0.18f)),
+                        )
+                    }
+                    Surface(
+                        modifier = Modifier.size(22.dp),
+                        shape = CircleShape,
+                        color = if (step <= currentStep) color else Color.White,
+                        border = BorderStroke(1.5.dp, if (step <= currentStep) color else colorScheme.outlineVariant),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = step.toString(),
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = if (step <= currentStep) Color.White else colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                if (i < 2) {
+                    Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(6.dp)
-                        .clip(CircleShape)
-                        .background(if (step <= currentStep) color else colorScheme.surfaceVariant)
+                            .height(1.dp)
+                            .background(if (step < currentStep) color else colorScheme.outlineVariant),
+                    )
+                }
+            }
+        }
+        Row(modifier = Modifier.fillMaxWidth()) {
+            listOf("Personal Details", "Symptoms", "Preferences").forEachIndexed { index, label ->
+                Text(
+                    text = label,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = if (index + 1 == currentStep) FontWeight.SemiBold else FontWeight.Normal,
+                    ),
+                    color = if (index + 1 <= currentStep) color else colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -726,70 +830,107 @@ fun BottomActionRow(
     primaryLabel: String,
     primaryColor: Color,
     isNextEnabled: Boolean,
-    onBack: () -> Unit,
-    onNext: () -> Unit
+    compact: Boolean = false,
+    disabledReason: String? = null,
+    statusMessage: String? = null,
+    isSaving: Boolean = false,
+    onBack: () -> Unit = {},
+    onNext: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-    val helperCopy = when (currentStep) {
-        1 -> "Start with your identity, height, weight, and activity so targets stay realistic."
-        2 -> "Add symptoms and health markers that should influence your weekly plan."
-        else -> "Finish the hard food rules and household settings before saving."
-    }
     Surface(
+        modifier = modifier,
         tonalElevation = 0.dp,
-        shadowElevation = 10.dp,
-        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
-        border = BorderStroke(
-            width = 1.dp,
-            color = PcosinaBlushBorder
-        ),
-        color = Color.White
+        shadowElevation = 0.dp,
+        shape = RoundedCornerShape(0.dp),
+        color = Color.White,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = 32.dp, vertical = if (compact) 8.dp else 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 10.dp),
         ) {
-            Text(
-                text = helperCopy,
-                style = MaterialTheme.typography.labelMedium.copy(fontStyle = FontStyle.Italic),
-                color = PcosinaDeepRose.copy(alpha = 0.78f),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            if (!isNextEnabled && !disabledReason.isNullOrBlank()) {
+                Text(
+                    text = disabledReason,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Button(
+                onClick = onNext,
+                shape = RoundedCornerShape(4.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .testTag(if (currentStep < 3) "profile_next_step_cta" else "profile_complete_cta"),
+                enabled = isNextEnabled,
             ) {
-                if (currentStep > 1) {
-                    OutlinedButton(
-                        onClick = onBack,
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.65f))
-                    ) {
-                        Text("Back", color = colorScheme.onSurfaceVariant)
-                    }
-                } else {
-                    Spacer(Modifier.width(92.dp))
-                }
-
-                Button(
-                    onClick = onNext,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
-                    modifier = Modifier
-                        .height(48.dp)
-                        .widthIn(min = 132.dp)
-                        .testTag(if (currentStep < 3) "profile_next_step_cta" else "profile_complete_cta"),
-                    enabled = isNextEnabled
+                Text(primaryLabel, fontWeight = FontWeight.SemiBold)
+            }
+            if (!compact) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(primaryLabel, fontWeight = FontWeight.SemiBold)
+                    Icon(
+                        imageVector = Icons.Filled.Lock,
+                        contentDescription = null,
+                        modifier = Modifier.size(13.dp),
+                        tint = MaterialTheme.colorScheme.outline,
+                    )
+                    Text(
+                        text = when {
+                            isSaving -> "Saving your progress on this device..."
+                            !statusMessage.isNullOrBlank() -> statusMessage
+                            else -> "Your progress is saved automatically on this device."
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
     }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun Modifier.keepFocusedProfileFieldVisible(
+    onFocusChange: (Boolean) -> Unit = {},
+): Modifier {
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
+    var bringIntoViewJob by remember { mutableStateOf<Job?>(null) }
+    DisposableEffect(Unit) {
+        onDispose {
+            bringIntoViewJob?.cancel()
+        }
+    }
+    return bringIntoViewRequester(bringIntoViewRequester)
+        .onFocusEvent { focusState ->
+            onFocusChange(focusState.isFocused)
+            bringIntoViewJob?.cancel()
+            if (focusState.isFocused) {
+                bringIntoViewJob = scope.launch {
+                    delay(120)
+                    bringIntoViewRequester.bringIntoView()
+                    delay(220)
+                    bringIntoViewRequester.bringIntoView()
+                    delay(320)
+                    bringIntoViewRequester.bringIntoView()
+                }
+            } else {
+                bringIntoViewJob = null
+            }
+        }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -813,285 +954,242 @@ fun StepOneIdentity(
     onHeightIn: (String) -> Unit,
     activity: String,
     onActivity: (String) -> Unit,
+    onTextInputFocusChange: (Boolean) -> Unit = {},
     color: Color,
-    showName: Boolean
+    showName: Boolean,
 ) {
-    val options = listOf("Sedentary", "Lightly Active", "Moderately Active", "Very Active")
-    var expanded by remember { mutableStateOf(false) }
     val ageValue = age.toIntOrNull()
     val weightValue = weight.toIntOrNull()
     val weightKg = weightValue?.let {
         if (weightUnit == UnitConverter.WEIGHT_LB) UnitConverter.lbToKg(it) else it
     }
-    val ageInvalidFormat = age.isNotBlank() && ageValue == null
-    val weightInvalidFormat = weight.isNotBlank() && weightValue == null
     val heightCmValue = if (heightUnit == UnitConverter.HEIGHT_FT_IN) {
-        val ft = heightFt.toIntOrNull()
-        val inch = heightIn.toIntOrNull()
-        if (ft != null && inch != null) UnitConverter.feetInchesToCm(ft, inch) else null
+        val feet = heightFt.toIntOrNull()
+        val inches = heightIn.toIntOrNull()
+        if (feet != null && inches != null && inches in 0..11) {
+            UnitConverter.feetInchesToCm(feet, inches)
+        } else {
+            null
+        }
     } else {
         heightCm.toIntOrNull()
     }
-    val heightCmInvalidFormat = heightUnit == UnitConverter.HEIGHT_CM &&
-        heightCm.isNotBlank() &&
-        heightCmValue == null
-    val heightFtInvalidFormat = heightUnit == UnitConverter.HEIGHT_FT_IN &&
-        heightFt.isNotBlank() &&
-        heightFt.toIntOrNull() == null
-    val heightInInvalidFormat = heightUnit == UnitConverter.HEIGHT_FT_IN &&
-        heightIn.isNotBlank() &&
-        heightIn.toIntOrNull() == null
-    val heightInOutOfRange = heightUnit == UnitConverter.HEIGHT_FT_IN &&
-        (heightIn.toIntOrNull()?.let { it !in 0..11 } == true)
-    val ageOutOfRange = ageValue != null && (ageValue < ProfileMinAge || ageValue > ProfileMaxAge)
-    val weightOutOfRange = weightKg != null && (weightKg < 35 || weightKg > 180)
-    val heightOutOfRange = heightCmValue != null && (heightCmValue < 120 || heightCmValue > 200)
-    val screenWidthDp = LocalConfiguration.current.screenWidthDp
-    val compactUnitChipWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 68.dp, medium = 88.dp)
-    val heightUnitChipWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 72.dp, medium = 92.dp)
+    val ageError = age.isNotBlank() && (ageValue == null || ageValue !in ProfileMinAge..ProfileMaxAge)
+    val weightError = weight.isNotBlank() && (weightKg == null || weightKg !in 35..180)
+    val heightHasInput = if (heightUnit == UnitConverter.HEIGHT_FT_IN) {
+        heightFt.isNotBlank() || heightIn.isNotBlank()
+    } else {
+        heightCm.isNotBlank()
+    }
+    val heightError = heightHasInput && (heightCmValue == null || heightCmValue !in 120..200)
+    val activityOptions = listOf(
+        "Sedentary" to "Sedentary",
+        "Lightly Active (1-3 days per week)" to "Lightly Active",
+        "Moderately Active (3-5 days per week)" to "Moderately Active",
+        "Very Active (6-7 days per week)" to "Very Active",
+    )
 
-    Column(verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap)) {
-        SectionTitle("Personal Details")
-        Text(
-            text = "Keep this step lean. These essentials shape the first nutrition targets and plan ranges.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
         if (showName) {
+            RequiredProfileLabel("Display Name")
             OutlinedTextField(
                 value = name,
                 onValueChange = onName,
-                label = { Text("Display name") },
-                modifier = Modifier.fillMaxWidth().testTag("profile_step1_name_input"),
-                shape = MaterialTheme.shapes.medium,
+                placeholder = { Text("Enter your display name") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .keepFocusedProfileFieldVisible(onTextInputFocusChange)
+                    .testTag("profile_step1_name_input"),
+                shape = ProfileFieldShape,
+                singleLine = true,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color),
             )
         }
+
+        RequiredProfileLabel("Age")
         OutlinedTextField(
             value = age,
             onValueChange = onAge,
-            label = { Text("Age (years)") },
+            placeholder = { Text("Enter your age") },
             modifier = Modifier
                 .fillMaxWidth()
+                .keepFocusedProfileFieldVisible(onTextInputFocusChange)
                 .testTag("profile_step1_age_input"),
-            shape = MaterialTheme.shapes.medium,
+            shape = ProfileFieldShape,
+            singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            isError = ageInvalidFormat || ageOutOfRange,
-            supportingText = if (ageInvalidFormat || ageOutOfRange) {
-                {
-                    Text(
-                        when {
-                            ageInvalidFormat -> "Enter a whole number."
-                            else -> "Age must be 18–60."
-                        }
-                    )
-                }
-            } else null,
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
+            isError = ageError,
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color),
         )
-        Text(
-            text = "Valid Range: 18 - 60 years old",
-            style = MaterialTheme.typography.labelMedium.copy(fontStyle = FontStyle.Italic),
-            color = PcosinaDeepRose.copy(alpha = 0.72f),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-        if (ageOutOfRange || weightOutOfRange) {
-            Text(
-                text = "Tip: keep age 18–60 and weight 35–180 for accurate targets.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error
-            )
-        }
-        if (heightUnit == UnitConverter.HEIGHT_FT_IN) {
+        ProfileRangeHint(if (ageError) "Age must be 18-60." else "18-60 years old", ageError)
+
+        RequiredProfileLabel("Weight")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
             OutlinedTextField(
                 value = weight,
                 onValueChange = onWeight,
-                label = { Text(if (weightUnit == UnitConverter.WEIGHT_LB) "Weight (lb)" else "Weight (kg)") },
+                placeholder = { Text("Enter your weight") },
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .weight(1f)
+                    .keepFocusedProfileFieldVisible(onTextInputFocusChange)
                     .testTag("profile_step1_weight_input"),
-                shape = MaterialTheme.shapes.medium,
+                shape = ProfileFieldShape,
+                singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                isError = weightInvalidFormat || weightOutOfRange,
-                supportingText = if (weightInvalidFormat || weightOutOfRange) {
-                    {
-                        Text(
-                            when {
-                                weightInvalidFormat -> "Enter a whole number."
-                                else -> "35–180 kg equivalent only."
-                            }
-                        )
-                    }
-                } else null,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
+                isError = weightError,
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color),
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ProfileUnitDropdown(
+                value = weightUnit,
+                options = listOf("kg" to UnitConverter.WEIGHT_KG, "lb" to UnitConverter.WEIGHT_LB),
+                onSelected = onWeightUnit,
+                color = color,
+                modifier = Modifier.width(90.dp),
+            )
+        }
+        ProfileRangeHint(if (weightError) "Weight must be 35-180 kg equivalent." else "35-180 kg", weightError)
+
+        RequiredProfileLabel("Height")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            if (heightUnit == UnitConverter.HEIGHT_FT_IN) {
                 OutlinedTextField(
                     value = heightFt,
                     onValueChange = onHeightFt,
-                    label = { Text("Height (ft)") },
-                    modifier = Modifier.weight(1f).testTag("profile_step1_height_ft_input"),
-                    shape = MaterialTheme.shapes.medium,
+                    placeholder = { Text("ft") },
+                    modifier = Modifier
+                        .weight(1f)
+                        .keepFocusedProfileFieldVisible(onTextInputFocusChange)
+                        .testTag("profile_step1_height_ft_input"),
+                    shape = ProfileFieldShape,
+                    singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError = heightFtInvalidFormat || heightOutOfRange,
-                    supportingText = if (heightFtInvalidFormat || heightOutOfRange) {
-                        {
-                            Text(
-                                when {
-                                    heightFtInvalidFormat -> "Enter feet as a whole number."
-                                    else -> "Total height must stay 120–200 cm."
-                                }
-                            )
-                        }
-                    } else null,
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
+                    isError = heightError,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color),
                 )
                 OutlinedTextField(
                     value = heightIn,
                     onValueChange = onHeightIn,
-                    label = { Text("Height (in)") },
-                    modifier = Modifier.weight(1f).testTag("profile_step1_height_in_input"),
-                    shape = MaterialTheme.shapes.medium,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError = heightInInvalidFormat || heightInOutOfRange || heightOutOfRange,
-                    supportingText = if (heightInInvalidFormat || heightInOutOfRange || heightOutOfRange) {
-                        {
-                            Text(
-                                when {
-                                    heightInInvalidFormat -> "Enter inches as a whole number."
-                                    heightInOutOfRange -> "Inches must be 0–11."
-                                    else -> "Total height must stay 120–200 cm."
-                                }
-                            )
-                        }
-                    } else null,
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
-                )
-            }
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = weight,
-                    onValueChange = onWeight,
-                    label = { Text(if (weightUnit == UnitConverter.WEIGHT_LB) "Weight (lb)" else "Weight (kg)") },
+                    placeholder = { Text("in") },
                     modifier = Modifier
                         .weight(1f)
-                        .testTag("profile_step1_weight_input"),
-                    shape = MaterialTheme.shapes.medium,
+                        .keepFocusedProfileFieldVisible(onTextInputFocusChange)
+                        .testTag("profile_step1_height_in_input"),
+                    shape = ProfileFieldShape,
+                    singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError = weightInvalidFormat || weightOutOfRange,
-                    supportingText = if (weightInvalidFormat || weightOutOfRange) {
-                        {
-                            Text(
-                                when {
-                                    weightInvalidFormat -> "Enter a whole number."
-                                    else -> "35–180 kg equivalent only."
-                                }
-                            )
-                        }
-                    } else null,
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
+                    isError = heightError,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color),
                 )
+            } else {
                 OutlinedTextField(
                     value = heightCm,
                     onValueChange = onHeightCm,
-                    label = { Text("Height (cm)") },
+                    placeholder = { Text("Enter your height") },
                     modifier = Modifier
                         .weight(1f)
+                        .keepFocusedProfileFieldVisible(onTextInputFocusChange)
                         .testTag("profile_step1_height_cm_input"),
-                    shape = MaterialTheme.shapes.medium,
+                    shape = ProfileFieldShape,
+                    singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError = heightCmInvalidFormat || heightOutOfRange,
-                    supportingText = if (heightCmInvalidFormat || heightOutOfRange) {
-                        {
-                            Text(
-                                when {
-                                    heightCmInvalidFormat -> "Enter height in centimeters."
-                                    else -> "Height must be 120–200 cm."
-                                }
-                            )
-                        }
-                    } else null,
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
+                    isError = heightError,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color),
                 )
             }
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TokenizedFilterChip(
-                    selected = weightUnit == UnitConverter.WEIGHT_KG,
-                    onClick = { onWeightUnit(UnitConverter.WEIGHT_KG) },
-                    text = "kg",
-                    labelMaxWidth = compactUnitChipWidth
-                )
-                TokenizedFilterChip(
-                    selected = weightUnit == UnitConverter.WEIGHT_LB,
-                    onClick = { onWeightUnit(UnitConverter.WEIGHT_LB) },
-                    text = "lb",
-                    labelMaxWidth = compactUnitChipWidth
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TokenizedFilterChip(
-                    selected = heightUnit == UnitConverter.HEIGHT_CM,
-                    onClick = { onHeightUnit(UnitConverter.HEIGHT_CM) },
-                    text = "cm",
-                    labelMaxWidth = heightUnitChipWidth
-                )
-                TokenizedFilterChip(
-                    selected = heightUnit == UnitConverter.HEIGHT_FT_IN,
-                    onClick = { onHeightUnit(UnitConverter.HEIGHT_FT_IN) },
-                    text = "ft/in",
-                    labelMaxWidth = heightUnitChipWidth
-                )
-            }
-        }
-        Text(
-            text = "Valid Range: 35 - 180 kg and 120 - 200 cm",
-            style = MaterialTheme.typography.labelMedium.copy(fontStyle = FontStyle.Italic),
-            color = PcosinaDeepRose.copy(alpha = 0.72f),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-        if (heightOutOfRange) {
-            Text(
-                text = "Tip: keep height between 120 and 200 cm.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error
+            ProfileUnitDropdown(
+                value = heightUnit,
+                options = listOf("cm" to UnitConverter.HEIGHT_CM, "ft/in" to UnitConverter.HEIGHT_FT_IN),
+                onSelected = onHeightUnit,
+                color = color,
+                modifier = Modifier.width(90.dp),
             )
         }
+        ProfileRangeHint(if (heightError) "Height must be 120-200 cm equivalent." else "120-200 cm", heightError)
 
-        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
-            OutlinedTextField(value = activity, onValueChange = {}, readOnly = true, label = { Text("Activity Level") }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }, shape = MaterialTheme.shapes.medium, colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = color))
-            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                options.forEach { opt -> DropdownMenuItem(text = { Text(opt) }, onClick = { onActivity(opt); expanded = false }) }
-            }
-        }
-        val activityHint = when (activity) {
-            "Sedentary" -> "Little to no exercise; lowers calorie targets."
-            "Lightly Active" -> "Light activity 1–3 days/week; slightly raises calorie targets."
-            "Moderately Active" -> "Moderate activity 3–5 days/week; raises calorie targets further."
-            "Very Active" -> "Hard exercise 6–7 days/week; highest calorie target adjustment."
-            else -> "Choose the closest match for a typical week. This changes calorie targets."
-        }
-        Text(
-            text = activityHint,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+        RequiredProfileLabel("Activity Level")
+        ProfileUnitDropdown(
+            value = activity,
+            options = activityOptions,
+            onSelected = onActivity,
+            color = color,
+            modifier = Modifier.fillMaxWidth(),
         )
+        ProfileRangeHint("Used to estimate your daily energy needs.", false)
     }
+}
+
+@Composable
+private fun RequiredProfileLabel(text: String, required: Boolean = true) {
+    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(text = text, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+        if (required) {
+            Text(text = "*", color = ProfileOnboardingCoral, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+        }
+    }
+}
+
+@Composable
+private fun ProfileRangeHint(text: String, isError: Boolean) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StepTwoMedical(insulin: String, onInsulin: (String) -> Unit, s1: Boolean, onS1: (Boolean) -> Unit, s2: Boolean, onS2: (Boolean) -> Unit, s3: Boolean, onS3: (Boolean) -> Unit, s4: Boolean, onS4: (Boolean) -> Unit, color: Color) {
-    val options = listOf("None", "Mild", "Moderate", "Severe")
+private fun ProfileUnitDropdown(
+    value: String,
+    options: List<Pair<String, String>>,
+    onSelected: (String) -> Unit,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
     var expanded by remember { mutableStateOf(false) }
+    val displayValue = options.firstOrNull { it.second == value }?.first ?: value
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = modifier,
+    ) {
+        OutlinedTextField(
+            value = displayValue,
+            onValueChange = {},
+            readOnly = true,
+            modifier = Modifier
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth(),
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            shape = ProfileFieldShape,
+            singleLine = true,
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = color),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { (label, storedValue) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = {
+                        onSelected(storedValue)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun StepTwoMedical(s1: Boolean, onS1: (Boolean) -> Unit, s2: Boolean, onS2: (Boolean) -> Unit, s3: Boolean, onS3: (Boolean) -> Unit, s4: Boolean, onS4: (Boolean) -> Unit, color: Color) {
     val symptomOptions = listOf(
         "Irregular periods" to (s1 to onS1),
         "Weight gain" to (s2 to onS2),
@@ -1099,20 +1197,19 @@ fun StepTwoMedical(insulin: String, onInsulin: (String) -> Unit, s1: Boolean, on
         "Hair loss" to (s4 to onS4)
     )
 
-    Column(verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap)) {
-        SectionTitle("Medical Profile")
+    val noneSelected = symptomOptions.none { it.second.first }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = "These stay optional and can be changed later without redoing your whole profile.",
-            style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-            color = PcosinaDeepRose.copy(alpha = 0.72f)
+            text = "Which symptoms do you experience?",
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface,
         )
-        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
-            OutlinedTextField(value = insulin, onValueChange = {}, readOnly = true, label = { Text("Insulin Resistance") }, modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }, shape = MaterialTheme.shapes.medium, colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = color))
-            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                options.forEach { opt -> DropdownMenuItem(text = { Text(opt) }, onClick = { onInsulin(opt); expanded = false }) }
-            }
-        }
-        Text("Symptoms (optional)", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            text = "Select all that apply, or choose ‘None of the above.’",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1127,12 +1224,18 @@ fun StepTwoMedical(insulin: String, onInsulin: (String) -> Unit, s1: Boolean, on
                     color = color
                 )
             }
+            OnboardingChoiceRow(
+                label = "None of the above",
+                selected = noneSelected,
+                onClick = {
+                    onS1(false)
+                    onS2(false)
+                    onS3(false)
+                    onS4(false)
+                },
+                color = color,
+            )
         }
-        Text(
-            text = "These stay optional and can be changed later without redoing your whole profile.",
-            style = MaterialTheme.typography.labelMedium.copy(fontStyle = FontStyle.Italic),
-            color = PcosinaDeepRose.copy(alpha = 0.72f)
-        )
     }
 }
 
@@ -1147,24 +1250,25 @@ private fun OnboardingChoiceRow(
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = if (selected) color.copy(alpha = 0.22f) else Color.White,
+        shape = RoundedCornerShape(4.dp),
+        color = if (selected) color.copy(alpha = 0.16f) else Color.White,
         border = BorderStroke(
             width = 1.dp,
-            color = if (selected) color.copy(alpha = 0.45f) else MaterialTheme.colorScheme.outlineVariant
+            color = if (selected) color else MaterialTheme.colorScheme.outlineVariant,
         )
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(22.dp),
                 shape = CircleShape,
                 color = if (selected) color else Color.Transparent,
                 border = BorderStroke(1.dp, if (selected) color else MaterialTheme.colorScheme.outline)
-            ) {}
+            ) {
+            }
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
@@ -1173,6 +1277,40 @@ private fun OnboardingChoiceRow(
                 overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+@Composable
+private fun OnboardingTokenChip(
+    selected: Boolean,
+    text: String,
+    onClick: () -> Unit,
+    labelMaxWidth: androidx.compose.ui.unit.Dp,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.semantics {
+            stateDescription = if (selected) "Selected" else "Not selected"
+        },
+        shape = RoundedCornerShape(4.dp),
+        color = if (selected) color.copy(alpha = 0.16f) else Color.White,
+        border = BorderStroke(1.dp, if (selected) color else MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier
+                .heightIn(min = UiChipTokens.MinTouchHeight)
+                .widthIn(max = labelMaxWidth)
+                .padding(horizontal = 14.dp, vertical = 11.dp),
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -1191,31 +1329,37 @@ fun StepThreeDiet(
     onR5: (Boolean) -> Unit,
     budget: String,
     onBudget: (String) -> Unit,
-    householdSize: Int,
-    onHouseholdSize: (Int) -> Unit,
     maxCookingTime: String,
     onMaxCookingTime: (String) -> Unit,
     varietyPreference: String,
     onVarietyPreference: (String) -> Unit,
     planningPriority: String,
     onPlanningPriority: (String) -> Unit,
-    pantryText: String,
-    onPantryText: (String) -> Unit,
     allergiesText: String,
     onAllergiesText: (String) -> Unit,
-    color: Color
+    onTextInputFocusChange: (Boolean) -> Unit = {},
+    color: Color,
 ) {
-    val varietyOptions = listOf("Low", "Balanced", "High")
-    var varietyExpanded by remember { mutableStateOf(false) }
-    val priorityOptions = listOf("Budget First", "Balanced", "Variety First", "Nutrition Tight")
-    val restrictionOptions = listOf(
+    val windowWidthPx = LocalWindowInfo.current.containerSize.width
+    val screenWidthDp = with(LocalDensity.current) { windowWidthPx.toDp().value.roundToInt() }
+    val restrictionLabelWidth = UiChipTokens.widthByClass(
+        screenWidthDp = screenWidthDp,
+        compact = 132.dp,
+        medium = 164.dp,
+    )
+    val allergyLabelWidth = UiChipTokens.widthByClass(
+        screenWidthDp = screenWidthDp,
+        compact = 106.dp,
+        medium = 142.dp,
+    )
+    val restrictions = listOf(
         "Lactose Intolerant" to (r1 to onR1),
         "Vegetarian" to (r2 to onR2),
         "Pescatarian" to (r3 to onR3),
-        "Exclude Pork" to (r4 to onR4),
-        "Exclude Beef" to (r5 to onR5)
+        "No Pork" to (r4 to onR4),
+        "No Beef" to (r5 to onR5),
     )
-    val commonAllergens = listOf(
+    val allergens = listOf(
         "Dairy" to "dairy",
         "Eggs" to "egg",
         "Peanuts" to "peanut",
@@ -1223,194 +1367,152 @@ fun StepThreeDiet(
         "Soy" to "soy",
         "Gluten/Wheat" to "gluten",
         "Fish" to "fish",
-        "Shellfish" to "shellfish"
+        "Shellfish" to "shellfish",
     )
-    val allergyTokens = parseDelimitedProfileItems(allergiesText)
-        .map { it.lowercase(Locale.getDefault()) }
-        .toMutableList()
-    val screenWidthDp = LocalConfiguration.current.screenWidthDp
-    val householdChipMaxWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 108.dp, medium = 132.dp)
-    val priorityChipMaxWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 104.dp, medium = 136.dp)
-    val allergyChipMaxWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 92.dp, medium = 124.dp)
-    val restrictionChipMaxWidth = UiChipTokens.widthByClass(screenWidthDp, compact = 112.dp, medium = 144.dp)
-    Column(verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap)) {
-        SectionTitle("Preferences & Budget")
+    val selectedAllergens = parseDelimitedProfileItems(allergiesText)
+        .map { it.lowercase(Locale.ENGLISH) }
+        .filter { it in CommonAllergyTokens }
+
+    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
         Text(
-            text = "Planning rules are ready. Hard constraints and soft preferences are set.",
-            style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-            color = PcosinaDeepRose.copy(alpha = 0.72f)
+            text = "Preferences & Budget",
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = "Select all that apply.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         SectionTitle("Dietary Restrictions")
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
-            restrictionOptions.forEach { (label, state) ->
-                val selected = state.first
-                val toggle = state.second
-                TokenizedFilterChip(
-                    selected = selected,
-                    onClick = { toggle(!selected) },
+            restrictions.forEach { (label, state) ->
+                OnboardingTokenChip(
+                    selected = state.first,
                     text = label,
-                    labelMaxWidth = restrictionChipMaxWidth,
-                    modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight)
+                    onClick = { state.second(!state.first) },
+                    labelMaxWidth = restrictionLabelWidth,
+                    color = color,
                 )
             }
         }
         if (r2 && r3) {
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = MaterialTheme.colorScheme.error.copy(alpha = 0.10f),
-                contentColor = MaterialTheme.colorScheme.error,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.22f))
-            ) {
-                Text(
-                    text = "Vegetarian and Pescatarian cannot both be active.",
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold)
-                )
-            }
+            Text(
+                text = "Choose Vegetarian or Pescatarian, not both.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
+            )
         }
 
         SectionTitle("Allergies")
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
-            commonAllergens.forEach { (label, token) ->
-                val selected = allergyTokens.contains(token)
-                TokenizedFilterChip(
+            allergens.forEach { (label, token) ->
+                val selected = token in selectedAllergens
+                OnboardingTokenChip(
                     selected = selected,
+                    text = label,
                     onClick = {
                         val updated = if (selected) {
-                            allergyTokens.filterNot { it == token }
+                            selectedAllergens.filterNot { it == token }
                         } else {
-                            allergyTokens + token
+                            selectedAllergens + token
                         }
                         onAllergiesText(updated.distinct().joinToString(", "))
                     },
-                    text = label,
-                    labelMaxWidth = allergyChipMaxWidth,
-                    modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight)
+                    labelMaxWidth = allergyLabelWidth,
+                    color = color,
                 )
-            }
-        }
-        OutlinedTextField(
-            value = allergiesText,
-            onValueChange = onAllergiesText,
-            label = { Text("Other allergies") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
-        )
-
-        SectionTitle("Weekly Planning")
-        OutlinedTextField(
-            value = budget,
-            onValueChange = onBudget,
-            label = { Text("Budget (optional)") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            prefix = { Text("₱ ") },
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
-        )
-        Text(
-            text = householdPlanningSummary(householdSize),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            (1..6).forEach { size ->
-                val label = when (size) {
-                    1 -> "1 person"
-                    2 -> "2 people"
-                    3 -> "3 people"
-                    else -> "Family of $size"
-                }
-                TokenizedFilterChip(
-                    selected = householdSize == size,
-                    onClick = { onHouseholdSize(size) },
-                    text = label,
-                    labelMaxWidth = householdChipMaxWidth,
-                    modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight)
-                )
-            }
-        }
-        OutlinedTextField(
-            value = maxCookingTime,
-            onValueChange = onMaxCookingTime,
-            label = { Text("Max cooking time (minutes)") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
-        )
-        ExposedDropdownMenuBox(
-            expanded = varietyExpanded,
-            onExpandedChange = { varietyExpanded = !varietyExpanded }
-        ) {
-            OutlinedTextField(
-                value = varietyPreference,
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Variety preference") },
-                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = varietyExpanded) },
-                shape = MaterialTheme.shapes.medium,
-                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = color)
-            )
-            ExposedDropdownMenu(expanded = varietyExpanded, onDismissRequest = { varietyExpanded = false }) {
-                varietyOptions.forEach { opt ->
-                    DropdownMenuItem(
-                        text = { Text(opt) },
-                        onClick = {
-                            onVarietyPreference(opt)
-                            varietyExpanded = false
-                        }
-                    )
-                }
             }
         }
 
-        SectionTitle("Pantry Preference")
-        FlowRow(
+        SectionTitle("Weekly Planning")
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Top,
         ) {
-            priorityOptions.forEach { opt ->
-                TokenizedFilterChip(
-                    selected = planningPriority == opt,
-                    onClick = { onPlanningPriority(opt) },
-                    text = opt,
-                    labelMaxWidth = priorityChipMaxWidth,
-                    modifier = Modifier.heightIn(min = UiChipTokens.MinTouchHeight)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                val budgetRequired = planningPriority == "Budget First"
+                RequiredProfileLabel(
+                    text = if (budgetRequired) "Budget" else "Budget (Optional)",
+                    required = budgetRequired,
+                )
+                OutlinedTextField(
+                    value = budget,
+                    onValueChange = onBudget,
+                    placeholder = { Text("₱") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .keepFocusedProfileFieldVisible(onTextInputFocusChange),
+                    shape = ProfileFieldShape,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = budgetRequired && budget.isBlank(),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color),
+                )
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                RequiredProfileLabel("Max Cooking Time")
+                OutlinedTextField(
+                    value = maxCookingTime,
+                    onValueChange = onMaxCookingTime,
+                    placeholder = { Text("e.g., 45") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .keepFocusedProfileFieldVisible(onTextInputFocusChange),
+                    shape = ProfileFieldShape,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = maxCookingTime.toIntOrNull()?.let { it !in 10..240 } == true,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color),
+                )
+                ProfileRangeHint("minutes", false)
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                RequiredProfileLabel("Variety Preference")
+                ProfileUnitDropdown(
+                    value = varietyPreference,
+                    options = listOf(
+                        "Low Variety" to "Low",
+                        "Balanced" to "Balanced",
+                        "High Variety" to "High",
+                    ),
+                    onSelected = onVarietyPreference,
+                    color = color,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                RequiredProfileLabel("Meal Plan Priority")
+                ProfileUnitDropdown(
+                    value = planningPriority,
+                    options = listOf(
+                        "Budget First" to "Budget First",
+                        "Balanced" to "Balanced",
+                        "Variety First" to "Variety First",
+                        "Nutrition Tight" to "Nutrition Tight",
+                    ),
+                    onSelected = onPlanningPriority,
+                    color = color,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
-        OutlinedTextField(
-            value = pantryText,
-            onValueChange = onPantryText,
-            label = { Text("Pantry items (optional)") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = color)
-        )
-        Text(
-            text = "Finish the hard food rules and household settings before saving.",
-            style = MaterialTheme.typography.labelMedium.copy(fontStyle = FontStyle.Italic),
-            color = PcosinaDeepRose.copy(alpha = 0.72f)
-        )
     }
 }
 
@@ -1421,15 +1523,15 @@ fun SectionTitle(text: String) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(7.dp),
             shape = CircleShape,
-            color = PcosinaBlushStrong.copy(alpha = 0.82f),
+            color = ProfileOnboardingCoral,
             contentColor = Color.White
         ) {}
         Text(
             text = text,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.sp),
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }

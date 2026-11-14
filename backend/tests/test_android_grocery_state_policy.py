@@ -7,6 +7,8 @@ MEAL_PLAN_VIEW_MODEL = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina
 USER_PREFS_REPOSITORY = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "data" / "repository" / "UserPreferencesRepository.kt"
 USER_VIEW_MODEL = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "ui" / "UserViewModel.kt"
 GROCERY_SCREEN = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "ui" / "screens" / "GroceryRefinedScreen.kt"
+PROGRESS_SCREEN = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "ui" / "screens" / "ProgressRefinedScreen.kt"
+GROCERY_AGGREGATION = ROOT / "app" / "src" / "main" / "java" / "com" / "pcosina" / "app" / "domain" / "GroceryAggregation.kt"
 
 
 def _read(path: Path) -> str:
@@ -22,7 +24,9 @@ def test_grocery_view_model_falls_back_when_saved_active_plan_is_stale():
 
 def test_grocery_view_model_persists_active_plan_clears():
     source = _read(GROCERY_VIEW_MODEL)
-    assert "groceryLocalRepository.saveActivePlanId(currentUserId, planId)" in source
+    assert "val userId = currentUserId" in source
+    assert "persistenceMutex.withLock" in source
+    assert "groceryLocalRepository.saveActivePlanId(userId, planId)" in source
     assert "if (planId == null)" in source
 
 
@@ -44,14 +48,43 @@ def test_grocery_item_aggregation_and_manual_edits_use_normalized_name_keys():
 def test_pantry_editing_and_matching_use_normalized_name_keys():
     user_source = _read(USER_VIEW_MODEL)
     grocery_screen_source = _read(GROCERY_SCREEN)
+    grocery_aggregation_source = _read(GROCERY_AGGREGATION)
     assert "private fun normalizePantryNameKey(raw: String)" in user_source
     assert "_pantryEntries.value.associateBy { normalizePantryNameKey(it.name) }" in user_source
     assert ".distinctBy { normalizePantryNameKey(it.name) }" in user_source
-    assert "effectivePantryEntries.map { refinedPantryKey(it.name) }" in grocery_screen_source
-    assert "pantryTokens.any { token -> refinedPantryMatches(token, item.name) }" in grocery_screen_source
+    assert "buildPantryCoverage(groupedEntries, effectivePantryEntries, today)" in grocery_screen_source
+    assert ".filterValues { it.autoCovered }" in grocery_screen_source
+    assert "PantryCoverageStatus.Partial" in grocery_screen_source
+    assert "PantryCoverageStatus.NameOnly" in grocery_screen_source
+    assert "fun groceryNamesMatch(left: String, right: String): Boolean" in grocery_aggregation_source
+    assert "fun buildPantryCoverage(" in grocery_aggregation_source
+    assert "enum class PantryCoverageStatus" in grocery_aggregation_source
+    assert "PantryCoverageStatus.Full" in grocery_aggregation_source
+    assert "PantryCoverageStatus.Partial" in grocery_aggregation_source
+    assert "PantryCoverageStatus.NameOnly" in grocery_aggregation_source
     assert "private fun refinedPantryKey(raw: String)" in grocery_screen_source
-    assert "private fun refinedPantryTokens(raw: String): Set<String>" in grocery_screen_source
     assert "private fun refinedPantryMatches(pantryName: String, groceryName: String): Boolean" in grocery_screen_source
-    assert "if (pantryKey == groceryKey) return true" in grocery_screen_source
-    assert "if (pantryTokens.size <= 1 || groceryTokens.size <= 1) return false" in grocery_screen_source
-    assert "pantryTokens.containsAll(groceryTokens) || groceryTokens.containsAll(pantryTokens)" in grocery_screen_source
+    assert "return groceryNamesMatch(pantryName, groceryName)" in grocery_screen_source
+
+
+def test_android_budget_display_reconciles_pantry_deductions_with_backend_grocery_authority():
+    meal_plan_source = _read(MEAL_PLAN_VIEW_MODEL)
+    grocery_screen_source = _read(GROCERY_SCREEN)
+    progress_screen_source = _read(PROGRESS_SCREEN)
+    grocery_aggregation_source = _read(GROCERY_AGGREGATION)
+
+    assert "response.groceryOutput" in meal_plan_source
+    assert "response.explanation.copy(estimatedWeeklyCost = authoritativeEstimate)" in meal_plan_source
+    assert "val activeGroceryOutput = activePlanResponse?.groceryOutput" in grocery_screen_source
+    assert "val trustBackendPricing = shouldTrustBackendGroceryPricing(" in grocery_screen_source
+    assert "val authoritativePlanEstimate = resolveDisplayGroceryEstimate(activeGroceryOutput)" in grocery_screen_source
+    assert "trustBackendPrices = trustBackendPricing" in grocery_screen_source
+    assert "normalizeGroceryOutputPricingForDisplay(response.groceryOutput)" in meal_plan_source
+    assert "groceryOutput = normalizedGroceryOutput" in meal_plan_source
+    assert "correctedAuthoritativeGroceryEstimate(" in grocery_aggregation_source
+    assert "fun resolveDisplayGroceryEstimate(" in grocery_aggregation_source
+    assert "alignGroceryEstimateWithAuthority(" in grocery_screen_source
+    assert "localAmountPhp = localShoppingEstimate" in grocery_screen_source
+    assert "if (groupedEntries.isEmpty())" in grocery_screen_source
+    assert "currentPlan\n            ?.groceryOutput\n            ?.estimatedTotalPhp" in progress_screen_source
+    assert "?.takeIf { it >= 0 }" in progress_screen_source

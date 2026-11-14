@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
@@ -26,12 +25,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -44,6 +47,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,6 +56,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -60,26 +65,42 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.pcosina.app.R
 import com.pcosina.app.data.model.PantryEntry
+import com.pcosina.app.data.model.PersonalPriceOverride
 import com.pcosina.app.domain.GroceryListEntry
+import com.pcosina.app.domain.PantryCoverage
+import com.pcosina.app.domain.PantryCoverageStatus
+import com.pcosina.app.domain.alignGroceryEntriesWithAuthority
+import com.pcosina.app.domain.alignGroceryEstimateWithAuthority
 import com.pcosina.app.domain.buildGroceryListEntries
+import com.pcosina.app.domain.buildGroceryListEntriesFromPlanner
+import com.pcosina.app.domain.resolveDisplayGroceryEstimate
+import com.pcosina.app.domain.requiresGroceryPurchase
+import com.pcosina.app.domain.shouldTrustBackendGroceryPricing
+import com.pcosina.app.domain.buildPantryCoverage
 import com.pcosina.app.domain.canonicalGroceryKey
-import com.pcosina.app.domain.householdSizeLabel
+import com.pcosina.app.domain.estimateGroceryCostAfterPantry
+import com.pcosina.app.domain.groceryNamesMatch
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanUiState
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
-import com.pcosina.app.ui.components.PcosinaAvatarBadge
+import com.pcosina.app.ui.components.ArtworkAlignmentKeys
+import com.pcosina.app.ui.components.ArtworkAlignmentTarget
+import com.pcosina.app.ui.components.DevArtworkAlignmentHotspot
+import com.pcosina.app.ui.components.DevEditableArtworkImage
 import com.pcosina.app.ui.components.PcosinaDesignIcon
 import com.pcosina.app.ui.components.RefinedOverviewCard
 import com.pcosina.app.ui.components.RefinedPrimaryButton
 import com.pcosina.app.ui.components.RefinedRingMeter
 import com.pcosina.app.ui.components.RefinedStatusPill
 import com.pcosina.app.ui.components.RefinedTabBrandHeader
+import com.pcosina.app.ui.components.ScreenArtworkAlignment
 import com.pcosina.app.ui.components.SharedAvatarHeader
 import com.pcosina.app.ui.navigation.Routes
 import com.pcosina.app.ui.theme.PcosinaBlush
@@ -94,6 +115,8 @@ import com.pcosina.app.ui.util.rememberIsOnline
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 private enum class GroceryFilterScope {
     AllItems,
@@ -112,15 +135,19 @@ fun GroceryRefinedScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val observedOnline by rememberIsOnline(context)
     val isOnline = onlineStateOverride ?: observedOnline
     val groceryItems by groceryViewModel.groceryItems.collectAsState()
     val mealSources by groceryViewModel.mealSources.collectAsState()
     val activePlanId by groceryViewModel.activePlanId.collectAsState()
+    val checkedNames by groceryViewModel.checkedItemNames.collectAsState()
+    val pantryOptOut by groceryViewModel.pantryOptOutNames.collectAsState()
+    val personalPriceOverrides by groceryViewModel.personalPriceOverrides.collectAsState()
     val userProfile by userViewModel.userProfile.collectAsState()
     val pantryEntries by userViewModel.pantryEntries.collectAsState()
     val effectivePantryEntries = remember(pantryEntries, userProfile.pantryItems) {
-        if (pantryEntries.isNotEmpty()) {
+        val rawEntries = if (pantryEntries.isNotEmpty()) {
             pantryEntries
         } else {
             userProfile.pantryItems
@@ -129,40 +156,77 @@ fun GroceryRefinedScreen(
                 .distinct()
                 .map { PantryEntry(name = it) }
         }
+        rawEntries
+            .mapNotNull(::sanitizePantryEntryForDisplay)
+            .distinctBy { refinedPantryKey(it.name) }
     }
     val planHistory by mealPlanViewModel.planHistory.collectAsState()
     val planState by mealPlanViewModel.uiState.collectAsState()
-    val householdSize = userProfile.householdSize.coerceIn(1, 6)
-    val groupedEntries = remember(groceryItems, householdSize) {
-        buildGroceryListEntries(groceryItems, householdSize)
+    val activePlanResponse = remember(planState, planHistory, activePlanId) {
+        (planState as? MealPlanUiState.Success)?.response
+            ?: planHistory.firstOrNull { it.id == activePlanId }?.response
     }
-    val pantryTokens = remember(effectivePantryEntries) {
-        effectivePantryEntries.map { refinedPantryKey(it.name) }.filter { it.isNotBlank() }.toSet()
+    val today = remember { LocalDate.now() }
+    val activeGroceryOutput = activePlanResponse?.groceryOutput
+    val trustBackendPricing = shouldTrustBackendGroceryPricing(
+        catalogVersion = activeGroceryOutput?.pricingCatalogVersion,
+        referenceDate = activeGroceryOutput?.pricingReferenceDate,
+    )
+    val authoritativePlanEstimate = resolveDisplayGroceryEstimate(activeGroceryOutput)
+    val rawGroupedEntries = remember(groceryItems, activeGroceryOutput, trustBackendPricing) {
+        val plannerItems = activeGroceryOutput?.items.orEmpty()
+        if (plannerItems.isNotEmpty()) {
+            buildGroceryListEntriesFromPlanner(
+                items = plannerItems,
+                trustBackendPrices = trustBackendPricing,
+            )
+        } else {
+            buildGroceryListEntries(groceryItems)
+        }
     }
-    val pantryMatches = remember(groupedEntries, pantryTokens) {
-        groupedEntries.filter { item ->
-            pantryTokens.any { token -> refinedPantryMatches(token, item.name) }
-        }.map { it.name }.toSet()
+    val groupedEntries = remember(rawGroupedEntries, authoritativePlanEstimate) {
+        alignGroceryEntriesWithAuthority(rawGroupedEntries, authoritativePlanEstimate)
     }
-    var checkedNames by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
-    var pantryOptOut by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
+    val purchaseEntries = remember(groupedEntries) {
+        groupedEntries.filter { it.requiresGroceryPurchase() }
+    }
+    val pantryCoverageByName = remember(groupedEntries, effectivePantryEntries, today) {
+        buildPantryCoverage(groupedEntries, effectivePantryEntries, today)
+    }
+    val pantryMatches = remember(pantryCoverageByName) {
+        pantryCoverageByName
+            .filterValues { it.autoCovered }
+            .keys
+            .toSet()
+    }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var expandedCategories by rememberSaveable(activePlanId) { mutableStateOf(setOf<String>()) }
+    var initializedCategoryExpansion by rememberSaveable(activePlanId) { mutableStateOf(false) }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
     var showPantryDialog by remember { mutableStateOf(false) }
     var showAddPantryDialog by remember { mutableStateOf(false) }
     var showFilterDialog by remember { mutableStateOf(false) }
     var pantryName by rememberSaveable { mutableStateOf("") }
-    var pantryQty by rememberSaveable { mutableStateOf("") }
+    var pantryAmount by rememberSaveable { mutableStateOf("") }
+    var pantryUnit by rememberSaveable { mutableStateOf("g") }
     var pantryExpiry by rememberSaveable { mutableStateOf("") }
+    var pantryValidationMessage by rememberSaveable { mutableStateOf<String?>(null) }
     var groceryFilterScope by rememberSaveable { mutableStateOf(GroceryFilterScope.AllItems.name) }
     var selectedFilterCategories by rememberSaveable { mutableStateOf(setOf<String>()) }
     var selectedCategoryKey by rememberSaveable(activePlanId) { mutableStateOf("") }
+    var expiredPantryEventKeys by rememberSaveable { mutableStateOf(setOf<String>()) }
+    var selectedPriceEntry by remember { mutableStateOf<GroceryListEntry?>(null) }
 
     val effectiveChecked = remember(checkedNames, pantryMatches, pantryOptOut) {
         checkedNames + pantryMatches.filter { it !in pantryOptOut }
     }
-    val hasPlan = planHistory.isNotEmpty() || planState is MealPlanUiState.Success
+    val hasPlan = activePlanId != null || planState is MealPlanUiState.Success
+    val expiredPantryEntries = remember(effectivePantryEntries, today) {
+        effectivePantryEntries.filter { entry ->
+            val expiry = parsePantryExpiryDate(entry.expiryDate)
+            expiry != null && expiry.isBefore(today)
+        }
+    }
 
     LaunchedEffect(hasPlan, groupedEntries.isEmpty(), mealSources.isEmpty()) {
         if (hasPlan && groupedEntries.isEmpty() && mealSources.isEmpty()) {
@@ -172,12 +236,28 @@ fun GroceryRefinedScreen(
         }
     }
 
+    LaunchedEffect(expiredPantryEntries) {
+        val newExpiredKeys = expiredPantryEntries
+            .map { refinedPantryKey(it.name) }
+            .filter { it.isNotBlank() && it !in expiredPantryEventKeys }
+        newExpiredKeys.forEach { token ->
+            mealPlanViewModel.trackMlEvent(
+                eventName = "pantry_item_expired",
+                payload = mapOf("item_token" to token, "source" to "grocery_pantry_review")
+            )
+        }
+        if (newExpiredKeys.isNotEmpty()) {
+            expiredPantryEventKeys = expiredPantryEventKeys + newExpiredKeys
+        }
+    }
+
     val categoryOrder = listOf(
         "Produce",
         "Meat/Seafood",
         "Eggs & Dairy",
         "Dry Goods",
         "Spices & Condiments",
+        "Beverages",
         "Others"
     )
     val activeFilterScope = remember(groceryFilterScope) {
@@ -189,17 +269,20 @@ fun GroceryRefinedScreen(
         activeFilterScope,
         selectedFilterCategories,
         pantryMatches,
+        pantryCoverageByName,
         pantryOptOut,
         checkedNames
     ) {
         groupedEntries.filter { item ->
-            val matchesSearch = searchQuery.isBlank() || item.name.contains(searchQuery, ignoreCase = true)
+            val matchesSearch = searchQuery.isBlank() ||
+                item.name.contains(searchQuery, ignoreCase = true) ||
+                groceryNamesMatch(searchQuery, item.name)
             val matchesCategory = selectedFilterCategories.isEmpty() || item.category in selectedFilterCategories
             val isCovered = item.name in checkedNames || (item.name in pantryMatches && item.name !in pantryOptOut)
             val matchesScope = when (activeFilterScope) {
                 GroceryFilterScope.AllItems -> true
-                GroceryFilterScope.NeedToBuy -> !isCovered
-                GroceryFilterScope.BoughtOrPantry -> isCovered
+                GroceryFilterScope.NeedToBuy -> item.requiresGroceryPurchase() && !isCovered
+                GroceryFilterScope.BoughtOrPantry -> item.requiresGroceryPurchase() && isCovered
             }
             matchesSearch && matchesCategory && matchesScope
         }
@@ -214,22 +297,85 @@ fun GroceryRefinedScreen(
         if (categoryEntries.isNotEmpty() && categoryEntries.none { it.first == selectedCategoryKey }) {
             selectedCategoryKey = categoryEntries.first().first
         }
+        if (categoryEntries.isNotEmpty() && !initializedCategoryExpansion) {
+            expandedCategories = categoryEntries.map { it.first }.toSet()
+            initializedCategoryExpansion = true
+        }
     }
     val selectedCategoryIndex = categoryEntries.indexOfFirst { it.first == selectedCategoryKey }.let { index ->
         if (index >= 0) index else 0
     }
-    val todayLabel = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("MMM dd", Locale.ENGLISH)) }
-    val totalCount = groupedEntries.size
-    val coveredCount = groupedEntries.count { it.name in effectiveChecked }
+    val todayLabel = remember(today) { today.format(DateTimeFormatter.ofPattern("MMM dd", Locale.ENGLISH)) }
+    val totalCount = purchaseEntries.size
+    val coveredCount = purchaseEntries.count { it.name in effectiveChecked }
     val remainingCount = (totalCount - coveredCount).coerceAtLeast(0)
-    val totalEstimated = groupedEntries.filter { it.name !in effectiveChecked }.sumOf { it.estimatedCostPhp }
+    val localRemainingEstimate = groupedEntries.sumOf { item ->
+        estimateGroceryCostAfterPantry(
+            entry = item,
+            pantryCoverage = pantryCoverageByName[item.name],
+            coveredOrBought = item.name in effectiveChecked
+        )
+    }
+    val localMarkedBoughtEstimate = groupedEntries.sumOf { item ->
+        if (item.name in checkedNames) {
+            estimateGroceryCostAfterPantry(
+                entry = item,
+                pantryCoverage = pantryCoverageByName[item.name],
+                coveredOrBought = false
+            )
+        } else {
+            0
+        }
+    }
+
+    val localShoppingEstimate = groupedEntries.sumOf { item ->
+        estimateGroceryCostAfterPantry(
+            entry = item,
+            pantryCoverage = pantryCoverageByName[item.name],
+            coveredOrBought = item.name in pantryMatches && item.name !in pantryOptOut
+        )
+    }
+    val localFullShoppingEstimate = groupedEntries.sumOf { item ->
+        item.estimatedCostPhp.coerceAtLeast(0)
+    }
+    val totalShoppingEstimate = if (groupedEntries.isEmpty()) {
+        authoritativePlanEstimate ?: 0
+    } else {
+        alignGroceryEstimateWithAuthority(
+            localAmountPhp = localShoppingEstimate,
+            localFullEstimatePhp = localFullShoppingEstimate,
+            authoritativeFullEstimatePhp = authoritativePlanEstimate
+        )
+    }
+    val estimatedRemainingCost = if (groupedEntries.isEmpty()) {
+        totalShoppingEstimate
+    } else {
+        alignGroceryEstimateWithAuthority(
+            localAmountPhp = localRemainingEstimate,
+            localFullEstimatePhp = localFullShoppingEstimate,
+            authoritativeFullEstimatePhp = authoritativePlanEstimate
+        )
+    }
+    val markedBoughtEstimate = if (groupedEntries.isEmpty()) {
+        0
+    } else {
+        alignGroceryEstimateWithAuthority(
+            localAmountPhp = localMarkedBoughtEstimate,
+            localFullEstimatePhp = localFullShoppingEstimate,
+            authoritativeFullEstimatePhp = authoritativePlanEstimate
+        )
+    }
     val weeklyBudget = userProfile.weeklyBudgetPhp.takeIf { it > 0 }
-    val remainingBudget = weeklyBudget?.minus(totalEstimated)
+    val remainingBudget = weeklyBudget?.minus(totalShoppingEstimate)
     val budgetProgress = weeklyBudget?.let { budget ->
-        totalEstimated.toFloat() / budget.toFloat()
+        totalShoppingEstimate.toFloat() / budget.toFloat()
     } ?: 0f
-    val listProgress = if (totalCount > 0) coveredCount.toFloat() / totalCount.toFloat() else 0f
-    val tipLine = remember(userProfile.goal, householdSize) {
+    val listProgress = when {
+        totalCount > 0 -> coveredCount.toFloat() / totalCount.toFloat()
+        groupedEntries.isNotEmpty() -> 1f
+        else -> 0f
+    }
+    val tipLine = remember(userProfile.goal) {
         when {
             userProfile.goal.contains("Symptom", ignoreCase = true) ->
                 "Keep pantry staples simple so symptom-friendly meals stay easy to repeat."
@@ -253,6 +399,13 @@ fun GroceryRefinedScreen(
                         refinedPantryKey(it.name) == refinedPantryKey(entry.name)
                     }
                 )
+                mealPlanViewModel.trackMlEvent(
+                    eventName = "pantry_item_removed",
+                    payload = mapOf(
+                        "item_name" to entry.name,
+                        "source" to "grocery_pantry_dialog"
+                    )
+                )
                 feedbackMessage = "${entry.name} removed from pantry."
             }
         )
@@ -261,28 +414,82 @@ fun GroceryRefinedScreen(
     if (showAddPantryDialog) {
         AddPantryItemDialog(
             name = pantryName,
-            quantity = pantryQty,
+            amount = pantryAmount,
+            unit = pantryUnit,
             expiry = pantryExpiry,
-            onNameChange = { pantryName = it },
-            onQuantityChange = { pantryQty = it },
-            onExpiryChange = { pantryExpiry = it },
-            onDismiss = { showAddPantryDialog = false },
+            validationMessage = pantryValidationMessage,
+            onNameChange = {
+                pantryName = it
+                pantryValidationMessage = null
+            },
+            onAmountChange = {
+                pantryAmount = it
+                pantryValidationMessage = null
+            },
+            onUnitChange = {
+                pantryUnit = it
+                pantryValidationMessage = null
+            },
+            onExpiryChange = {
+                pantryExpiry = it
+                pantryValidationMessage = null
+            },
+            onDismiss = {
+                pantryValidationMessage = null
+                showAddPantryDialog = false
+            },
             onSave = {
                 val trimmed = pantryName.trim()
-                if (trimmed.isNotBlank()) {
-                    userViewModel.updatePantryEntries(
-                        effectivePantryEntries + PantryEntry(
-                            name = trimmed,
-                            quantity = pantryQty.trim().takeIf { it.isNotBlank() },
-                            expiryDate = pantryExpiry.trim().takeIf { it.isNotBlank() }
-                        )
-                    )
-                    feedbackMessage = "$trimmed added to pantry."
-                    pantryName = ""
-                    pantryQty = ""
-                    pantryExpiry = ""
-                    showAddPantryDialog = false
+                val amountText = pantryAmount.trim()
+                val amountValue = amountText.takeIf { it.isNotBlank() }?.toDoubleOrNull()
+                val amountValid = amountText.isBlank() || (amountValue != null && amountValue > 0.0)
+                val expiryText = pantryExpiry.trim()
+                val expiryValid = expiryText.isBlank() || parsePantryExpiryDate(expiryText) != null
+                val normalizedUnit = normalizePantryUnit(pantryUnit)
+                when {
+                    trimmed.isBlank() -> {
+                        pantryValidationMessage = "Add a pantry item name."
+                        return@AddPantryItemDialog
+                    }
+                    !amountValid -> {
+                        pantryValidationMessage = "Enter an amount greater than 0, or leave it blank."
+                        return@AddPantryItemDialog
+                    }
+                    amountValue != null && normalizedUnit == null -> {
+                        pantryValidationMessage = "Choose a supported pantry unit."
+                        return@AddPantryItemDialog
+                    }
+                    !expiryValid -> {
+                        pantryValidationMessage = "Use use-by date format YYYY-MM-DD, or leave it blank."
+                        return@AddPantryItemDialog
+                    }
                 }
+                val quantityDisplay = amountValue?.let { value ->
+                    "${formatPantryAmountForStorage(value)} $normalizedUnit"
+                }
+                userViewModel.updatePantryEntries(
+                    effectivePantryEntries + PantryEntry(
+                        name = trimmed,
+                        quantity = quantityDisplay,
+                        expiryDate = expiryText.takeIf { it.isNotBlank() },
+                        amount = amountValue,
+                        unit = normalizedUnit
+                    )
+                )
+                mealPlanViewModel.trackMlEvent(
+                    eventName = "pantry_item_added",
+                    payload = mapOf(
+                        "item_name" to trimmed,
+                        "source" to "grocery_pantry_dialog"
+                    )
+                )
+                feedbackMessage = "$trimmed added to pantry."
+                pantryName = ""
+                pantryAmount = ""
+                pantryUnit = "g"
+                pantryExpiry = ""
+                pantryValidationMessage = null
+                showAddPantryDialog = false
             }
         )
     }
@@ -311,6 +518,83 @@ fun GroceryRefinedScreen(
         )
     }
 
+    selectedPriceEntry?.let { entry ->
+        val personalPrice = personalPriceOverrides.firstOrNull { override ->
+            override.canonicalKey == entry.key
+        }
+        GroceryPriceDetailsDialog(
+            item = entry,
+            referenceDate = activeGroceryOutput?.pricingReferenceDate,
+            referenceLocation = activeGroceryOutput?.pricingReferenceLocation,
+            pricingBasis = activeGroceryOutput?.pricingBasis,
+            personalPriceOverride = personalPrice,
+            onSavePersonalPrice = { pricePhp, unit, marketType, location ->
+                scope.launch {
+                    val savedLocally = groceryViewModel.upsertPersonalPriceOverride(
+                        PersonalPriceOverride(
+                            canonicalKey = entry.key,
+                            ingredientId = personalPrice?.ingredientId,
+                            ingredientName = entry.name,
+                            pricePhp = pricePhp,
+                            unit = unit,
+                            marketType = marketType,
+                            location = location,
+                            observedOn = today.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                            syncStatus = "Pending",
+                        )
+                    )
+                    feedbackMessage = when {
+                        !savedLocally -> "The personal price could not be saved on this device."
+                        isOnline -> "Personal price saved. It will apply to newly generated plans after sync."
+                        else -> "Personal price saved offline. It will sync when you reconnect."
+                    }
+                }
+            },
+            onResetPersonalPrice = personalPrice?.let { existing ->
+                {
+                    scope.launch {
+                        val ingredientId = existing.ingredientId
+                        var resetQueued = false
+                        val removed = when {
+                            ingredientId.isNullOrBlank() ->
+                                groceryViewModel.removePersonalPriceOverride(existing.canonicalKey)
+                            isOnline -> {
+                                val remoteDelete = mealPlanViewModel.deletePersonalPrice(ingredientId)
+                                if (remoteDelete.isSuccess) {
+                                    groceryViewModel.removePersonalPriceOverride(existing.canonicalKey)
+                                } else {
+                                    resetQueued = true
+                                    groceryViewModel.upsertPersonalPriceOverride(
+                                        existing.copy(
+                                            warning = remoteDelete.exceptionOrNull()?.message?.take(240),
+                                            syncStatus = "DeletePending",
+                                        )
+                                    )
+                                }
+                            }
+                            else -> {
+                                resetQueued = true
+                                groceryViewModel.upsertPersonalPriceOverride(
+                                    existing.copy(syncStatus = "DeletePending")
+                                )
+                            }
+                        }
+                        feedbackMessage = if (removed) {
+                            if (resetQueued) {
+                                "Price reset saved offline. It will sync when you reconnect."
+                            } else {
+                                "Personal price reset. New plans will use the best shared reference."
+                            }
+                        } else {
+                            "The personal price reset could not be saved on this device."
+                        }
+                    }
+                }
+            },
+            onDismiss = { selectedPriceEntry = null },
+        )
+    }
+
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
@@ -324,14 +608,13 @@ fun GroceryRefinedScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
-                .navigationBarsPadding()
+                .testTag("grocery_content_list")
                 .padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (compact) 8.dp else 12.dp),
             verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp)
         ) {
             RefinedTabBrandHeader(
                 online = isOnline,
                 onSettings = { onNavigateToRoute(Routes.Settings) },
-                onSupport = { onNavigateToRoute(Routes.Notifications) },
                 compact = compact,
                 avatarId = userProfile.avatarId
             )
@@ -339,7 +622,10 @@ fun GroceryRefinedScreen(
             GroceryHeadlineCard(
                 avatarId = userProfile.avatarId,
                 dateLabel = todayLabel,
-                compact = compact
+                compact = compact,
+                onOpenProfileSettings = {
+                    onNavigateToRoute(Routes.settingsRoute(Routes.SettingsSectionProfile))
+                }
             )
 
             if (!feedbackMessage.isNullOrBlank()) {
@@ -358,7 +644,10 @@ fun GroceryRefinedScreen(
 
             GroceryBudgetCard(
                 weeklyBudget = weeklyBudget,
-                totalEstimated = totalEstimated,
+                hasShoppingEstimate = groupedEntries.isNotEmpty() || authoritativePlanEstimate != null,
+                estimatedRemainingCost = estimatedRemainingCost,
+                markedBoughtEstimate = markedBoughtEstimate,
+                totalShoppingEstimate = totalShoppingEstimate,
                 remainingBudget = remainingBudget,
                 budgetProgress = budgetProgress,
                 compact = compact
@@ -368,12 +657,18 @@ fun GroceryRefinedScreen(
                 remainingCount = remainingCount,
                 totalCount = totalCount,
                 listProgress = listProgress,
-                householdSize = householdSize,
                 onShare = {
                     val body = buildString {
                         append("PCOSina Grocery List\n\n")
                         groupedEntries.forEach { item ->
-                            val pantryTag = if (item.name in pantryMatches) " • pantry" else ""
+                            val pantryTag = if (!item.requiresGroceryPurchase()) {
+                                " • household supply"
+                            } else when (pantryCoverageByName[item.name]?.status) {
+                                PantryCoverageStatus.Full -> " • pantry covered"
+                                PantryCoverageStatus.Partial -> " • pantry partial"
+                                PantryCoverageStatus.NameOnly -> " • pantry match"
+                                null -> ""
+                            }
                             append("• ${item.name} (${item.quantityDisplay})${pantryTag}\n")
                         }
                     }
@@ -404,6 +699,7 @@ fun GroceryRefinedScreen(
                 searchFilteredEmpty = filteredEntries.isEmpty(),
                 searchQuery = searchQuery,
                 pantryMatches = pantryMatches,
+                pantryCoverageByName = pantryCoverageByName,
                 pantryOptOut = pantryOptOut,
                 checkedNames = checkedNames,
                 categoryEntries = categoryEntries,
@@ -429,12 +725,34 @@ fun GroceryRefinedScreen(
                     }
                 },
                 onToggleItem = { item ->
+                    if (!item.requiresGroceryPurchase()) return@GroceryCategoryPanel
+                    val wasComplete = totalCount > 0 && coveredCount >= totalCount
+                    val nextPantryOptOut: Set<String>
+                    val nextCheckedNames: Set<String>
                     if (item.name in pantryMatches) {
-                        pantryOptOut = if (item.name in pantryOptOut) pantryOptOut - item.name else pantryOptOut + item.name
+                        nextPantryOptOut = if (item.name in pantryOptOut) pantryOptOut - item.name else pantryOptOut + item.name
+                        nextCheckedNames = checkedNames
                     } else {
-                        checkedNames = if (item.name in checkedNames) checkedNames - item.name else checkedNames + item.name
+                        nextPantryOptOut = pantryOptOut
+                        nextCheckedNames = if (item.name in checkedNames) checkedNames - item.name else checkedNames + item.name
+                    }
+                    groceryViewModel.updateChecklistState(
+                        checkedItemNames = nextCheckedNames,
+                        pantryOptOutNames = nextPantryOptOut,
+                    )
+                    val nextEffectiveChecked = nextCheckedNames + pantryMatches.filter { it !in nextPantryOptOut }
+                    val isComplete = totalCount > 0 && purchaseEntries.all { it.name in nextEffectiveChecked }
+                    if (!wasComplete && isComplete) {
+                        mealPlanViewModel.trackMlEvent(
+                            eventName = "grocery_completed",
+                            payload = mapOf(
+                                "plan_id" to (activePlanId ?: "current"),
+                                "item_count" to totalCount
+                            )
+                        )
                     }
                 },
+                onOpenPriceDetails = { item -> selectedPriceEntry = item },
                 onSyncIngredients = {
                     mealPlanViewModel.extractGrocerySourcesForPlan { sources ->
                         groceryViewModel.setPlanSources(sources)
@@ -444,9 +762,8 @@ fun GroceryRefinedScreen(
                 compact = compact
             )
 
-            GroceryBottomCtaCard(
-                onAddPantry = { showAddPantryDialog = true },
-                compact = compact
+            androidx.compose.foundation.layout.Spacer(
+                modifier = Modifier.height(if (compact) 18.dp else 24.dp)
             )
         }
     }
@@ -463,8 +780,8 @@ private fun PantryListDialog(
         GroceryDialogSurface(maxWidth = 382.dp, containerColor = Color.White) {
             GroceryDialogHeader(
                 icon = "🧺",
-                title = "Pantry List",
-                subtitle = "Save what you already have so Grocery can mark pantry-covered ingredients clearly."
+                title = "Add / View Pantry Items",
+                subtitle = "Amounts with compatible units can auto-cover or reduce grocery items. Name-only items stay for review."
             )
             Column(
                 modifier = Modifier
@@ -524,13 +841,13 @@ private fun PantryListDialog(
                                         color = PcosinaDeepRose
                                     )
                                     Text(
-                                        text = entry.quantity.orEmpty().ifBlank { "Saved pantry staple" },
+                                        text = pantryEntryAmountDisplay(entry).ifBlank { "No amount saved - review matches manually" },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = PcosinaMuted
                                     )
                                     entry.expiryDate?.takeIf { it.isNotBlank() }?.let { expiry ->
                                         RefinedStatusPill(
-                                            text = "Expiry Date: $expiry",
+                                            text = "Use by: $expiry",
                                             containerColor = Color.White,
                                             contentColor = PcosinaPink
                                         )
@@ -541,16 +858,23 @@ private fun PantryListDialog(
                                     color = PcosinaPink,
                                     border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.24f)),
                                     modifier = Modifier
+                                        .widthIn(min = 76.dp, max = 88.dp)
                                         .heightIn(min = 48.dp)
                                         .semantics { contentDescription = "Remove pantry item" }
                                         .clickable { onRemove(entry) }
                                 ) {
-                                    Text(
-                                        text = "Remove",
-                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
-                                        color = Color.White
-                                    )
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "Remove",
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                            color = Color.White,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -581,10 +905,13 @@ private fun PantryListDialog(
 @Composable
 private fun AddPantryItemDialog(
     name: String,
-    quantity: String,
+    amount: String,
+    unit: String,
     expiry: String,
+    validationMessage: String?,
     onNameChange: (String) -> Unit,
-    onQuantityChange: (String) -> Unit,
+    onAmountChange: (String) -> Unit,
+    onUnitChange: (String) -> Unit,
     onExpiryChange: (String) -> Unit,
     onDismiss: () -> Unit,
     onSave: () -> Unit,
@@ -593,8 +920,8 @@ private fun AddPantryItemDialog(
         GroceryDialogSurface(maxWidth = 360.dp, containerColor = Color.White) {
             GroceryDialogHeader(
                 icon = "🧺",
-                title = "Add an item to the pantry",
-                subtitle = "Save what you already have"
+                title = "Add Pantry Item",
+                subtitle = "Use a clear amount and unit when you want automatic grocery matching."
             )
             OutlinedTextField(
                 value = name,
@@ -607,26 +934,38 @@ private fun AddPantryItemDialog(
             )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
-                    value = quantity,
-                    onValueChange = onQuantityChange,
+                    value = amount,
+                    onValueChange = onAmountChange,
                     modifier = Modifier.weight(1f),
-                    label = { Text("Qty") },
-                    placeholder = { Text("Qty") },
+                    label = { Text("Amount") },
+                    placeholder = { Text("80") },
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp)
                 )
-                OutlinedTextField(
-                    value = expiry,
-                    onValueChange = onExpiryChange,
-                    modifier = Modifier.weight(1f),
-                    label = { Text("Expiry Date") },
-                    placeholder = { Text("YYYY-MM-DD") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp)
+                PantryUnitDropdown(
+                    selectedUnit = unit,
+                    onUnitChange = onUnitChange,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            OutlinedTextField(
+                value = expiry,
+                onValueChange = onExpiryChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Use-by date") },
+                placeholder = { Text("YYYY-MM-DD") },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp)
+            )
+            if (!validationMessage.isNullOrBlank()) {
+                Text(
+                    text = validationMessage,
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = PcosinaPink
                 )
             }
             Text(
-                text = "Quantity and expiry are optional. Saved pantry items are used to mark grocery ingredients as pantry-covered.",
+                text = "Amount, unit, and use-by date are optional. Examples: 80 g, 1 pc, 1 pack. Compatible units auto-cover exact needs, reduce partial needs, and ignore expired items.",
                 style = MaterialTheme.typography.bodySmall,
                 color = PcosinaMuted
             )
@@ -645,6 +984,138 @@ private fun AddPantryItemDialog(
                     filled = true,
                     onClick = onSave,
                     modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+private data class PantryUnitOption(
+    val value: String,
+    val label: String,
+)
+
+private val pantryUnitOptions = listOf(
+    PantryUnitOption("g", "g"),
+    PantryUnitOption("kg", "kg"),
+    PantryUnitOption("ml", "ml"),
+    PantryUnitOption("l", "L"),
+    PantryUnitOption("piece", "pc"),
+    PantryUnitOption("clove", "clove"),
+    PantryUnitOption("head", "head"),
+    PantryUnitOption("cup", "cup"),
+    PantryUnitOption("tbsp", "tbsp"),
+    PantryUnitOption("tsp", "tsp"),
+    PantryUnitOption("bunch", "bunch"),
+    PantryUnitOption("stalk", "stalk"),
+    PantryUnitOption("can", "can"),
+    PantryUnitOption("pack", "pack"),
+)
+
+private fun normalizePantryUnit(raw: String): String? {
+    val unit = raw.trim().lowercase(Locale.ENGLISH)
+    return pantryUnitOptions.firstOrNull { option ->
+        option.value == unit || option.label.lowercase(Locale.ENGLISH) == unit
+    }?.value
+}
+
+private fun formatPantryAmountForStorage(value: Double): String {
+    val rounded = if (value >= 10) {
+        (value * 10.0).roundToInt() / 10.0
+    } else {
+        (value * 100.0).roundToInt() / 100.0
+    }
+    return if (rounded % 1.0 == 0.0) rounded.roundToInt().toString() else rounded.toString()
+}
+
+private fun pantryEntryAmountDisplay(entry: PantryEntry): String {
+    val amount = entry.amount?.takeIf { it > 0.0 && !it.isNaN() && !it.isInfinite() }
+    val unit = entry.unit?.let(::normalizePantryUnit)
+    return if (amount != null && unit != null) {
+        val label = pantryUnitOptions.firstOrNull { it.value == unit }?.label ?: unit
+        "${formatPantryAmountForStorage(amount)} $label"
+    } else {
+        entry.quantity.orEmpty()
+    }
+}
+
+private fun sanitizePantryEntryForDisplay(entry: PantryEntry): PantryEntry? {
+    val cleanName = entry.name
+        .replace(Regex("\\p{C}+"), " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+    if (cleanName.isBlank()) return null
+    return entry.copy(
+        name = cleanName,
+        quantity = entry.quantity
+            ?.replace(Regex("\\p{C}+"), " ")
+            ?.replace(Regex("\\s+"), " ")
+            ?.trim()
+            ?.takeIf { it.isNotBlank() },
+        expiryDate = entry.expiryDate?.trim()?.takeIf { it.isNotBlank() },
+    )
+}
+
+@Composable
+private fun PantryUnitDropdown(
+    selectedUnit: String,
+    onUnitChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selected = pantryUnitOptions.firstOrNull { it.value == selectedUnit } ?: pantryUnitOptions.first()
+    Box(modifier = modifier) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .clickable { expanded = true },
+            shape = RoundedCornerShape(14.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, PcosinaMuted.copy(alpha = 0.5f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(1.dp)
+                ) {
+                    Text(
+                        text = "Unit",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = PcosinaMuted
+                    )
+                    Text(
+                        text = selected.label,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = PcosinaDeepRose,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Filled.ArrowDropDown,
+                    contentDescription = null,
+                    tint = PcosinaMuted
+                )
+            }
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            pantryUnitOptions.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.label) },
+                    onClick = {
+                        onUnitChange(option.value)
+                        expanded = false
+                    }
                 )
             }
         }
@@ -701,7 +1172,7 @@ private fun GroceryFilterDialog(
                 onClick = { onScopeChange(GroceryFilterScope.NeedToBuy) }
             )
             GroceryFilterChoiceRow(
-                title = "Bought/Pantry",
+                title = "Bought or in pantry",
                 selected = activeScope == GroceryFilterScope.BoughtOrPantry,
                 onClick = { onScopeChange(GroceryFilterScope.BoughtOrPantry) }
             )
@@ -709,7 +1180,7 @@ private fun GroceryFilterDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 420.dp)
+                    .heightIn(max = 220.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -735,7 +1206,9 @@ private fun GroceryFilterDialog(
                     text = "Done",
                     filled = true,
                     onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("grocery_filter_done")
                 )
             }
         }
@@ -810,15 +1283,21 @@ private fun GroceryDialogActionButton(
     filled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     Surface(
+        onClick = onClick,
+        enabled = enabled,
         modifier = modifier
-            .heightIn(min = 46.dp)
-            .clickable(onClick = onClick),
+            .heightIn(min = 48.dp),
         shape = RoundedCornerShape(10.dp),
-        color = if (filled) PcosinaPink else Color.White,
+        color = when {
+            !enabled -> PcosinaMuted.copy(alpha = 0.18f)
+            filled -> PcosinaPink
+            else -> Color.White
+        },
         border = BorderStroke(1.dp, PcosinaPink),
-        shadowElevation = if (filled) 6.dp else 0.dp
+        shadowElevation = if (filled && enabled) 6.dp else 0.dp
     ) {
         Box(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
@@ -827,7 +1306,11 @@ private fun GroceryDialogActionButton(
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
-                color = if (filled) Color.White else PcosinaPink,
+                color = when {
+                    !enabled -> PcosinaMuted
+                    filled -> Color.White
+                    else -> PcosinaPink
+                },
                 textAlign = TextAlign.Center
             )
         }
@@ -837,17 +1320,39 @@ private fun GroceryDialogActionButton(
 @Composable
 private fun GroceryPreviewRow(
     item: GroceryListEntry,
+    pantryCoverage: PantryCoverage?,
     pantryCovered: Boolean,
     checked: Boolean,
     onToggle: () -> Unit,
+    onOpenPriceDetails: () -> Unit,
 ) {
+    val householdSupply = !item.requiresGroceryPurchase()
+    val hasPantrySignal = pantryCoverage != null
+    val isComplete = checked || pantryCovered || householdSupply
+    val statusColor = when {
+        checked -> PcosinaPink
+        pantryCovered || hasPantrySignal || householdSupply -> PcosinaSuccess
+        else -> PcosinaMuted
+    }
+    val remainingCostPhp = estimateGroceryCostAfterPantry(
+        entry = item,
+        pantryCoverage = pantryCoverage,
+        coveredOrBought = isComplete
+    )
     Surface(
-        color = if (checked || pantryCovered) Color(0xFFFFF1F4) else Color.White,
+        color = if (isComplete) Color(0xFFFFF1F4) else Color.White,
         shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, if (checked || pantryCovered) PcosinaPink.copy(alpha = 0.18f) else PcosinaMuted.copy(alpha = 0.24f)),
+        border = BorderStroke(
+            1.dp,
+            when {
+                isComplete -> PcosinaPink.copy(alpha = 0.18f)
+                hasPantrySignal -> PcosinaSuccess.copy(alpha = 0.28f)
+                else -> PcosinaMuted.copy(alpha = 0.24f)
+            }
+        ),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onToggle)
+            .then(if (householdSupply) Modifier else Modifier.clickable(onClick = onToggle))
     ) {
         Row(
             modifier = Modifier
@@ -859,13 +1364,28 @@ private fun GroceryPreviewRow(
             Surface(
                 modifier = Modifier.size(26.dp),
                 shape = RoundedCornerShape(12.dp),
-                color = if (checked || pantryCovered) PcosinaPink else Color.White,
-                border = BorderStroke(1.dp, if (checked || pantryCovered) PcosinaPink else PcosinaMuted.copy(alpha = 0.4f))
+                color = when {
+                    checked -> PcosinaPink
+                    pantryCovered || householdSupply -> PcosinaSuccess.copy(alpha = 0.14f)
+                    else -> Color.White
+                },
+                border = BorderStroke(
+                    1.dp,
+                    when {
+                        checked -> PcosinaPink
+                        pantryCovered || householdSupply -> PcosinaSuccess.copy(alpha = 0.54f)
+                        else -> PcosinaMuted.copy(alpha = 0.4f)
+                    }
+                )
             ) {
                 PcosinaDesignIcon(
                     resId = R.drawable.pcosina_svg_12_check,
                     contentDescription = null,
-                    tint = if (checked || pantryCovered) Color.White else Color.Transparent,
+                    tint = when {
+                        checked -> Color.White
+                        pantryCovered || householdSupply -> PcosinaSuccess
+                        else -> Color.Transparent
+                    },
                     modifier = Modifier
                         .size(14.dp)
                         .padding(2.dp)
@@ -881,25 +1401,71 @@ private fun GroceryPreviewRow(
                     color = PcosinaDeepRose,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    textDecoration = if (checked || pantryCovered) TextDecoration.LineThrough else TextDecoration.None
+                    textDecoration = if (checked) TextDecoration.LineThrough else TextDecoration.None
                 )
                 Text(
-                    text = item.quantityDisplay,
+                    text = when {
+                        pantryCoverage?.status == PantryCoverageStatus.Partial && !isComplete ->
+                            "Need ${item.quantityDisplay}; still buy ${pantryCoverage.remainingQuantityDisplay ?: item.quantityDisplay}"
+                        else -> item.quantityDisplay
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = PcosinaMuted
                 )
+                groceryPriceReferenceText(item)?.let { referenceText ->
+                    Text(
+                        text = referenceText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = PcosinaMuted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (pantryCoverage != null && !pantryCovered) {
+                    Text(
+                        text = pantryCoverage.detail,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (pantryCoverage.status == PantryCoverageStatus.Partial) PcosinaSuccess else PcosinaMuted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "₱${item.estimatedCostPhp}",
+                    text = if (remainingCostPhp > 0) "₱$remainingCostPhp" else "₱0",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = PcosinaDeepRose
                 )
                 RefinedStatusPill(
-                    text = if (pantryCovered) "In Pantry" else if (checked) "Bought" else "To Buy",
-                    containerColor = if (pantryCovered) Color(0xFFFFE8EE) else PcosinaSurfaceAlt,
-                    contentColor = if (pantryCovered) PcosinaPink else PcosinaMuted
+                    text = when {
+                        householdSupply -> "Household"
+                        pantryCovered -> "In pantry"
+                        checked -> "Bought"
+                        pantryCoverage?.status == PantryCoverageStatus.Partial -> "Buy remaining"
+                        pantryCoverage?.status == PantryCoverageStatus.NameOnly -> "Review pantry"
+                        else -> "To Buy"
+                    },
+                    containerColor = if (pantryCovered || householdSupply) PcosinaSuccess.copy(alpha = 0.14f) else PcosinaSurfaceAlt,
+                    contentColor = if (pantryCovered || householdSupply) statusColor else PcosinaMuted
                 )
+                Surface(
+                    onClick = onOpenPriceDetails,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .semantics { contentDescription = "Price details for ${item.name}" },
+                    shape = CircleShape,
+                    color = Color.Transparent,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Filled.Info,
+                            contentDescription = null,
+                            tint = PcosinaPink,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
             }
         }
     }
@@ -910,6 +1476,7 @@ private fun GroceryHeadlineCard(
     avatarId: String,
     dateLabel: String,
     compact: Boolean,
+    onOpenProfileSettings: () -> Unit,
 ) {
     SharedAvatarHeader(
         title = "Grocery Pantry",
@@ -917,44 +1484,53 @@ private fun GroceryHeadlineCard(
         avatarId = avatarId,
         dateLabel = dateLabel,
         compact = compact,
+        avatarAlignment = ScreenArtworkAlignment.GroceryHeaderAvatar,
+        avatarArtworkKey = ArtworkAlignmentKeys.GroceryHeaderAvatar,
+        onHeaderClick = onOpenProfileSettings,
     )
 }
 
 @Composable
 private fun GroceryBudgetCard(
     weeklyBudget: Int?,
-    totalEstimated: Int,
+    hasShoppingEstimate: Boolean,
+    estimatedRemainingCost: Int,
+    markedBoughtEstimate: Int,
+    totalShoppingEstimate: Int,
     remainingBudget: Int?,
     budgetProgress: Float,
     compact: Boolean,
 ) {
     val hasBudget = weeklyBudget != null
-    val hasBudgetComparison = hasBudget && totalEstimated > 0
+    val hasBudgetComparison = hasBudget && hasShoppingEstimate
     val withinBudget = hasBudgetComparison && (remainingBudget ?: 0) >= 0
     val budgetColor = when {
         !hasBudgetComparison -> PcosinaMuted
         withinBudget -> Color(0xFF19B764)
         else -> Color(0xFFE2526E)
     }
-    val budgetIcon = when {
-        !hasBudgetComparison -> R.drawable.pcosina_grocery_budget
+    val budgetIcon = R.drawable.pcosina_grocery_budget
+    val statusIcon = when {
+        !hasBudgetComparison -> null
         withinBudget -> R.drawable.pcosina_budgeting_like
         else -> R.drawable.pcosina_budgeting_disliked
     }
     val budgetTitle = when {
         weeklyBudget == null -> "Budget not set"
         !hasBudgetComparison -> "Budget pending"
-        withinBudget -> "Within the Budget"
-        else -> "Over the Budget"
+        withinBudget -> "Within shopping budget"
+        else -> "Over shopping budget"
     }
     val budgetLabel = when {
         weeklyBudget == null -> "Budget not set yet."
         !hasBudgetComparison -> "Add or sync grocery items to compare against your budget."
-        withinBudget -> "Within Budget! ${formatPhp(remainingBudget ?: 0)} left."
-        else -> "Over Budget by ${formatPhp(kotlin.math.abs(remainingBudget ?: 0))}."
+        withinBudget -> "Estimated trip total leaves ${formatPhp(remainingBudget ?: 0)}."
+        else -> "Estimated trip total is over by ${formatPhp(kotlin.math.abs(remainingBudget ?: 0))}."
     }
+    var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
 
     RefinedOverviewCard(
+        modifier = Modifier.testTag("grocery_budget_card"),
         containerColor = Color(0xFFF8FFF8),
         borderColor = budgetColor.copy(alpha = 0.24f),
         contentPadding = PaddingValues(if (compact) 12.dp else 14.dp)
@@ -964,21 +1540,53 @@ private fun GroceryBudgetCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Image(
+            DevEditableArtworkImage(
+                alignmentKey = ArtworkAlignmentKeys.GroceryBudgetIllustration,
                 painter = painterResource(id = budgetIcon),
                 contentDescription = budgetTitle,
                 modifier = Modifier.size(if (compact) 72.dp else 86.dp),
                 contentScale = ContentScale.Fit,
+                alignment = ScreenArtworkAlignment.GroceryBudgetIllustration,
+                externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.GroceryBudgetIllustration,
+                onExternalEditingChange = { editing ->
+                    activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.GroceryBudgetIllustration else null
+                },
             )
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
-                Text(
-                    text = budgetTitle,
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
-                    color = PcosinaDeepRose
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = budgetTitle,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                        color = PcosinaDeepRose,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    statusIcon?.let { iconRes ->
+                        Surface(
+                            modifier = Modifier.size(if (compact) 30.dp else 34.dp),
+                            shape = CircleShape,
+                            color = budgetColor.copy(alpha = 0.14f),
+                            border = BorderStroke(1.dp, budgetColor.copy(alpha = 0.24f)),
+                        ) {
+                            PcosinaDesignIcon(
+                                resId = iconRes,
+                                contentDescription = budgetTitle,
+                                tint = Color.Unspecified,
+                                modifier = Modifier
+                                    .padding(if (compact) 6.dp else 7.dp)
+                                    .size(if (compact) 18.dp else 20.dp),
+                            )
+                        }
+                    }
+                }
                 RefinedStatusPill(
                     text = budgetLabel,
                     containerColor = budgetColor.copy(alpha = 0.16f),
@@ -987,20 +1595,32 @@ private fun GroceryBudgetCard(
             }
         }
         Text(
-            text = "Total Estimated Spending",
+            text = "Estimated remaining to buy",
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
             color = PcosinaDeepRose
         )
         Text(
-            text = if (weeklyBudget != null) {
-                "${formatPhp(totalEstimated)} / ${formatPhp(weeklyBudget)}"
-            } else {
-                formatPhp(totalEstimated)
-            },
+            text = formatPhp(estimatedRemainingCost),
             style = MaterialTheme.typography.headlineSmall.copy(
                 fontWeight = FontWeight.ExtraBold,
                 color = PcosinaDeepRose
             )
+        )
+        Text(
+            text = buildString {
+                append("Marked bought estimate: ${formatPhp(markedBoughtEstimate)}")
+                append(" • Full shopping estimate: ${formatPhp(totalShoppingEstimate)}")
+                weeklyBudget?.let { append(" • Budget: ${formatPhp(it)}") }
+            },
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+            color = PcosinaMuted,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = "Pantry-covered items are removed from the buy estimate. Each row names its price reference; DA-AMAS observations are preferred when available, with named retail or offline references used for remaining items.",
+            style = MaterialTheme.typography.labelSmall,
+            color = PcosinaMuted,
         )
         if (weeklyBudget != null) {
             Box(
@@ -1031,23 +1651,31 @@ private fun GroceryProgressCard(
     remainingCount: Int,
     totalCount: Int,
     listProgress: Float,
-    householdSize: Int,
     onShare: () -> Unit,
     onOpenPantry: () -> Unit,
     compact: Boolean,
 ) {
+    var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
     RefinedOverviewCard(
         containerColor = Color(0xFFFFEEF3),
         borderColor = PcosinaPink.copy(alpha = 0.26f),
         contentPadding = PaddingValues(0.dp)
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Image(
+        Box(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            DevEditableArtworkImage(
+                alignmentKey = ArtworkAlignmentKeys.GroceryProgressBackground,
                 painter = painterResource(id = R.drawable.pcosina_grocery_progress_background),
                 contentDescription = null,
                 modifier = Modifier.matchParentSize(),
                 contentScale = ContentScale.Crop,
+                alignment = ScreenArtworkAlignment.GroceryProgressBackground,
                 alpha = 0.96f,
+                externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.GroceryProgressBackground,
+                onExternalEditingChange = { editing ->
+                    activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.GroceryProgressBackground else null
+                },
             )
             Column(
                 modifier = Modifier
@@ -1072,7 +1700,7 @@ private fun GroceryProgressCard(
                             )
                         )
                         Text(
-                            text = "Built for ${householdSizeLabel(householdSize)} and synced with your saved pantry.",
+                            text = "Synced from the active plan and adjusted with saved pantry matches.",
                             style = MaterialTheme.typography.bodySmall,
                             color = PcosinaMuted
                         )
@@ -1085,34 +1713,38 @@ private fun GroceryProgressCard(
                 }
                 Surface(
                     shape = RoundedCornerShape(22.dp),
-                    color = Color.White.copy(alpha = 0.72f),
+                    color = Color.White.copy(alpha = 0.84f),
                     border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.14f))
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(if (compact) 12.dp else 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         RefinedRingMeter(
-                            valueText = "${remainingCount}/${totalCount.coerceAtLeast(1)}",
-                            subtitle = "items left",
-                            progress = 1f - listProgress,
+                            valueText = "${remainingCount.coerceAtLeast(0)}/${totalCount.coerceAtLeast(0)}",
+                            subtitle = "to buy",
+                            progress = listProgress,
                             color = PcosinaPink,
                             compact = compact
                         )
                         Column(
                             modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(7.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             Text(
-                                text = if (remainingCount == 0) "All items checked" else "Shop what is still missing",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
-                                color = PcosinaDeepRose,
+                                text = "${remainingCount.coerceAtLeast(0)} items still to buy",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                                color = PcosinaDeepRose
                             )
                             Text(
-                                text = "Use pantry matches first, then buy only the remaining budgeted ingredients for this week's plan.",
+                                text = if (remainingCount == 0) {
+                                    "All planned ingredients are covered."
+                                } else {
+                                    "Pantry matches stay separate from bought items, so the list only shows what remains."
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = PcosinaMuted,
                             )
@@ -1132,14 +1764,28 @@ private fun GroceryProgressCard(
                         compact = compact
                     )
                     GroceryActionTile(
-                        title = "View Pantry List?",
+                        title = "Add / View Pantry Items",
                         iconRes = R.drawable.pcosina_svg_29_cart,
                         onClick = onOpenPantry,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .semantics { contentDescription = "Add pantry item" },
                         compact = compact
                     )
                 }
             }
+            DevArtworkAlignmentHotspot(
+                targets = listOf(
+                    ArtworkAlignmentTarget(
+                        key = ArtworkAlignmentKeys.GroceryProgressBackground,
+                        label = "Grocery progress background",
+                    ),
+                ),
+                onEditTarget = { activeArtworkEditorKey = it },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(64.dp),
+            )
         }
     }
 }
@@ -1170,15 +1816,15 @@ private fun GroceryActionTile(
             Surface(
                 shape = RoundedCornerShape(14.dp),
                 color = Color.White.copy(alpha = 0.78f),
-                border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.16f))
+                border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.14f))
             ) {
                 PcosinaDesignIcon(
                     resId = iconRes,
                     contentDescription = null,
-                    tint = PcosinaPink,
+                    tint = PcosinaDeepRose,
                     modifier = Modifier
-                        .padding(10.dp)
-                        .size(if (compact) 18.dp else 20.dp)
+                        .padding(9.dp)
+                        .size(if (compact) 22.dp else 24.dp)
                 )
             }
             Text(
@@ -1200,6 +1846,7 @@ private fun GroceryKitchenHubHeader(
     tipLine: String,
     compact: Boolean,
 ) {
+    var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -1207,11 +1854,17 @@ private fun GroceryKitchenHubHeader(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Image(
+            DevEditableArtworkImage(
+                alignmentKey = ArtworkAlignmentKeys.GroceryKitchenHubIllustration,
                 painter = painterResource(id = R.drawable.pcosina_grocery_kitchen_hub),
                 contentDescription = null,
                 modifier = Modifier.size(if (compact) 58.dp else 68.dp),
                 contentScale = ContentScale.Fit,
+                alignment = ScreenArtworkAlignment.GroceryKitchenHubIllustration,
+                externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.GroceryKitchenHubIllustration,
+                onExternalEditingChange = { editing ->
+                    activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.GroceryKitchenHubIllustration else null
+                },
             )
             Column(
                 modifier = Modifier.weight(1f),
@@ -1254,7 +1907,9 @@ private fun GroceryKitchenHubHeader(
                 Surface(
                     shape = CircleShape,
                     color = if (filtersActive) PcosinaPink else PcosinaSurfaceAlt,
-                    modifier = Modifier.clickable(onClick = onOpenFilters)
+                    modifier = Modifier
+                        .semantics { contentDescription = "Open grocery filters" }
+                        .clickable(onClick = onOpenFilters)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Tune,
@@ -1285,6 +1940,7 @@ private fun GroceryCategoryPanel(
     searchFilteredEmpty: Boolean,
     searchQuery: String,
     pantryMatches: Set<String>,
+    pantryCoverageByName: Map<String, PantryCoverage>,
     pantryOptOut: Set<String>,
     checkedNames: Set<String>,
     categoryEntries: List<Pair<String, List<GroceryListEntry>>>,
@@ -1294,6 +1950,7 @@ private fun GroceryCategoryPanel(
     onNextCategory: () -> Unit,
     onToggleCategoryExpanded: (String) -> Unit,
     onToggleItem: (GroceryListEntry) -> Unit,
+    onOpenPriceDetails: (GroceryListEntry) -> Unit,
     onSyncIngredients: () -> Unit,
     compact: Boolean,
 ) {
@@ -1375,7 +2032,9 @@ private fun GroceryCategoryPanel(
                     val title = category
                     val categoryExpanded = category in expandedCategories
                     val displayedItems = if (categoryExpanded) items else items.take(collapsedCount)
-                    val coveredInCategory = items.count { item ->
+                    val purchasableItems = items.filter { it.requiresGroceryPurchase() }
+                    val householdSupplyCount = items.size - purchasableItems.size
+                    val coveredInCategory = purchasableItems.count { item ->
                         item.name in checkedNames || (item.name in pantryMatches && item.name !in pantryOptOut)
                     }
                     val toggleCategoryLabel = if (categoryExpanded) {
@@ -1431,7 +2090,13 @@ private fun GroceryCategoryPanel(
                                         }
                                     )
                                     Text(
-                                        text = "$coveredInCategory of ${items.size} items bought/covered",
+                                        text = when {
+                                            purchasableItems.isEmpty() && householdSupplyCount > 0 ->
+                                                "$householdSupplyCount household supply required by plan"
+                                            householdSupplyCount > 0 ->
+                                                "$coveredInCategory of ${purchasableItems.size} shopping items covered • $householdSupplyCount household supply"
+                                            else -> "$coveredInCategory of ${purchasableItems.size} items bought or in pantry"
+                                        },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = PcosinaMuted
                                     )
@@ -1460,9 +2125,11 @@ private fun GroceryCategoryPanel(
                             displayedItems.forEach { item ->
                                 GroceryPreviewRow(
                                     item = item,
+                                    pantryCoverage = pantryCoverageByName[item.name],
                                     pantryCovered = item.name in pantryMatches && item.name !in pantryOptOut,
                                     checked = item.name in checkedNames,
-                                    onToggle = { onToggleItem(item) }
+                                    onToggle = { onToggleItem(item) },
+                                    onOpenPriceDetails = { onOpenPriceDetails(item) },
                                 )
                             }
 
@@ -1597,11 +2264,9 @@ private fun GroceryCategoryExpandAction(
 
 @Composable
 private fun GroceryTipsCard(
-    householdSize: Int,
     goal: String,
     compact: Boolean,
 ) {
-    val householdLabel = if (householdSize == 1) "1 person" else "$householdSize people"
     val secondTip = when {
         goal.contains("Symptom", ignoreCase = true) ->
             "Prep simple add-ons like eggs, greens, and yogurt so symptom-friendly meals stay easy."
@@ -1639,7 +2304,7 @@ private fun GroceryTipsCard(
         }
         GroceryTipStripe(
             icon = "🍞",
-            text = "Prioritize high-fiber staples and steadier-carb swaps for $householdLabel.",
+            text = "Prioritize high-fiber staples and steadier-carb swaps for your plan.",
             colors = listOf(Color(0xFFFF91A7), Color(0xFFFF7E95))
         )
         GroceryTipStripe(
@@ -1682,61 +2347,6 @@ private fun GroceryTipStripe(
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xFF3B1B22)
             )
-        }
-    }
-}
-
-@Composable
-private fun GroceryBottomCtaCard(
-    onAddPantry: () -> Unit,
-    compact: Boolean,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = Color.White,
-            border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.22f)),
-            modifier = Modifier
-                .weight(1f)
-                .heightIn(min = 52.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text(
-                    text = "Add an item to the pantry",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = PcosinaDeepRose
-                )
-                Text(
-                    text = "Use the + button to save a staple.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = PcosinaMuted
-                )
-            }
-        }
-        Surface(
-            shape = CircleShape,
-            color = PcosinaPink,
-            modifier = Modifier
-                .size(if (compact) 54.dp else 60.dp)
-                .clickable(onClick = onAddPantry)
-        ) {
-            BoxWithConstraints(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "Add pantry item",
-                    tint = Color.White,
-                    modifier = Modifier.size(if (compact) 24.dp else 28.dp)
-                )
-            }
         }
     }
 }
@@ -1785,6 +2395,7 @@ private fun GroceryFilterChoiceRow(
                 color = PcosinaDeepRose
             )
             Surface(
+                modifier = Modifier.size(22.dp),
                 shape = CircleShape,
                 color = if (selected) PcosinaPink else Color.White,
                 border = BorderStroke(1.dp, if (selected) PcosinaPink else PcosinaMuted.copy(alpha = 0.24f))
@@ -1793,7 +2404,9 @@ private fun GroceryFilterChoiceRow(
                     resId = R.drawable.pcosina_svg_12_check,
                     contentDescription = null,
                     tint = if (selected) Color.White else Color.Transparent,
-                    modifier = Modifier.padding(6.dp)
+                    modifier = Modifier
+                        .padding(5.dp)
+                        .size(12.dp)
                 )
             }
         }
@@ -1812,10 +2425,357 @@ private fun groceryCategoryEmoji(category: String?): String =
         else -> "🧺"
     }
 
+private fun groceryPriceReferenceText(item: GroceryListEntry): String? {
+    val unitPrice = item.unitPricePhp?.takeIf { it >= 0.0 } ?: return null
+    val unit = item.priceUnit?.trim()?.takeIf { it.isNotBlank() } ?: return null
+    val amount = if (unitPrice % 1.0 == 0.0) {
+        "₱%,d".format(Locale.ENGLISH, unitPrice.toInt())
+    } else {
+        "₱%,.2f".format(Locale.ENGLISH, unitPrice)
+    }
+    val purchaseLabel = when (item.purchaseMode) {
+        "weighed_to_order" -> "weighed to order"
+        "count_purchase" -> "buy by piece"
+        "household_not_purchased" -> "household supply"
+        else -> null
+    }
+    return buildList {
+        add("$amount/$unit reference")
+        purchaseLabel?.let(::add)
+    }.joinToString(" • ")
+}
+
+@Composable
+private fun GroceryPriceDetailsDialog(
+    item: GroceryListEntry,
+    referenceDate: String?,
+    referenceLocation: String?,
+    pricingBasis: String?,
+    personalPriceOverride: PersonalPriceOverride?,
+    onSavePersonalPrice: (Double, String, String, String) -> Unit,
+    onResetPersonalPrice: (() -> Unit)?,
+    onDismiss: () -> Unit,
+) {
+    val unitPrice = groceryPriceReferenceText(item) ?: "No unit reference available"
+    val tier = groceryPriceEvidenceTier(item)
+    val normalizedPriceUnit = item.priceUnit
+        ?.trim()
+        ?.lowercase(Locale.ENGLISH)
+        ?.takeIf { it in setOf("kg", "l", "piece") }
+    val canPersonalize = item.requiresGroceryPurchase() &&
+        normalizedPriceUnit != null &&
+        item.key != "water"
+    var personalPriceInput by remember(item.key, personalPriceOverride?.pricePhp) {
+        mutableStateOf(personalPriceOverride?.pricePhp?.let(::formatPersonalPriceInput).orEmpty())
+    }
+    var personalMarketType by remember(item.key, personalPriceOverride?.marketType) {
+        mutableStateOf(personalPriceOverride?.marketType ?: "wet_market")
+    }
+    var personalLocation by remember(item.key, personalPriceOverride?.location) {
+        mutableStateOf(personalPriceOverride?.location?.ifBlank { "NCR" } ?: "NCR")
+    }
+    val parsedPersonalPrice = personalPriceInput
+        .trim()
+        .replace(",", "")
+        .toDoubleOrNull()
+        ?.takeIf { it > 0.0 && it.isFinite() }
+    Dialog(onDismissRequest = onDismiss) {
+        GroceryDialogSurface(maxWidth = 382.dp, containerColor = Color.White) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 590.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                GroceryDialogHeader(
+                    icon = "₱",
+                    title = item.name,
+                    subtitle = "Estimated price evidence and calculation",
+                )
+                GroceryPriceDetailLine("Amount to buy", item.quantityDisplay)
+                GroceryPriceDetailLine("Estimated cost", formatPhp(item.estimatedCostPhp))
+                GroceryPriceDetailLine("Unit reference", unitPrice)
+                GroceryPriceDetailLine("Evidence tier", tier.label)
+                GroceryPriceDetailLine(
+                    "Source",
+                    item.priceSourceLabel?.takeIf { it.isNotBlank() } ?: "Offline PCOSina fallback",
+                )
+                GroceryPriceDetailLine(
+                    "Confidence",
+                    item.priceConfidence?.replaceFirstChar { it.uppercase() } ?: "Unspecified",
+                )
+                referenceDate?.takeIf { it.isNotBlank() }?.let {
+                    GroceryPriceDetailLine("Reference date", it)
+                }
+                referenceLocation?.takeIf { it.isNotBlank() }?.let {
+                    GroceryPriceDetailLine("Reference location", it)
+                }
+                pricingBasis?.takeIf { it.isNotBlank() }?.let {
+                    GroceryPriceDetailLine("Pricing basis", it.replace('_', ' '))
+                }
+                Text(
+                    text = tier.explanation,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PcosinaMuted,
+                )
+                Text(
+                    text = "This is a planning estimate, not a live store quote or guaranteed SRP. Actual prices can vary by market, location, package, and date.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = PcosinaDeepRose,
+                )
+
+                normalizedPriceUnit?.takeIf { canPersonalize }?.let { personalPriceUnit ->
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = PcosinaSurfaceAlt,
+                        border = BorderStroke(1.dp, PcosinaSoftPink.copy(alpha = 0.72f)),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Text(
+                                text = "Your actual unit price",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = PcosinaDeepRose,
+                            )
+                            Text(
+                                text = "Save what you observed locally. After sync, it applies to newly generated plans, not this plan's fixed estimate.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = PcosinaMuted,
+                            )
+                            OutlinedTextField(
+                                value = personalPriceInput,
+                                onValueChange = { value ->
+                                    if (value.length <= 10 && value.matches(Regex("[0-9,.]*"))) {
+                                        personalPriceInput = value
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Price per $personalPriceUnit") },
+                                prefix = { Text("₱") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                isError = personalPriceInput.isNotBlank() && parsedPersonalPrice == null,
+                                supportingText = {
+                                    Text("Unusual values are accepted with a warning so real local prices are not blocked.")
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                            )
+                            PersonalPriceMarketDropdown(
+                                selectedMarketType = personalMarketType,
+                                onMarketTypeChange = { personalMarketType = it },
+                            )
+                            OutlinedTextField(
+                                value = personalLocation,
+                                onValueChange = { personalLocation = it.take(80) },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Location") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(8.dp),
+                            )
+                            personalPriceOverride?.let { saved ->
+                                GroceryPriceDetailLine(
+                                    "Saved status",
+                                    personalPriceSyncStatusLabel(saved.syncStatus),
+                                )
+                                saved.validUntil?.takeIf { it.isNotBlank() }?.let {
+                                    GroceryPriceDetailLine("Valid until", it)
+                                }
+                                saved.warning?.takeIf { it.isNotBlank() }?.let { warning ->
+                                    Text(
+                                        text = warning,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = PcosinaDeepRose,
+                                    )
+                                }
+                            }
+                            GroceryDialogActionButton(
+                                text = "Save personal price",
+                                filled = true,
+                                enabled = parsedPersonalPrice != null,
+                                onClick = {
+                                    parsedPersonalPrice?.let { price ->
+                                        onSavePersonalPrice(
+                                            price,
+                                            personalPriceUnit,
+                                            personalMarketType,
+                                            personalLocation.trim().ifBlank { "NCR" },
+                                        )
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .semantics {
+                                        if (parsedPersonalPrice == null) {
+                                            contentDescription = "Enter a valid positive price to save"
+                                        }
+                                    },
+                            )
+                            onResetPersonalPrice?.let { resetPrice ->
+                                GroceryDialogActionButton(
+                                    text = "Reset to shared reference",
+                                    filled = false,
+                                    onClick = resetPrice,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
+                    }
+                }
+                GroceryDialogActionButton(
+                    text = "Close",
+                    filled = !canPersonalize,
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PersonalPriceMarketDropdown(
+    selectedMarketType: String,
+    onMarketTypeChange: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val choices = listOf(
+        "wet_market" to "Wet market",
+        "supermarket" to "Supermarket",
+        "neighborhood_store" to "Neighborhood store",
+    )
+    val selectedLabel = choices.firstOrNull { it.first == selectedMarketType }?.second ?: "Wet market"
+    Box {
+        Surface(
+            onClick = { expanded = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp),
+            shape = RoundedCornerShape(8.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, PcosinaMuted.copy(alpha = 0.48f)),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text("Market type", style = MaterialTheme.typography.labelSmall, color = PcosinaMuted)
+                    Text(
+                        selectedLabel,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = PcosinaDeepRose,
+                    )
+                }
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = PcosinaMuted)
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            choices.forEach { (value, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = {
+                        onMarketTypeChange(value)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+private fun formatPersonalPriceInput(value: Double): String =
+    if (value % 1.0 == 0.0) value.toInt().toString() else "%.2f".format(Locale.ENGLISH, value)
+
+private fun personalPriceSyncStatusLabel(status: String): String = when (status) {
+    "Synced" -> "Synced"
+    "DeletePending" -> "Reset pending sync"
+    "Failed" -> "Sync failed; save again to retry"
+    else -> "Saved locally; pending sync"
+}
+
+@Composable
+private fun GroceryPriceDetailLine(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.weight(0.42f),
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            color = PcosinaMuted,
+        )
+        Text(
+            text = value,
+            modifier = Modifier.weight(0.58f),
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+            color = PcosinaDeepRose,
+            textAlign = TextAlign.End,
+        )
+    }
+}
+
+private data class GroceryPriceEvidenceTier(
+    val label: String,
+    val explanation: String,
+)
+
+private fun groceryPriceEvidenceTier(item: GroceryListEntry): GroceryPriceEvidenceTier {
+    val source = "${item.priceSourceKey.orEmpty()} ${item.priceSourceLabel.orEmpty()}".lowercase(Locale.ENGLISH)
+    return when {
+        item.purchaseMode == "household_not_purchased" -> GroceryPriceEvidenceTier(
+            "Household supply",
+            "Companion tap water is measured in liters and excluded from the grocery purchase total.",
+        )
+        "user_override" in source || "personal" in source -> GroceryPriceEvidenceTier(
+            "Personal recent price",
+            "A user-specific observation has priority while it remains current and unit-compatible.",
+        )
+        "da" in source || "amas" in source || "wet_market" in source -> GroceryPriceEvidenceTier(
+            "Government or wet-market observation",
+            "A dated market observation is used as the item reference for the configured location.",
+        )
+        "retail" in source || "supermarket" in source || "metro" in source -> GroceryPriceEvidenceTier(
+            "Named retail observation",
+            "A dated supermarket or metro-retail listing is used when it better matches the purchasable item.",
+        )
+        "reviewed" in source -> GroceryPriceEvidenceTier(
+            "Reviewed market rule",
+            "A reviewed PCOSina price rule is used when a direct item observation is unavailable.",
+        )
+        "category_average" in source || "category average" in source -> GroceryPriceEvidenceTier(
+            "Offline category-average fallback",
+            "This is the least specific fallback. It is a bounded category reference, not an audited item SRP.",
+        )
+        "static" in source || "baseline" in source || "canonical" in source -> GroceryPriceEvidenceTier(
+            "Canonical baseline",
+            "A maintained offline item baseline is used when no newer compatible observation is available.",
+        )
+        else -> GroceryPriceEvidenceTier(
+            "Offline reference",
+            "The best compatible offline reference available to this build was used.",
+        )
+    }
+}
+
 private fun formatPhp(value: Int): String = "₱%,d".format(Locale.ENGLISH, value)
 
 private fun refinedPantryKey(raw: String): String =
     canonicalGroceryKey(raw)
+
+private fun parsePantryExpiryDate(raw: String?): LocalDate? =
+    raw?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?.let { value ->
+            runCatching { LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
+        }
 
 private fun refinedPantryTokens(raw: String): Set<String> =
     refinedPantryKey(raw)
@@ -1825,12 +2785,5 @@ private fun refinedPantryTokens(raw: String): Set<String> =
         .toSet()
 
 private fun refinedPantryMatches(pantryName: String, groceryName: String): Boolean {
-    val pantryKey = refinedPantryKey(pantryName)
-    val groceryKey = refinedPantryKey(groceryName)
-    if (pantryKey.isBlank() || groceryKey.isBlank()) return false
-    if (pantryKey == groceryKey) return true
-    val pantryTokens = refinedPantryTokens(pantryName)
-    val groceryTokens = refinedPantryTokens(groceryName)
-    if (pantryTokens.size <= 1 || groceryTokens.size <= 1) return false
-    return pantryTokens.containsAll(groceryTokens) || groceryTokens.containsAll(pantryTokens)
+    return groceryNamesMatch(pantryName, groceryName)
 }

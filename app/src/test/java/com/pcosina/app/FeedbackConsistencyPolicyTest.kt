@@ -35,7 +35,7 @@ class FeedbackConsistencyPolicyTest {
         assertTrue("Meal Plan should use inline feedback message state.", mealPlanText.contains("var feedbackMessage by remember"))
         assertTrue("Meal Plan should avoid snackbar-only confirmation flows.", !mealPlanText.contains("showSnackbar("))
         assertTrue("Progress should use inline feedback message state.", progressText.contains("var feedbackMessage by remember"))
-        assertTrue("Progress should keep weekly review confirmation copy.", progressText.contains("Weekly review updated."))
+        assertTrue("Progress should keep plan-tuning confirmation copy.", progressText.contains("Next-plan preferences updated."))
         assertTrue("Progress should avoid toast-only save flows.", !progressText.contains("Toast.makeText"))
     }
 

@@ -7,6 +7,35 @@ on:
     branches: [ "dev" ]
 
 jobs:
+  design-contract:
+    name: Shared Design Contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Verify generated tokens and screen parity
+        run: python scripts/generate_design_contract.py --check
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Test and build web app
+        working-directory: web
+        run: |
+          npm ci
+          npm test -- --run
+          npm run build
+
   android-build:
     name: Android Build
     runs-on: ubuntu-latest
@@ -32,6 +61,21 @@ jobs:
 
       - name: Ensure Gradle wrapper is executable
         run: chmod +x ./gradlew
+
+      - name: Create CI-only debug keystore
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000
+          fi
 
       - name: Build Release APK (assembleRelease)
         env:
@@ -76,7 +120,6 @@ jobs:
           api-level: ${{ matrix.api-level }}
           arch: x86_64
           profile: pixel_4
-          locale: en_US
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
@@ -122,27 +165,18 @@ jobs:
           api-level: ${{ matrix.api-level }}
           arch: x86_64
           profile: pixel_4
-          locale: en_US
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             adb shell settings put system font_scale 1.0
-            if [ -f app/src/androidTest/assets/visual_baselines/compact_profile_step3.png ] && \
-               [ -f app/src/androidTest/assets/visual_baselines/compact_chip_row.png ] && \
-               [ -f app/src/androidTest/assets/visual_baselines/compact_dashboard_today_outcome.png ] && \
-               [ -f app/src/androidTest/assets/visual_baselines/compact_progress_top_section.png ] && \
-               [ -f app/src/androidTest/assets/visual_baselines/compact_mealplan_top_section.png ] && \
-               [ -f app/src/androidTest/assets/visual_baselines/compact_login_first_win_card.png ] && \
-               [ -f app/src/androidTest/assets/visual_baselines/compact_profile_first_win_card.png ] && \
-               [ -f app/src/androidTest/assets/visual_baselines/compact_goal_handoff_card.png ]; then
-              ./gradlew :app:connectedDebugAndroidTest \
-                -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest \
-                -Pandroid.testInstrumentationRunnerArguments.require_visual_baseline=true \
-                -Pandroid.testInstrumentationRunnerArguments.visual_delta_threshold=6.0
+            if [ -f app/src/androidTest/assets/visual_baselines/compact_profile_step3.png ] && [ -f app/src/androidTest/assets/visual_baselines/compact_chip_row.png ] && [ -f app/src/androidTest/assets/visual_baselines/compact_dashboard_today_outcome.png ] && [ -f app/src/androidTest/assets/visual_baselines/compact_progress_top_section.png ] && [ -f app/src/androidTest/assets/visual_baselines/compact_mealplan_top_section.png ]; then
+              ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest -Pandroid.testInstrumentationRunnerArguments.require_visual_baseline=true -Pandroid.testInstrumentationRunnerArguments.visual_delta_threshold=6.0
 
-              ./gradlew :app:connectedDebugAndroidTest \
-                -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest \
-                -Pandroid.testInstrumentationRunnerArguments.refresh_visual_baseline=true
+              ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest -Pandroid.testInstrumentationRunnerArguments.refresh_visual_baseline=true
+            else
+              echo "Full compact baseline set not committed yet; strict verify skipped."
+              ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest -Pandroid.testInstrumentationRunnerArguments.refresh_visual_baseline=true
+            fi
 
       - name: Upload compact visual regression artifacts
         if: always()
@@ -154,12 +188,6 @@ jobs:
             app/build/outputs/androidTest-results/connected/**/*
             app/build/outputs/connected_android_test_additional_output/**/*
           if-no-files-found: warn
-            else
-              echo "Full compact baseline set not committed yet; strict verify skipped."
-              ./gradlew :app:connectedDebugAndroidTest \
-                -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CompactWidthVisualRegressionTest \
-                -Pandroid.testInstrumentationRunnerArguments.refresh_visual_baseline=true
-            fi
 
   ux-critical-flow:
     name: UX Critical Flow Gates (API 34)
@@ -178,22 +206,18 @@ jobs:
       - name: Ensure Gradle wrapper is executable
         run: chmod +x ./gradlew
 
-      - name: Run first-win and reminder critical instrumentation tests
+      - name: Run current core and reminder critical instrumentation tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
           arch: x86_64
           profile: pixel_4
-          locale: en_US
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             adb shell settings put system font_scale 1.0
-            ./gradlew :app:connectedDebugAndroidTest \
-              -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.FirstWinFlowUiTest \
-              -Pandroid.testInstrumentationRunnerArguments.first_win_timeout_ms=90000
-            ./gradlew :app:connectedDebugAndroidTest \
-              -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.MealPlanSwapBannerUiTest#statusCenter_showsReminderSummaryWhenNotificationsEnabled
+            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.CurrentCoreFlowUiTest
+            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.pcosina.app.MealPlanSwapBannerUiTest#statusCenter_showsReminderSummaryWhenNotificationsEnabled
 
       - name: Upload UX critical flow artifacts
         if: always()
@@ -223,6 +247,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install -r ../ml/offline_training/requirements.txt
 
       - name: Run backend test suite
         working-directory: backend

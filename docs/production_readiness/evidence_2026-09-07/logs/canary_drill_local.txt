@@ -1,0 +1,1 @@
+CANARY DRILL RECEIPT WRITTEN: benchmarks\reports\production_readiness_2026-09-07\canary_drill_receipt.local_host.json

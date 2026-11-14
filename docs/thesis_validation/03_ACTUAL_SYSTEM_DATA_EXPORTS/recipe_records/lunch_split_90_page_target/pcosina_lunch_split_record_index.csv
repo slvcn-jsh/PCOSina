@@ -1,0 +1,137 @@
+recordNumber,recipeId,recipeName,mealType,partNumber,partFile
+1,ph_284,Adobo Steak Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+2,ph_733,Adobong Itlog At Patatas Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+3,ph_565,Adobong Itlog Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+4,ph_762,Adobong Kangkong with Chicharon Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+5,ph_287,Adobong Labong Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+6,ph_392,Adobong Tahong (Filipino Mussels Adobo) Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+7,ph_399,Authentic Sinampalukang Kambing (Filipino Sour Goat Soup) Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+8,ph_871,Baked Pinakbet Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+9,ph_form_029,Bangus Pinakbet Lunch Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+10,ph_887,Beef Barbecue Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+11,ph_620,Beef Caldereta With Gata Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+12,ph_486,Beef Kaldereta (Caldereta) Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+13,ph_316,Beef Pochero Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+14,ph_559,Binagoongan Talong Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+15,ph_974,Chicken Afritada Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+16,ph_qk_044,Chicken Afritada Lite Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+17,ph_160,Chicken Afritada with Bell Pepper Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+18,ph_form_043,Chicken Garbanzo Pinakbet Lunch Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+19,ph_669,Chicken Goto Complete Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+20,ph_form_026,Chicken Kalabasa Okra Lunch Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+21,ph_form_044,Chicken Kidney Pechay Lunch Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+22,ph_budget_077,Chicken Kidney Sitaw Budget Lunch Plate,Lunch,1,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx
+23,ph_141,Chicken Molo Soup Complete Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+24,ph_form_045,Chicken Mushroom Okra Lunch Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+25,ph_qk_049,Chicken Repolyo Carrot Rice Complete Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+26,ph_form_046,Chicken Sitaw Kidney Lunch Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+27,ph_form_147,Chickpea Sitaw Malunggay Vegan Lunch Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+28,ph_901,Crispy Lechon Liempo with Bagoong Sauce Complete Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+29,ph_393,Crocodile Sisig Complete Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+30,ph_form_116,Egg Garbanzo Malunggay Rice Lunch Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+31,ph_budget_079,Egg Garbanzo Pechay Budget Lunch Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+32,ph_form_082,Egg Garbanzo Sitaw Lunch Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+33,ph_form_111,Egg Kidney Kalabasa Rice Lunch Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+34,ph_form_087,Egg Kidney Pechay Lunch Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+35,ph_form_084,Egg Kidney Sitaw Lunch Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+36,ph_form_113,Egg Mushroom Pinakbet Rice Lunch Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+37,ph_form_108,Egg Tofu Sitaw Rice Lunch Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+38,ph_form_032,Eggplant Egg Malunggay Lunch Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+39,ph_form_013,Eggplant Okra Munggo Lunch Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+40,ph_381,Filipino Chicken Adobo with Crispy Potatoes Complete Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+41,ph_772,Filipino Chicken Inasal Complete Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+42,ph_805,Filipino Ginataan Complete Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+43,ph_127,Filipino Shrimp Pancit Bihon Complete Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+44,ph_form_110,Garbanzo Eggplant Malunggay Rice Lunch Plate,Lunch,2,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx
+45,ph_form_058,Garbanzo Kidney Pinakbet Lunch Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+46,ph_form_145,Garbanzo Kidney Pinakbet Vegan Lunch Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+47,ph_form_149,Garbanzo Mushroom Kalabasa Vegan Lunch Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+48,ph_form_060,Garbanzo Mushroom Sitaw Lunch Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+49,ph_form_062,Garbanzo Pechay Okra Lunch Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+50,ph_form_064,Garbanzo Sitaw Eggplant Lunch Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+51,ph_form_114,Garbanzo Sitaw Pechay Rice Lunch Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+52,ph_671,Ginataang Alimasag Complete Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+53,ph_44,Ginataang Langka with Pork Complete Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+54,ph_42,Ginataang Manok with Kalabasa Complete Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+55,ph_630,Ginataang Pusit Complete Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+56,ph_202,Ginisang Ampalaya with Shrimp (Sauteed Bitter Gourd) Complete Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+57,ph_420,Ginisang Sayote with Shrimp (Sauted Chayote) Complete Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+58,ph_551,Gising Gising with Bangus Complete Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+59,ph_rnd_002,Grilled Chicken Pinakbet Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+60,ph_119,Grilled Stuffed Squid (inihaw na pusit) Complete Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+61,ph_form_012,Kalabasa Pechay Munggo Lunch Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+62,ph_form_016,Kalabasa Sitaw Munggo Lunch Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+63,ph_form_148,Kidney Eggplant Okra Vegan Lunch Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+64,ph_form_059,Kidney Malunggay Pechay Lunch Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+65,ph_form_063,Kidney Mushroom Kalabasa Lunch Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+66,ph_form_109,Kidney Mushroom Pechay Rice Lunch Plate,Lunch,3,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx
+67,ph_form_146,Kidney Pechay Mushroom Vegan Lunch Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+68,ph_form_150,Kidney Pechay Sitaw Vegan Lunch Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+69,ph_form_061,Kidney Squash Sitaw Lunch Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+70,ph_41,Laing na Gabi Complete Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+71,ph_933,Lechon Kawali Binagoongan sa Gata Complete Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+72,ph_801,Lechon Kawali Hash Complete Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+73,ph_266,Lechon Sisig Complete Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+74,ph_form_010,Malunggay Munggo Vegetable Lunch Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+75,ph_budget_001,Munggo Malunggay Rice Complete Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+76,ph_budget_015,Munggo Malunggay Rice Complete Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+77,ph_budget_029,Munggo Malunggay Rice Complete Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+78,ph_budget_043,Munggo Malunggay Rice Complete Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+79,ph_budget_057,Munggo Malunggay Rice Complete Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+80,ph_form_009,Munggo Pinakbet-Style Lunch Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+81,ph_form_011,Okra Sitaw Munggo Lunch Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+82,ph_172,Pancit Cabagan Complete Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+83,ph_83,Pancit Canton at Bihon Complete Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+84,ph_784,Pancit Musiko Complete Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+85,ph_form_015,Pechay Okra Munggo Lunch Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+86,ph_597,Pesang Dalag Complete Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+87,ph_914,Pinoy Nachos Complete Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+88,ph_709,Pochero Complete Plate,Lunch,4,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx
+89,ph_126,Pork Pata Humba Complete Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+90,ph_667,Pork Ribs Tinola Complete Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+91,ph_880,Pork and Shrimp Dumplings Complete Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+92,ph_form_132,Sardines Eggplant Pechay Lunch Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+93,ph_budget_004,Sardines Malunggay Rice Complete Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+94,ph_budget_018,Sardines Malunggay Rice Complete Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+95,ph_budget_032,Sardines Malunggay Rice Complete Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+96,ph_budget_046,Sardines Malunggay Rice Complete Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+97,ph_budget_060,Sardines Malunggay Rice Complete Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+98,ph_form_036,Sardines Okra Pechay Lunch Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+99,ph_962,Seafood Pancit Sotanghon Complete Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+100,ph_budget_081,Shrimp Garbanzo Malunggay Budget Lunch Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+101,ph_form_133,Shrimp Kidney Okra Lunch Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+102,ph_form_085,Shrimp Okra Garbanzo Lunch Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+103,ph_278,Sinampalukang Manok Complete Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+104,ph_337,Sinigang na Tilapia with Gabi Complete Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+105,ph_form_014,Sitaw Malunggay Munggo Lunch Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+106,ph_909,Sizzling Bulalo na Baka (Beef Shank) Complete Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+107,ph_926,Smoked Bangus Eggplant Torta Complete Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+108,ph_budget_007,Squash Munggo Rice Complete Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+109,ph_budget_021,Squash Munggo Rice Complete Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+110,ph_budget_035,Squash Munggo Rice Complete Plate,Lunch,5,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx
+111,ph_budget_049,Squash Munggo Rice Complete Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+112,ph_budget_063,Squash Munggo Rice Complete Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+113,ph_form_134,Squid Egg Sitaw Lunch Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+114,ph_form_073,Squid Okra Kidney Lunch Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+115,ph_form_086,Squid Pechay Kidney Lunch Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+116,ph_budget_082,Squid Sitaw Chickpea Budget Lunch Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+117,ph_87,Tinolang Manok sa Upo Complete Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+118,ph_form_088,Tofu Eggplant Garbanzo Lunch Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+119,ph_form_107,Tofu Garbanzo Kidney Pinakbet Rice Lunch Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+120,ph_form_083,Tofu Garbanzo Mushroom Lunch Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+121,ph_form_112,Tofu Garbanzo Okra Rice Lunch Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+122,ph_form_115,Tofu Kidney Eggplant Rice Lunch Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+123,ph_form_081,Tofu Kidney Pinakbet Lunch Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+124,ph_budget_080,Tofu Kidney Squash Budget Lunch Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+125,ph_form_034,Tofu Sitaw Kalabasa Lunch Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+126,ph_639,Tortang Talong With Tokwa Complete Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+127,ph_budget_078,Tuna Chickpea Okra Budget Lunch Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+128,ph_form_131,Tuna Garbanzo Pinakbet Lunch Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+129,ph_budget_011,Tuna Munggo Vegetable Complete Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+130,ph_budget_025,Tuna Munggo Vegetable Complete Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+131,ph_budget_039,Tuna Munggo Vegetable Complete Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+132,ph_budget_053,Tuna Munggo Vegetable Complete Plate,Lunch,6,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx
+133,ph_budget_067,Tuna Munggo Vegetable Complete Plate,Lunch,7,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_07_Records_133-136.docx
+134,ph_738,Tuna Sinigang Complete Plate,Lunch,7,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_07_Records_133-136.docx
+135,ph_845,Turbo Broiler French Fries Complete Plate,Lunch,7,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_07_Records_133-136.docx
+136,ph_922,Vietnamese Chicken Barbecue Complete Plate,Lunch,7,PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_07_Records_133-136.docx

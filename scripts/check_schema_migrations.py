@@ -37,7 +37,9 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.database_name:
-        os.environ["PCOSINA_DB_NAME"] = str(Path(args.database_name).resolve())
+        database_path = Path(args.database_name).resolve()
+        database_path.parent.mkdir(parents=True, exist_ok=True)
+        os.environ["PCOSINA_DB_NAME"] = str(database_path)
 
     import database  # noqa: WPS433
     import policy_store  # noqa: WPS433

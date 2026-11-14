@@ -6,9 +6,6 @@ Expected filenames:
 - `compact_dashboard_today_outcome.png`
 - `compact_progress_top_section.png`
 - `compact_mealplan_top_section.png`
-- `compact_login_first_win_card.png`
-- `compact_profile_first_win_card.png`
-- `compact_goal_handoff_card.png`
 - `manifest.sha256` (hash lock for committed baseline images)
 
 When present, `CompactWidthVisualRegressionTest` compares current captures to these baselines.

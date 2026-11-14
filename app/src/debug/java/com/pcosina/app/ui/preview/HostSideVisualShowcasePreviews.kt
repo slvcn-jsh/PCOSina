@@ -95,7 +95,6 @@ import com.pcosina.app.ui.screens.StepOneIdentity
 import com.pcosina.app.ui.screens.StepThreeDiet
 import com.pcosina.app.ui.theme.PCOSINATheme
 import com.pcosina.app.ui.theme.PcosinaSuccess
-import com.pcosina.app.ui.util.householdPlanningSummary
 
 @Preview(
     name = "Dashboard Status Compact",
@@ -943,16 +942,12 @@ fun ProfilePlanningHostPreview() {
             onR5 = {},
             budget = "2500",
             onBudget = {},
-            householdSize = 3,
-            onHouseholdSize = {},
             maxCookingTime = "35",
             onMaxCookingTime = {},
             varietyPreference = "Balanced",
             onVarietyPreference = {},
             planningPriority = "Balanced",
             onPlanningPriority = {},
-            pantryText = "eggs, monggo, chicken breast, pechay",
-            onPantryText = {},
             allergiesText = "peanut",
             onAllergiesText = {},
             color = primaryColor,
@@ -1509,8 +1504,6 @@ fun RecipeErrorHostPreview() {
 )
 @Composable
 fun RecipeSuccessHostPreview() {
-    val householdSize = 3
-
     PreviewSurface {
         AppFeedbackBanner(
             data = FeedbackBannerData(
@@ -1580,13 +1573,13 @@ fun RecipeSuccessHostPreview() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = "\uD83D\uDC65 Family of 3",
+                        text = "Primary-user plan",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Text(
-                    text = householdPlanningSummary(householdSize),
+                    text = "Ingredients and grocery totals stay scoped to the primary-user plan.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1618,12 +1611,12 @@ fun RecipeSuccessHostPreview() {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
-                    text = "Nutrition per person",
+                    text = "Nutrition summary",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = "Whole recipe for Family of 3: 1110 kcal • 72g protein",
+                    text = "Selected serving: 370 kcal • 24g protein",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1757,7 +1750,6 @@ fun RecipeMealCheckInHostPreview() {
                 fullnessLevel = 4,
                 cravingsLevel = 2,
                 satisfactionLevel = 5,
-                note = "Filling, easy to portion, and did not trigger mid-afternoon cravings.",
             ),
             onDismiss = {},
             onSave = {},
@@ -1773,8 +1765,6 @@ fun RecipeMealCheckInHostPreview() {
 )
 @Composable
 fun RecipeAddToGroceryHostPreview() {
-    val householdSize = 3
-
     PreviewSurface {
         AppFeedbackBanner(
             data = FeedbackBannerData(
@@ -1831,13 +1821,13 @@ fun RecipeAddToGroceryHostPreview() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = "\uD83D\uDC65 Family of 3",
+                        text = "Primary-user plan",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Text(
-                    text = householdPlanningSummary(householdSize),
+                    text = "Ingredients and grocery totals stay scoped to the primary-user plan.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -2174,7 +2164,7 @@ fun GroceryFilterResetHostPreview() {
         }
         PreviewNarrativeCard(
             title = "Shopping overview",
-            body = "Cooking for Family of 3. Totals use a local market guide and may change week to week.",
+            body = "Built for the primary-user plan. Totals use a local market guide and may change week to week.",
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2219,7 +2209,7 @@ fun GroceryBudgetWarningHostPreview() {
         )
         PreviewNarrativeCard(
             title = "Shopping overview",
-            body = "Cooking for Family of 3. Totals use a local market guide and may change week to week.",
+            body = "Built for the primary-user plan. Totals use a local market guide and may change week to week.",
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2274,7 +2264,7 @@ fun GroceryBudgetWarningHostPreview() {
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = "Estimated \u20B12140 for Family of 3 against a \u20B11800 weekly budget. About \u20B1340 over.",
+                    text = "Estimated \u20B12140 for the primary-user plan against a \u20B11800 weekly budget. About \u20B1340 over.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -2315,7 +2305,7 @@ fun GroceryBudgetMonthlyHostPreview() {
         )
         PreviewNarrativeCard(
             title = "Shopping overview",
-            body = "Cooking for Family of 3. Totals use a local market guide and may change week to week.",
+            body = "Built for the primary-user plan. Totals use a local market guide and may change week to week.",
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2370,7 +2360,7 @@ fun GroceryBudgetMonthlyHostPreview() {
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = "Estimated \u20B11620 for Family of 3 against a \u20B17800 monthly budget. Weekly guide: \u20B1180.",
+                    text = "Estimated \u20B11620 for the primary-user plan against a \u20B17800 monthly budget. Weekly guide: \u20B1180.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -2413,7 +2403,7 @@ fun GroceryShareFailureHostPreview() {
         )
         PreviewNarrativeCard(
             title = "Shopping overview",
-            body = "Cooking for Family of 3. Totals use a local market guide and may change week to week.",
+            body = "Built for the primary-user plan. Totals use a local market guide and may change week to week.",
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2446,7 +2436,7 @@ fun GroceryShareFailureHostPreview() {
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = "Estimated \u20B11620 for Family of 3 against a \u20B11800 weekly budget. About \u20B1180 left.",
+                    text = "Estimated \u20B11620 for the primary-user plan against a \u20B11800 weekly budget. About \u20B1180 left.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -2495,7 +2485,7 @@ fun GroceryShareSuccessHostPreview() {
         )
         PreviewNarrativeCard(
             title = "Shopping overview",
-            body = "Cooking for Family of 3. Totals use a local market guide and may change week to week.",
+            body = "Built for the primary-user plan. Totals use a local market guide and may change week to week.",
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2528,7 +2518,7 @@ fun GroceryShareSuccessHostPreview() {
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = "Estimated \u20B11620 for Family of 3 against a \u20B11800 weekly budget. About \u20B1180 left.",
+                    text = "Estimated \u20B11620 for the primary-user plan against a \u20B11800 weekly budget. About \u20B1180 left.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -4094,7 +4084,7 @@ fun PlanningMethodologyHostPreview() {
         StatusCenterCard(
             queuedActionsLabel = "Deterministic filtering and optimization remain the planning backbone.",
             syncLabel = "Hard rules always win. ML can assist ranking, but never override constraints.",
-            planRangeLabel = "Profile, pantry, and household inputs stay local-first before planning starts.",
+            planRangeLabel = "Profile and pantry inputs stay local-first before planning starts.",
             nextReminderLabel = "Use this screen for internal review only. Regular users should stay in plan, grocery, and progress.",
         )
         PreviewMethodologyStepCard(
@@ -4104,7 +4094,7 @@ fun PlanningMethodologyHostPreview() {
             bullets = listOf(
                 "Profile and symptom context shape the week.",
                 "Hard rules include allergies, exclusions, budget caps, and max cooking time.",
-                "Local pantry and household context stay device-first."
+                "Local pantry context stays device-first."
             ),
             color = MaterialTheme.colorScheme.primary,
         )
@@ -4126,7 +4116,7 @@ fun PlanningMethodologyHostPreview() {
             bullets = listOf(
                 "Balances calories, macros, variety, symptoms, and planning priorities.",
                 "ML can assist ranking candidates but never override hard constraints.",
-                "Household size scales shopping totals while nutrition targets stay per person."
+                "Shopping totals stay scoped to the primary-user plan."
             ),
             color = MaterialTheme.colorScheme.primary,
         )

@@ -28,6 +28,36 @@ class LoginRecoveryPolicyTest {
     }
 
     @Test
+    fun termsOverlay_boundsOwnershipArtworkAndKeepsAcceptanceControlsAddressable() {
+        val file = resolveMainSourceRoot().resolve(
+            Paths.get(
+                "com",
+                "pcosina",
+                "app",
+                "ui",
+                "screens",
+                "LoginScreen.kt"
+            )
+        )
+        val termsOverlay = String(Files.readAllBytes(file))
+            .substringAfter("private fun TermsOfServiceOverlay(")
+            .substringBefore("private fun LegalSection(")
+
+        assertTrue(
+            "The Terms ownership artwork needs a fixed height so it cannot consume the screen.",
+            termsOverlay.contains(".height(if (tightHeight) 40.dp else if (compact) 48.dp else 54.dp)")
+        )
+        assertTrue(
+            "The Terms card should remain addressable in UI verification.",
+            termsOverlay.contains(".testTag(\"login_terms_card\")")
+        )
+        assertTrue(
+            "The Terms acceptance action should remain addressable in UI verification.",
+            termsOverlay.contains(".testTag(\"login_terms_accept\")")
+        )
+    }
+
+    @Test
     fun authViewModel_exposesPasswordResetHandler() {
         val file = resolveMainSourceRoot().resolve(
             Paths.get(

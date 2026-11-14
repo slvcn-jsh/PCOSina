@@ -12,6 +12,17 @@ import org.junit.Test
 class UiGuardrailPolicyTest {
 
     @Test
+    fun launcherManifest_matchesPackagedMainActivityClass() {
+        val manifest = read(resolve("app", "src", "main", "AndroidManifest.xml"))
+        val activity = read(
+            resolve("app", "src", "main", "java", "com", "pcosina", "app", "MainActivity.kt")
+        )
+
+        assertTrue("Manifest should launch .MainActivity.", manifest.contains("android:name=\".MainActivity\""))
+        assertTrue("The launcher class must be packaged as MainActivity.", activity.contains("class MainActivity"))
+    }
+
+    @Test
     fun allScreens_areClassifiedForUiPolicyScope() {
         val discovered = discoverScreenFileNames()
         val classified = spacingTokenScreens + chipTokenScreens + policyExemptScreens
@@ -98,16 +109,20 @@ class UiGuardrailPolicyTest {
         val progress = read(resolveScreen("ProgressRefinedScreen.kt"))
 
         assertTrue(
-            "Refined progress should surface weekly savings.",
-            progress.contains("Weekly savings")
+            "Refined progress should surface weekly budget.",
+            progress.contains("Weekly budget")
         )
         assertTrue(
-            "Refined progress should surface average daily macros.",
-            progress.contains("Average daily macros")
+            "Refined progress should surface logged nutrition.",
+            progress.contains("Logged nutrition")
+        )
+        assertTrue(
+            "Refined progress should surface meal response instead of unsupported symptom trends.",
+            progress.contains("Meal response")
         )
         assertTrue(
             "Refined progress should keep the weekly review CTA visible.",
-            progress.contains("text = \"Review week\"")
+            progress.contains("else \"Review week\"")
         )
     }
 
@@ -118,7 +133,7 @@ class UiGuardrailPolicyTest {
         assertFalse("Refined progress should not expose the old Jump to Today CTA.", progress.contains("Jump to Today"))
         assertFalse("Refined progress should not keep old traversal card ids.", progress.contains("progress_week_insights_card"))
         assertFalse("Refined progress should not keep the old Track focus label.", progress.contains("ProgressScreenFocus.Track"))
-        assertTrue("Refined progress should keep the Check in CTA.", progress.contains("Check in"))
+        assertFalse("Refined progress should not keep the removed Today check-in CTA.", progress.contains("text = \"Check in\""))
         assertTrue("Refined progress should keep the Review week CTA.", progress.contains("Review week"))
     }
 
@@ -147,16 +162,14 @@ class UiGuardrailPolicyTest {
     }
 
     @Test
-    fun adminOperatorRouting_doesNotWhitelistClientMoreToolsSurface() {
+    fun mobileShell_doesNotExposeAdminOperatorRoutes() {
         val navHost = read(
             resolve("app", "src", "main", "java", "com", "pcosina", "app", "ui", "navigation", "AppNavHost.kt")
         )
 
-        assertFalse("Operator accounts should not get a MoreTools client-side bypass.", navHost.contains("isOperatorReviewRoute"))
-        assertTrue(
-            "Operator dashboard More Tools entry should stay in admin methodology.",
-            navHost.contains("onOpenMoreTools = { navigateInternal(Routes.AdminMethodology) }")
-        )
+        assertFalse("Mobile navigation should not contain operator routes.", navHost.contains("Routes.Operator"))
+        assertFalse("Mobile navigation should not contain admin methodology routes.", navHost.contains("Routes.AdminMethodology"))
+        assertFalse("Mobile navigation should not enable admin-only More Tools.", navHost.contains("showAdminTools"))
     }
 
     private fun discoverScreenFileNames(): Set<String> {
@@ -196,7 +209,7 @@ class UiGuardrailPolicyTest {
 
     companion object {
         private val spacingTokenScreens = setOf(
-            "IpoVisualizationScreen.kt",
+            "InternalMethodologyScreen.kt",
             "RecipeDetailsScreen.kt",
             "SettingsScreen.kt",
             "UserProfileScreen.kt"
@@ -215,7 +228,6 @@ class UiGuardrailPolicyTest {
             "MealPlanRefinedScreen.kt",
             "MoreToolsScreen.kt",
             "NotificationScreen.kt",
-            "OperatorDashboardScreen.kt",
             "ProgressRefinedScreen.kt",
             "SignUpScreen.kt",
             "SplashScreen.kt"

@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.pcosina.app.ui.screens
 
 import androidx.annotation.DrawableRes
@@ -20,18 +22,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,21 +47,21 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import com.pcosina.app.R
+import com.pcosina.app.data.model.PlannerRecipeDetail
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanUiState
@@ -72,35 +74,30 @@ import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
 import com.pcosina.app.ui.components.FriendlyEmptyStateCard
 import com.pcosina.app.ui.components.LoadingActionButton
-import com.pcosina.app.ui.components.PcosinaAvatarBadge
+import com.pcosina.app.ui.components.ArtworkAlignmentKeys
 import com.pcosina.app.ui.components.PcosinaDesignIcon
+import com.pcosina.app.ui.components.ScreenArtworkAlignment
 import com.pcosina.app.ui.components.SharedAvatarHeader
+import com.pcosina.app.ui.components.SharedTopHeader
 import com.pcosina.app.ui.navigation.Routes
-import com.pcosina.app.ui.theme.PcosinaBlush
 import com.pcosina.app.ui.theme.PcosinaDeepRose
-import com.pcosina.app.ui.theme.PcosinaLightPink
 import com.pcosina.app.ui.theme.PcosinaMuted
 import com.pcosina.app.ui.theme.PcosinaPink
-import com.pcosina.app.ui.theme.PcosinaRoseShadow
 import com.pcosina.app.ui.theme.PcosinaSoftPink
 import com.pcosina.app.ui.theme.PcosinaSurface
 import com.pcosina.app.ui.theme.PcosinaSurfaceAlt
 import com.pcosina.app.ui.util.ActionFeedbackCopy
-import com.pcosina.app.ui.util.GoalOption
 import com.pcosina.app.ui.util.GuidedJourneyInput
 import com.pcosina.app.ui.util.TodayMealDescriptor
 import com.pcosina.app.ui.util.buildTodayLogSnapshot
 import com.pcosina.app.ui.util.goalShoppingTips
 import com.pcosina.app.ui.util.hasGoalSelection
-import com.pcosina.app.ui.util.parseGoalOptions
 import com.pcosina.app.ui.util.rememberIsOnline
 import com.pcosina.app.ui.util.resolveGuidedJourneyStep
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.time.temporal.TemporalAdjusters
-import java.time.temporal.WeekFields
 import java.util.Locale
 
 private data class HomeMealCard(
@@ -151,8 +148,8 @@ fun DashboardRefinedScreen(
     val context = LocalContext.current
     val observedOnline by rememberIsOnline(context)
     val isOnline = onlineStateOverride ?: observedOnline
-    val screenWidthDp = LocalConfiguration.current.screenWidthDp
-    val goalInfoState = remember { mutableStateOf<GoalOption?>(null) }
+    val windowWidthPx = LocalWindowInfo.current.containerSize.width
+    val screenWidthDp = with(LocalDensity.current) { windowWidthPx.toDp().value.toInt() }
     val feedbackBanner = remember { mutableStateOf<FeedbackBannerData?>(null) }
     val primaryActionState = remember { mutableStateOf(FeedbackActionState.Idle) }
     val coroutineScope = rememberCoroutineScope()
@@ -161,9 +158,8 @@ fun DashboardRefinedScreen(
     val activePlanResponse = remember(mealPlanState, planHistory, activePlanId) {
         (mealPlanState as? MealPlanUiState.Success)?.response
             ?: planHistory.firstOrNull { it.id == activePlanId }?.response
-            ?: planHistory.maxByOrNull { it.generatedAt }?.response
     }
-    val hasPlan = activePlanResponse != null || planHistory.isNotEmpty()
+    val hasPlan = activePlanResponse != null
     val hasReviewedWeek = activePlanId != null && activePlanId == lastReviewedWeek
     val guidedStep = resolveGuidedJourneyStep(
         GuidedJourneyInput(
@@ -177,14 +173,13 @@ fun DashboardRefinedScreen(
     )
     val weekStart = remember(activeWeekStart, today) {
         activeWeekStart?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-            ?: today.with(TemporalAdjusters.previousOrSame(WeekFields.of(Locale.getDefault()).firstDayOfWeek))
+            ?: today
     }
-    val homeGoalOptions = remember(profile.goal) { parseGoalOptions(profile.goal).toList() }
     val todayLabel = remember(today) {
         today.format(DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)).lowercase(Locale.ENGLISH)
     }
-    val tipLines = remember(profile.goal, profile.householdSize, today.dayOfYear) {
-        val availableTips = goalShoppingTips(profile.goal, profile.householdSize)
+    val tipLines = remember(profile.goal, today.dayOfYear) {
+        val availableTips = goalShoppingTips(profile.goal)
         if (availableTips.isEmpty()) {
             emptyList()
         } else {
@@ -201,23 +196,23 @@ fun DashboardRefinedScreen(
     val todayCompletedIds = logs[todayKey]?.completedMealIds.orEmpty()
     val todaySkippedIds = logs[todayKey]?.skippedMealIds.orEmpty()
     val todayRecipeIds = remember(todayMeals) { todayMeals.map { it.recipeId }.distinct() }
-    val mealCaloriesState = remember(todayRecipeIds) { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    val mealDetailsState = remember(todayRecipeIds) { mutableStateOf<Map<String, PlannerRecipeDetail>>(emptyMap()) }
 
     LaunchedEffect(todayRecipeIds) {
         if (todayRecipeIds.isEmpty()) {
-            mealCaloriesState.value = emptyMap()
+            mealDetailsState.value = emptyMap()
             return@LaunchedEffect
         }
-        val resolved = mutableMapOf<String, Int>()
+        val resolved = mutableMapOf<String, PlannerRecipeDetail>()
         todayRecipeIds.forEach { recipeId ->
-            mealPlanViewModel.getRecipeDetails(recipeId).getOrNull()?.calories?.let { calories ->
-                resolved[recipeId] = calories
+            mealPlanViewModel.getRecipeDetails(recipeId).getOrNull()?.let { detail ->
+                resolved[recipeId] = detail
             }
         }
-        mealCaloriesState.value = resolved
+        mealDetailsState.value = resolved
     }
 
-    val mealCaloriesByRecipeId = mealCaloriesState.value
+    val mealDetailsByRecipeId = mealDetailsState.value
     val todaySnapshot = remember(todayMeals, todayCompletedIds, todaySkippedIds) {
         buildTodayLogSnapshot(
             todayMeals = todayMeals.map { meal ->
@@ -231,27 +226,35 @@ fun DashboardRefinedScreen(
             skippedMealIds = todaySkippedIds
         )
     }
-    val mealCards = remember(todayMeals, todayCompletedIds, todaySkippedIds, mealCaloriesByRecipeId) {
+    val mealCards = remember(todayMeals, todayCompletedIds, todaySkippedIds, mealDetailsByRecipeId) {
         todayMeals.map { meal ->
             HomeMealCard(
                 mealLabel = meal.mealLabel,
                 title = meal.title,
                 recipeId = meal.recipeId,
-                calories = mealCaloriesByRecipeId[meal.recipeId],
+                calories = mealDetailsByRecipeId[meal.recipeId]?.calories,
                 isLogged = todayCompletedIds.contains("${meal.mealLabel}::${meal.recipeId}") ||
                     todaySkippedIds.contains("${meal.mealLabel}::${meal.recipeId}")
             )
         }
     }
     val weekProgress = remember(activePlanResponse, weekStart, today, logs) {
-        val dayMealCounts = activePlanResponse
+        val mealsByDayLabel = activePlanResponse
             ?.days
-            ?.associate { it.dayLabel.lowercase(Locale.ENGLISH) to it.meals.size }
+            ?.associate { day ->
+                day.dayLabel.lowercase(Locale.ENGLISH) to day.meals.map { meal ->
+                    TodayMealDescriptor(
+                        mealLabel = meal.mealLabel,
+                        title = meal.title,
+                        recipeId = meal.recipeId
+                    )
+                }
+            }
             .orEmpty()
         buildHomeWeekProgress(
             weekStart = weekStart,
             today = today,
-            mealCountsByDayLabel = dayMealCounts,
+            mealsByDayLabel = mealsByDayLabel,
             logs = logs
         )
     }
@@ -265,12 +268,13 @@ fun DashboardRefinedScreen(
         todaySnapshot.completedCount > 0 -> "You're doing well today! Ready for your next goal?"
         else -> "Your saved plan and progress are ready when you are."
     }
-    val dualColumnCards = screenWidthDp >= 360
     val primaryActionTitle = when {
         !profile.isProfileCompleted -> "Finish your profile first"
         !hasGoalSelection(profile.goal) -> "Choose the goals you want to follow"
-        !hasPlan -> "Ready to start your meal plan?"
+        !hasPlan -> "Start your meal plan?"
+        planExpired -> "Review your meal plan"
         todaySnapshot.nextMeal != null -> "Your next meal is ready"
+        groceryItems.isNotEmpty() && logs.isEmpty() -> "Ready to shop?"
         else -> "Keep your week moving"
     }
     val primaryActionMessage = when {
@@ -278,15 +282,18 @@ fun DashboardRefinedScreen(
         !hasGoalSelection(profile.goal) -> guidedStep.rationale
         !hasPlan && isOnline -> "Let's generate a weekly plan that unlocks groceries, progress, and your daily meal flow."
         !hasPlan -> "${ActionFeedbackCopy.InternetRequired} Connect once to generate your first week."
-        planExpired -> "Your saved week is no longer current. Open Meal Plan to generate the next week."
+        planExpired -> "Your saved week has ended. Open Meal Plan to review it and start a new week when eligible."
         todaySnapshot.nextMeal != null -> "Open ${todaySnapshot.nextMeal?.mealLabel?.lowercase(Locale.ENGLISH)} and keep today's routine visible."
+        groceryItems.isNotEmpty() && logs.isEmpty() -> "Your grocery list is ready based on your current meal plan."
         else -> "Review your progress or reopen this week's plan whenever you need a quick reset."
     }
     val primaryActionLabel = when {
         !profile.isProfileCompleted -> "Open Profile"
         !hasGoalSelection(profile.goal) -> "Choose Goals"
         !hasPlan -> "Go to Plan"
+        planExpired -> "Go to Plan"
         todaySnapshot.nextMeal != null -> "Open ${todaySnapshot.nextMeal?.mealLabel.orEmpty()}"
+        groceryItems.isNotEmpty() && logs.isEmpty() -> "Go to Grocery"
         else -> "Open Progress"
     }
     val todayMealSubtitle = if (hasPlan) {
@@ -325,15 +332,16 @@ fun DashboardRefinedScreen(
         modifier = modifier
             .fillMaxSize()
             .background(PcosinaSurface)
-            .statusBarsPadding(),
+            .statusBarsPadding()
+            .testTag("dashboard_content_list"),
         contentPadding = PaddingValues(horizontal = if (compactHomeLayout) 16.dp else 18.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(if (compactHomeLayout) 12.dp else 14.dp)
     ) {
         item {
-            RefinedBrandHeader(
+            SharedTopHeader(
                 online = isOnline,
-                onOpenSettings = onNavigateToSettings,
-                onOpenSupport = onOpenMoreTools,
+                onSettings = onNavigateToSettings,
+                compact = compactHomeLayout,
             )
         }
 
@@ -353,44 +361,15 @@ fun DashboardRefinedScreen(
                 welcomeSubline = welcomeSubline,
                 avatarId = profile.avatarId,
                 compactLayout = compactHomeLayout,
+                onOpenProfileSettings = onNavigateToSettings,
             )
         }
 
         item {
-            if (dualColumnCards) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(if (compactHomeLayout) 8.dp else 10.dp)
-                ) {
-                    RefinedGoalsCard(
-                        goalOptions = homeGoalOptions,
-                        modifier = Modifier.weight(1.08f),
-                        onEditGoals = {
-                            onNavigateToRoute(
-                                if (profile.isProfileCompleted) Routes.UserProfileEdit else Routes.UserProfile
-                            )
-                        },
-                        onOpenGoalInfo = { goalInfoState.value = it }
-                    )
-                    RefinedTipCard(
-                        tipLines = tipLines,
-                        modifier = Modifier.weight(0.92f)
-                    )
-                }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    RefinedGoalsCard(
-                        goalOptions = homeGoalOptions,
-                        onEditGoals = {
-                            onNavigateToRoute(
-                                if (profile.isProfileCompleted) Routes.UserProfileEdit else Routes.UserProfile
-                            )
-                        },
-                        onOpenGoalInfo = { goalInfoState.value = it }
-                    )
-                    RefinedTipCard(tipLines = tipLines)
-                }
-            }
+            RefinedTipCard(
+                tipLines = tipLines,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
 
         item {
@@ -473,6 +452,9 @@ fun DashboardRefinedScreen(
                 message = primaryActionMessage,
                 buttonLabel = primaryActionLabel,
                 state = primaryActionState.value,
+                modifier = Modifier
+                    .testTag("dashboard_primary_next_card")
+                    .semantics { traversalIndex = 2f },
                 onClick = {
                     when {
                         !profile.isProfileCompleted -> onNavigateToRoute(Routes.UserProfile)
@@ -496,6 +478,12 @@ fun DashboardRefinedScreen(
                         ) {
                             onViewPlan()
                         }
+                        planExpired -> runPrimaryAction(
+                            loadingMessage = "Opening meal plan…",
+                            successMessage = "Meal Plan opened."
+                        ) {
+                            onViewPlan()
+                        }
                         todaySnapshot.nextMeal != null -> runPrimaryAction(
                             loadingMessage = "Opening next meal…",
                             successMessage = "Next meal opened."
@@ -505,6 +493,12 @@ fun DashboardRefinedScreen(
                                 nextMeal.recipeId,
                                 nextMeal.mealLabel
                             )
+                        }
+                        groceryItems.isNotEmpty() && logs.isEmpty() -> runPrimaryAction(
+                            loadingMessage = "Opening grocery list…",
+                            successMessage = "Grocery list opened."
+                        ) {
+                            onNavigateToRoute(Routes.GroceryList)
                         }
                         else -> runPrimaryAction(
                             loadingMessage = "Opening progress…",
@@ -516,131 +510,8 @@ fun DashboardRefinedScreen(
                 }
             )
         }
-    }
-
-    goalInfoState.value?.let { option ->
-        HomeGoalInfoDialog(
-            option = option,
-            onDismiss = { goalInfoState.value = null }
-        )
-    }
-
-}
-
-@Composable
-private fun RefinedBrandHeader(
-    online: Boolean,
-    onOpenSettings: () -> Unit,
-    onOpenSupport: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = Color.White,
-                    border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.24f)),
-                    shadowElevation = 5.dp
-                ) {
-                    PcosinaDesignIcon(
-                        resId = R.drawable.pcosina_svg_24_logo,
-                        contentDescription = null,
-                        tint = Color.Unspecified,
-                        modifier = Modifier
-                            .padding(6.dp)
-                            .size(28.dp)
-                    )
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = "PCOSina",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            color = PcosinaPink,
-                            fontWeight = FontWeight.ExtraBold,
-                            shadow = androidx.compose.ui.graphics.Shadow(
-                                color = PcosinaRoseShadow.copy(alpha = 0.3f),
-                                offset = androidx.compose.ui.geometry.Offset(0f, 4f),
-                                blurRadius = 6f
-                            )
-                        )
-                    )
-                    Text(
-                        text = "“Take the first step toward smarter PCOS nutrition.”",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontStyle = FontStyle.Italic,
-                        color = PcosinaMuted,
-                        maxLines = 2
-                    )
-                }
-            }
-            RefinedIconAction(
-                iconRes = R.drawable.pcosina_svg_44_settings,
-                contentDescription = "Settings",
-                onClick = onOpenSettings
-            )
-            Spacer(Modifier.width(8.dp))
-            RefinedIconAction(
-                iconRes = R.drawable.pcosina_nav_support_clean,
-                contentDescription = "Support",
-                onClick = onOpenSupport
-            )
-        }
-        if (!online) {
-            Surface(
-                color = PcosinaSurfaceAlt,
-                contentColor = PcosinaMuted,
-                shape = RoundedCornerShape(999.dp)
-            ) {
-                Text(
-                    text = "Offline-safe mode: using saved local data.",
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.labelMedium
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun RefinedIconAction(
-    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
-    @DrawableRes iconRes: Int? = null,
-    contentDescription: String,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        shape = CircleShape,
-        color = Color.White,
-        border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.28f)),
-        shadowElevation = 6.dp
-    ) {
-        if (iconRes != null) {
-            PcosinaDesignIcon(
-                resId = iconRes,
-                contentDescription = contentDescription,
-                tint = PcosinaPink,
-                modifier = Modifier.padding(12.dp)
-            )
-        } else if (icon != null) {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                tint = PcosinaPink,
-                modifier = Modifier.padding(12.dp)
-            )
+        item {
+            Spacer(modifier = Modifier.height(if (compactHomeLayout) 18.dp else 24.dp))
         }
     }
 }
@@ -652,6 +523,7 @@ private fun RefinedWelcomeCard(
     welcomeSubline: String,
     avatarId: String,
     compactLayout: Boolean,
+    onOpenProfileSettings: () -> Unit,
 ) {
     SharedAvatarHeader(
         title = "Welcome, $displayName!",
@@ -659,6 +531,9 @@ private fun RefinedWelcomeCard(
         avatarId = avatarId,
         dateLabel = dateHeader,
         compact = compactLayout,
+        avatarAlignment = ScreenArtworkAlignment.HomeHeaderAvatar,
+        avatarArtworkKey = ArtworkAlignmentKeys.HomeHeaderAvatar,
+        onHeaderClick = onOpenProfileSettings,
     )
 }
 
@@ -728,95 +603,6 @@ private fun WelcomeDatePill(
 }
 
 @Composable
-private fun RefinedGoalsCard(
-    goalOptions: List<GoalOption>,
-    onEditGoals: () -> Unit,
-    onOpenGoalInfo: (GoalOption) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    RefinedContentCard(
-        modifier = modifier,
-        containerColor = Color(0xFFF57B96),
-        title = "Your Goals",
-        leadingIconRes = R.drawable.pcosina_svg_20_goal,
-        titleColor = Color(0xFF682937),
-        titleTextStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
-        contentPadding = 10.dp,
-        contentSpacing = 6.dp,
-        trailing = {
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = Color.White.copy(alpha = 0.94f),
-                border = BorderStroke(1.dp, Color(0xFF682937).copy(alpha = 0.25f)),
-                modifier = Modifier.clickable(onClick = onEditGoals)
-            ) {
-                Text(
-                    "Profile",
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    color = Color(0xFF682937),
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
-                )
-            }
-        }
-    ) {
-        if (goalOptions.isEmpty()) {
-            Text(
-                text = "Choose at least one goal so the planner knows what to prioritize.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.92f)
-            )
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                goalOptions.forEach { option ->
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = Color.White.copy(alpha = 0.86f)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(7.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = PcosinaPink
-                            ) {
-                                PcosinaDesignIcon(
-                                    resId = R.drawable.pcosina_svg_12_check,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.padding(4.dp)
-                                )
-                            }
-                            Text(
-                                text = option.label,
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                color = PcosinaDeepRose,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            IconButton(
-                                modifier = Modifier.size(24.dp),
-                                onClick = { onOpenGoalInfo(option) }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Info,
-                                    contentDescription = "About ${option.label}",
-                                    tint = PcosinaPink
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun RefinedTipCard(
     tipLines: List<String>,
     modifier: Modifier = Modifier
@@ -828,13 +614,15 @@ private fun RefinedTipCard(
         leadingIconRes = R.drawable.pcosina_svg_19_tip,
         titleColor = PcosinaDeepRose,
         titleTextStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
-        contentPadding = 10.dp,
-        contentSpacing = 6.dp
+        contentPadding = 14.dp,
+        contentSpacing = 8.dp
     ) {
         Text(
             text = tipLines.firstOrNull().orEmpty(),
             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-            color = Color(0xFF4B2530)
+            color = Color(0xFF4B2530),
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis
         )
         tipLines.getOrNull(1)?.let { footer ->
             Text(
@@ -1136,145 +924,60 @@ private fun RefinedPrimaryActionCard(
     message: String,
     buttonLabel: String,
     state: FeedbackActionState,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(Brush.linearGradient(colors = listOf(PcosinaLightPink.copy(alpha = 0.92f), PcosinaBlush.copy(alpha = 0.94f))))
-            .border(1.5.dp, PcosinaPink.copy(alpha = 0.2f), RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color(0xFFFFA8B3))
+            .border(1.5.dp, PcosinaPink, RoundedCornerShape(20.dp))
     ) {
-        Surface(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 14.dp, bottom = 12.dp)
-                .size(104.dp),
-            shape = CircleShape,
-            color = PcosinaDeepRose.copy(alpha = 0.08f),
-            border = BorderStroke(2.dp, PcosinaDeepRose.copy(alpha = 0.22f))
-        ) {
-            PcosinaDesignIcon(
-                resId = R.drawable.pcosina_svg_37_meal,
-                contentDescription = null,
-                tint = PcosinaDeepRose.copy(alpha = 0.62f),
-                modifier = Modifier.padding(20.dp)
-            )
-        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
-                .padding(end = 86.dp),
+                .padding(15.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF682937)
-                ),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF45232C),
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
-            LoadingActionButton(
-                state = state,
-                idleLabel = buttonLabel,
-                loadingLabel = buttonLabel,
-                successLabel = buttonLabel,
-                errorLabel = "Try again",
-                onClick = onClick,
-                modifier = Modifier.widthIn(min = 132.dp, max = 190.dp),
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                    containerColor = PcosinaDeepRose,
-                    contentColor = Color.White
+            Box(modifier = Modifier.fillMaxWidth()) {
+                LoadingActionButton(
+                    state = state,
+                    idleLabel = buttonLabel,
+                    loadingLabel = buttonLabel,
+                    successLabel = buttonLabel,
+                    errorLabel = "Try again",
+                    onClick = onClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PcosinaDeepRose,
+                        contentColor = Color.White,
+                    ),
                 )
-            )
-        }
-    }
-}
-
-@Composable
-private fun HomeGoalInfoDialog(
-    option: GoalOption,
-    onDismiss: () -> Unit,
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = 370.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = Color(0xFFFFD1D8),
-            shadowElevation = 18.dp,
-            border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.28f))
-        ) {
-            Column(
-                modifier = Modifier.padding(top = 0.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .padding(top = 0.dp)
-                        .size(54.dp),
-                    shape = CircleShape,
-                    color = PcosinaPink
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Filled.Info,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
-                Text(
-                    text = option.label.uppercase(Locale.ENGLISH),
-                    modifier = Modifier
-                        .padding(horizontal = 22.dp)
-                        .semantics { heading() },
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = PcosinaPink
+                if (state == FeedbackActionState.Idle) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 20.dp)
+                            .size(20.dp),
+                        tint = Color.White,
                     )
-                )
-                Text(
-                    text = goalInfoCopy(option),
-                    modifier = Modifier.padding(horizontal = 28.dp),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color(0xFF2D1A20)
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(PcosinaPink.copy(alpha = 0.62f))
-                )
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 52.dp)
-                        .clickable(onClick = onDismiss),
-                    color = Color.Transparent
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "OKAY",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = PcosinaPink
-                        )
-                    }
                 }
             }
         }
@@ -1296,19 +999,10 @@ private fun mealIconRes(mealLabel: String): Int = when {
     else -> R.drawable.pcosina_meal_breakfast
 }
 
-private fun goalInfoCopy(option: GoalOption): String = when (option) {
-    GoalOption.WeightLoss ->
-        "Prioritizes calorie balance, satisfying meals, and realistic weekly adherence."
-    GoalOption.SymptomManagement ->
-        "Prioritizes symptom-aware nudges, steadier meals, and metabolic support."
-    GoalOption.GeneralHealth ->
-        "Balances overall nutrition quality, consistency, and everyday wellness."
-}
-
 private fun buildHomeWeekProgress(
     weekStart: LocalDate,
     today: LocalDate,
-    mealCountsByDayLabel: Map<String, Int>,
+    mealsByDayLabel: Map<String, List<TodayMealDescriptor>>,
     logs: Map<String, com.pcosina.app.data.model.DailyLog>
 ): List<HomeWeekProgress> {
     val formatter = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
@@ -1316,8 +1010,12 @@ private fun buildHomeWeekProgress(
         val date = weekStart.plusDays(offset.toLong())
         val dateKey = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
         val dayToken = date.format(formatter).lowercase(Locale.ENGLISH)
-        val plannedMeals = mealCountsByDayLabel[dayToken] ?: 0
-        val completedMeals = logs[dateKey]?.completedMealIds?.size ?: 0
+        val plannedMealSlots = mealsByDayLabel[dayToken].orEmpty()
+        val plannedMeals = plannedMealSlots.size
+        val completedMeals = buildTodayLogSnapshot(
+            todayMeals = plannedMealSlots,
+            completedMealIds = logs[dateKey]?.completedMealIds.orEmpty()
+        ).completedCount
         val state = when {
             plannedMeals <= 0 -> HomeWeekState.Empty
             completedMeals >= plannedMeals -> HomeWeekState.Complete

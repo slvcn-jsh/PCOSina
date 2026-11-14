@@ -1,0 +1,1 @@
+Catalog nutrition readiness passed; wrote report to docs\production_readiness\evidence_2026-09-07\artifacts\catalog_nutrition_readiness.json

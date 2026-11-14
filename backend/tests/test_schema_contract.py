@@ -31,6 +31,7 @@ def test_plan_explanation_contract_includes_extended_diagnostics_fields():
     for key in [
         "candidatePoolSize",
         "budgetHardCapApplied",
+        "plannerContract",
         "profileRuleEffects",
         "candidateExclusionSummary",
         "selectionReasonsByRecipeId",
@@ -47,5 +48,18 @@ def test_plan_explanation_contract_includes_extended_diagnostics_fields():
         assert key in properties
 
     profile_rule_effects = properties["profileRuleEffects"]["properties"]
-    for key in ["hardFilters", "softDrivers", "shoppingFactors", "trackingOnly"]:
+    for key in ["hardFilters", "softDrivers", "shoppingFactors", "advisoryLimits", "trackingOnly"]:
         assert key in profile_rule_effects
+
+    planner_contract = properties["plannerContract"]["items"]["properties"]
+    for key in ["field", "classification", "enforcement", "active"]:
+        assert key in planner_contract
+
+
+def test_user_profile_contract_includes_goal_support_tracking_fields():
+    path = Path(__file__).parents[1] / "schema" / "pcosina_contract.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    properties = data["definitions"]["UserProfile"]["properties"]
+
+    for key in ["targetWeightKg", "targetDate", "weeklyWeightChangeGoalKg"]:
+        assert key in properties

@@ -26,6 +26,36 @@ class _NoBroker:
         return {"backend": "db", "enabled": False}
 
 
+def test_worker_main_skips_database_bootstrap_when_predeploy_owns_it(monkeypatch):
+    calls = []
+    monkeypatch.setenv("PCOSINA_BOOTSTRAP_ON_STARTUP", "false")
+    monkeypatch.setenv("PCOSINA_WORKER_RUN_FOREVER", "false")
+    monkeypatch.setattr(worker_plan_jobs.database, "init_db", lambda: calls.append("init_db"))
+    monkeypatch.setattr(worker_plan_jobs.database, "seed_recipes", lambda: calls.append("seed_recipes"))
+    monkeypatch.setattr(worker_plan_jobs.policy_store, "init_policy_store", lambda: calls.append("policy_store"))
+    monkeypatch.setattr(worker_plan_jobs, "run_once", lambda: calls.append("run_once"))
+
+    assert worker_plan_jobs.main() == 0
+    assert calls == ["run_once"]
+
+
+def test_worker_defaults_to_predeploy_bootstrap_in_production(monkeypatch):
+    monkeypatch.delenv("PCOSINA_BOOTSTRAP_ON_STARTUP", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("RENDER", raising=False)
+    monkeypatch.setenv("PCOSINA_ENV", "production")
+
+    assert worker_plan_jobs._bootstrap_database_on_startup() is False
+
+
+def test_worker_defaults_to_predeploy_bootstrap_for_postgres_without_production_env(monkeypatch):
+    monkeypatch.delenv("PCOSINA_BOOTSTRAP_ON_STARTUP", raising=False)
+    monkeypatch.setenv("PCOSINA_ENV", "development")
+    monkeypatch.setenv("DATABASE_URL", "postgres://pcosina:secret@example.render.com/pcosina")
+
+    assert worker_plan_jobs._bootstrap_database_on_startup() is False
+
+
 def test_worker_requeues_with_next_attempt_on_solver_exception(monkeypatch):
     captured = {}
     diag = []

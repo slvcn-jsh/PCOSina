@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[2]
 ANDROID_ENV = ROOT / "scripts" / "android-env.ps1"
 ADB_PREFLIGHT = ROOT / "scripts" / "check_adb_access.ps1"
 RELEASE_SCRIPT = ROOT / "scripts" / "release.ps1"
+CONNECTED_TEST_SCRIPT = ROOT / "scripts" / "run_connected_android_tests.ps1"
 README = ROOT / "README.md"
 
 
@@ -35,6 +36,15 @@ def test_release_script_uses_android_env_and_explicit_local_signing_switches() -
     assert '[switch]$SkipFirebaseDistribution' in source
     assert '$env:PCOSINA_ALLOW_INSECURE_RELEASE_SIGNING = "true"' in source
     assert '@(":app:assembleRelease", "--no-daemon")' in source
+
+
+def test_connected_test_script_protects_installed_tester_signature_and_data() -> None:
+    source = _read(CONNECTED_TEST_SCRIPT)
+    assert "Get-ApkCertificateSha256" in source
+    assert "-AllowInstalledAppRemoval" in source
+    assert "protects the signed-in Firebase tester app and local data" in source
+    assert '& $gradle ":${Module}:assembleDebug" "--no-daemon"' in source
+    assert "& $adb uninstall $PackageName" in source
 
 
 def test_readme_points_android_validation_to_repo_scripts() -> None:

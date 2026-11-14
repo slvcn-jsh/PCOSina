@@ -35,7 +35,7 @@ class ProgressLoggingPolicyInstrumentedTest {
         assertFalse(vm.toggleMeal(today.plusDays(1), "recipe_future", "Dinner"))
         assertTrue(vm.dailyLogs.value.isEmpty())
 
-        assertTrue(vm.toggleMeal(today, "recipe_today", "Lunch"))
+        assertTrue(vm.toggleMeal(today, "recipe_today", "Breakfast"))
         val completed = vm.dailyLogs.value[todayKey]?.completedMealIds.orEmpty()
         assertTrue(completed.any { ProgressViewModel.extractRecipeId(it) == "recipe_today" })
     }
@@ -49,7 +49,7 @@ class ProgressLoggingPolicyInstrumentedTest {
         assertFalse(vm.markMealAsEaten(today.plusDays(1), "recipe_future"))
         assertTrue(vm.dailyLogs.value.isEmpty())
 
-        assertTrue(vm.markMealAsEaten(today, "recipe_today"))
+        assertTrue(vm.markMealAsEaten(today, "recipe_today", "Breakfast"))
         val completed = vm.dailyLogs.value[todayKey]?.completedMealIds.orEmpty()
         assertTrue(completed.any { ProgressViewModel.extractRecipeId(it) == "recipe_today" })
     }
@@ -60,8 +60,8 @@ class ProgressLoggingPolicyInstrumentedTest {
         val today = LocalDate.now()
         val todayKey = today.format(DateTimeFormatter.ISO_LOCAL_DATE)
 
-        assertTrue(vm.markMealAsEaten(today, "recipe_repeat", "Breakfast"))
-        assertTrue(vm.markMealAsEaten(today, "recipe_repeat", "Dinner"))
+        assertTrue(vm.markMealAsEaten(today, "recipe_repeat", "Breakfast", plannedMealLabels = listOf("Breakfast", "Dinner")))
+        assertTrue(vm.markMealAsEaten(today, "recipe_repeat", "Dinner", plannedMealLabels = listOf("Breakfast", "Dinner")))
         val completed = vm.dailyLogs.value[todayKey]?.completedMealIds.orEmpty()
         assertTrue(completed.contains(ProgressViewModel.buildMealKey("Breakfast", "recipe_repeat")))
         assertTrue(completed.contains(ProgressViewModel.buildMealKey("Dinner", "recipe_repeat")))
@@ -87,11 +87,11 @@ class ProgressLoggingPolicyInstrumentedTest {
         val today = LocalDate.now()
         val todayKey = today.format(DateTimeFormatter.ISO_LOCAL_DATE)
 
-        assertFalse(vm.saveReflection(today.minusDays(1), 3, 2, 4, listOf("Fatigue"), "past"))
-        assertFalse(vm.saveReflection(today.plusDays(1), 3, 2, 4, listOf("Fatigue"), "future"))
+        assertFalse(vm.saveReflection(today.minusDays(1), 3, 2, 4, listOf("Fatigue"), symptomsNote = "past"))
+        assertFalse(vm.saveReflection(today.plusDays(1), 3, 2, 4, listOf("Fatigue"), symptomsNote = "future"))
         assertTrue(vm.dailyLogs.value.isEmpty())
 
-        assertTrue(vm.saveReflection(today, 4, 2, 5, listOf("Fatigue"), "today"))
+        assertTrue(vm.saveReflection(today, 4, 2, 5, listOf("Fatigue"), symptomsNote = "today"))
         assertTrue(vm.dailyLogs.value[todayKey]?.energyLevel == 4)
     }
 

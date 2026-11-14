@@ -1,6 +1,9 @@
 package com.pcosina.app.data.api
 
 import com.pcosina.app.data.model.PlannerDayPlan
+import com.pcosina.app.data.model.PlannerContractItem
+import com.pcosina.app.data.model.PlannerGroceryOutput
+import com.pcosina.app.data.model.PlannerGroceryOutputItem
 import com.pcosina.app.data.model.PlannerPlanExplanation
 import com.pcosina.app.data.model.PlannerPlanResponse
 import com.pcosina.app.data.model.PlannerPlannedMeal
@@ -18,6 +21,14 @@ fun DayPlanDto.toPlannerDayPlan(): PlannerDayPlan =
         dayLabel = dayLabel,
         meals = meals.map { it.toPlannerPlannedMeal() },
         totalCalories = totalCalories,
+    )
+
+fun PlannerContractItemDto.toPlannerContractItem(): PlannerContractItem =
+    PlannerContractItem(
+        field = field,
+        classification = classification,
+        enforcement = enforcement,
+        active = active,
     )
 
 fun PlanExplanation.toPlannerPlanExplanation(): PlannerPlanExplanation =
@@ -40,7 +51,6 @@ fun PlanExplanation.toPlannerPlanExplanation(): PlannerPlanExplanation =
         estimatedWeeklyCost = estimatedWeeklyCost,
         restrictionCount = restrictionCount,
         budgetHardCapApplied = budgetHardCapApplied,
-        householdPlanningMode = householdPlanningMode,
         goalValue = goalValue,
         symptomSelections = symptomSelections,
         profileRuleEffects = profileRuleEffects,
@@ -48,9 +58,54 @@ fun PlanExplanation.toPlannerPlanExplanation(): PlannerPlanExplanation =
         candidateExclusionSummary = candidateExclusionSummary,
         selectionReasonsByRecipeId = selectionReasonsByRecipeId,
         selectionReasonCounts = selectionReasonCounts,
+        plannerContract = plannerContract.map { it.toPlannerContractItem() },
         fiberMinTarget = fiberMinTarget,
         sugarMaxTarget = sugarMaxTarget,
         goalStrategy = goalStrategy,
+    )
+
+fun GroceryOutputItemDto.toPlannerGroceryOutputItem(): PlannerGroceryOutputItem =
+    PlannerGroceryOutputItem(
+        key = key,
+        name = name,
+        quantity = quantity,
+        requiredQuantity = requiredQuantity,
+        purchaseQuantity = purchaseQuantity,
+        purchaseMode = purchaseMode,
+        estimatedCostPhp = estimatedCostPhp,
+        unitPricePhp = unitPricePhp,
+        priceUnit = priceUnit,
+        category = category,
+        source = source,
+        sourceLabel = sourceLabel,
+        confidence = confidence,
+        originalNames = originalNames,
+    )
+
+fun GroceryOutputDto.toPlannerGroceryOutput(): PlannerGroceryOutput =
+    PlannerGroceryOutput(
+        authority = authority,
+        budgetAuthority = budgetAuthority,
+        pricingAuthority = pricingAuthority,
+        pricingCatalogVersion = pricingCatalogVersion,
+        pricingReferenceDate = pricingReferenceDate,
+        pricingReferenceLocation = pricingReferenceLocation,
+        pricingBasis = pricingBasis,
+        pricingSourceCounts = pricingSourceCounts,
+        estimatedTotalPhp = estimatedTotalPhp,
+        finalGroceryEstimatePhp = finalGroceryEstimatePhp,
+        weeklyBudgetPhp = weeklyBudgetPhp,
+        userBudgetPhp = userBudgetPhp,
+        withinBudget = withinBudget,
+        budgetDeltaPhp = budgetDeltaPhp,
+        budgetGapPhp = budgetGapPhp,
+        displayedEstimateSource = displayedEstimateSource,
+        itemCount = itemCount,
+        selectedMealCount = selectedMealCount,
+        plannerMealEstimatePhp = plannerMealEstimatePhp,
+        solverBudgetEstimatePhp = solverBudgetEstimatePhp,
+        roughMealBudgetCapPhp = roughMealBudgetCapPhp,
+        items = items.map { it.toPlannerGroceryOutputItem() },
     )
 
 fun PlannerTimestamps?.toPlannerTimestampsModel(): PlannerTimestampsModel? =
@@ -70,6 +125,7 @@ fun GeneratePlanResponse.toPlannerPlanResponse(): PlannerPlanResponse =
         explanation = explanation?.toPlannerPlanExplanation(),
         requestId = requestId,
         planId = planId,
+        groceryOutput = groceryOutput?.toPlannerGroceryOutput(),
         policyVersion = policyVersion,
         machineReasonCodes = machineReasonCodes,
         humanGuidance = humanGuidance,

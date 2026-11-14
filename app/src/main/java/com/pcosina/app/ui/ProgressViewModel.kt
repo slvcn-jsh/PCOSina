@@ -9,9 +9,12 @@ import com.google.gson.JsonParser
 import com.pcosina.app.data.model.DailyLog
 import com.pcosina.app.data.model.FeedbackEntry
 import com.pcosina.app.data.model.MealCheckIn
+import com.pcosina.app.data.model.PlannerPlanResponse
 import com.pcosina.app.data.repository.FeedbackRepository
 import com.pcosina.app.data.repository.ProgressLocalRepository
 import com.pcosina.app.data.repository.ReflectionStore
+import com.pcosina.app.data.repository.UserPreferencesProgressLocalRepository
+import com.pcosina.app.data.repository.UserPreferencesRepository
 import com.pcosina.app.domain.MealLoggingPolicyUseCase
 import com.pcosina.app.util.safeUserLogScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +25,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.util.UUID
 
 internal fun parseDailyLogsSafely(raw: String?, gson: Gson = Gson()): List<DailyLog> {
@@ -57,6 +61,7 @@ private fun sanitizeDailyLog(log: DailyLog): DailyLog? {
         cravingsLevel = clampFeedbackLevel(log.cravingsLevel),
         moodLevel = clampFeedbackLevel(log.moodLevel),
         symptomTags = sanitizeStringList(log.symptomTags).distinct(),
+        symptomSeverityByTag = sanitizeSymptomSeverityMap(log.symptomSeverityByTag),
         symptomsNote = safeTrimmedText(log.symptomsNote),
         journalText = safeTrimmedText(log.journalText),
         timestamp = log.timestamp.takeIf { it > 0 } ?: System.currentTimeMillis(),
@@ -85,7 +90,6 @@ private fun sanitizeMealCheckIn(entry: MealCheckIn?): MealCheckIn? {
         fullnessLevel = clampFeedbackLevel(entry.fullnessLevel),
         cravingsLevel = clampFeedbackLevel(entry.cravingsLevel),
         satisfactionLevel = clampFeedbackLevel(entry.satisfactionLevel),
-        note = safeTrimmedText(entry.note),
         timestamp = entry.timestamp.takeIf { it > 0 } ?: System.currentTimeMillis(),
     )
 }
@@ -114,6 +118,20 @@ private fun sanitizeStringList(values: Any?): List<String> =
     ((values as? List<*>) ?: emptyList<Any?>())
         .mapNotNull { safeTrimmedText(it) }
 
+private fun sanitizeSymptomSeverityMap(values: Any?): Map<String, Int> =
+    ((values as? Map<*, *>) ?: emptyMap<Any?, Any?>())
+        .mapNotNull { (key, value) ->
+            val label = safeTrimmedText(key) ?: return@mapNotNull null
+            val level = when (value) {
+                is Number -> value.toInt()
+                is String -> value.toIntOrNull()
+                else -> null
+            }?.coerceIn(1, 5) ?: return@mapNotNull null
+            label to level
+        }
+        .distinctBy { it.first.lowercase(Locale.ENGLISH) }
+        .toMap()
+
 private fun safeIsoDate(value: Any?): String? {
     val raw = safeTrimmedText(value) ?: return null
     return runCatching { LocalDate.parse(raw, DateTimeFormatter.ISO_LOCAL_DATE) }
@@ -131,6 +149,16 @@ class ProgressViewModel(
     private val reflectionStore: ReflectionStore,
     private val feedbackRepository: FeedbackRepository
 ) : ViewModel() {
+    constructor(
+        userPrefsRepository: UserPreferencesRepository,
+        reflectionStore: ReflectionStore,
+        feedbackRepository: FeedbackRepository
+    ) : this(
+        UserPreferencesProgressLocalRepository(userPrefsRepository),
+        reflectionStore,
+        feedbackRepository
+    )
+
 
     private val gson = Gson()
     private val dateFmt = DateTimeFormatter.ISO_LOCAL_DATE
@@ -159,6 +187,7 @@ class ProgressViewModel(
     private val retryBaseDelayMs = 2000L
     private val retryMaxDelayMs = 60000L
     private val retryMaxAttempts = 5
+    private val feedbackHistoryLimit = 20
 
     companion object {
         private const val MEAL_KEY_SEPARATOR = "::"
@@ -183,6 +212,17 @@ class ProgressViewModel(
             } else {
                 mealKey
             }
+        }
+
+        fun mealSlotMatchesKey(storedKey: String, recipeId: String, mealLabel: String? = null): Boolean {
+            val normalizedRecipeId = extractRecipeId(recipeId)
+            val normalizedMealLabel = mealLabel?.trim().orEmpty()
+            val storedRecipeId = extractRecipeId(storedKey)
+            if (storedKey != normalizedRecipeId && storedRecipeId != normalizedRecipeId) return false
+            val storedMealLabel = extractMealLabel(storedKey)
+            return normalizedMealLabel.isBlank() ||
+                storedMealLabel == null ||
+                storedMealLabel.equals(normalizedMealLabel, ignoreCase = true)
         }
     }
 
@@ -253,7 +293,7 @@ class ProgressViewModel(
                     } else {
                         entry
                     }
-                }.filter { it.status != "Sent" }
+                }.takeLast(feedbackHistoryLimit)
                 _feedbackQueue.value = normalized
 
                 loadWeeklyJournal(weekStart, fallbackWeekStart)
@@ -439,22 +479,18 @@ class ProgressViewModel(
         val current = _dailyLogs.value[key]
         val mealKey = buildMealKey(mealLabel, recipeId)
         val currentIds = current?.completedMealIds ?: emptyList()
+        val skippedIds = current?.skippedMealIds.orEmpty()
         val hasKey = currentIds.contains(mealKey)
         val hasLegacy = currentIds.contains(recipeId)
         if (hasKey || hasLegacy) return true
+        if (skippedIds.any { skippedKey -> mealSlotMatchesKey(skippedKey, recipeId, mealLabel) }) return false
         if (!hasKey && !hasLegacy) {
             val decision = mealLoggingDecision(date = date, mealLabel = mealLabel)
             if (!decision.allowed) return false
         }
         val updated = (current ?: DailyLog(date = key)).copy(
             completedMealIds = currentIds + mealKey,
-            skippedMealIds = current?.skippedMealIds.orEmpty()
-                .filterNot { skippedKey ->
-                    skippedKey == mealKey ||
-                        skippedKey == recipeId ||
-                        (extractRecipeId(skippedKey) == recipeId &&
-                            extractMealLabel(skippedKey).equals(mealLabel, ignoreCase = true))
-                },
+            skippedMealIds = skippedIds,
             mealCheckIns = current?.mealCheckIns.orEmpty(),
             timestamp = System.currentTimeMillis()
         )
@@ -463,6 +499,12 @@ class ProgressViewModel(
         _dailyLogs.value = newMap
         persistLogs(newMap)
         return true
+    }
+
+    fun isMealSkipped(date: LocalDate, recipeId: String, mealLabel: String? = null): Boolean {
+        val key = date.format(dateFmt)
+        val skippedIds = _dailyLogs.value[key]?.skippedMealIds.orEmpty()
+        return skippedIds.any { skippedKey -> mealSlotMatchesKey(skippedKey, recipeId, mealLabel) }
     }
 
     fun markMealAsEaten(
@@ -489,6 +531,9 @@ class ProgressViewModel(
             currentIds.any { extractRecipeId(it) == normalizedRecipeId }
         }
         if (alreadyLogged) return true
+        if (skippedIds.any { skippedKey -> mealSlotMatchesKey(skippedKey, normalizedRecipeId, normalizedMealLabel) }) {
+            return false
+        }
         val decision = mealLoggingDecision(
             date = date,
             mealLabel = mealLabel,
@@ -497,12 +542,7 @@ class ProgressViewModel(
         if (!decision.allowed) return false
         val updated = (current ?: DailyLog(date = key)).copy(
             completedMealIds = currentIds + mealKey,
-            skippedMealIds = skippedIds.filterNot { skippedKey ->
-                skippedKey == mealKey ||
-                    skippedKey == normalizedRecipeId ||
-                    (extractRecipeId(skippedKey) == normalizedRecipeId &&
-                        extractMealLabel(skippedKey).equals(normalizedMealLabel, ignoreCase = true))
-            },
+            skippedMealIds = skippedIds,
             timestamp = System.currentTimeMillis()
         )
         val newMap = _dailyLogs.value.toMutableMap()
@@ -594,6 +634,7 @@ class ProgressViewModel(
         cravingsLevel: Int?,
         moodLevel: Int?,
         symptomTags: List<String>,
+        symptomSeverityByTag: Map<String, Int> = emptyMap(),
         symptomsNote: String?
     ): Boolean {
         if (!isDateLoggable(date)) return false
@@ -603,7 +644,8 @@ class ProgressViewModel(
             energyLevel = energyLevel,
             cravingsLevel = cravingsLevel,
             moodLevel = moodLevel,
-            symptomTags = symptomTags,
+            symptomTags = (symptomTags + symptomSeverityByTag.keys).map { it.trim() }.filter { it.isNotBlank() }.distinct(),
+            symptomSeverityByTag = sanitizeSymptomSeverityMap(symptomSeverityByTag),
             symptomsNote = symptomsNote?.takeIf { it.isNotBlank() },
             timestamp = System.currentTimeMillis()
         )
@@ -621,8 +663,7 @@ class ProgressViewModel(
         energyLevel: Int?,
         fullnessLevel: Int?,
         cravingsLevel: Int?,
-        satisfactionLevel: Int?,
-        note: String?
+        satisfactionLevel: Int?
     ): Boolean {
         if (!isDateLoggable(date)) return false
         val key = date.format(dateFmt)
@@ -638,7 +679,6 @@ class ProgressViewModel(
             fullnessLevel = fullnessLevel,
             cravingsLevel = cravingsLevel,
             satisfactionLevel = satisfactionLevel,
-            note = note?.takeIf { it.isNotBlank() },
             timestamp = System.currentTimeMillis()
         )
         val updated = (current ?: DailyLog(date = key)).copy(
@@ -694,6 +734,18 @@ class ProgressViewModel(
         }
     }
 
+    fun savePlanFeedbackTags(tags: List<String>) {
+        if (currentUserId.isBlank()) return
+        val normalized = tags
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+        _planFeedbackTags.value = normalized
+        viewModelScope.launch {
+            progressLocalRepository.savePlanFeedbackTags(currentUserId, normalized)
+        }
+    }
+
     fun exportReflections(): java.io.File? {
         if (currentUserId.isBlank()) return null
         return reflectionStore.exportReflections(currentUserId)
@@ -710,12 +762,19 @@ class ProgressViewModel(
         _weeklySpend.value = null
     }
 
-    fun queueFeedback(message: String) {
-        if (currentUserId.isBlank()) return
-        val entry = FeedbackEntry(id = UUID.randomUUID().toString(), message = message)
-        val updated = _feedbackQueue.value + entry
+    suspend fun queueFeedback(message: String): Boolean {
+        val normalizedMessage = message.trim()
+        if (currentUserId.isBlank() || normalizedMessage.isBlank()) return false
+        val previous = _feedbackQueue.value
+        val entry = FeedbackEntry(id = UUID.randomUUID().toString(), message = normalizedMessage)
+        val updated = (previous + entry).takeLast(feedbackHistoryLimit)
         _feedbackQueue.value = updated
-        persistFeedback(updated)
+        return runCatching {
+            progressLocalRepository.saveFeedbackQueueJson(currentUserId, gson.toJson(updated))
+        }.onFailure { error ->
+            _feedbackQueue.value = previous
+            Log.e("ProgressViewModel", "Failed to persist feedback queue safely.", error)
+        }.isSuccess
     }
 
     fun trySendQueuedFeedback(isOnline: Boolean) {
@@ -740,9 +799,11 @@ class ProgressViewModel(
                         persistFeedback(entries)
                         val result = feedbackRepository.sendFeedback(entry.message)
                         if (result.ok) {
-                            // Remove successful entries so they don't pile up in the UI
-                            entries.removeAt(i)
-                            i -= 1
+                            entries[i] = sendingEntry.copy(
+                                status = "Sent",
+                                attempts = sendingEntry.attempts + 1,
+                                lastError = null,
+                            )
                         } else {
                             val nextAttempts = sendingEntry.attempts + 1
                             val errorText = result.error ?: "Unknown error"
@@ -811,6 +872,23 @@ class ProgressViewModel(
         viewModelScope.launch {
             progressLocalRepository.saveFeedbackQueueJson(currentUserId, gson.toJson(entries))
         }
+    }
+
+    fun seedDemoWeeks(plan: PlannerPlanResponse) {
+        val today = LocalDate.now()
+        val start = today
+        val seededLogs = plan.days.mapIndexed { index, day ->
+            val date = start.plusDays(index.toLong()).format(dateFmt)
+            val completedMeals = day.meals.take(if (index < 3) day.meals.size else 1).map { meal ->
+                buildMealKey(meal.mealLabel, meal.recipeId)
+            }
+            date to DailyLog(
+                date = date,
+                completedMealIds = completedMeals,
+                timestamp = System.currentTimeMillis()
+            )
+        }.toMap()
+        _dailyLogs.value = seededLogs
     }
 
     class Factory(

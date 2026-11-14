@@ -7,9 +7,7 @@
 - weight: 65 kg
 - activityLevel: Lightly Active
 - goal: Weight Loss
-- insulinResistanceLevel: Moderate
 - weeklyBudgetPhp: 1500
-- householdSize: 1
 - maxCookingTimeMinutes: 45
 - pantryItems: egg, rice, tomato, onion
 - allergies: none
@@ -32,7 +30,7 @@
 
 ## 3. BMR
 
-- Formula source: Android `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:55`, backend `backend/services/meal_planner.py:1755`
+- Formula source: Android `app/src/main/java/com/pcosina/app/domain/HealthMetrics.kt:55`, backend `backend/services/meal_planner.py:2290`
 - `BMR = (10 * 65) + (6.25 * 160) - (5 * 25) - 161`
 - `BMR = 650 + 1000 - 125 - 161`
 - `BMR = 1364.0`
@@ -54,11 +52,11 @@
 
 ## 6. Macro Target
 
-- Source: `backend/services/meal_planner.py:942` and `backend/services/meal_planner.py:1755`
-- Moderate insulin resistance ratios: protein `0.28`, carbs `0.35`, fats `0.37`
-- Protein target: `int(1375 * 0.28 / 4) = 96 g`
-- Carbohydrate target: `int(1375 * 0.35 / 4) = 120 g`
-- Fat target: `int(1375 * 0.37 / 9) = 56 g`
+- Source: `backend/services/meal_planner.py:1018` and `backend/services/meal_planner.py:2290`
+- Final wellness macro policy: protein `0.25`, carbs `0.40`, fats `0.35`
+- Protein target: `int(1375 * 0.25 / 4) = 85 g`
+- Carbohydrate target: `int(1375 * 0.40 / 4) = 137 g`
+- Fat target: `int(1375 * 0.35 / 9) = 53 g`
 - These macro targets are implemented in the backend planner, not in Android `HealthMetrics`.
 
 ## 7. Pantry Match For One Actual Recipe
@@ -71,7 +69,7 @@
   - onion chopped (2 tbsp)
   - tomato chopped (1/3 cup)
   - white rice cooked (2/3 cup)
-- Backend pantry normalization source: `backend/services/meal_planner.py:300`
+- Backend pantry normalization source: `backend/services/meal_planner.py:305`
 - Normalized pantry tokens: `egg, onion, rice, tomato`
 - Normalized recipe tokens include: `chopped, cooked, egg, onion, rice, roasted, talong, tomato, white`
 - Overlap count: `4`
@@ -79,7 +77,7 @@
 
 ## 8. Grocery Missing-Items Determination For The Same Recipe
 
-- Source: `app/src/main/java/com/pcosina/app/ui/screens/GroceryRefinedScreen.kt:1827`
+- Source: `app/src/main/java/com/pcosina/app/ui/screens/GroceryRefinedScreen.kt:1989`
 - Important actual behavior: the Android grocery screen uses pantry-name matching, not the backend token-overlap algorithm.
 - With pantry entries entered exactly as `egg`, `rice`, `tomato`, and `onion`:
   - `egg` can exact-match a grocery item named `egg`
@@ -98,8 +96,8 @@
 
 ## 10. How The Planner Treats This Profile In Stage 1
 
-- Source: `backend/services/meal_planner.py:1088`, `backend/services/meal_planner.py:637`, `backend/services/meal_planner.py:691`
-- The profile passes validation because it has valid age, height, weight, activity, goal, household size, cooking-time limit, and no conflicting restrictions.
+- Source: `backend/services/meal_planner.py:1476`, `backend/services/meal_planner.py:717`, `backend/services/meal_planner.py:771`
+- The profile passes validation because it has valid age, height, weight, activity, goal, cooking-time limit, and no conflicting restrictions.
 - Stage 1 removes recipes that violate allergies/restrictions or exceed 45 minutes.
 - For sample recipe `ph_qk_052`, the backend estimated cost is `PHP 82`.
 - Deterministic base score:
@@ -111,10 +109,10 @@
 
 ## 11. How The Planner Treats This Profile In Stage 2
 
-- Source: `backend/services/meal_planner.py:1755`
+- Source: `backend/services/meal_planner.py:2290`
 - The solver would create `21` meal slots (`7 days * 3 meals/day`).
 - It would use the backend daily calorie target of `1375` kcal/day.
-- It would use macro targets of `96 g protein`, `120 g carbs`, and `56 g fat`.
+- It would use macro targets of `85 g protein`, `137 g carbs`, and `53 g fat`.
 - It would enforce hard constraints such as:
   - exactly one recipe per meal slot
   - no adjacent identical recipe
@@ -126,8 +124,8 @@
 
 - Full local generation was **not executed** in this environment because importing `backend/services/meal_planner.py` is blocked here: `ModuleNotFoundError: No module named 'domain'`
 - The actual response shape is implemented in:
-  - backend `backend/domain/models.py:272`
-  - Android `app/src/main/java/com/pcosina/app/data/api/PcosinaApiService.kt:40`
+  - backend `backend/domain/models.py:311`
+  - Android `app/src/main/java/com/pcosina/app/data/api/PcosinaApiService.kt:38`
 - Actual response fields include:
   - `weekLabel`
   - `days`

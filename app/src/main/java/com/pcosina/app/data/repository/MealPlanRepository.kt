@@ -1,11 +1,10 @@
 package com.pcosina.app.data.repository
 
 import com.pcosina.app.BuildConfig
-import com.pcosina.app.data.api.AdminPriceRuleDto
-import com.pcosina.app.data.api.AdminPriceRuleUpsertDto
-import com.pcosina.app.data.api.AdminRecipeUpsertDto
 import com.pcosina.app.data.api.GeneratePlanRequest
 import com.pcosina.app.data.api.MlClientEventRequestDto
+import com.pcosina.app.data.api.PersonalPriceOverrideDto
+import com.pcosina.app.data.api.PersonalPriceOverrideRequestDto
 import com.pcosina.app.data.api.PcosinaApiService
 import com.pcosina.app.data.api.RecipeDetailDto
 import com.pcosina.app.data.api.SwapOptionsRequestDto
@@ -44,7 +43,9 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
-class MealPlanRepository {
+class MealPlanRepository(
+    private val recipeSnapshotStore: RecipeSnapshotStore = NoOpRecipeSnapshotStore
+) {
 
     data class GeneratePlanAttempt(
         val startDate: String,
@@ -139,9 +140,23 @@ class MealPlanRepository {
             executeWithBackendFallback("planner warmup") { service ->
                 service.health()
             }
+            syncRecipeCatalogSnapshot()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(mapGeneratePlanException(e))
+        }
+    }
+
+    private suspend fun syncRecipeCatalogSnapshot(limit: Int = 2_000) {
+        runCatching {
+            val catalog = executeWithBackendFallback("recipe catalog sync") { service ->
+                service.getRecipeCatalog(limit = limit)
+            }
+            if (catalog.isNotEmpty()) {
+                recipeSnapshotStore.replaceAll(catalog)
+            }
+        }.onFailure { error ->
+            android.util.Log.w("MealPlanRepository", "Recipe catalog snapshot sync skipped: ${error.message}")
         }
     }
 
@@ -297,20 +312,51 @@ class MealPlanRepository {
         }
     }
 
+    suspend fun getPersonalPrices(): Result<List<PersonalPriceOverrideDto>> = runCatching {
+        executeWithBackendFallback("personal price download") { service ->
+            service.getPersonalPrices()
+        }
+    }
+
+    suspend fun savePersonalPrice(
+        request: PersonalPriceOverrideRequestDto,
+    ): Result<PersonalPriceOverrideDto> = runCatching {
+        executeWithBackendFallback("personal price save") { service ->
+            service.savePersonalPrice(request)
+        }
+    }
+
+    suspend fun deletePersonalPrice(ingredientId: String): Result<Unit> = runCatching {
+        executeWithBackendFallback("personal price reset") { service ->
+            service.deletePersonalPrice(ingredientId)
+        }
+        Unit
+    }
+
     suspend fun getRecipeDetails(recipeId: String): Result<PlannerRecipeDetail> {
         return try {
             synchronized(recipeCache) {
                 recipeCache[recipeId]?.let { return Result.success(it) }
             }
-            val response = executeWithBackendFallback("recipe details") { service ->
+            val dto = executeWithBackendFallback("recipe details") { service ->
                 service.getRecipe(recipeId)
-            }.toPlannerRecipeDetail()
+            }
+            recipeSnapshotStore.upsert(dto)
+            val response = dto.toPlannerRecipeDetail()
             synchronized(recipeCache) {
                 recipeCache[recipeId] = response
             }
             Result.success(response)
         } catch (e: Exception) {
-            Result.failure(e)
+            val cached = recipeSnapshotStore.getRecipe(recipeId)?.toPlannerRecipeDetail()
+            if (cached != null) {
+                synchronized(recipeCache) {
+                    recipeCache[recipeId] = cached
+                }
+                Result.success(cached)
+            } else {
+                Result.failure(e)
+            }
         }
     }
 
@@ -328,99 +374,13 @@ class MealPlanRepository {
             }
             Result.success(response)
         } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun getAdminRecipes(limit: Int = 250): Result<List<RecipeDetailDto>> {
-        return try {
-            val response = executeWithBackendFallback("admin recipe review") { service ->
-                service.getAdminRecipes(limit = limit)
+            val cached = recipeSnapshotStore.getSummaries(mealType = mealType, limit = limit)
+                .map { it.toPlannerRecipeSummary() }
+            if (cached.isNotEmpty()) {
+                Result.success(cached)
+            } else {
+                Result.failure(e)
             }
-            Result.success(response.items)
-        } catch (e: Exception) {
-            Result.failure(mapAdminException(e, "recipe dataset"))
-        }
-    }
-
-    suspend fun saveAdminRecipe(request: AdminRecipeUpsertDto): Result<RecipeDetailDto> {
-        return try {
-            val recipeId = request.id?.trim().orEmpty()
-            val saved = executeWithBackendFallback("admin recipe save") { service ->
-                if (recipeId.isBlank()) {
-                    service.createAdminRecipe(request.copy(id = null))
-                } else {
-                    service.updateAdminRecipe(recipeId, request.copy(id = recipeId))
-                }
-            }
-            synchronized(recipeCache) {
-                recipeCache.remove(saved.id)
-            }
-            synchronized(summaryCache) {
-                summaryCache.clear()
-            }
-            Result.success(saved)
-        } catch (e: Exception) {
-            Result.failure(mapAdminException(e, "recipe dataset"))
-        }
-    }
-
-    suspend fun deleteAdminRecipe(recipeId: String): Result<Unit> {
-        return try {
-            val normalized = recipeId.trim()
-            require(normalized.isNotBlank()) { "Recipe ID is required." }
-            executeWithBackendFallback("admin recipe delete") { service ->
-                service.deleteAdminRecipe(normalized)
-            }
-            synchronized(recipeCache) {
-                recipeCache.remove(normalized)
-            }
-            synchronized(summaryCache) {
-                summaryCache.clear()
-            }
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(mapAdminException(e, "recipe dataset"))
-        }
-    }
-
-    suspend fun getAdminPriceRules(limit: Int = 250): Result<List<AdminPriceRuleDto>> {
-        return try {
-            val response = executeWithBackendFallback("admin price-rule review") { service ->
-                service.getAdminPriceRules(limit = limit)
-            }
-            Result.success(response.items)
-        } catch (e: Exception) {
-            Result.failure(mapAdminException(e, "ingredient and price dataset"))
-        }
-    }
-
-    suspend fun saveAdminPriceRule(request: AdminPriceRuleUpsertDto): Result<AdminPriceRuleDto> {
-        return try {
-            val ruleId = request.id?.trim().orEmpty()
-            val saved = executeWithBackendFallback("admin price-rule save") { service ->
-                if (ruleId.isBlank()) {
-                    service.createAdminPriceRule(request.copy(id = null))
-                } else {
-                    service.updateAdminPriceRule(ruleId, request.copy(id = ruleId))
-                }
-            }
-            Result.success(saved)
-        } catch (e: Exception) {
-            Result.failure(mapAdminException(e, "ingredient and price dataset"))
-        }
-    }
-
-    suspend fun deleteAdminPriceRule(ruleId: String): Result<Unit> {
-        return try {
-            val normalized = ruleId.trim()
-            require(normalized.isNotBlank()) { "Price rule ID is required." }
-            executeWithBackendFallback("admin price-rule delete") { service ->
-                service.deleteAdminPriceRule(normalized)
-            }
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(mapAdminException(e, "ingredient and price dataset"))
         }
     }
 
@@ -496,32 +456,16 @@ class MealPlanRepository {
 
     private fun mapGeneratePlanException(error: Exception): Exception {
         if (error is UnknownHostException) {
-            val host = backendHost(primaryBaseUrl)
-            return IllegalStateException(
-                "Cannot reach backend host ($host). DNS lookup failed. " +
-                    "Check Private DNS/VPN/adblock settings, then try again."
-            )
+            return IllegalStateException(OfflineGenerationMessage)
         }
         if (isBackendConnectFailure(error)) {
-            val host = backendHost(primaryBaseUrl)
-            val fallbackHost = fallbackBaseUrl?.let(::backendHost)
-            return IllegalStateException(
-                if (fallbackHost != null) {
-                    "Cannot reach the local debug backend ($host). " +
-                        "The app also retried the hosted backend ($fallbackHost), but that connection was unavailable. " +
-                        "Start the local backend on your laptop or retry on a network that allows HTTPS access."
-                } else {
-                    "Cannot reach the PCOSina backend over HTTPS from this network. " +
-                        "The app tried $host and its Render fallback edge, but the connection was blocked or unavailable. " +
-                        "Check emulator internet access, VPN/Private DNS/adblock settings, or try again later."
-                }
-            )
+            return IllegalStateException(OfflineGenerationMessage)
         }
         if (error !is HttpException) {
             val message = error.message.orEmpty()
             return when {
                 isAppCheckTokenMessage(message) ->
-                    IllegalStateException("We could not verify the planner connection. Please try again or contact the research team.")
+                    IllegalStateException("We could not verify the planner connection. Please sign in again or try later.")
                 message.contains("sign-in session", ignoreCase = true) ||
                     message.contains("sign in", ignoreCase = true) ->
                     IllegalStateException("Your sign-in session is still preparing. Please wait a moment and try again.")
@@ -539,19 +483,19 @@ class MealPlanRepository {
                 }
             )
             409 -> IllegalStateException(
-                if (detail.isNotBlank()) detail else "App and backend schema versions do not match."
+                "App update required before generating plans. Please update the app and try again."
             )
             401 -> IllegalStateException(
                 when {
                     isAppCheckTokenMessage(detail) ->
-                        "We could not verify the planner connection. Please try again or contact the research team."
+                        "We could not verify the planner connection. Please sign in again or try later."
                     else -> "Session expired. Please sign in again."
                 }
             )
             403 -> IllegalStateException(
                 when {
                     isAppCheckTokenMessage(detail) ->
-                        "We could not verify the planner connection. Please try again or contact the research team."
+                        "We could not verify the planner connection. Please sign in again or try later."
                     detail.isNotBlank() -> "Planner access could not be verified. Please sign in again, then retry."
                     else -> "Planner access could not be verified. Please sign in again, then retry."
                 }
@@ -564,28 +508,9 @@ class MealPlanRepository {
                 }
             )
             else -> IllegalStateException(
-                if (detail.isNotBlank()) "HTTP ${error.code()}: $detail"
-                else (error.message ?: "Request failed")
+                "We could not generate a new plan right now. Please try again later. Saved plans still work offline."
             )
         }
-    }
-
-    private fun mapAdminException(error: Exception, datasetName: String): Exception {
-        if (error is HttpException) {
-            return when (error.code()) {
-                401, 403 -> IllegalStateException(
-                    "Admin $datasetName review was rejected by the backend. " +
-                        "Sign out, sign in with an allowlisted admin Google account, and try again."
-                )
-                404 -> IllegalStateException(
-                    "Admin $datasetName endpoint is not available on the configured backend."
-                )
-                else -> IllegalStateException(
-                    "Admin $datasetName review failed with HTTP ${error.code()}."
-                )
-            }
-        }
-        return mapGeneratePlanException(error)
     }
 
     private fun parseErrorDetail(error: HttpException): String {
@@ -837,6 +762,8 @@ class MealPlanRepository {
     }
 
     companion object {
+        private const val OfflineGenerationMessage =
+            "Internet connection is needed to generate a new plan. You can still view saved plans and groceries offline."
         private const val RELEASE_BACKEND_URL = "https://pcosina-backend.onrender.com/"
         private const val RELEASE_BACKEND_HOST = "pcosina-backend.onrender.com"
         private val RELEASE_BACKEND_FALLBACK_IPS = listOf("216.24.57.7", "216.24.57.251")

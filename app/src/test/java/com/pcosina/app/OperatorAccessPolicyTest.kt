@@ -7,36 +7,50 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class OperatorAccessPolicyTest {
+class WebAdminTransitionPolicyTest {
 
     @Test
-    fun loginScreen_usesGoogleSignInForBackendResolvedOperatorAccess() {
+    fun loginScreen_keepsGoogleSignInWithoutMobileAdminIntent() {
         val text = readScreen("LoginScreen.kt")
         assertTrue("Login should keep the Google sign-in CTA.", text.contains("Continue with Google"))
-        assertTrue("Login should preserve operator access intent for backend resolution.", text.contains("operatorAccessRequested = true"))
-        assertTrue("Login success should pass operator intent to navigation.", text.contains("onLoginSuccess(operatorAccessRequested)"))
+        assertFalse("Login should not request hidden mobile operator/admin access.", text.contains("operatorAccessRequested"))
+        assertFalse("Login success should not pass a mobile operator intent to navigation.", text.contains("onLoginSuccess(operatorAccessRequested)"))
     }
 
     @Test
-    fun appNavHost_routesPendingOperatorAccess_toHiddenOperatorScreens() {
+    fun appNavHost_hasNoMobileOperatorRoutesOrGuards() {
         val text = readNavigation("AppNavHost.kt")
-        assertTrue("Navigation should remember pending operator access intent.", text.contains("pendingOperatorAccess"))
-        assertTrue("Authorized operator login should land on the operator dashboard.", text.contains("activateOperatorMode -> Routes.OperatorDashboard"))
-        assertTrue("Operator-only screens should be guarded for unauthorized accounts.", text.contains("Admin access is only available for authorized accounts."))
-        assertTrue("Operator access should be checked through the repository endpoint flow.", text.contains("getCurrentUserOperatorAccess(forceRefresh = true)"))
-        assertTrue(
-            "Operator access resolution should rerun when pending operator mode is requested.",
-            text.contains("LaunchedEffect(") &&
-                text.contains("pendingOperatorAccess.value,") &&
-                text.contains("adminMode")
+        assertFalse("Navigation should not remember mobile operator access intent.", text.contains("pendingOperatorAccess"))
+        assertFalse("Authorized login should not land on a mobile operator dashboard.", text.contains("Routes.OperatorDashboard"))
+        assertFalse("Mobile operator-only guards should be removed.", text.contains("Admin access is only available for authorized accounts."))
+        assertFalse("Navigation should not call the retired mobile operator endpoint flow.", text.contains("getCurrentUserOperatorAccess"))
+    }
+
+    @Test
+    fun authRepository_noLongerCallsMobileOperatorAccessEndpoint() {
+        val text = readRepository("AuthRepository.kt")
+        assertFalse("Android auth should not call the retired mobile operator endpoint.", text.contains("/mobile/operator/access"))
+        assertFalse("Android auth should not build mobile operator App Check requests.", text.contains("X-Firebase-AppCheck"))
+    }
+
+    @Test
+    fun routesAndScreens_noLongerExposeMobileAdminDashboard() {
+        val routes = readNavigation("Routes.kt")
+        val screenDir = resolve("app", "src", "main", "java", "com", "pcosina", "app", "ui", "screens")
+        assertFalse("Routes should not define mobile operator destinations.", routes.contains("OperatorDashboard"))
+        assertFalse("Routes should not define mobile admin methodology.", routes.contains("AdminMethodology"))
+        assertFalse(
+            "The retired mobile operator dashboard file should be removed.",
+            Files.exists(screenDir.resolve("OperatorDashboardScreen.kt"))
         )
     }
 
     @Test
-    fun authRepository_usesBackendOperatorAccessEndpoint() {
-        val text = readRepository("AuthRepository.kt")
-        assertTrue("Operator access should call the dedicated backend endpoint.", text.contains("/mobile/operator/access"))
-        assertTrue("Operator access verification should include App Check.", text.contains("X-Firebase-AppCheck"))
+    fun backendDocs_keepBrowserAdminAsAuthoritativeAdminSurface() {
+        val docs = readText("docs", "backend-config.md")
+        assertTrue("Backend docs should keep the browser admin content console.", docs.contains("/admin/content"))
+        assertTrue("Backend docs should keep the browser admin ops console.", docs.contains("/admin/ops"))
+        assertTrue("Backend docs should describe admin allowlist access.", docs.contains("PCOSINA_ADMIN_EMAILS"))
     }
 
     @Test
@@ -56,9 +70,14 @@ class OperatorAccessPolicyTest {
     private fun readRepository(fileName: String): String =
         String(Files.readAllBytes(resolve("app", "src", "main", "java", "com", "pcosina", "app", "data", "repository", fileName)))
 
+    private fun readText(vararg parts: String): String =
+        String(Files.readAllBytes(resolve(*parts)))
+
     private fun resolve(vararg parts: String): Path {
         val first = Paths.get(parts.first(), *parts.drop(1).toTypedArray())
         if (Files.exists(first)) return first
+        val parent = Paths.get("..", parts.first(), *parts.drop(1).toTypedArray())
+        if (Files.exists(parent)) return parent
         val fallbackParts = parts.drop(1).toTypedArray()
         val second = Paths.get(fallbackParts.first(), *fallbackParts.drop(1).toTypedArray())
         if (Files.exists(second)) return second

@@ -1,6 +1,7 @@
 package com.pcosina.app
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -11,7 +12,6 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -46,6 +46,7 @@ class TraversalAndCtaBannerUiTest {
     @Test
     fun dashboardPrimaryCard_hasTraversalOrder_andPrimaryCtaShowsBanner() {
         val fixture = createFixture("dashboard_traversal_banner_${System.currentTimeMillis()}")
+        val openedPlan = mutableStateOf(false)
 
         composeRule.setContent {
             MaterialTheme {
@@ -56,83 +57,23 @@ class TraversalAndCtaBannerUiTest {
                     groceryViewModel = fixture.groceryViewModel,
                     progressViewModel = fixture.progressViewModel,
                     onRecipeClick = { _, _ -> },
-                    onViewPlan = {},
+                    onViewPlan = { openedPlan.value = true },
                     onNavigateToRoute = {},
                     onlineStateOverride = true
                 )
             }
         }
 
+        composeRule.onNodeWithTag("dashboard_content_list")
+            .performScrollToNode(hasTestTag("dashboard_primary_next_card"))
         composeRule.onNodeWithTag("dashboard_primary_next_card")
             .assertIsDisplayed()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 2f))
-        composeRule.onNodeWithText("Generate My Plan").performClick()
-        composeRule.onNodeWithText("Opening plan generator…").assertIsDisplayed()
-    }
-
-    @Test
-    fun progressFocusCard_hasTraversalOrder_andPrimaryCtaShowsBanner() {
-        val fixture = createFixture("progress_traversal_banner_${System.currentTimeMillis()}")
-
-        composeRule.setContent {
-            MaterialTheme {
-                ProgressScreen(
-                    userViewModel = fixture.userViewModel,
-                    mealPlanViewModel = fixture.mealPlanViewModel,
-                    progressViewModel = fixture.progressViewModel,
-                    groceryViewModel = fixture.groceryViewModel,
-                    userId = fixture.userId,
-                    onBackToDashboard = {},
-                    onNavigateToRoute = {},
-                    onlineStateOverride = true
-                )
-            }
+        composeRule.onNodeWithText("Go to Plan").performClick()
+        composeRule.waitUntil(timeoutMillis = 3_000) {
+            openedPlan.value
         }
-
-        composeRule.onNodeWithTag("progress_focus_mode_card")
-            .assertIsDisplayed()
-            .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 1f))
-        composeRule.onNodeWithText("Generate My First Plan").performScrollTo().performClick()
-        composeRule.onNodeWithText("Opening plan generator…").assertIsDisplayed()
-    }
-
-    @Test
-    fun progressStepFourCard_visibleWithTraversalTag() {
-        val fixture = createFixture("progress_step4_banner_${System.currentTimeMillis()}")
-
-        composeRule.setContent {
-            MaterialTheme {
-                ProgressScreen(
-                    userViewModel = fixture.userViewModel,
-                    mealPlanViewModel = fixture.mealPlanViewModel,
-                    progressViewModel = fixture.progressViewModel,
-                    groceryViewModel = fixture.groceryViewModel,
-                    userId = fixture.userId,
-                    onBackToDashboard = {},
-                    onNavigateToRoute = {},
-                    onlineStateOverride = true
-                )
-            }
-        }
-
-        composeRule.onNodeWithTag("progress_step4_card")
-            .assertIsDisplayed()
-            .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 0.8f))
-        composeRule.onNodeWithTag("progress_focus_mode_card")
-            .assertIsDisplayed()
-            .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 1f))
-        val stepTraversal = composeRule.onNodeWithTag("progress_step4_card")
-            .fetchSemanticsNode()
-            .config[SemanticsProperties.TraversalIndex]
-        val focusTraversal = composeRule.onNodeWithTag("progress_focus_mode_card")
-            .fetchSemanticsNode()
-            .config[SemanticsProperties.TraversalIndex]
-        assertTrue(
-            "TalkBack should read Step 4 card before Focus Mode card.",
-            stepTraversal < focusTraversal
-        )
-        composeRule.onNodeWithText("Step 4 of 4: Track Progress")
-            .assertIsDisplayed()
+        assertTrue(openedPlan.value)
     }
 
     @Test
@@ -140,7 +81,6 @@ class TraversalAndCtaBannerUiTest {
         val fixture = createFixture("progress_week_seed_${System.currentTimeMillis()}")
         val seeds = fixture.mealPlanViewModel.seedDemoWeeks(fixture.userViewModel.userProfile.value)
         fixture.progressViewModel.seedDemoWeeks(seeds)
-        fixture.progressViewModel.setProgressModePreference("Week")
         fixture.progressViewModel.setAdvancedWeekAnalyticsExpandedPreference(true)
 
         composeRule.setContent {
@@ -161,12 +101,6 @@ class TraversalAndCtaBannerUiTest {
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithTag("progress_content_list").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("progress_mode_week").performClick()
-        composeRule.onNodeWithTag("progress_content_list")
-            .performScrollToNode(hasTestTag("progress_week_insights_card"))
-        composeRule.onNodeWithTag("progress_week_insights_card")
-            .assertIsDisplayed()
-            .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 5f))
         composeRule.onNodeWithTag("progress_content_list")
             .performScrollToNode(hasTestTag("progress_week_spending_card"))
         composeRule.onNodeWithTag("progress_week_spending_card")
@@ -177,11 +111,6 @@ class TraversalAndCtaBannerUiTest {
         composeRule.onNodeWithTag("progress_week_macro_card")
             .assertIsDisplayed()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 7f))
-        composeRule.onNodeWithTag("progress_content_list")
-            .performScrollToNode(hasTestTag("progress_plan_feedback_card"))
-        composeRule.onNodeWithTag("progress_plan_feedback_card")
-            .assertIsDisplayed()
-            .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 8f))
     }
 
     private fun createFixture(userId: String): Fixture {
@@ -197,6 +126,10 @@ class TraversalAndCtaBannerUiTest {
         )
         val authViewModel = AuthViewModel(AuthRepository(context))
         userViewModel.loadProfileForUser(userId)
+        userViewModel.updateProfileName("Traversal Tester")
+        userViewModel.updatePersonalDetails(age = 29, weight = 64, height = 162, activity = "Lightly Active")
+        userViewModel.updateGoal("Weight Loss")
+        userViewModel.setProfileCompleted(true)
         bindMealPlanCurrentUserIdForTest(mealPlanViewModel, userId)
         bindGroceryCurrentUserIdForTest(groceryViewModel, userId)
         bindProgressCurrentUserIdForTest(progressViewModel, userId)

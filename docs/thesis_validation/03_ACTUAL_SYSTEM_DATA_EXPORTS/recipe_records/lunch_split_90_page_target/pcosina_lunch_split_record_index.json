@@ -1,0 +1,1098 @@
+{
+  "generatedDate": "2026-08-11",
+  "gitCommitShort": "cf5dbcb",
+  "recordsPerPart": 22,
+  "mealType": "Lunch",
+  "recordCount": 136,
+  "partCount": 7,
+  "records": [
+    {
+      "recordNumber": 1,
+      "recipeId": "ph_284",
+      "recipeName": "Adobo Steak Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 2,
+      "recipeId": "ph_733",
+      "recipeName": "Adobong Itlog At Patatas Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 3,
+      "recipeId": "ph_565",
+      "recipeName": "Adobong Itlog Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 4,
+      "recipeId": "ph_762",
+      "recipeName": "Adobong Kangkong with Chicharon Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 5,
+      "recipeId": "ph_287",
+      "recipeName": "Adobong Labong Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 6,
+      "recipeId": "ph_392",
+      "recipeName": "Adobong Tahong (Filipino Mussels Adobo) Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 7,
+      "recipeId": "ph_399",
+      "recipeName": "Authentic Sinampalukang Kambing (Filipino Sour Goat Soup) Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 8,
+      "recipeId": "ph_871",
+      "recipeName": "Baked Pinakbet Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 9,
+      "recipeId": "ph_form_029",
+      "recipeName": "Bangus Pinakbet Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 10,
+      "recipeId": "ph_887",
+      "recipeName": "Beef Barbecue Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 11,
+      "recipeId": "ph_620",
+      "recipeName": "Beef Caldereta With Gata Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 12,
+      "recipeId": "ph_486",
+      "recipeName": "Beef Kaldereta (Caldereta) Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 13,
+      "recipeId": "ph_316",
+      "recipeName": "Beef Pochero Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 14,
+      "recipeId": "ph_559",
+      "recipeName": "Binagoongan Talong Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 15,
+      "recipeId": "ph_974",
+      "recipeName": "Chicken Afritada Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 16,
+      "recipeId": "ph_qk_044",
+      "recipeName": "Chicken Afritada Lite Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 17,
+      "recipeId": "ph_160",
+      "recipeName": "Chicken Afritada with Bell Pepper Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 18,
+      "recipeId": "ph_form_043",
+      "recipeName": "Chicken Garbanzo Pinakbet Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 19,
+      "recipeId": "ph_669",
+      "recipeName": "Chicken Goto Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 20,
+      "recipeId": "ph_form_026",
+      "recipeName": "Chicken Kalabasa Okra Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 21,
+      "recipeId": "ph_form_044",
+      "recipeName": "Chicken Kidney Pechay Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 22,
+      "recipeId": "ph_budget_077",
+      "recipeName": "Chicken Kidney Sitaw Budget Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 1,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_01_Records_001-022.docx"
+    },
+    {
+      "recordNumber": 23,
+      "recipeId": "ph_141",
+      "recipeName": "Chicken Molo Soup Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 24,
+      "recipeId": "ph_form_045",
+      "recipeName": "Chicken Mushroom Okra Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 25,
+      "recipeId": "ph_qk_049",
+      "recipeName": "Chicken Repolyo Carrot Rice Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 26,
+      "recipeId": "ph_form_046",
+      "recipeName": "Chicken Sitaw Kidney Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 27,
+      "recipeId": "ph_form_147",
+      "recipeName": "Chickpea Sitaw Malunggay Vegan Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 28,
+      "recipeId": "ph_901",
+      "recipeName": "Crispy Lechon Liempo with Bagoong Sauce Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 29,
+      "recipeId": "ph_393",
+      "recipeName": "Crocodile Sisig Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 30,
+      "recipeId": "ph_form_116",
+      "recipeName": "Egg Garbanzo Malunggay Rice Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 31,
+      "recipeId": "ph_budget_079",
+      "recipeName": "Egg Garbanzo Pechay Budget Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 32,
+      "recipeId": "ph_form_082",
+      "recipeName": "Egg Garbanzo Sitaw Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 33,
+      "recipeId": "ph_form_111",
+      "recipeName": "Egg Kidney Kalabasa Rice Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 34,
+      "recipeId": "ph_form_087",
+      "recipeName": "Egg Kidney Pechay Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 35,
+      "recipeId": "ph_form_084",
+      "recipeName": "Egg Kidney Sitaw Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 36,
+      "recipeId": "ph_form_113",
+      "recipeName": "Egg Mushroom Pinakbet Rice Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 37,
+      "recipeId": "ph_form_108",
+      "recipeName": "Egg Tofu Sitaw Rice Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 38,
+      "recipeId": "ph_form_032",
+      "recipeName": "Eggplant Egg Malunggay Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 39,
+      "recipeId": "ph_form_013",
+      "recipeName": "Eggplant Okra Munggo Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 40,
+      "recipeId": "ph_381",
+      "recipeName": "Filipino Chicken Adobo with Crispy Potatoes Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 41,
+      "recipeId": "ph_772",
+      "recipeName": "Filipino Chicken Inasal Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 42,
+      "recipeId": "ph_805",
+      "recipeName": "Filipino Ginataan Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 43,
+      "recipeId": "ph_127",
+      "recipeName": "Filipino Shrimp Pancit Bihon Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 44,
+      "recipeId": "ph_form_110",
+      "recipeName": "Garbanzo Eggplant Malunggay Rice Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 2,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_02_Records_023-044.docx"
+    },
+    {
+      "recordNumber": 45,
+      "recipeId": "ph_form_058",
+      "recipeName": "Garbanzo Kidney Pinakbet Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 46,
+      "recipeId": "ph_form_145",
+      "recipeName": "Garbanzo Kidney Pinakbet Vegan Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 47,
+      "recipeId": "ph_form_149",
+      "recipeName": "Garbanzo Mushroom Kalabasa Vegan Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 48,
+      "recipeId": "ph_form_060",
+      "recipeName": "Garbanzo Mushroom Sitaw Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 49,
+      "recipeId": "ph_form_062",
+      "recipeName": "Garbanzo Pechay Okra Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 50,
+      "recipeId": "ph_form_064",
+      "recipeName": "Garbanzo Sitaw Eggplant Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 51,
+      "recipeId": "ph_form_114",
+      "recipeName": "Garbanzo Sitaw Pechay Rice Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 52,
+      "recipeId": "ph_671",
+      "recipeName": "Ginataang Alimasag Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 53,
+      "recipeId": "ph_44",
+      "recipeName": "Ginataang Langka with Pork Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 54,
+      "recipeId": "ph_42",
+      "recipeName": "Ginataang Manok with Kalabasa Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 55,
+      "recipeId": "ph_630",
+      "recipeName": "Ginataang Pusit Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 56,
+      "recipeId": "ph_202",
+      "recipeName": "Ginisang Ampalaya with Shrimp (Sauteed Bitter Gourd) Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 57,
+      "recipeId": "ph_420",
+      "recipeName": "Ginisang Sayote with Shrimp (Sauted Chayote) Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 58,
+      "recipeId": "ph_551",
+      "recipeName": "Gising Gising with Bangus Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 59,
+      "recipeId": "ph_rnd_002",
+      "recipeName": "Grilled Chicken Pinakbet Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 60,
+      "recipeId": "ph_119",
+      "recipeName": "Grilled Stuffed Squid (inihaw na pusit) Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 61,
+      "recipeId": "ph_form_012",
+      "recipeName": "Kalabasa Pechay Munggo Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 62,
+      "recipeId": "ph_form_016",
+      "recipeName": "Kalabasa Sitaw Munggo Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 63,
+      "recipeId": "ph_form_148",
+      "recipeName": "Kidney Eggplant Okra Vegan Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 64,
+      "recipeId": "ph_form_059",
+      "recipeName": "Kidney Malunggay Pechay Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 65,
+      "recipeId": "ph_form_063",
+      "recipeName": "Kidney Mushroom Kalabasa Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 66,
+      "recipeId": "ph_form_109",
+      "recipeName": "Kidney Mushroom Pechay Rice Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 3,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_03_Records_045-066.docx"
+    },
+    {
+      "recordNumber": 67,
+      "recipeId": "ph_form_146",
+      "recipeName": "Kidney Pechay Mushroom Vegan Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 68,
+      "recipeId": "ph_form_150",
+      "recipeName": "Kidney Pechay Sitaw Vegan Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 69,
+      "recipeId": "ph_form_061",
+      "recipeName": "Kidney Squash Sitaw Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 70,
+      "recipeId": "ph_41",
+      "recipeName": "Laing na Gabi Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 71,
+      "recipeId": "ph_933",
+      "recipeName": "Lechon Kawali Binagoongan sa Gata Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 72,
+      "recipeId": "ph_801",
+      "recipeName": "Lechon Kawali Hash Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 73,
+      "recipeId": "ph_266",
+      "recipeName": "Lechon Sisig Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 74,
+      "recipeId": "ph_form_010",
+      "recipeName": "Malunggay Munggo Vegetable Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 75,
+      "recipeId": "ph_budget_001",
+      "recipeName": "Munggo Malunggay Rice Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 76,
+      "recipeId": "ph_budget_015",
+      "recipeName": "Munggo Malunggay Rice Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 77,
+      "recipeId": "ph_budget_029",
+      "recipeName": "Munggo Malunggay Rice Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 78,
+      "recipeId": "ph_budget_043",
+      "recipeName": "Munggo Malunggay Rice Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 79,
+      "recipeId": "ph_budget_057",
+      "recipeName": "Munggo Malunggay Rice Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 80,
+      "recipeId": "ph_form_009",
+      "recipeName": "Munggo Pinakbet-Style Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 81,
+      "recipeId": "ph_form_011",
+      "recipeName": "Okra Sitaw Munggo Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 82,
+      "recipeId": "ph_172",
+      "recipeName": "Pancit Cabagan Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 83,
+      "recipeId": "ph_83",
+      "recipeName": "Pancit Canton at Bihon Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 84,
+      "recipeId": "ph_784",
+      "recipeName": "Pancit Musiko Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 85,
+      "recipeId": "ph_form_015",
+      "recipeName": "Pechay Okra Munggo Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 86,
+      "recipeId": "ph_597",
+      "recipeName": "Pesang Dalag Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 87,
+      "recipeId": "ph_914",
+      "recipeName": "Pinoy Nachos Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 88,
+      "recipeId": "ph_709",
+      "recipeName": "Pochero Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 4,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_04_Records_067-088.docx"
+    },
+    {
+      "recordNumber": 89,
+      "recipeId": "ph_126",
+      "recipeName": "Pork Pata Humba Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 90,
+      "recipeId": "ph_667",
+      "recipeName": "Pork Ribs Tinola Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 91,
+      "recipeId": "ph_880",
+      "recipeName": "Pork and Shrimp Dumplings Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 92,
+      "recipeId": "ph_form_132",
+      "recipeName": "Sardines Eggplant Pechay Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 93,
+      "recipeId": "ph_budget_004",
+      "recipeName": "Sardines Malunggay Rice Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 94,
+      "recipeId": "ph_budget_018",
+      "recipeName": "Sardines Malunggay Rice Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 95,
+      "recipeId": "ph_budget_032",
+      "recipeName": "Sardines Malunggay Rice Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 96,
+      "recipeId": "ph_budget_046",
+      "recipeName": "Sardines Malunggay Rice Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 97,
+      "recipeId": "ph_budget_060",
+      "recipeName": "Sardines Malunggay Rice Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 98,
+      "recipeId": "ph_form_036",
+      "recipeName": "Sardines Okra Pechay Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 99,
+      "recipeId": "ph_962",
+      "recipeName": "Seafood Pancit Sotanghon Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 100,
+      "recipeId": "ph_budget_081",
+      "recipeName": "Shrimp Garbanzo Malunggay Budget Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 101,
+      "recipeId": "ph_form_133",
+      "recipeName": "Shrimp Kidney Okra Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 102,
+      "recipeId": "ph_form_085",
+      "recipeName": "Shrimp Okra Garbanzo Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 103,
+      "recipeId": "ph_278",
+      "recipeName": "Sinampalukang Manok Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 104,
+      "recipeId": "ph_337",
+      "recipeName": "Sinigang na Tilapia with Gabi Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 105,
+      "recipeId": "ph_form_014",
+      "recipeName": "Sitaw Malunggay Munggo Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 106,
+      "recipeId": "ph_909",
+      "recipeName": "Sizzling Bulalo na Baka (Beef Shank) Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 107,
+      "recipeId": "ph_926",
+      "recipeName": "Smoked Bangus Eggplant Torta Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 108,
+      "recipeId": "ph_budget_007",
+      "recipeName": "Squash Munggo Rice Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 109,
+      "recipeId": "ph_budget_021",
+      "recipeName": "Squash Munggo Rice Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 110,
+      "recipeId": "ph_budget_035",
+      "recipeName": "Squash Munggo Rice Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 5,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_05_Records_089-110.docx"
+    },
+    {
+      "recordNumber": 111,
+      "recipeId": "ph_budget_049",
+      "recipeName": "Squash Munggo Rice Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 112,
+      "recipeId": "ph_budget_063",
+      "recipeName": "Squash Munggo Rice Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 113,
+      "recipeId": "ph_form_134",
+      "recipeName": "Squid Egg Sitaw Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 114,
+      "recipeId": "ph_form_073",
+      "recipeName": "Squid Okra Kidney Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 115,
+      "recipeId": "ph_form_086",
+      "recipeName": "Squid Pechay Kidney Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 116,
+      "recipeId": "ph_budget_082",
+      "recipeName": "Squid Sitaw Chickpea Budget Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 117,
+      "recipeId": "ph_87",
+      "recipeName": "Tinolang Manok sa Upo Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 118,
+      "recipeId": "ph_form_088",
+      "recipeName": "Tofu Eggplant Garbanzo Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 119,
+      "recipeId": "ph_form_107",
+      "recipeName": "Tofu Garbanzo Kidney Pinakbet Rice Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 120,
+      "recipeId": "ph_form_083",
+      "recipeName": "Tofu Garbanzo Mushroom Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 121,
+      "recipeId": "ph_form_112",
+      "recipeName": "Tofu Garbanzo Okra Rice Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 122,
+      "recipeId": "ph_form_115",
+      "recipeName": "Tofu Kidney Eggplant Rice Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 123,
+      "recipeId": "ph_form_081",
+      "recipeName": "Tofu Kidney Pinakbet Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 124,
+      "recipeId": "ph_budget_080",
+      "recipeName": "Tofu Kidney Squash Budget Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 125,
+      "recipeId": "ph_form_034",
+      "recipeName": "Tofu Sitaw Kalabasa Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 126,
+      "recipeId": "ph_639",
+      "recipeName": "Tortang Talong With Tokwa Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 127,
+      "recipeId": "ph_budget_078",
+      "recipeName": "Tuna Chickpea Okra Budget Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 128,
+      "recipeId": "ph_form_131",
+      "recipeName": "Tuna Garbanzo Pinakbet Lunch Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 129,
+      "recipeId": "ph_budget_011",
+      "recipeName": "Tuna Munggo Vegetable Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 130,
+      "recipeId": "ph_budget_025",
+      "recipeName": "Tuna Munggo Vegetable Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 131,
+      "recipeId": "ph_budget_039",
+      "recipeName": "Tuna Munggo Vegetable Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 132,
+      "recipeId": "ph_budget_053",
+      "recipeName": "Tuna Munggo Vegetable Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 6,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_06_Records_111-132.docx"
+    },
+    {
+      "recordNumber": 133,
+      "recipeId": "ph_budget_067",
+      "recipeName": "Tuna Munggo Vegetable Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_07_Records_133-136.docx"
+    },
+    {
+      "recordNumber": 134,
+      "recipeId": "ph_738",
+      "recipeName": "Tuna Sinigang Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_07_Records_133-136.docx"
+    },
+    {
+      "recordNumber": 135,
+      "recipeId": "ph_845",
+      "recipeName": "Turbo Broiler French Fries Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_07_Records_133-136.docx"
+    },
+    {
+      "recordNumber": 136,
+      "recipeId": "ph_922",
+      "recipeName": "Vietnamese Chicken Barbecue Complete Plate",
+      "mealType": "Lunch",
+      "partNumber": 7,
+      "partFile": "PCOSINA_PhilFCT_Pricing_Recipe_Records_Lunch_Part_07_Records_133-136.docx"
+    }
+  ]
+}

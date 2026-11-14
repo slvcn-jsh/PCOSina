@@ -29,17 +29,40 @@ class ProgressFeedbackPolicyTest {
             source.contains("var feedbackMessage by remember { mutableStateOf<String?>(null) }")
         )
         assertTrue(
-            "Progress screen should confirm saved daily check-ins.",
-            source.contains("Today's check-in was saved.")
+            "Progress screen should frame review as next-plan tuning.",
+            source.contains("Tune next plan")
         )
         assertTrue(
-            "Progress screen should validate weekly spend with inline feedback.",
-            source.contains("Weekly spend must be a whole number in pesos.")
+            "Progress screen should remove free-text and spend collection from the weekly review.",
+            !source.contains("Total spent (₱)") && !source.contains("label = { Text(\"Notes\") }")
         )
         assertTrue(
-            "Progress screen should confirm weekly review updates.",
-            source.contains("Weekly review updated.")
+            "Progress screen should confirm plan tuning updates inline.",
+            source.contains("Next-plan preferences updated.")
         )
+    }
+
+    @Test
+    fun supportFeedback_isPersistedBeforeTheComposerIsClearedAndExposesDeliveryState() {
+        val support = read(
+            resolve(
+                "app", "src", "main", "java", "com", "pcosina", "app",
+                "ui", "screens", "CommunityScreen.kt"
+            )
+        )
+        val viewModel = read(
+            resolve(
+                "app", "src", "main", "java", "com", "pcosina", "app",
+                "ui", "ProgressViewModel.kt"
+            )
+        )
+
+        assertTrue(support.contains("onFeedback: suspend (String, Boolean) -> Boolean"))
+        assertTrue(support.contains("if (saved) {") && support.contains("feedbackText = \"\""))
+        assertTrue(support.contains("Feedback status") && support.contains("Text(\"Retry\")"))
+        assertTrue(viewModel.contains("suspend fun queueFeedback(message: String): Boolean"))
+        assertTrue(viewModel.contains("progressLocalRepository.saveFeedbackQueueJson"))
+        assertTrue(viewModel.contains("feedbackHistoryLimit = 20"))
     }
 
     private fun resolve(vararg parts: String): Path {

@@ -11,7 +11,6 @@ object Routes {
         Auth,
         ProfileSetup,
         GoalSetup,
-        Operator,
         GuidedCore,
         PlanRequired
     }
@@ -37,22 +36,26 @@ object Routes {
     // Main App
     val Dashboard = defineRoute("dashboard", RouteAccess.GuidedCore)
     val Settings = defineRoute("settings", RouteAccess.GuidedCore)
+    const val SettingsSectionArg = "section"
+    const val SettingsSectionProfile = "profile"
+    const val SettingsSectionReminders = "reminders"
+    const val SettingsSectionAccount = "account"
+    val SettingsRoutePattern: String
+        get() = "$Settings?$SettingsSectionArg={$SettingsSectionArg}"
+    fun settingsRoute(section: String? = null): String {
+        val encodedSection = section?.takeIf { it.isNotBlank() }?.let {
+            URLEncoder.encode(it, StandardCharsets.UTF_8.toString())
+        }
+        return if (encodedSection == null) Settings else "$Settings?$SettingsSectionArg=$encodedSection"
+    }
     val Notifications = defineRoute("notifications", RouteAccess.GuidedCore)
     val MoreTools = defineRoute("more_tools", RouteAccess.GuidedCore)
-    val OperatorDashboard = defineRoute("operator_dashboard", RouteAccess.Operator)
-    val OperatorRecipes = defineRoute("operator_recipes", RouteAccess.Operator)
-    val OperatorPrices = defineRoute("operator_prices", RouteAccess.Operator)
-    val OperatorGroceryPantry = defineRoute("operator_grocery_pantry", RouteAccess.Operator)
-    val OperatorRules = defineRoute("operator_rules", RouteAccess.Operator)
-    val OperatorSystemInfo = defineRoute("operator_system_info", RouteAccess.Operator)
-    val OperatorAdminSettings = defineRoute("operator_admin_settings", RouteAccess.Operator)
-    val AdminMethodology = defineRoute("admin_methodology", RouteAccess.GuidedCore)
 
     // Bottom tabs
     val MealPlan = defineRoute("meal_plan", RouteAccess.GuidedCore)
     val GroceryList = defineRoute("grocery_list", RouteAccess.PlanRequired)
     val Progress = defineRoute("progress", RouteAccess.PlanRequired)
-    val Ipo = defineRoute("ipo", RouteAccess.GuidedCore)
+    val Support = defineRoute("support", RouteAccess.GuidedCore)
 
     // Details
     val RecipeDetails = defineRoute("recipe_details", RouteAccess.PlanRequired)
@@ -61,17 +64,18 @@ object Routes {
     val RecipeDetailsRoutePattern: String
         get() = "$RecipeDetails/{$RecipeIdArg}?$MealLabelArg={$MealLabelArg}"
     fun recipeDetailsRoute(recipeId: String, mealLabel: String? = null): String {
+        val encodedRecipeId = URLEncoder.encode(recipeId, StandardCharsets.UTF_8.toString())
         val encodedMealLabel = mealLabel?.takeIf { it.isNotBlank() }?.let {
             URLEncoder.encode(it, StandardCharsets.UTF_8.toString())
         }
         return if (encodedMealLabel == null) {
-            "$RecipeDetails/$recipeId"
+            "$RecipeDetails/$encodedRecipeId"
         } else {
-            "$RecipeDetails/$recipeId?$MealLabelArg=$encodedMealLabel"
+            "$RecipeDetails/$encodedRecipeId?$MealLabelArg=$encodedMealLabel"
         }
     }
 
-    fun baseRoute(route: String?): String? = route?.substringBefore("/")
+    fun baseRoute(route: String?): String? = route?.substringBefore("?")?.substringBefore("/")
 
     fun isAuthRoute(route: String?): Boolean =
         routeAccessByBase[baseRoute(route)] == RouteAccess.Auth
@@ -81,9 +85,6 @@ object Routes {
 
     fun isGoalRoute(route: String?): Boolean =
         routeAccessByBase[baseRoute(route)] == RouteAccess.GoalSetup
-
-    fun isOperatorRoute(route: String?): Boolean =
-        routeAccessByBase[baseRoute(route)] == RouteAccess.Operator
 
     fun isKnownRoute(route: String?): Boolean =
         routeAccessByBase.containsKey(baseRoute(route))

@@ -1,0 +1,44 @@
+{
+  "generatedAtMs": 1788723938729,
+  "sourceDbPath": "pcosina.db",
+  "rows": 240,
+  "uniqueUsers": 6,
+  "uniqueRequests": 240,
+  "freeTextEvents": 0,
+  "sourceEventWindow": {
+    "minEventTimeMs": 1788723319411,
+    "maxEventTimeMs": 1788723319650
+  },
+  "eventCounts": {
+    "why_replaced_submitted": 120,
+    "why_skipped_submitted": 120
+  },
+  "sourceCounts": {
+    "tag_only": 240
+  },
+  "primaryTagCounts": {
+    "cost_too_high": 35,
+    "ingredient_unavailable": 35,
+    "prep_time_too_long": 34,
+    "repeat_fatigue": 34,
+    "not_hungry": 34,
+    "schedule_conflict": 34,
+    "restriction_conflict": 34
+  },
+  "tagCounts": {
+    "user_preference": 138,
+    "skipped_by_user": 102,
+    "schedule_conflict": 68,
+    "cost_too_high": 35,
+    "ingredient_unavailable": 35,
+    "prep_time_too_long": 34,
+    "repeat_fatigue": 34,
+    "not_hungry": 34,
+    "forgot_or_missed": 34,
+    "restriction_conflict": 34
+  },
+  "files": {
+    "events": "reason_feedback_events.csv",
+    "user_features": "reason_feedback_user_features.csv"
+  }
+}

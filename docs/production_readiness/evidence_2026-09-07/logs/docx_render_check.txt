@@ -1,0 +1,1 @@
+Error: Missing required system tool(s): soffice, pdftoppm. Install LibreOffice and Poppler, then retry.

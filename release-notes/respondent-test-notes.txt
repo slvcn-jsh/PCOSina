@@ -1,12 +1,18 @@
-PCOSINA respondent testing build 1.10.8-staging
+PCOSINA respondent testing build 1.10.13-staging
 
 - Install through Firebase App Distribution.
 - Sign in with Google, complete the profile, and generate a meal plan.
 - Review Plan, Grocery, Progress, Settings, and Support.
+- Grocery rows now share the backend plan total, show recipe versus supported purchase quantities, and expose compact price-source details.
+- Household tap water is displayed in liters at zero grocery cost; water spinach remains a separate kangkong item.
+- You can save or reset a personal unit price from grocery price details. Saved prices apply to newly generated plans and expire after 180 days.
+- Progress now distinguishes adherence due so far from full-week completion, and historical weeks are review-only.
+- Support keeps help and feedback first, with Manage Your Experience at the bottom.
+- Notification settings show phone permission/readiness, the next scheduled reminder, and a local test-notification action.
 - Demo meal logging uses meal order again: Breakfast, then Lunch, then Dinner.
 - If a respondent did not eat an earlier meal, tap Skip for that meal to unlock the next meal.
 - Clock/time-window locks are still disabled for respondent testing.
 - Updated Android native crash reporting libraries for 16 KB page-size compatibility.
 - App Check debug token setup is not required for this testing build.
-- Backend planner pricing diagnostics and timeout reporting were improved for Render testing.
+- Backend planner pricing provenance, user isolation, diagnostics, and timeout reporting were improved for Render testing.
 - PCOSINA is wellness decision support only and is not medical advice.

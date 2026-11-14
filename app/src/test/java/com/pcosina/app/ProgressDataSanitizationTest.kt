@@ -38,7 +38,12 @@ class ProgressDataSanitizationTest {
                     "timestamp": 456
                   }
                 ],
-                "symptomTags": ["Bloating", "", null]
+                "symptomTags": ["Bloating", "", null],
+                "symptomSeverityByTag": {
+                  "Bloating": 9,
+                  "  Fatigue  ": "2",
+                  "": 4
+                }
               }
             ]
         """.trimIndent()
@@ -52,6 +57,7 @@ class ProgressDataSanitizationTest {
         assertEquals(1, logs.first().mealCheckIns.size)
         assertEquals(5, logs.first().mealCheckIns.first().energyLevel)
         assertEquals(listOf("Bloating"), logs.first().symptomTags)
+        assertEquals(mapOf("Bloating" to 5, "Fatigue" to 2), logs.first().symptomSeverityByTag)
     }
 
     @Test

@@ -8,8 +8,9 @@ Core workflows must remain usable without network while preserving account recov
 
 ## Decision
 - Local-first data as default source of truth for day-to-day UX.
-- Cloud sync is supportive for backup/reinstall/multi-device continuity.
+- Cloud sync is supportive and best-effort for backup/reinstall/multi-device continuity.
 - Planner generation may require network, but latest saved artifacts remain available offline.
+- Product restore promises are bounded by the [offline, sync, and restore matrix](../data-models/offline_restore_matrix.md).
 
 ## Consequences
 - Positive: continuity under intermittent connectivity.

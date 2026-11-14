@@ -27,8 +27,8 @@ class ProgressToastReplacementPolicyTest {
             progressText.contains("Weekly spend must be a whole number in pesos.")
         )
         assertTrue(
-            "Refined check-in lock state should use inline feedback copy instead of toast.",
-            progressText.contains("Check-ins can only be saved for today.")
+            "Removed Today check-in validation should not return after the progress cleanup.",
+            !progressText.contains("Check-ins can only be saved for today.")
         )
     }
 

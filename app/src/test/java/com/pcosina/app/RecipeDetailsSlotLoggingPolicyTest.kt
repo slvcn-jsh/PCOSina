@@ -33,8 +33,18 @@ class RecipeDetailsSlotLoggingPolicyTest {
             source.contains("val slotToLog = hintedRemainingSlot ?: remainingRecipeSlots.firstOrNull")
         )
         assertTrue(
-            "Recipe details should disable logging from completed slot data, while skipped slots only advance next-meal flow.",
+            "Recipe details should disable logging from completed slot data.",
             source.contains("completedRemainingTodaySlots.none { slot ->")
+        )
+        assertTrue(
+            "Recipe details should detect when the selected planned slot was skipped.",
+            source.contains("val selectedSlotSkipped = remember(") &&
+                source.contains("progressViewModel.isMealSkipped(")
+        )
+        assertTrue(
+            "Recipe details should keep skipped planned meals locked until the user undoes Skip from Plan.",
+            source.contains("Undo Skip from Plan before logging it") &&
+                source.contains("enabled = !alreadyLoggedToday && !selectedSlotSkipped")
         )
     }
 

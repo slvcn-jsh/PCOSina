@@ -1,0 +1,69 @@
+{
+  "blockers": [
+    {
+      "area": "Connected Android/emulator proof",
+      "current_blocker": "ADB preflight passes, but `adb devices -l` lists no attached or authorized device.",
+      "effect_if_done": "Proves the APK launches and core flows work on a real Android runtime.",
+      "evidence": "docs/production_readiness/evidence_2026-09-07/logs/adb_devices.txt",
+      "importance": "Critical",
+      "risk_if_skipped": "Unit tests may pass while manifest, permissions, lifecycle, storage, or ANR issues still break on device.",
+      "status": "Blocked"
+    },
+    {
+      "area": "Staged multi-device sync validation",
+      "current_blocker": "Only deterministic local replay passed; no staging devices/accounts/receipts were available in this workspace.",
+      "effect_if_done": "Proves real staging payloads survive device switching and conflict resolution.",
+      "evidence": "docs/production_readiness/evidence_2026-09-07/logs/backend_sync_replay_pytest.txt",
+      "importance": "High",
+      "risk_if_skipped": "Saved plans, groceries, profile, or progress can become stale, duplicated, overwritten, or inconsistent across devices.",
+      "status": "Blocked"
+    },
+    {
+      "area": "Production Redis/load evidence",
+      "current_blocker": "`PCOSINA_REDIS_URL` is not set, so only memory queue throughput could be tested locally.",
+      "effect_if_done": "Proves queued meal-plan jobs do not disappear, hang, or overload under production broker conditions.",
+      "evidence": "docs/production_readiness/evidence_2026-09-07/logs/redis_environment_check.txt",
+      "importance": "Critical for backend release",
+      "risk_if_skipped": "Users may hit timeouts or lost background plan jobs once real traffic uses Redis-backed queues.",
+      "status": "Blocked"
+    },
+    {
+      "area": "Live canary/webhook delivery",
+      "current_blocker": "Staging webhook environment variables are missing in this workspace.",
+      "effect_if_done": "Proves production alerts and dashboard notifications fire when canary guardrails run.",
+      "evidence": "docs/production_readiness/evidence_2026-09-07/logs/canary_webhook_secrets_staging.txt",
+      "importance": "Critical",
+      "risk_if_skipped": "A bad rollout could fail silently without operator alerts.",
+      "status": "Blocked"
+    },
+    {
+      "area": "Strict production rollout batch",
+      "current_blocker": "Missing/invalid environment webhook keys for required live drill.; Operator auth policy check failed.; External canary receipt is required but was not supplied.; Redis probe required but PCOSINA_REDIS_URL is missing/invalid.; External queue throughput report is required but was not supplied.",
+      "effect_if_done": "Gives one auditable production release pass that ties schema, auth, canary, Redis, queue, and sync evidence together.",
+      "evidence": "benchmarks/reports/production_readiness_2026-09-07/rollout_readiness_batch.production.20260906T195037Z.json",
+      "importance": "Critical",
+      "risk_if_skipped": "Production readiness remains a confidence claim instead of an evidence-backed release decision.",
+      "status": "Failed/Blocked"
+    },
+    {
+      "area": "ML sustained canary/drift evidence",
+      "current_blocker": "Fresh reason-feedback artifact exists, but ML readiness fails because the dataset manifest is missing; attempted local telemetry regeneration did not complete cleanly, and its partial Stage 1 seed rows were cleared.",
+      "effect_if_done": "Proves ML ranking remains helpful and does not regress key cohorts before widening.",
+      "evidence": "docs/production_readiness/evidence_2026-09-07/logs/ml_readiness_shadow_final.txt",
+      "importance": "Medium to High",
+      "risk_if_skipped": "ML should stay limited to shadow/canary or be disabled; deterministic planning can still release without ML widening.",
+      "status": "Deferred"
+    },
+    {
+      "area": "Clean commit/push state",
+      "current_blocker": "The worktree contains many pre-existing modified/untracked files, so a broad commit would mix unrelated work into this evidence package.",
+      "effect_if_done": "Makes the fixed version reproducible for teammates and CI.",
+      "evidence": "docs/production_readiness/evidence_2026-09-07/logs/git_status_before_package.txt",
+      "importance": "High for team delivery",
+      "risk_if_skipped": "Fixes and evidence remain local until intentionally staged, reviewed, committed, and pushed.",
+      "status": "Deferred"
+    }
+  ],
+  "generatedAtUtc": "2026-09-06T19:56:45.144957+00:00",
+  "productionClearance": false
+}

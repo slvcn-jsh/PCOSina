@@ -1,0 +1,5 @@
+MARKDOWN=C:\Users\salva\StudioProjects\PCOSina\docs\production_readiness\evidence_2026-09-07\PCOSINA_Production_Readiness_Evidence_Packet_2026-09-07.md
+DOCX=C:\Users\salva\StudioProjects\PCOSina\output\doc\PCOSINA_Production_Readiness_Evidence_Packet_2026-09-07.docx
+MANIFEST=C:\Users\salva\StudioProjects\PCOSina\docs\production_readiness\evidence_2026-09-07\artifacts\production_readiness_evidence_manifest.json
+BLOCKERS=C:\Users\salva\StudioProjects\PCOSina\docs\production_readiness\evidence_2026-09-07\artifacts\production_readiness_blockers.json
+ZIP=C:\Users\salva\StudioProjects\PCOSina\output\doc\PCOSINA_Production_Readiness_Evidence_Packet_2026-09-07.zip

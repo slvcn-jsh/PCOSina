@@ -12,6 +12,16 @@ class HealthMetricsTest {
     }
 
     @Test
+    fun bmiCategory_usesExactClinicalBoundaries() {
+        assertEquals("Underweight", HealthMetrics.bmiCategory(18.49))
+        assertEquals("Normal", HealthMetrics.bmiCategory(18.5))
+        assertEquals("Normal", HealthMetrics.bmiCategory(24.99))
+        assertEquals("Overweight", HealthMetrics.bmiCategory(25.0))
+        assertEquals("Overweight", HealthMetrics.bmiCategory(29.99))
+        assertEquals("Obese", HealthMetrics.bmiCategory(30.0))
+    }
+
+    @Test
     fun targetCalories_weightLoss_usesDeficit() {
         val breakdown = HealthMetrics.targetCaloriesPerDay(
             weightKg = 60,

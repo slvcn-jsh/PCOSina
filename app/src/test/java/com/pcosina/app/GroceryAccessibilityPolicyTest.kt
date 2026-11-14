@@ -36,14 +36,22 @@ class GroceryAccessibilityPolicyTest {
             groceryText.contains("heightIn(min = 48.dp)")
         )
         assertTrue(
+            "Every grocery price-evidence action should identify its item to TalkBack.",
+            groceryText.contains("contentDescription = \"Price details for \${item.name}\"")
+        )
+        assertTrue(
             "Grocery should expose the new filter dialog on the refined screen.",
             groceryText.contains("Select Filters") &&
                 groceryText.contains("Need to buy") &&
-                groceryText.contains("Bought/Pantry")
+                groceryText.contains("Bought or in pantry")
         )
         assertFalse(
             "Grocery should no longer keep the misleading budget CTA that sent users to Progress.",
             groceryText.contains("Update budget in Progress")
+        )
+        assertTrue(
+            "Price evidence should explain that estimates are not guaranteed SRP values.",
+            groceryText.contains("not a live store quote or guaranteed SRP")
         )
     }
 

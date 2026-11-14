@@ -37,6 +37,46 @@ def test_app_schema_migrations_are_tracked_and_idempotent():
     assert second["pending"] == []
 
 
+def test_catalog_reconciliation_migration_soft_deactivates_only_archived_corrections():
+    db_path = _temp_db_path("catalog_correction_deactivation")
+    database.DATABASE_URL = ""
+    database.DB_NAME = str(db_path)
+    database.init_db()
+
+    superseded_id = sorted(database._superseded_nutrition_correction_recipe_ids())[0]
+    retained_id = "test_keep_nutrition_correction"
+    for recipe_id in (superseded_id, retained_id):
+        database.upsert_nutrition_correction(
+            recipe_id,
+            {
+                "calories": 400,
+                "protein": 20,
+                "carbs": 50,
+                "fats": 12,
+                "fiber": 6,
+                "active": True,
+                "source": "migration_test",
+                "review_status": "reviewed",
+            },
+        )
+
+    conn = database._connect()
+    try:
+        database._migration_deactivate_superseded_catalog_nutrition_corrections(conn)
+        database._migration_deactivate_superseded_catalog_nutrition_corrections(conn)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT recipe_id, active FROM recipe_nutrition_corrections "
+            "WHERE recipe_id IN (?, ?) ORDER BY recipe_id",
+            (retained_id, superseded_id),
+        )
+        active_by_id = {str(row[0]): bool(row[1]) for row in cursor.fetchall()}
+    finally:
+        conn.close()
+
+    assert active_by_id == {retained_id: True, superseded_id: False}
+
+
 def test_policy_schema_migrations_are_tracked_and_idempotent(monkeypatch):
     db_path = _temp_db_path("policy_schema")
     monkeypatch.setattr(policy_store, "DATABASE_URL", "")
@@ -94,6 +134,51 @@ class _FakeConn:
 
     def close(self):
         self.closed = True
+
+
+class _MissingMigrationTableCursor(_FakeCursor):
+    def fetchone(self):
+        return (None,)
+
+    def fetchall(self):
+        raise AssertionError("A missing migration table must not be queried")
+
+
+class _MissingMigrationTableConn(_FakeConn):
+    def cursor(self, *args, **kwargs):
+        return _MissingMigrationTableCursor(self)
+
+
+def test_postgres_app_schema_status_is_read_only_when_tracking_table_is_missing(monkeypatch):
+    fake = _MissingMigrationTableConn()
+    monkeypatch.setattr(database, "DATABASE_URL", "postgres://example")
+    monkeypatch.setattr(database, "_connect", lambda: fake)
+
+    status = database.get_schema_migration_status()
+
+    assert status["applied"] == 0
+    assert status["pending"] == [item["migrationId"] for item in status["items"]]
+    assert fake.executed == [("SELECT to_regclass(%s)", ("schema_migrations",))]
+    assert fake.commits == 0
+    assert fake.closed is True
+
+
+def test_postgres_policy_schema_status_is_read_only_when_tracking_table_is_missing(monkeypatch):
+    fake = _MissingMigrationTableConn()
+    monkeypatch.setattr(policy_store, "DATABASE_URL", "postgres://example")
+    monkeypatch.setattr(policy_store, "_connect", lambda: fake)
+
+    status = policy_store.get_schema_migration_status()
+
+    assert status["applied"] == 0
+    assert status["pending"] == [item["migrationId"] for item in status["items"]]
+    assert fake.executed == [("SELECT to_regclass(%s)", ("schema_migrations",))]
+    assert fake.commits == 0
+    assert fake.closed is True
+
+
+def test_app_and_policy_migrations_share_one_postgres_bootstrap_lock():
+    assert database.SCHEMA_BOOTSTRAP_LOCK_KEY == policy_store.SCHEMA_BOOTSTRAP_LOCK_KEY
 
 
 def test_init_db_uses_postgres_bootstrap_lock(monkeypatch):

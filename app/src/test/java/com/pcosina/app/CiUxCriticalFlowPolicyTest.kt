@@ -9,7 +9,7 @@ import org.junit.Test
 class CiUxCriticalFlowPolicyTest {
 
     @Test
-    fun ciWorkflow_runsFirstWinAndReminderCriticalInstrumentation() {
+    fun ciWorkflow_runsCurrentCoreAndReminderCriticalInstrumentation() {
         val source = read(resolve(".github", "workflows", "ci.yml"))
 
         assertTrue(
@@ -22,18 +22,18 @@ class CiUxCriticalFlowPolicyTest {
                 source.contains("api-level: 34")
         )
         assertTrue(
-            "Critical flow gate should run first-win end-to-end instrumentation test.",
-            source.contains("com.pcosina.app.FirstWinFlowUiTest")
-        )
-        assertTrue(
-            "Critical flow gate should provide explicit first-win timeout argument.",
-            source.contains("first_win_timeout_ms=90000")
+            "Critical flow gate should run current core instrumentation test.",
+            source.contains("com.pcosina.app.CurrentCoreFlowUiTest")
         )
         assertTrue(
             "Critical flow gate should run reminder-enabled proof instrumentation test.",
             source.contains(
                 "com.pcosina.app.MealPlanSwapBannerUiTest#statusCenter_showsReminderSummaryWhenNotificationsEnabled"
             )
+        )
+        assertTrue(
+            "Emulator-runner Gradle commands must not pass a literal line-continuation token as a task.",
+            !source.contains(":app:connectedDebugAndroidTest \\")
         )
     }
 

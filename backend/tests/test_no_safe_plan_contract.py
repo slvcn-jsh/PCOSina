@@ -298,7 +298,15 @@ def test_no_safe_response_captures_exclusion_and_budget_diagnostics():
                 "exclusion_detail_counts": {"allergy:fish": 5, "restriction:no_pork": 2},
             },
             "budget_exceeded_stage": "stage1_shortlist",
-            "solver_budget": {"totalTimeLimitSeconds": 14.0},
+            "solver_budget": {"totalTimeLimitSeconds": 14.0, "budgetWeeklyPhp": 700},
+            "budget_diagnostics": {
+                "userBudgetPhp": 700,
+                "solverBudgetEstimatePhp": 820,
+                "finalGroceryEstimatePhp": 760,
+                "displayedEstimateSource": "backend_aggregated_grocery",
+                "budgetAuthority": "backend_aggregated_grocery",
+                "budgetGapPhp": -60,
+            },
             "phase_timings_ms": {"stage1_shortlist": 4200, "stage1_price_estimation": 3900},
             "pricing_diagnostics": {
                 "marketMultiplierDbCalls": 1,
@@ -318,12 +326,67 @@ def test_no_safe_response_captures_exclusion_and_budget_diagnostics():
     assert response.diagnosticsSummary["timeoutStage"] == "stage1_shortlist"
     assert response.diagnosticsSummary["candidateCountPre"] is None
     assert response.diagnosticsSummary["candidateCountPost"] is None
+    assert response.diagnosticsSummary["budgetDiagnostics"]["finalGroceryEstimatePhp"] == 760
+    assert response.diagnosticsSummary["userBudgetPhp"] == 700
+    assert response.diagnosticsSummary["solverBudgetEstimatePhp"] == 820
+    assert response.diagnosticsSummary["displayedEstimateSource"] == "backend_aggregated_grocery"
+    assert response.diagnosticsSummary["budgetAuthority"] == "backend_aggregated_grocery"
+    assert response.diagnosticsSummary["budgetGapPhp"] == -60
     assert response.diagnosticsSummary["pricingDiagnostics"]["marketMultiplierDbCalls"] == 1
     assert response.diagnosticsSummary["phaseTimingsMs"]["stage1_price_estimation"] == 3900
     assert response.machineReasonCodes == ["PLANNER_TIMEOUT"]
     assert response.diagnosticsSummary["profileRuleEffects"]["hardFilters"]
     assert response.humanGuidance[0].startswith("Planner timed out while pricing, filtering, or optimizing recipes")
     assert any("Allergy rules removed some candidate meals" in item for item in response.humanGuidance)
+
+
+def test_no_safe_response_captures_catalog_nutrition_gap():
+    request = main.GeneratePlanRequest.model_validate(
+        {
+            "profile": {
+                "displayName": "Nutrition Gap User",
+                "age": 30,
+                "heightCm": 160,
+                "weightKg": 65,
+                "activityLevel": "Lightly Active",
+                "goal": "General Health",
+                "dietaryRestrictions": [],
+                "allergies": [],
+                "pantryItems": [],
+            },
+            "days": 7,
+            "mealsPerDay": 3,
+        }
+    )
+    nutrition_feasibility = {
+        "ok": False,
+        "gaps": [
+            {
+                "nutrient": "protein",
+                "kind": "minimum",
+                "required": 55,
+                "possible": 42,
+            }
+        ],
+    }
+
+    response = main._build_no_safe_plan_response(
+        request=request,
+        request_id="nutrition-gap-request",
+        message="Catalog nutrition coverage is insufficient for this profile.",
+        policy_version="policy-v1:test",
+        started_ms=1000,
+        completed_ms=1500,
+        telemetry={"stage1_diag": {"nutrition_feasibility": nutrition_feasibility}},
+    )
+
+    assert response.status == "no-safe-plan"
+    assert response.machineReasonCodes == ["CATALOG_NUTRITION_GAP"]
+    assert response.diagnosticsSummary["nutritionFeasibility"] == nutrition_feasibility
+    assert any("source-backed meals" in item for item in response.humanGuidance)
+    assert response.suggestedRelaxations == [
+        "Use reviewed nutrition corrections or add validated recipes before retrying this profile."
+    ]
 
 
 def test_generate_plan_no_safe_cache_hit_emits_completion_events_for_new_request(monkeypatch):

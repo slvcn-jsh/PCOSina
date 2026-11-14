@@ -5,18 +5,47 @@ import os
 import time
 import uuid
 
+if (
+    os.getenv("RENDER", "").strip()
+    or os.getenv("DATABASE_URL", "").strip().lower().startswith(("postgres://", "postgresql://"))
+):
+    os.environ.setdefault("PCOSINA_DB_POOL_MIN_SIZE", "0")
+    os.environ.setdefault("PCOSINA_DB_POOL_MAX_SIZE", "2")
+    os.environ.setdefault("PCOSINA_DB_POOL_TIMEOUT_SECONDS", "30")
+
 import database
 import policy_store
 import queue_broker
+from db_url import is_postgres_database_url
 from ml_events import build_event, uid_hash, validate_event
 from policy_config import default_policy, resolve_policy_for_environment
 from domain.models import GeneratePlanRequest, GeneratePlanResponse
 from services.meal_planner import solve_meal_plan
 from services.plan_response_builder import build_no_safe_plan_response
+from price_catalog import invalidate_override_cache as invalidate_price_rule_cache
 
 WORKER_ID = os.getenv("PCOSINA_WORKER_ID", f"worker-{uuid.uuid4().hex[:8]}")
 POLL_SECONDS = float(os.getenv("PCOSINA_WORKER_POLL_SECONDS", "1.0"))
 QUEUE_BROKER = queue_broker.build_broker_from_env()
+
+
+def _seed_reviewed_price_rules_on_startup() -> bool:
+    configured = os.getenv("PCOSINA_SEED_REVIEWED_PRICE_RULES", "").strip().lower()
+    if configured:
+        return configured in ("1", "true", "yes", "on")
+    return True
+
+
+def _bootstrap_database_on_startup() -> bool:
+    configured = os.getenv("PCOSINA_BOOTSTRAP_ON_STARTUP", "").strip().lower()
+    if configured:
+        return configured in ("1", "true", "yes", "on")
+    if is_postgres_database_url(os.getenv("DATABASE_URL", "")):
+        return False
+    if os.getenv("RENDER", "").strip():
+        return False
+    environment = os.getenv("PCOSINA_ENV", "development").strip().lower()
+    return environment not in ("prod", "production")
 
 
 def _inc_diag(metric_key: str, delta: int = 1) -> None:
@@ -158,6 +187,7 @@ def _emit_planner_timing_log(
         "stage1Diag": telemetry_payload.get("stage1_diag") or {},
         "pricingDiagnostics": telemetry_payload.get("pricing_diagnostics") or {},
         "solverBudget": telemetry_payload.get("solver_budget") or {},
+        "budgetDiagnostics": telemetry_payload.get("budget_diagnostics") or {},
         "budgetExceededStage": telemetry_payload.get("budget_exceeded_stage"),
         "solvePairDiagnostics": telemetry_payload.get("solve_pair_diagnostics") or [],
     }
@@ -386,12 +416,16 @@ def run_once() -> bool:
             explanation=explanation,
             requestId=job_id,
             planId=uuid.uuid4().hex,
+            groceryOutput=telemetry.get("grocery_output"),
             policyVersion=policy_version,
             diagnosticsSummary={
                 "reasonCodes": [],
                 "summary": "success",
                 "pricingDiagnostics": telemetry.get("pricing_diagnostics") or {},
                 "phaseTimingsMs": telemetry.get("phase_timings_ms") or {},
+                "budgetDiagnostics": telemetry.get("budget_diagnostics") or {},
+                **(telemetry.get("budget_diagnostics") or {}),
+                "groceryBudgetAuthority": (explanation or {}).get("groceryBudgetAuthority") if isinstance(explanation, dict) else None,
             },
             solverMetadata={
                 "solverName": "OR-Tools CP-SAT",
@@ -486,10 +520,16 @@ def run_once() -> bool:
 
 
 def main() -> int:
-    database.init_db()
-    database.seed_recipes()
-    policy_store.init_policy_store()
-    policy_store.ensure_default_policy(actor="worker-bootstrap")
+    if _bootstrap_database_on_startup():
+        database.init_db()
+        database.seed_recipes()
+        if _seed_reviewed_price_rules_on_startup():
+            database.seed_reviewed_price_rules()
+            invalidate_price_rule_cache()
+        policy_store.init_policy_store()
+        policy_store.ensure_default_policy(actor="worker-bootstrap")
+    else:
+        print("Database bootstrap skipped; expecting the deploy bootstrap command to have completed.", flush=True)
 
     run_forever = os.getenv("PCOSINA_WORKER_RUN_FOREVER", "true").strip().lower() in ("1", "true", "yes", "on")
     if not run_forever:

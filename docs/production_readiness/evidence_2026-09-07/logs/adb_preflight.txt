@@ -1,0 +1,7 @@
+JAVA_HOME=C:\Program Files\Microsoft\jdk-25.0.4.7-hotspot\
+GRADLE_USER_HOME=C:\Users\salva\StudioProjects\PCOSina\.gradle-user
+ANDROID_USER_HOME=C:\Users\salva\StudioProjects\PCOSina\.android-user-home\.android
+HOME=C:\Users\salva\StudioProjects\PCOSina\.android-user-home
+USERPROFILE=C:\Users\salva\StudioProjects\PCOSina\.android-user-home
+KOTLIN_DAEMON_RUN_FILES_PATH=C:\Users\salva\StudioProjects\PCOSina\.kotlin-daemon
+adb preflight OK: C:\Users\salva\AppData\Local\Android\Sdk\platform-tools\adb.exe

@@ -9,8 +9,8 @@ class PriceCatalogCredibilityTest {
 
     @Test
     fun estimatePriceExplanation_appliesSeasonalityForRainyMonthProduce() {
-        val summer = PriceCatalog.estimatePriceExplanation("tomato", "1 kg", monthIndex = 3)
-        val rainy = PriceCatalog.estimatePriceExplanation("tomato", "1 kg", monthIndex = 8)
+        val summer = PriceCatalog.estimatePriceExplanation("apple", "1 kg", monthIndex = 3)
+        val rainy = PriceCatalog.estimatePriceExplanation("apple", "1 kg", monthIndex = 8)
 
         assertTrue(rainy.marketMultiplier > summer.marketMultiplier)
         assertTrue(rainy.pricePhp > summer.pricePhp)
@@ -19,10 +19,34 @@ class PriceCatalogCredibilityTest {
 
     @Test
     fun estimatePriceExplanation_appliesTingiFactorForPieceProduce() {
-        val estimate = PriceCatalog.estimatePriceExplanation("kamatis", "2 pcs", monthIndex = 3)
+        val estimate = PriceCatalog.estimatePriceExplanation("apple", "2 pcs", monthIndex = 3)
 
         assertTrue(estimate.tingiMultiplier > 1.0)
         assertEquals("Produce", estimate.category)
+    }
+
+    @Test
+    fun estimatePriceExplanation_usesIngredientSpecificPieceWeightsForGarlic() {
+        val clove = PriceCatalog.estimatePriceExplanation("garlic", "1 clove", monthIndex = 3)
+        val grams = PriceCatalog.estimatePriceExplanation("garlic", "130 g", monthIndex = 3)
+
+        assertEquals("Produce", clove.category)
+        assertTrue("One garlic clove should not price like a generic 120 g produce piece.", clove.pricePhp <= 8)
+        assertTrue("Garlic 130 g should stay in a realistic small-quantity range.", grams.pricePhp < 80)
+    }
+
+    @Test
+    fun estimatePriceExplanation_pricesBangusFilletAsFreshBonelessProduct() {
+        val fillet = PriceCatalog.estimatePriceExplanation("Bangus Fillet", "110 g", monthIndex = 9, clampQuantity = false)
+        val whole = PriceCatalog.estimatePriceExplanation("Bangus", "110 g", monthIndex = 9, clampQuantity = false)
+
+        assertEquals(43, fillet.pricePhp)
+        assertEquals(388.0, fillet.basePricePhp, 0.0)
+        assertEquals("kg", fillet.targetUnit)
+        assertEquals("Meat/Seafood", fillet.category)
+        assertEquals("medium", fillet.confidence)
+        assertTrue(fillet.sourceLabel.contains("fresh boneless bangus"))
+        assertEquals(27, whole.pricePhp)
     }
 
     @Test

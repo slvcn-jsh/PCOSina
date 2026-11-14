@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "C:\Users\salva\StudioProjects\PCOSina\ml\offline_training\build_training_dataset_v1.py", line 355, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\Users\salva\StudioProjects\PCOSina\ml\offline_training\build_training_dataset_v1.py", line 268, in main
+    raise RuntimeError("Dataset must contain both positive and negative labels")
+RuntimeError: Dataset must contain both positive and negative labels

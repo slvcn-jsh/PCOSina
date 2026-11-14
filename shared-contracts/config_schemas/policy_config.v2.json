@@ -113,6 +113,7 @@
     "stage1": {
       "type": "object",
       "required": [
+        "canonical_features_enabled",
         "max_candidates_per_slot",
         "ranking_cutoff",
         "similarity_threshold",
@@ -130,6 +131,7 @@
         "ML_score_cap"
       ],
       "properties": {
+        "canonical_features_enabled": { "type": "boolean" },
         "max_candidates_per_slot": { "type": "integer", "minimum": 10, "maximum": 5000 },
         "ranking_cutoff": { "type": "number", "minimum": 0.01, "maximum": 1.0 },
         "similarity_threshold": { "type": "number", "minimum": 0.0, "maximum": 1.0 },

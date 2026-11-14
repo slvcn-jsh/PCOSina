@@ -44,6 +44,22 @@ class GoogleServicesReleaseGuardPolicyTest {
             "Build script should keep conditional application of Google Services plugin.",
             source.contains("apply(plugin = \"com.google.gms.google-services\")")
         )
+        assertTrue(
+            "Build script should expose a Google Sign-In fingerprint diagnostic task.",
+            source.contains("printGoogleSignInConfig") &&
+                source.contains("verifyGoogleSignInDebugSha") &&
+                source.contains("Local debug SHA-1")
+        )
+    }
+
+    @Test
+    fun respondentDeploymentDocumentsGoogleSignInFingerprintGate() {
+        val source = read(resolve("docs", "respondent-deployment.md"))
+
+        assertTrue(source.contains(":app:printGoogleSignInConfig"))
+        assertTrue(source.contains(":app:verifyGoogleSignInDebugSha"))
+        assertTrue(source.contains("firebase apps:android:sha:create"))
+        assertTrue(source.contains("1:950408114415:android:0b3c55b663b7638c20ab1a"))
     }
 
     private fun resolve(vararg parts: String): Path {

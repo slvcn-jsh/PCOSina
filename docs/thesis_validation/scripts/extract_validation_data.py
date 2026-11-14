@@ -100,9 +100,7 @@ SAMPLE_PROFILE = {
     "weightKg": 65,
     "activityLevel": "Lightly Active",
     "goal": "Weight Loss",
-    "insulinResistanceLevel": "Moderate",
     "weeklyBudgetPhp": 1500,
-    "householdSize": 1,
     "maxCookingTimeMinutes": 45,
     "pantryItems": ["egg", "rice", "tomato", "onion"],
     "allergies": [],
@@ -777,7 +775,7 @@ def constraint_rows(citations: dict) -> list[dict]:
             "constraint_type": "hard",
             "source_file": citations["validate_profile"],
             "source_function": "validate_profile",
-            "notes": "Rejects invalid household size, conflicting restrictions, missing budget for budget priority, and invalid max cooking time.",
+            "notes": "Rejects conflicting restrictions, missing budget for budget priority, and invalid max cooking time.",
         },
         {
             "constraint_name": "Planning horizon days must equal active policy",
@@ -1287,7 +1285,7 @@ def build_context() -> dict:
     sample_target_android = sample_tdee_android - 500
     sample_tdee_backend = int(sample_bmr * android_multiplier)
     sample_target_backend = max(1200, min(3200, sample_tdee_backend - 500))
-    protein_ratio, carb_ratio, fat_ratio = (0.28, 0.35, 0.37)
+    protein_ratio, carb_ratio, fat_ratio = (0.25, 0.40, 0.35)
     sample_protein_backend = max(55, min(220, int(sample_target_backend * protein_ratio / 4)))
     sample_carbs_backend = max(120, min(420, int(sample_target_backend * carb_ratio / 4)))
     sample_fats_backend = max(35, min(140, int(sample_target_backend * fat_ratio / 9)))
@@ -1436,8 +1434,6 @@ def build_data_dictionary_rows(ctx: dict) -> list[dict]:
     manual_field_notes = {
         ("UserProfile", "activityLevel"): ("Sedentary, Lightly Active, Moderately Active, Very Active", "Used by BMI/BMR/TDEE preview and backend target calories."),
         ("UserProfile", "goal"): ("Weight Loss, Symptom Management, General Health", "Used by calorie target and planner strategy."),
-        ("UserProfile", "insulinResistanceLevel"): ("Mild, Moderate, Severe", "Used by backend macro ratio mapping."),
-        ("UserProfile", "householdSize"): ("1..6", "Used to scale recipe cost and grocery quantities."),
         ("UserProfile", "maxCookingTimeMinutes"): ("10..240 on backend validation", "Used to exclude long recipes."),
         ("UserProfile", "dietaryRestrictions"): ("Recognized examples: Vegetarian, Pescatarian, Lactose Intolerant, No Pork, No Beef, No Eggs, No Dairy, No Seafood, No Fish", "Used for restriction filtering and profile conflict checks."),
         ("UserProfile", "allergies"): ("Normalized families include fish, shellfish, dairy, egg, nuts, peanut, soy, gluten, wheat", "Used for allergen-family exclusion."),
@@ -1909,20 +1905,19 @@ def write_formulas(ctx: dict) -> None:
         - Manual validation recommended: Yes
         - Suggested validation table format: `goal | symptoms | expected_delta | system_delta | match_yes_no`
 
-        ### 8. Macro Ratio Mapping By Insulin Resistance
-        - Purpose: Set backend daily macro ratios before gram conversion.
+        ### 8. Fixed Macro Ratio Policy
+        - Purpose: Set the backend daily macro ratios before gram conversion using the final PCOS wellness policy.
         - Actual formula or pseudocode:
-          - `Severe -> (protein=0.30, carbs=0.30, fats=0.40)`
-          - `Moderate -> (protein=0.28, carbs=0.35, fats=0.37)`
-          - default (`Mild` and unrecognized) -> `(0.25, 0.40, 0.35)`
-        - Input variables: `insulinResistanceLevel`
+          - `macro_ratios()` returns `(protein=0.25, carbs=0.40, fats=0.35)`
+          - the optional legacy argument is ignored so old clients cannot branch the policy by medical severity
+        - Input variables: none
         - Output variables: `proteinRatio`, `carbRatio`, `fatRatio`
         - Units: ratio
         - Source file path: `{ctx["citations"]["macro_ratios"]}` (`macro_ratios`)
-        - Example manual computation using sample profile: `Moderate -> (0.28, 0.35, 0.37)`
+        - Example manual computation using sample profile: `(0.25, 0.40, 0.35)`
         - Implemented in: Backend
         - Manual validation recommended: Yes
-        - Suggested validation table format: `profile_id | insulinResistanceLevel | expected_ratios | backend_ratios | match_yes_no`
+        - Suggested validation table format: `profile_id | expected_ratios | backend_ratios | legacy_argument_ignored_yes_no`
 
         ### 9. Macro Gram Conversion
         - Purpose: Convert the backend calorie target into daily protein, carbohydrate, and fat gram targets.
@@ -1936,9 +1931,9 @@ def write_formulas(ctx: dict) -> None:
         - Units: grams/day
         - Source file path: `{ctx["citations"]["solve_meal_plan"]}` (`solve_meal_plan`)
         - Example manual computation using sample profile:
-          - Protein: `int(1375 * 0.28 / 4) = {ctx["sample_protein_backend"]}`
-          - Carbs: `int(1375 * 0.35 / 4) = 120` then clamp stays `120`
-          - Fats: `int(1375 * 0.37 / 9) = {ctx["sample_fats_backend"]}`
+          - Protein: `int(1375 * 0.25 / 4) = {ctx["sample_protein_backend"]}`
+          - Carbs: `int(1375 * 0.40 / 4) = {ctx["sample_carbs_backend"]}`
+          - Fats: `int(1375 * 0.35 / 9) = {ctx["sample_fats_backend"]}`
         - Implemented in: Backend
         - Manual validation recommended: Yes
         - Suggested validation table format: `profile_id | targetCalories | manual_protein | manual_carbs | manual_fats | backend_targets | match_yes_no`
@@ -2067,15 +2062,15 @@ def write_formulas(ctx: dict) -> None:
           - `estimate_recipe_cost(ingredients)` sums per-ingredient `estimate_price_detail`
           - scale total by `0.75`
           - clamp to `30..450`
-          - `meal_planner.estimate_cost()` multiplies by household size
-        - Input variables: ingredients, price rules, household size
+          - `meal_planner.estimate_cost()` adjusts by recipe serving metadata when available
+        - Input variables: ingredients, price rules, recipe serving metadata
         - Output variables: estimated recipe cost
         - Units: Philippine pesos
         - Source file path: `{ctx["citations"]["backend_recipe_cost"]}` and `{ctx["citations"]["estimate_cost"]}`
-        - Example manual computation using sample recipe `{sample_recipe["recipe_id"]}`: backend estimated cost = `{ctx["sample_recipe_cost_backend"]}` PHP for household size `1`
+        - Example manual computation using sample recipe `{sample_recipe["recipe_id"]}`: backend estimated cost = `{ctx["sample_recipe_cost_backend"]}` PHP
         - Implemented in: Backend
         - Manual validation recommended: Yes
-        - Suggested validation table format: `recipe_id | ingredient_list | manual_cost | backend_cost | household_size | match_yes_no`
+        - Suggested validation table format: `recipe_id | ingredient_list | manual_cost | backend_cost | serving_count | match_yes_no`
 
         ### 18. Price Rule Matching
         - Purpose: Match grocery or ingredient names against code-defined price rules.
@@ -2096,10 +2091,9 @@ def write_formulas(ctx: dict) -> None:
         - Purpose: Combine ingredient strings into a saved grocery list and estimate cost in Android.
         - Actual formula or pseudocode:
           - normalize display key
-          - scale quantity text by household size
           - merge matching segments
           - sum estimated prices for segments using `PriceCatalog.estimatePriceDetail`
-        - Input variables: ingredient strings, household size, saved plan sources
+        - Input variables: ingredient strings and saved plan sources
         - Output variables: grocery list entries with quantity display and estimated price
         - Units: text quantities and Philippine pesos
         - Source file path: `{ctx["citations"]["android_grocery_aggregation"]}` (`buildGroceryListEntries`)
@@ -2237,7 +2231,7 @@ def write_decision_trees(ctx: dict) -> None:
             A[Generate plan request received] --> B{{Android profile has age, height, weight, activity, goal?}}
             B -- No --> C[Client rejects request before backend call]
             B -- Yes --> D[Backend validate_profile()]
-            D --> E{{householdSize 1..6 and maxCookingTime 10..240?}}
+            D --> E{{maxCookingTime 10..240 when set?}}
             E -- No --> F[Return no-safe-plan or validation error]
             E -- Yes --> G{{conflicting restrictions or priorities?}}
             G -- Yes --> F
@@ -2245,7 +2239,7 @@ def write_decision_trees(ctx: dict) -> None:
         ```
 
         - Source files used: `{ctx["citations"]["meal_plan_repo"]}`, `{ctx["citations"]["validate_profile"]}`
-        - Input variables: age, heightCm, weightKg, activityLevel, goal, householdSize, maxCookingTimeMinutes, dietaryRestrictions, allergies, planningPriority, weeklyBudgetPhp
+        - Input variables: age, heightCm, weightKg, activityLevel, goal, maxCookingTimeMinutes, dietaryRestrictions, allergies, planningPriority, weeklyBudgetPhp
         - Output variables: valid request or failure message
         - Validation approach: manual invalid-profile cases plus backend unit tests for conflicting restrictions
         - What to show during demo: incomplete profile handling and one conflicting-profile example
@@ -2264,7 +2258,7 @@ def write_decision_trees(ctx: dict) -> None:
         ```
 
         - Source files used: `{ctx["citations"]["android_bmi"]}`, `{ctx["citations"]["android_target"]}`, `{ctx["citations"]["macro_ratios"]}`, `{ctx["citations"]["solve_meal_plan"]}`
-        - Input variables: age, heightCm, weightKg, activityLevel, goal, insulinResistanceLevel, symptoms
+        - Input variables: age, heightCm, weightKg, activityLevel, goal, symptoms
         - Output variables: BMI, BMI category, calorie target preview, backend macro targets
         - Validation approach: manual step-by-step math with one shared sample profile
         - What to show during demo: Android preview values and note backend authoritative recalculation
@@ -2285,7 +2279,7 @@ def write_decision_trees(ctx: dict) -> None:
         ```
 
         - Source files used: `{ctx["citations"]["normalize_ingredients"]}`, `{ctx["citations"]["restriction_failure_reasons"]}`, `{ctx["citations"]["shortlist_candidates"]}`
-        - Input variables: recipe ingredients, tags, allergies, dietaryRestrictions, maxCookingTimeMinutes, householdSize, budget
+        - Input variables: recipe ingredients, tags, allergies, dietaryRestrictions, maxCookingTimeMinutes, budget
         - Output variables: kept/excluded recipe and shortlist diagnostics
         - Validation approach: allergy/restriction test cases using actual recipes from `backend/recipes.json`
         - What to show during demo: one excluded recipe and one kept recipe
@@ -2342,7 +2336,7 @@ def write_decision_trees(ctx: dict) -> None:
         ```
 
         - Source files used: `{ctx["citations"]["resolve_budget_weekly"]}`, `{ctx["citations"]["estimate_cost"]}`, `{ctx["citations"]["should_optimize_cost"]}`, `{ctx["citations"]["solve_meal_plan"]}`
-        - Input variables: weeklyBudgetPhp, budgetWeekly, budgetMonthly, householdSize, planningPriority
+        - Input variables: weeklyBudgetPhp, budgetWeekly, budgetMonthly, planningPriority
         - Output variables: resolved weekly budget, cost-aware shortlist behavior, budget hard-cap enforcement
         - Validation approach: compare budget and non-budget-priority runs/tests
         - What to show during demo: budget priority versus balanced priority behavior
@@ -2418,7 +2412,7 @@ def write_decision_trees(ctx: dict) -> None:
         ```
 
         - Source files used: `{ctx["citations"]["android_grocery_aggregation"]}`, `{ctx["citations"]["android_grocery_screen_pantry"]}`, `{ctx["citations"]["user_prefs_repo"]}`
-        - Input variables: recipe ingredient strings, household size, pantry entries, checked state
+        - Input variables: recipe ingredient strings, pantry entries, checked state
         - Output variables: grocery items, prices, pantry-covered state, saved snapshots
         - Validation approach: manual grocery rebuild check using one sample recipe
         - What to show during demo: generated grocery items and pantry-covered behavior
@@ -2518,9 +2512,7 @@ def write_validation_cases(ctx: dict) -> None:
         ("TC-CAL-001", "Health Computation", "Daily calorie target for Weight Loss", "sample profile", f"Android {ctx['sample_target_android']}; backend {ctx['sample_target_backend']}", "Weight-loss deficit is applied", "HealthMetrics.targetCaloriesPerDay + solve_meal_plan", ctx["citations"]["android_target"], "HealthMetricsTest.targetCalories_weightLoss_usesDeficit", "unit", "implemented", ""),
         ("TC-CAL-002", "Health Computation", "Daily calorie target for Symptom Management", "same profile goal=Symptom Management", "No -500 deficit; backend symptom adjustments may further change target if symptoms exist", "Calorie adjustment branch stays neutral before symptom deltas", "goal adjustment branches", ctx["citations"]["android_target"], "NOT FOUND IN CURRENT DEV BRANCH", "manual", "recommended", ""),
         ("TC-CAL-003", "Health Computation", "Daily calorie target for General Health", "same profile goal=General Health", "No -500 deficit", "Neutral goal branch is used", "goal adjustment branches", ctx["citations"]["android_target"], "NOT FOUND IN CURRENT DEV BRANCH", "manual", "recommended", ""),
-        ("TC-MACRO-001", "Health Computation", "Macro ratio for Mild", "insulinResistanceLevel=Mild", "(0.25,0.40,0.35)", "Backend macro_ratios returns default tuple", "macro_ratios", ctx["citations"]["macro_ratios"], "NOT FOUND IN CURRENT DEV BRANCH", "unit", "recommended", ""),
-        ("TC-MACRO-002", "Health Computation", "Macro ratio for Moderate", "insulinResistanceLevel=Moderate", "(0.28,0.35,0.37)", "Backend macro_ratios returns moderate tuple", "macro_ratios", ctx["citations"]["macro_ratios"], "test_macro_ratios_moderate", "unit", "implemented", ""),
-        ("TC-MACRO-003", "Health Computation", "Macro ratio for Severe", "insulinResistanceLevel=Severe", "(0.30,0.30,0.40)", "Backend macro_ratios returns severe tuple", "macro_ratios", ctx["citations"]["macro_ratios"], "test_macro_ratios_severe", "unit", "implemented", ""),
+        ("TC-MACRO-001", "Health Computation", "Fixed wellness macro policy", "sample profile and legacy argument", "(0.25,0.40,0.35)", "Backend macro_ratios returns the same final tuple and ignores legacy severity arguments", "macro_ratios", ctx["citations"]["macro_ratios"], "test_macro_ratios_use_single_final_pcos_policy; test_macro_ratios_do_not_branch_on_medical_severity", "unit", "implemented", ""),
         ("TC-ALLERGY-001", "Safety Filter", "Fish allergy excludes bangus/tilapia/galunggong/salmon/tuna", "allergies=['fish']", "Recipes containing those descendant tokens are excluded", "Allergen family mapping", ctx["citations"]["derive_allergen_exposures"], "test_allergy_filter_blocks_descendant_ingredients", "unit", "implemented", ""),
         ("TC-ALLERGY-002", "Safety Filter", "Shellfish allergy excludes shrimp/crab", "allergies=['shellfish']", "Recipes with shrimp/crab family tokens are excluded", "Allergen family mapping", ctx["citations"]["derive_allergen_exposures"], "test_allergy_filter_blocks_descendant_ingredients", "unit", "implemented", ""),
         ("TC-ALLERGY-003", "Safety Filter", "Dairy allergy excludes milk/cheese/yogurt", "allergies=['dairy']", "Recipes with dairy-family tokens are excluded", "Allergen family mapping", ctx["citations"]["derive_allergen_exposures"], "test_allergy_filter_blocks_descendant_ingredients", "unit", "implemented", ""),
@@ -2528,7 +2520,6 @@ def write_validation_cases(ctx: dict) -> None:
         ("TC-RESTR-001", "Safety Filter", "No Pork restriction excludes pork/baboy/liempo", "dietaryRestrictions=['No Pork']", "Recipes with normalized pork token are excluded", "restriction_failure_reasons", ctx["citations"]["restriction_failure_reasons"], "NOT FOUND IN CURRENT DEV BRANCH", "unit", "recommended", "Rule exists in production code, but no dedicated test was found."),
         ("TC-PANTRY-001", "Planner Scoring", "Pantry match count", f"sample pantry vs {ctx['sample_recipe_row']['recipe_id']}", f"Overlap count {ctx['sample_pantry_match']}", "Backend pantryMatch equals token overlap count", "normalize_pantry + _base_score", ctx["citations"]["base_score"], "NOT FOUND IN CURRENT DEV BRANCH", "manual", "recommended", ""),
         ("TC-BUDGET-001", "Planner Constraint", "Budget constraint", "weeklyBudgetPhp set lower than feasible cost", "No solution if all candidate combinations exceed budget", "Budget hard cap", ctx["citations"]["solve_meal_plan"], "test_solve_meal_plan_enforces_budget_as_hard_cap", "unit", "implemented", ""),
-        ("TC-HOUSEHOLD-001", "Planner Constraint", "Household size scaling", "householdSize=1 vs 3", "Recipe cost and grocery quantity estimates increase monotonically", "estimate_cost + grocery scaling", ctx["citations"]["estimate_cost"], "test_shortlist_candidates_scales_cost_estimates_for_households; test_estimate_cost_scales_monotonically_with_household_size", "unit", "implemented", ""),
         ("TC-COOK-001", "Planner Constraint", "Max cooking time", "maxCookingTimeMinutes=20", "Recipes beyond 20 minutes are excluded in shortlist", "shortlist_candidates", ctx["citations"]["shortlist_candidates"], "NOT FOUND IN CURRENT DEV BRANCH", "unit", "recommended", ""),
         ("TC-REPEAT-001", "Planner Constraint", "Recipe repetition limit", "default policy repeat limits", "Per-attempt max-per-week cap is enforced", "adjust_max_per_week + solve_meal_plan", ctx["citations"]["adjust_max_per_week"] if "adjust_max_per_week" in ctx["citations"] else ctx["citations"]["solve_meal_plan"], "test_build_swap_candidates_blocks_current_recipe_and_repetition_overflow; test_build_swap_candidates_allows_repeats_up_to_policy_limit", "unit", "implemented", ""),
         ("TC-STRUCT-001", "Planner Contract", "7-day plan structure", "days=7", "Plan request is accepted; unsupported day counts are rejected", "solve_meal_plan precheck", ctx["citations"]["solve_meal_plan"], "NOT FOUND IN CURRENT DEV BRANCH", "integration", "recommended", ""),
@@ -2590,9 +2581,7 @@ def write_sample_manual_computation(ctx: dict) -> None:
         - weight: 65 kg
         - activityLevel: Lightly Active
         - goal: Weight Loss
-        - insulinResistanceLevel: Moderate
         - weeklyBudgetPhp: 1500
-        - householdSize: 1
         - maxCookingTimeMinutes: 45
         - pantryItems: egg, rice, tomato, onion
         - allergies: none
@@ -2638,10 +2627,10 @@ def write_sample_manual_computation(ctx: dict) -> None:
         ## 6. Macro Target
 
         - Source: `{ctx["citations"]["macro_ratios"]}` and `{ctx["citations"]["solve_meal_plan"]}`
-        - Moderate insulin resistance ratios: protein `0.28`, carbs `0.35`, fats `0.37`
-        - Protein target: `int(1375 * 0.28 / 4) = {ctx["sample_protein_backend"]} g`
-        - Carbohydrate target: `int(1375 * 0.35 / 4) = {ctx["sample_carbs_backend"]} g`
-        - Fat target: `int(1375 * 0.37 / 9) = {ctx["sample_fats_backend"]} g`
+        - Final wellness macro policy: protein `0.25`, carbs `0.40`, fats `0.35`
+        - Protein target: `int(1375 * 0.25 / 4) = {ctx["sample_protein_backend"]} g`
+        - Carbohydrate target: `int(1375 * 0.40 / 4) = {ctx["sample_carbs_backend"]} g`
+        - Fat target: `int(1375 * 0.35 / 9) = {ctx["sample_fats_backend"]} g`
         - These macro targets are implemented in the backend planner, not in Android `HealthMetrics`.
 
         ## 7. Pantry Match For One Actual Recipe
@@ -2682,7 +2671,7 @@ def write_sample_manual_computation(ctx: dict) -> None:
         ## 10. How The Planner Treats This Profile In Stage 1
 
         - Source: `{ctx["citations"]["shortlist_candidates"]}`, `{ctx["citations"]["base_score"]}`, `{ctx["citations"]["shadow_ml_score"]}`
-        - The profile passes validation because it has valid age, height, weight, activity, goal, household size, cooking-time limit, and no conflicting restrictions.
+        - The profile passes validation because it has valid age, height, weight, activity, goal, cooking-time limit, and no conflicting restrictions.
         - Stage 1 removes recipes that violate allergies/restrictions or exceed 45 minutes.
         - For sample recipe `{sample_recipe["recipe_id"]}`, the backend estimated cost is `PHP {ctx["sample_recipe_cost_backend"]}`.
         - Deterministic base score:
@@ -2754,10 +2743,8 @@ def write_chapter_tables(ctx: dict) -> None:
                 ["age, heightCm, weightKg", ctx["citations"]["android_user_profile"], "BMI/BMR/TDEE and planner validation"],
                 ["activityLevel", ctx["citations"]["android_user_profile"], "TDEE multiplier and calorie target"],
                 ["goal", ctx["citations"]["android_user_profile"], "Calorie adjustment and planner strategy"],
-                ["insulinResistanceLevel", ctx["citations"]["backend_user_profile"], "Backend macro ratio mapping"],
                 ["allergies, dietaryRestrictions", ctx["citations"]["backend_user_profile"], "Safety filtering"],
                 ["weeklyBudgetPhp / budgetWeekly / budgetMonthly", ctx["citations"]["resolve_budget_weekly"], "Budget cap and cost objective"],
-                ["householdSize", ctx["citations"]["backend_user_profile"], "Cost scaling and grocery scaling"],
                 ["maxCookingTimeMinutes", ctx["citations"]["backend_user_profile"], "Recipe filtering"],
                 ["pantryItems", ctx["citations"]["android_user_profile"], "Pantry overlap scoring and grocery UI coverage"],
             ],
@@ -2799,14 +2786,13 @@ def write_chapter_tables(ctx: dict) -> None:
             ],
         )}
 
-        ## Table 5: Insulin Resistance Macro Ratios
+        ## Table 5: Fixed Wellness Macro Ratios
 
         {markdown_table(
-            ["Insulin Resistance Level", "Protein", "Carbs", "Fats", "Source"],
+            ["Policy", "Protein", "Carbs", "Fats", "Source"],
             [
-                ["Mild/default", "0.25", "0.40", "0.35", ctx["citations"]["macro_ratios"]],
-                ["Moderate", "0.28", "0.35", "0.37", ctx["citations"]["macro_ratios"]],
-                ["Severe", "0.30", "0.30", "0.40", ctx["citations"]["macro_ratios"]],
+                ["Final PCOS wellness policy", "0.25", "0.40", "0.35", ctx["citations"]["macro_ratios"]],
+                ["Legacy severity argument", "ignored", "ignored", "ignored", ctx["citations"]["macro_ratios"]],
             ],
         )}
 
@@ -3022,7 +3008,7 @@ def write_statistician_packet(ctx: dict) -> None:
 
         ## What Data The System Collects
 
-        - Profile inputs such as age, height, weight, activity level, goal, insulin resistance level, allergies, dietary restrictions, budget, household size, pantry items, and cooking-time preference
+        - Profile inputs such as age, height, weight, activity level, goal, symptoms, allergies, dietary restrictions, budget, pantry items, and cooking-time preference
         - Plan outputs and explanation metadata
         - Grocery snapshots and item sources
         - Progress logs, meal check-ins, reflections, and feedback queue entries when the user uses progress features

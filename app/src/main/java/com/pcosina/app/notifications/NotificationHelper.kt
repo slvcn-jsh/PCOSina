@@ -16,9 +16,9 @@ object NotificationHelper {
     const val ReminderChannelId = "pcosina_reminders"
     const val StatusChannelId = "pcosina_status"
 
-    private const val ReminderChannelName = "PCOSINA Reminders"
+    private const val ReminderChannelName = "PCOSina Reminders"
     private const val ReminderChannelDesc = "Meal and weekly routine reminders"
-    private const val StatusChannelName = "PCOSINA Status"
+    private const val StatusChannelName = "PCOSina Status"
     private const val StatusChannelDesc = "Plan and sync status updates"
 
     fun createChannels(context: Context) {

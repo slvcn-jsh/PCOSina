@@ -5,17 +5,22 @@ import uuid
 from typing import Any
 
 from domain.models import GeneratePlanRequest, GeneratePlanResponse
-from services.meal_planner import profile_rule_summary, resolve_budget_weekly, validate_profile
+from services.meal_planner import planner_contract_summary, profile_rule_summary, resolve_budget_weekly, validate_profile
 
 
 def _reason_codes_from_message(msg: str, *, budget_exceeded_stage: str | None = None) -> list[str]:
     text = (msg or "").lower()
     codes: list[str] = []
+    if budget_exceeded_stage == "final_grocery_budget" or "grocery estimate exceeds" in text:
+        codes.append("BUDGET_TOO_LOW")
+        return codes
     if budget_exceeded_stage or "timed out" in text or "time budget" in text:
         codes.append("PLANNER_TIMEOUT")
         return codes
     if "no safe recipes found" in text:
         codes.append("NO_SAFE_CANDIDATES")
+    if "catalog nutrition coverage" in text or "nutrition coverage is insufficient" in text:
+        codes.append("CATALOG_NUTRITION_GAP")
     if "conflicting restrictions" in text:
         codes.append("CONFLICTING_RESTRICTIONS")
     if "conflicting profile" in text:
@@ -24,8 +29,6 @@ def _reason_codes_from_message(msg: str, *, budget_exceeded_stage: str | None = 
         codes.append("MISSING_BUDGET_INPUT")
     if "variety first priority conflicts" in text:
         codes.append("CONFLICTING_PRIORITIES")
-    if "household size must stay" in text:
-        codes.append("INVALID_HOUSEHOLD_SIZE")
     if "max cooking time must stay" in text:
         codes.append("INVALID_MAX_COOK_TIME")
     if "only mealsperday" in text:
@@ -80,8 +83,16 @@ def _guidance_from_profile(
         guidance.append(
             "Planner timed out while pricing, filtering, or optimizing recipes. Please retry or relax non-safety constraints if this continues."
         )
+    if "BUDGET_TOO_LOW" in reason_codes:
+        guidance.append("The final grocery estimate is above the weekly budget after combining ingredients.")
+        relaxations.append("Increase weekly budget or choose a stronger Budget First plan.")
     if "CONFLICTING_RESTRICTIONS" in reason_codes:
         guidance.append("Your current restriction combination conflicts. Remove one conflicting restriction and retry.")
+    if "CATALOG_NUTRITION_GAP" in reason_codes:
+        guidance.append(
+            "The recipe catalog does not currently have enough source-backed meals to satisfy the nutrition bounds for this profile."
+        )
+        relaxations.append("Use reviewed nutrition corrections or add validated recipes before retrying this profile.")
     if int(exclusion_summary.get("allergy") or 0) > 0:
         guidance.append("Allergy rules removed some candidate meals before optimization.")
     if int(exclusion_summary.get("restriction") or 0) > 0:
@@ -99,7 +110,7 @@ def _guidance_from_profile(
     if profile.maxCookingTimeMinutes and profile.maxCookingTimeMinutes < 20:
         guidance.append("Very strict cooking-time limits can prevent feasible planning.")
         relaxations.append("Increase max cooking time by 10-15 minutes.")
-    if budget_exceeded_stage and "PLANNER_TIMEOUT" not in reason_codes:
+    if budget_exceeded_stage and "PLANNER_TIMEOUT" not in reason_codes and "BUDGET_TOO_LOW" not in reason_codes:
         guidance.append(f"Planner hit its time budget during {budget_exceeded_stage.replace('_', ' ')}.")
     if not guidance:
         guidance.append("No safe plan was found with the current hard constraints.")
@@ -126,15 +137,39 @@ def build_no_safe_plan_response(
     reason_codes = _reason_codes_from_message(message, budget_exceeded_stage=budget_exceeded_stage)
     profile = request.profile
     budget_weekly = resolve_budget_weekly(profile)
+    grocery_output = dict(telemetry.get("grocery_output") or {})
+    solver_budget = dict(telemetry.get("solver_budget") or {})
+    budget_diagnostics = dict(telemetry.get("budget_diagnostics") or {})
+    if not budget_diagnostics:
+        final_estimate = _optional_int(grocery_output.get("estimatedTotalPhp") or grocery_output.get("finalGroceryEstimatePhp"))
+        solver_estimate = _optional_int(
+            grocery_output.get("plannerMealEstimatePhp")
+            or grocery_output.get("solverBudgetEstimatePhp")
+            or solver_budget.get("solverBudgetEstimatePhp")
+        )
+        raw_budget_gap = grocery_output.get("budgetDeltaPhp")
+        if raw_budget_gap is None:
+            raw_budget_gap = grocery_output.get("budgetGapPhp")
+        budget_gap = _optional_int(raw_budget_gap)
+        budget_diagnostics = {
+            "userBudgetPhp": _optional_int(budget_weekly),
+            "solverBudgetEstimatePhp": solver_estimate,
+            "finalGroceryEstimatePhp": final_estimate,
+            "displayedEstimateSource": "backend_aggregated_grocery" if final_estimate is not None else None,
+            "budgetAuthority": "backend_aggregated_grocery",
+            "budgetGapPhp": budget_gap,
+        }
     diagnostics_summary = {
         "reasonCodes": reason_codes,
         "summary": message,
         "profileConflict": validate_profile(profile),
         "profileRuleEffects": profile_rule_summary(profile, budget_weekly),
+        "plannerContract": planner_contract_summary(profile, budget_weekly),
         "candidateExclusionSummary": dict(stage1_diag.get("exclusion_summary") or {}),
         "candidateExclusionDetailCounts": dict(
             stage1_diag.get("exclusion_detail_counts") or {}
         ),
+        "nutritionFeasibility": dict(stage1_diag.get("nutrition_feasibility") or {}),
         "budgetExceededStage": budget_exceeded_stage,
         "timeoutStage": budget_exceeded_stage,
         "candidateCountPre": _optional_int(telemetry.get("candidate_count_pre")),
@@ -145,7 +180,9 @@ def build_no_safe_plan_response(
         },
         "pricingDiagnostics": pricing_diagnostics,
         "timingSummary": _timing_summary(phase_timings, pricing_diagnostics),
-        "solverBudget": telemetry.get("solver_budget") or {},
+        "solverBudget": solver_budget,
+        "budgetDiagnostics": budget_diagnostics,
+        **budget_diagnostics,
         "phaseTimingsMs": phase_timings,
     }
     guidance, relaxations = _guidance_from_profile(request, reason_codes, diagnostics_summary)
@@ -156,6 +193,7 @@ def build_no_safe_plan_response(
         message=message,
         explanation={
             "profileRuleEffects": diagnostics_summary["profileRuleEffects"],
+            "plannerContract": diagnostics_summary["plannerContract"],
             "candidateExclusionSummary": diagnostics_summary["candidateExclusionSummary"],
             "budgetHardCapApplied": bool(budget_weekly),
         },

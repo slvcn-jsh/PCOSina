@@ -21,23 +21,31 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pcosina.app.R
 import com.pcosina.app.ui.UserViewModel
+import com.pcosina.app.ui.components.ArtworkAlignmentKeys
 import com.pcosina.app.ui.components.SharedAvatarHeader
 import com.pcosina.app.ui.components.SharedTopHeader
 import com.pcosina.app.ui.theme.PcosinaDeepRose
@@ -46,27 +54,39 @@ import com.pcosina.app.ui.theme.PcosinaPink
 import com.pcosina.app.ui.theme.PcosinaSoftPink
 import com.pcosina.app.ui.theme.PcosinaSurfaceAlt
 import com.pcosina.app.ui.util.rememberIsOnline
+import com.pcosina.app.notifications.NotificationHelper
+import com.pcosina.app.notifications.NotificationScheduler
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @Composable
 fun NotificationScreen(
     userViewModel: UserViewModel,
+    userId: String,
     onBack: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var testNotificationStatus by remember { mutableStateOf<String?>(null) }
     val observedOnline by rememberIsOnline(context)
     val profile by userViewModel.userProfile.collectAsState()
     val prefs by userViewModel.notificationPreferences.collectAsState()
     val logs by userViewModel.notificationLogs.collectAsState()
     val todayLabel = LocalDate.now().format(DateTimeFormatter.ofPattern("MMM dd", Locale.ENGLISH))
+    val phoneNotificationsReady = NotificationHelper.canPostNotifications(context)
+    val nextScheduled = NotificationScheduler.nextScheduledTimes(prefs)
+    val latestLog = logs.firstOrNull()
 
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
+            .testTag("notification_content_list")
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
             .navigationBarsPadding(),
@@ -77,14 +97,13 @@ fun NotificationScreen(
             SharedTopHeader(
                 online = observedOnline,
                 onSettings = onOpenSettings,
-                onNotifications = {},
                 compact = false,
             )
         }
         item {
             Surface(
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(48.dp)
                     .clickable(onClick = onBack),
                 shape = CircleShape,
                 color = Color.White,
@@ -108,18 +127,59 @@ fun NotificationScreen(
                 avatarId = profile.avatarId,
                 dateLabel = todayLabel,
                 compact = false,
+                avatarArtworkKey = ArtworkAlignmentKeys.NotificationsHeaderAvatar,
+                onHeaderClick = onOpenSettings,
             )
         }
         item {
             NotificationSummaryCard(
                 title = if (prefs.masterEnabled) "Reminders are on" else "Reminders are paused",
                 body = if (prefs.masterEnabled) {
-                    "PCOSina can send local reminders from this phone using your saved notification settings."
+                    "PCOSina can send local reminders after phone notifications are allowed and a scheduled time arrives."
                 } else {
                     "Turn reminders back on from Settings when you want meal or weekly planning nudges."
                 },
                 badge = if (prefs.masterEnabled) "Active" else "Paused",
             )
+        }
+        item {
+            NotificationSummaryCard(
+                title = "Phone notifications",
+                body = if (phoneNotificationsReady) {
+                    "Android can post PCOSina reminders from this phone."
+                } else {
+                    "Allow phone notifications in Settings before scheduled reminders can appear."
+                },
+                badge = if (phoneNotificationsReady) "Ready" else "Needs action",
+            )
+        }
+        item {
+            Button(
+                onClick = {
+                    scope.launch {
+                        val delivered = NotificationScheduler.notifyDebugTest(context, userId)
+                        testNotificationStatus = if (delivered) {
+                            "Test notification delivered and recorded on this device."
+                        } else {
+                            "Test notification was blocked. Check the master reminder switch and phone permission."
+                        }
+                    }
+                },
+                enabled = userId.isNotBlank() && prefs.masterEnabled && phoneNotificationsReady,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PcosinaPink),
+            ) {
+                Text("Send test notification", fontWeight = FontWeight.Bold)
+            }
+            testNotificationStatus?.let { status ->
+                Text(
+                    text = status,
+                    modifier = Modifier.padding(top = 6.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PcosinaMuted,
+                )
+            }
         }
         item {
             NotificationSummaryCard(
@@ -132,11 +192,28 @@ fun NotificationScreen(
         }
         item {
             NotificationSummaryCard(
+                title = "Next scheduled",
+                body = when {
+                    !prefs.masterEnabled -> "Reminders are paused. No notification work is scheduled while the master switch is off."
+                    !phoneNotificationsReady -> "Phone notifications need to be allowed before reminder work can run."
+                    nextScheduled.isEmpty() -> "No reminder type is enabled yet."
+                    else -> nextScheduled.take(3).joinToString("\n")
+                },
+                badge = when {
+                    !prefs.masterEnabled -> "None"
+                    !phoneNotificationsReady -> "Blocked"
+                    nextScheduled.isEmpty() -> "None"
+                    else -> "${nextScheduled.size} next"
+                },
+            )
+        }
+        item {
+            NotificationSummaryCard(
                 title = "Recent activity",
-                body = logs.firstOrNull()?.let { log ->
-                    "${log.type.replace('_', ' ')} reminder delivered ${log.deliveredAt}."
-                } ?: "No notification has been delivered yet on this device.",
-                badge = "${logs.size.coerceAtMost(99)} logs",
+                body = latestLog?.let { log ->
+                    "${formatNotificationEventLabel(log.type)} delivered at ${formatNotificationDeliveredAt(log.deliveredAt)}."
+                } ?: "No notifications delivered yet on this device. The log starts only after Android posts a reminder or status notification.",
+                badge = if (logs.isEmpty()) "Delivered only" else "${logs.size.coerceAtMost(99)} logs",
             )
         }
     }
@@ -206,7 +283,7 @@ private fun NotificationSummaryCard(
                     text = body,
                     style = MaterialTheme.typography.bodySmall,
                     color = PcosinaMuted,
-                    maxLines = 3,
+                    maxLines = 4,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -221,4 +298,23 @@ private fun formatNotificationTime(hour: Int, minute: Int): String {
         else -> normalized
     }
     return "%d:%02d %s".format(Locale.ENGLISH, displayHour, minute, suffix)
+}
+
+private fun formatNotificationDeliveredAt(epochMs: Long): String {
+    val formatter = DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.ENGLISH)
+    return Instant.ofEpochMilli(epochMs)
+        .atZone(ZoneId.systemDefault())
+        .format(formatter)
+}
+
+private fun formatNotificationEventLabel(type: String): String {
+    return type
+        .split("_")
+        .filter { it.isNotBlank() }
+        .joinToString(" ") { part ->
+            part.replaceFirstChar { char ->
+                if (char.isLowerCase()) char.titlecase(Locale.ENGLISH) else char.toString()
+            }
+        }
+        .ifBlank { "Notification" }
 }

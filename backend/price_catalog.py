@@ -5,17 +5,31 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Any, List, Dict, Optional, Tuple
 import database
+from canonical_ingredients import (
+    BANGUS_FILLET_RETAIL_SOURCE_DATE,
+    DA_NCR_WEEKLY_PRICE_SOURCE_DATE,
+    resolve_ingredient,
+)
+
+
+PRICE_REFERENCE_DATE = max(DA_NCR_WEEKLY_PRICE_SOURCE_DATE, BANGUS_FILLET_RETAIL_SOURCE_DATE)
+PRICE_CATALOG_VERSION = f"pcosina-ncr-retail-{PRICE_REFERENCE_DATE}-v2"
+PRICE_REFERENCE_LOCATION = "NCR"
+PRICE_BASIS = "required_quantity_at_item_specific_retail_reference"
 
 
 @dataclass
 class PriceRule:
     keywords: List[str]
-    price_php: int
+    price_php: float
     category: str
     unit: Optional[str] = None  # kg, l, piece
     source: str = "static"
     source_label: str = "Static PCOSina baseline"
     confidence: str = "medium"
+    apply_category_multiplier: bool = True
+    apply_market_adjustments: bool = True
+    allow_zero_price: bool = False
 
 
 @dataclass
@@ -25,11 +39,12 @@ class PriceEstimate:
     source: str
     source_label: str
     confidence: str
-    base_price_php: int
+    base_price_php: float
     target_unit: str
     quantity_value: Optional[float]
     quantity_unit: Optional[str]
     quantity_factor: float
+    category_multiplier: float
     market_multiplier: float
     tingi_multiplier: float
     safety_buffer_multiplier: float
@@ -56,9 +71,31 @@ def _normalize_category_key(category: str) -> str:
     return value
 
 
+def _price_category_from_canonical(value: Any, fallback_name: str) -> str:
+    normalized = str(value or "").strip().lower()
+    mapping = {
+        "produce": "Produce",
+        "fruit": "Produce",
+        "meat": "Meat/Seafood",
+        "fish_seafood": "Meat/Seafood",
+        "egg_dairy": "Eggs & Dairy",
+        "dairy": "Eggs & Dairy",
+        "dry_goods": "Dry Goods",
+        "legume": "Dry Goods",
+        "nuts_seeds": "Dry Goods",
+        "condiment": "Spices & Condiments",
+        "spice": "Spices & Condiments",
+        "beverage": "Beverages",
+    }
+    return mapping.get(normalized, infer_category(fallback_name))
+
+
 @dataclass
 class PricingContext:
     month_index: Optional[int] = None
+    owner_uid: Optional[str] = None
+    market_type: str = "wet_market"
+    location: str = "NCR"
     _market_multiplier_cache: Dict[Tuple[str, int], float] = field(default_factory=dict)
     _ingredient_price_cache: Dict[Tuple[str, str, bool, int], PriceEstimate] = field(default_factory=dict)
     _preloaded_months: set[int] = field(default_factory=set)
@@ -71,6 +108,10 @@ class PricingContext:
     recipe_cost_estimates: int = 0
     ingredient_cost_estimates: int = 0
     price_cost_estimation_ms: int = 0
+    _canonical_price_refs: Optional[Dict[str, Dict[str, Any]]] = None
+    canonical_price_ref_db_calls: int = 0
+    canonical_price_ref_hits: int = 0
+    canonical_price_ref_misses: int = 0
 
     def _default_market_multiplier(self, category_key: str, month: int) -> float:
         return _DEFAULT_SEASONAL_MULTIPLIER.get(category_key, {}).get(month, 1.0)
@@ -125,6 +166,24 @@ class PricingContext:
         self.recipe_cost_estimates += 1
         self.price_cost_estimation_ms += max(0, int((time.time() - started_at) * 1000))
 
+    def canonical_price_ref(self, ingredient_id: str) -> Optional[Dict[str, Any]]:
+        if self._canonical_price_refs is None:
+            self.canonical_price_ref_db_calls += 1
+            try:
+                self._canonical_price_refs = database.list_effective_canonical_price_refs(
+                    owner_uid=self.owner_uid,
+                    market_type=self.market_type,
+                    location=self.location,
+                )
+            except Exception:
+                self._canonical_price_refs = {}
+        item = self._canonical_price_refs.get(str(ingredient_id or ""))
+        if item:
+            self.canonical_price_ref_hits += 1
+        else:
+            self.canonical_price_ref_misses += 1
+        return item
+
     def snapshot(self) -> Dict[str, int]:
         return {
             "marketMultiplierDbCalls": int(self.market_multiplier_db_calls),
@@ -139,11 +198,25 @@ class PricingContext:
             "ingredientCostEstimates": int(self.ingredient_cost_estimates),
             "distinctMarketMultiplierKeys": int(len(self._market_multiplier_cache)),
             "distinctIngredientPriceKeys": int(len(self._ingredient_price_cache)),
+            "canonicalPriceRefDbCalls": int(self.canonical_price_ref_db_calls),
+            "canonicalPriceRefHits": int(self.canonical_price_ref_hits),
+            "canonicalPriceRefMisses": int(self.canonical_price_ref_misses),
         }
 
 
-def create_pricing_context(month_index: Optional[int] = None) -> PricingContext:
-    return PricingContext(month_index=_normalize_month_index(month_index))
+def create_pricing_context(
+    month_index: Optional[int] = None,
+    *,
+    owner_uid: Optional[str] = None,
+    market_type: str = "wet_market",
+    location: str = "NCR",
+) -> PricingContext:
+    return PricingContext(
+        month_index=_normalize_month_index(month_index),
+        owner_uid=owner_uid,
+        market_type=str(market_type or "wet_market"),
+        location=str(location or "NCR"),
+    )
 
 
 _RULES = [
@@ -160,6 +233,17 @@ _RULES = [
     PriceRule(["chicken", "manok"], 180, "Meat/Seafood", "kg"),
     PriceRule(["beef"], 320, "Meat/Seafood", "kg"),
     PriceRule(["pork", "liempo", "baboy"], 260, "Meat/Seafood", "kg"),
+    PriceRule(
+        ["bangus fillet", "milkfish fillet", "boneless bangus", "boneless milkfish"],
+        388,
+        "Meat/Seafood",
+        "kg",
+        source="reviewed_market",
+        source_label="Metro Retail fresh boneless bangus listing (2026-09-08)",
+        confidence="medium",
+        apply_category_multiplier=False,
+        apply_market_adjustments=False,
+    ),
     PriceRule(["fish", "tilapia", "bangus", "salmon", "galunggong"], 220, "Meat/Seafood", "kg"),
     PriceRule(["tuna", "sardines"], 35, "Canned/Packaged", "piece"),
     PriceRule(["shrimp", "hipon"], 300, "Meat/Seafood", "kg"),
@@ -180,7 +264,16 @@ _RULES = [
     PriceRule(["salt", "asin", "pepper", "paminta", "spice"], 20, "Spices & Condiments", "piece"),
     PriceRule(["coffee", "tea"], 90, "Beverages", "piece"),
     PriceRule(["juice", "soda"], 40, "Beverages", "piece"),
-    PriceRule(["water"], 20, "Beverages", "piece"),
+    PriceRule(
+        ["tap water", "water"],
+        0,
+        "Beverages",
+        "l",
+        source_label="Household tap water baseline",
+        confidence="high",
+        apply_category_multiplier=False,
+        allow_zero_price=True,
+    ),
     PriceRule(["canned", "packaged", "instant"], 45, "Canned/Packaged", "piece"),
 ]
 
@@ -197,12 +290,22 @@ _UNIT_ALIASES = {
     "pound": "lb",
     "pounds": "lb",
     "oz": "oz",
+    "ounce": "oz",
+    "ounces": "oz",
     "ml": "ml",
+    "milliliter": "ml",
+    "milliliters": "ml",
     "l": "l",
     "liter": "l",
+    "liters": "l",
     "litre": "l",
+    "litres": "l",
+    "quart": "quart",
+    "quarts": "quart",
     "cup": "cup",
     "cups": "cup",
+    "glass": "glass",
+    "glasses": "glass",
     "tbsp": "tbsp",
     "tablespoon": "tbsp",
     "tablespoons": "tbsp",
@@ -213,30 +316,61 @@ _UNIT_ALIASES = {
     "pieces": "piece",
     "pc": "piece",
     "pcs": "piece",
-    "clove": "piece",
-    "cloves": "piece",
+    "clove": "clove",
+    "cloves": "clove",
+    "bunch": "bunch",
+    "bunches": "bunch",
+    "tali": "bunch",
+    "stalk": "stalk",
+    "stalks": "stalk",
+    "head": "head",
+    "heads": "head",
+    "bundle": "bunch",
+    "bundles": "bunch",
+    "thumb": "piece",
+    "thumbs": "piece",
+    "slice": "piece",
+    "slices": "piece",
+    "fillet": "piece",
+    "fillets": "piece",
+    "can": "can",
+    "cans": "can",
+    "sachet": "pack",
+    "sachets": "pack",
+    "package": "pack",
+    "packages": "pack",
+    "pack": "pack",
+    "packs": "pack",
+    "packet": "pack",
+    "packets": "pack",
+    "tray": "tray",
+    "trays": "tray",
+    "block": "piece",
+    "blocks": "piece",
+    "square": "piece",
+    "squares": "piece",
 }
 
 _CATEGORY_DEFAULT_UNIT = {
     "Meat/Seafood": "kg",
     "Produce": "kg",
     "Dry Goods": "kg",
-    "Eggs & Dairy": "kg",
+    "Eggs & Dairy": "piece",
     "Spices & Condiments": "piece",
     "Canned/Packaged": "piece",
-    "Beverages": "l",
+    "Beverages": "piece",
     "Others": "piece",
 }
 
 _CATEGORY_MULTIPLIER = {
-    "Meat/Seafood": 1.0,
-    "Produce": 0.6,
+    "Meat/Seafood": 0.85,
+    "Produce": 0.75,
     "Dry Goods": 0.8,
-    "Eggs & Dairy": 0.9,
-    "Spices & Condiments": 0.3,
+    "Eggs & Dairy": 0.85,
+    "Spices & Condiments": 0.7,
     "Canned/Packaged": 0.8,
-    "Beverages": 0.7,
-    "Others": 0.7,
+    "Beverages": 0.8,
+    "Others": 0.75,
 }
 
 _DEFAULT_SEASONAL_MULTIPLIER = {
@@ -273,14 +407,27 @@ _VOLATILE_INGREDIENT_TOKENS = {
 }
 
 _PIECE_WEIGHT_KG = {
-    "Meat/Seafood": 0.20,
+    "Meat/Seafood": 0.15,
     "Produce": 0.12,
     "Eggs & Dairy": 0.06,
     "Dry Goods": 0.10,
     "Spices & Condiments": 0.05,
-    "Canned/Packaged": 0.20,
-    "Beverages": 0.50,
+    "Canned/Packaged": 0.18,
+    "Beverages": 0.25,
     "Others": 0.10,
+}
+
+_INGREDIENT_PIECE_WEIGHT_KG = {
+    ("garlic", "clove"): 0.005,
+    ("garlic", "piece"): 0.005,
+    ("garlic", "head"): 0.045,
+    ("onion", "piece"): 0.11,
+    ("tomato", "piece"): 0.09,
+    ("ginger", "piece"): 0.02,
+    ("egg", "piece"): 0.055,
+    ("pechay", "bunch"): 0.18,
+    ("kangkong", "bunch"): 0.18,
+    ("malunggay", "bunch"): 0.08,
 }
 
 
@@ -293,7 +440,9 @@ def _category_averages() -> Dict[str, int]:
 
 _CATEGORY_AVG = _category_averages()
 _OVERRIDE_CACHE_TTL_SECONDS = int(os.getenv("PCOSINA_PRICE_RULE_CACHE_TTL_SECONDS", "30"))
-_override_cache: Dict[str, object] = {"loaded_at": 0.0, "rules": None}
+_PRICE_RULE_LOAD_LIMIT = int(os.getenv("PCOSINA_PRICE_RULE_LOAD_LIMIT", "5000"))
+_override_cache: Dict[str, object] = {"loaded_at": 0.0, "rules": None, "active_rules": None, "rule_index": None}
+_RULE_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 
 
 def infer_category(name: str) -> str:
@@ -360,7 +509,14 @@ def _parse_number(text: str) -> Optional[float]:
 
 
 _QTY_PATTERN = re.compile(
-    r"(?P<num>\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*(?P<unit>kg|kilo|kilogram|g|gram|grams|lb|lbs|pound|pounds|oz|ml|l|liter|litre|cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|piece|pieces|pc|pcs|clove|cloves)"
+    r"(?P<num>\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*"
+    r"(?P<unit>kilograms|kilogram|kilo|kg|grams|gram|g|pounds|pound|lbs|lb|ounces|ounce|oz|"
+    r"milliliters|milliliter|ml|liters|liter|litres|litre|l|quarts|quart|"
+    r"tablespoons|tablespoon|tbsp|teaspoons|teaspoon|tsp|cups|cup|glasses|glass|pieces|piece|pcs|pc|"
+    r"cloves|clove|bunches|bunch|bundles|bundle|tali|stalks|stalk|heads|head|"
+    r"fillets|fillet|slices|slice|thumbs|thumb|cans|can|sachets|sachet|"
+    r"packages|package|packets|packet|packs|pack|blocks|block|squares|square|trays|tray)"
+    r"\.?(?![a-z])"
 )
 
 
@@ -395,16 +551,19 @@ def _parse_rule_notes(notes: Any) -> Dict[str, str]:
 
 def _rule_metadata_from_notes(notes: Any) -> Tuple[str, str, str]:
     parsed = _parse_rule_notes(notes)
-    source = parsed.get("source", "").strip() or "database"
+    explicit_source = parsed.get("source", "").strip()
+    source = (explicit_source or "database").lower().replace(" ", "_").replace("-", "_")
     effective = parsed.get("effective", "").strip()
     confidence = parsed.get("confidence", "").strip().lower()
     raw_notes = str(notes or "")
-    if "dti" in raw_notes.lower() or "srp" in raw_notes.lower():
+    if not explicit_source and ("dti" in raw_notes.lower() or "srp" in raw_notes.lower()):
         source = "dti_srp"
         confidence = confidence or "high"
     confidence = confidence if confidence in {"high", "medium", "low"} else "medium"
     if source == "dti_srp":
         source_label = "DTI SRP baseline"
+    elif source == "reviewed_market":
+        source_label = "Reviewed market price"
     elif source == "admin_market":
         source_label = "Admin market override"
     else:
@@ -412,6 +571,28 @@ def _rule_metadata_from_notes(notes: Any) -> Tuple[str, str, str]:
     if effective:
         source_label = f"{source_label} ({effective})"
     return source, source_label, confidence
+
+
+def _rule_uses_market_unit_pricing(notes: Any, source: str) -> bool:
+    parsed = _parse_rule_notes(notes)
+    basis = parsed.get("pricing_basis", "").strip().lower()
+    if basis in {"market_unit", "real_market_unit", "reviewed_market_unit"}:
+        return True
+    if parsed.get("category_multiplier", "").strip().lower() in {"none", "bypass", "1", "1.0"}:
+        return True
+    return source in {"reviewed_market", "dti_srp", "admin_market"}
+
+
+def _rule_allows_zero_price(notes: Any) -> bool:
+    parsed = _parse_rule_notes(notes)
+    return parsed.get("zero_price", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _normalize_rule_unit(unit: Any) -> Optional[str]:
+    token = str(unit or "").strip().lower()
+    if not token:
+        return None
+    return _UNIT_ALIASES.get(token, token)
 
 
 def _unit_to_kg(value: float, unit: str) -> Optional[float]:
@@ -429,6 +610,8 @@ def _unit_to_kg(value: float, unit: str) -> Optional[float]:
         return value * 0.015
     if unit == "tsp":
         return value * 0.005
+    if unit == "quart":
+        return value * 0.946353
     return None
 
 
@@ -439,6 +622,8 @@ def _unit_to_l(value: float, unit: str) -> Optional[float]:
         return value / 1000.0
     if unit == "cup":
         return value * 0.24
+    if unit == "glass":
+        return value * 0.24
     if unit == "tbsp":
         return value * 0.015
     if unit == "tsp":
@@ -446,14 +631,43 @@ def _unit_to_l(value: float, unit: str) -> Optional[float]:
     return None
 
 
-def _quantity_factor(value: Optional[float], unit: Optional[str], target_unit: str, category: str) -> float:
+def _ingredient_weight_key(name: str) -> str:
+    lower = (name or "").lower()
+    if "garlic" in lower or "bawang" in lower:
+        return "garlic"
+    if "onion" in lower or "sibuyas" in lower:
+        return "onion"
+    if "tomato" in lower or "kamatis" in lower:
+        return "tomato"
+    if "ginger" in lower or "luya" in lower:
+        return "ginger"
+    if "egg" in lower or "itlog" in lower:
+        return "egg"
+    if "pechay" in lower:
+        return "pechay"
+    if "kangkong" in lower:
+        return "kangkong"
+    if "malunggay" in lower:
+        return "malunggay"
+    return ""
+
+
+def _piece_weight_for(name: str, category: str, unit: str) -> float:
+    ingredient = _ingredient_weight_key(name)
+    return _INGREDIENT_PIECE_WEIGHT_KG.get((ingredient, unit), _PIECE_WEIGHT_KG.get(category, 0.1))
+
+
+def _quantity_factor(value: Optional[float], unit: Optional[str], target_unit: str, category: str, name: str = "") -> float:
     if value is None or unit is None:
         return 1.0
     unit = _UNIT_ALIASES.get(unit, unit)
+    target_unit = _normalize_rule_unit(target_unit) or target_unit
+    if unit == target_unit:
+        return value
     if target_unit == "kg":
         kg = _unit_to_kg(value, unit)
-        if kg is None and unit == "piece":
-            kg = value * _PIECE_WEIGHT_KG.get(category, 0.1)
+        if kg is None and unit in {"piece", "clove", "bunch", "stalk", "head"}:
+            kg = value * _piece_weight_for(name, category, unit)
         if kg is None:
             return 1.0
         return kg
@@ -463,28 +677,69 @@ def _quantity_factor(value: Optional[float], unit: Optional[str], target_unit: s
             return 1.0
         return liters
     if target_unit == "piece":
-        if unit == "piece":
+        if unit in {"piece", "clove", "bunch", "stalk", "can", "pack", "head"}:
             return value
         kg = _unit_to_kg(value, unit)
         if kg is None:
             return 1.0
-        piece_weight = _PIECE_WEIGHT_KG.get(category, 0.1)
+        piece_weight = _piece_weight_for(name, category, "piece")
         return max(0.1, kg / piece_weight)
     return 1.0
 
 
 def _clamp_factor(value: float, category: str) -> float:
-    min_factor = 0.1
+    min_factor = 0.02 if category in {"Produce", "Spices & Condiments"} else 0.1
     max_factor = 2.5 if category in ("Meat/Seafood", "Dry Goods") else 2.0
     return max(min_factor, min(max_factor, value))
 
 
 def _rule_for_name(name: str) -> Optional[PriceRule]:
     lower = (name or "").lower()
-    for rule in _active_rules():
-        if any(keyword in lower for keyword in rule.keywords):
-            return rule
-    return None
+    best_rule: Optional[PriceRule] = None
+    best_priority: Tuple[int, int, int] = (-1, -1, -1)
+    for rule in _candidate_rules_for_name(lower):
+        matched_keywords = [keyword for keyword in rule.keywords if _phrase_matches(lower, keyword)]
+        if rule.allow_zero_price and not _is_exact_companion_water_name(lower):
+            matched_keywords = []
+        if not matched_keywords:
+            continue
+        priority = _matched_price_rule_priority(rule, matched_keywords)
+        if priority > best_priority:
+            best_rule = rule
+            best_priority = priority
+    return best_rule
+
+
+def _phrase_matches(text: str, phrase: str) -> bool:
+    text_tokens = _RULE_TOKEN_PATTERN.findall(str(text or "").lower())
+    phrase_tokens = _RULE_TOKEN_PATTERN.findall(str(phrase or "").lower())
+    if not text_tokens or not phrase_tokens or len(phrase_tokens) > len(text_tokens):
+        return False
+    width = len(phrase_tokens)
+    return any(
+        all(_price_token_matches(left, right) for left, right in zip(text_tokens[index:index + width], phrase_tokens))
+        for index in range(len(text_tokens) - width + 1)
+    )
+
+
+def _price_token_matches(left: str, right: str) -> bool:
+    if left == right:
+        return True
+
+    def plural_forms(value: str) -> set[str]:
+        forms = {value + "s"}
+        if value.endswith("y") and len(value) > 1 and value[-2] not in "aeiou":
+            forms.add(value[:-1] + "ies")
+        if value.endswith(("s", "x", "z", "ch", "sh", "o")):
+            forms.add(value + "es")
+        return forms
+
+    return left in plural_forms(right) or right in plural_forms(left)
+
+
+def _is_exact_companion_water_name(name: str) -> bool:
+    normalized = " ".join(_RULE_TOKEN_PATTERN.findall(str(name or "").lower()))
+    return normalized in {"water", "tap water"}
 
 
 def _fallback_rule_for_category(category: str) -> PriceRule:
@@ -502,6 +757,8 @@ def _fallback_rule_for_category(category: str) -> PriceRule:
 def invalidate_override_cache() -> None:
     _override_cache["loaded_at"] = 0.0
     _override_cache["rules"] = None
+    _override_cache["active_rules"] = None
+    _override_cache["rule_index"] = None
 
 
 def _load_override_rules() -> List[PriceRule]:
@@ -514,26 +771,33 @@ def _load_override_rules() -> List[PriceRule]:
     try:
         import database  # noqa: WPS433
 
-        for item in database.list_active_price_rules(limit=500):
+        for item in database.list_active_price_rules(limit=_PRICE_RULE_LOAD_LIMIT):
             keywords = [str(keyword).strip().lower() for keyword in (item.get("keywords") or []) if str(keyword).strip()]
             if not keywords:
                 continue
             source, source_label, confidence = _rule_metadata_from_notes(item.get("notes"))
+            allow_zero_price = _rule_allows_zero_price(item.get("notes"))
+            market_unit_pricing = _rule_uses_market_unit_pricing(item.get("notes"), source)
             rules.append(
                 PriceRule(
                     keywords=keywords,
-                    price_php=max(1, int(item.get("pricePhp") or 0)),
+                    price_php=0 if allow_zero_price else max(1.0, float(item.get("pricePhp") or 0)),
                     category=str(item.get("category") or "Others"),
-                    unit=(str(item.get("unit") or "").strip() or None),
+                    unit=_normalize_rule_unit(item.get("unit")),
                     source=source,
                     source_label=source_label,
                     confidence=confidence,
+                    apply_category_multiplier=not market_unit_pricing,
+                    apply_market_adjustments=not market_unit_pricing,
+                    allow_zero_price=allow_zero_price,
                 )
             )
     except Exception:
         rules = []
     _override_cache["loaded_at"] = current
-    _override_cache["rules"] = rules
+    _override_cache["rules"] = sorted(rules, key=_price_rule_priority, reverse=True)
+    _override_cache["active_rules"] = None
+    _override_cache["rule_index"] = None
     return rules
 
 
@@ -546,8 +810,59 @@ def _active_rules() -> List[PriceRule]:
     overrides = _load_override_rules()
     if not overrides:
         return _RULES
+    cached_active_rules = _override_cache.get("active_rules")
+    if isinstance(cached_active_rules, list):
+        return cached_active_rules
     # Merge overrides first so they are checked before static defaults
-    return overrides + _RULES
+    active_rules = sorted(overrides, key=_price_rule_priority, reverse=True) + _RULES
+    _override_cache["active_rules"] = active_rules
+    return active_rules
+
+
+def _candidate_rules_for_name(lower_name: str) -> List[PriceRule]:
+    rules = _active_rules()
+    if len(rules) <= 100:
+        return rules
+    rule_index = _active_rule_index(rules)
+    candidate_indexes: set[int] = set()
+    for token in _RULE_TOKEN_PATTERN.findall(lower_name):
+        candidate_indexes.update(rule_index.get(token, ()))
+    if not candidate_indexes:
+        return rules
+    return [rules[index] for index in sorted(candidate_indexes)]
+
+
+def _active_rule_index(rules: List[PriceRule]) -> Dict[str, set[int]]:
+    cached = _override_cache.get("rule_index")
+    if isinstance(cached, dict) and cached.get("rules") is rules:
+        return cached["index"]
+    index: Dict[str, set[int]] = {}
+    for rule_index, rule in enumerate(rules):
+        for keyword in rule.keywords:
+            for token in _RULE_TOKEN_PATTERN.findall(str(keyword or "").lower()):
+                if len(token) < 2:
+                    continue
+                index.setdefault(token, set()).add(rule_index)
+    _override_cache["rule_index"] = {"rules": rules, "index": index}
+    return index
+
+
+def _price_rule_priority(rule: PriceRule) -> Tuple[int, int, int]:
+    return _matched_price_rule_priority(rule, rule.keywords)
+
+
+def _matched_price_rule_priority(rule: PriceRule, keywords: List[str]) -> Tuple[int, int, int]:
+    source_priority = {
+        "admin_market": 5,
+        "reviewed_market": 4,
+        "dti_srp": 3,
+        "database": 2,
+        "static": 1,
+    }.get(rule.source, 0)
+    keywords = [str(keyword or "").strip() for keyword in keywords if str(keyword or "").strip()]
+    longest_keyword = max((len(keyword) for keyword in keywords), default=0)
+    longest_token_count = max((len(keyword.split()) for keyword in keywords), default=0)
+    return longest_token_count, longest_keyword, source_priority
 
 
 def _market_multiplier(
@@ -572,7 +887,7 @@ def _market_multiplier(
 
 def _tingi_multiplier(unit: Optional[str], target_unit: str, quantity_value: Optional[float]) -> float:
     normalized_unit = _UNIT_ALIASES.get(str(unit or ""), str(unit or ""))
-    if normalized_unit in {"piece", "clove", "bunch", "stalk", "can", "pack"} and target_unit in {"kg", "l"}:
+    if normalized_unit in {"piece", "clove", "bunch", "stalk", "can", "pack", "head"} and target_unit in {"kg", "l"}:
         return 1.12
     if quantity_value is not None and quantity_value > 0 and quantity_value < 0.25 and target_unit in {"kg", "l"}:
         return 1.08
@@ -580,6 +895,8 @@ def _tingi_multiplier(unit: Optional[str], target_unit: str, quantity_value: Opt
 
 
 def _confidence_for_rule(rule: PriceRule, name: str) -> str:
+    if rule.source == "canonical_wet_market":
+        return rule.confidence
     if rule.confidence == "high" and any(tok in (name or "").lower() for tok in _VOLATILE_INGREDIENT_TOKENS):
         return "medium"
     return rule.confidence
@@ -592,30 +909,72 @@ def estimate_price_explained(
     month_index: Optional[int] = None,
     include_safety_buffer: bool = False,
     pricing_context: Optional[PricingContext] = None,
+    clamp_quantity: bool = True,
 ) -> PriceEstimate:
-    rule = _rule_for_name(name)
+    canonical_ref = None
+    resolution = resolve_ingredient(name)
+    if pricing_context is not None and resolution.status == "mapped" and resolution.ingredient_id:
+        canonical_ref = pricing_context.canonical_price_ref(resolution.ingredient_id)
+    rule = None
+    if canonical_ref:
+        canonical_source = str(canonical_ref.get("scope") or "canonical_reference")
+        reference_source = str(canonical_ref.get("source") or "").strip().lower()
+        retailer_observation = reference_source == "metro_retail_fresh_boneless_listing"
+        if reference_source == "da_amas_ncr_weekly_average":
+            source_label = f"DA-AMAS NCR weekly average retail price ({canonical_ref.get('sourceDate')})"
+        elif retailer_observation:
+            source_label = f"Metro Retail fresh boneless bangus listing ({canonical_ref.get('sourceDate')})"
+        elif reference_source == "household_tap_water_baseline":
+            source_label = "Household tap water baseline"
+        else:
+            source_label = (
+                f"Canonical {canonical_ref.get('marketType') or canonical_source} "
+                f"({canonical_ref.get('location') or 'NCR'}, {canonical_ref.get('sourceDate') or 'undated'})"
+            )
+        rule = PriceRule(
+            keywords=[resolution.matched_alias or resolution.canonical_name or name],
+            price_php=max(0.0, float(canonical_ref.get("pricePhp") or 0)),
+            category=_price_category_from_canonical(canonical_ref.get("canonicalCategory"), name),
+            unit=_normalize_rule_unit(canonical_ref.get("unit")),
+            source="canonical_retail_observation" if retailer_observation else f"canonical_{canonical_source}",
+            source_label=source_label,
+            confidence=str(canonical_ref.get("confidence") or "medium"),
+            apply_category_multiplier=False,
+            apply_market_adjustments=canonical_source == "baseline" and not retailer_observation,
+            allow_zero_price=float(canonical_ref.get("pricePhp") or 0) == 0,
+        )
+    if rule is None:
+        rule = _rule_for_name(name)
     category = rule.category if rule else infer_category(name)
     resolved_rule = rule or _fallback_rule_for_category(category)
     base_price = resolved_rule.price_php
     target_unit = resolved_rule.unit or _CATEGORY_DEFAULT_UNIT.get(category, "piece")
     qty_value, qty_unit = _parse_quantity(f"{quantity_text} {name}".strip())
 
-    factor = _quantity_factor(qty_value, qty_unit, target_unit, category)
-    factor = _clamp_factor(factor, category)
+    factor = _quantity_factor(qty_value, qty_unit, target_unit, category, name)
+    if clamp_quantity:
+        factor = _clamp_factor(factor, category)
+    else:
+        factor = max(0.0, factor)
 
-    seasonal_multiplier = _market_multiplier(category, month_index, pricing_context=pricing_context)
-    tingi = _tingi_multiplier(qty_unit, target_unit, qty_value)
+    seasonal_multiplier = (
+        _market_multiplier(category, month_index, pricing_context=pricing_context)
+        if resolved_rule.apply_market_adjustments
+        else 1.0
+    )
+    tingi = _tingi_multiplier(qty_unit, target_unit, qty_value) if resolved_rule.apply_market_adjustments else 1.0
     safety = 1.10 if include_safety_buffer else 1.0
 
     price = base_price * factor
-    price *= _CATEGORY_MULTIPLIER.get(category, 0.7)
+    category_multiplier = _CATEGORY_MULTIPLIER.get(category, 0.7) if resolved_rule.apply_category_multiplier else 1.0
+    price *= category_multiplier
     price *= seasonal_multiplier
     price *= tingi
     price *= safety
 
-    price = max(5.0, price)
+    price = 0.0 if resolved_rule.allow_zero_price else max(5.0, price)
     return PriceEstimate(
-        price_php=int(round(price)),
+        price_php=int(price + 0.5),
         category=category,
         source=resolved_rule.source,
         source_label=resolved_rule.source_label,
@@ -625,6 +984,7 @@ def estimate_price_explained(
         quantity_value=qty_value,
         quantity_unit=qty_unit,
         quantity_factor=factor,
+        category_multiplier=category_multiplier,
         market_multiplier=seasonal_multiplier,
         tingi_multiplier=tingi,
         safety_buffer_multiplier=safety,
@@ -650,6 +1010,7 @@ def estimate_recipe_cost(
 ) -> int:
     if not ingredients:
         return 0
+    pricing_context = pricing_context or create_pricing_context()
     started_at = time.time()
     total = 0.0
     try:

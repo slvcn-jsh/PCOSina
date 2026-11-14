@@ -37,7 +37,7 @@ def test_admin_login_page_links_to_policy_console(monkeypatch):
 
     assert response.status_code == 200
     assert "/admin/policy" in response.text
-    assert "Policy console" in response.text
+    assert "Planner Settings" in response.text
 
 
 def test_policy_console_shows_switch_console_links_for_multi_role_admin(monkeypatch):
@@ -59,7 +59,7 @@ def test_policy_console_shows_switch_console_links_for_multi_role_admin(monkeypa
             response = client.get("/admin/policy")
 
         assert response.status_code == 200
-        assert "Switch console" in response.text
+        assert "Tools" in response.text
         assert "/admin/policy" in response.text
         assert "/admin/content" in response.text
         assert "/admin/ops" in response.text

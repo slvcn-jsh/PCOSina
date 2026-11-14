@@ -23,6 +23,14 @@ data class PlannerTimestamps(
 )
 
 @Immutable
+data class PlannerContractItem(
+    val field: String,
+    val classification: String,
+    val enforcement: String,
+    val active: Boolean
+)
+
+@Immutable
 data class PlannerPlanExplanation(
     val confidenceScore: Int? = null,
     val targetCalories: Int? = null,
@@ -42,7 +50,6 @@ data class PlannerPlanExplanation(
     val estimatedWeeklyCost: Int? = null,
     val restrictionCount: Int? = null,
     val budgetHardCapApplied: Boolean? = null,
-    val householdPlanningMode: String? = null,
     val goalValue: String? = null,
     val symptomSelections: List<String> = emptyList(),
     val profileRuleEffects: Map<String, List<String>>? = null,
@@ -50,9 +57,54 @@ data class PlannerPlanExplanation(
     val candidateExclusionSummary: Map<String, Int>? = null,
     val selectionReasonsByRecipeId: Map<String, List<String>>? = null,
     val selectionReasonCounts: Map<String, Int>? = null,
+    val plannerContract: List<PlannerContractItem> = emptyList(),
     val fiberMinTarget: Int? = null,
     val sugarMaxTarget: Int? = null,
     val goalStrategy: List<String> = emptyList()
+)
+
+@Immutable
+data class PlannerGroceryOutput(
+    val authority: String? = null,
+    val budgetAuthority: String? = null,
+    val pricingAuthority: String? = null,
+    val pricingCatalogVersion: String? = null,
+    val pricingReferenceDate: String? = null,
+    val pricingReferenceLocation: String? = null,
+    val pricingBasis: String? = null,
+    val pricingSourceCounts: Map<String, Int> = emptyMap(),
+    val estimatedTotalPhp: Int? = null,
+    val finalGroceryEstimatePhp: Int? = null,
+    val weeklyBudgetPhp: Int? = null,
+    val userBudgetPhp: Int? = null,
+    val withinBudget: Boolean? = null,
+    val budgetDeltaPhp: Int? = null,
+    val budgetGapPhp: Int? = null,
+    val displayedEstimateSource: String? = null,
+    val itemCount: Int? = null,
+    val selectedMealCount: Int? = null,
+    val plannerMealEstimatePhp: Int? = null,
+    val solverBudgetEstimatePhp: Int? = null,
+    val roughMealBudgetCapPhp: Int? = null,
+    val items: List<PlannerGroceryOutputItem> = emptyList()
+)
+
+@Immutable
+data class PlannerGroceryOutputItem(
+    val key: String? = null,
+    val name: String,
+    val quantity: String? = null,
+    val requiredQuantity: String? = null,
+    val purchaseQuantity: String? = null,
+    val purchaseMode: String? = null,
+    val estimatedCostPhp: Int? = null,
+    val unitPricePhp: Double? = null,
+    val priceUnit: String? = null,
+    val category: String? = null,
+    val source: String? = null,
+    val sourceLabel: String? = null,
+    val confidence: String? = null,
+    val originalNames: List<String> = emptyList()
 )
 
 @Immutable
@@ -64,6 +116,7 @@ data class PlannerPlanResponse(
     val explanation: PlannerPlanExplanation? = null,
     val requestId: String? = null,
     val planId: String? = null,
+    val groceryOutput: PlannerGroceryOutput? = null,
     val policyVersion: String? = null,
     val machineReasonCodes: List<String> = emptyList(),
     val humanGuidance: List<String> = emptyList(),

@@ -1,0 +1,366 @@
+titles 40 tables 40
+
+==== 1 Table 4. Clinical Governance Gates Used in PCOSina ====
+Governance Gate || Purpose || Description
+Requirements Gate || Defines what the system is allowed to do || Confirms that PCOSina requirements are limited to PCOS-related meal planning, profile setup, pantry management, grocery guidance, and progress tracking without diagnostic or treatment claims.
+Constraint Gate || Protects safety rules before planning || Checks that hard constraints such as allergies, excluded ingredients, dietary restrictions, budget limits, nutrition bounds, meal-slot rules, and repetition limits are enforced before a plan is accepted.
+Output Communication Gate || Controls how results are explained to users || Ensures that meal plans, nutrition details, grocery guidance, and no-safe-plan messages are written clearly, safely, and without implying that the app replaces medical or nutrition consultation.
+Evaluation Gate || Confirms that the system was tested and reviewed || Verifies that functional tests, expert review, and software quality checks are used before the system outputs are presented as valid evaluation results.
+
+==== 2 Table 5. Hardware Specifications ====
+Component || Description || Minimum Requirement || Recommended || Purpose
+Mobile Device || Android smartphone || Android 8.0 || Android 11+ || Application execution
+Processor || Mobile CPU || Quad-core || Octa-core || Performance efficiency
+RAM || Device memory || 4 GB || 6 GB || Smooth operation
+Storage || Internal Storage || 32 GB || 64 GB || Local data storage
+Development PC || Laptop/ Desktop Computer || i5 Processor || i7 Processor || System development
+Development Memory || Ram for development machine || 8 GB || 16GB or higher || Running Android Studio, Emulator, and backend tools
+
+==== 3 Table 6. Software Specifications ====
+Software || Description || Version || Purpose || Platform
+Android Studio || IDE || Latest || App development || Windows/macOS
+Kotlin || Mobile Programming Language || Project-compatible version || Android Application Logic || Android
+Jetpack Compose || Android UI toolkit || Project-compatible version || Declarative mobile user interface || Android
+Android DataStore / Encrypted Shared Preferences / Local Artifacts || Local persistence technologies || Built-in / library-supported || Offline-first storage of saved profiles, pantry records, generated plans, settings, and progress-related data || Android
+Firebase || Optional cloud service || Optional || Authentication, distribution, backup, or supplementary synchronization when enabled || Cloud
+FastAPI || Backend web framework || Project-compatible version || API layer for plan-generation requests and optimizer service endpoints || Backend
+PostgreSQL || Relational Database || Project-compatible version || Backend data storage and persistent server-side records || Backend / Cloud
+OR-Tools CP-SAT || Optimization Solver || Project-compatible version || Solving the MILP-style 0-1 weekly assignment formulation || Backend
+LightGBM || Machine-learning ranking library || Project-compatible version || Assistive candidate ranking during Stage 1 candidate construction || Backend
+Git / GitHub || Version control and repository platform || Latest available || Collaboration, version tracking, issue tracking, and implementation traceability || Web/Desktop
+Draw.io || Diagram Tool || Web-based || System modeling || Web
+Python || Backend programming language || Project-compatible || FastAPI backend, optimizer service, CP-SAT planning logic, LightGBM-assisted ranking, backend utilities || Backend
+
+==== 4 Table 7. Adaptive Constraint Handling Sequence ====
+Level || Relaxation Rule || Stop/Continue Rule
+L1 || Use the strictest configured weekly recipe repeat limit and base nutrition tolerance. || Stop if the system forms a complete 21-slot weekly plan; otherwise, continue.
+L2 || Widen the nutrition tolerance band based on the configured daily and weekly tolerance policy. || Stop if the system forms a complete 21-slot weekly plan; otherwise, continue.
+L3 || Try the next configured recipe repeat limit, allowing more weekly reuse while still preventing adjacent duplicate meals. || Stop if the system forms a complete 21-slot weekly plan; otherwise, continue through the remaining supported attempts.
+L4 || If all supported attempts fail or the planner times out, return structured no-safe-plan guidance. || Do not force a partial or unsafe recommendation; return diagnostics, blocker information, and suggested non-safety adjustments.
+
+==== 5 Table 8. Trigger Conditions and Evidence Indicators ====
+Trigger Condition || Operational Indicator || Evidence Signal || Fallback Action
+Infeasible CP-SAT result || All configured tolerance and repeat-limit attempts fail to produce a complete feasible plan || Solver diagnostics show attempted tolerance and repeat-limit combinations without a feasible solution. || Return a structured no-safe-plan response with reason codes and guidance.
+Timeout || Planner exceeds the configured service time budget during filtering, pricing, model building, or solving. || Runtime telemetry records phase timings, solver budget metadata, or the timeout stage. || Return no-safe-plan guidance with retry suggestions and safe non-safety adjustments.
+Insufficient candidate coverage || Too few safe candidates remain after Stage 1 filtering and shortlist construction. || Candidate diagnostics show low candidate count or exclusion summaries after hard filtering. || Return no-safe-plan guidance and suggest adjusting non-safety inputs such as budget, cooking time, or variety preference.
+Profile conflict || User profile contains conflicting restrictions or invalid planning inputs. || Validation logic returns a conflict reason before optimization begins. || Return validation guidance before solver execution.
+Service/network interruption || Remote optimizer request or queued plan polling cannot complete. || The mobile app cannot complete a new optimization request but still has saved local artifacts. || Preserve access to previously generated local plans, grocery guidance, and progress data; provide retry guidance when possible.
+
+==== 6 Table 9. Algorithm Selection Policy ====
+Condition || Selected Algorithm || Label || Disclosure
+Primary CP-SAT planning succeeds within the configured limits || Two-stage planning workflow using deterministic filtering,LightGBM-assisted ranking, and OR-Tools CP-SAT optimization || Optimized Plan (Feasible) || No fallback warning
+CP-SAT planning is infeasible after supported retry attempts || Structured fallback handling || No Safe Plan Generated || Show reason codes, blocker summary, and suggested non-safety adjustments.
+Planner timeout or remote service issue occurs || Safe failure handling and retry guidance || Planning Unavailable / Retry Needed || Inform the user that a new optimized plan could not be completed and suggest retrying later.
+Profile contains invalid or conflicting inputs || Input validation guidance before optimization || Profile Needs Adjustment || Show which required or conflicting inputs must be corrected.
+Saved plan already exists but new generation cannot complete || Offline-first saved-plan access || Saved Plan Available || Allow the user to view previously generated plans, grocery guidance, and progress data.
+
+==== 7 Table 10. Standard BMI Categories ====
+BMI Range || Classification
+Less than 18.5 || Underweight
+18.5 - 24.9 || Normal Weight
+25.0 - 29.9 || Overweight
+30.0 and above || Obese
+
+==== 8 Table 11. Hard vs Soft Constraint Policy ====
+Constraint Class || Examples || Fallback Policy
+Hard (invariant) || Allergies, explicit exclusions, strict forbidden ingredients, invalid meal-slot pairings, profile validation rules. || Never relaxed; any candidate violating hard rules is rejected.
+Soft (adaptive) || Nutrition tolerance, variety preference, and configured recipe repeat-limit attempts || Adjusted only within supported retry settings.
+Policy-dependent || Pantry-overlap threshold, budget behavior, candidate-pool limits, and preparation-time preference || Applied based on planner configuration and system policy; not relaxed in a way that violates safety rules.
+
+==== 9 Table 12. Role of LightGBM in the Planning Workflow ====
+Aspect || Description
+Main purpose || Assist candidate recipe ranking
+Input features || Nutrition values, cost estimate, cooking time, pantry overlap, restrictions, meal-slot suitability
+Output || Bounded ranking score or ranking boost
+Authority level || Non-authoritative
+Cannot override || Allergies, dietary restrictions, explicit exclusions, hard safety rules, meal-slot eligibility, final CP-SAT assignment
+Fallback behavior || Deterministic heuristic ranking is used if LightGBM is unavailable or not ready
+Final meal-plan generator || OR-Tools CP-SAT, not LightGBM
+
+==== 10 Table 13. Model Variables and Core Rules Matrix ====
+Symbol / Term || Meaning
+x(r,s) || Binary variable showing whether recipe r is assigned to meal slot s.
+y(r) || Binary variable showing whether recipe r appears at least once in the weekly plan.
+Hard rules || Safety rules that cannot be overridden, such as allergies and explicit exclusions.
+
+==== 11 Table 14. Variable-to-Constraint and Objective Mapping ====
+Variable Group || Primary Functions || Where It Affects Planning
+Anthropometric and lifestyle variables, such as age, weight, height, activity level, and wellness goal || Target derivation and personalization || Calorie and macronutrient target computation
+Safety variables, such as allergies and dietary restrictions || Hard filtering and exclusion || Stage 1 filtering and Stage 2 admissibility rules
+Economic variables, such as weekly budget || Budget control || Budget constraint, cost checking, and budget-related guidance
+Practical variables, such as cooking-time limit, variety preference, and planning priority || Feasibility and adherence support || Candidate filtering, ranking, repetition control, and objective weighting
+PCOS-context variables, such as insulin-resistance-related setting and symptoms || Personalization and reporting context || Target-selection context and non-diagnostic explanation outputs
+Pantry variables, such as pantry entries || Pantry-aware planning support || Pantry-overlap scoring, candidate prioritization, and grocery guidance
+
+==== 12 Table 15. Sets, Parameters, and Decision Variables ====
+Symbol || Meaning || Type
+R || Candidate recipes after Stage 1 filtering || Set
+S || Weekly meal slots (D x M = 7 x 3 = 21) || Set
+K || Nutrition dimensions, such as calories, protein, carbohydrates, and fat || Set
+I || Ingredient set used for pantry and grocery guidance || Set
+x_(r,s) || 1 if recipe r assigned to slot s, else 0 || Binary decision variable
+y_r || 1 if recipe r is used at least once during the week, otherwise 0 || Binary helper variable
+u_k, v_k || Under-target and over-target nutrition deviation for nutrition dimension k || Non-negative deviation variables
+g_i || Estimated grocery gap for ingredient i, when ingredient quantity estimates are available || Non-negative guidance variable
+
+==== 13 Table 16. Objective Function Parameters, Penalty Terms, and Optimization Weights ====
+Symbol / Term || Meaning
+Z || Overall objective value minimized by the optimizer.
+u(k), v(k) || Under-target and over-target nutrition deviation terms for nutrition dimension k.
+g(i) || Estimated grocery gap for ingredient i, when quantity estimates are available.
+λ1 to λ6 || Planner weights that control the importance of each objective term.
+PantryReward || Reward term for recipes that better match pantry entries.
+DiversityReward || Reward term for broader meal variety across the weekly plan.
+
+==== 14 Table 17. Core Constraints ====
+Constraint Family || Equation Form || Purpose
+Slot assignment completeness || For each meal slot s, exactly one allowed recipe is assigned. || Ensures each breakfast, lunch, and dinner slot has one meal.
+Recipe-use linking || If recipe r is assigned to any slot, y_r marks the recipe as used. || Supports repetition and variety control.
+Restriction and allergy safety || X_r,s = 0 for recipes violating allergies, restrictions, exclusions, or slot eligibility. || Prevents prohibited recipes from appearing in the final plan.
+Nutrition range with deviation || Nutrition totals are compared against lower and upper target ranges using deviation variables. || Keeps the plan near calorie and macronutrient targets while measuring deviation.
+Budget control || Total estimated cost must stay within the weekly budget when a hard budget is configured. || Supports budget-aware planning and prevents undisclosed budget violations.
+Pantry and grocery guidance || Pantry overlap is rewarded, and grocery gaps may be estimated when ingredient quantity data are available. || Supports pantry-aware planning and grocery guidance.
+Variety/repetition limit || The number of times the same recipe appears is limited by repeat settings. || Avoids excessive repetition across the weekly plan.
+
+==== 15 Table 18. Hard vs Soft Constraint Taxonomy ====
+Constraint || Class || Relaxation Policy
+Allergy and explicit restriction rules || Hard || Never relaxed in primary or fallback handling.
+Meal-slot validity and one-meal-per-slot requirement || Hard || Never relaxed; required for a valid weekly plan.
+Adjacent duplicate prevention || Hard || Preserved to avoid immediate meal repetition.
+Weekly budget cap, when configured as hard || Hard / policy-dependent || Enforced as a budget ceiling when enabled.
+Nutrition target band || Soft / bounded || Managed through tolerance ranges and deviation penalties.
+Variety and repetition preference || Soft / policy-dependent || Adjusted only within supported retry settings.
+Pantry-overlap preference || Soft / policy-dependent || Used as a reward, scoring signal, or shortlist threshold; not treated as a full pantry-availability guarantee.
+Preparation-time preference || Policy-dependent || May affect filtering, scoring, or candidate ranking depending on planner configuration.
+
+==== 16 Table 19. Cultural Relevance Evaluation Protocol ====
+Protocol Step || Method || Why It Matters
+P1 Scenario execution || Run predefined user scenarios and record the selected meals per scenario. || Ensures that cultural relevance is evaluated across multiple cases, not only one sample meal plan.
+P2 Metric computation || Compute the Cultural Taste Score (CTS) and Cultural Ingredient Score (CIS) for each scenario. || Separates dish familiarity from ingredient familiarity.
+P3 Safety checking || Check that generated plans have no hard safety violations, such as allergy or dietary restriction conflicts. || Ensures that cultural relevance does not override user safety.
+P4 Result summary || Summarize the cultural relevance scores and review the results against the generated meal-plan data. || Ensures that the reported cultural relevance results are consistent with the actual system outputs.
+
+==== 17 Table 20. Acceptance Rule and Failure Handling ====
+Condition || Decision || Required Action
+Safety violations are found in any scenario || Fail || Reject the output set for cultural acceptance and investigate allergy, restriction, or constraint enforcement.
+Mean CTS or Mean CIS falls below the required threshold || Conditional fail || Review recipe dataset coverage, cultural tags, and filtering rules.
+Reported scores are inconsistent with the generated meal-plan records || Audit fail || Recheck the source records, recompute the metrics, and correct the report tables if needed.
+All safety and cultural relevance conditions pass || Accept || Report cultural relevance as software-evaluated evidence, not as a clinical or dietary outcome claim.
+
+==== 18 Table 21. System Test Matrix ====
+Test Case || Input Condition || Expected Output
+TC1 - Feasible CP-SAT plan generation || Complete profile, normal budget, adequate recipe coverage, and moderate restrictions || Optimized weekly meal plan is returned without fallback or warning label.
+TC2 - Infeasible planning scenario || Tight candidate pool, highly restrictive preferences, or conflicting planning conditions || System returns structured no-safe-plan guidance with reason codes, blocker summary, and suggested non-safety adjustments.
+TC3 - Timeout or service limit || Planner exceeds configured service time budget during filtering, model building, or solving || System returns timeout or retry guidance without producing an unsafe or partial recommendation.
+TC4 - Hard constraint safety || Allergy-restricted or restriction-sensitive profile with conflicting recipes in the source pool || No returned plan contains hard-forbidden ingredients or restriction-violating recipes.
+TC5 - Profile validation conflict || Missing required fields, invalid values, or contradictory restrictions || System blocks plan generation and displays validation guidance before optimization begins.
+TC6 - Offline-first saved-data access || Device has no active connection but has previously generated plans or saved local data || Users can still access saved plans, grocery guidance, pantry records, and progress-related data.
+TC7 - Pantry-aware grocery guidance || User pantry entries partially match selected recipe ingredients || The system displays pantry-overlap indicators and grocery guidance for ingredients that may need to be purchased.
+TC8 - LightGBM unavailable or not ready || ML ranking model is unavailable, stale, or disabled || The system continues using deterministic heuristic ranking and proceeds without allowing ML to affect hard constraints.
+
+==== 19 Table 23. Software-Effectiveness Dimensions and Metrics ====
+Effectiveness Dimension || Evaluation Metrics || Out of Scope
+Software quality || ISO/IEC 25010 selected characteristics and respondent ratings || Clinical symptom change
+Instrument reliability || Cronbach alpha for questionnaire consistency || Clinical diagnostic validity
+Numeric correctness || AE and PE against manual references || Biological outcome effectiveness
+Planner behavior || Runtime, feasibility, compliance deviation, repetition, pantry utilization || Therapeutic efficacy claims
+Cultural relevance || Cultural Taste Score (CTS), Cultural Ingredient Score (CIS), and scenario-based cultural relevance review || Long-term dietary adherence or clinical nutrition outcome
+
+==== 20 Table 27. Input Group Classifications and Planner Execution Rules ====
+Input Group || Examples captured by the app || How the planner uses it
+Anthropometric profile || Age, height, weight, activity level || Computes BMR, TDEE, target calories, and nutrition bounds.
+Goal and wellness context || Weight-management goal and supported planning adjustments || Adjusts calorie target and nutrition pressure within policy bounds.
+Hard dietary constraints || Allergies, restrictions, explicit exclusions || Removes unsafe or incompatible recipes before final optimization.
+Practical constraints || Budget, cooking time, variety preference || Controls cost feasibility, candidate filtering, and repetition behavior.
+Pantry context || Available ingredients at home || Computes BMR, TDEE, target calories, and nutrition bounds.
+
+==== 21 Table 28. Sequential Computational Verification and Step-by-Step Target Generation ====
+Computation Step || Readable result and interpretation
+Profile used for demonstration || Age 25, height 160 cm, weight 65 kg, activity multiplier 1.375, weight-loss goal. This is an illustrative computation, not a respondent record.
+1. BMI || 65 / (1.60^2) = 25.39. This describes weight-height context for profile display and planning context.
+2. BMR || (10*65) + (6.25*160) - (5*25) - 161 = 1,364 kcal. This estimates baseline daily energy use.
+3. TDEE || int(1,364 * 1.375) = 1,875 kcal. This applies the selected activity level.
+4. Goal adjustment || 1,875 - 500 = 1,375 kcal. This gives the weight-loss planning target before policy clamping.
+5. Policy clamp || clamp(1,375, 1,200, 3,200) = 1,375 kcal. This prevents extreme calorie targets.
+6. Protein target || int(1,375 * 0.25 / 4) = 85 g. This is the daily protein guide used in nutrition balancing.
+7. Carbohydrate target || int(1,375 * 0.40 / 4) = 137 g. This is the daily carbohydrate guide used in nutrition balancing.
+8. Fat target || int(1,375 * 0.35 / 9) = 53 g. This is the daily fat guide used in nutrition balancing.
+9. Meal distribution || Breakfast about 412 kcal; lunch about 481 kcal; dinner about 481 kcal. These values guide per-meal balance rather than family-size multiplication.
+
+==== 22 Table 29. Core Mathematical Target Calculations and Operational Constraints ====
+Formula Metric || Computation || Use in the Application
+BMI || BMI = weightKg / (heightCm / 100)^2 || Profile display and health-context computation.
+BMR || BMR = (10 * weightKg) + (6.25 * heightCm) - (5 * age) - 161 || Baseline energy estimate for the primary user.
+TDEE || TDEE = int(BMR * activityMultiplier) || Daily energy estimate before goal adjustment.
+Target calories || TargetCalories = clamp(TDEE + goalDelta + wellnessDelta, 1200, 3200) || Bounded calorie target used by the planner.
+Macro grams || Protein = int(TargetCalories * proteinRatio / 4); Carbs = int(TargetCalories * carbRatio / 4); Fats = int(TargetCalories * fatRatio / 9) || Daily macro targets are clamped to policy min/max values.
+
+==== 23 Table 30. Candidate Filtering and Safety Rules Framework ====
+Formula Metric || Computation || Use in the Application
+Allergy and exclusion matching || Hard filter || Blocked recipes do not enter final candidate domains.
+Dietary restrictions || Hard filter || Restriction-violating candidates are removed before solver assignment.
+Budget ceiling || Hard constraint when configured || The total estimated weekly plan cost cannot exceed the accepted budget limit.
+Nutrition bounds || Hard and deviation-controlled solver rules || Daily calories and macro bounds must stay within policy limits while deviations are minimized.
+Repetition and variety || Hard or weighted constraints || Prevents repetitive weekly plans and improves practical usability.
+Pantry overlap || Soft reward or thresholded planning signal || Encourages use of available items but does not replace safety or nutrition adequacy.
+
+==== 24 Table 31. CP-SAT Model Elements and Operational Specifications ====
+CP-SAT model elements || Computation || Use in the Application
+Decision variable || x[s,r] = 1 if recipe r is assigned to meal slot s; otherwise 0 || Defines the weekly assignment decision.
+Slot coverage || sum_r x[s,r] = 1 for each required slot s || Ensures every breakfast/lunch/dinner slot is filled.
+Budget rule || totalCost <= weeklyBudget when a budget is configured || Keeps cost ceilings as hard constraints.
+Daily nutrition || calorieMin <= dailyCalories <= calorieMax; macro lower <= dailyMacro <= macro upper || Preserves nutrition adequacy and bounded deviations.
+Fiber/sugar/sodium || dailyFiber >= fiberMin; sugar and sodium overage variables are penalized || Keeps nutrition quality visible even when advisory nutrients require slack.
+Objective || Minimize nutrition deviation, meal calorie error, repetition/group penalties, cost pressure, and selected slacks; reward pantry overlap || Balances feasible plans without allowing soft goals to override hard rules.
+
+==== 25 Table 32. Twenty-Profile Planner Optimization and Final Evidence Summary ====
+Evaluation Step || Measured Result || Improvement Made or Evidence Used || Meaning for the Study
+Benchmark test set || 20 realistic planner profiles were tested. The final evidence repeated each profile 5 times, giving 100 total runs. || Stored benchmark profiles and final benchmark report. || The evaluation covers common cases such as ordinary planning, budget limits, allergies, dietary restrictions, pantry use, and no-budget planning.
+Starting benchmark || All 20 profiles produced valid results, but the average time was 6.154 seconds. Slower runs reached 12.514 seconds at P95 and 14.013 seconds at maximum. || First local 20-profile benchmark. || The planner was correct, but still too slow for a smooth meal-planning experience.
+Better first attempts || All 20 profiles still passed. Average time improved to 4.669 seconds, P95 to 6.679 seconds, and maximum to 7.612 seconds. || The planner tried the settings most likely to work earlier. || This reduced waiting time without changing the safety rules.
+Return first complete safe plan || All 100 repeated runs passed. Average time improved to 970 ms, P95 to 2.770 seconds, and maximum to 3.328 seconds. || When one valid plan was enough, the planner stopped after finding the first complete safe weekly plan. || This prioritized fast and safe meal-plan generation for interactive use.
+Actual ML-assisted run || All 100 runs passed with the real LightGBM model active. Average time was 1.004 seconds, P95 was 3.043 seconds, maximum was 3.493 seconds, and there were 0 hard-rule violations. || The actual Stage-1 ranking model was required during the benchmark. || The ML-assisted route improved ordering but did not bypass the planner's safety checks.
+Smaller safe search set || All 100 runs passed. Average time improved to 531 ms, P95 to 953 ms, maximum to 1.260 seconds, and there were 0 hard-rule violations. || The planner used profile-aware ordering and a smaller set of safe recipe candidates. || The system became consistently fast under the local benchmark while keeping the same safety checks.
+Final optimized planner || All 100 final runs passed. Average time was 257 ms (0.257 seconds), P95 was 313 ms, maximum was 357 ms, and there were 0 hard-rule violations. || Final local benchmark with the current LightGBM-assisted planner path active. || This is the final performance result for the current system version.
+Safe-failure case || Under an impossible PHP 20 weekly budget, the boundary case returned no-safe-plan. || Final boundary-case evidence and no-safe-plan tests. || The system refuses to create an unsafe or impossible meal plan when the user's limits cannot be satisfied.
+
+==== 26 Table 33. Final Planner Constraint and Safety Outcome Summary ====
+Evaluation Area || Evidence Used || Final Result || Safety Result || Nutrition / Practical Result || Interpretation
+Weekly plan structure || Final 20-profile benchmark, 100 total runs || 100/100 runs produced 21 meal slots || 0 hard-rule violations || Nutrition feasibility passed in 100/100 runs || The planner consistently produced complete weekly plans under valid profiles.
+Standard profile || T01 Default new user, 5 repeated runs || 5/5 passed; average 247.8 ms || 0 hard-rule violations || Nutrition feasibility passed || Ordinary plan generation worked under the final optimized planner.
+Budget and restriction profiles || Budget-sensitive, No Pork, and low-budget valid cases || Representative budget/restriction cases passed || 0 hard-rule violations || Budget validation remained active || The planner preserved configured budget and restriction rules.
+Allergy-sensitive profiles || Gluten, shellfish, egg, peanut, and tree-nut allergy cases || All allergy-profile runs passed || 0 hard-rule violations || Unsafe allergy matches were blocked before planning || Declared allergy conflicts were not allowed into the final meal plan.
+Pantry-aware profile || T19 Pantry-heavy user, 5 repeated runs || 5/5 passed; average 301.8 ms || 0 hard-rule violations || Pantry data supported ranking and grocery guidance || Pantry information improved planning support without replacing safety checks.
+No-safe-plan boundary || PHP 20 infeasible weekly budget contract test || Returned no-safe-plan || Unsafe fallback avoided || Not applicable because no safe plan exists || The system reports infeasibility when user limits cannot be satisfied.
+
+==== 27 Table 34. Functional Suitability of PCOSina ====
+Questions || Primary Users || Secondary Users
+The app provides meal plans that are suitable for individuals managing PCOS. || 3.60 || 3.76
+The meal suggestions help support a healthy diet for my condition/appropriate for PCOS users. || 3.88 || 3.84
+The app includes Filipino food options that are familiar to me. || 4.28 || 3.80
+The meal plans consider the ingredients I already have at home. || 3.96 || 3.72
+The app helps me reduce unnecessary food purchases by using available ingredients. || 4.20 || 3.88
+AVERAGE || 3.98 || 3.80
+INTERPRETATION || Agree || Agree
+TOTAL AVERAGE || 3.89 || 3.89
+OVERALL INTERPRETATION || Agree || Agree
+
+==== 28 Table 35. Age Group Distribution of Primary and Secondary Users ====
+Age Group || Primary Users || Primary Users || Secondary Users || Secondary Users
+Age Group || Frequency || Percentage || Frequency || Percentage
+18 - 24 || 10 || 40% || 8 || 32%
+25 - 34 || 3 || 12% || 3 || 12%
+35 - 44 || 7 || 28% || 7 || 28%
+45 and above || 5 || 20% || 7 || 28%
+Total || 25 || 100% || 25 || 100%
+
+==== 29 Table 38. Summary of Functional Testing Results ====
+Test Category || Feature Tested || Pass/Fail || Result || Interpretation
+Health computation || BMI, BMR, TDEE, calorie target, and macro target checks || Pass || Unit and manual checks confirmed the expected computation paths. || Numerical outputs were traceable to the defined formulas, with acceptable rounding differences documented where applicable.
+Safety filtering || Allergy and dietary restriction exclusion, including custom ingredient allergies such as chicken || Pass || Allergen and restriction behavior was tested. || Declared unsafe ingredients are filtered before planning.
+Planner constraints || Budget cap, household scaling, cooking time, and repetition rules || Pass || Constraint behavior was tested across representative cases. || The planner preserved the two-stage planning behavior and did not relax hard constraints.
+Planner contract || Seven-day, three-meal plan structure || Pass || Plan structure was checked against the expected 21-slot weekly format. || The planning horizon and meal-slot assumptions were explicitly enforced.
+Pantry/grocery aggregation || Grocery list merging, estimated pricing, and pantry-overlap support || Pass || Selected-plan ingredients were consolidated and pantry-covered items were identified for grocery guidance. || Pantry data supports ranking and grocery organization, while final safety and feasibility remain controlled by planner constraints.
+No-safe-plan handling || Response when constraints prevent a safe complete plan || Pass || Infeasible cases returned structured no-safe-plan behavior instead of unsafe fallback output. || The system reports infeasibility when constraints cannot be satisfied.
+Offline reliability || Availability of saved information without continuous connectivity || Pass || Saved-data access was reviewed under offline-first conditions. || Existing profiles, meal plans, pantry entries, grocery guides, and progress records remain accessible after being saved.
+Input and API validation || Profile completion, invalid inputs, and schema handling || Pass || Input-validation and schema behavior were tested. || Invalid or incomplete requests were handled before or during planning.
+
+==== 30 Table 39. Evaluation Summary of the Stage-1 ML Model ====
+Metric || Observed Value || Interpretation
+Dataset version || ml-dataset-v1-1775742965 || Offline dataset snapshot used for the current Stage-1 ranking model.
+Rows / positive rate || 74,112 rows / 0.0627 || Shows the size of the candidate dataset and the selected-candidate rate used for training and testing.
+Unique requests / users || 360 / 60 || Shows request-level and user-level coverage in the training evidence.
+Train / val / test split || 60,319 / 7,350 / 6,443 || The request-level split reduces leakage between model training and final testing.
+Feature count || 46 || Represents the profile, recipe, pantry, budget, and feedback variables used for candidate ranking.
+Test AUC || 0.9373 || Indicates that selected and non-selected recipe candidates were generally separable.
+Test log loss || 0.1024 || Shows low prediction error for the model probabilities on the test split.
+Test NDCG@10 || 0.9211 || Shows that relevant selected candidates usually appeared near the top of the ranked list.
+Baseline NDCG@10 || 0.8838 || Reference top-10 ranking quality using the deterministic heuristic score.
+Test MAP@10 || 0.6779 || Shows precision-oriented ranking quality within the top 10 candidates.
+Baseline MAP@10 || 0.6275 || Reference top-10 precision before learned ranking was applied.
+
+==== 31 Table 42. Estimated Weekly Budget for Food/Grocery for All Respondents ====
+Diagnosis Status || Frequency || Percentage
+Below ₱1,000 || 6 || 12%
+₱1,000 - ₱2,500 || 11 || 22%
+₱2,501 - ₱4,500 || 7 || 14%
+Above ₱4,500 || 2 || 4%
+Prefer not to say || 24 || 48%
+Total || 50 || 100%
+
+==== 32 Table 43. PCOSina Implemented Workflow and Functional Coverage ====
+Module / Screen || Role in the User Workflow
+Splash || Initial branding, offline-first framing, and startup feedback.
+Login || Existing user sign-in and local account handoff.
+Sign Up || Account creation, validation, and verification guidance.
+Onboarding || First-time orientation and expectation setting.
+Profile Setup Step 1 || Identity, anthropometrics, and health-profile entry.
+Profile Setup Step 2 || Dietary restrictions, symptom inputs, and medical planning constraints.
+Profile Setup Step 3 || Pantry behavior, and planning preferences.
+Goal Selection || The user chooses weight loss, symptom management, or general health focus.
+Dashboard || Status-first weekly landing page with next-step guidance.
+Meal Plan || Weekly plan generation, day browsing, and meal swap flow.
+Grocery List || Pantry-aware grocery generation with category grouping and sharing.
+Progress || Meal logging, reflection capture, and weekly/daily progress tracking.
+Recipe Details || Recipe rationale, ingredients, instructions, and meal logging handoff.
+Settings || Reminder controls, profile summary, and maintenance tools.
+
+==== 33 Table 44. Feature Group Operational Boundary Matrix ====
+Feature group || Offline after saving? || Network-dependent boundary
+Profile and preferences || Yes, saved profile data are local. || Initial account recovery or cloud restore may need the internet.
+Generated meal plan || Yes, previously generated plans can be reopened. || The new optimized generation needs backend execution.
+Pantry and grocery guidance || Yes, saved pantry/grocery records can be viewed. || Fresh recipe detail retrieval or remote updates may need internet.
+Progress and history || Yes, self-reported progress records are local. || Feedback submission or sync services may need a network.
+Recipe detail and swap alternatives || Partial or online-dependent depending on cache/state. || Do not claim all recipe details and swap paths work offline.
+
+==== 34 Table 49. Offline-First and Performance Evaluation Summary ====
+Evaluation Area || System Logic & Evidence || Practical Interpretation
+Saved data continuity || Profile, meal plans, pantry data, grocery guides, and progress records are cached through local persistence. || Users can access and manage already saved information offline after it has been created.
+New plan generation || Optimized generation uses the backend CP-SAT planning service and optional worker or queue path. || Establishes a hybrid architecture where optimization requires active backend execution.
+Observed final-build runtime || Final real-LightGBM benchmark completed 100/100 production-shaped local runs with average 257 ms, P95 313 ms, max 357 ms, and zero hard-rule violations. || Demonstrates sub-second execution efficiency under standard local benchmark conditions while preserving hard-rule validation.
+Initial planner benchmark || The first 20-profile local benchmark averaged 6,154 ms, with P95 at 12,514 ms and maximum runtime at 14,013 ms. || Serves as the starting benchmark used to quantify the final optimization gains.
+Performance interpretation || The final version uses a smaller safe recipe pool, better attempt ordering, cached recipe information, and faster solver settings while keeping the same hard-rule checks. || Post-optimization metrics show that planner processing time was substantially reduced for the tested path.
+
+==== 35 Table 50. Geographical Classification of All Respondents ====
+Classification || Frequency
+Inside NCR (Metro Manila) || 20
+Outside NCR (Rizal, Laguna, Mindoro) || 30
+Total || 50
+
+==== 36 Table 54. Representative Final Planner Evaluation Cases ====
+Evaluation Case || Description || Main Constraint Tested
+Standard weekly plan || Default realistic user profile from the 20-profile benchmark. || Complete seven-day, 21-meal generation
+Budget and restriction case || Budget-sensitive and No Pork profiles from the final benchmark. || Budget handling and restriction filtering
+Dietary-restricted case || Vegetarian and lactose-intolerant profiles from the final benchmark. || Restrictive candidate-pool handling
+Allergy-sensitive cases || Gluten, shellfish, egg, peanut, and tree-nut allergy profiles. || Allergy filtering before plan generation
+Pantry-aware case || Pantry-heavy profile with available household ingredients. || Pantry overlap for ranking and grocery guidance
+No-safe-plan boundary || Intentionally impossible PHP 20 weekly budget from contract testing. || Safe infeasibility reporting instead of unsafe fallback output
+
+==== 37 Table 55. Baseline Algorithm Runtime, Feasibility, and Diversity Comparison ====
+Scenario || Test condition || Baseline time || PCOSina time || Completion result || Variety result || Main finding
+S1 || Standard profile || 0.29 s || 1.91 s || Both completed || Baseline 0.00; PCOSina 3.00 || PCOSina used more time to produce a less repetitive weekly plan.
+S2 || Budget and No Pork || 0.22 s || 1.17 s || Both completed || Baseline 0.00; PCOSina 3.00 || PCOSina preserved the budget and restriction while improving variety.
+S3 || Vegetarian and lactose-intolerant || 0.14 s || 3.94 s || Both completed || Baseline 0.00; PCOSina 3.19 || The more restrictive profile required more planning work but produced the strongest variety score.
+S4 || Pantry-aware and No Beef || 0.29 s || 2.47 s || Both completed || Baseline 0.00; PCOSina 3.00 || PCOSina considered pantry information while keeping weekly variety.
+
+==== 38 Table 56. Baseline Algorithm Nutritional Quality and Safety Comparison ====
+Scenario || Baseline calorie gap || PCOSina calorie gap || Baseline macro gap || PCOSina macro gap || Baseline hard-rule issues || PCOSina hard-rule issues
+S1 || 531.57 kcal || 530.14 kcal || 33.27% || 33.10% || 0 || 0
+S2 || 540.43 kcal || 539.00 kcal || 33.27% || 33.02% || 0 || 0
+S3 || 605.43 kcal || 601.86 kcal || 36.31% || 36.28% || 0 || 0
+S4 || 565.71 kcal || 557.14 kcal || 33.97% || 33.10% || 0 || 0
+
+==== 39 Table 57. Pantry, Grocery, and Budget Evaluation Summary ====
+Computation Area || Observed System Behavior || Interpretation
+Pantry-Overlap Behavior || Scenario 4 recorded 38 pantry-overlap matches (e.g., chicken, egg, garlic, tomato) to influence ranking. || Optimizes recipe ranking and prioritizes meals using on-hand ingredients.
+Grocery Deficit & Guidance || The grocery module consolidates recipe requirements and automatically flags pantry-covered items. || Streamlines shopping lists by separating available kitchen items from needed groceries.
+Price Computation || Estimates costs using structured baseline pricing (e.g., egg at PHP 7 per piece). || Provides a functional spending baseline for weekly budgetary planning.
+Budget Enforcement || Scenario 2 successfully generated a plan within the PHP 1,000 cap; Scenario 5 blocked generation at an impossible PHP 20 cap. || Ensures hard economic limits are never bypassed or relaxed.
+
+==== 40 Table 58. Algorithmic Optimization and System Benchmark Summary ====
+Metric || Result || Meaning
+Final run count || 100/100 passed. || No final benchmark failures under tested profiles.
+Average runtime || 257 ms. || Typical run completed below one second in the local benchmark.
+P95 runtime || 313 ms. || 95 percent of runs completed at or below this time.
+Maximum runtime || 357 ms. || The worst final benchmark run remained below one second.
+ML NDCG@10 || 0.9211 vs baseline 0.8838. || Assistive ranking improved candidate ordering, while hard rules remained deterministic.

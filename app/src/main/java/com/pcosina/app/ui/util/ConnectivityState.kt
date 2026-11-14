@@ -14,7 +14,7 @@ fun isNetworkOnline(context: Context): Boolean {
     val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     val network = connectivityManager.activeNetwork ?: return false
     val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    return capabilities.hasValidatedInternet()
 }
 
 @Composable
@@ -32,8 +32,7 @@ fun rememberIsOnline(context: Context): State<Boolean> {
             }
 
             override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
-                isOnline.value =
-                    networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                isOnline.value = networkCapabilities.hasValidatedInternet()
             }
         }
 
@@ -46,3 +45,7 @@ fun rememberIsOnline(context: Context): State<Boolean> {
     }
     return isOnline
 }
+
+private fun NetworkCapabilities.hasValidatedInternet(): Boolean =
+    hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+        hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)

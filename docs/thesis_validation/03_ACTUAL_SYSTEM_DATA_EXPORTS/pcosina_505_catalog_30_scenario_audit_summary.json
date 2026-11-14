@@ -1,0 +1,8 @@
+{
+  "catalogRecipeCount": 313,
+  "scenarioCount": 30,
+  "successCount": 30,
+  "zeroHardViolationSuccessCount": 30,
+  "failedOrIncomplete": [],
+  "outputCsv": "C:\\Users\\salva\\StudioProjects\\PCOSina\\docs\\thesis_validation\\03_ACTUAL_SYSTEM_DATA_EXPORTS\\pcosina_505_catalog_30_scenario_audit.csv"
+}

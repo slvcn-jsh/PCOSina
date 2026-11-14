@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
@@ -29,7 +28,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Brush
@@ -37,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,37 +51,30 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
 import com.pcosina.app.R
-import com.google.firebase.crashlytics.FirebaseCrashlytics
-import com.pcosina.app.BuildConfig
+import com.pcosina.app.data.model.PantryEntry
+import com.pcosina.app.data.model.UserProfile
 import com.pcosina.app.ui.AuthViewModel
 import com.pcosina.app.ui.GroceryViewModel
 import com.pcosina.app.ui.MealPlanViewModel
 import com.pcosina.app.ui.ProgressViewModel
 import com.pcosina.app.ui.UserViewModel
 import com.pcosina.app.ui.components.AppFeedbackBanner
-import com.pcosina.app.ui.components.ExpandableSection
+import com.pcosina.app.ui.components.ArtworkAlignmentKeys
+import com.pcosina.app.ui.components.ArtworkAlignmentTarget
+import com.pcosina.app.ui.components.DevArtworkAlignmentHotspot
+import com.pcosina.app.ui.components.DevEditableArtworkImage
 import com.pcosina.app.ui.components.FeedbackBannerData
 import com.pcosina.app.ui.components.FeedbackBannerTone
-import com.pcosina.app.ui.components.FocusSummaryCard
-import com.pcosina.app.ui.components.GradientHeader
 import com.pcosina.app.ui.components.PcosinaAvatar
 import com.pcosina.app.ui.components.PcosinaAvatarOptions
 import com.pcosina.app.ui.components.PcosinaDesignIcon
-import com.pcosina.app.ui.components.RefinedFeatureCard
-import com.pcosina.app.ui.components.ScreenFocusOption
-import com.pcosina.app.ui.components.ScreenFocusStrip
 import com.pcosina.app.data.model.NotificationPreferences
 import com.pcosina.app.notifications.NotificationScheduler
 import com.pcosina.app.ui.theme.UiSpacingTokens
+import com.pcosina.app.ui.util.parseGoalOptions
 import com.pcosina.app.ui.util.primaryGoalLabel
 import android.Manifest
 import android.os.Build
-import java.time.LocalDate
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.temporal.TemporalAdjusters
-import java.time.temporal.WeekFields
 import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -90,9 +82,16 @@ import kotlinx.coroutines.launch
 private enum class SettingsScreenFocus {
     Profile,
     Reminders,
-    Tools,
     Account,
 }
+
+private fun settingsFocusFromRouteSection(section: String?): SettingsScreenFocus? =
+    when (section?.lowercase(Locale.ENGLISH)) {
+        "profile" -> SettingsScreenFocus.Profile
+        "reminders" -> SettingsScreenFocus.Reminders
+        "account" -> SettingsScreenFocus.Account
+        else -> null
+    }
 
 private enum class ReminderSettingsFocus {
     Control,
@@ -101,10 +100,18 @@ private enum class ReminderSettingsFocus {
     Routine,
 }
 
+private const val ReminderControlLockedMessage = "Enable Reminders in the Control tab to access Meals, Week, and Routine."
+
 private data class SettingsTabIcon(
     val icon: ImageVector? = null,
     @DrawableRes val iconRes: Int? = null,
     val label: String,
+)
+
+private data class SavedProfileDetails(
+    val title: String,
+    val emptyMessage: String,
+    val items: List<String>,
 )
 
 @Composable
@@ -117,63 +124,35 @@ fun SettingsScreen(
     userId: String,
     onBack: () -> Unit,
     onNavigateToProfileEdit: () -> Unit,
-    onOpenAdminMethodology: () -> Unit = {},
-    onOpenNotifications: () -> Unit = {},
+    onOpenSupport: () -> Unit = {},
+    initialSection: String? = null,
     modifier: Modifier = Modifier
 ) {
     val profile by userViewModel.userProfile.collectAsState()
+    val pantryEntries by userViewModel.pantryEntries.collectAsState()
     val session by authViewModel.session.collectAsState()
-    val adminMode by userViewModel.adminMode.collectAsState()
     val notificationPrefs by userViewModel.notificationPreferences.collectAsState()
-    val notificationLogs by userViewModel.notificationLogs.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
     val userName = profile.displayName.ifBlank { "Your account" }
-    val baseUrl = BuildConfig.BASE_URL.trim().trim('"').trim('\'').trimEnd('/')
-    val schemaUrl = "$baseUrl/schema"
-    var settingsFocusKey by rememberSaveable { mutableStateOf(SettingsScreenFocus.Profile.name) }
+    val requestedSettingsFocus = remember(initialSection) {
+        settingsFocusFromRouteSection(initialSection)
+    }
+    var settingsFocusKey by rememberSaveable {
+        mutableStateOf((requestedSettingsFocus ?: SettingsScreenFocus.Profile).name)
+    }
     val settingsFocus = remember(settingsFocusKey) {
-        SettingsScreenFocus.valueOf(settingsFocusKey)
+        runCatching { SettingsScreenFocus.valueOf(settingsFocusKey) }
+            .getOrDefault(SettingsScreenFocus.Profile)
+    }
+    LaunchedEffect(requestedSettingsFocus) {
+        requestedSettingsFocus?.let { settingsFocusKey = it.name }
     }
     var reminderFocusKey by rememberSaveable { mutableStateOf(ReminderSettingsFocus.Control.name) }
     val reminderFocus = remember(reminderFocusKey) {
         ReminderSettingsFocus.valueOf(reminderFocusKey)
-    }
-    val settingsFocusOptions = remember(adminMode) {
-        buildList {
-            add(
-                ScreenFocusOption(
-                    key = SettingsScreenFocus.Profile.name,
-                    label = "Profile",
-                    summary = "See the details that shape your plans, groceries, and reminders."
-                )
-            )
-            add(
-                ScreenFocusOption(
-                    key = SettingsScreenFocus.Reminders.name,
-                    label = "Reminders",
-                    summary = "Choose the nudges that help on this phone."
-                )
-            )
-            add(
-                ScreenFocusOption(
-                    key = SettingsScreenFocus.Account.name,
-                    label = "Account",
-                    summary = "Handle sign-out and saved data for this phone."
-                )
-            )
-            if (adminMode) {
-                add(
-                    ScreenFocusOption(
-                        key = SettingsScreenFocus.Tools.name,
-                        label = "Tools",
-                        summary = "Open hidden review links and local testing tools."
-                    )
-                )
-            }
-        }
     }
     var showClearDialog by rememberSaveable { mutableStateOf(false) }
     var showLogoutDialog by rememberSaveable { mutableStateOf(false) }
@@ -183,6 +162,7 @@ fun SettingsScreen(
     var showNotificationPermissionDialog by rememberSaveable { mutableStateOf(false) }
     var showWeeklyResetDayDialog by rememberSaveable { mutableStateOf(false) }
     var showAvatarPickerDialog by rememberSaveable { mutableStateOf(false) }
+    var savedProfileDetails by remember { mutableStateOf<SavedProfileDetails?>(null) }
     var avatarDraftName by rememberSaveable { mutableStateOf("") }
     var avatarDraftId by rememberSaveable { mutableStateOf("") }
     var notificationPermissionHint by rememberSaveable { mutableStateOf<String?>(null) }
@@ -196,30 +176,35 @@ fun SettingsScreen(
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
     val appNotificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
     val permissionStateLabel = when {
-        !appNotificationsEnabled -> "Blocked in system settings"
-        runtimeNotificationPermissionGranted -> "Allowed"
-        else -> "Permission not granted"
+        !appNotificationsEnabled -> "Blocked in phone settings"
+        runtimeNotificationPermissionGranted -> "Phone notifications ready"
+        else -> "Phone permission needed"
     }
     val notificationStatusSummary = when {
-        !notificationPrefs.masterEnabled -> "Reminders are paused."
-        !appNotificationsEnabled -> "Phone settings are blocking reminders."
-        runtimeNotificationPermissionGranted -> "Reminders are ready for meals and plan updates."
-        else -> "Reminder permission still needs approval."
+        !notificationPrefs.masterEnabled -> "Reminders are paused on this phone."
+        !appNotificationsEnabled -> "Turn on phone notifications before reminders can appear."
+        runtimeNotificationPermissionGranted -> "Reminders are ready on this phone."
+        else -> "Allow phone notifications before reminders can appear."
     }
     val scheduledWorkersSummary = if (scheduledWorkSummaries.isEmpty()) {
-        "No reminder times lined up yet."
+        "No scheduled reminder work yet."
     } else {
         "${scheduledWorkSummaries.size} reminder time(s) lined up"
     }
-    val nextReminderSummary = nextReminderSummaries.firstOrNull()?.let { "Next reminder: $it" }
-        ?: "No reminder time saved yet."
+    val nextReminderSummary = when {
+        !notificationPrefs.masterEnabled -> "Reminders are paused."
+        nextReminderSummaries.isNotEmpty() -> "Next reminder: ${nextReminderSummaries.first()}"
+        else -> "No reminder type is enabled."
+    }
     val reminderOverviewLabel = if (notificationPrefs.masterEnabled) {
         "Reminders on"
     } else {
         "Reminders paused"
     }
     val mainGoalLabel = primaryGoalLabel(profile.goal)
-    val budgetLabel = profile.weeklyBudgetPhp.takeIf { it > 0 }?.let { "₱$it / week" } ?: "Not set"
+    val budgetLabel = profile.weeklyBudgetPhp.takeIf { it > 0 }?.let {
+        String.format(Locale.ENGLISH, "₱%,d", it)
+    } ?: "Not set"
     val dietRulesLabel = if (profile.dietaryRestrictions.isEmpty()) {
         "None saved"
     } else {
@@ -237,88 +222,28 @@ fun SettingsScreen(
     }
     val planningPriorityLabel = profile.planningPriority.ifBlank { "Balanced" }
     val maxCookTimeLabel = "${profile.maxCookingTimeMinutes} min max"
+    val pantryDetailItems = remember(pantryEntries, profile.pantryItems) {
+        if (pantryEntries.isNotEmpty()) {
+            pantryEntries.map(::formatSavedPantryEntry)
+        } else {
+            profile.pantryItems.map { it.trim() }.filter { it.isNotBlank() }
+        }
+    }
     val settingsStatusLabel = when (settingsFocus) {
         SettingsScreenFocus.Profile -> if (profile.isProfileCompleted) {
-            "Your profile is ready to guide meals, groceries, and reminders."
+            "Tap a saved list to view its details."
         } else {
-            "Finish your profile so planning feels more personal."
+            "Complete the required profile details."
         }
         SettingsScreenFocus.Reminders -> notificationStatusSummary
-        SettingsScreenFocus.Tools -> if (adminMode) {
-            "Admin tools are available for this account."
-        } else {
-            "Review-only tools stay hidden in normal use."
-        }
-        SettingsScreenFocus.Account -> "Account actions stay local to this device."
+        SettingsScreenFocus.Account -> "Choose only the account action you need."
     }
-    val settingsSyncLabel = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> "Saved food rules: ${profile.dietaryRestrictions.size + profile.allergies.size}"
-        SettingsScreenFocus.Reminders -> if (notificationPrefs.masterEnabled) {
-            nextReminderSummary
-        } else {
-            scheduledWorkersSummary
-        }
-        SettingsScreenFocus.Tools -> "Authenticated admin access is active on this account."
-        SettingsScreenFocus.Account -> if (logoutActionPending) {
-            "Sign-out is already in progress."
-        } else {
-            "You stay in control of what stays on this phone."
-        }
-    }
-    val settingsPlanRangeLabel = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> "Main goal: $mainGoalLabel"
-        SettingsScreenFocus.Reminders -> "Phone permission: $permissionStateLabel"
-        SettingsScreenFocus.Tools -> "Review tools stay tucked away from everyday settings."
-        SettingsScreenFocus.Account -> "Clearing data only affects this phone unless you confirm it."
-    }
-    val settingsNextLabel = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> "Next focus: review the details that affect budget, time, and food rules."
-        SettingsScreenFocus.Reminders -> nextReminderSummary
-        SettingsScreenFocus.Tools -> "Next focus: open the guide or local test tools only when you are reviewing the build."
-        SettingsScreenFocus.Account -> "Next focus: confirm before clearing data or signing out."
-    }
-    val settingsSummaryBadge = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> "Profile setup"
-        SettingsScreenFocus.Reminders -> "Reminder controls"
-        SettingsScreenFocus.Tools -> "Review tools"
-        SettingsScreenFocus.Account -> "Account actions"
-    }
-    val settingsSummaryTitle = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> "Profile details shape your week."
-        SettingsScreenFocus.Reminders -> "Keep reminders helpful, not noisy."
-        SettingsScreenFocus.Tools -> "Internal tools stay out of normal use."
-        SettingsScreenFocus.Account -> "Account controls should stay clear and deliberate."
-    }
-    val settingsSummaryAccent = when (settingsFocus) {
-        SettingsScreenFocus.Profile -> colorScheme.primary
-        SettingsScreenFocus.Reminders -> colorScheme.secondary
-        SettingsScreenFocus.Tools -> colorScheme.tertiary
-        SettingsScreenFocus.Account -> colorScheme.error
-    }
-    val settingsSummaryHighlights = buildList {
-        add(settingsPlanRangeLabel)
-        add(settingsSyncLabel)
-        add(settingsNextLabel)
-    }
-    val lastFiredByType = remember(notificationLogs) {
-        notificationLogs
-            .groupBy { it.type }
-            .mapValues { (_, logs) -> logs.maxOfOrNull { it.deliveredAt } ?: 0L }
-            .toList()
-            .sortedByDescending { it.second }
-    }
-
     LaunchedEffect(userId, notificationPrefs) {
         nextReminderSummaries = NotificationScheduler.nextScheduledTimes(notificationPrefs)
         if (userId.isBlank()) {
             scheduledWorkSummaries = emptyList()
         } else {
             scheduledWorkSummaries = NotificationScheduler.getScheduledWorkSummaries(context)
-        }
-    }
-    LaunchedEffect(adminMode, settingsFocusKey) {
-        if (!adminMode && settingsFocusKey == SettingsScreenFocus.Tools.name) {
-            settingsFocusKey = SettingsScreenFocus.Profile.name
         }
     }
     LaunchedEffect(showAvatarPickerDialog) {
@@ -408,13 +333,16 @@ fun SettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .testTag("settings_content_scroll")
             .background(Color.White)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .navigationBarsPadding()
+            .imePadding(),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         FigmaSettingsHero(
-            title = "ACCOUNT AND SETTINGS",
-            subtitle = "Personalize your PCOS journey. Manage your profile, set meal reminders, and customize your app experience.",
+            title = "Settings",
+            subtitle = "Profile, reminders, and account controls.",
             onBack = onBack
         )
         FigmaSettingsProfileBand(
@@ -434,14 +362,13 @@ fun SettingsScreen(
         FigmaSettingsTabs(
             selectedKey = settingsFocusKey,
             onSelect = { settingsFocusKey = it },
-            showTools = adminMode
         )
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = 32.dp, vertical = UiSpacingTokens.SectionGap),
+            verticalArrangement = Arrangement.spacedBy(UiSpacingTokens.SectionGap)
         ) {
 
         if (settingsFocus == SettingsScreenFocus.Profile) {
@@ -449,33 +376,53 @@ fun SettingsScreen(
                 title = "Profile",
                 summary = settingsStatusLabel
             ) {
-                FigmaSettingsFeatureToggle(
-                    icon = Icons.Default.Warning,
-                    label = "Symptom Management",
-                    checked = profile.goal.equals("symptom_management", ignoreCase = true) || profile.symptoms.isNotEmpty()
+                SettingsMainGoalItem(
+                    icon = Icons.Default.Info,
+                    goal = profile.goal,
                 )
-                FigmaSettingsFeatureToggle(
-                    icon = Icons.Default.Notifications,
-                    label = "Reminders",
-                    checked = notificationPrefs.masterEnabled
-                )
-                FigmaSettingsFeatureToggle(
-                    icon = Icons.Default.Warning,
-                    label = "Alerts",
-                    checked = notificationPrefs.grocerySyncEnabled || notificationPrefs.planReadyEnabled
-                )
-                SettingsDivider()
-                SettingsItem(icon = Icons.Default.Info, label = "Main goal", value = mainGoalLabel)
                 SettingsDivider()
                 SettingsItem(icon = Icons.Default.Info, label = "Weekly budget", value = budgetLabel)
                 SettingsDivider()
                 SettingsItem(icon = Icons.Default.History, label = "Max cooking time", value = maxCookTimeLabel)
                 SettingsDivider()
-                SettingsItem(icon = Icons.Default.Info, label = "Food rules", value = dietRulesLabel)
+                SettingsItem(
+                    icon = Icons.Default.Info,
+                    label = "Food rules",
+                    value = dietRulesLabel,
+                    onClick = {
+                        savedProfileDetails = SavedProfileDetails(
+                            title = "Saved food rules",
+                            emptyMessage = "No food rules are saved.",
+                            items = profile.dietaryRestrictions
+                        )
+                    }
+                )
                 SettingsDivider()
-                SettingsItem(icon = Icons.Default.Warning, label = "Allergies", value = allergyLabel)
+                SettingsItem(
+                    icon = Icons.Default.Warning,
+                    label = "Allergies",
+                    value = allergyLabel,
+                    onClick = {
+                        savedProfileDetails = SavedProfileDetails(
+                            title = "Saved allergies",
+                            emptyMessage = "No allergies are saved.",
+                            items = profile.allergies
+                        )
+                    }
+                )
                 SettingsDivider()
-                SettingsItem(icon = Icons.Default.Info, label = "Pantry saved", value = pantryLabel)
+                SettingsItem(
+                    icon = Icons.Default.Info,
+                    label = "Pantry items",
+                    value = pantryLabel,
+                    onClick = {
+                        savedProfileDetails = SavedProfileDetails(
+                            title = "Saved pantry items",
+                            emptyMessage = "No pantry items are saved.",
+                            items = pantryDetailItems
+                        )
+                    }
+                )
                 SettingsDivider()
                 SettingsItem(icon = Icons.Default.Info, label = "Planning priority", value = planningPriorityLabel)
                 SettingsDivider()
@@ -492,25 +439,20 @@ fun SettingsScreen(
                     Spacer(Modifier.width(8.dp))
                     Text("Edit my profile", fontWeight = FontWeight.Bold)
                 }
-                Text(
-                    text = "This is where you update food rules, cooking limits, pantry details, and budget choices.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onSurfaceVariant
-                )
             }
         }
 
         if (settingsFocus == SettingsScreenFocus.Account) {
             SettingsSection(
-                title = "Account and device actions",
-                summary = "Use these only when you need a clean reset or want to leave this phone signed out.",
+                title = "Account actions",
+                summary = "Clear saved week data or sign out only when needed.",
                 titleColor = colorScheme.error,
                 containerColor = colorScheme.errorContainer
             ) {
                 SettingsActionItem(
                     icon = Icons.Default.History,
                     label = "Clear saved week data",
-                    description = "Removes saved plans, groceries, and logs from this phone only.",
+                    description = "Removes saved plans, grocery snapshots, and progress logs for this account.",
                     color = colorScheme.error,
                     destructive = true
                 ) {
@@ -528,7 +470,7 @@ fun SettingsScreen(
                 SettingsActionItem(
                     icon = Icons.AutoMirrored.Filled.Logout,
                     label = "Sign out on this phone",
-                    description = "You can sign back in later without changing your planner rules.",
+                    description = "You can sign back in later. This does not delete this phone's saved account data.",
                     color = colorScheme.error,
                     destructive = true
                 ) {
@@ -544,87 +486,34 @@ fun SettingsScreen(
             }
         }
 
-
-        if (adminMode && settingsFocus == SettingsScreenFocus.Tools) {
-            RefinedFeatureCard(
-                icon = Icons.Default.Info,
-                accentColor = colorScheme.primary,
-                statusLabel = "Review mode",
-                title = "Team tools are hidden away from the everyday settings flow",
-                body = "Use these only when you are testing the build, reviewing internal behavior, or preparing demo data.",
-                highlights = listOf(
-                    "Open the planner guide or data contract only when you need internal context.",
-                    "Testing actions stay here so personal settings remain calm and user-facing."
-                )
-            )
-        }
-
-        if (adminMode && settingsFocus == SettingsScreenFocus.Tools) {
-            SettingsSection(
-                title = "Internal review tools",
-                summary = "Visible only for authenticated admin accounts."
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 2.dp),
-                    verticalArrangement = Arrangement.spacedBy(0.dp)
-                ) {
-                    SettingsItem(
-                        icon = Icons.Default.Info,
-                        label = "App data version",
-                        value = BuildConfig.SCHEMA_VERSION
-                    )
-                    SettingsItem(
-                        icon = Icons.Default.History,
-                        label = "Server address",
-                        value = baseUrl
-                    )
-                    SettingsActionItem(
-                        icon = Icons.Default.Link,
-                        label = "Open data contract",
-                        description = "Open the current schema for this build",
-                        color = colorScheme.primary
-                    ) {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(schemaUrl))
-                        context.startActivity(intent)
-                    }
-                    SettingsActionItem(
-                        icon = Icons.Default.Info,
-                        label = "Open planner guide",
-                        description = "Open the team guide for how the planner builds a week",
-                        color = colorScheme.primary
-                    ) {
-                        onOpenAdminMethodology()
-                    }
-                    if (BuildConfig.DEBUG) {
-                        SettingsDivider()
-                        SettingsActionItem(
-                            icon = Icons.Default.Warning,
-                            label = "Test crash report",
-                            description = "Send a manual test crash to Crashlytics",
-                            color = MaterialTheme.colorScheme.error,
-                            destructive = true
-                        ) {
-                            FirebaseCrashlytics.getInstance().log("Manual test crash from Settings")
-                            throw RuntimeException("Crashlytics test crash")
-                        }
-                    }
-                }
-            }
-        }
-
         if (settingsFocus == SettingsScreenFocus.Reminders) {
             FigmaSettingsReminderTabs(
                 selectedKey = reminderFocusKey,
-                onSelect = { reminderFocusKey = it }
+                remindersEnabled = notificationPrefs.masterEnabled,
+                onSelect = { key ->
+                    if (!notificationPrefs.masterEnabled && key != ReminderSettingsFocus.Control.name) {
+                        reminderFocusKey = ReminderSettingsFocus.Control.name
+                        notificationPermissionHint = ReminderControlLockedMessage
+                    } else {
+                        reminderFocusKey = key
+                        if (notificationPermissionHint == ReminderControlLockedMessage) {
+                            notificationPermissionHint = null
+                        }
+                    }
+                }
             )
 
             if (reminderFocus == ReminderSettingsFocus.Control) {
             SettingsSection(
                 title = "Reminder control",
-                summary = "Choose whether PCOSINA can nudge you on this phone and keep notifications respectful."
+                summary = "Choose whether PCOSina can nudge you on this phone and keep notifications respectful."
             ) {
+                notificationPermissionHint?.takeIf { it == ReminderControlLockedMessage }?.let { hint ->
+                    SettingsInlineNotice(
+                        message = hint,
+                        isError = false
+                    )
+                }
                 SettingsToggleItem(
                     label = "Turn reminders on",
                     description = "These reminders stay on this phone. Lock-screen text stays generic for privacy.",
@@ -655,24 +544,27 @@ fun SettingsScreen(
                         }
                     }
                 )
-                SettingsInlineNotice(
-                    message = "Phone permission: $permissionStateLabel",
-                    isError = !runtimeNotificationPermissionGranted || !appNotificationsEnabled
-                )
                 if (!appNotificationsEnabled) {
                     SettingsActionItem(
                         icon = Icons.Default.Info,
                         label = "Open phone notification settings",
-                        description = "Allow reminders for PCOSINA in Android settings",
+                        description = "Allow reminders for PCOSina in Android settings",
                         color = colorScheme.primary
                     ) {
-                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                            }
+                        } else {
+                            Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:${context.packageName}")
+                            )
                         }
                         context.startActivity(intent)
                     }
                 }
-                notificationPermissionHint?.let { hint ->
+                notificationPermissionHint?.takeIf { it != ReminderControlLockedMessage }?.let { hint ->
                     SettingsInlineNotice(
                         message = hint,
                         isError = hint.contains("denied", ignoreCase = true)
@@ -721,15 +613,16 @@ fun SettingsScreen(
                         }
                     }
                 }
-                Text(
-                    text = "Saved meal times: B ${formatTime(notificationPrefs.breakfastHour, notificationPrefs.breakfastMinute)} • " +
-                        "L ${formatTime(notificationPrefs.lunchHour, notificationPrefs.lunchMinute)} • " +
-                        "D ${formatTime(notificationPrefs.dinnerHour, notificationPrefs.dinnerMinute)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (!notificationPrefs.masterEnabled || !notificationPrefs.mealRemindersEnabled) {
+                    SettingsInlineNotice(
+                        message = if (!notificationPrefs.masterEnabled) {
+                            ReminderControlLockedMessage
+                        } else {
+                            "Meal reminder times are saved, but they will not fire until meal nudges are on."
+                        },
+                        isError = false
+                    )
+                }
             }
             }
 
@@ -788,24 +681,27 @@ fun SettingsScreen(
                         }
                     }
                 }
-                Text(
-                    text = "Weekly reminder: ${formatDayOfWeek(notificationPrefs.weeklyResetDayOfWeek)} ${formatTime(notificationPrefs.weeklyResetHour, notificationPrefs.weeklyResetMinute)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (!notificationPrefs.masterEnabled || !notificationPrefs.weeklyResetEnabled) {
+                    SettingsInlineNotice(
+                        message = if (!notificationPrefs.masterEnabled) {
+                            ReminderControlLockedMessage
+                        } else {
+                            "Weekly reminder timing is saved, but it will not fire until the weekly nudge is on."
+                        },
+                        isError = false
+                    )
+                }
             }
             }
 
             if (reminderFocus == ReminderSettingsFocus.Routine) {
             SettingsSection(
-                title = "Gentle routine nudges",
+                title = "Check-in reminders",
                 summary = "Keep check-ins supportive, lightweight, and easy to ignore when you need quiet."
             ) {
                 SettingsToggleItem(
-                    label = "Keep-going nudges",
-                    description = "Gentle routine nudges, goal-aware and non-judgmental.",
+                    label = "Daily check-in reminder",
+                    description = "A gentle reminder to log how your meals and day felt.",
                     checked = notificationPrefs.streakNudgesEnabled,
                     enabled = notificationPrefs.masterEnabled,
                     onCheckedChange = { enabled ->
@@ -848,203 +744,18 @@ fun SettingsScreen(
                         }
                     }
                 }
-                Text(
-                    text = "Upcoming reminders: ${nextReminderSummaries.firstOrNull() ?: "No reminder time saved yet."}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
-            }
-
-            if (BuildConfig.DEBUG && adminMode) {
-                ExpandableSection(
-                    title = "Reminder testing",
-                    subtitle = "For review builds only",
-                    defaultExpanded = false
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(0.dp)
-                    ) {
-                        SettingsActionItem(
-                            icon = Icons.Default.Info,
-                            label = "Send sample reminder",
-                            description = "Send a sample reminder on this phone",
-                            color = colorScheme.primary
-                        ) {
-                            if (userId.isBlank()) {
-                                postSettingsFeedback(
-                                    tone = FeedbackBannerTone.Error,
-                                    message = "No change: sign in first before sending a sample reminder."
-                                )
-                                return@SettingsActionItem
-                            }
-                            scope.launch {
-                                NotificationScheduler.notifyDebugTest(context, userId)
-                                postSettingsFeedback(
-                                    tone = FeedbackBannerTone.Success,
-                                    message = "Sample reminder sent. The reminder list was refreshed."
-                                )
-                                scheduledWorkSummaries = NotificationScheduler.getScheduledWorkSummaries(context)
-                            }
-                        }
-                        SettingsActionItem(
-                            icon = Icons.Default.History,
-                            label = "Send meal reminder now",
-                            description = "Try the meal reminder right now",
-                            color = colorScheme.primary
-                        ) {
-                            if (userId.isBlank()) {
-                                postSettingsFeedback(
-                                    tone = FeedbackBannerTone.Error,
-                                    message = "No change: sign in first before sending meal reminders."
-                                )
-                                return@SettingsActionItem
-                            }
-                            scope.launch {
-                                val delivered = NotificationScheduler.notifyMealReminderNow(context, userId)
-                                postSettingsFeedback(
-                                    tone = if (delivered) FeedbackBannerTone.Success else FeedbackBannerTone.Error,
-                                    message = if (delivered) {
-                                        "Meal reminder sent. The reminder list was refreshed."
-                                    } else {
-                                        "No reminder was sent right now because of quiet hours, limits, permission, or sign-in."
-                                    }
-                                )
-                                scheduledWorkSummaries = NotificationScheduler.getScheduledWorkSummaries(context)
-                            }
-                        }
-                        SettingsActionItem(
-                            icon = Icons.Default.History,
-                            label = "Send new week reminder now",
-                            description = "Try the new-week reminder right now",
-                            color = colorScheme.primary
-                        ) {
-                            if (userId.isBlank()) {
-                                postSettingsFeedback(
-                                    tone = FeedbackBannerTone.Error,
-                                    message = "No change: sign in first before sending the new-week reminder."
-                                )
-                                return@SettingsActionItem
-                            }
-                            scope.launch {
-                                val delivered = NotificationScheduler.notifyWeeklyResetNow(context, userId)
-                                postSettingsFeedback(
-                                    tone = if (delivered) FeedbackBannerTone.Success else FeedbackBannerTone.Error,
-                                    message = if (delivered) {
-                                        "New-week reminder sent. The reminder list was refreshed."
-                                    } else {
-                                        "No reminder was sent right now because of quiet hours, limits, permission, or sign-in."
-                                    }
-                                )
-                                scheduledWorkSummaries = NotificationScheduler.getScheduledWorkSummaries(context)
-                            }
-                        }
-                        if (nextReminderSummaries.isNotEmpty()) {
-                            SettingsDivider()
-                        }
-                        Text(
-                            text = "Upcoming reminders",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = colorScheme.onSurface
-                        )
-                        nextReminderSummaries.forEach { summary ->
-                            Text(
-                                text = "• $summary",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colorScheme.onSurfaceVariant,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        if (nextReminderSummaries.isNotEmpty()) {
-                            SettingsDivider()
-                        }
-                        if (scheduledWorkSummaries.isEmpty()) {
-                            Text(
-                                text = "No reminder times lined up yet.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colorScheme.onSurfaceVariant
-                            )
-                        } else {
-                            scheduledWorkSummaries.take(6).forEach { summary ->
-                                Text(
-                                    text = "• $summary",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                        SettingsDivider()
-                        Text(
-                            text = "Recent reminder types",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = colorScheme.onSurface
-                        )
-                        if (lastFiredByType.isEmpty()) {
-                            Text(
-                                text = "No reminders fired yet.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colorScheme.onSurfaceVariant
-                            )
-                        } else {
-                            lastFiredByType.take(8).forEach { (type, timestamp) ->
-                                val stamp = Instant.ofEpochMilli(timestamp)
-                                    .atZone(ZoneId.systemDefault())
-                                    .toLocalDateTime()
-                                    .format(DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.ENGLISH))
-                                Text(
-                                    text = "• $type -> $stamp",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                        SettingsDivider()
-                        Text(
-                            text = "Recent reminders sent",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = colorScheme.onSurface
-                        )
-                        if (notificationLogs.isEmpty()) {
-                            Text(
-                                text = "No notifications delivered yet.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colorScheme.onSurfaceVariant
-                            )
-                        } else {
-                            notificationLogs.take(5).forEach { log ->
-                                Text(
-                                    text = "• ${log.type}: ${log.title}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                    }
-                }
             }
         }
 
-        Spacer(Modifier.height(24.dp))
-        Text(
-            text = "PCOSINA • Calm planning, private reminders, and easy routines",
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            style = MaterialTheme.typography.labelSmall,
-            color = colorScheme.onSurfaceVariant
-        )
         Spacer(Modifier.height(12.dp))
+    }
+
+    savedProfileDetails?.let { details ->
+        SavedProfileDetailsDialog(
+            details = details,
+            onDismiss = { savedProfileDetails = null }
+        )
     }
 
     if (showClearDialog) {
@@ -1073,7 +784,12 @@ fun SettingsScreen(
                 SettingsDialogDismissButton(onClick = { showClearDialog = false })
             },
             title = { Text("Clear meal history?") },
-            text = { Text("This removes plans, grocery snapshots, and adherence logs for this account.") }
+            text = {
+                Text(
+                    "This removes saved plans, grocery snapshots, and local adherence logs for this account. " +
+                        "Your profile settings stay saved."
+                )
+            }
         )
     }
 
@@ -1093,7 +809,7 @@ fun SettingsScreen(
                 SettingsDialogDismissButton(onClick = { showLogoutDialog = false })
             },
             title = { Text("Logout?") },
-            text = { Text("You will need to sign in again to access your data.") }
+            text = { Text("You will need to sign in again. This does not delete this phone's saved account data.") }
         )
     }
 
@@ -1139,7 +855,9 @@ fun SettingsScreen(
                     label = "Allow reminders",
                     onClick = {
                         showNotificationPermissionDialog = false
-                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
                     }
                 )
             },
@@ -1149,7 +867,7 @@ fun SettingsScreen(
             title = { Text("Allow local reminders?") },
             text = {
                 Text(
-                    "PCOSINA uses local reminders for meal check-ins and weekly planning. " +
+                    "PCOSina uses local reminders for meal check-ins and weekly planning. " +
                         "Notification text stays generic on lock screen."
                 )
             }
@@ -1190,6 +908,7 @@ private fun FigmaSettingsHero(
     subtitle: String,
     onBack: () -> Unit,
 ) {
+    var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1220,7 +939,8 @@ private fun FigmaSettingsHero(
                 )
             }
         }
-        Image(
+        DevEditableArtworkImage(
+            alignmentKey = ArtworkAlignmentKeys.SettingsHeroGear,
             painter = painterResource(id = R.drawable.pcosina_settings_gear),
             contentDescription = null,
             modifier = Modifier
@@ -1228,6 +948,10 @@ private fun FigmaSettingsHero(
                 .align(Alignment.CenterEnd)
                 .offset(x = 58.dp, y = (-2).dp),
             contentScale = ContentScale.Fit,
+            externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.SettingsHeroGear,
+            onExternalEditingChange = { editing ->
+                activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.SettingsHeroGear else null
+            },
         )
         Column(
             modifier = Modifier
@@ -1251,6 +975,19 @@ private fun FigmaSettingsHero(
                 lineHeight = 16.sp
             )
         }
+        DevArtworkAlignmentHotspot(
+            targets = listOf(
+                ArtworkAlignmentTarget(
+                    key = ArtworkAlignmentKeys.SettingsHeroGear,
+                    label = "Settings gear",
+                ),
+            ),
+            onEditTarget = { activeArtworkEditorKey = it },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(64.dp)
+                .zIndex(2f),
+        )
     }
 }
 
@@ -1261,6 +998,7 @@ private fun FigmaSettingsProfileBand(
     email: String,
     onAvatarClick: () -> Unit,
 ) {
+    var activeArtworkEditorKey by remember { mutableStateOf<String?>(null) }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1268,17 +1006,20 @@ private fun FigmaSettingsProfileBand(
             .background(Color.White)
             .clipToBounds()
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.pcosina_settings_burger_background),
+        DevEditableArtworkImage(
+            alignmentKey = ArtworkAlignmentKeys.SettingsProfileBackgroundBand,
+            painter = painterResource(id = R.drawable.pcosina_settings_burger_background_band),
             contentDescription = null,
             modifier = Modifier
-                .fillMaxWidth()
-                .height(228.dp)
-                .align(Alignment.TopCenter)
-                .offset(y = 10.dp),
-            contentScale = ContentScale.Crop,
-            alignment = Alignment.TopCenter,
+                .fillMaxSize()
+                .align(Alignment.Center),
+            contentScale = ContentScale.FillBounds,
+            alignment = Alignment.Center,
             alpha = 0.92f,
+            externalEditing = activeArtworkEditorKey == ArtworkAlignmentKeys.SettingsProfileBackgroundBand,
+            onExternalEditingChange = { editing ->
+                activeArtworkEditorKey = if (editing) ArtworkAlignmentKeys.SettingsProfileBackgroundBand else null
+            },
         )
         Column(
             modifier = Modifier
@@ -1342,6 +1083,18 @@ private fun FigmaSettingsProfileBand(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        DevArtworkAlignmentHotspot(
+            targets = listOf(
+                ArtworkAlignmentTarget(
+                    key = ArtworkAlignmentKeys.SettingsProfileBackgroundBand,
+                    label = "Settings profile background",
+                ),
+            ),
+            onEditTarget = { activeArtworkEditorKey = it },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(64.dp),
+        )
     }
 }
 
@@ -1349,13 +1102,11 @@ private fun FigmaSettingsProfileBand(
 private fun FigmaSettingsTabs(
     selectedKey: String,
     onSelect: (String) -> Unit,
-    showTools: Boolean,
 ) {
     val tabs = buildList {
         add(SettingsScreenFocus.Profile.name to SettingsTabIcon(icon = Icons.Default.Person, label = "Profile"))
-        add(SettingsScreenFocus.Reminders.name to SettingsTabIcon(icon = Icons.Default.Notifications, label = "Reminders"))
+        add(SettingsScreenFocus.Reminders.name to SettingsTabIcon(icon = Icons.Default.Notifications, label = "Alerts"))
         add(SettingsScreenFocus.Account.name to SettingsTabIcon(icon = Icons.Default.ManageAccounts, label = "Account"))
-        if (showTools) add(SettingsScreenFocus.Tools.name to SettingsTabIcon(iconRes = R.drawable.pcosina_svg_14_info, label = "Tools"))
     }
     Row(
         modifier = Modifier
@@ -1411,6 +1162,7 @@ private fun FigmaSettingsTabs(
 @Composable
 private fun FigmaSettingsReminderTabs(
     selectedKey: String,
+    remindersEnabled: Boolean,
     onSelect: (String) -> Unit,
 ) {
     val tabs = listOf(
@@ -1426,15 +1178,27 @@ private fun FigmaSettingsReminderTabs(
     ) {
         tabs.forEach { (key, label) ->
             val selected = key == selectedKey
+            val locked = !remindersEnabled && key != ReminderSettingsFocus.Control.name
             Surface(
                 modifier = Modifier
                     .weight(1f)
                     .heightIn(min = 38.dp)
                     .clickable { onSelect(key) },
                 shape = RoundedCornerShape(999.dp),
-                color = if (selected) Color(0xFFFF7A92) else Color.White,
-                border = BorderStroke(1.dp, Color(0xFFFF7A92).copy(alpha = if (selected) 0.0f else 0.22f)),
-                contentColor = if (selected) Color.White else Color(0xFFFF7A92),
+                color = when {
+                    selected -> Color(0xFFFF7A92)
+                    locked -> Color(0xFFF5EEF1)
+                    else -> Color.White
+                },
+                border = BorderStroke(
+                    1.dp,
+                    Color(0xFFFF7A92).copy(alpha = if (selected) 0.0f else if (locked) 0.12f else 0.22f)
+                ),
+                contentColor = when {
+                    selected -> Color.White
+                    locked -> Color(0xFF8A7178)
+                    else -> Color(0xFFFF7A92)
+                },
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
@@ -1451,10 +1215,13 @@ private fun FigmaSettingsReminderTabs(
 }
 
 @Composable
-private fun FigmaSettingsFeatureToggle(
+private fun FigmaSettingsStatusRow(
     icon: ImageVector,
     label: String,
-    checked: Boolean,
+    value: String,
+    description: String,
+    emphasized: Boolean,
+    accentColor: Color = Color(0xFFFF7A92),
 ) {
     Row(
         modifier = Modifier
@@ -1477,18 +1244,29 @@ private fun FigmaSettingsFeatureToggle(
             text = label,
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyLarge,
-            color = Color(0xFF3B3135)
+            color = Color(0xFF3B3135),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
-        Switch(
-            checked = checked,
-            onCheckedChange = null,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color(0xFFFF7A92),
-                checkedTrackColor = Color(0xFFFFC4CE),
-                uncheckedThumbColor = Color(0xFFFF7A92),
-                uncheckedTrackColor = Color(0xFFD7D7D7)
+        Spacer(Modifier.width(10.dp))
+        Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.widthIn(max = 188.dp)
+        ) {
+            SettingsStatePill(
+                text = value,
+                emphasized = emphasized,
+                accentColor = accentColor
             )
-        )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF6F5960),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -1503,6 +1281,9 @@ private fun SettingsAvatarEditorDialog(
     onSave: () -> Unit,
 ) {
     AlertDialog(
+        modifier = Modifier
+            .navigationBarsPadding()
+            .imePadding(),
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(
@@ -1835,11 +1616,87 @@ fun SettingsSection(
     }
 }
 
+private fun formatSavedPantryEntry(entry: PantryEntry): String {
+    val structuredAmount = entry.amount?.let { amount ->
+        val amountText = if (amount % 1.0 == 0.0) {
+            amount.toInt().toString()
+        } else {
+            String.format(Locale.ENGLISH, "%.2f", amount).trimEnd('0').trimEnd('.')
+        }
+        "$amountText ${entry.unit.orEmpty()}".trim()
+    }
+    return listOfNotNull(
+        entry.name.trim().takeIf { it.isNotBlank() },
+        structuredAmount ?: entry.quantity?.trim()?.takeIf { it.isNotBlank() },
+        entry.expiryDate?.trim()?.takeIf { it.isNotBlank() }?.let { "Use by $it" }
+    ).joinToString(" | ")
+}
+
 @Composable
-fun SettingsItem(icon: ImageVector, label: String, value: String) {
+private fun SavedProfileDetailsDialog(
+    details: SavedProfileDetails,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = details.title,
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 360.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (details.items.isEmpty()) {
+                    Text(
+                        text = details.emptyMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    details.items.forEach { item ->
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFFFFF2F5),
+                            border = BorderStroke(1.dp, Color(0xFFFFD0D9))
+                        ) {
+                            Text(
+                                text = item,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
+}
+
+@Composable
+fun SettingsItem(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    onClick: (() -> Unit)? = null,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(enabled = onClick != null) { onClick?.invoke() }
             .padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top
@@ -1880,14 +1737,94 @@ fun SettingsItem(icon: ImageVector, label: String, value: String) {
             color = Color(0xFFFFDFE6),
             border = BorderStroke(1.dp, Color(0xFFFFC2CE))
         ) {
-            Text(
-                text = value,
+            Row(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = Color(0xFFFF7A92),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = Color(0xFFFF7A92),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (onClick != null) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "View $label",
+                        modifier = Modifier.size(16.dp),
+                        tint = Color(0xFFFF7A92)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SettingsMainGoalItem(icon: ImageVector, goal: String) {
+    val goalLabels = parseGoalOptions(goal)
+        .takeIf { it.isNotEmpty() }
+        ?.sortedBy { it.ordinal }
+        ?.map { it.label }
+        ?: listOf(goal.trim().takeIf { it.isNotBlank() } ?: "Not set")
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                contentColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = "Main goal",
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
             )
+        }
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 48.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            goalLabels.forEach { label ->
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = Color(0xFFFFDFE6),
+                    border = BorderStroke(1.dp, Color(0xFFFFC2CE))
+                ) {
+                    Text(
+                        text = label,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color(0xFFFF7A92),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
     }
 }
@@ -2075,7 +2012,9 @@ private fun SettingsStatePill(
         Text(
             text = text,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

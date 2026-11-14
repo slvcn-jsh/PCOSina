@@ -87,7 +87,7 @@ class ProgressFeedbackFlowUiTest {
         composeRule.onNodeWithText("Save Reflection").assertIsDisplayed().performClick()
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithText("Saved").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Reflection saved for today.").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Reflection saved for today.").assertIsDisplayed()
     }

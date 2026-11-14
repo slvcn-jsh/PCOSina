@@ -1,10 +1,14 @@
 package com.pcosina.app.ui.components
 
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,9 +26,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
@@ -44,7 +52,6 @@ import java.util.Locale
 fun SharedTopHeader(
     online: Boolean,
     onSettings: () -> Unit,
-    onNotifications: () -> Unit,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
 ) {
@@ -58,7 +65,7 @@ fun SharedTopHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                modifier = Modifier.size(if (compact) 38.dp else 42.dp),
+                modifier = Modifier.size(if (compact) 36.dp else 40.dp),
                 shape = CircleShape,
                 color = PcosinaSoftPink.copy(alpha = 0.84f),
                 border = BorderStroke(1.dp, PcosinaPink.copy(alpha = 0.42f)),
@@ -101,28 +108,24 @@ fun SharedTopHeader(
                 onClick = onSettings,
                 compact = compact,
             )
-            SharedHeaderIconButton(
-                iconRes = R.drawable.pcosina_header_notification,
-                contentDescription = "Open notifications",
-                onClick = onNotifications,
-                compact = compact,
-            )
         }
-        Surface(
-            color = if (online) PcosinaSoftPink else PcosinaSurfaceAlt,
-            contentColor = if (online) PcosinaDeepRose else PcosinaMuted,
-            shape = RoundedCornerShape(999.dp)
-        ) {
-            Text(
-                text = if (online) "Online and ready to sync." else "Offline-safe mode: using saved local data.",
-                modifier = Modifier.padding(
-                    horizontal = if (compact) 10.dp else 12.dp,
-                    vertical = if (compact) 5.dp else 6.dp
-                ),
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+        if (!online) {
+            Surface(
+                color = PcosinaSurfaceAlt,
+                contentColor = PcosinaMuted,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = "Offline: showing saved data. New plans need internet.",
+                    modifier = Modifier.padding(
+                        horizontal = if (compact) 10.dp else 12.dp,
+                        vertical = if (compact) 5.dp else 6.dp
+                    ),
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
@@ -136,7 +139,7 @@ private fun SharedHeaderIconButton(
 ) {
     Surface(
         modifier = Modifier
-            .size(if (compact) 38.dp else 42.dp)
+            .size(if (compact) 42.dp else 44.dp)
             .clickable(onClick = onClick),
         shape = CircleShape,
         color = PcosinaSurface,
@@ -146,7 +149,7 @@ private fun SharedHeaderIconButton(
         Image(
             painter = painterResource(id = iconRes),
             contentDescription = contentDescription,
-            modifier = Modifier.padding(if (compact) 8.dp else 9.dp),
+            modifier = Modifier.padding(if (compact) 8.dp else 10.dp),
             contentScale = ContentScale.Fit,
         )
     }
@@ -160,18 +163,61 @@ fun SharedAvatarHeader(
     modifier: Modifier = Modifier,
     dateLabel: String? = null,
     compact: Boolean = false,
+    avatarAlignment: Alignment = ScreenArtworkAlignment.SharedAvatarHeaderAvatar,
+    avatarArtworkKey: String = ArtworkAlignmentKeys.SharedHeaderAvatar,
     onAvatarClick: (() -> Unit)? = null,
+    onHeaderClick: (() -> Unit)? = null,
+    headerClickLabel: String = "Open profile settings",
 ) {
+    val headerInteractionSource = remember { MutableInteractionSource() }
+    val headerPressed by headerInteractionSource.collectIsPressedAsState()
+    val headerScale by animateFloatAsState(
+        targetValue = if (onHeaderClick != null && headerPressed) 0.985f else 1f,
+        animationSpec = tween(durationMillis = 120),
+        label = "avatarHeaderPressScale",
+    )
+    val avatarSize = if (compact) {
+        ScreenArtworkSizing.AvatarHeaderCompactAvatarSize
+    } else {
+        ScreenArtworkSizing.AvatarHeaderRegularAvatarSize
+    }
+    val headerMinHeight = if (compact) {
+        ScreenArtworkSizing.AvatarHeaderCompactMinHeight
+    } else {
+        ScreenArtworkSizing.AvatarHeaderRegularMinHeight
+    }
+    val cardMinHeight = if (compact) {
+        ScreenArtworkSizing.AvatarHeaderCompactCardMinHeight
+    } else {
+        ScreenArtworkSizing.AvatarHeaderRegularCardMinHeight
+    }
+    val avatarTextInset = if (compact) 118.dp else 128.dp
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(if (compact) 76.dp else 84.dp),
+            .heightIn(min = headerMinHeight)
+            .graphicsLayer {
+                scaleX = headerScale
+                scaleY = headerScale
+            }
+            .then(
+                if (onHeaderClick != null) {
+                    Modifier.clickable(
+                        interactionSource = headerInteractionSource,
+                        indication = null,
+                        onClickLabel = headerClickLabel,
+                        onClick = onHeaderClick,
+                    )
+                } else {
+                    Modifier
+                }
+            ),
     ) {
         Surface(
             modifier = Modifier
                 .align(Alignment.Center)
                 .fillMaxWidth()
-                .heightIn(min = if (compact) 58.dp else 64.dp),
+                .heightIn(min = cardMinHeight),
             shape = RoundedCornerShape(if (compact) 16.dp else 18.dp),
             color = Color(0xFFFF95A8),
             border = BorderStroke(1.3.dp, PcosinaDeepRose.copy(alpha = 0.58f)),
@@ -181,10 +227,10 @@ fun SharedAvatarHeader(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
-                        start = if (compact) 76.dp else 86.dp,
-                        end = if (compact) 8.dp else 10.dp,
-                        top = if (compact) 8.dp else 9.dp,
-                        bottom = if (compact) 8.dp else 9.dp,
+                        start = avatarTextInset,
+                        end = if (compact) 12.dp else 14.dp,
+                        top = if (compact) 10.dp else 12.dp,
+                        bottom = if (compact) 10.dp else 12.dp,
                     ),
                 horizontalArrangement = Arrangement.spacedBy(if (compact) 7.dp else 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -206,7 +252,7 @@ fun SharedAvatarHeader(
                                 color = PcosinaDeepRose,
                             )
                         },
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Box(
@@ -220,7 +266,7 @@ fun SharedAvatarHeader(
                         text = subtitle,
                         style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
                         color = Color(0xFF3A2028),
-                        maxLines = if (compact) 1 else 2,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -232,15 +278,30 @@ fun SharedAvatarHeader(
                 }
             }
         }
-        val avatarSize = if (compact) 76.dp else 86.dp
         val avatarModifier = Modifier
-            .align(Alignment.CenterStart)
-            .offset(x = if (compact) (-2).dp else (-4).dp, y = if (compact) 1.dp else 2.dp)
+            .align(avatarAlignment)
+            .offset(x = if (compact) (-3).dp else (-5).dp, y = if (compact) (-2).dp else (-1).dp)
             .size(avatarSize)
-            .then(if (onAvatarClick != null) Modifier.clickable(onClick = onAvatarClick) else Modifier)
-        PcosinaAvatar(
-            avatarId = avatarId,
+            .then(
+                when {
+                    onAvatarClick != null -> Modifier.clickable(onClick = onAvatarClick)
+                    onHeaderClick != null -> Modifier.clickable(
+                        onClickLabel = headerClickLabel,
+                        onClick = onHeaderClick,
+                    )
+                    else -> Modifier
+                }
+            )
+        val avatarOption = selectedPcosinaAvatar(avatarId)
+        DevEditableArtworkImage(
+            alignmentKey = avatarArtworkKey,
+            painter = painterResource(id = avatarOption.drawableRes),
+            contentDescription = avatarOption.label,
             modifier = avatarModifier,
+            contentScale = ContentScale.Fit,
+            maxScale = ScreenArtworkSizing.AvatarHeaderMaxArtworkScale,
+            artworkScaleMultiplier = ScreenArtworkSizing.AvatarHeaderArtworkScaleMultiplier,
+            transformOrigin = TransformOrigin(0.5f, 1f),
         )
     }
 }

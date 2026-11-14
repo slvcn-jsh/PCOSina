@@ -5,6 +5,7 @@ import com.google.gson.reflect.TypeToken
 import com.pcosina.app.data.model.DailyLog
 import com.pcosina.app.data.model.MealCheckIn
 import com.pcosina.app.ui.util.goalMealCheckInInsight
+import com.pcosina.app.ui.util.goalMealCheckInPrompt
 import com.pcosina.app.ui.util.goalMealReasonCopy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -28,8 +29,7 @@ class MealCheckInSupportTest {
                         energyLevel = 4,
                         fullnessLevel = 5,
                         cravingsLevel = 2,
-                        satisfactionLevel = 4,
-                        note = "Felt steady after this one."
+                        satisfactionLevel = 4
                     )
                 )
             )
@@ -68,5 +68,29 @@ class MealCheckInSupportTest {
         )
 
         assertTrue(insight.contains("protein", ignoreCase = true) || insight.contains("fiber", ignoreCase = true))
+    }
+
+    @Test
+    fun combinationGoalMealSupport_mentionsCombinedPriorities() {
+        val prompt = goalMealCheckInPrompt("Weight Loss, Symptom Management")
+        val reasons = goalMealReasonCopy("Weight Loss, Symptom Management", listOf("Macro-aligned"))
+        val insight = goalMealCheckInInsight(
+            goal = "Weight Loss, Symptom Management",
+            checkIn = MealCheckIn(
+                mealKey = "Lunch::recipe-3",
+                recipeId = "recipe-3",
+                mealLabel = "Lunch",
+                fullnessLevel = 2,
+                cravingsLevel = 4,
+                energyLevel = 2
+            )
+        )
+
+        assertTrue(prompt.contains("full", ignoreCase = true))
+        assertTrue(prompt.contains("cravings", ignoreCase = true))
+        assertTrue(reasons.any { it.contains("filling", ignoreCase = true) })
+        assertTrue(reasons.any { it.contains("steadier", ignoreCase = true) })
+        assertTrue(insight.contains("protein", ignoreCase = true))
+        assertTrue(insight.contains("slower carbs", ignoreCase = true))
     }
 }

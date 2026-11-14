@@ -39,6 +39,13 @@ class NotificationGoalPolicyTest {
     }
 
     @Test
+    fun fromGoal_mapsMultipleGoalsToCombinedTrack() {
+        val track = NotificationGoalPolicy.fromGoal("Weight Loss, Symptom Management")
+
+        assertEquals(NotificationGoalTrack.Combined, track)
+    }
+
+    @Test
     fun fromGoal_requiresExplicitMappingForAllGoalOptions() {
         GoalOption.entries.forEach { option ->
             val track = NotificationGoalPolicy.fromGoal(option.apiValue)
@@ -64,5 +71,17 @@ class NotificationGoalPolicyTest {
         val streakCopy = NotificationGoalPolicy.streakBody(NotificationGoalTrack.WeightLoss)
         assertTrue(mealCopy.contains("routine", ignoreCase = true))
         assertTrue(streakCopy.contains("consistency", ignoreCase = true))
+    }
+
+    @Test
+    fun combinedGoalCopyKeepsSelectedGoalsVisible() {
+        val mealCopy = NotificationGoalPolicy.mealReminderBody(NotificationGoalTrack.Combined)
+        val inactivityCopy = NotificationGoalPolicy.inactivityBody(NotificationGoalTrack.Combined)
+        val streakCopy = NotificationGoalPolicy.streakBody(NotificationGoalTrack.Combined)
+
+        assertTrue(mealCopy.contains("selected goals", ignoreCase = true))
+        assertTrue(inactivityCopy.contains("selected goals", ignoreCase = true))
+        assertTrue(streakCopy.contains("balance", ignoreCase = true))
+        assertEquals(TimeUnit.DAYS.toMillis(1), NotificationGoalPolicy.streakMinIntervalMs(NotificationGoalTrack.Combined))
     }
 }

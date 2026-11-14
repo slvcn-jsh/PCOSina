@@ -2,11 +2,9 @@ package com.pcosina.app.data.api
 
 import com.pcosina.app.data.model.UserProfile
 import retrofit2.http.Body
-import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
-import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -45,6 +43,7 @@ data class GeneratePlanResponse(
     val explanation: PlanExplanation? = null,
     val requestId: String? = null,
     val planId: String? = null,
+    val groceryOutput: GroceryOutputDto? = null,
     val policyVersion: String? = null,
     val machineReasonCodes: List<String> = emptyList(),
     val humanGuidance: List<String> = emptyList(),
@@ -53,9 +52,58 @@ data class GeneratePlanResponse(
     val timestamps: PlannerTimestamps? = null
 )
 
+data class GroceryOutputDto(
+    val authority: String? = null,
+    val budgetAuthority: String? = null,
+    val pricingAuthority: String? = null,
+    val pricingCatalogVersion: String? = null,
+    val pricingReferenceDate: String? = null,
+    val pricingReferenceLocation: String? = null,
+    val pricingBasis: String? = null,
+    val pricingSourceCounts: Map<String, Int> = emptyMap(),
+    val estimatedTotalPhp: Int? = null,
+    val finalGroceryEstimatePhp: Int? = null,
+    val weeklyBudgetPhp: Int? = null,
+    val userBudgetPhp: Int? = null,
+    val withinBudget: Boolean? = null,
+    val budgetDeltaPhp: Int? = null,
+    val budgetGapPhp: Int? = null,
+    val displayedEstimateSource: String? = null,
+    val itemCount: Int? = null,
+    val selectedMealCount: Int? = null,
+    val plannerMealEstimatePhp: Int? = null,
+    val solverBudgetEstimatePhp: Int? = null,
+    val roughMealBudgetCapPhp: Int? = null,
+    val items: List<GroceryOutputItemDto> = emptyList()
+)
+
+data class GroceryOutputItemDto(
+    val key: String? = null,
+    val name: String,
+    val quantity: String? = null,
+    val requiredQuantity: String? = null,
+    val purchaseQuantity: String? = null,
+    val purchaseMode: String? = null,
+    val estimatedCostPhp: Int? = null,
+    val unitPricePhp: Double? = null,
+    val priceUnit: String? = null,
+    val category: String? = null,
+    val source: String? = null,
+    val sourceLabel: String? = null,
+    val confidence: String? = null,
+    val originalNames: List<String> = emptyList()
+)
+
 data class PlannerTimestamps(
     val requestedAtMs: Long? = null,
     val completedAtMs: Long? = null
+)
+
+data class PlannerContractItemDto(
+    val field: String,
+    val classification: String,
+    val enforcement: String,
+    val active: Boolean
 )
 
 data class GeneratePlanAsyncResponse(
@@ -100,7 +148,6 @@ data class PlanExplanation(
     val estimatedWeeklyCost: Int? = null,
     val restrictionCount: Int? = null,
     val budgetHardCapApplied: Boolean? = null,
-    val householdPlanningMode: String? = null,
     val goalValue: String? = null,
     val symptomSelections: List<String> = emptyList(),
     val profileRuleEffects: Map<String, List<String>>? = null,
@@ -108,6 +155,7 @@ data class PlanExplanation(
     val candidateExclusionSummary: Map<String, Int>? = null,
     val selectionReasonsByRecipeId: Map<String, List<String>>? = null,
     val selectionReasonCounts: Map<String, Int>? = null,
+    val plannerContract: List<PlannerContractItemDto> = emptyList(),
     val fiberMinTarget: Int? = null,
     val sugarMaxTarget: Int? = null,
     val goalStrategy: List<String> = emptyList()
@@ -124,62 +172,6 @@ data class RecipeSummaryDto(
     val minutes: Int? = null
 )
 
-data class AdminRecipeListResponse(
-    val items: List<RecipeDetailDto> = emptyList(),
-    val count: Int = 0
-)
-
-data class AdminPriceRuleDto(
-    val id: String,
-    val keywords: List<String> = emptyList(),
-    val pricePhp: Int,
-    val priceMinPhp: Int? = null,
-    val priceMaxPhp: Int? = null,
-    val category: String,
-    val unit: String? = null,
-    val active: Boolean = true,
-    val notes: String? = null,
-    val updatedAt: Long? = null
-)
-
-data class AdminRecipeUpsertDto(
-    val id: String? = null,
-    val title: String,
-    val mealType: String,
-    val calories: Int,
-    val proteinGrams: Int,
-    val carbsGrams: Int,
-    val fatsGrams: Int,
-    val fiberGrams: Int,
-    val tags: List<String> = emptyList(),
-    val minutes: Int = 25,
-    val ingredients: List<IngredientDto> = emptyList(),
-    val steps: List<String> = emptyList()
-)
-
-data class AdminPriceRuleUpsertDto(
-    val id: String? = null,
-    val keywords: List<String> = emptyList(),
-    val pricePhp: Int,
-    val priceMinPhp: Int? = null,
-    val priceMaxPhp: Int? = null,
-    val category: String,
-    val unit: String? = null,
-    val active: Boolean = true,
-    val notes: String? = null
-)
-
-data class AdminPriceRuleListResponse(
-    val items: List<AdminPriceRuleDto> = emptyList(),
-    val count: Int = 0
-)
-
-data class AdminDeleteResponse(
-    val status: String,
-    val deleted: Int = 0,
-    val id: String? = null
-)
-
 data class MlClientEventRequestDto(
     val eventName: String,
     val requestId: String? = null,
@@ -190,6 +182,27 @@ data class MlClientEventResponseDto(
     val status: String,
     val eventName: String? = null,
     val requestId: String? = null
+)
+
+data class PersonalPriceOverrideRequestDto(
+    val ingredient: String,
+    val pricePhp: Double,
+    val unit: String,
+    val marketType: String,
+    val location: String,
+    val observedOn: String,
+)
+
+data class PersonalPriceOverrideDto(
+    val ingredientId: String,
+    val ingredientName: String,
+    val pricePhp: Double,
+    val unit: String,
+    val marketType: String,
+    val location: String,
+    val observedOn: String,
+    val validUntil: String? = null,
+    val warning: String? = null,
 )
 
 interface PcosinaApiService {
@@ -217,47 +230,23 @@ interface PcosinaApiService {
         @Query("limit") limit: Int = 50
     ): List<RecipeSummaryDto>
 
+    @GET("recipes/catalog")
+    suspend fun getRecipeCatalog(
+        @Query("limit") limit: Int = 2000
+    ): List<RecipeDetailDto>
+
     @POST("recipes/swap-options")
     suspend fun getSwapOptions(@Body request: SwapOptionsRequestDto): List<RecipeSummaryDto>
 
-    @GET("admin/recipes")
-    suspend fun getAdminRecipes(
-        @Query("q") query: String? = null,
-        @Query("meal_type") mealType: String? = null,
-        @Query("limit") limit: Int = 250
-    ): AdminRecipeListResponse
-
-    @POST("admin/recipes")
-    suspend fun createAdminRecipe(@Body request: AdminRecipeUpsertDto): RecipeDetailDto
-
-    @PUT("admin/recipes/{recipeId}")
-    suspend fun updateAdminRecipe(
-        @Path("recipeId") recipeId: String,
-        @Body request: AdminRecipeUpsertDto
-    ): RecipeDetailDto
-
-    @DELETE("admin/recipes/{recipeId}")
-    suspend fun deleteAdminRecipe(@Path("recipeId") recipeId: String): AdminDeleteResponse
-
-    @GET("admin/price-rules")
-    suspend fun getAdminPriceRules(
-        @Query("q") query: String? = null,
-        @Query("category") category: String? = null,
-        @Query("limit") limit: Int = 250
-    ): AdminPriceRuleListResponse
-
-    @POST("admin/price-rules")
-    suspend fun createAdminPriceRule(@Body request: AdminPriceRuleUpsertDto): AdminPriceRuleDto
-
-    @PUT("admin/price-rules/{ruleId}")
-    suspend fun updateAdminPriceRule(
-        @Path("ruleId") ruleId: String,
-        @Body request: AdminPriceRuleUpsertDto
-    ): AdminPriceRuleDto
-
-    @DELETE("admin/price-rules/{ruleId}")
-    suspend fun deleteAdminPriceRule(@Path("ruleId") ruleId: String): AdminDeleteResponse
-
     @POST("ml/events")
     suspend fun postMlEvent(@Body request: MlClientEventRequestDto): MlClientEventResponseDto
+
+    @GET("prices/personal")
+    suspend fun getPersonalPrices(): List<PersonalPriceOverrideDto>
+
+    @POST("prices/personal")
+    suspend fun savePersonalPrice(@Body request: PersonalPriceOverrideRequestDto): PersonalPriceOverrideDto
+
+    @retrofit2.http.DELETE("prices/personal/{ingredientId}")
+    suspend fun deletePersonalPrice(@Path("ingredientId") ingredientId: String): Map<String, String>
 }

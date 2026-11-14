@@ -25,6 +25,7 @@ class DashboardPrimaryActionPolicyTest {
         assertTrue("Dashboard should show a clear primary next-step card.", text.contains("RefinedPrimaryActionCard("))
         assertTrue("Dashboard should keep primary action copy centralized.", text.contains("val primaryActionTitle = when"))
         assertFalse("Legacy duplicate next-step title should be removed.", text.contains("NEXT OPTIMIZED MEAL"))
+        assertFalse("Next-week planning copy belongs on Meal Plan, not Home.", text.contains("Plan your next week"))
     }
 
     private fun resolveMainSourceRoot(): Path {

@@ -5,9 +5,11 @@ import sys
 from pathlib import Path
 import shutil
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 
 def test_generate_reason_telemetry_script():
-    base = Path("backend/tests/.tmp_reason_telemetry_generator")
+    base = REPO_ROOT / "backend" / "tests" / ".tmp_reason_telemetry_generator"
     shutil.rmtree(base, ignore_errors=True)
     base.mkdir(parents=True, exist_ok=True)
     db_path = base / "ml.db"
@@ -80,7 +82,7 @@ def test_generate_reason_telemetry_script():
     finally:
         conn.close()
 
-    script = Path("ml/offline_training/generate_reason_telemetry_v1.py")
+    script = REPO_ROOT / "ml" / "offline_training" / "generate_reason_telemetry_v1.py"
     result = subprocess.run(
         [
             sys.executable,
@@ -95,6 +97,7 @@ def test_generate_reason_telemetry_script():
         check=False,
         capture_output=True,
         text=True,
+        cwd=REPO_ROOT,
     )
     assert result.returncode == 0, result.stderr or result.stdout
 

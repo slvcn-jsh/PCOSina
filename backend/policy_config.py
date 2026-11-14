@@ -13,9 +13,9 @@ PRODUCTION_STAGE1_RESTRICTED_MULTIPLIER = 1.15
 PRODUCTION_STAGE1_POOL_CAP_TOP_SHARE = 0.45
 PRODUCTION_SOLVER_TIME_LIMIT_SECONDS = 4.0
 PRODUCTION_SOLVER_MAX_SECONDS = 7.0
-PRODUCTION_TOTAL_SOLVER_SECONDS = 14.0
+PRODUCTION_TOTAL_SOLVER_SECONDS = 18.0
 PRODUCTION_SOLVER_RETRY_ATTEMPTS = 1
-PRODUCTION_SOLVER_WORKERS = 2
+PRODUCTION_SOLVER_WORKERS = 1
 
 
 def _default_environment_overrides() -> Dict[str, Dict[str, Any]]:
@@ -103,6 +103,19 @@ class PlanningPolicy(BaseModel):
     meals_per_day: int = Field(default=3, ge=1, le=6)
     snack_rules: SnackRules = Field(default_factory=SnackRules)
     recipe_repeat_limits: List[int] = Field(default_factory=lambda: [2, 3, 4, 10])
+    semantic_ingredient_family_caps_enabled: bool = True
+    semantic_ingredient_family_escape_repeat_limit: int = Field(default=0, ge=0, le=50)
+    semantic_ingredient_family_max_share: Optional[float] = Field(default=None, ge=0.05, le=1.0)
+    semantic_ingredient_family_max_per_week: Optional[int] = Field(default=8, ge=1, le=50)
+    semantic_ingredient_family_relaxed_day_share: float = Field(default=1.15, ge=0.05, le=3.0)
+    semantic_ingredient_family_relaxed_slot_share: float = Field(default=0.50, ge=0.05, le=1.0)
+    semantic_ingredient_family_min_candidate_share: float = Field(default=0.0, ge=0.0, le=1.0)
+    semantic_fatigue_family_min_candidate_share: float = Field(default=0.0, ge=0.0, le=1.0)
+    semantic_ingredient_family_max_capped_families: Optional[int] = Field(default=16, ge=1, le=16)
+    combined_seafood_max_per_week: Optional[int] = Field(default=8, ge=1, le=50)
+    semantic_family_soft_limit_per_week: Optional[int] = Field(default=6, ge=1, le=50)
+    semantic_family_diversity_weight: int = Field(default=36, ge=0, le=500)
+    same_title_max_per_week: int = Field(default=3, ge=1, le=50)
     cuisine_diversity_weight: int = Field(default=2, ge=0, le=100)
     pantry_utilization_weight: int = Field(default=1, ge=0, le=100)
     grocery_cost_weight: int = Field(default=1, ge=0, le=100)
@@ -131,6 +144,8 @@ class PlanningPolicy(BaseModel):
 
 
 class Stage1Policy(BaseModel):
+    canonical_features_enabled: bool = True
+    protein_group_candidate_preservation_enabled: bool = True
     max_candidates_per_slot: int = Field(default=120, ge=10, le=5000)
     ranking_cutoff: float = Field(default=0.80, ge=0.01, le=1.0)
     similarity_threshold: float = Field(default=0.85, ge=0.0, le=1.0)
@@ -156,7 +171,6 @@ class Stage1Policy(BaseModel):
         default_factory=lambda: {
             "activityLevel": "Lightly Active",
             "goal": "General Health",
-            "insulinResistanceLevel": "Mild",
         }
     )
     ML_shadow_enabled: bool = True
@@ -177,7 +191,7 @@ class SolverPolicy(BaseModel):
     queue_priority_rules: Dict[str, Any] = Field(default_factory=lambda: {"default": "fifo"})
     solver_max_seconds: float = Field(default=12.0, ge=1.0, le=300.0)
     total_solver_seconds: float = Field(default=25.0, ge=3.0, le=600.0)
-    solver_workers: int = Field(default=4, ge=1, le=32)
+    solver_workers: int = Field(default=1, ge=1, le=32)
 
     @model_validator(mode="after")
     def validate_solver_bounds(self) -> "SolverPolicy":

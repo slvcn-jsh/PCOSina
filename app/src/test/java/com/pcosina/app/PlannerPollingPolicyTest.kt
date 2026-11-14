@@ -52,8 +52,8 @@ class PlannerPollingPolicyTest {
             viewModelContainsPendingRequestState()
         )
         assertTrue(
-            "MealPlanViewModel should leave authoritative plan_generated telemetry to the backend and only emit plan_viewed on success.",
-            viewModelDoesNotEmitDuplicatePlanGenerated()
+            "MealPlanViewModel should emit mobile-side plan_generated and plan_viewed telemetry after successful generation.",
+            viewModelEmitsMobileGenerationTelemetry()
         )
         assertTrue(
             "Queued-plan polling timeout should allow long-running planner jobs.",
@@ -64,8 +64,8 @@ class PlannerPollingPolicyTest {
             repo.contains("Tap Retry to keep waiting for the same request.")
         )
         assertTrue(
-            "Loading copy should acknowledge backend queue delay in the refined shell.",
-            screen.contains("This can take a while if the backend queue is busy.")
+            "Loading copy should acknowledge queue delay without backend-facing wording.",
+            screen.contains("This can take a while when many plan requests are running.")
         )
     }
 
@@ -104,14 +104,15 @@ class PlannerPollingPolicyTest {
             viewModel.contains("shouldKeepPendingGenerateRequest")
     }
 
-    private fun viewModelDoesNotEmitDuplicatePlanGenerated(): Boolean {
+    private fun viewModelEmitsMobileGenerationTelemetry(): Boolean {
         val viewModel = read(
             resolve(
                 "app", "src", "main", "java", "com", "pcosina", "app",
                 "ui", "MealPlanViewModel.kt"
             )
         )
-        return !viewModel.contains("eventName = \"plan_generated\"") &&
+        return viewModel.contains("eventName = \"plan_generated\"") &&
+            viewModel.contains("\"slot_count\"") &&
             viewModel.contains("eventName = \"plan_viewed\"")
     }
 

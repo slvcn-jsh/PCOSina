@@ -30,6 +30,36 @@ def test_feedback_storage_rejects_oversized_message(monkeypatch):
     assert database.get_recent_feedback() == []
 
 
+def test_feedback_constraint_migration_trims_legacy_oversized_rows(monkeypatch):
+    db_path = _temp_db_path()
+    monkeypatch.setattr(database, "DATABASE_URL", "")
+    monkeypatch.setattr(database, "DB_NAME", str(db_path))
+
+    conn = database._connect()
+    try:
+        conn.execute(
+            """
+            CREATE TABLE feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                message TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO feedback (message, created_at) VALUES (?, ?)",
+            ("x" * (database.FEEDBACK_MESSAGE_MAX_CHARS + 1), 0),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    database.init_db()
+
+    [item] = database.get_recent_feedback()
+    assert len(item["message"]) == database.FEEDBACK_MESSAGE_MAX_CHARS
+
+
 def test_feedback_storage_cleanup_applies_retention(monkeypatch):
     db_path = _temp_db_path()
     monkeypatch.setattr(database, "DATABASE_URL", "")

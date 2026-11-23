@@ -37,15 +37,23 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install scikit-learn
 
       - name: Run backend tests and create coverage XML
-        working-directory: backend
         env:
           PCOSINA_ENV: development
+          PYTHONPATH: backend
         run: |
-          python -m coverage run -m pytest -q --junitxml=pytest-report.xml
-          python -m coverage xml -o coverage.xml
+          set +e
+          python -m coverage run --source=backend -m pytest backend/tests -q --junitxml=backend/pytest-report.xml
+          test_exit_code=$?
+          set -e
+          python -m coverage xml -o backend/coverage.xml
           python -m coverage report --skip-covered
+          echo "TEST_EXIT_CODE=$test_exit_code" >> "$GITHUB_ENV"
+          if [ "$test_exit_code" -ne 0 ]; then
+            echo "::warning::Backend tests reported failures. Coverage will still be uploaded for inspection."
+          fi
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
@@ -55,6 +63,14 @@ jobs:
           flags: backend
           name: pcosina-backend
           fail_ci_if_error: true
+
+      - name: Enforce backend test results
+        if: always() && env.TEST_EXIT_CODE != ''
+        run: |
+          if [ "$TEST_EXIT_CODE" -ne 0 ]; then
+            echo "::error::Backend tests failed (exit code $TEST_EXIT_CODE). Review test artifacts and logs."
+            exit "$TEST_EXIT_CODE"
+          fi
 
       - name: Preserve test evidence
         if: always()

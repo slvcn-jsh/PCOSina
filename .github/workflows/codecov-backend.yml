@@ -1,0 +1,67 @@
+name: Codecov Backend Coverage
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/codecov-backend.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/codecov-backend.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  backend-coverage:
+    name: Python backend tests and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run backend tests and create coverage XML
+        working-directory: backend
+        env:
+          PCOSINA_ENV: development
+        run: |
+          python -m coverage run -m pytest -q --junitxml=pytest-report.xml
+          python -m coverage xml -o coverage.xml
+          python -m coverage report --skip-covered
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: backend/coverage.xml
+          flags: backend
+          name: pcosina-backend
+          fail_ci_if_error: true
+
+      - name: Preserve test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-evidence
+          path: |
+            backend/pytest-report.xml
+            backend/coverage.xml
+          if-no-files-found: warn

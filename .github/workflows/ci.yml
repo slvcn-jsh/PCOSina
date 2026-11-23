@@ -233,6 +233,15 @@ jobs:
           python -m coverage xml -o coverage.xml
           python -m coverage report --skip-covered
 
+      - name: Upload backend coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: backend/coverage.xml
+          flags: backend
+          name: pcosina-backend
+          fail_ci_if_error: true
+
       - name: Upload backend smoke artifacts
         if: always()
         uses: actions/upload-artifact@v4

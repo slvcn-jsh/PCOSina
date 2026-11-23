@@ -1,5 +1,10 @@
 # PCOSINA
 
+[![Codecov backend coverage (dev)](https://codecov.io/gh/slvcn-jsh/PCOSina/branch/dev/graph/badge.svg?flag=backend)](https://app.codecov.io/gh/slvcn-jsh/PCOSina/tree/dev)
+
+> Coverage badge tracks the **Python backend** on the `dev` branch only. Android/Kotlin coverage is not included.
+
+
 PCOSINA is an offline-first meal planning system for Filipino individuals with PCOS.
 It is a wellness decision-support tool, not a diagnosis engine or medical device.
 
